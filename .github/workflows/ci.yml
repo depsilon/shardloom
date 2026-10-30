@@ -417,6 +417,10 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_shared_performance_packet.py -v
       - name: Shared performance complete saved-result replay
         run: python -B scripts/verify_shared_performance_packet.py docs/benchmarks/evidence/native-shared-performance-2026-10-30
+      - name: Shared performance follow-through corruption controls
+        run: python -B -m unittest discover -s scripts -p test_shared_followthrough_packet.py -v
+      - name: Shared performance follow-through complete saved-result replay
+        run: python -B scripts/verify_shared_followthrough_packet.py docs/benchmarks/evidence/native-shared-followthrough-2026-10-30
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

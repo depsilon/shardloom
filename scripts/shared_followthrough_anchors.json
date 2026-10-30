@@ -1,0 +1,849 @@
+{
+  "cohorts": [
+    {
+      "inputs": {
+        "bytes": 7700814,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-mixed-aggregate-r1/inputs.json",
+        "sha256": "6887fbe202172d4a537b42466378b800ce7c63618e889ffff316359f8b53c39a"
+      },
+      "name": "broad-mixed-aggregate-r1",
+      "protocol": {
+        "bytes": 10134,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-mixed-aggregate-r1/protocol.json",
+        "sha256": "17f1e0a3911c725d6545dad574ce1b264f84da8044588cd0efd8edfe2c2cd28a"
+      }
+    },
+    {
+      "inputs": {
+        "bytes": 7702053,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-bounded-ordering-r1/inputs.json",
+        "sha256": "4cffd2088668bc437a8926b33cc40d0e1f98ad2a5576608239f60ed1c9c1a336"
+      },
+      "name": "broad-bounded-ordering-r1",
+      "protocol": {
+        "bytes": 11323,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-bounded-ordering-r1/protocol.json",
+        "sha256": "a7305ab3cd58e192c34ec59436e78d1e57318b140dae049470cbd61bddef7fef"
+      }
+    }
+  ],
+  "external_artifacts": [
+    {
+      "bytes": 80963360,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/_native.abi3.so",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "e8fc91b55344d4c5d6969f19c1bc193ec254f47f7909a4a047ca9c4a02d21f05"
+    },
+    {
+      "bytes": 80609344,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/shardloom",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "fc445024a44cfa6a899d8557dd491815931b464fbef7a52c91091d977c76730a"
+    },
+    {
+      "bytes": 80963360,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r2/_native.abi3.so",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "e8fc91b55344d4c5d6969f19c1bc193ec254f47f7909a4a047ca9c4a02d21f05"
+    },
+    {
+      "bytes": 80609344,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r2/shardloom",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "fc445024a44cfa6a899d8557dd491815931b464fbef7a52c91091d977c76730a"
+    },
+    {
+      "bytes": 3085,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/empty-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "22d364cd66098de3f75af2e2bdddb48b33196ab132b8f3c4292ec8c8336ff959"
+    },
+    {
+      "bytes": 910,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/empty-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "bee4e60fbdf5c82f05d51d2db8f017a1d790bf37196e25325394f450105ec415"
+    },
+    {
+      "bytes": 3099,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/ordinary-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "84272d44846b0bd24eb41d8d6244414d57e01cf486f0d77c1a2d31829d353bee"
+    },
+    {
+      "bytes": 966761,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/ordinary-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "186a6411d1ee62cf788462245e330a04710d72645cfe52357383ccb556680749"
+    },
+    {
+      "bytes": 3090,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/pressure-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "8dfc32cbdd6acb4d3b9da61283b13419ae553cdbd3dcba36f1e55c1fa2f6b846"
+    },
+    {
+      "bytes": 3067860,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/pressure-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "41c713a6f0cf8fcbb87670e070e0067d49a99ce61e2850def9a0eb66502c3002"
+    },
+    {
+      "bytes": 3111,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/wide-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "47a2e69d3ed3f3c27b20b7aed53dd52fee5430abd93751105b3e34ada780927a"
+    },
+    {
+      "bytes": 132880,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs/wide-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "58ab7b7e73ef3de300d1cbf3fea2c03eced84c0efc844f36cbaf4155e81f354c"
+    },
+    {
+      "bytes": 6010,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-dimension.arrow",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "2cff54899ffebdc162c4b85a2039c0b570a9dcf725c8bef38121ed75b745c335"
+    },
+    {
+      "bytes": 3085,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "22d364cd66098de3f75af2e2bdddb48b33196ab132b8f3c4292ec8c8336ff959"
+    },
+    {
+      "bytes": 8964,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-dimension.vortex",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "51397163992411e639e2924e91dd085528ac37b81c27a18f0ba899cb0cb25a5d"
+    },
+    {
+      "bytes": 690,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-fact.arrow",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "638d464789a31ea61a22f751b49f8c715c7c74928243bf1a7e9fca3ec22bfffd"
+    },
+    {
+      "bytes": 910,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "bee4e60fbdf5c82f05d51d2db8f017a1d790bf37196e25325394f450105ec415"
+    },
+    {
+      "bytes": 1664,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/empty-fact.vortex",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "d45150ac209a798921fc33373d2790cf219a3ffcd2f809fd483987d39723a2b5"
+    },
+    {
+      "bytes": 6010,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-dimension.arrow",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "073fbbce5700d92e264240b04446a4b7a2601f55ef09da33cb6dbf1cbbee30be"
+    },
+    {
+      "bytes": 3099,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-dimension.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "dcb7347a3ff003f691f5f5b961f7649c8f92d235e231b6132987558ce2741fa6"
+    },
+    {
+      "bytes": 8964,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-dimension.vortex",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "b12d2f057b2e2ce8b2ff88ef7c477257e7c5541ac4d40a11503211457db6dca6"
+    },
+    {
+      "bytes": 7738,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-fact.arrow",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "4605b14856e59e0cdede619d7ce17735dae31fc1029cfc6c124202dc0bb3e675"
+    },
+    {
+      "bytes": 4346,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-fact.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "288bf14f15fd95d721705f86bd9bd23fa1bf951bbdab63602a91ac16d4be0df9"
+    },
+    {
+      "bytes": 11096,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs/semantic-fact.vortex",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "67352680c1beb2c74404c649c18ea4bd134bd1df307282d66f42235f3c2cd5be"
+    },
+    {
+      "bytes": 80959616,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/_native.abi3.so",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "a251681d7bfd263d1771820afe84dca003542626644c5890355c052d5180f7ae"
+    },
+    {
+      "bytes": 80589504,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/shardloom",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "4b6baa7dc678f6e49d0e6ea83607a6c21e6416bfb981abe9929e336b5eb9568f"
+    },
+    {
+      "bytes": 6166,
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/calendar-00000.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "0a6923b1522f0c1903d5ec74d9297b224c19776e7585fa42dde38e1e494670fb"
+    },
+    {
+      "bytes": 953840,
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/entities-00000.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "ad1ef43250f9815f12b90c43199b1c99362ce4f81beb34615ceb12497af6f5d2"
+    },
+    {
+      "bytes": 108095820,
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/fact-00000.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "796c7a5630f6c8852f0ca3f81f97335da478562ee7bd93668f493722d43da2cc"
+    },
+    {
+      "bytes": 75197,
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/products-00000.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "caf396dcbac020daaaff8df26b0064f0593e016646224e0964c6f9a5532ba7f9"
+    },
+    {
+      "bytes": 2517925,
+      "path": "/Users/dylan/LocalData/shardloom/source-demand-2026-10-26/broad-parquet-checkpoint-r1/inputs/relationships-00000.parquet",
+      "scope": "payload identity only; complete observations and references retained",
+      "sha256": "bf641554001cb8e50f0d6c86d7b53b06e03968cd4d9ae340682f0f286c7babc4"
+    }
+  ],
+  "gates": [
+    {
+      "bytes": 1614,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p135-packet-collection.json",
+      "sha256": "9cb08797407ae78f747f3223d15fa592a43fb8aae040aa9602cb070d0bfb9595",
+      "status": "failed"
+    },
+    {
+      "bytes": 1817,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p136-packet-collection.json",
+      "sha256": "ecba3926872fc41570069fc33d4b49be10589f54278694a5d530ea06338be4b7",
+      "status": "passed"
+    },
+    {
+      "bytes": 2245,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p137-packet-semantic-collection.json",
+      "sha256": "876ccaeac0adbf6665847d33cd4ddcef70f3aadab7751b3cca36e7348a1e1118",
+      "status": "failed"
+    },
+    {
+      "bytes": 2237,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p138-packet-semantic-collection.json",
+      "sha256": "74c738be2d658f7f471d7fff19646a436c778bfae61c51459767fddd935129aa",
+      "status": "passed"
+    },
+    {
+      "bytes": 2894,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p139-packet-build.json",
+      "sha256": "675c1849c76f33703b5ee49080a1cb04b3500bcf4ed250bd73a648756fe144a9",
+      "status": "failed"
+    },
+    {
+      "bytes": 2345,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p140-packet-controls.json",
+      "sha256": "f0a47242921dc5a6bd4772b1b846251d0bd8a618e58b06ed0292b03c4bbadbbb",
+      "status": "passed"
+    },
+    {
+      "bytes": 3027,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p141-packet-replay.json",
+      "sha256": "28541f54186f04cb9fccf52bcc79a1eeb0cb265e5487778f89135519353d64b1",
+      "status": "failed"
+    },
+    {
+      "bytes": 4912,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p142-packet-replay.json",
+      "sha256": "77c9b0da1b08d824bc8c68ca0c28cfb4414fd9bf9b155d4aa09de008f901a0a0",
+      "status": "passed"
+    },
+    {
+      "bytes": 4640,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p143-packet-semantic-controls.json",
+      "sha256": "7d7ab5310a777fa8f0db2afa548185a4a391b840a65675da8ee7ce63253c061c",
+      "status": "passed"
+    },
+    {
+      "bytes": 5280,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p144-source-only-packet-replay.json",
+      "sha256": "54b3f594f7d93d92cc63906220eb2283781cc6018f484bc3b3e635b75b9d9d0b",
+      "status": "passed"
+    },
+    {
+      "bytes": 5020,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p145-packet-docs-ci.json",
+      "sha256": "907c105bf65aa9d0700e17bb469ae7ab5b73e5215db1a9e9a6be651fb8f03c56",
+      "status": "passed"
+    },
+    {
+      "bytes": 3111,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p146-full43-deferral-docs.json",
+      "sha256": "39bb2babfc2d52fc777f6a1fce2f87535d6958089364fd960710e9aee4de4f28",
+      "status": "passed"
+    },
+    {
+      "bytes": 4214,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p147-ci-cancellation.json",
+      "sha256": "19cbb6016362f2104f3599b62791019aac734b5b7e3e889e93153a9b6fe92429",
+      "status": "passed"
+    },
+    {
+      "bytes": 3862,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p148-ci-cancellation-docs.json",
+      "sha256": "ec1675bd0c3a0f857af18cd93fc5e662a9c522d21e0ed51283c665e86a527ed6",
+      "status": "passed"
+    },
+    {
+      "bytes": 1796,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p149-generated-retirement-plan.json",
+      "sha256": "d791f87887e22e821f1ab8dd8190e738f54024945d95d3d23df60866b83c5d08",
+      "status": "failed"
+    },
+    {
+      "bytes": 2149,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p150-ci-core-replay.json",
+      "sha256": "6bf8fb46fefeb89e0a24b2e161d41eb76a0f2722853d575d117a7d8ac0a723a5",
+      "status": "passed"
+    },
+    {
+      "bytes": 1795,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p151-generated-retirement-plan.json",
+      "sha256": "f9c745b5e0fd8eb21d4ab9ebb2dd2a737081c1ab8a0e8d80406735dc01ae6d50",
+      "status": "failed"
+    },
+    {
+      "bytes": 1795,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p152-generated-retirement-plan.json",
+      "sha256": "f97a7298d8c1f128359d7026825f3f7e3cc5c3d75681694df77edd73ccb64c45",
+      "status": "passed"
+    },
+    {
+      "bytes": 1795,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p153-generated-retirement.json",
+      "sha256": "a65ce80dce1990c728b0a40e674fe10c0ad0658453b2c60cb5572c78f0ba8cf9",
+      "status": "passed"
+    },
+    {
+      "bytes": 6533,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p154-mixed-aggregate-initial.json",
+      "sha256": "c89bed14f774181e888dbdab30d228ffa56052e9c00d87ea5372dcd3b3e4e055",
+      "status": "failed"
+    },
+    {
+      "bytes": 7402,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p155-mixed-aggregate-focused.json",
+      "sha256": "2b881f97cf26044eab40c491d117d41bebd77d08a0946b41b22baa4e200eadb6",
+      "status": "passed"
+    },
+    {
+      "bytes": 7700,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p156-mixed-aggregate-proof.json",
+      "sha256": "07fb78cebdb1b08f56e2847c7849d5c81ec17826a368a7ff86ce015162202c97",
+      "status": "passed"
+    },
+    {
+      "bytes": 7893,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p157-mixed-aggregate-native-clippy.json",
+      "sha256": "df1c739c9f6c2f5efcfbef524e197398b624b7a7864ba1307a847a6a648af27f",
+      "status": "failed"
+    },
+    {
+      "bytes": 7890,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p158-mixed-aggregate-native-clippy.json",
+      "sha256": "29288c54806bf864ff32bfa4baa50b84131fcfb909ca2a3dc4dabf27e3b9e512",
+      "status": "passed"
+    },
+    {
+      "bytes": 7931,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p159-mixed-aggregate-final-focused.json",
+      "sha256": "d8c9664e21b31efd0aa430c12e6890176b3769d3912054c34cd2d5856498af08",
+      "status": "failed"
+    },
+    {
+      "bytes": 7929,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p160-mixed-aggregate-final-focused.json",
+      "sha256": "7e13cac5faf8323ee303fd6cc5afe1647a5a12b04209f42739bc6b287969f022",
+      "status": "passed"
+    },
+    {
+      "bytes": 7890,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p161-mixed-aggregate-final-native-clippy.json",
+      "sha256": "f6f8f332f602fc286ba1e3be32a5e352e06853c430bac0394be3550462da9b6a",
+      "status": "passed"
+    },
+    {
+      "bytes": 7889,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p162-mixed-aggregate-native-workspace.json",
+      "sha256": "fccbc3c93d6d41f8090845ac7bdcf7b57c866deabbc5ebf5b4f245d404abf2d8",
+      "status": "passed"
+    },
+    {
+      "bytes": 7842,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p163-mixed-aggregate-default-clippy.json",
+      "sha256": "c28684d9bbc9144e0e95915b3b8477d73d636320b11beb75f553f0971ad3cf38",
+      "status": "passed"
+    },
+    {
+      "bytes": 7807,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p164-mixed-aggregate-default-workspace.json",
+      "sha256": "7bd2c09f7fc1922513bf2b199cfb774b42450e8814ee916923283a1e981e808f",
+      "status": "passed"
+    },
+    {
+      "bytes": 7766,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p165-mixed-aggregate-format.json",
+      "sha256": "b462d3f3a0baafe20f74d2f8f8578f285e5022e8f9390ece13c621addce4465e",
+      "status": "passed"
+    },
+    {
+      "bytes": 7925,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p166-mixed-aggregate-harness-controls.json",
+      "sha256": "ef1e90771b4b2c6b761fe620c28333d3f8b9dd3b4c382af0015d63de846b87c9",
+      "status": "passed"
+    },
+    {
+      "bytes": 7895,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p167-mixed-aggregate-release.json",
+      "sha256": "f7ae4345370d0ce0ef2f37ded27707b4cf262ec4d812eb0d906d4c17515544ec",
+      "status": "passed"
+    },
+    {
+      "bytes": 7992,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p168-mixed-aggregate-freeze.json",
+      "sha256": "8de709e6a24c4c3e79290b4745539f70b00778da9d3241493edb119fd9bf1497",
+      "status": "passed"
+    },
+    {
+      "bytes": 8000,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p169-mixed-aggregate-public.json",
+      "sha256": "f550e9220035f4d6f29e663d0beaa7b7ded135e5bcb71749975c694f755faf96",
+      "status": "passed"
+    },
+    {
+      "bytes": 8361,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p170-mixed-aggregate-installed.json",
+      "sha256": "88652da8f5ba50de457c60c633d617bd9c3a6f0b66449e85d0c13c6de61b8aff",
+      "status": "passed"
+    },
+    {
+      "bytes": 10255,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p171-mixed-aggregate-cohort-freeze.json",
+      "sha256": "c9b1b9da47c7ee31f0f2a631fa95d5b6160eaa8fe3cab6005db46dac563bba41",
+      "status": "passed"
+    },
+    {
+      "bytes": 7978,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p172-mixed-aggregate-replay.json",
+      "sha256": "42680c39411abaee48cb9a303e8a6aef1c43d5da62d49d2f2f6c8e875ce916b8",
+      "status": "passed"
+    },
+    {
+      "bytes": 8112,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p173-mixed-aggregate-source-results.json",
+      "sha256": "c252504c42c54a22c0490d8da4011844373a40110a7ee3e629885658731ef2d8",
+      "status": "passed"
+    },
+    {
+      "bytes": 8551,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p174-mixed-aggregate-docs.json",
+      "sha256": "e0637bc9177180e87425db09ca19b87042e37eadc499e27478c1e1a5ef4cffb8",
+      "status": "passed"
+    },
+    {
+      "bytes": 2104,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p175-materialized-semantics-prepare.json",
+      "sha256": "b59ba34e474878e20be2a194003838848584870842f565fdb67d948316694216",
+      "status": "passed"
+    },
+    {
+      "bytes": 2236,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p176-materialized-evidence-controls.json",
+      "sha256": "d827d3f5592e1c318d981a1f8cc301d6118925aedae7a01d577f73bb18d29ce4",
+      "status": "failed"
+    },
+    {
+      "bytes": 2235,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p177-materialized-evidence-controls.json",
+      "sha256": "8e09c48b8408abde617f5b527e881138fc781bd9566bea36de22b12cfd311b20",
+      "status": "passed"
+    },
+    {
+      "bytes": 2068,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p178-materialized-workload-prepare.json",
+      "sha256": "713020a0e369f121a53a654cda48814369ae8ea0b7414fb02d12a82c24c2ce32",
+      "status": "passed"
+    },
+    {
+      "bytes": 2222,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p179-materialized-workload-freeze.json",
+      "sha256": "882f772d4517bf2aa6a73e9cc60940e19798e6ce456f74c124ee0a797681319e",
+      "status": "passed"
+    },
+    {
+      "bytes": 2067,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p180-materialized-workload-replay.json",
+      "sha256": "521b820edf9b49b52b6baaf0fd70e3ffda23c6159418bbced311b4aba809dcef",
+      "status": "passed"
+    },
+    {
+      "bytes": 4117,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p181-bounded-ordering-focused.json",
+      "sha256": "dc58664d05de16597dc565487923a17972366cdcb94d77539406f8214388ccae",
+      "status": "failed"
+    },
+    {
+      "bytes": 4337,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p182-bounded-ordering-clippy.json",
+      "sha256": "edb8db6d0bcd97ab12750fcef9eb9f2e7c91a3851a9896b79e870b7a13fc47ac",
+      "status": "passed"
+    },
+    {
+      "bytes": 4373,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p183-bounded-ordering-final-focused.json",
+      "sha256": "d09ae93546d207835e0adaded05899652289629e8dbd095798322a6f3af0ccf6",
+      "status": "passed"
+    },
+    {
+      "bytes": 4367,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p184-bounded-ordering-streaming.json",
+      "sha256": "5580751fc266a3a698d433e4ca417aa4c38a78cebb6e3f701227dbc89dbff197",
+      "status": "passed"
+    },
+    {
+      "bytes": 4373,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p185-bounded-ordering-heap.json",
+      "sha256": "4314c606bb04871ca06beec3ad3e6017ddb2095d89f89f01d1447f0a65bf9237",
+      "status": "passed"
+    },
+    {
+      "bytes": 4336,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p186-bounded-ordering-native-workspace.json",
+      "sha256": "e3c9534f831a5a81a653a5e84f68d5c5bc90396d1c637cf8bdae140201efe097",
+      "status": "passed"
+    },
+    {
+      "bytes": 4290,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p187-bounded-ordering-default-clippy.json",
+      "sha256": "becde7d707c4125165b48bb93ef251cd61a8b3836fd65dd30a94ad96b703bfea",
+      "status": "passed"
+    },
+    {
+      "bytes": 4254,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p188-bounded-ordering-default-workspace.json",
+      "sha256": "4724358284bc989828ccaae2496106e20dff7af51e72709dd84979a5a8d03e54",
+      "status": "passed"
+    },
+    {
+      "bytes": 4213,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p189-bounded-ordering-fmt.json",
+      "sha256": "a196b078adea655a1751acf11e55a55c63d3a742fcc900d4e0d9b06a56dfe066",
+      "status": "passed"
+    },
+    {
+      "bytes": 4342,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p190-bounded-ordering-release.json",
+      "sha256": "fd4b6b594f76decff6d822014abd841a27a7d389ad7eea678d1832831eb18995",
+      "status": "passed"
+    },
+    {
+      "bytes": 4358,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p191-bounded-ordering-freeze.json",
+      "sha256": "bc9a532d2295c11caead8647c5887b37fa84b01d4816e8fb6953cff01f499991",
+      "status": "passed"
+    },
+    {
+      "bytes": 4451,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p192-bounded-ordering-public.json",
+      "sha256": "2280eac0b237a1c9860c668daceee407e9864ae085a89887248992f342aef88f",
+      "status": "failed"
+    },
+    {
+      "bytes": 4373,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p193-bounded-ordering-fixture-correction.json",
+      "sha256": "a82192724245da3256f1e7bbd294d0903df25416ff0bde0c9b4b3b97b0ba2c83",
+      "status": "passed"
+    },
+    {
+      "bytes": 4341,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p194-bounded-ordering-release-confirm.json",
+      "sha256": "32f84c393b00482e43088ac07775197d8bbf93d32eb4b9846deb91b74929cf39",
+      "status": "passed"
+    },
+    {
+      "bytes": 4366,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p195-bounded-ordering-freeze-r2.json",
+      "sha256": "f34cc262bfd6bd3f230b7a432ac3ae59e2cd8b4c9cf70d92e4d0859dec30611d",
+      "status": "passed"
+    },
+    {
+      "bytes": 4449,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p196-bounded-ordering-public-r2.json",
+      "sha256": "4f5cd8fc288437982b8335bdd2fe3e0a13598bfd8cfa66a82cb7b24fd02d1724",
+      "status": "passed"
+    },
+    {
+      "bytes": 4810,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p197-bounded-ordering-installed.json",
+      "sha256": "48929702ae296ecd73f7b497fc5cf4b24ae2cd15160ac9d045310301213ecba9",
+      "status": "passed"
+    },
+    {
+      "bytes": 7049,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p198-bounded-ordering-cohort-freeze.json",
+      "sha256": "a173a3a4cdc5d7a47e8abea69a96e22764dba5aab146cf94cb2d3257c5a7137b",
+      "status": "passed"
+    },
+    {
+      "bytes": 4421,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p199-bounded-ordering-cohort-replay.json",
+      "sha256": "e2933fc2115db5df3138d1fc268ca7c07955397d03df9597cd57505ad5026fa5",
+      "status": "passed"
+    },
+    {
+      "bytes": 4559,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p200-bounded-ordering-source-results.json",
+      "sha256": "b8e529befb8cc4c31fb027c1a0cee54c9cacea09693bc6cb8f5450197f80d52a",
+      "status": "passed"
+    },
+    {
+      "bytes": 4998,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p201-bounded-ordering-docs.json",
+      "sha256": "1441b93bea396548ec071a98f9acba448f8a25668efe30f7a8aeba4c649914f4",
+      "status": "passed"
+    },
+    {
+      "bytes": 2625,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p202-join-movement-focused.json",
+      "sha256": "58355a6b71157cce8de4b04ab4ff13fe0fff32665d3f79c1db85361d2f8b21ed",
+      "status": "failed"
+    },
+    {
+      "bytes": 2626,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p203-join-movement-focused.json",
+      "sha256": "ac3fdeb2ab8effdd74130d3ba12ffcf015d99b0077420d724213ee85b3e488b8",
+      "status": "passed"
+    },
+    {
+      "bytes": 2574,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p204-join-movement-native-clippy.json",
+      "sha256": "1fa80a8fef3934eb65ca9b92d5a863fd0d4787d046115b4dae0b1c6185986a5e",
+      "status": "failed"
+    },
+    {
+      "bytes": 2571,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p205-join-movement-native-clippy.json",
+      "sha256": "4fbe96e60ff1119dc6365e23c3ce64598d0dc3df32ada22ed4f92354e06c9485",
+      "status": "passed"
+    },
+    {
+      "bytes": 2625,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p206-join-movement-final-focused.json",
+      "sha256": "48342f52d6936834a6caedc77f0b0774bc72667ee576e98719cdf277b4f3cc9e",
+      "status": "passed"
+    },
+    {
+      "bytes": 2583,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p207-join-movement-plan-composition.json",
+      "sha256": "9bdbd643d1319e2c633e138510e024255bac4bf509d5fe8fc73a12daf83256a1",
+      "status": "passed"
+    },
+    {
+      "bytes": 2414,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p208-join-movement-fmt.json",
+      "sha256": "982f9f8dd0f76e74e5d2c0583e526c87c40cdeb81eb4327b628123757f7781d3",
+      "status": "passed"
+    },
+    {
+      "bytes": 2563,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p209-join-movement-production-composition.json",
+      "sha256": "3c2d9f537d0de13d840f64cd46b9fea3b102acd95b140944a96a63c0f54b2b9f",
+      "status": "passed"
+    },
+    {
+      "bytes": 3010,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p210-join-movement-independent-replay.json",
+      "sha256": "f830b1c7cdd61d5d02c0bd837c69cd831ab42d9ed82366a233063fffb0acb9db",
+      "status": "passed"
+    },
+    {
+      "bytes": 3382,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p211-followthrough-packet-inventory.json",
+      "sha256": "bbe8f022c6b3b2c81c9525819d9dc86eb4526d52983d1a7f87472057e7c1c5a7",
+      "status": "passed"
+    },
+    {
+      "bytes": 4047,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p212-followthrough-semantic-collection.json",
+      "sha256": "c56170939169c7a101910b3daef559254861b6b9119aa824071f2ade6698d0c0",
+      "status": "failed"
+    },
+    {
+      "bytes": 4045,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p213-followthrough-semantic-collection.json",
+      "sha256": "f0b0265254e61a6045d351311628e8aec14ca870fb450dae4f49d881b786c689",
+      "status": "passed"
+    }
+  ],
+  "mechanisms": [
+    {
+      "name": "materialized-reuse-semantics-r1/attempt-r1",
+      "observations": {
+        "bytes": 35928,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/attempt-r1/observations.json",
+        "sha256": "5d5c68c2466d46e7f3671239c4f2f42a919b43fa4c057087ae5c001188616d42"
+      },
+      "prepared": {
+        "bytes": 15617,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/prepared.json",
+        "sha256": "50e04fb97775fc490b124465f3ed43e02c972a77f2d6a34786b3713b772f650f"
+      },
+      "protocol": {
+        "bytes": 149825,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/attempt-r1/protocol.json",
+        "sha256": "09775f3a7c065d909de2f6c675a8459391212fca4b89f6ffe7388a6190e954ee"
+      }
+    },
+    {
+      "name": "materialized-reuse-r1",
+      "observations": {
+        "bytes": 31131,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/observations.json",
+        "sha256": "4b8172b10d3759aead2894667c04e48e042155fe84a58a8af86b986ce774c4b6"
+      },
+      "prepared": {
+        "bytes": 12827,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/prepared.json",
+        "sha256": "6c444603c111fdad09b7305447562121f281d492237d16844d39e27029b25a94"
+      },
+      "protocol": {
+        "bytes": 57932,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/protocol.json",
+        "sha256": "921a5e15b0e35ae00dce7a580582234a47c5ef529a33258c2798defb31333cfa"
+      }
+    }
+  ],
+  "packages": [
+    {
+      "bytes": 10348,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/report.json",
+      "sha256": "6ff971bc172d246a9f27ca7c7ab14e2000238b4e21b8ce17b79f6c8afb3415ce"
+    },
+    {
+      "bytes": 10364,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/report.json",
+      "sha256": "551c23f7da6357b65c87f330d8206858b03519facdba6293f4fd179c5b52e452"
+    }
+  ],
+  "previous_acceptance": {
+    "bytes": 9172,
+    "path": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json",
+    "sha256": "f20094d84fa31a1295ae4bb83123b539ab497fee3f8de37ff3528b25bcf84eb3"
+  },
+  "previous_packet_manifest": {
+    "bytes": 10975131,
+    "path": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/docs/benchmarks/evidence/native-shared-performance-2026-10-30/manifest.json",
+    "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e"
+  },
+  "public_reports": [
+    {
+      "bytes": 58156005,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-public-r1.json",
+      "sha256": "2e25e34829ab3b86d3330c5fbd63791b84d411c54c7b5fbda34973b61f044393",
+      "status": "passed"
+    },
+    {
+      "bytes": 23912966,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r1.json",
+      "sha256": "a8ac58761143ca60bc362b5235e36c3e5bb499360760481c021187e9ddd9dba9",
+      "status": "failed"
+    },
+    {
+      "bytes": 26076847,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r2.json",
+      "sha256": "5b017f859a1f9b6a35f8d0bdfbb68a7855bb494b01bc26fae9366fd5cce273ce",
+      "status": "passed"
+    }
+  ],
+  "root": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29",
+  "runtimes": [
+    {
+      "bytes": 545194,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/manifest.json",
+      "sha256": "7f62c2626c8fda19ca29db62600179fde39ced4046e0004e58c1bb773ca91d8c"
+    },
+    {
+      "bytes": 545471,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/manifest.json",
+      "sha256": "39f57988724a6d97b66e5f89cf84d066b9dc0fadca7800a9e366b65795299d14"
+    },
+    {
+      "bytes": 545479,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r2/manifest.json",
+      "sha256": "a745f544e3f5af51839c68e58a1311be05a2241cdfcc505cef15b9823133febe"
+    }
+  ],
+  "supplements": [
+    {
+      "bytes": 220522,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-analysis.json",
+      "sha256": "0af54fbf959f2e3f0e241dbaa292c625e775a8e27244f2432ee02d9e065f442f"
+    },
+    {
+      "bytes": 837,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-accepted-source.json",
+      "sha256": "afe5084cbb3921e838ad10296adceeb9c12643f794879b0b969668122130b242"
+    },
+    {
+      "bytes": 2907,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-harness-compatibility.json",
+      "sha256": "1fbd61203b60d1cffbf04eb73656baca3ee15ca4db769e2cbfbdf7b2a3434816"
+    },
+    {
+      "bytes": 220669,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-analysis.json",
+      "sha256": "ceadaf3ab2e2d2f1fc749fceae609b3de204d8d2103ddddaca238ccf954a5d86"
+    },
+    {
+      "bytes": 836,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-accepted-source.json",
+      "sha256": "7f19b2cc81b2186a8a856f6dcfb27eb271cec9e73bb73285646a192d61017b4c"
+    },
+    {
+      "bytes": 1804,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-fixture-correction.json",
+      "sha256": "3422ea3d8c82912346896547c8876124ebdfd411a642d0d5597290bd1ff51265"
+    },
+    {
+      "bytes": 464,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p176-failed-driver-source.json",
+      "sha256": "0947fcb5a9192b658f9a02fa76461915bf566ab15d683927299be2c0eaade343"
+    },
+    {
+      "bytes": 17976,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/join-movement-measurements.json",
+      "sha256": "51937d98b1f785dae22e36fc8454dc537fc4827ce4b81a67bc53132ba2eb8ac9"
+    },
+    {
+      "bytes": 1339669,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/predicate-followthrough-observations.json",
+      "sha256": "2067a73a97fe32702a3da4814caf3212d9905f2f688a5e601550b199187baad8"
+    },
+    {
+      "bytes": 1525,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/predicate-followthrough-observations.md",
+      "sha256": "030d225e2af92d4616af61c0e6dad0a5d7aa420a4cd9a0ab2a882d31938e4a13"
+    },
+    {
+      "bytes": 40356,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/topk-followthrough-retained-observations.json",
+      "sha256": "1ea45886d80ebd03c8c1267bfd985550c88ccfd4fad062b65e8266479d6f6dca"
+    }
+  ]
+}

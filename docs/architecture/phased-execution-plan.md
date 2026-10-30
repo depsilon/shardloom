@@ -560,8 +560,9 @@ visible and independent; this implementation does not automatically close them.
     in the [shared-performance record](native-shared-performance-2026-10-29.md);
     the combined 347-query checkpoint, one direct-Parquet Full43 observation and
     portable/source-only replay for candidates 1–6 are complete. Candidate 7's
-    local acceptance is complete; its portable packaging and the subsequent
-    follow-through remain due. Hosted acceptance remains pending.
+    local and portable acceptance is complete. The subsequent performance
+    follow-through and isolated source-only replay are also complete; hosted
+    integration remains due. Candidates 1–6 are merged in #1626 at `67a83dd4`.
     - [x] Evaluate Top-K propagation through direct-column projections: dropped
       after a higher complete engine total; the mechanism stays dropped.
     - [x] Propagate downstream column demand through joins: retained locally,
@@ -591,8 +592,13 @@ visible and independent; this implementation does not automatically close them.
     - [x] Bind numeric keys and K row locations within bounded ordering: retained
       locally at **12.055132613 engine seconds** against **13.132505915**. All 347
       results match; two flagged grouped cases remain recorded.
-    Multiway/composed stage-copy measurement, portable packaging and hosted
-    integration remain in the performance follow-through. Preserve
+    - [x] Measure successive join output buffers and source lifetimes: all 16
+      fresh compositions and ten production join controls pass. Selected-row
+      handoff remains unadmitted because the current callback allows retention
+      and borrowed dictionaries can change the validation domain/error order.
+    The [portable follow-through acceptance](../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json)
+    replays both complete cohorts, materialization and join diagnostics without
+    executing queries. Hosted integration remains due. Preserve
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a
     lower complete-cohort engine total and drop an unchanged or higher total.

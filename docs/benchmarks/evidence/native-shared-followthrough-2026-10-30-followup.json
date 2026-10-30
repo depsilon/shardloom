@@ -1,0 +1,907 @@
+{
+  "acceptance": {
+    "bytes": 7553,
+    "sha256": "354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8"
+  },
+  "corruption_tests": 16,
+  "deliberate_corruption_cases": 33,
+  "engine_imports_forbidden": true,
+  "historical_code_versions": {
+    "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60": {
+      "bytes": 8057,
+      "relative": "scripts/shared_followthrough_materialized_workload.py",
+      "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60",
+      "text": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Finite, independent repeated-relation workload; no query-engine reference.\"\"\"\nfrom dataclasses import asdict, dataclass\nimport hashlib\nimport json\nimport random\n\nfrom query_surface.semantics import ResultContract, ResultType, TypedResult, result_record\n\n\n@dataclass(frozen=True)\nclass Fixture:\n    name: str\n    rows: int\n    width: int\n    seed: int\n    dimension_keys: int = 127\n    row_group_rows: int = 251\n\n\n@dataclass(frozen=True)\nclass Case:\n    name: str\n    fixture: str\n    consumers: tuple[int, ...]\n    result: str = \"aggregate\"\n    limit: int | None = None\n    memory_bytes: int = 512 << 20\n    spill: bool = False\n\n\nFIXTURES = (\n    Fixture(\"ordinary\", 32771, 48, 0x30_2026_810),\n    Fixture(\"wide\", 4099, 96, 0x30_2026_811),\n    Fixture(\"empty\", 0, 48, 0x30_2026_812),\n    Fixture(\"pressure\", 32771, 1024, 0x30_2026_813),\n    Fixture(\"semantic\", 109, 17, 0x30_2026_814),\n)\nCASES = (\n    Case(\"one_consumer\", \"ordinary\", (1,)),\n    Case(\"two_consumers\", \"ordinary\", (1, 3)),\n    Case(\"four_consumers\", \"ordinary\", (1, 3, 7, 11)),\n    Case(\"selective_consumers\", \"ordinary\", (97, 131)),\n    Case(\"wide_complete_result\", \"wide\", (1, 3), \"rows\"),\n    Case(\"few_rows\", \"ordinary\", (1, 3), \"rows\", 5),\n    Case(\"zero_rows\", \"ordinary\", (1, 3), \"rows\", 0),\n    Case(\"empty_input\", \"empty\", (1, 3)),\n    Case(\"spill_one_consumer\", \"pressure\", (1,), memory_bytes=64 << 20, spill=True),\n    Case(\"spill_two_consumers\", \"pressure\", (1, 3), memory_bytes=64 << 20, spill=True),\n)\n\n\ndef rows(spec):\n    \"\"\"Seeded logical values and layout, independent of native plan evaluation.\"\"\"\n    rng = random.Random(spec.seed)\n    dimension = []\n    for key in range(spec.dimension_keys):\n        for variant in range(2 if key % 11 == 0 else 1):\n            dimension.append(dict(key=key, variant=2 * key + variant,\n                bucket=None if key % 19 == 0 else \"region_\" + str(key % 13),\n                bias=None if key % 17 == 0 else key % 31 - 15))\n    # A NULL build key must never match a NULL probe key under ordinary equality.\n    dimension.append(dict(key=None, variant=-1, bucket=\"null_key\", bias=1000))\n    rng.shuffle(dimension)\n    words = (\"  ALPHA  \", \" M\u00dcNCHEN \", \" \u6771\u4eac \", \"\", \"  \u0130  \", \"  Stra\u00dfe  \")\n    fact = []\n    for row in range(spec.rows):\n        word = words[rng.randrange(len(words))]\n        text = None if row % 23 == 0 else word + str(row % 37) + \" \"\n        long = (f\"{row:08x}:AbC:\" + \"xY\" * spec.width)[:spec.width]\n        fact.append(dict(row_id=row,\n            key=None if row % 29 == 0 else rng.randrange(spec.dimension_keys + 7),\n            value=None if row % 31 == 0 else rng.randrange(-2001, 2002),\n            text=text, wide_text=\" \" + long + \" \"))\n    rng.shuffle(fact)\n    return fact, dimension\n\n\ndef normalized_rows(spec):\n    fact, dimension = rows(spec)\n    index = {}\n    for right in dimension:\n        if right[\"key\"] is not None:\n            index.setdefault(right[\"key\"], []).append(right)\n    output = []\n    for left in fact:\n        matches = index.get(left[\"key\"], ()) if left[\"key\"] is not None else ()\n        for right in matches or (None,):\n            text = left[\"text\"]\n            text = None if text is None else text.strip()\n            wide = left[\"wide_text\"].strip()\n            bias = 0 if right is None or right[\"bias\"] is None else right[\"bias\"]\n            output.append(dict(row_id=left[\"row_id\"], variant=None if right is None else right[\"variant\"],\n                bucket=None if right is None else right[\"bucket\"],\n                score=None if left[\"value\"] is None else left[\"value\"] + bias,\n                label=None if text is None else text.lower(),\n                loud_label=None if text is None else text.upper(),\n                wide_label=wide.lower(), wide_loud=wide.upper()))\n    return output\n\n\nBASE_SCHEMA = tuple((name, ResultType(kind, True)) for name, kind in (\n    (\"row_id\", \"int64\"), (\"variant\", \"int64\"), (\"bucket\", \"utf8\"), (\"score\", \"int64\"),\n    (\"label\", \"utf8\"), (\"loud_label\", \"utf8\"), (\"wide_label\", \"utf8\"), (\"wide_loud\", \"utf8\")))\nCONSUMER = ((\"consumer\", ResultType(\"int64\", False)),)\nAGGREGATE_SCHEMA = CONSUMER + ((\"bucket\", ResultType(\"utf8\", True)),\n    (\"count\", ResultType(\"uint64\", False)), (\"total\", ResultType(\"float64\", True)),\n    (\"chars\", ResultType(\"float64\", True)))\n\n\ndef reference(case, spec):\n    normalized = normalized_rows(spec)\n    output = []\n    for consumer, divisor in enumerate(case.consumers):\n        selected = [row for row in normalized if row[\"row_id\"] % divisor == 0]\n        if case.result == \"rows\":\n            output.extend(dict(consumer=consumer, **row) for row in selected)\n            continue\n        groups = {}\n        for row in selected:\n            state = groups.setdefault(row[\"bucket\"], [0, [], []])\n            state[0] += 1\n            if row[\"score\"] is not None:\n                state[1].append(row[\"score\"])\n            if row[\"label\"] is not None:\n                state[2].append(sum(len(row[name]) for name in\n                    (\"label\", \"loud_label\", \"wide_label\", \"wide_loud\")))\n        output.extend(dict(consumer=consumer, bucket=bucket, count=count,\n            total=float(sum(values)) if values else None,\n            chars=float(sum(lengths)) if lengths else None)\n            for bucket, (count, values, lengths) in groups.items())\n    if case.result == \"rows\":\n        output.sort(key=lambda row: (row[\"consumer\"], row[\"row_id\"],\n            row[\"variant\"] is None, row[\"variant\"] or 0))\n        schema = CONSUMER + BASE_SCHEMA\n    else:\n        output.sort(key=lambda row: (row[\"consumer\"], row[\"bucket\"] is None, row[\"bucket\"] or \"\"))\n        schema = AGGREGATE_SCHEMA\n    if case.limit is not None:\n        output = output[:case.limit]\n    result = TypedResult(schema, output)\n    # Validate every value/width/nullability before it can become a frozen oracle.\n    result_record(result)\n    return result, len(normalized)\n\n\ndef sql(case, sources, materialized):\n    def path(name):\n        return \"'\" + str(sources[name]).replace(\"'\", \"''\") + \"'\"\n    base = (\"SELECT f.row_id AS row_id,d.variant AS variant,d.bucket AS bucket,\"\n        \"f.value+COALESCE(d.bias,0) AS score,LOWER(TRIM(f.text)) AS label,\"\n        \"UPPER(TRIM(f.text)) AS loud_label,LOWER(TRIM(f.wide_text)) AS wide_label,\"\n        f\"UPPER(TRIM(f.wide_text)) AS wide_loud FROM {path('fact')} AS f \"\n        f\"LEFT JOIN {path('dimension')} AS d ON f.key=d.key\")\n    branches = []\n    for consumer, divisor in enumerate(case.consumers):\n        selected = (\"row_id,variant,bucket,score,label,loud_label,wide_label,wide_loud\"\n            if case.result == \"rows\" else \"bucket,COUNT(*) AS count,SUM(score) AS total,\"\n            \"SUM(LENGTH(label)+LENGTH(loud_label)+LENGTH(wide_label)+LENGTH(wide_loud)) AS chars\")\n        branch = f\"SELECT {consumer} AS consumer,{selected} FROM kept\"\n        if divisor != 1:\n            branch += f\" WHERE row_id%{divisor}=0\"\n        if case.result == \"aggregate\":\n            branch += \" GROUP BY bucket\"\n        branches.append(branch)\n    order = \"consumer,row_id,variant NULLS LAST\" if case.result == \"rows\" else \"consumer,bucket NULLS LAST\"\n    suffix = \"\" if case.limit is None else f\" LIMIT {case.limit}\"\n    mode = \"MATERIALIZED \" if materialized else \"\"\n    return f\"WITH kept AS {mode}({base}) SELECT * FROM ({' UNION ALL '.join(branches)}) AS result ORDER BY {order}{suffix}\"\n\n\ndef declaration(case, spec):\n    return dict(case=asdict(case), fixture=asdict(spec),\n        query_template=sql(case, {name: 'fixture://' + name for name in ('fact', 'dimension')}, True),\n        ordinary_template=sql(case, {name: 'fixture://' + name for name in ('fact', 'dimension')}, False),\n        ordered=True, exact_values=True)\n\n\ndef identity(case, spec):\n    return hashlib.sha256(json.dumps(declaration(case, spec), sort_keys=True,\n        separators=(\",\", \":\"), allow_nan=False).encode()).hexdigest()\n\n\ndef contract(case):\n    return ResultContract(CONSUMER + BASE_SCHEMA if case.result == \"rows\" else AGGREGATE_SCHEMA, ordered=True)\n\n"
+    },
+    "d4493c7d8bcbc5615819deaac27ca4fcc49b91a908a5de441e3fb8f83d3ec08e": {
+      "bytes": 11467,
+      "relative": "scripts/test_shared_followthrough_packet.py",
+      "sha256": "d4493c7d8bcbc5615819deaac27ca4fcc49b91a908a5de441e3fb8f83d3ec08e",
+      "text": "# SPDX-License-Identifier: Apache-2.0\n\"\"\"Adversarial saved-result controls; neither native nor comparator code executes.\"\"\"\nimport copy\nimport json\nfrom pathlib import Path\nimport sys\nimport unittest\n\nROOT = Path(__file__).resolve().parents[1]\nsys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'python/src'),\n               str(ROOT / 'benchmarks/traditional_analytics')]\nfrom native_workflow_protocol import strict_json\nfrom query_surface.replay import sha\nfrom shared_performance_bundle import Bundle\nfrom shared_performance_replay import linked\nfrom shared_followthrough_join_replay import encoded, replay_log, validate_report\nfrom shared_followthrough_materialized_replay import declared_jobs, validate_result\nfrom shared_followthrough_replay import (\n    diagnostic_observations, failed_public_values, fixture_correction, frozen_files,\n    harness_compatibility, installed_package, source_matches, verify,\n)\n\n\nclass FollowthroughTests(unittest.TestCase):\n    @classmethod\n    def setUpClass(cls):\n        cls.bundle = Bundle(ROOT / 'docs/benchmarks/evidence/native-shared-followthrough-2026-10-30')\n        cls.anchors = strict_json((ROOT / 'scripts/shared_followthrough_anchors.json').read_bytes())\n        cls.root = cls.anchors['root']\n        cls.supplements = {Path(item['path']).name: linked(cls.bundle, item)\n                           for item in cls.anchors['supplements'] if item['path'].endswith('.json')}\n        cls.join_log = cls.bundle.raw(cls.root + '/p206-join-movement-final-focused.log')\n        cls.join_rows = [strict_json(line[len('JOIN_MOVEMENT '):]) for line in cls.join_log.decode().splitlines()\n                         if line.startswith('JOIN_MOVEMENT ')]\n        cls.semantic_root = cls.root + '/materialized-reuse-semantics-r1/attempt-r1'\n        cls.semantic = strict_json(cls.bundle.raw(cls.semantic_root + '/protocol.json'))\n        cls.jobs = {job['name']: job for job in cls.semantic['jobs']}\n        cls.runtimes = {Path(item['path']).parent.name: linked(cls.bundle, item) for item in cls.anchors['runtimes']}\n\n    def materialized(self, name='00-one_consumer-parquet-materialized'):\n        job = copy.deepcopy(self.jobs[name])\n        value = strict_json(self.bundle.raw(self.semantic_root + '/logs/' + name + '.stdout.json'))\n        reference = strict_json(self.bundle.raw(job['reference_path']))\n        return value, job, reference\n\n    def test_complete_join_grid_rebuilds_from_independent_formulas(self):\n        self.assertEqual(replay_log(self.join_log), self.supplements['join-movement-measurements.json']['measurements'])\n\n    def test_changed_join_values_cannot_be_repaired_by_changing_saved_expected_and_digest(self):\n        value = copy.deepcopy(self.join_rows[1])\n        value['actual'][0]['count'] += 1\n        value['expected'] = copy.deepcopy(value['actual'])\n        value['complete_result_sha256'] = sha(encoded(value['actual']).encode())\n        with self.assertRaisesRegex(ValueError, 'complete join measurement result'):\n            validate_report(value)\n\n    def test_join_multiplicity_cells_source_release_and_alias_credits_are_required(self):\n        changes = {\n            'multiplicity': lambda value: value['stages'][0].update(rows=value['stages'][0]['rows'] + 1),\n            'cells': lambda value: value['stages'][0].update(cells=0),\n            'buffer_scope': lambda value: value['stages'][0].update(largest_output_buffer_bytes=1 << 40),\n            'producer_coverage': lambda value: value.update(producer_batches_released=0),\n            'producer_release': lambda value: value.update(source_release_before_next_batch=False),\n            'retained_output': lambda value: value.update(retained_values_after_session_close=False),\n            'last_alias': lambda value: value.update(final_output_credits_released=False),\n        }\n        for name, edit in changes.items():\n            with self.subTest(name=name):\n                value = copy.deepcopy(self.join_rows[1])\n                edit(value)\n                with self.assertRaises(ValueError):\n                    validate_report(value)\n\n    def test_missing_duplicate_or_reordered_join_measurements_are_rejected(self):\n        rows = self.join_rows\n        for values in (rows[:-1], rows + [rows[0]], [rows[1], rows[0], *rows[2:]]):\n            data = '\\n'.join('JOIN_MOVEMENT ' + json.dumps(row) for row in values).encode()\n            with self.assertRaisesRegex(ValueError, 'grid incomplete or reordered'):\n                replay_log(data)\n\n    def test_materialized_complete_result_and_repeated_action_pass(self):\n        for name in ('00-one_consumer-parquet-materialized', '01-two_consumers-parquet-materialized',\n                     '06-zero_rows-parquet-materialized'):\n            validate_result(*self.materialized(name))\n\n    def test_materialized_eleven_corruptions_are_rejected(self):\n        changes = {\n            'changed_complete_value': lambda value, _: value['observations'][0]['actual']['rows'][0].update(count=999999),\n            'missing_complete_row': lambda value, _: value['observations'][0]['actual']['rows'].pop(),\n            'changed_schema': lambda value, _: value['observations'][0]['actual']['schema'][0]['type'].update(nullable=True),\n            'changed_engine_clock': lambda value, _: value['observations'][0]['clocks'].update(engine_execution_seconds=0),\n            'hidden_external_execution': lambda value, _: value['observations'][0]['fields'].update(external_engine_invoked='true'),\n            'false_reuse': lambda value, _: value['observations'][0]['fields'].update(relational_materialized_reuses='7'),\n            'changed_role': lambda value, _: value.update(materialized=False),\n            'changed_statement': lambda value, _: value.update(sql_declaration='SELECT 1'),\n            'unproved_cleanup': lambda value, _: value.update(spill_workspace_clean=False),\n        }\n        for name, edit in changes.items():\n            with self.subTest(name=name):\n                value, job, reference = self.materialized()\n                edit(value, job)\n                with self.assertRaises(ValueError):\n                    validate_result(value, job, reference)\n        value, job, reference = self.materialized('06-zero_rows-parquet-materialized')\n        value['observations'][0]['fields']['relational_materialized_rows'] = '0'\n        with self.assertRaisesRegex(ValueError, 'capture/reuse'):\n            validate_result(value, job, reference)\n        value, job, reference = self.materialized('01-two_consumers-parquet-materialized')\n        value['observations'].pop()\n        with self.assertRaisesRegex(ValueError, 'action coverage'):\n            validate_result(value, job, reference)\n\n    def test_changed_materialization_reference_cannot_hide_value_corruption(self):\n        value, job, reference = self.materialized()\n        value['observations'][0]['actual']['rows'][0]['count'] += 1\n        reference['reference'] = copy.deepcopy(value['observations'][0]['actual'])\n        with self.assertRaises(ValueError):\n            validate_result(value, job, reference)\n\n    def test_materialized_fixture_grid_cannot_be_narrowed(self):\n        prepared = strict_json(self.bundle.raw(self.root + '/materialized-reuse-semantics-r1/prepared.json'))\n        self.assertEqual(len(declared_jobs(self.semantic_root, prepared, True)), 60)\n        prepared['cases'].pop()\n        with self.assertRaisesRegex(ValueError, 'case coverage'):\n            declared_jobs(self.semantic_root, prepared, True)\n\n    def test_installed_package_requires_exact_runtime_and_test_count(self):\n        runtime = self.runtimes['bounded-ordering-release-r2']\n        path = self.root + '/installed-bounded-ordering-r1'\n        self.assertEqual(installed_package(self.bundle, path, runtime, 266)['tests'], 266)\n        with self.assertRaisesRegex(ValueError, 'acceptance incomplete'):\n            installed_package(self.bundle, path, runtime, 265)\n        bad = copy.deepcopy(runtime)\n        bad['products']['shardloom'] = '0' * 64\n        with self.assertRaisesRegex(ValueError, 'runtime differs'):\n            installed_package(self.bundle, path, bad, 266)\n\n    def test_failed_public_attempt_retains_complete_values_without_acceptance(self):\n        value = strict_json(self.bundle.raw(self.root + '/bounded-ordering-public-r1.json'))\n        failed_public_values(value)\n        value['complete_comparisons'][0]['actual']['rows'][0]['row_id'] += 1\n        with self.assertRaises(ValueError):\n            failed_public_values(value)\n\n    def test_fixture_only_correction_cannot_exempt_an_engine_change(self):\n        proof = self.supplements['bounded-ordering-public-fixture-correction.json']\n        before = self.runtimes['bounded-ordering-release-r1']\n        after = copy.deepcopy(self.runtimes['bounded-ordering-release-r2'])\n        failed = strict_json(self.bundle.raw(self.root + '/bounded-ordering-public-r1.json'))\n        fixture_correction(self.bundle, proof, before, after, failed)\n        key = next(name for name in after['source_snapshot'] if name.endswith('.rs'))\n        after['source_snapshot'][key]['sha256'] = '0' * 64\n        with self.assertRaisesRegex(ValueError, 'runtime source/products'):\n            fixture_correction(self.bundle, proof, before, after, failed)\n\n    def test_required_gates_must_match_measured_source(self):\n        gate = strict_json(self.bundle.raw(self.root + '/p186-bounded-ordering-native-workspace.json'))\n        runtime = copy.deepcopy(self.runtimes['bounded-ordering-release-r1'])\n        source_matches(gate, runtime)\n        key = next(name for name in gate['changed_source_inventory'] if name.endswith('.rs'))\n        runtime['source_snapshot'][key]['sha256'] = '0' * 64\n        with self.assertRaisesRegex(ValueError, 'tested source differs'):\n            source_matches(gate, runtime)\n\n    def test_reporting_exception_requires_exact_path_and_unchanged_execution(self):\n        proof = copy.deepcopy(self.supplements['mixed-aggregate-harness-compatibility.json'])\n        harness_compatibility(self.bundle, proof)\n        proof['exact_reporting_delta']['execution_change'] = True\n        with self.assertRaisesRegex(ValueError, 'wrong reporting exception'):\n            harness_compatibility(self.bundle, proof)\n\n    def test_protocols_cannot_be_removed_as_external_payloads(self):\n        item = dict(path='/evidence/protocol.json', bytes=2, sha256=sha(b'{}'))\n        with self.assertRaisesRegex(ValueError, 'nonpayload'):\n            frozen_files(self.bundle, [item], {(item['path'], item['sha256'], item['bytes'])})\n\n    def test_historical_predicate_and_ordering_clocks_remain_bound_to_raw_outputs(self):\n        observed = diagnostic_observations(self.bundle, self.root, self.supplements)\n        self.assertEqual((observed['predicate_cases'], observed['ordering_cases']), (91, 10))\n        bad = copy.deepcopy(self.supplements)\n        bad['predicate-followthrough-observations.json']['cases'][0]['original_polars']['complete_workflow_seconds'] = 0\n        with self.assertRaisesRegex(ValueError, 'diagnostic clock'):\n            diagnostic_observations(self.bundle, self.root, bad)\n\n    def test_failed_attempts_cannot_be_dropped_from_anchors(self):\n        bad = copy.deepcopy(self.anchors)\n        bad['gates'] = [item for item in bad['gates'] if item['status'] == 'passed']\n        with self.assertRaisesRegex(ValueError, 'anchors changed'):\n            verify(self.bundle, bad)\n\n\nif __name__ == '__main__':\n    unittest.main()\n"
+    }
+  },
+  "kind": "shared_performance_followthrough_post_packet_acceptance",
+  "measured_runtime_source_coverage": {
+    "exact_module_registration": "#[path = \"native_relational_join_movement_tests.rs\"]\nmod movement_tests;\n\n",
+    "runtime_changes": [],
+    "source_files": 3145,
+    "test_only_changes": [
+      "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs"
+    ]
+  },
+  "new_query_executions": 0,
+  "notes": [
+    "p214 constructs and verifies the additive packet with all saved observations.",
+    "p215 correctly rejected corrupt results but five test assertions expected ValueError instead of the existing ResultMismatch; only the expected exception classes were corrected.",
+    "p216 passes all 16 tests, including 33 deliberate corruption cases; p217 passes complete saved-result replay.",
+    "p218 passes replay and all tests from copied source/evidence with original-data access, engine imports, child processes and network blocked.",
+    "p219 passes documentation, public-status/claim and CI-matrix checks.",
+    "The 3,145 measured source files differ only by registration of the new join test module; runtime behavior and frozen binaries are unchanged."
+  ],
+  "original_source_and_data_access_forbidden": true,
+  "packet_manifest": {
+    "bytes": 4643672,
+    "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+  },
+  "post_copy_formatting": [
+    {
+      "change": "Remove exactly one redundant EOF newline; AST unchanged.",
+      "copied": {
+        "bytes": 8057,
+        "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+      },
+      "current": {
+        "bytes": 8056,
+        "sha256": "9eaac5c869f71f1cba34a5032d6babd8552a2444cb3f1e8f6c30202ee15b9b75"
+      },
+      "relative": "scripts/shared_followthrough_materialized_workload.py"
+    }
+  ],
+  "receipts": [
+    {
+      "log": "{\"status\": \"collected\", \"records\": 8832, \"paths\": 10003, \"unique_bytes\": 326924384, \"gates\": 79, \"cohorts\": 2, \"public_reports\": 3}\n{\"status\": \"semantically_verified\", \"cohorts\": {\"broad-mixed-aggregate-r1\": {\"complete_queries\": 347, \"complete_rows\": 12565, \"engine_seconds\": 13.132505915, \"baseline_engine_seconds\": 13.368176384, \"case_flags\": [], \"family_flags\": []}, \"broad-bounded-ordering-r1\": {\"complete_queries\": 347, \"complete_rows\": 12565, \"engine_seconds\": 12.055132613, \"baseline_engine_seconds\": 13.132505915, \"case_flags\": [\"aggregate_optional_value_category_sum_arithmetic_one_percent\", \"aggregate_metric_category_sum_coalesce_one_percent\"], \"family_flags\": []}}, \"join_measurement_cases\": 16}\n{\"status\": \"transport_verified\", \"output\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-packet-r1\"}\n",
+      "log_identity": {
+        "bytes": 841,
+        "sha256": "4b950c8603d2d714994e8f032416a0dc3081fc67ba02f30b141ac7ffd1a5675b"
+      },
+      "name": "p214-followthrough-packet-build.json",
+      "receipt": {
+        "changed_source_inventory": {
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 75048,
+            "sha256": "4e07f609f2bf2141f4b97a6836da6b86286039e236b42c88e75187d7358f86a7"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177584,
+            "sha256": "4400e4ce916044a5448a726cd4318029db819e78c09eb61b09e9d6d0e1d7bf0a"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11467,
+            "sha256": "d4493c7d8bcbc5615819deaac27ca4fcc49b91a908a5de441e3fb8f83d3ec08e"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_followthrough_packet.py",
+          "--last-gate",
+          "213",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-packet-r1",
+          "--verify"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "4b950c8603d2d714994e8f032416a0dc3081fc67ba02f30b141ac7ffd1a5675b",
+        "output_bytes": 841,
+        "output_limit_bytes": 8388608,
+        "pid": 12096,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 41.21305212494917,
+        "status": "passed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74579705856,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74579705856,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2432196846
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 4240,
+        "sha256": "495578c92c6f711ab5d6209953df426f6821077fa0eb8a891f912fcc627af763"
+      }
+    },
+    {
+      "log": "test_changed_join_values_cannot_be_repaired_by_changing_saved_expected_and_digest (test_shared_followthrough_packet.FollowthroughTests.test_changed_join_values_cannot_be_repaired_by_changing_saved_expected_and_digest) ... ok\ntest_changed_materialization_reference_cannot_hide_value_corruption (test_shared_followthrough_packet.FollowthroughTests.test_changed_materialization_reference_cannot_hide_value_corruption) ... FAIL\ntest_complete_join_grid_rebuilds_from_independent_formulas (test_shared_followthrough_packet.FollowthroughTests.test_complete_join_grid_rebuilds_from_independent_formulas) ... ok\ntest_failed_attempts_cannot_be_dropped_from_anchors (test_shared_followthrough_packet.FollowthroughTests.test_failed_attempts_cannot_be_dropped_from_anchors) ... ok\ntest_failed_public_attempt_retains_complete_values_without_acceptance (test_shared_followthrough_packet.FollowthroughTests.test_failed_public_attempt_retains_complete_values_without_acceptance) ... FAIL\ntest_fixture_only_correction_cannot_exempt_an_engine_change (test_shared_followthrough_packet.FollowthroughTests.test_fixture_only_correction_cannot_exempt_an_engine_change) ... ok\ntest_historical_predicate_and_ordering_clocks_remain_bound_to_raw_outputs (test_shared_followthrough_packet.FollowthroughTests.test_historical_predicate_and_ordering_clocks_remain_bound_to_raw_outputs) ... ok\ntest_installed_package_requires_exact_runtime_and_test_count (test_shared_followthrough_packet.FollowthroughTests.test_installed_package_requires_exact_runtime_and_test_count) ... ok\ntest_join_multiplicity_cells_source_release_and_alias_credits_are_required (test_shared_followthrough_packet.FollowthroughTests.test_join_multiplicity_cells_source_release_and_alias_credits_are_required) ... ok\ntest_materialized_complete_result_and_repeated_action_pass (test_shared_followthrough_packet.FollowthroughTests.test_materialized_complete_result_and_repeated_action_pass) ... ok\ntest_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) ... \n  test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='changed_complete_value') ... FAIL\n  test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='missing_complete_row') ... FAIL\n  test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='changed_schema') ... FAIL\ntest_materialized_fixture_grid_cannot_be_narrowed (test_shared_followthrough_packet.FollowthroughTests.test_materialized_fixture_grid_cannot_be_narrowed) ... ok\ntest_missing_duplicate_or_reordered_join_measurements_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_missing_duplicate_or_reordered_join_measurements_are_rejected) ... ok\ntest_protocols_cannot_be_removed_as_external_payloads (test_shared_followthrough_packet.FollowthroughTests.test_protocols_cannot_be_removed_as_external_payloads) ... ok\ntest_reporting_exception_requires_exact_path_and_unchanged_execution (test_shared_followthrough_packet.FollowthroughTests.test_reporting_exception_requires_exact_path_and_unchanged_execution) ... ok\ntest_required_gates_must_match_measured_source (test_shared_followthrough_packet.FollowthroughTests.test_required_gates_must_match_measured_source) ... ok\n\n======================================================================\nFAIL: test_changed_materialization_reference_cannot_hide_value_corruption (test_shared_followthrough_packet.FollowthroughTests.test_changed_materialization_reference_cannot_hide_value_corruption)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_shared_followthrough_packet.py\", line 118, in test_changed_materialization_reference_cannot_hide_value_corruption\n    validate_result(value, job, reference)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/shared_followthrough_materialized_replay.py\", line 31, in validate_result\n    compare(expected, result_from_record(reference_record['reference']), workload.contract(case))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/semantics.py\", line 336, in compare\n    raise ResultMismatch(f\"ordered row {index} differs: expected {a!r}, got {b!r}\")\nquery_surface.semantics.ResultMismatch: ordered row 0 differs: expected (0, 'region_0', 4, 565.0, 179.0), got (0, 'region_0', 5, 565.0, 179.0)\n\n======================================================================\nFAIL: test_failed_public_attempt_retains_complete_values_without_acceptance (test_shared_followthrough_packet.FollowthroughTests.test_failed_public_attempt_retains_complete_values_without_acceptance)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_shared_followthrough_packet.py\", line 143, in test_failed_public_attempt_retains_complete_values_without_acceptance\n    failed_public_values(value)\n    ~~~~~~~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/shared_followthrough_replay.py\", line 130, in failed_public_values\n    compare(result_from_record(item['expected']), result_from_record(item['actual']), contract(item['contract']))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/semantics.py\", line 336, in compare\n    raise ResultMismatch(f\"ordered row {index} differs: expected {a!r}, got {b!r}\")\nquery_surface.semantics.ResultMismatch: ordered row 0 differs: expected (276, -984, 'category-3', None, (6, 'label-6')), got (277, -984, 'category-3', None, (6, 'label-6'))\n\n======================================================================\nFAIL: test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='changed_complete_value')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_shared_followthrough_packet.py\", line 103, in test_materialized_eleven_corruptions_are_rejected\n    validate_result(value, job, reference)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/shared_followthrough_materialized_replay.py\", line 42, in validate_result\n    compare(expected, result_from_record(observed['actual']), workload.contract(case))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/semantics.py\", line 336, in compare\n    raise ResultMismatch(f\"ordered row {index} differs: expected {a!r}, got {b!r}\")\nquery_surface.semantics.ResultMismatch: ordered row 0 differs: expected (0, 'region_0', 4, 565.0, 179.0), got (0, 'region_0', 999999, 565.0, 179.0)\n\n======================================================================\nFAIL: test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='missing_complete_row')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_shared_followthrough_packet.py\", line 103, in test_materialized_eleven_corruptions_are_rejected\n    validate_result(value, job, reference)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/shared_followthrough_materialized_replay.py\", line 42, in validate_result\n    compare(expected, result_from_record(observed['actual']), workload.contract(case))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/semantics.py\", line 313, in compare\n    raise ResultMismatch(f\"row count differs: expected {len(expected.rows)}, got {len(actual.rows)}\")\nquery_surface.semantics.ResultMismatch: row count differs: expected 14, got 13\n\n======================================================================\nFAIL: test_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) (name='changed_schema')\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/test_shared_followthrough_packet.py\", line 103, in test_materialized_eleven_corruptions_are_rejected\n    validate_result(value, job, reference)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/scripts/shared_followthrough_materialized_replay.py\", line 42, in validate_result\n    compare(expected, result_from_record(observed['actual']), workload.contract(case))\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/semantics.py\", line 311, in compare\n    raise ResultMismatch(f\"schema differs: expected {contract.schema!r}, got {actual.schema!r}\")\nquery_surface.semantics.ResultMismatch: schema differs: expected (('consumer', ResultType(name='int64', nullable=False, parameters=())), ('bucket', ResultType(name='utf8', nullable=True, parameters=())), ('count', ResultType(name='uint64', nullable=False, parameters=())), ('total', ResultType(name='float64', nullable=True, parameters=())), ('chars', ResultType(name='float64', nullable=True, parameters=()))), got (('consumer', ResultType(name='int64', nullable=True, parameters=())), ('bucket', ResultType(name='utf8', nullable=True, parameters=())), ('count', ResultType(name='uint64', nullable=False, parameters=())), ('total', ResultType(name='float64', nullable=True, parameters=())), ('chars', ResultType(name='float64', nullable=True, parameters=())))\n\n----------------------------------------------------------------------\nRan 16 tests in 2.131s\n\nFAILED (failures=5)\n",
+      "log_identity": {
+        "bytes": 11261,
+        "sha256": "67ddc55a62ce388db5b8a31fb51ad547e542732ab393ec0ab72b88e833d06bb7"
+      },
+      "name": "p215-followthrough-corruption-controls.json",
+      "receipt": {
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "bytes": 64332,
+            "sha256": "e70af8b9519b0a445751cfd9b8e9432c8332c0e77813fb7b5e71bec032348b55"
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 75048,
+            "sha256": "4e07f609f2bf2141f4b97a6836da6b86286039e236b42c88e75187d7358f86a7"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177584,
+            "sha256": "4400e4ce916044a5448a726cd4318029db819e78c09eb61b09e9d6d0e1d7bf0a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/manifest.json": {
+            "bytes": 4643672,
+            "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/manifest.json": {
+            "bytes": 454,
+            "sha256": "83a704a2e4836640b055445c262636cb9bdcf77b2307f5704a940aa73a2ceedc"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/packet.tar.xz": {
+            "bytes": 31721896,
+            "sha256": "3e5c1cca777f4fb12e8d492664a6c387a09abf33a1b44abb6d79768ef177bc71"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/manifest.json": {
+            "bytes": 454,
+            "sha256": "a0c407b2a95404ed70dd34e8856246d10fff609448c6e472e2d5a522aa9f7b2a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/packet.tar.xz": {
+            "bytes": 2190252,
+            "sha256": "15f3a8618b916b01eb50279b3d9bef5db8f1ed1658a83958cbc171c98299040e"
+          },
+          "scripts/shared_followthrough_anchors.json": {
+            "bytes": 39291,
+            "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11467,
+            "sha256": "d4493c7d8bcbc5615819deaac27ca4fcc49b91a908a5de441e3fb8f83d3ec08e"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_shared_followthrough_packet.py",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "67ddc55a62ce388db5b8a31fb51ad547e542732ab393ec0ab72b88e833d06bb7",
+        "output_bytes": 11261,
+        "output_limit_bytes": 8388608,
+        "pid": 12178,
+        "process_group_drained": true,
+        "returncode": 1,
+        "seconds": 2.256062583066523,
+        "status": "failed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74469261312,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74469261312,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2509447406
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/\n?? scripts/shared_followthrough_anchors.json\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 5597,
+        "sha256": "e43a7646c441cccb0a36c4a3d2804483b7060c046cb51a76c3c940b22c19df43"
+      }
+    },
+    {
+      "log": "test_changed_join_values_cannot_be_repaired_by_changing_saved_expected_and_digest (test_shared_followthrough_packet.FollowthroughTests.test_changed_join_values_cannot_be_repaired_by_changing_saved_expected_and_digest) ... ok\ntest_changed_materialization_reference_cannot_hide_value_corruption (test_shared_followthrough_packet.FollowthroughTests.test_changed_materialization_reference_cannot_hide_value_corruption) ... ok\ntest_complete_join_grid_rebuilds_from_independent_formulas (test_shared_followthrough_packet.FollowthroughTests.test_complete_join_grid_rebuilds_from_independent_formulas) ... ok\ntest_failed_attempts_cannot_be_dropped_from_anchors (test_shared_followthrough_packet.FollowthroughTests.test_failed_attempts_cannot_be_dropped_from_anchors) ... ok\ntest_failed_public_attempt_retains_complete_values_without_acceptance (test_shared_followthrough_packet.FollowthroughTests.test_failed_public_attempt_retains_complete_values_without_acceptance) ... ok\ntest_fixture_only_correction_cannot_exempt_an_engine_change (test_shared_followthrough_packet.FollowthroughTests.test_fixture_only_correction_cannot_exempt_an_engine_change) ... ok\ntest_historical_predicate_and_ordering_clocks_remain_bound_to_raw_outputs (test_shared_followthrough_packet.FollowthroughTests.test_historical_predicate_and_ordering_clocks_remain_bound_to_raw_outputs) ... ok\ntest_installed_package_requires_exact_runtime_and_test_count (test_shared_followthrough_packet.FollowthroughTests.test_installed_package_requires_exact_runtime_and_test_count) ... ok\ntest_join_multiplicity_cells_source_release_and_alias_credits_are_required (test_shared_followthrough_packet.FollowthroughTests.test_join_multiplicity_cells_source_release_and_alias_credits_are_required) ... ok\ntest_materialized_complete_result_and_repeated_action_pass (test_shared_followthrough_packet.FollowthroughTests.test_materialized_complete_result_and_repeated_action_pass) ... ok\ntest_materialized_eleven_corruptions_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_materialized_eleven_corruptions_are_rejected) ... ok\ntest_materialized_fixture_grid_cannot_be_narrowed (test_shared_followthrough_packet.FollowthroughTests.test_materialized_fixture_grid_cannot_be_narrowed) ... ok\ntest_missing_duplicate_or_reordered_join_measurements_are_rejected (test_shared_followthrough_packet.FollowthroughTests.test_missing_duplicate_or_reordered_join_measurements_are_rejected) ... ok\ntest_protocols_cannot_be_removed_as_external_payloads (test_shared_followthrough_packet.FollowthroughTests.test_protocols_cannot_be_removed_as_external_payloads) ... ok\ntest_reporting_exception_requires_exact_path_and_unchanged_execution (test_shared_followthrough_packet.FollowthroughTests.test_reporting_exception_requires_exact_path_and_unchanged_execution) ... ok\ntest_required_gates_must_match_measured_source (test_shared_followthrough_packet.FollowthroughTests.test_required_gates_must_match_measured_source) ... ok\n\n----------------------------------------------------------------------\nRan 16 tests in 2.105s\n\nOK\n",
+      "log_identity": {
+        "bytes": 3069,
+        "sha256": "7fc88feb11918eb65d47b75a929557c3cc645b028922b27f961d26f72a9b0373"
+      },
+      "name": "p216-followthrough-corruption-controls.json",
+      "receipt": {
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "bytes": 64332,
+            "sha256": "e70af8b9519b0a445751cfd9b8e9432c8332c0e77813fb7b5e71bec032348b55"
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 75048,
+            "sha256": "4e07f609f2bf2141f4b97a6836da6b86286039e236b42c88e75187d7358f86a7"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177584,
+            "sha256": "4400e4ce916044a5448a726cd4318029db819e78c09eb61b09e9d6d0e1d7bf0a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/manifest.json": {
+            "bytes": 4643672,
+            "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/manifest.json": {
+            "bytes": 454,
+            "sha256": "83a704a2e4836640b055445c262636cb9bdcf77b2307f5704a940aa73a2ceedc"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/packet.tar.xz": {
+            "bytes": 31721896,
+            "sha256": "3e5c1cca777f4fb12e8d492664a6c387a09abf33a1b44abb6d79768ef177bc71"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/manifest.json": {
+            "bytes": 454,
+            "sha256": "a0c407b2a95404ed70dd34e8856246d10fff609448c6e472e2d5a522aa9f7b2a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/packet.tar.xz": {
+            "bytes": 2190252,
+            "sha256": "15f3a8618b916b01eb50279b3d9bef5db8f1ed1658a83958cbc171c98299040e"
+          },
+          "scripts/shared_followthrough_anchors.json": {
+            "bytes": 39291,
+            "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11572,
+            "sha256": "f5c86f3260815ddb7dc9303dee8cf3925e5a518b8c7c34cecd373dcc92dcb3d5"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_shared_followthrough_packet.py",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "7fc88feb11918eb65d47b75a929557c3cc645b028922b27f961d26f72a9b0373",
+        "output_bytes": 3069,
+        "output_limit_bytes": 8388608,
+        "pid": 12216,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 2.2356919997837394,
+        "status": "passed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74468118528,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74468184064,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2509480174
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/\n?? scripts/shared_followthrough_anchors.json\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 5597,
+        "sha256": "5b94f08cb5aeb813d87238846ab522baf158841a7f07fd6d15bf6285273e0bf3"
+      }
+    },
+    {
+      "log": "{\n  \"archived_code_executed\": false,\n  \"cohorts\": {\n    \"broad-bounded-ordering-r1\": {\n      \"baseline_engine_seconds\": 13.132505915,\n      \"case_flags\": [\n        \"aggregate_optional_value_category_sum_arithmetic_one_percent\",\n        \"aggregate_metric_category_sum_coalesce_one_percent\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 12.055132613,\n      \"family_flags\": []\n    },\n    \"broad-mixed-aggregate-r1\": {\n      \"baseline_engine_seconds\": 13.368176384,\n      \"case_flags\": [],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.132505915,\n      \"family_flags\": []\n    }\n  },\n  \"diagnostics\": {\n    \"global_aggregation_losses\": [\n      \"global_count_distinct\"\n    ],\n    \"ordering_cases\": 10,\n    \"predicate_cases\": 91,\n    \"predicate_losses\": [\n      \"predicate_ne\",\n      \"predicate_lt\",\n      \"predicate_le\",\n      \"predicate_or\",\n      \"predicate_not\"\n    ],\n    \"scope\": \"historical mixed-format API-clock attribution; no engine-clock comparator claim\"\n  },\n  \"full43_executed\": false,\n  \"historical_failures\": [\n    \"p135-packet-collection.json\",\n    \"p137-packet-semantic-collection.json\",\n    \"p139-packet-build.json\",\n    \"p141-packet-replay.json\",\n    \"p149-generated-retirement-plan.json\",\n    \"p151-generated-retirement-plan.json\",\n    \"p154-mixed-aggregate-initial.json\",\n    \"p157-mixed-aggregate-native-clippy.json\",\n    \"p159-mixed-aggregate-final-focused.json\",\n    \"p176-materialized-evidence-controls.json\",\n    \"p181-bounded-ordering-focused.json\",\n    \"p192-bounded-ordering-public.json\",\n    \"p202-join-movement-focused.json\",\n    \"p204-join-movement-native-clippy.json\",\n    \"p212-followthrough-semantic-collection.json\"\n  ],\n  \"installed_packages\": {\n    \"installed-bounded-ordering-r1\": {\n      \"errors\": 0,\n      \"failures\": 0,\n      \"skipped\": 0,\n      \"status\": \"passed\",\n      \"tests\": 266\n    },\n    \"installed-mixed-aggregate-r1\": {\n      \"errors\": 0,\n      \"failures\": 0,\n      \"skipped\": 0,\n      \"status\": \"passed\",\n      \"tests\": 265\n    }\n  },\n  \"join_measurement_cases\": 16,\n  \"limitations\": [\n    \"Single observations; no statistical confidence or new competitor comparisons.\",\n    \"Source/runtime/wheel payload identities are retained; no regeneration or execution occurs.\",\n    \"Materialization and join diagnostics remain separate from the unchanged 347-query decisions.\",\n    \"Full43 remains held until item18 universal I/O acceptance; prior Full43 evidence is unchanged.\",\n    \"Content hashes prove internal consistency, not signed provenance.\"\n  ],\n  \"materialized_reuse\": {\n    \"materialized-reuse-r1\": {\n      \"complete_pairs\": 10,\n      \"executions\": 20,\n      \"pairs\": {\n        \"empty_input\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.00053175,\n            \"rows\": 0\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.000598584,\n            \"rows\": 0\n          }\n        },\n        \"few_rows\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.408817125,\n            \"rows\": 5\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.564027791,\n            \"rows\": 5\n          }\n        },\n        \"four_consumers\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.35989975,\n            \"rows\": 56\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.886935958,\n            \"rows\": 56\n          }\n        },\n        \"one_consumer\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.267454292,\n            \"rows\": 14\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.221131125,\n            \"rows\": 14\n          }\n        },\n        \"selective_consumers\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.285976542,\n            \"rows\": 28\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.45055675,\n            \"rows\": 28\n          }\n        },\n        \"spill_one_consumer\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 30.473930917,\n            \"rows\": 14\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 21.797380584,\n            \"rows\": 14\n          }\n        },\n        \"spill_two_consumers\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 31.741972459,\n            \"rows\": 28\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 42.839845792,\n            \"rows\": 28\n          }\n        },\n        \"two_consumers\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.292711292,\n            \"rows\": 28\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.455742042,\n            \"rows\": 28\n          }\n        },\n        \"wide_complete_result\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.065731,\n            \"rows\": 5969\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.087129709,\n            \"rows\": 5969\n          }\n        },\n        \"zero_rows\": {\n          \"materialized\": {\n            \"engine_execution_seconds\": 0.343137417,\n            \"rows\": 0\n          },\n          \"ordinary\": {\n            \"engine_execution_seconds\": 0.517690375,\n            \"rows\": 0\n          }\n        }\n      },\n      \"scope\": \"separate mechanism observations; no overall engine gain decision\"\n    },\n    \"materialized-reuse-semantics-r1/attempt-r1\": {\n      \"complete_actions\": 66,\n      \"jobs\": 60,\n      \"performance_claim\": false,\n      \"rejection_controls\": [\n        \"changed_complete_value\",\n        \"missing_complete_row\",\n        \"changed_schema\",\n        \"changed_engine_clock\",\n        \"hidden_external_execution\",\n        \"false_reuse\",\n        \"changed_role\",\n        \"changed_statement\",\n        \"unproved_cleanup\",\n        \"zero_output_skips_capture\",\n        \"missing_second_action\"\n      ]\n    }\n  },\n  \"new_query_executions\": 0,\n  \"production_join_tests\": 10,\n  \"public_reports\": {\n    \"bounded-ordering-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 318,\n      \"status\": \"failed\"\n    },\n    \"bounded-ordering-public-r2.json\": {\n      \"accepted_executions\": 360,\n      \"complete_rows\": 45195,\n      \"status\": \"passed\"\n    },\n    \"mixed-aggregate-public-r1.json\": {\n      \"accepted_executions\": 360,\n      \"complete_rows\": 106875,\n      \"status\": \"passed\"\n    }\n  },\n  \"retained_process_receipts\": 79,\n  \"runtime_files\": {\n    \"_native.abi3.so\": {\n      \"bytes\": 80963360,\n      \"sha256\": \"e8fc91b55344d4c5d6969f19c1bc193ec254f47f7909a4a047ca9c4a02d21f05\"\n    },\n    \"shardloom\": {\n      \"bytes\": 80609344,\n      \"sha256\": \"fc445024a44cfa6a899d8557dd491815931b464fbef7a52c91091d977c76730a\"\n    }\n  },\n  \"schema_version\": \"shardloom.shared_performance_followthrough_acceptance.v1\",\n  \"status\": \"passed\",\n  \"workspace_tests\": {\n    \"p162-mixed-aggregate-native-workspace.json\": {\n      \"binaries\": 119,\n      \"failed\": 0,\n      \"ignored\": 35,\n      \"passed\": 6551\n    },\n    \"p164-mixed-aggregate-default-workspace.json\": {\n      \"binaries\": 107,\n      \"failed\": 0,\n      \"ignored\": 0,\n      \"passed\": 3289\n    },\n    \"p186-bounded-ordering-native-workspace.json\": {\n      \"binaries\": 119,\n      \"failed\": 0,\n      \"ignored\": 35,\n      \"passed\": 6558\n    },\n    \"p188-bounded-ordering-default-workspace.json\": {\n      \"binaries\": 107,\n      \"failed\": 0,\n      \"ignored\": 0,\n      \"passed\": 3289\n    }\n  }\n}\n",
+      "log_identity": {
+        "bytes": 7553,
+        "sha256": "354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8"
+      },
+      "name": "p217-followthrough-portable-replay.json",
+      "receipt": {
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "bytes": 64332,
+            "sha256": "e70af8b9519b0a445751cfd9b8e9432c8332c0e77813fb7b5e71bec032348b55"
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 75048,
+            "sha256": "4e07f609f2bf2141f4b97a6836da6b86286039e236b42c88e75187d7358f86a7"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177584,
+            "sha256": "4400e4ce916044a5448a726cd4318029db819e78c09eb61b09e9d6d0e1d7bf0a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/manifest.json": {
+            "bytes": 4643672,
+            "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/manifest.json": {
+            "bytes": 454,
+            "sha256": "83a704a2e4836640b055445c262636cb9bdcf77b2307f5704a940aa73a2ceedc"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/packet.tar.xz": {
+            "bytes": 31721896,
+            "sha256": "3e5c1cca777f4fb12e8d492664a6c387a09abf33a1b44abb6d79768ef177bc71"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/manifest.json": {
+            "bytes": 454,
+            "sha256": "a0c407b2a95404ed70dd34e8856246d10fff609448c6e472e2d5a522aa9f7b2a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/packet.tar.xz": {
+            "bytes": 2190252,
+            "sha256": "15f3a8618b916b01eb50279b3d9bef5db8f1ed1658a83958cbc171c98299040e"
+          },
+          "scripts/shared_followthrough_anchors.json": {
+            "bytes": 39291,
+            "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11572,
+            "sha256": "f5c86f3260815ddb7dc9303dee8cf3925e5a518b8c7c34cecd373dcc92dcb3d5"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/verify_shared_followthrough_packet.py",
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8",
+        "output_bytes": 7553,
+        "output_limit_bytes": 8388608,
+        "pid": 12264,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 6.366998041048646,
+        "status": "passed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74466234368,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74466004992,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2509492462
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/\n?? scripts/shared_followthrough_anchors.json\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 5590,
+        "sha256": "14bab0724941dfb7448846d1f05ef938563f87000591f3f5c47b433e17672744"
+      }
+    },
+    {
+      "log": "................\n----------------------------------------------------------------------\nRan 16 tests in 2.119s\n\nOK\n{\"status\": \"passed\", \"copied_files\": 320, \"corruption_tests\": 16, \"acceptance_sha256\": \"354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8\", \"original_source_and_data_access_forbidden\": true, \"engine_imports_forbidden\": true, \"subprocess_and_network_forbidden\": true, \"new_query_executions\": 0}\n",
+      "log_identity": {
+        "bytes": 424,
+        "sha256": "52298ef6ff2e0bdab6264b9e9d7ab620219f467aa6bc80ce843ad3a64625cd94"
+      },
+      "name": "p218-followthrough-source-only-replay.json",
+      "receipt": {
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "bytes": 64332,
+            "sha256": "e70af8b9519b0a445751cfd9b8e9432c8332c0e77813fb7b5e71bec032348b55"
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 75048,
+            "sha256": "4e07f609f2bf2141f4b97a6836da6b86286039e236b42c88e75187d7358f86a7"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177584,
+            "sha256": "4400e4ce916044a5448a726cd4318029db819e78c09eb61b09e9d6d0e1d7bf0a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json": {
+            "bytes": 7553,
+            "sha256": "354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/manifest.json": {
+            "bytes": 4643672,
+            "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/manifest.json": {
+            "bytes": 454,
+            "sha256": "83a704a2e4836640b055445c262636cb9bdcf77b2307f5704a940aa73a2ceedc"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/packet.tar.xz": {
+            "bytes": 31721896,
+            "sha256": "3e5c1cca777f4fb12e8d492664a6c387a09abf33a1b44abb6d79768ef177bc71"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/manifest.json": {
+            "bytes": 454,
+            "sha256": "a0c407b2a95404ed70dd34e8856246d10fff609448c6e472e2d5a522aa9f7b2a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/packet.tar.xz": {
+            "bytes": 2190252,
+            "sha256": "15f3a8618b916b01eb50279b3d9bef5db8f1ed1658a83958cbc171c98299040e"
+          },
+          "scripts/shared_followthrough_anchors.json": {
+            "bytes": 39291,
+            "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11572,
+            "sha256": "f5c86f3260815ddb7dc9303dee8cf3925e5a518b8c7c34cecd373dcc92dcb3d5"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/prove_followthrough_source_only.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "52298ef6ff2e0bdab6264b9e9d7ab620219f467aa6bc80ce843ad3a64625cd94",
+        "output_bytes": 424,
+        "output_limit_bytes": 8388608,
+        "pid": 12345,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 8.867806124966592,
+        "status": "passed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74462990336,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74463006720,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2509525230
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/\n?? scripts/shared_followthrough_anchors.json\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 5776,
+        "sha256": "4293ebd2f71b411f657e2076d73ea197d895e7d8b618d14291ee57f6c774d99f"
+      }
+    },
+    {
+      "log": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/ci-gate-matrix-report.json\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/public-status-docs-report.json\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/public-claim-language-report.json\n/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo/target/v1-docs-productization-report.json\n",
+      "log_identity": {
+        "bytes": 451,
+        "sha256": "6efcb438eb28bb308a5a697de9fd39e166d15884ea070ce1e47af2c2f737b178"
+      },
+      "name": "p219-followthrough-docs-ci.json",
+      "receipt": {
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "bytes": 64332,
+            "sha256": "e70af8b9519b0a445751cfd9b8e9432c8332c0e77813fb7b5e71bec032348b55"
+          },
+          "docs/architecture/native-analytical-completion-2026-10-27.md": {
+            "bytes": 116451,
+            "sha256": "44bf707d23a0e5811ef69ef334536716b9cdfa682eaf4c4e555690299cf09481"
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "bytes": 77723,
+            "sha256": "2a0d83a8c7ec48792c1b7449f6c601484e4972ab19379ddec3c1535804a7b672"
+          },
+          "docs/architecture/phased-execution-plan.md": {
+            "bytes": 177841,
+            "sha256": "4d26d5474cd42036a447c5caa625e1061370095595124912d0c64479b3362853"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json": {
+            "bytes": 7553,
+            "sha256": "354736a18425d7c0b93b8672c9cb8732d50ca2006b1a6a0eebf451d053cf30b8"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/manifest.json": {
+            "bytes": 4643672,
+            "sha256": "0a5390883939e53cb518d1d6208806c8feca108ad5258f4afa27ac1c46f58d53"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/manifest.json": {
+            "bytes": 454,
+            "sha256": "83a704a2e4836640b055445c262636cb9bdcf77b2307f5704a940aa73a2ceedc"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-000/packet.tar.xz": {
+            "bytes": 31721896,
+            "sha256": "3e5c1cca777f4fb12e8d492664a6c387a09abf33a1b44abb6d79768ef177bc71"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/manifest.json": {
+            "bytes": 454,
+            "sha256": "a0c407b2a95404ed70dd34e8856246d10fff609448c6e472e2d5a522aa9f7b2a"
+          },
+          "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/part-001/packet.tar.xz": {
+            "bytes": 2190252,
+            "sha256": "15f3a8618b916b01eb50279b3d9bef5db8f1ed1658a83958cbc171c98299040e"
+          },
+          "scripts/shared_followthrough_anchors.json": {
+            "bytes": 39291,
+            "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+          },
+          "scripts/shared_followthrough_join_replay.py": {
+            "bytes": 5435,
+            "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+          },
+          "scripts/shared_followthrough_materialized_replay.py": {
+            "bytes": 12484,
+            "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+          },
+          "scripts/shared_followthrough_materialized_workload.py": {
+            "bytes": 8057,
+            "sha256": "22dce01c8ce6a4931f8b70746c7c9d116d8713d4157560510f200e1b00516c60"
+          },
+          "scripts/shared_followthrough_replay.py": {
+            "bytes": 23306,
+            "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+          },
+          "scripts/test_shared_followthrough_packet.py": {
+            "bytes": 11572,
+            "sha256": "f5c86f3260815ddb7dc9303dee8cf3925e5a518b8c7c34cecd373dcc92dcb3d5"
+          },
+          "scripts/verify_shared_followthrough_packet.py": {
+            "bytes": 1208,
+            "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+            "bytes": 20241,
+            "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+          },
+          "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+            "bytes": 14525,
+            "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+          }
+        },
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-c",
+          "import subprocess,sys; commands=[\"check_ci_gate_matrix.py\",\"check_public_status_docs.py\",\"check_public_claim_language.py\",\"check_v1_docs_productization.py\"]; [subprocess.run([sys.executable,\"-B\",\"scripts/\"+name],check=True) for name in commands]"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "direct_child_reaped": true,
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "head": "d7f9836c539e66b985d92ee9b5f9cc484eac16c9",
+        "interrupted_signal": null,
+        "log_sha256": "6efcb438eb28bb308a5a697de9fd39e166d15884ea070ce1e47af2c2f737b178",
+        "output_bytes": 451,
+        "output_limit_bytes": 8388608,
+        "pid": 12390,
+        "process_group_drained": true,
+        "returncode": 0,
+        "seconds": 0.4550190831068903,
+        "status": "passed",
+        "storage_last_observation": {
+          "cargo": {
+            "free_bytes": 74417557504,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 50860449792
+          },
+          "output": {
+            "free_bytes": 74417582080,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0,
+            "workspace_bytes": 2555261166
+          }
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timed_out": false,
+        "timeout_seconds": 2400,
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-analytical-completion-2026-10-27.md\n M docs/architecture/native-shared-performance-2026-10-29.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitives/native_relational_join_tests.rs\n?? docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/\n?? scripts/shared_followthrough_anchors.json\n?? scripts/shared_followthrough_join_replay.py\n?? scripts/shared_followthrough_materialized_replay.py\n?? scripts/shared_followthrough_materialized_workload.py\n?? scripts/shared_followthrough_replay.py\n?? scripts/test_shared_followthrough_packet.py\n?? scripts/verify_shared_followthrough_packet.py\n?? shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs\n"
+      },
+      "receipt_identity": {
+        "bytes": 6189,
+        "sha256": "3fa3844ac42ded0d26edc6c8a90b739bb0bc5899bb1f53347f969329a56b0792"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source_files": {
+    "scripts/shared_followthrough_anchors.json": {
+      "bytes": 39291,
+      "sha256": "e1a86d394254c28fa48ee2c8f8711cd5be42fb47cddded9a1514674e7bbe2a37"
+    },
+    "scripts/shared_followthrough_join_replay.py": {
+      "bytes": 5435,
+      "sha256": "949dfdf089774819a3186c024ac8da23f00c84e10cc7a717c33029c2fa10dae1"
+    },
+    "scripts/shared_followthrough_materialized_replay.py": {
+      "bytes": 12484,
+      "sha256": "fbeae9304bea613c54cc2a017228ebb553c44e2ddd2d1aa72b283d51bc092b52"
+    },
+    "scripts/shared_followthrough_materialized_workload.py": {
+      "bytes": 8056,
+      "sha256": "9eaac5c869f71f1cba34a5032d6babd8552a2444cb3f1e8f6c30202ee15b9b75"
+    },
+    "scripts/shared_followthrough_replay.py": {
+      "bytes": 23306,
+      "sha256": "cffc94c73a178f5cb3f85218f065c1b2df9431d004ca3ea1536229ec345c7959"
+    },
+    "scripts/test_shared_followthrough_packet.py": {
+      "bytes": 11572,
+      "sha256": "f5c86f3260815ddb7dc9303dee8cf3925e5a518b8c7c34cecd373dcc92dcb3d5"
+    },
+    "scripts/verify_shared_followthrough_packet.py": {
+      "bytes": 1208,
+      "sha256": "3c739137caee443657bce7fcc6ee2bb8491b12aa00e0dba872a980fc680e7d51"
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_join_movement_tests.rs": {
+      "bytes": 20241,
+      "sha256": "226827e013250ad096f9a5b2e3c5eba2c3d91214e2a766e6cf427e09a57e0b46"
+    },
+    "shardloom-vortex/src/local_primitives/native_relational_join_tests.rs": {
+      "bytes": 14525,
+      "sha256": "7be1bac20bb998ed1a2a61ad08f07ddd6521ee6bc85088b01e7f7524419a5c9c"
+    }
+  },
+  "source_only_copy_identity_verified": true,
+  "status": "passed",
+  "subprocess_and_network_forbidden": true
+}

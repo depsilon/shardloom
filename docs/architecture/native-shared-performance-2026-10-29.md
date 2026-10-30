@@ -1048,3 +1048,120 @@ attempts r1/r2 and receipts p181–p200 under the task's existing nonsynced evid
 root. Portable packaging and hosted integration remain due. The outstanding
 multiway/composed stage-copy measurement remains a separate follow-through;
 this result does not close it or admit a selected-row handoff.
+
+## Follow-through measurement: successive join output buffers
+
+Before execution, admit a test-only measurement through the existing native
+`Join::build`/`consume` callbacks and `Aggregate` owner. Use fresh deterministic
+entity-first and product-first star compositions, an active-entity/report
+join/group prefix, and a wide outer-join composition. Include duplicate, absent
+and NULL keys, NULL measures, Unicode payloads, empty inputs, one-row output
+batches, many small batches and an 8,191-row population. Independently enumerate
+join multiplicity and complete grouped results; no external engine is used.
+
+At each existing join callback, record rows, batches, cells and the delivered
+array's native buffer bytes. Vortex-first decision: `wrap_vortex_concept` for
+test evidence around Vortex 0.90 `ArrayRef::nbytes` and existing ShardLoom owned
+output. That method sums visible buffer lengths through native children. These
+measurements cover constructed output payload, offsets and validity; they do
+not claim total memory traffic, allocator capacity, provider intermediates,
+I/O attribution or timings of the original 347 cases. Do not add a production
+counter, global stage map, new execution owner or selected representation.
+
+Use the existing finite-batch source's real release witness before accepting
+the next producer batch. Build-side detachment uses the ordinary native copy
+boundary. Retain small intermediate/final output slices after producer and
+session closure, verify their complete values and final credit release, and
+exercise cancellation, consumer failure and memory refusal. Existing complete
+public star/composed results and streamed composition/spill tests remain the
+production-plan controls. This diagnostic does not change runtime behavior or
+authorize another timed 347 pass. Any subsequent handoff optimization still
+requires its own prospective ownership/error contract and complete-cohort gate.
+
+### Successive join measurement and handoff evaluation
+
+All 16 declared compositions pass complete independent result and multiplicity
+checks. A second, maintained standard-library replay regenerates those results
+from the declared fixture formulas. At 8,191 fact rows and a 1,024-row output
+batch limit, the observed visible output buffers are:
+
+| Composition | First join rows / bytes | Second join rows / bytes | Aggregate rows / bytes |
+| --- | ---: | ---: | ---: |
+| Entity-first inner star | 7,910 / 192,819 | 7,235 / 176,364 | 54 / 1,749 |
+| Product-first inner star | 7,482 / 182,382 | 7,235 / 176,364 | 54 / 1,749 |
+| Active-entity report prefix | 5,196 / 84,442 | — | 9 / 220 |
+| Wide outer star | 8,769 / 1,182,545 | 9,489 / 1,279,756 | 7,888 / 1,157,766 |
+
+These are constructed buffers in fresh mechanism fixtures, not copy-volume or
+phase-time attribution for the frozen 347 queries. The complete record also
+preserves empty, one-row-batch and small-batch observations. Real producer
+leases are released before each next input; intermediate and final slices remain
+valid after session closure, and the last aliases release their credits. Both
+join-stage consumer failures and cancellation, memory refusal and five fresh
+successful actions pass. Ten existing production join tests also pass, including
+both streamed positions, native write/reopen, spill, late errors and recovery.
+
+The wide fixture demonstrates a copy-reduction opportunity, but a selected-row
+handoff is **not admitted** by this evidence. The existing `ArrayRef` callback
+permits downstream owners to retain output. Returning source-backed selections
+would therefore change the proven release boundary; retaining a small string
+view can pin a whole source domain. A dictionary view also changes the domain
+seen by complete-domain key preparation: unused source values can become
+validation inputs. Simply skipping `take_column` would remove selected-value
+validation before the downstream callback and can change the first error.
+
+A future candidate would need a separately specified synchronous borrowed
+consumer boundary, charged selection storage, explicit non-escape guarantees,
+and the same selected-value validation/error order before consumer execution.
+Its eventual owned output must still detach through the existing native owner.
+No such boundary, extra output compaction, runtime counter or new representation
+is introduced here; earlier rejected caching/coordinate experiments stay dropped.
+The measurement and design evaluation close this follow-through check without
+claiming a performance gain or changing the accepted 12.055132613-second baseline.
+
+Receipts p202–p210 and `join-movement-measurements.json` retain the two initial
+compile/lint failures, the uncredited zero-test filter and the final focused,
+production, strict-lint, formatting and independent-replay passes. Portable
+packaging and hosted integration remain due.
+
+## Follow-through portable acceptance — October 30
+
+The [additive packet](../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json)
+completes portable acceptance for candidate 7, bounded numeric ordering and the
+separate materialization/join follow-through. This supersedes the packaging and
+measurement obligations stated at the earlier checkpoints above. The original
+candidates 1–6 packet and its Full43 evidence remain unchanged. Hosted integration
+of this continuation remains due.
+
+Pure replay verifies both complete 347-case results, their baseline chain and
+binary gain decisions; native/default workspace coverage and source/build
+identities; 720 successful fresh public executions across five interfaces and
+three formats; and installed-package suites of 265 and 266 tests. The first
+bounded-ordering public attempt remains failed, with its 318 completed comparisons
+retained separately. Its supported fixture correction leaves both native products
+byte-identical. The original frozen harness remains bound to its exact reporting-only
+source difference.
+
+The packet preserves 79 process receipts, including 15 failed attempts, and
+complete raw results, independent references and historical source versions.
+It also replays all ten materialization pairs, 66 semantic actions, 16 join
+measurements, 91 predicate/nullable/global diagnostic comparisons and ten original
+ordering observations. Original Polars results retain their Arrow IPC format and
+API clock; missing nullability metadata uses the existing explicit comparator
+rule, and no Polars engine clock is invented. The earlier diagnostic sentence's
+clerical C4 label is corrected to candidate 7; case paths and measured values
+are unchanged, and the original text is retained.
+
+Sixteen test methods exercise 33 deliberate corruptions, including changed
+complete values, references, schemas, clocks, source identities, omitted actions,
+lost producer/output credits, false cleanup and removed failures. A separate copy
+of maintained source and the packet passes complete replay and those tests with
+original worktree/data reads, query-engine imports, subprocesses and network
+access prohibited. No archived program or new query is executed. Large source,
+runtime and wheel payloads retain identities rather than backup copies; hashes
+prove internal consistency rather than signed provenance.
+
+The retained baseline stays **12.055132613 engine seconds** for all 347 queries;
+the under-10-second objective remains unmet. Materialization and join diagnostics
+do not contribute to that total. Full43 remains held until item 18's universal
+I/O and format/interface acceptance is complete.
