@@ -143,13 +143,18 @@ candidates 2–7 are retained. Candidate 6's original unchanged 347-case observa
 is **13.274446547 engine seconds**; the combined review checkpoint then records
 **13.368176384** with its ranked-admission correction. Candidate 7 advances that
 baseline to **13.132505915 engine seconds**, with all 12,565 rows matching and no
-case/family crossing the declared diagnostic regression thresholds. The agreed
-performance follow-through below is next. The
+case/family crossing the declared diagnostic regression thresholds. The subsequent
+bounded numeric ordering experiment is retained at **12.055132613 engine seconds**,
+again with all 347 results and 12,565 rows matching. Its two flagged grouped cases
+remain recorded; no family crosses its threshold. The separate explicit
+materialization measurement completes ten pairs and 66 semantic actions. The
+multiway/composed stage-copy measurement remains open. The
 [individual contracts and observations](native-shared-performance-2026-10-29.md)
 preserve all failed attempts and diagnostic regressions. These are local
 decisions. The first six candidates' combined Full43 observation and portable/
-source-only replay are complete; PR #1626's hosted checks remain the merge gate.
-Candidate 7's portable packaging and the subsequent integration remain due.
+source-only replay are complete; PR #1626 merged at `67a83dd4` after all 57 hosted
+checks passed. Candidate 7 and follow-through portable packaging and the subsequent
+integration remain due.
 Further Full43 execution is held until item 18's I/O and format/interface
 acceptance are complete. No additional dense-index experiment is implied by
 selecting the singleton representation for candidate 5.

@@ -1,6 +1,7 @@
 # Shared analytical performance continuation — October 29, 2026
 
 Status: implementation/acceptance contracts and local dispositions for the seven candidates
+and their agreed performance follow-through
 already recorded in [item 20](native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance).
 The recursive/materialized unit is accepted and merged in PR #1625 at
 `a1ff5bb1d8698eb261bc1c0e3e9987b7da1439b5`, after all 54 hosted checks passed
@@ -868,3 +869,182 @@ with other task work idle, and retain only a lower complete engine total.
 Preserve every diagnostic regression and all failed attempts; no competitor run
 or routine repeat is authorized. Further Full43 execution is held until item 18's
 universal I/O and format/interface acceptance are complete.
+
+## Performance follow-through: retained relation measurement
+
+The candidates 1–6 checkpoint is merged in #1626 at `67a83dd4`, after all
+57 hosted checks pass. Candidate 7 remains the accepted local baseline above.
+The next work is a separate measurement of existing explicit materialization;
+it changes neither the 347-case cohort nor the runtime. Compare ordinary CTE
+consumption with `AS MATERIALIZED` over the same left join and four text
+normalizations. Freeze independently generated complete results before query
+execution. Include one, two and four consumers; selective consumers; complete
+wide results; downstream five-row and zero-row results; empty input; and an
+explicit, bounded native-spill control. Preserve NULLs, duplicate matches,
+stable ordering, complete relation validation and per-action recomputation.
+
+Use fresh deterministic fixtures and the accepted candidate-7 release library,
+one execution per declared case/role, identical public SQL terminals and resource
+settings within each pair. Keep task work idle during the observation. Use the
+existing supervisor, storage limits, process cleanup and native engine clock.
+Freeze and verify runtime/source/input/helper identities before and after the
+run; preserve every failed observation. Record complete results, source work,
+materialized rows/reuses, retained batches/copied bytes, actual spill runs and
+resource peaks. Separate time within capture, retention and replay is unavailable
+unless the existing report actually measures it; counts and paired total engine
+time must not be presented as phase timings. The original comparator observations
+remain unchanged and no competitor execution is part of this workload.
+
+This measurement decides whether a further runtime experiment is justified.
+It does not itself admit automatic materialization, a relation cache across
+actions, shorter validation, unconditional compaction or a new execution owner.
+The Vortex-first boundary remains the existing native replay recorder, credited
+Vortex arrays and native run store. Inspect `OutputBuffer` only at a concrete
+boundary with measured excess fragment/schema/index work; suitable owned batches
+must continue without an extra copy. Any new engine mechanism needs its own
+prospective contract, correctness/resource/ownership checks and one unchanged
+347-case gain/loss observation. Full43 remains held for item 18.
+
+### Retained relation observation
+
+The frozen workload completes all ten pairs (twenty executions), with exact
+complete results, unchanged runtime/input identities and no comparator execution.
+The separate small-fixture checks complete 66 actions across Parquet, Arrow IPC
+and native Vortex, including repeated actions and output survival after session
+close. Eleven offline corruption controls pass. These observations measure
+existing explicit materialization on the accepted candidate-7 runtime; they do
+not change the accepted 347-case engine total.
+
+| Workload | Ordinary engine seconds | Explicitly materialized engine seconds |
+|---|---:|---:|
+| One consumer | 0.221131125 | 0.267454292 |
+| Two consumers | 0.455742042 | 0.292711292 |
+| Four consumers | 0.886935958 | 0.359899750 |
+| Selective consumers | 0.450556750 | 0.285976542 |
+| Complete wide result | 0.087129709 | 0.065731000 |
+| Five-row downstream result | 0.564027791 | 0.408817125 |
+| Zero-row downstream result | 0.517690375 | 0.343137417 |
+| Empty input | 0.000598584 | 0.000531750 |
+| Native spill, one consumer | 21.797380584 | 30.473930917 |
+| Native spill, two consumers | 42.839845792 | 31.741972459 |
+
+The ordinary resident fixture retains 35,650 materialized rows in 131 batches
+and copies 6,531,913 payload bytes. The pressure fixture retains 35,634 rows in
+32,771 batches, copies 77,617,445 payload bytes and spills one retained relation.
+The latter demonstrates excessive fragmentation at the spill-backed join's
+per-probe delivery boundary. It does not establish a phase timing or authorize
+buffering there: delaying delivery across later join residual/read failures can
+change the first downstream expression error. Preserve that evaluation order
+and source release before considering shared `OutputBuffer` admission. Suitable
+owned batches must continue without an extra copy. No automatic materialization
+or spill-join buffering is introduced by this measurement.
+
+## Follow-through experiment: bound numeric ordering keys and locations
+
+Prospective contract, before implementation or measurement: reduce comparison
+work inside the existing bounded ordering owner. The ten frozen ordering cases
+already use the streaming prefix. Their complete source reads, key/payload
+validation and retained payload copies remain required. Candidate 1 and earlier
+probe-cache/gather-coordinate drops remain dropped.
+
+After ordinary `Sort::build` has prepared and validated every key, admit borrowed
+numeric views only when every retained nonempty batch has the same physical
+numeric type for each key. Keep original integer widths and native validity.
+Float comparisons must preserve ShardLoom's analytical NaN and signed-zero
+identity, including under the extended policy. Mixed physical domains, temporal,
+decimal, Boolean, text and nested keys retain the existing comparator. Full
+ordering also retains its current path.
+
+For a nonempty bounded prefix no larger than 16,384, retain only K charged row
+locations in the existing heap and traverse remaining rows in segment order.
+Bind numeric views once per batch/key and use the shared fallible, cancellable
+heap algorithm. Include the original ordinal as the final stable tie breaker.
+Reserve all additional metadata before use; decline optional admission when
+allocation is refused or would consume more than one sixteenth of remaining
+memory. No source-sized coordinate vector, payload copy, new source owner,
+changed evaluation domain or cross-action cache is allowed. Borrowed views and
+locations must be released before the ordinary payload gather.
+
+Vortex-first decision: `implement_shardloom_kernel` within the existing ordering
+owner, borrowing the already admitted Vortex 0.90 `PrimitiveArray`/`Mask` owners.
+The pinned provider's elementwise numeric comparisons construct array results
+and distinguish negative from positive zero; `search_sorted` assumes an already
+sorted input. Neither supplies this stable multi-key bounded relational heap
+under ShardLoom's analytical comparison policy. Reuse native arrays, accounting,
+validation, selected payload construction and certificates. No new dependency,
+decode-to-Arrow path, external engine or persistence representation is admitted;
+`fallback_attempted=false` remains mandatory.
+
+Before a performance observation, prove all integer widths/endpoints, F32/F64
+and floating policies, nullable/all-null keys, directions, multi-key stable ties,
+zero/one/oversized prefixes, offsets, empty/tiny/changing batches, encoded keys,
+declined mixed domains, late invalid input, producer/output lifetimes, optional
+memory refusal and cancellation. Retain materialized/recursive completeness
+controls and fresh independent public results across five interfaces and three
+formats. Debug evidence must show fewer actual row-location searches and numeric
+scalar comparisons; source/preparation, heap selection and copying remain
+separately identified, with no invented phase clocks.
+
+After focused, default/native workspace, strict lint and installed-package
+checks, run one unchanged isolated 347-case observation against candidate 7's
+13.132505915 engine seconds. Preserve every result and diagnostic regression.
+Lower complete total retains the mechanism; equal or higher drops it. No new
+competitor run, changed denominator, routine repeat or Full43 is authorized.
+
+### Bounded ordering disposition
+
+**Retained locally.** The single unchanged 347-case observation records
+**12.055132613 engine seconds**, against candidate 7's **13.132505915**:
+1.077373302 seconds lower, or 8.2%. All 347 complete results and 12,565 rows
+match exactly. This becomes the accepted comparison baseline for later admitted
+performance experiments. No competitor or Full43 query was executed.
+
+| Declared family | Candidate 7 engine seconds | Bounded ordering engine seconds |
+| --- | ---: | ---: |
+| Projection, 26 cases | 1.473633166 | 1.032013624 |
+| Predicates, 16 cases | 0.533928085 | 0.406708624 |
+| Numeric, four cases | 0.252609750 | 0.136239626 |
+| Strings, five cases | 0.662777709 | 0.526262291 |
+| Temporal, six cases | 0.563907124 | 0.388938958 |
+| Ordering, ten cases | 0.575772915 | 0.350839957 |
+
+The five previously identified predicate laggards all record lower engine time.
+Their source reads, decoded domain and retained-copy observations remain
+unchanged; this candidate changes their later ordering work. The separate global
+COUNT DISTINCT control records 0.103329959 seconds against 0.102843666. All 347
+cases retain identical source observations. These are single complete-query
+observations, not isolated phase clocks or statistical estimates of speedup.
+
+Two grouped-aggregation cases cross the diagnostic case threshold:
+`aggregate_optional_value_category_sum_arithmetic_one_percent` records
+0.047669458 seconds against 0.028507417, and
+`aggregate_metric_category_sum_coalesce_one_percent` records 0.050364209 against
+0.031790708. Both preserve exact results, SQL and every non-timing report field.
+They have no bounded ordering stage. No family crosses its diagnostic threshold;
+the grouped family total rises from 5.312293126 to 5.389164698 seconds. The two
+causes remain unisolated and their observations remain in the accepted evidence.
+No repeated trial was used to change the binary complete-cohort decision.
+
+Acceptance passes 14 focused sort, 18 streamed-ordering and two shared-heap tests;
+6,558 native workspace tests (35 existing opt-in tests ignored); all 3,289 default
+tests; strict lint in both configurations; and formatting. Fresh public acceptance
+covers 24 cases through five interfaces and three formats, with **360 complete
+executions and 45,195 result rows**. All **266 installed-package tests** pass
+without skips, with binary integrity and uninstall verified. Final identity
+verification covers 3,145 code/config source files, both binaries and 694 complete
+baseline/candidate output hashes.
+
+The first focused attempt's cancellation expectation and the first public
+fixture's 42 DataFrame intake errors remain preserved. The public fixture used
+mixed per-key directions/null placement that its existing DataFrame adapter
+cannot express; all 318 executions that reached the engine passed. The corrected
+fixture uses shared per-sort settings. Native mixed-direction controls remain,
+and both frozen release products are byte-identical before and after this test
+correction. The frozen 347 corpus and runtime behavior did not change.
+
+Local evidence is `broad-bounded-ordering-r1`, `bounded-ordering-analysis.json`,
+`bounded-ordering-accepted-source.json`, `bounded-ordering-release-r2`, public
+attempts r1/r2 and receipts p181–p200 under the task's existing nonsynced evidence
+root. Portable packaging and hosted integration remain due. The outstanding
+multiway/composed stage-copy measurement remains a separate follow-through;
+this result does not close it or admit a selected-row handoff.

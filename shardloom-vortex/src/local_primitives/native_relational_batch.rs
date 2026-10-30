@@ -268,6 +268,14 @@ impl Table {
         self.rows
     }
 
+    /// Borrow retained batches in source order without resolving row ordinals.
+    pub(super) fn batches(&self) -> impl ExactSizeIterator<Item = (usize, &Batch)> {
+        self.segments
+            .values
+            .iter()
+            .map(|segment| (segment.start, &segment.batch))
+    }
+
     pub(super) fn push(&mut self, batch: Batch) -> Result<std::ops::Range<usize>> {
         let start = self.rows;
         let end = start

@@ -584,7 +584,15 @@ visible and independent; this implementation does not automatically close them.
       retained locally at **13.132505915 engine seconds**, against the combined
       review baseline's **13.368176384**. All 347 complete results match; every
       case/family movement remains recorded.
-    The explicitly retained performance follow-through is next. Preserve
+    - [x] Measure existing explicit materialization against repeated consumption:
+      ten separate workload pairs and 66 semantic actions complete; ordinary and
+      materialized costs, including one-consumer and spill costs, remain separate
+      from the 347-case acceptance total.
+    - [x] Bind numeric keys and K row locations within bounded ordering: retained
+      locally at **12.055132613 engine seconds** against **13.132505915**. All 347
+      results match; two flagged grouped cases remain recorded.
+    Multiway/composed stage-copy measurement, portable packaging and hosted
+    integration remain in the performance follow-through. Preserve
     the unchanged 347-query cohort and the under-10-engine-second stretch target.
     After correctness, ownership, resources and no-fallback checks pass, retain a
     lower complete-cohort engine total and drop an unchanged or higher total.

@@ -8,6 +8,9 @@ mod tests;
 mod streaming;
 pub(super) use streaming::StreamingPrefix;
 
+#[path = "native_relational_sort_numeric.rs"]
+mod numeric;
+
 use super::{
     native_capacity::ReservedVec,
     native_payload::CopyPolicy,
@@ -121,12 +124,14 @@ impl<'a> Sort<'a> {
             counts.sort_retained_ordinals += count as u64;
         });
         if bounded.is_some() {
-            native_relational_order::select_prefix(
-                &mut ordinals.values,
-                self.table.rows(),
-                context.cancellation(),
-                |left, right| self.compare_rows(left, right),
-            )?;
+            if !numeric::try_prefix(self, &mut ordinals.values, context)? {
+                native_relational_order::select_prefix(
+                    &mut ordinals.values,
+                    self.table.rows(),
+                    context.cancellation(),
+                    |left, right| self.compare_rows(left, right),
+                )?;
+            }
         } else {
             native_relational_order::sort(
                 &mut ordinals.values,
