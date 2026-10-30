@@ -310,3 +310,164 @@ After correctness and actual transfer activation pass, freeze one unchanged
 complete-result and binary total engine-time rule. Preserve all observations,
 including low transfer eligibility or a dropped result; neither the existing
 ingest result nor this prospective contract establishes a query speedup.
+
+## Candidate 4: source ranking before deferred payload reads
+
+Disposition: **retained locally**, pending the combined integration and hosted
+checks. The unchanged 347-query cohort records **13.477651246 engine seconds**,
+against the accepted candidate-3 baseline of **14.862644046**, a reduction of
+**1.384992800 seconds (9.32%)**. All 347 complete comparisons and 12,565 result
+rows pass. This becomes the next candidate's accepted comparison baseline.
+No case or family crosses the preserved diagnostic regression thresholds; every
+individual observation, including smaller increases, remains retained.
+
+Five cases activate ranked reads. Each ranks all 123 admitted source groups and
+fetches payload from one winning group. The wide projection reads 3,513,287
+compressed bytes instead of 107,525,511, and the rich projection reads 2,796,536
+instead of 19,914,372. Rank-plus-payload byte counts equal the reported actual
+source reads in every active case, while distinct group counts retain their
+original meaning. The projection family records **1.498156292 engine seconds**
+against **2.819951626**. These are single-pass observations, without a statistical
+confidence claim or an attribution of unrelated case changes.
+
+The retained packet is `broad-ranked-demand-r1`, built from
+`ranked-demand-release-r2`; its exact 3,124 source-file identities, both runtime
+products and all 694 baseline/candidate output hashes were independently checked
+before accepting the result. `ranked-demand-analysis.json` retains every case,
+family, physical counter and input identity. Full43 remains due at the combined
+performance integration boundary. No competitor was rerun.
+
+The final source passes 58 focused source-demand tests, including 11 ranking
+tests, and 6,522 native workspace tests with 35 existing opt-in cases ignored.
+All 3,289 default workspace tests pass without skips. Required strict lint and
+formatting pass. The reduced-feature CI build passes; seven warnings remain in
+six files identical to the accepted source. An additional, stricter lint attempt
+for that reduced configuration remains recorded as failed, including an unchanged
+`Source::external` warning. New ranking code is excluded when no ranked source
+adapter is compiled, and its metadata lease remains retained in every build.
+
+Preserve the initial test-formatting and lint failures, the feature-boundary
+correction, and the incorrectly filtered invocation that ran zero tests and
+receives no verification credit. Full native/default tests and required lint
+passed again after the final feature correction. No performance conclusion
+follows from these source checks.
+
+Public acceptance passes 180 complete comparisons over 12,465 rows across all
+five interfaces and Parquet, Arrow IPC and Vortex. Seven enabling Parquet cases
+activate on every interface; narrow/all-key projections, large prefixes,
+computed/range barriers and other formats retain their expected routes. In the
+fresh shuffled wide fixture, ranking reads 95 groups and payload retrieval reads
+seven groups (43 decoded payload rows for 31 selected rows). Predicate exclusions
+preserve absolute positions, and zero demand reads ranking dependencies but no
+payload groups. All 262 isolated installed-package tests pass without failures
+or skips, with exact binary integrity and verified uninstall.
+
+The first public attempt passed 177 executions and failed three DataFrame-adapter
+intakes before execution because one fixture mixed per-key direction/null
+placement. Correct only that fresh fixture to the adapter's admitted common
+ordering; native tests retain mixed-key coverage. The second frozen runtime has
+identical binaries and exactly one changed source file, that Python test. Preserve
+both attempts and identities. No original cohort case or engine behavior changes
+for this correction.
+
+Extend the common execution-scoped source input contract with an optional ranked
+demand operation. The existing source owner retains once-only consumption,
+original-batch exclusion, memory accounting, generation validation and final
+completion. The relational consumer supplies ranking columns, a bounded output
+prefix and native ranking/selection callbacks. An adapter supplies exact source
+positions and selected-region reads; it does not compare keys or execute SQL.
+Do not open an unreported reader from the sort operator or branch on a format
+name there. Public producers and prepared Vortex/IPC sources keep their existing
+native route and complete-payload validation unless their own source capability
+is separately admitted. No Arrow conversion is introduced for native Vortex.
+
+Admit only an immediate bounded Sort with its existing prefix limit of 16,384,
+whose input resolves through direct-column projections/renames to one owned
+source scan. Repeated columns are allowed; computed projections, intervening
+ranges, observations, joins, aggregates, windows, retained/dynamic/correlated
+relations and spill are barriers. The source must have one statically declared
+use, with no replay or nested-consumption obligation. Candidate 1's dropped
+projection-over-sort rule stays dropped. Exact already-admitted scan predicates
+may participate when all their dependencies are ranking columns and the existing
+native predicate provider preserves source positions. Unadmitted residuals remain
+barriers, including filters whose fallible evaluation domain would move.
+
+For the first adapter, retain the original sorted file/group order and record
+each row group's absolute source-row base before metadata exclusions. Each decoded
+batch carries its checked contiguous source-position range. The ranking payload
+contains native ordering columns and one credited UInt64 source position; attach
+positions before residual row filtering. Reuse the existing stable
+`StreamingPrefix`, key/NULL semantics, native field projection and filter provider.
+Retain only the bounded selected positions, sorted in source order for retrieval.
+No population-sized row-location array is permitted. Source positions are private
+to this held generation and never become durable/public row identifiers.
+
+Bind both phases to the same held source descriptors and directory membership.
+The first adapter reads/decode-completes whole selected column chunks in each
+winning row group, then gathers the chosen rows through existing native providers.
+It does not claim page-level or selected-row decoding. Read groups in source
+order, independently own only selected payload before releasing a producer batch,
+and use the existing Sort on the bounded result to restore ordering and stable
+ties. Preserve the outer LIMIT and offset. Validate selected positions as strictly
+increasing, unique, within the originally admitted groups and at most the prefix.
+Account for every selected row exactly once before final result delivery.
+
+Admission requires at least one genuinely deferred physical column and a strict
+metadata byte bound: all ranking-column compressed bytes plus the largest
+`min(prefix, admitted_groups)` full-payload group byte totals must be less than
+the original full-demand compressed total. At most one distinct winning group
+can be required per selected row. This conservative bound includes repeated key
+reads during payload retrieval. A single group, all-key projection, large prefix,
+missing/invalid metadata or no provable read saving keeps the existing native
+route. It is an I/O bound, not a runtime-speed prediction. Metadata vectors,
+ranking ordinals, schemas and retained values consume existing memory credits;
+denied reservations fail without a hidden second execution or relaxed grant.
+
+The private demanded-read validation scope deliberately becomes two-phase.
+First, complete all ranking-dependency intake, filtering and ordering validation
+over every metadata-admitted group in source order. Only after that succeeds,
+validate all decoded demanded payload in every winning group, including its
+unselected rows. Payload in groups with no winner remains unread and unvalidated.
+Thus a ranking failure takes precedence over a deferred-payload failure, even
+when that payload is in an earlier group. This is an explicit source-demand
+contract, not an assertion that the previous interleaved error order is unchanged.
+A zero prefix still completes ranking validation and source-generation checks,
+then requests no payload groups. A complete-query success requires both phases
+and the ordinary post-consumer generation checks. Cancellation, consumer failure
+or changed generation releases every cursor/credit and produces no success
+certificate; a fresh execution retains the normal retry rules.
+
+Record distinct source and metadata facts once, retaining the existing distinct
+`row_groups_read` meaning. Execution read bytes, requests and decoded rows include
+both phases. Explicit rank/payload group counts are visits whose sum may exceed
+the distinct group total. Add phase counts for rank/payload rows, groups and bytes, selected
+rows and actual ranked sources, together with the precise validation/read
+granularity and admission limitations. Preserve the existing actual intake
+copy/transfer observations. Counters must demonstrate skipped compressed payload
+reads rather than infer them from a small output or elapsed time.
+
+Vortex-first decision: `implement_shardloom_kernel` for relational demand
+orchestration, reusing admitted native providers rather than creating an ordering
+or array implementation. Pinned Vortex 0.90 already supplies field/filter/take,
+credited native buffers and strict sorted source indices; the existing prepared
+Vortex selected-sort provider uses `StrictSortedBuffer` and `with_row_indices`.
+Those APIs do not own ShardLoom's once-only compatibility-source lifecycle or
+Parquet compressed-chunk selection. Preserve that existing Vortex provider and
+reuse its source-order ordinal concept at the common demand boundary. Existing
+native Sort/StreamingPrefix, source identities, reservations and certificates
+remain authoritative. No dependency or external executor is added;
+`fallback_attempted=false` throughout.
+
+Freeze fresh shuffled multi-file/multi-group fixtures before measurement. Cover
+mixed directions, nullable keys, stable ties across groups/files, hidden/renamed/
+repeated columns, offsets, empty and zero results, rich nested/decimal/temporal
+payloads and eligible predicates with metadata exclusions. Pair activation with
+all-key/single-group/large-prefix/computed/residual/replayed/spill refusals and
+prepared Vortex/public Arrow controls. Corrupt ranking dependencies, selected
+payload groups and unselected payload groups independently; verify the declared
+first-error order. Check generation changes between phases and after final
+consumption, source closure/output lifetime, memory denial, cancellation,
+consumer refusal, complete release and fresh retry. Require complete independent
+values across all five public interfaces and the three existing formats, actual
+read-byte reductions, workspace/package checks, then one unchanged 347-case pass
+under the existing binary engine-total rule. Full43 remains a combined gate.

@@ -151,6 +151,12 @@ pub(super) fn certificate(
         input.columnar_files, input.columnar_fingerprint_read_bytes,
         input.columnar_content_fingerprints.join(","),
     ));
+    let ranked_proof = input.filter(|input| input.ranked_sources > 0).map_or_else(String::new, |input| format!(
+        "ranked_sources={} ranked_rank_columns={} ranked_rank_rows={} ranked_payload_rows={} ranked_rank_group_visits={} ranked_payload_group_visits={} ranked_rank_read_bytes={} ranked_payload_read_bytes={} ranked_selected_rows={};same_held_generation;complete_rank_dependencies_before_complete_decoded_winning_group_payload;unselected_payload_groups_unread;zero_prefix_completes_rank_only;rank_failure_precedes_payload_failure;distinct_sources_metadata_groups_once;phase_visits_reads_and_decoded_rows_include_rereads;whole_selected_group_chunks_then_native_gather;strict_worst_case_compressed_byte_saving;optional_source_capability_not_format_dispatch",
+        input.ranked_sources, input.ranked_rank_columns, input.ranked_rank_rows,
+        input.ranked_payload_rows, input.ranked_rank_groups, input.ranked_payload_groups,
+        input.ranked_rank_read_bytes, input.ranked_payload_read_bytes, input.ranked_selected_rows,
+    ));
     let subquery_population = format!(
         "spillable_subquery_stages={} spilled_subquery_stages={} spillable_subquery_input_rows={} spillable_subquery_indexed_rows={} spillable_subquery_probe_rows={} spillable_subquery_candidate_rows={} spillable_subquery_lookup_blocks={}",
         metrics.spillable_subquery_stages.get(),
@@ -221,7 +227,7 @@ pub(super) fn certificate(
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
             proof_basis: format!(
-                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {ordering_proof} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof} {ownership_proof}",
+                "scans_started={} scans_metadata_pruned={} native_batches={} delivered_scan_rows={} unary_stages={} unary_retained_state_items={} unary_stages_retaining_complete_population={} dynamic_schema_stages={} streaming_ordering_batches_detached={} streaming_ordering_rows_detached={} streaming_join_build_batches_detached={} streaming_join_build_rows_detached={} ordered_aggregate_stages={} ordered_aggregate_input_rows={} ordered_aggregate_distinct_rows={} ordered_aggregate_quantile_rows={} ordered_join_stages={} ordered_join_build_rows={} ordered_join_probe_rows={} ordered_join_candidate_rows={} ordered_join_match_records={} ordered_join_lookup_blocks={} ordered_window_stages={} ordered_window_input_rows={} ordered_window_groups={} ordered_window_partitions={} ordered_window_peer_records={} ordered_window_bounds_rows={} ordered_window_distinct_intervals={} ordered_window_distinct_events={} ordered_window_extrema_summary_rows={} ordered_window_lookup_blocks={} streaming_window_batches_detached={} streaming_window_rows_detached={} {ordering_proof} {pivot_proof} {replay_proof} {subquery_proof} {set_proof} {unary_proof} {source_demand_proof} {ownership_proof} {ranked_proof}",
                 metrics.scans_started.get(),
                 metrics.scans_pruned.get(),
                 metrics.scan_batches.get(),

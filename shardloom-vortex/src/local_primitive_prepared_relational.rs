@@ -79,6 +79,9 @@ mod selection;
 use selection::LocalSelection;
 #[path = "local_primitive_relational_observation.rs"]
 mod observation;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_ranked.rs"]
+mod ranked;
 #[path = "local_primitive_relational_transform.rs"]
 mod transform;
 #[cfg(feature = "vortex-write")]
@@ -281,7 +284,12 @@ pub struct PreparedVortexRelational {
     provider_selection_reason: &'static str,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     policy: VortexLocalPrimitiveExecutionPolicy,
-    _metadata: MemoryLease,
+    // Every build retains the lease; ranked demand additionally reads its bound.
+    #[cfg_attr(
+        not(all(feature = "vortex-write", feature = "universal-format-io")),
+        allow(dead_code)
+    )]
+    binding_metadata: MemoryLease,
     #[cfg(feature = "vortex-write")]
     spill: Option<crate::relational_query::VortexRelationalSpillPolicy>,
     #[cfg(feature = "vortex-write")]
@@ -814,7 +822,7 @@ fn prepare_relational_with_owner(
         provider: provider.provider,
         provider_selection_reason: provider.reason,
         policy,
-        _metadata: metadata,
+        binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
         spill: None,
         #[cfg(feature = "vortex-write")]
@@ -870,7 +878,7 @@ pub fn prepare_relational_in_session(
         provider: provider.provider,
         provider_selection_reason: provider.reason,
         policy,
-        _metadata: metadata,
+        binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
         spill: None,
         #[cfg(feature = "vortex-write")]

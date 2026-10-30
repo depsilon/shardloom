@@ -128,9 +128,15 @@ benchmark evidence. Recheck each source path after the capability changes.
    components with exact negative-epoch/timezone behavior, and retain numeric
    literals as scalar operands in the typed path. Dictionary evaluation still
    requires evidence of actual dictionaries at the expression boundary.
-7. Target mixed-measure aggregate storage and float extrema traversal sharing
-   only with an exact completed-domain validation proof. Preserve row/measure
-   order, signed zero, ties, overflow and existing first-error behavior.
+7. Target mixed-measure aggregate storage and float extrema traversal sharing,
+   binding storage and updates to the measure, physical input type and immutable
+   floating policy. Integer SUM/AVG and COUNT need no nonfinite participation
+   state; strict floating updates still require finite-value validation, while
+   extended updates retain complete NaN/infinity participation. Share extrema
+   traversal only with an exact completed-domain validation proof: successful
+   extended SUM is not proof of finiteness. Preserve row/measure order, analytical
+   NaN and signed-zero equality, original selected bits, ties, overflow and
+   existing first-error behavior.
 
 The October 29 maintainer clarification preserves **one shared engine across
 input formats**. These candidates are not permission to build per-format joins,
@@ -167,6 +173,24 @@ complete correctness/resource/ownership/no-fallback checks before a single
 unchanged-cohort observation. Lower total engine time retains a candidate;
 unchanged or higher total drops it, with case regressions visible. Use Full43
 only at meaningful integration boundaries, not for every small candidate.
+
+The October 30 maintainer follow-up preserves this sequence and adds a small
+repeated-subplan workload after the seven candidates, before batch functions.
+Compare explicit materialization with ordinary repeated consumption of the same
+expensive join/normalization relation. Freeze complete independent results and
+include one-consumer, wide-result and selective-consumer controls. Measure avoided
+execution against capture, retention, replay and admitted spill costs through
+the existing action-owned native relation. Keep this workload separate from the
+unchanged 347-query cohort; it neither replaces its results nor requires another
+baseline solely because a supplied review used an earlier revision. Preserve
+complete relation validation, late errors and per-action recomputation, including
+downstream few-row and zero-row consumers.
+
+Also inspect the shared `OutputBuffer` for reuse at a concrete boundary with
+observed excess fragment, schema or index overhead. Additional compaction is an
+experiment only when that evidence exists; already suitable owned batches must
+not acquire an unconditional extra copy. This follow-up does not reopen dropped
+mechanisms or assert that capability additions caused a performance regression.
 
 The later October 28 [gain/loss decision](../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json)
 removes percentage benefit cutoffs for the remaining analytical performance

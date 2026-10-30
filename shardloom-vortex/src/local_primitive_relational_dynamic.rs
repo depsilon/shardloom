@@ -138,7 +138,7 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         provider: None,
         provider_selection_reason: "deferred_schema_requires_relational_execution",
         policy,
-        _metadata: metadata,
+        binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
         spill: None,
         #[cfg(feature = "vortex-write")]

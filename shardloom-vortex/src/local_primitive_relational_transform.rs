@@ -217,6 +217,10 @@ impl PreparedVortexRelational {
             )?;
             return sort.finish(context, batch_rows, consume);
         }
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        if self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)? {
+            return Ok(());
+        }
         if metrics.input.is_some()
             && let Some(mut sort) =
                 native_relational_sort::StreamingPrefix::try_new(spec, *output_prefix, context)?

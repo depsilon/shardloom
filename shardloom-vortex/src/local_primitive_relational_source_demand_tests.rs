@@ -36,6 +36,9 @@ mod join_tests;
 #[path = "local_primitive_relational_source_demand_transfer_tests.rs"]
 mod transfer_tests;
 
+#[path = "local_primitive_relational_source_demand_ranked_tests.rs"]
+mod ranked_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {
