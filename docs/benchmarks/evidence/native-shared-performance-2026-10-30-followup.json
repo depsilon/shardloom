@@ -1,0 +1,1032 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "kind": "post_observation_portable_verifier_validation",
+  "source_files": {
+    "shared_performance_bundle.py": {
+      "bytes": 11949,
+      "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883"
+    },
+    "shared_performance_replay.py": {
+      "bytes": 29420,
+      "sha256": "c7a3811fedc8920e1400ea2048a4f32e0c34753171892f6c7d1fdd34e08ca638"
+    },
+    "verify_shared_performance_packet.py": {
+      "bytes": 1210,
+      "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c"
+    },
+    "test_shared_performance_packet.py": {
+      "bytes": 17659,
+      "sha256": "fb3f35991587eb3f3955f4334ffaa2c2a767f4831972d236580f75a92558f6ff"
+    },
+    "shared_performance_anchors.json": {
+      "bytes": 33239,
+      "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4"
+    }
+  },
+  "packet_manifest": {
+    "bytes": 10975131,
+    "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e"
+  },
+  "acceptance": {
+    "bytes": 9172,
+    "sha256": "f20094d84fa31a1295ae4bb83123b539ab497fee3f8de37ff3528b25bcf84eb3"
+  },
+  "corruption_tests": 36,
+  "source_only_copy_identity_verified": true,
+  "new_query_executions": 0,
+  "receipts": [
+    {
+      "name": "p135-packet-collection.json",
+      "receipt_identity": {
+        "bytes": 1614,
+        "sha256": "9cb08797407ae78f747f3223d15fa592a43fb8aae040aa9602cb070d0bfb9595"
+      },
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py",
+          "--inventory",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/packet-collection-r1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_bundle.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "97215f3e8c2abcd444e86bdc776fa3e5a2812b7191b0cdd7ab2619b560809798",
+            "bytes": 10851
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79126,
+        "output_bytes": 1812,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 0.14590154100000002,
+        "log_sha256": "1da9f0396fd51f969c8754fb60826df8df4c5b35a82bfe77a400a1feee972728"
+      },
+      "log_identity": {
+        "bytes": 1812,
+        "sha256": "1da9f0396fd51f969c8754fb60826df8df4c5b35a82bfe77a400a1feee972728"
+      },
+      "log": "fatal: path 'docs/architecture/native-shared-performance-2026-10-29.md' exists on disk, but not in 'ba3392501c7189b1a592f9075923ffb0f24061ec'\nTraceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 213, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 199, in main\n    c, evidence = gather()\n                  ~~~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 98, in gather\n    c.resolve(Path(gate['cwd']) / relative, snapshot, revision=gate['head'], relative=relative)\n    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 60, in resolve\n    data = subprocess.check_output(['git', 'show', revision + ':' + relative], cwd=REPO)\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py\", line 472, in check_output\n    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n               **kwargs).stdout\n               ^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/subprocess.py\", line 577, in run\n    raise CalledProcessError(retcode, process.args,\n                             output=stdout, stderr=stderr)\nsubprocess.CalledProcessError: Command '['git', 'show', 'ba3392501c7189b1a592f9075923ffb0f24061ec:docs/architecture/native-shared-performance-2026-10-29.md']' returned non-zero exit status 128.\n"
+    },
+    {
+      "name": "p136-packet-collection.json",
+      "receipt_identity": {
+        "bytes": 1817,
+        "sha256": "ecba3926872fc41570069fc33d4b49be10589f54278694a5d530ea06338be4b7"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py",
+          "--inventory",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/packet-collection-r1.json"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "97215f3e8c2abcd444e86bdc776fa3e5a2812b7191b0cdd7ab2619b560809798",
+            "bytes": 10851
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79289,
+        "output_bytes": 159,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 3.8533385829999998,
+        "log_sha256": "2d314f709f3db0752e52030419afadf8423e6c061ac1e26e02f92a62468ca26e"
+      },
+      "log_identity": {
+        "bytes": 159,
+        "sha256": "2d314f709f3db0752e52030419afadf8423e6c061ac1e26e02f92a62468ca26e"
+      },
+      "log": "{\"status\": \"collected\", \"records\": 19083, \"paths\": 56807, \"unique_bytes\": 679928248, \"gates\": 134, \"cohorts\": 9, \"publics\": 12, \"runtimes\": 10, \"packages\": 8}\n"
+    },
+    {
+      "name": "p137-packet-semantic-collection.json",
+      "receipt_identity": {
+        "bytes": 2245,
+        "sha256": "876ccaeac0adbf6665847d33cd4ddcef70f3aadab7751b3cca36e7348a1e1118"
+      },
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py",
+          "--inventory",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/packet-collection-r2.json",
+          "--verify"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "97215f3e8c2abcd444e86bdc776fa3e5a2812b7191b0cdd7ab2619b560809798",
+            "bytes": 10851
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "a6c01c810cc56751204944d828d932fb0f878aab3475c4e2429b481aaffbd5b6",
+            "bytes": 26218
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79370,
+        "output_bytes": 1158,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 3.2946405000000003,
+        "log_sha256": "00cf268bf7c6b0386c35c06527892afbe0af2727e1877a2d9f8dec02f2d87cfd"
+      },
+      "log_identity": {
+        "bytes": 1158,
+        "sha256": "00cf268bf7c6b0386c35c06527892afbe0af2727e1877a2d9f8dec02f2d87cfd"
+      },
+      "log": "{\"status\": \"collected\", \"records\": 19086, \"paths\": 25599, \"unique_bytes\": 679965135, \"gates\": 134, \"cohorts\": 9, \"publics\": 12, \"runtimes\": 10, \"packages\": 8}\nTraceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 243, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py\", line 227, in main\n    acceptance = verify(Collected(), read(REPO / 'scripts/shared_performance_anchors.json'))\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/scripts/shared_performance_replay.py\", line 312, in verify\n    need(runtime['source_snapshot'].get(relative) == source, 'tested source differs from final build')\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/replay.py\", line 39, in need\n    raise ValueError(reason)\nValueError: tested source differs from final build\n"
+    },
+    {
+      "name": "p138-packet-semantic-collection.json",
+      "receipt_identity": {
+        "bytes": 2237,
+        "sha256": "74c738be2d658f7f471d7fff19646a436c778bfae61c51459767fddd935129aa"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py",
+          "--inventory",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/packet-collection-r2.json",
+          "--verify"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "97215f3e8c2abcd444e86bdc776fa3e5a2812b7191b0cdd7ab2619b560809798",
+            "bytes": 10851
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "6ef693e75ac89117e26c6dbea51dbcf9af2bde42e52c88d00d818af999c378dd",
+            "bytes": 27262
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79438,
+        "output_bytes": 234,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 8.868334208,
+        "log_sha256": "0ad246add26fcc29b27cd2b8abda8e6a988a8d79ac0701ecb39cdb9825c41c3e"
+      },
+      "log_identity": {
+        "bytes": 234,
+        "sha256": "0ad246add26fcc29b27cd2b8abda8e6a988a8d79ac0701ecb39cdb9825c41c3e"
+      },
+      "log": "{\"status\": \"collected\", \"records\": 19087, \"paths\": 25600, \"unique_bytes\": 679992397, \"gates\": 134, \"cohorts\": 9, \"publics\": 12, \"runtimes\": 10, \"packages\": 8}\n{\"status\": \"semantically_verified\", \"cohorts\": 9, \"full43\": 624.450913663}\n"
+    },
+    {
+      "name": "p139-packet-build.json",
+      "receipt_identity": {
+        "bytes": 2894,
+        "sha256": "675c1849c76f33703b5ee49080a1cb04b3500bcf4ed250bd73a648756fe144a9"
+      },
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_shared_packet.py",
+          "--output",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/portable-shared-performance-r1",
+          "--verify"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "97215f3e8c2abcd444e86bdc776fa3e5a2812b7191b0cdd7ab2619b560809798",
+            "bytes": 10851
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "6ef693e75ac89117e26c6dbea51dbcf9af2bde42e52c88d00d818af999c378dd",
+            "bytes": 27262
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": 15,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79510,
+        "output_bytes": 234,
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 7273919416,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70193336320,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50889986048,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70193336320,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "error": "KeyboardInterrupt: build supervisor received signal 15",
+        "group_absence_unproved_at_cleanup": true,
+        "term_last_signal_status": "sent",
+        "term_signal_attempts": 1,
+        "term_sent_to_group": true,
+        "returncode": -15,
+        "seconds": 374.23719887500005,
+        "log_sha256": "0ad246add26fcc29b27cd2b8abda8e6a988a8d79ac0701ecb39cdb9825c41c3e"
+      },
+      "log_identity": {
+        "bytes": 234,
+        "sha256": "0ad246add26fcc29b27cd2b8abda8e6a988a8d79ac0701ecb39cdb9825c41c3e"
+      },
+      "log": "{\"status\": \"collected\", \"records\": 19087, \"paths\": 25600, \"unique_bytes\": 679992397, \"gates\": 134, \"cohorts\": 9, \"publics\": 12, \"runtimes\": 10, \"packages\": 8}\n{\"status\": \"semantically_verified\", \"cohorts\": 9, \"full43\": 624.450913663}\n"
+    },
+    {
+      "name": "p140-packet-controls.json",
+      "receipt_identity": {
+        "bytes": 2345,
+        "sha256": "f0a47242921dc5a6bd4772b1b846251d0bd8a618e58b06ed0292b03c4bbadbbb"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_shared_performance_packet.py",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": "?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "0ea4aa45982a92d11aa38f2d45d83a07fbb792b0379027511bd41c078a8c80d6",
+            "bytes": 29164
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "3e20738da48d4ede72e094f7b16feea48a0dc82e0cfea7446eb71f4b7f27a5d4",
+            "bytes": 13117
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79810,
+        "output_bytes": 4415,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1.317064083,
+        "log_sha256": "c3bd1715459e8e6857c57539ff793cd169e92c72ed92bcb636ff585c06fc8a53"
+      },
+      "log_identity": {
+        "bytes": 4415,
+        "sha256": "c3bd1715459e8e6857c57539ff793cd169e92c72ed92bcb636ff585c06fc8a53"
+      },
+      "log": "test_aggregate_reconstruction_work_is_bounded (test_shared_performance_packet.BundleTests.test_aggregate_reconstruction_work_is_bounded) ... ok\ntest_archive_corruption_is_rejected (test_shared_performance_packet.BundleTests.test_archive_corruption_is_rejected) ... ok\ntest_chunk_size_and_name_must_match (test_shared_performance_packet.BundleTests.test_chunk_size_and_name_must_match) ... ok\ntest_duplicate_chunks_cannot_replace_a_record (test_shared_performance_packet.BundleTests.test_duplicate_chunks_cannot_replace_a_record) ... ok\ntest_duplicate_or_unsafe_part_directory_is_rejected (test_shared_performance_packet.BundleTests.test_duplicate_or_unsafe_part_directory_is_rejected) ... ok\ntest_duplicate_path_versions_are_rejected (test_shared_performance_packet.BundleTests.test_duplicate_path_versions_are_rejected) ... ok\ntest_extra_bundle_entry_is_rejected (test_shared_performance_packet.BundleTests.test_extra_bundle_entry_is_rejected) ... ok\ntest_extra_top_level_fields_are_rejected (test_shared_performance_packet.BundleTests.test_extra_top_level_fields_are_rejected) ... ok\ntest_missing_part_is_rejected (test_shared_performance_packet.BundleTests.test_missing_part_is_rejected) ... ok\ntest_oversized_record_is_rejected_before_reconstruction (test_shared_performance_packet.BundleTests.test_oversized_record_is_rejected_before_reconstruction) ... ok\ntest_rehashed_extra_archive_object_is_rejected (test_shared_performance_packet.BundleTests.test_rehashed_extra_archive_object_is_rejected) ... ok\ntest_reordered_same_size_chunks_are_rejected (test_shared_performance_packet.BundleTests.test_reordered_same_size_chunks_are_rejected) ... ok\ntest_roundtrip_versioned_paths_empty_records_and_bounded_parts (test_shared_performance_packet.BundleTests.test_roundtrip_versioned_paths_empty_records_and_bounded_parts) ... ok\ntest_small_repeated_record_does_not_reopen_evicted_part (test_shared_performance_packet.BundleTests.test_small_repeated_record_does_not_reopen_evicted_part) ... ok\ntest_symlinked_manifest_is_rejected (test_shared_performance_packet.BundleTests.test_symlinked_manifest_is_rejected) ... ok\ntest_symlinked_part_is_rejected (test_shared_performance_packet.BundleTests.test_symlinked_part_is_rejected) ... ok\ntest_unreferenced_record_is_rejected (test_shared_performance_packet.BundleTests.test_unreferenced_record_is_rejected) ... ok\ntest_unsafe_original_path_is_rejected (test_shared_performance_packet.BundleTests.test_unsafe_original_path_is_rejected) ... ok\ntest_changed_complete_value_is_rejected (test_shared_performance_packet.SemanticTests.test_changed_complete_value_is_rejected) ... ok\ntest_duplicate_case_cannot_replace_another_comparison (test_shared_performance_packet.SemanticTests.test_duplicate_case_cannot_replace_another_comparison) ... ok\ntest_duplicate_interface_or_format_cannot_replace_coverage (test_shared_performance_packet.SemanticTests.test_duplicate_interface_or_format_cannot_replace_coverage) ... ok\ntest_exit_code_alone_does_not_establish_process_completion (test_shared_performance_packet.SemanticTests.test_exit_code_alone_does_not_establish_process_completion) ... ok\ntest_failed_public_attempt_is_preserved_without_acceptance_credit (test_shared_performance_packet.SemanticTests.test_failed_public_attempt_is_preserved_without_acceptance_credit) ... ok\ntest_only_the_recorded_lint_format_change_is_admitted (test_shared_performance_packet.SemanticTests.test_only_the_recorded_lint_format_change_is_admitted) ... ok\ntest_public_complete_values_across_interfaces_and_formats (test_shared_performance_packet.SemanticTests.test_public_complete_values_across_interfaces_and_formats) ... ok\ntest_public_false_completion_and_external_execution_are_rejected (test_shared_performance_packet.SemanticTests.test_public_false_completion_and_external_execution_are_rejected) ... ok\ntest_required_nonpayload_evidence_cannot_be_excluded_as_external (test_shared_performance_packet.SemanticTests.test_required_nonpayload_evidence_cannot_be_excluded_as_external) ... ok\ntest_workspace_counts_and_failure_status_are_derived_from_logs (test_shared_performance_packet.SemanticTests.test_workspace_counts_and_failure_status_are_derived_from_logs) ... ok\ntest_zero_test_count_does_not_pass (test_shared_performance_packet.SemanticTests.test_zero_test_count_does_not_pass) ... ok\n\n----------------------------------------------------------------------\nRan 29 tests in 1.180s\n\nOK\n"
+    },
+    {
+      "name": "p141-packet-replay.json",
+      "receipt_identity": {
+        "bytes": 3027,
+        "sha256": "28541f54186f04cb9fccf52bcc79a1eeb0cb265e5487778f89135519353d64b1"
+      },
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/verify_shared_performance_packet.py",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/portable-shared-performance-r1"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": " M .github/workflows/ci.yml\n?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "790377ce64ba952fc2fc1b6236e2a3318c17fb2777dcebcbe84b992d09f02daa",
+            "bytes": 63934
+          },
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "0ea4aa45982a92d11aa38f2d45d83a07fbb792b0379027511bd41c078a8c80d6",
+            "bytes": 29164
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "3e20738da48d4ede72e094f7b16feea48a0dc82e0cfea7446eb71f4b7f27a5d4",
+            "bytes": 13117
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79832,
+        "output_bytes": 1475,
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 7274062776,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70189867008,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50889986048,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70189867008,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 35.0806635,
+        "log_sha256": "9e320d0f188e318837730fa7fbee3cbb8a09436542fb0bd0cb5c8022bbccd767"
+      },
+      "log_identity": {
+        "bytes": 1475,
+        "sha256": "9e320d0f188e318837730fa7fbee3cbb8a09436542fb0bd0cb5c8022bbccd767"
+      },
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/scripts/verify_shared_performance_packet.py\", line 32, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/scripts/verify_shared_performance_packet.py\", line 24, in main\n    acceptance = verify(bundle, anchors)\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/scripts/shared_performance_replay.py\", line 421, in verify\n    full = full43(bundle, root, anchors, runtime, external)\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/scripts/shared_performance_replay.py\", line 168, in full43\n    need(summary['source'] == frozen['source']['path']\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         and summary['source_bytes'] == frozen['source']['bytes']\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n         and summary['source_generation'] == frozen['source']['generation'], 'Full43 source summary changed')\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/replay.py\", line 39, in need\n    raise ValueError(reason)\nValueError: Full43 source summary changed\n"
+    },
+    {
+      "name": "p142-packet-replay.json",
+      "receipt_identity": {
+        "bytes": 4912,
+        "sha256": "77c9b0da1b08d824bc8c68ca0c28cfb4414fd9bf9b155d4aa09de008f901a0a0"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "scripts/verify_shared_performance_packet.py",
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": " M .github/workflows/ci.yml\n?? docs/benchmarks/evidence/native-shared-performance-2026-10-30/\n?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "790377ce64ba952fc2fc1b6236e2a3318c17fb2777dcebcbe84b992d09f02daa",
+            "bytes": 63934
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/manifest.json": {
+            "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e",
+            "bytes": 10975131
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/manifest.json": {
+            "sha256": "63fd5d49df3280b979b9e80f8a782709294e47094334cad4548a8bc25629e611",
+            "bytes": 451
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/packet.tar.xz": {
+            "sha256": "862d9c02fafebc1ac22aad96dbe7534a9aae27cac90d183ac344e118a4e4b373",
+            "bytes": 3794664
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/manifest.json": {
+            "sha256": "e3a69e3bbbe33b5b9de8e23e83c6ff99c1b77e17f43fdf357bf5a53453aab313",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/packet.tar.xz": {
+            "sha256": "e02bc4b7d3da6e49bfbfbef3c59a3286207c62913adf59db21fb39f2ae8a9077",
+            "bytes": 9692292
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/manifest.json": {
+            "sha256": "960005691f780c18807f68f3b0d34e1caf9321290dd2ce46f2ae09a5ba8e2f4e",
+            "bytes": 456
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/packet.tar.xz": {
+            "sha256": "b88de9490fc6193e209d7e845d9f920f8f36419a73f0e2c01e696519a99bd796",
+            "bytes": 4458956
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/manifest.json": {
+            "sha256": "32ae7f19df377b32ef43dc8b68f155480e96cd5cd6e8bb8473ee0dcc564a227a",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/packet.tar.xz": {
+            "sha256": "43d8f50df251e755700d15c854c02aadc09f78863c602d6189cd0beb4a7b1630",
+            "bytes": 2221048
+          },
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "630e8ff92ba25a6ee71d8f37cf1ff9d6f49acf031b1cd9aa09448df08c0cd614",
+            "bytes": 29268
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "3e20738da48d4ede72e094f7b16feea48a0dc82e0cfea7446eb71f4b7f27a5d4",
+            "bytes": 13117
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79888,
+        "output_bytes": 9171,
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 7305274296,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70125084672,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50889986048,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70125084672,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 37.242142334,
+        "log_sha256": "38289421ab22694cc37c8110b4a942fc95d6ad9d1636a5ab6e3cc93acc20b7ff"
+      },
+      "log_identity": {
+        "bytes": 9171,
+        "sha256": "38289421ab22694cc37c8110b4a942fc95d6ad9d1636a5ab6e3cc93acc20b7ff"
+      },
+      "log": "{\n  \"archived_code_executed\": false,\n  \"cohorts\": {\n    \"broad-composition-baseline-r1\": {\n      \"accepted_baseline\": false,\n      \"complete_queries\": 0,\n      \"status\": \"failed\"\n    },\n    \"broad-composition-baseline-r2\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.304317834,\n      \"case_flags\": [\n        \"projection_narrow\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.305938167999999,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-join-demand-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [\n        \"aggregate_nullable_no_null_category_mixed_direct_one_percent\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.070406716,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-prepared-kernels-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 13.433815339,\n      \"case_flags\": [\n        \"aggregate_optional_value_category_mixed_arithmetic_all\",\n        \"aggregate_metric_category_sum_arithmetic_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.274446547,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-projected-order-r1\": {\n      \"accepted_baseline\": false,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [\n        \"projection_reordered\",\n        \"aggregate_nullable_no_null_category_sum_arithmetic_one_percent\",\n        \"aggregate_all_null_group_key_mixed_arithmetic_one_percent\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.383331123,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-ranked-demand-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 14.862644046,\n      \"case_flags\": [],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.477651246,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-reader-transfer-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.070406716,\n      \"case_flags\": [\n        \"aggregate_optional_value_group_key_category_sum_coalesce_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 14.862644046,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-review-integration-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.368176384,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-singleton-index-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 13.477651246,\n      \"case_flags\": [\n        \"aggregate_signed_value_group_key_mixed_direct_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.433815339,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    }\n  },\n  \"full43\": {\n    \"bounded_ordering_queries\": [\n      9,\n      10,\n      11,\n      12,\n      13,\n      14,\n      15,\n      16,\n      17,\n      19,\n      22,\n      23,\n      24,\n      26,\n      28,\n      29,\n      31,\n      32,\n      33,\n      34,\n      35,\n      36,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"complete_rows\": 381,\n    \"engine_seconds\": 624.450913663,\n    \"input_format\": \"parquet\",\n    \"narrowed_projection_queries\": [\n      1,\n      2,\n      3,\n      4,\n      5,\n      6,\n      7,\n      8,\n      9,\n      10,\n      11,\n      12,\n      13,\n      14,\n      15,\n      16,\n      17,\n      18,\n      19,\n      20,\n      21,\n      22,\n      23,\n      25,\n      26,\n      27,\n      28,\n      29,\n      30,\n      31,\n      32,\n      33,\n      34,\n      35,\n      36,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"pruned_queries\": [\n      2,\n      8,\n      20,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"queries\": 43,\n    \"ranked_queries\": [\n      24\n    ],\n    \"source_prefix_queries\": []\n  },\n  \"historical_doc_digest_only\": {\n    \"relative\": \"docs/architecture/native-shared-performance-2026-10-29.md\",\n    \"scope\": \"Three early nonruntime doc drafts lack payloads; original receipt hashes remain. All frozen execution contracts and runtime/test source bytes are required.\",\n    \"versions\": {\n      \"342810cbbc7994ae867c83658da73ebde6016d5c4d5913aa14d5f22a9f55bb06\": 6617,\n      \"59aa20fe790e77957185ad759a38b0ca4abf6b2f89654004675fec3b41402cba\": 6557,\n      \"d0c0db75dbc44d2cd0a3519ac87f23791918c06457fc61b9feb5c2ac2908cb3a\": 9728\n    }\n  },\n  \"historical_failures\": [\n    \"p001-projection-topk-before.json\",\n    \"p007-projected-order-public.json\",\n    \"p010-projected-order-native-clippy.json\",\n    \"p020-join-demand-before.json\",\n    \"p021-join-demand-admission.json\",\n    \"p022-join-demand-before.json\",\n    \"p023-join-demand-focused.json\",\n    \"p025-join-source-demand-tests.json\",\n    \"p028-join-demand-public.json\",\n    \"p032-join-window-generation-errors.json\",\n    \"p033-join-final-source-demand.json\",\n    \"p043-installed-join-demand.json\",\n    \"p044-join-public-r3.json\",\n    \"p047-reader-transfer-focused.json\",\n    \"p048-reader-transfer-source-demand.json\",\n    \"p050-reader-transfer-existing-ownership.json\",\n    \"p051-reader-transfer-native-clippy.json\",\n    \"p055-reader-transfer-native-workspace-final.json\",\n    \"p068-ranked-demand-focused.json\",\n    \"p070-ranked-demand-native-clippy.json\",\n    \"p071-ranked-demand-native-clippy-fixed.json\",\n    \"p078-ranked-demand-minimal-native-clippy.json\",\n    \"p088-ranked-demand-public-acceptance.json\",\n    \"p093-singleton-index-before.json\",\n    \"p106-prepared-utf8-initial.json\",\n    \"p107-prepared-kernels-native-clippy.json\",\n    \"p118-review-ranked-admission.json\",\n    \"p120-review-native-clippy.json\",\n    \"p121-review-native-clippy.json\"\n  ],\n  \"installed_package\": {\n    \"errors\": 0,\n    \"failures\": 0,\n    \"skipped\": 0,\n    \"status\": \"passed\",\n    \"tests\": 264\n  },\n  \"limitations\": [\n    \"Single observations; no statistical confidence or new competitor comparisons.\",\n    \"Large source/runtime/wheel payloads retain identities only.\",\n    \"Full43 covers direct Parquet; item18 format/surface/output acceptance remains open.\",\n    \"Three early nonruntime doc draft payloads unavailable; receipt identities and all frozen benchmark contracts retained.\",\n    \"Content hashes prove internal consistency, not signed provenance.\"\n  ],\n  \"measured_source_head\": \"7d111f51c9c3a362ed51bed13746a77b8f0a81e8\",\n  \"new_query_executions\": 0,\n  \"public_reports\": {\n    \"join-demand-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 165,\n      \"status\": \"failed\"\n    },\n    \"join-demand-public-r2.json\": {\n      \"accepted_executions\": 165,\n      \"complete_rows\": 1695,\n      \"status\": \"passed\"\n    },\n    \"join-demand-public-r3.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 0,\n      \"status\": \"failed\"\n    },\n    \"join-demand-public-r4.json\": {\n      \"accepted_executions\": 165,\n      \"complete_rows\": 1695,\n      \"status\": \"passed\"\n    },\n    \"prepared-kernels-public-r1.json\": {\n      \"accepted_executions\": 360,\n      \"complete_rows\": 28530,\n      \"status\": \"passed\"\n    },\n    \"projected-order-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 6,\n      \"status\": \"failed\"\n    },\n    \"projected-order-public-r2.json\": {\n      \"accepted_executions\": 60,\n      \"complete_rows\": 224,\n      \"status\": \"passed\"\n    },\n    \"ranked-demand-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 177,\n      \"status\": \"failed\"\n    },\n    \"ranked-demand-public-r2.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 12465,\n      \"status\": \"passed\"\n    },\n    \"ranked-demand-public-review1.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 12465,\n      \"status\": \"passed\"\n    },\n    \"reader-transfer-public-r1.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 7950,\n      \"status\": \"passed\"\n    },\n    \"singleton-index-public-r1.json\": {\n      \"accepted_executions\": 225,\n      \"complete_rows\": 44295,\n      \"status\": \"passed\"\n    }\n  },\n  \"retained_process_receipts\": 134,\n  \"runtime_files\": {\n    \"_native.abi3.so\": {\n      \"bytes\": 80882384,\n      \"sha256\": \"6e51be9c70f23b659fcc4c5736893f87880366a14288ff87cb96fbe380b29980\"\n    },\n    \"shardloom\": {\n      \"bytes\": 80533632,\n      \"sha256\": \"6762d32aa64c7c4deb7077280f767236ece401320c98e260bf8a364321c85f4a\"\n    }\n  },\n  \"schema_version\": \"shardloom.shared_performance_acceptance.v1\",\n  \"status\": \"passed\",\n  \"workspace_tests\": {\n    \"p123-review-native-workspace.json\": {\n      \"binaries\": 119,\n      \"failed\": 0,\n      \"ignored\": 35,\n      \"passed\": 6539\n    },\n    \"p125-review-default-workspace.json\": {\n      \"binaries\": 107,\n      \"failed\": 0,\n      \"ignored\": 0,\n      \"passed\": 3289\n    }\n  }\n}\n"
+    },
+    {
+      "name": "p143-packet-semantic-controls.json",
+      "receipt_identity": {
+        "bytes": 4640,
+        "sha256": "7d7ab5310a777fa8f0db2afa548185a4a391b840a65675da8ee7ce63253c061c"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "scripts",
+          "-p",
+          "test_shared_performance_packet.py",
+          "-v"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": " M .github/workflows/ci.yml\n?? docs/benchmarks/evidence/native-shared-performance-2026-10-30/\n?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "790377ce64ba952fc2fc1b6236e2a3318c17fb2777dcebcbe84b992d09f02daa",
+            "bytes": 63934
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json": {
+            "sha256": "f20094d84fa31a1295ae4bb83123b539ab497fee3f8de37ff3528b25bcf84eb3",
+            "bytes": 9172
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/manifest.json": {
+            "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e",
+            "bytes": 10975131
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/manifest.json": {
+            "sha256": "63fd5d49df3280b979b9e80f8a782709294e47094334cad4548a8bc25629e611",
+            "bytes": 451
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/packet.tar.xz": {
+            "sha256": "862d9c02fafebc1ac22aad96dbe7534a9aae27cac90d183ac344e118a4e4b373",
+            "bytes": 3794664
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/manifest.json": {
+            "sha256": "e3a69e3bbbe33b5b9de8e23e83c6ff99c1b77e17f43fdf357bf5a53453aab313",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/packet.tar.xz": {
+            "sha256": "e02bc4b7d3da6e49bfbfbef3c59a3286207c62913adf59db21fb39f2ae8a9077",
+            "bytes": 9692292
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/manifest.json": {
+            "sha256": "960005691f780c18807f68f3b0d34e1caf9321290dd2ce46f2ae09a5ba8e2f4e",
+            "bytes": 456
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/packet.tar.xz": {
+            "sha256": "b88de9490fc6193e209d7e845d9f920f8f36419a73f0e2c01e696519a99bd796",
+            "bytes": 4458956
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/manifest.json": {
+            "sha256": "32ae7f19df377b32ef43dc8b68f155480e96cd5cd6e8bb8473ee0dcc564a227a",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/packet.tar.xz": {
+            "sha256": "43d8f50df251e755700d15c854c02aadc09f78863c602d6189cd0beb4a7b1630",
+            "bytes": 2221048
+          },
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "c7a3811fedc8920e1400ea2048a4f32e0c34753171892f6c7d1fdd34e08ca638",
+            "bytes": 29420
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "fb3f35991587eb3f3955f4334ffaa2c2a767f4831972d236580f75a92558f6ff",
+            "bytes": 17659
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 79954,
+        "output_bytes": 5532,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 20.550006624999998,
+        "log_sha256": "44601d4135d7d0675071d452f3a2e33d009128e909264667d9b2f0edb1ae2da4"
+      },
+      "log_identity": {
+        "bytes": 5532,
+        "sha256": "44601d4135d7d0675071d452f3a2e33d009128e909264667d9b2f0edb1ae2da4"
+      },
+      "log": "test_aggregate_reconstruction_work_is_bounded (test_shared_performance_packet.BundleTests.test_aggregate_reconstruction_work_is_bounded) ... ok\ntest_archive_corruption_is_rejected (test_shared_performance_packet.BundleTests.test_archive_corruption_is_rejected) ... ok\ntest_chunk_size_and_name_must_match (test_shared_performance_packet.BundleTests.test_chunk_size_and_name_must_match) ... ok\ntest_duplicate_chunks_cannot_replace_a_record (test_shared_performance_packet.BundleTests.test_duplicate_chunks_cannot_replace_a_record) ... ok\ntest_duplicate_or_unsafe_part_directory_is_rejected (test_shared_performance_packet.BundleTests.test_duplicate_or_unsafe_part_directory_is_rejected) ... ok\ntest_duplicate_path_versions_are_rejected (test_shared_performance_packet.BundleTests.test_duplicate_path_versions_are_rejected) ... ok\ntest_extra_bundle_entry_is_rejected (test_shared_performance_packet.BundleTests.test_extra_bundle_entry_is_rejected) ... ok\ntest_extra_top_level_fields_are_rejected (test_shared_performance_packet.BundleTests.test_extra_top_level_fields_are_rejected) ... ok\ntest_missing_part_is_rejected (test_shared_performance_packet.BundleTests.test_missing_part_is_rejected) ... ok\ntest_oversized_record_is_rejected_before_reconstruction (test_shared_performance_packet.BundleTests.test_oversized_record_is_rejected_before_reconstruction) ... ok\ntest_rehashed_extra_archive_object_is_rejected (test_shared_performance_packet.BundleTests.test_rehashed_extra_archive_object_is_rejected) ... ok\ntest_reordered_same_size_chunks_are_rejected (test_shared_performance_packet.BundleTests.test_reordered_same_size_chunks_are_rejected) ... ok\ntest_roundtrip_versioned_paths_empty_records_and_bounded_parts (test_shared_performance_packet.BundleTests.test_roundtrip_versioned_paths_empty_records_and_bounded_parts) ... ok\ntest_small_repeated_record_does_not_reopen_evicted_part (test_shared_performance_packet.BundleTests.test_small_repeated_record_does_not_reopen_evicted_part) ... ok\ntest_symlinked_manifest_is_rejected (test_shared_performance_packet.BundleTests.test_symlinked_manifest_is_rejected) ... ok\ntest_symlinked_part_is_rejected (test_shared_performance_packet.BundleTests.test_symlinked_part_is_rejected) ... ok\ntest_unreferenced_record_is_rejected (test_shared_performance_packet.BundleTests.test_unreferenced_record_is_rejected) ... ok\ntest_unsafe_original_path_is_rejected (test_shared_performance_packet.BundleTests.test_unsafe_original_path_is_rejected) ... ok\ntest_rehashed_clock_without_engine_evidence_is_rejected (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_clock_without_engine_evidence_is_rejected) ... ok\ntest_rehashed_duplicate_query_is_rejected (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_duplicate_query_is_rejected) ... ok\ntest_rehashed_incomplete_cohort_is_rejected (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_incomplete_cohort_is_rejected) ... ok\ntest_rehashed_incorrect_complete_result_is_rejected (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_incorrect_complete_result_is_rejected) ... ok\ntest_rehashed_input_format_command_change_is_rejected (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_input_format_command_change_is_rejected) ... ok\ntest_rehashed_summary_cannot_erase_ranked_activation (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_summary_cannot_erase_ranked_activation) ... ok\ntest_rehashed_unchanged_evidence_remains_valid (test_shared_performance_packet.RehashedFull43Tests.test_rehashed_unchanged_evidence_remains_valid) ... ok\ntest_changed_complete_value_is_rejected (test_shared_performance_packet.SemanticTests.test_changed_complete_value_is_rejected) ... ok\ntest_duplicate_case_cannot_replace_another_comparison (test_shared_performance_packet.SemanticTests.test_duplicate_case_cannot_replace_another_comparison) ... ok\ntest_duplicate_interface_or_format_cannot_replace_coverage (test_shared_performance_packet.SemanticTests.test_duplicate_interface_or_format_cannot_replace_coverage) ... ok\ntest_exit_code_alone_does_not_establish_process_completion (test_shared_performance_packet.SemanticTests.test_exit_code_alone_does_not_establish_process_completion) ... ok\ntest_failed_public_attempt_is_preserved_without_acceptance_credit (test_shared_performance_packet.SemanticTests.test_failed_public_attempt_is_preserved_without_acceptance_credit) ... ok\ntest_only_the_recorded_lint_format_change_is_admitted (test_shared_performance_packet.SemanticTests.test_only_the_recorded_lint_format_change_is_admitted) ... ok\ntest_public_complete_values_across_interfaces_and_formats (test_shared_performance_packet.SemanticTests.test_public_complete_values_across_interfaces_and_formats) ... ok\ntest_public_false_completion_and_external_execution_are_rejected (test_shared_performance_packet.SemanticTests.test_public_false_completion_and_external_execution_are_rejected) ... ok\ntest_required_nonpayload_evidence_cannot_be_excluded_as_external (test_shared_performance_packet.SemanticTests.test_required_nonpayload_evidence_cannot_be_excluded_as_external) ... ok\ntest_workspace_counts_and_failure_status_are_derived_from_logs (test_shared_performance_packet.SemanticTests.test_workspace_counts_and_failure_status_are_derived_from_logs) ... ok\ntest_zero_test_count_does_not_pass (test_shared_performance_packet.SemanticTests.test_zero_test_count_does_not_pass) ... ok\n\n----------------------------------------------------------------------\nRan 36 tests in 20.395s\n\nOK\n"
+    },
+    {
+      "name": "p144-source-only-packet-replay.json",
+      "receipt_identity": {
+        "bytes": 5280,
+        "sha256": "54b3f594f7d93d92cc63906220eb2283781cc6018f484bc3b3e635b75b9d9d0b"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-source-only-r1/scripts/verify_shared_performance_packet.py",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-source-only-r1/docs/benchmarks/evidence/native-shared-performance-2026-10-30"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": " M .github/workflows/ci.yml\n?? docs/benchmarks/evidence/native-shared-performance-2026-10-30/\n?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "790377ce64ba952fc2fc1b6236e2a3318c17fb2777dcebcbe84b992d09f02daa",
+            "bytes": 63934
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json": {
+            "sha256": "f20094d84fa31a1295ae4bb83123b539ab497fee3f8de37ff3528b25bcf84eb3",
+            "bytes": 9172
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/manifest.json": {
+            "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e",
+            "bytes": 10975131
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/manifest.json": {
+            "sha256": "63fd5d49df3280b979b9e80f8a782709294e47094334cad4548a8bc25629e611",
+            "bytes": 451
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/packet.tar.xz": {
+            "sha256": "862d9c02fafebc1ac22aad96dbe7534a9aae27cac90d183ac344e118a4e4b373",
+            "bytes": 3794664
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/manifest.json": {
+            "sha256": "e3a69e3bbbe33b5b9de8e23e83c6ff99c1b77e17f43fdf357bf5a53453aab313",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/packet.tar.xz": {
+            "sha256": "e02bc4b7d3da6e49bfbfbef3c59a3286207c62913adf59db21fb39f2ae8a9077",
+            "bytes": 9692292
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/manifest.json": {
+            "sha256": "960005691f780c18807f68f3b0d34e1caf9321290dd2ce46f2ae09a5ba8e2f4e",
+            "bytes": 456
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/packet.tar.xz": {
+            "sha256": "b88de9490fc6193e209d7e845d9f920f8f36419a73f0e2c01e696519a99bd796",
+            "bytes": 4458956
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/manifest.json": {
+            "sha256": "32ae7f19df377b32ef43dc8b68f155480e96cd5cd6e8bb8473ee0dcc564a227a",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/packet.tar.xz": {
+            "sha256": "43d8f50df251e755700d15c854c02aadc09f78863c602d6189cd0beb4a7b1630",
+            "bytes": 2221048
+          },
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "c7a3811fedc8920e1400ea2048a4f32e0c34753171892f6c7d1fdd34e08ca638",
+            "bytes": 29420
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "fb3f35991587eb3f3955f4334ffaa2c2a767f4831972d236580f75a92558f6ff",
+            "bytes": 17659
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 80006,
+        "output_bytes": 9171,
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 7343170488,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70092742656,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50889986048,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 70092726272,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 36.911066416,
+        "log_sha256": "38289421ab22694cc37c8110b4a942fc95d6ad9d1636a5ab6e3cc93acc20b7ff"
+      },
+      "log_identity": {
+        "bytes": 9171,
+        "sha256": "38289421ab22694cc37c8110b4a942fc95d6ad9d1636a5ab6e3cc93acc20b7ff"
+      },
+      "log": "{\n  \"archived_code_executed\": false,\n  \"cohorts\": {\n    \"broad-composition-baseline-r1\": {\n      \"accepted_baseline\": false,\n      \"complete_queries\": 0,\n      \"status\": \"failed\"\n    },\n    \"broad-composition-baseline-r2\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.304317834,\n      \"case_flags\": [\n        \"projection_narrow\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.305938167999999,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-join-demand-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [\n        \"aggregate_nullable_no_null_category_mixed_direct_one_percent\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.070406716,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-prepared-kernels-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 13.433815339,\n      \"case_flags\": [\n        \"aggregate_optional_value_category_mixed_arithmetic_all\",\n        \"aggregate_metric_category_sum_arithmetic_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.274446547,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-projected-order-r1\": {\n      \"accepted_baseline\": false,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [\n        \"projection_reordered\",\n        \"aggregate_nullable_no_null_category_sum_arithmetic_one_percent\",\n        \"aggregate_all_null_group_key_mixed_arithmetic_one_percent\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 15.383331123,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-ranked-demand-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 14.862644046,\n      \"case_flags\": [],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.477651246,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-reader-transfer-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.070406716,\n      \"case_flags\": [\n        \"aggregate_optional_value_group_key_category_sum_coalesce_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 14.862644046,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-review-integration-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 15.305938167999999,\n      \"case_flags\": [],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.368176384,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    },\n    \"broad-singleton-index-r1\": {\n      \"accepted_baseline\": true,\n      \"baseline_engine_seconds\": 13.477651246,\n      \"case_flags\": [\n        \"aggregate_signed_value_group_key_mixed_direct_all\"\n      ],\n      \"complete_queries\": 347,\n      \"complete_rows\": 12565,\n      \"engine_seconds\": 13.433815339,\n      \"family_flags\": [],\n      \"status\": \"passed\"\n    }\n  },\n  \"full43\": {\n    \"bounded_ordering_queries\": [\n      9,\n      10,\n      11,\n      12,\n      13,\n      14,\n      15,\n      16,\n      17,\n      19,\n      22,\n      23,\n      24,\n      26,\n      28,\n      29,\n      31,\n      32,\n      33,\n      34,\n      35,\n      36,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"complete_rows\": 381,\n    \"engine_seconds\": 624.450913663,\n    \"input_format\": \"parquet\",\n    \"narrowed_projection_queries\": [\n      1,\n      2,\n      3,\n      4,\n      5,\n      6,\n      7,\n      8,\n      9,\n      10,\n      11,\n      12,\n      13,\n      14,\n      15,\n      16,\n      17,\n      18,\n      19,\n      20,\n      21,\n      22,\n      23,\n      25,\n      26,\n      27,\n      28,\n      29,\n      30,\n      31,\n      32,\n      33,\n      34,\n      35,\n      36,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"pruned_queries\": [\n      2,\n      8,\n      20,\n      37,\n      38,\n      39,\n      40,\n      41,\n      42,\n      43\n    ],\n    \"queries\": 43,\n    \"ranked_queries\": [\n      24\n    ],\n    \"source_prefix_queries\": []\n  },\n  \"historical_doc_digest_only\": {\n    \"relative\": \"docs/architecture/native-shared-performance-2026-10-29.md\",\n    \"scope\": \"Three early nonruntime doc drafts lack payloads; original receipt hashes remain. All frozen execution contracts and runtime/test source bytes are required.\",\n    \"versions\": {\n      \"342810cbbc7994ae867c83658da73ebde6016d5c4d5913aa14d5f22a9f55bb06\": 6617,\n      \"59aa20fe790e77957185ad759a38b0ca4abf6b2f89654004675fec3b41402cba\": 6557,\n      \"d0c0db75dbc44d2cd0a3519ac87f23791918c06457fc61b9feb5c2ac2908cb3a\": 9728\n    }\n  },\n  \"historical_failures\": [\n    \"p001-projection-topk-before.json\",\n    \"p007-projected-order-public.json\",\n    \"p010-projected-order-native-clippy.json\",\n    \"p020-join-demand-before.json\",\n    \"p021-join-demand-admission.json\",\n    \"p022-join-demand-before.json\",\n    \"p023-join-demand-focused.json\",\n    \"p025-join-source-demand-tests.json\",\n    \"p028-join-demand-public.json\",\n    \"p032-join-window-generation-errors.json\",\n    \"p033-join-final-source-demand.json\",\n    \"p043-installed-join-demand.json\",\n    \"p044-join-public-r3.json\",\n    \"p047-reader-transfer-focused.json\",\n    \"p048-reader-transfer-source-demand.json\",\n    \"p050-reader-transfer-existing-ownership.json\",\n    \"p051-reader-transfer-native-clippy.json\",\n    \"p055-reader-transfer-native-workspace-final.json\",\n    \"p068-ranked-demand-focused.json\",\n    \"p070-ranked-demand-native-clippy.json\",\n    \"p071-ranked-demand-native-clippy-fixed.json\",\n    \"p078-ranked-demand-minimal-native-clippy.json\",\n    \"p088-ranked-demand-public-acceptance.json\",\n    \"p093-singleton-index-before.json\",\n    \"p106-prepared-utf8-initial.json\",\n    \"p107-prepared-kernels-native-clippy.json\",\n    \"p118-review-ranked-admission.json\",\n    \"p120-review-native-clippy.json\",\n    \"p121-review-native-clippy.json\"\n  ],\n  \"installed_package\": {\n    \"errors\": 0,\n    \"failures\": 0,\n    \"skipped\": 0,\n    \"status\": \"passed\",\n    \"tests\": 264\n  },\n  \"limitations\": [\n    \"Single observations; no statistical confidence or new competitor comparisons.\",\n    \"Large source/runtime/wheel payloads retain identities only.\",\n    \"Full43 covers direct Parquet; item18 format/surface/output acceptance remains open.\",\n    \"Three early nonruntime doc draft payloads unavailable; receipt identities and all frozen benchmark contracts retained.\",\n    \"Content hashes prove internal consistency, not signed provenance.\"\n  ],\n  \"measured_source_head\": \"7d111f51c9c3a362ed51bed13746a77b8f0a81e8\",\n  \"new_query_executions\": 0,\n  \"public_reports\": {\n    \"join-demand-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 165,\n      \"status\": \"failed\"\n    },\n    \"join-demand-public-r2.json\": {\n      \"accepted_executions\": 165,\n      \"complete_rows\": 1695,\n      \"status\": \"passed\"\n    },\n    \"join-demand-public-r3.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 0,\n      \"status\": \"failed\"\n    },\n    \"join-demand-public-r4.json\": {\n      \"accepted_executions\": 165,\n      \"complete_rows\": 1695,\n      \"status\": \"passed\"\n    },\n    \"prepared-kernels-public-r1.json\": {\n      \"accepted_executions\": 360,\n      \"complete_rows\": 28530,\n      \"status\": \"passed\"\n    },\n    \"projected-order-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 6,\n      \"status\": \"failed\"\n    },\n    \"projected-order-public-r2.json\": {\n      \"accepted_executions\": 60,\n      \"complete_rows\": 224,\n      \"status\": \"passed\"\n    },\n    \"ranked-demand-public-r1.json\": {\n      \"accepted_executions\": 0,\n      \"completed_comparisons_retained\": 177,\n      \"status\": \"failed\"\n    },\n    \"ranked-demand-public-r2.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 12465,\n      \"status\": \"passed\"\n    },\n    \"ranked-demand-public-review1.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 12465,\n      \"status\": \"passed\"\n    },\n    \"reader-transfer-public-r1.json\": {\n      \"accepted_executions\": 180,\n      \"complete_rows\": 7950,\n      \"status\": \"passed\"\n    },\n    \"singleton-index-public-r1.json\": {\n      \"accepted_executions\": 225,\n      \"complete_rows\": 44295,\n      \"status\": \"passed\"\n    }\n  },\n  \"retained_process_receipts\": 134,\n  \"runtime_files\": {\n    \"_native.abi3.so\": {\n      \"bytes\": 80882384,\n      \"sha256\": \"6e51be9c70f23b659fcc4c5736893f87880366a14288ff87cb96fbe380b29980\"\n    },\n    \"shardloom\": {\n      \"bytes\": 80533632,\n      \"sha256\": \"6762d32aa64c7c4deb7077280f767236ece401320c98e260bf8a364321c85f4a\"\n    }\n  },\n  \"schema_version\": \"shardloom.shared_performance_acceptance.v1\",\n  \"status\": \"passed\",\n  \"workspace_tests\": {\n    \"p123-review-native-workspace.json\": {\n      \"binaries\": 119,\n      \"failed\": 0,\n      \"ignored\": 35,\n      \"passed\": 6539\n    },\n    \"p125-review-default-workspace.json\": {\n      \"binaries\": 107,\n      \"failed\": 0,\n      \"ignored\": 0,\n      \"passed\": 3289\n    }\n  }\n}\n"
+    },
+    {
+      "name": "p145-packet-docs-ci.json",
+      "receipt_identity": {
+        "bytes": 5020,
+        "sha256": "907c105bf65aa9d0700e17bb469ae7ab5b73e5215db1a9e9a6be651fb8f03c56"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "-c",
+          "import subprocess,sys; commands=[\"check_ci_gate_matrix.py\",\"check_public_status_docs.py\",\"check_public_claim_language.py\",\"check_v1_docs_productization.py\"]; [subprocess.run([sys.executable,\"-B\",\"scripts/\"+name],check=True) for name in commands]"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo",
+        "head": "c7c76614d07998c653e7be2ced89fe83ef9d9104",
+        "working_tree": " M .github/workflows/ci.yml\n M docs/architecture/native-shared-performance-2026-10-29.md\n?? docs/benchmarks/evidence/native-shared-performance-2026-10-30/\n?? scripts/shared_performance_anchors.json\n?? scripts/shared_performance_bundle.py\n?? scripts/shared_performance_replay.py\n?? scripts/test_shared_performance_packet.py\n?? scripts/verify_shared_performance_packet.py\n",
+        "changed_source_inventory": {
+          ".github/workflows/ci.yml": {
+            "sha256": "790377ce64ba952fc2fc1b6236e2a3318c17fb2777dcebcbe84b992d09f02daa",
+            "bytes": 63934
+          },
+          "docs/architecture/native-shared-performance-2026-10-29.md": {
+            "sha256": "c433283aeebf570ba0f2e99d3158e6d44c4f806bfb7ef92d91a42b4467add5d6",
+            "bytes": 50947
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/acceptance.json": {
+            "sha256": "f20094d84fa31a1295ae4bb83123b539ab497fee3f8de37ff3528b25bcf84eb3",
+            "bytes": 9172
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/manifest.json": {
+            "sha256": "5e2a66840fb2ba0f7a81cd9ecdaadecce69abd0170bd6fda3339233ab91e640e",
+            "bytes": 10975131
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/manifest.json": {
+            "sha256": "63fd5d49df3280b979b9e80f8a782709294e47094334cad4548a8bc25629e611",
+            "bytes": 451
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-000/packet.tar.xz": {
+            "sha256": "862d9c02fafebc1ac22aad96dbe7534a9aae27cac90d183ac344e118a4e4b373",
+            "bytes": 3794664
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/manifest.json": {
+            "sha256": "e3a69e3bbbe33b5b9de8e23e83c6ff99c1b77e17f43fdf357bf5a53453aab313",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-001/packet.tar.xz": {
+            "sha256": "e02bc4b7d3da6e49bfbfbef3c59a3286207c62913adf59db21fb39f2ae8a9077",
+            "bytes": 9692292
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/manifest.json": {
+            "sha256": "960005691f780c18807f68f3b0d34e1caf9321290dd2ce46f2ae09a5ba8e2f4e",
+            "bytes": 456
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-002/packet.tar.xz": {
+            "sha256": "b88de9490fc6193e209d7e845d9f920f8f36419a73f0e2c01e696519a99bd796",
+            "bytes": 4458956
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/manifest.json": {
+            "sha256": "32ae7f19df377b32ef43dc8b68f155480e96cd5cd6e8bb8473ee0dcc564a227a",
+            "bytes": 453
+          },
+          "docs/benchmarks/evidence/native-shared-performance-2026-10-30/part-003/packet.tar.xz": {
+            "sha256": "43d8f50df251e755700d15c854c02aadc09f78863c602d6189cd0beb4a7b1630",
+            "bytes": 2221048
+          },
+          "scripts/shared_performance_anchors.json": {
+            "sha256": "6c27ba525878ab2d06fc8bf490fa759779786a1d1682d6ffaf4609c7f9003dd4",
+            "bytes": 33239
+          },
+          "scripts/shared_performance_bundle.py": {
+            "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883",
+            "bytes": 11949
+          },
+          "scripts/shared_performance_replay.py": {
+            "sha256": "c7a3811fedc8920e1400ea2048a4f32e0c34753171892f6c7d1fdd34e08ca638",
+            "bytes": 29420
+          },
+          "scripts/test_shared_performance_packet.py": {
+            "sha256": "fb3f35991587eb3f3955f4334ffaa2c2a767f4831972d236580f75a92558f6ff",
+            "bytes": 17659
+          },
+          "scripts/verify_shared_performance_packet.py": {
+            "sha256": "93e881f140d54eaaed8085c030c1f64ce61a6341621a302305572757837e545c",
+            "bytes": 1210
+          }
+        },
+        "driver_sha256": "0cb6a24588d91e93bb3836868539c051e5fdec8c177670ed832fdab8baf65f71",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 80057,
+        "output_bytes": 491,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 0.481248208,
+        "log_sha256": "8e971b96f1604a7c90cb3eedaaaa3fbe504b36b54e95b2cff5c336c12d43d1cc"
+      },
+      "log_identity": {
+        "bytes": 491,
+        "sha256": "8e971b96f1604a7c90cb3eedaaaa3fbe504b36b54e95b2cff5c336c12d43d1cc"
+      },
+      "log": "/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/target/ci-gate-matrix-report.json\n/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/target/public-status-docs-report.json\n/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/target/public-claim-language-report.json\n/Users/dylan/.codex/worktrees/native-shared-performance-review/shardloom-local-repo/target/v1-docs-productization-report.json\n"
+    }
+  ],
+  "notes": [
+    "p135 collection failed on three absent early nonruntime document drafts; retained hashes and explicit gap preserve them without substitute content.",
+    "p137 rejected a strict lint/source hash mismatch; exact original bytes prove the sole post-lint formatting edit.",
+    "p139 archive construction finished, but replay was stopped after tracing repeated empty stderr to part0, references to part2 and current outputs to part3. Bounded small-record cache prevents repeated decompression; interrupted outcome retained.",
+    "p141 replay rejected differing source-generation field names bytes/size_bytes; exact explicit mapping preserves all five generation fields.",
+    "p142 complete replay passed; p143 corruption controls passed; p144 source-only replay passed with identical verifier files and acceptance; p145 docs and CI matrix passed."
+  ]
+}
+

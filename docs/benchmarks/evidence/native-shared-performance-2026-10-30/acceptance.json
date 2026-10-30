@@ -1,0 +1,348 @@
+{
+  "archived_code_executed": false,
+  "cohorts": {
+    "broad-composition-baseline-r1": {
+      "accepted_baseline": false,
+      "complete_queries": 0,
+      "status": "failed"
+    },
+    "broad-composition-baseline-r2": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 15.304317834,
+      "case_flags": [
+        "projection_narrow"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 15.305938167999999,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-join-demand-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 15.305938167999999,
+      "case_flags": [
+        "aggregate_nullable_no_null_category_mixed_direct_one_percent"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 15.070406716,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-prepared-kernels-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 13.433815339,
+      "case_flags": [
+        "aggregate_optional_value_category_mixed_arithmetic_all",
+        "aggregate_metric_category_sum_arithmetic_all"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 13.274446547,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-projected-order-r1": {
+      "accepted_baseline": false,
+      "baseline_engine_seconds": 15.305938167999999,
+      "case_flags": [
+        "projection_reordered",
+        "aggregate_nullable_no_null_category_sum_arithmetic_one_percent",
+        "aggregate_all_null_group_key_mixed_arithmetic_one_percent"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 15.383331123,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-ranked-demand-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 14.862644046,
+      "case_flags": [],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 13.477651246,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-reader-transfer-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 15.070406716,
+      "case_flags": [
+        "aggregate_optional_value_group_key_category_sum_coalesce_all"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 14.862644046,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-review-integration-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 15.305938167999999,
+      "case_flags": [],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 13.368176384,
+      "family_flags": [],
+      "status": "passed"
+    },
+    "broad-singleton-index-r1": {
+      "accepted_baseline": true,
+      "baseline_engine_seconds": 13.477651246,
+      "case_flags": [
+        "aggregate_signed_value_group_key_mixed_direct_all"
+      ],
+      "complete_queries": 347,
+      "complete_rows": 12565,
+      "engine_seconds": 13.433815339,
+      "family_flags": [],
+      "status": "passed"
+    }
+  },
+  "full43": {
+    "bounded_ordering_queries": [
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19,
+      22,
+      23,
+      24,
+      26,
+      28,
+      29,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43
+    ],
+    "complete_rows": 381,
+    "engine_seconds": 624.450913663,
+    "input_format": "parquet",
+    "narrowed_projection_queries": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43
+    ],
+    "pruned_queries": [
+      2,
+      8,
+      20,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43
+    ],
+    "queries": 43,
+    "ranked_queries": [
+      24
+    ],
+    "source_prefix_queries": []
+  },
+  "historical_doc_digest_only": {
+    "relative": "docs/architecture/native-shared-performance-2026-10-29.md",
+    "scope": "Three early nonruntime doc drafts lack payloads; original receipt hashes remain. All frozen execution contracts and runtime/test source bytes are required.",
+    "versions": {
+      "342810cbbc7994ae867c83658da73ebde6016d5c4d5913aa14d5f22a9f55bb06": 6617,
+      "59aa20fe790e77957185ad759a38b0ca4abf6b2f89654004675fec3b41402cba": 6557,
+      "d0c0db75dbc44d2cd0a3519ac87f23791918c06457fc61b9feb5c2ac2908cb3a": 9728
+    }
+  },
+  "historical_failures": [
+    "p001-projection-topk-before.json",
+    "p007-projected-order-public.json",
+    "p010-projected-order-native-clippy.json",
+    "p020-join-demand-before.json",
+    "p021-join-demand-admission.json",
+    "p022-join-demand-before.json",
+    "p023-join-demand-focused.json",
+    "p025-join-source-demand-tests.json",
+    "p028-join-demand-public.json",
+    "p032-join-window-generation-errors.json",
+    "p033-join-final-source-demand.json",
+    "p043-installed-join-demand.json",
+    "p044-join-public-r3.json",
+    "p047-reader-transfer-focused.json",
+    "p048-reader-transfer-source-demand.json",
+    "p050-reader-transfer-existing-ownership.json",
+    "p051-reader-transfer-native-clippy.json",
+    "p055-reader-transfer-native-workspace-final.json",
+    "p068-ranked-demand-focused.json",
+    "p070-ranked-demand-native-clippy.json",
+    "p071-ranked-demand-native-clippy-fixed.json",
+    "p078-ranked-demand-minimal-native-clippy.json",
+    "p088-ranked-demand-public-acceptance.json",
+    "p093-singleton-index-before.json",
+    "p106-prepared-utf8-initial.json",
+    "p107-prepared-kernels-native-clippy.json",
+    "p118-review-ranked-admission.json",
+    "p120-review-native-clippy.json",
+    "p121-review-native-clippy.json"
+  ],
+  "installed_package": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "status": "passed",
+    "tests": 264
+  },
+  "limitations": [
+    "Single observations; no statistical confidence or new competitor comparisons.",
+    "Large source/runtime/wheel payloads retain identities only.",
+    "Full43 covers direct Parquet; item18 format/surface/output acceptance remains open.",
+    "Three early nonruntime doc draft payloads unavailable; receipt identities and all frozen benchmark contracts retained.",
+    "Content hashes prove internal consistency, not signed provenance."
+  ],
+  "measured_source_head": "7d111f51c9c3a362ed51bed13746a77b8f0a81e8",
+  "new_query_executions": 0,
+  "public_reports": {
+    "join-demand-public-r1.json": {
+      "accepted_executions": 0,
+      "completed_comparisons_retained": 165,
+      "status": "failed"
+    },
+    "join-demand-public-r2.json": {
+      "accepted_executions": 165,
+      "complete_rows": 1695,
+      "status": "passed"
+    },
+    "join-demand-public-r3.json": {
+      "accepted_executions": 0,
+      "completed_comparisons_retained": 0,
+      "status": "failed"
+    },
+    "join-demand-public-r4.json": {
+      "accepted_executions": 165,
+      "complete_rows": 1695,
+      "status": "passed"
+    },
+    "prepared-kernels-public-r1.json": {
+      "accepted_executions": 360,
+      "complete_rows": 28530,
+      "status": "passed"
+    },
+    "projected-order-public-r1.json": {
+      "accepted_executions": 0,
+      "completed_comparisons_retained": 6,
+      "status": "failed"
+    },
+    "projected-order-public-r2.json": {
+      "accepted_executions": 60,
+      "complete_rows": 224,
+      "status": "passed"
+    },
+    "ranked-demand-public-r1.json": {
+      "accepted_executions": 0,
+      "completed_comparisons_retained": 177,
+      "status": "failed"
+    },
+    "ranked-demand-public-r2.json": {
+      "accepted_executions": 180,
+      "complete_rows": 12465,
+      "status": "passed"
+    },
+    "ranked-demand-public-review1.json": {
+      "accepted_executions": 180,
+      "complete_rows": 12465,
+      "status": "passed"
+    },
+    "reader-transfer-public-r1.json": {
+      "accepted_executions": 180,
+      "complete_rows": 7950,
+      "status": "passed"
+    },
+    "singleton-index-public-r1.json": {
+      "accepted_executions": 225,
+      "complete_rows": 44295,
+      "status": "passed"
+    }
+  },
+  "retained_process_receipts": 134,
+  "runtime_files": {
+    "_native.abi3.so": {
+      "bytes": 80882384,
+      "sha256": "6e51be9c70f23b659fcc4c5736893f87880366a14288ff87cb96fbe380b29980"
+    },
+    "shardloom": {
+      "bytes": 80533632,
+      "sha256": "6762d32aa64c7c4deb7077280f767236ece401320c98e260bf8a364321c85f4a"
+    }
+  },
+  "schema_version": "shardloom.shared_performance_acceptance.v1",
+  "status": "passed",
+  "workspace_tests": {
+    "p123-review-native-workspace.json": {
+      "binaries": 119,
+      "failed": 0,
+      "ignored": 35,
+      "passed": 6539
+    },
+    "p125-review-default-workspace.json": {
+      "binaries": 107,
+      "failed": 0,
+      "ignored": 0,
+      "passed": 3289
+    }
+  }
+}
+
