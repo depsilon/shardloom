@@ -2,7 +2,7 @@
 //! Source adapters own generation and read granularity, never ordering semantics.
 
 use super::super::{logical_field_from_native_array as column, native_payload, result_batch};
-use super::batch_input::RankedConsumer;
+use super::batch_input::{RankedConsumer, Source};
 use super::{
     ArrayRef, DType, FieldNames, Metrics, NativeExecutionContext, Node, NodeKind, PipelineKind,
     PreparedVortexRelational, ReservedVec, Result, ScanSource, StructArray, Validity, add, failed,
@@ -54,20 +54,25 @@ impl PreparedVortexRelational {
             return Ok(false);
         };
         let declaration = &self.batch_sources[*index];
-        if declaration.external()
-            || !declaration.usage.admits_ranked()
-            || (plan.filter.is_some() && predicate.is_none())
-        {
+        if !declaration.usage.admits_ranked() || (plan.filter.is_some() && predicate.is_none()) {
+            return Ok(false);
+        }
+        context.check_cancelled()?;
+        if !source_has_ranked_payload(declaration, input, spec, predicate.as_ref()) {
             return Ok(false);
         }
         // All temporary plan/schema copies are bounded by the already admitted
-        // binding, plus the one private position field. No source population.
-        let _metadata = context.memory().reserve(
+        // binding, plus the one private position field. This optional admission
+        // must not prevent the ordinary native route from using its own budget.
+        // No source has opened, and no execution error is caught here.
+        let Ok(_metadata) = context.memory().reserve(
             self.binding_metadata
                 .bytes()
                 .checked_add(8192)
                 .ok_or_else(|| failed("ranked binding metadata overflow"))?,
-        )?;
+        ) else {
+            return Ok(false);
+        };
         let mapping = spec
             .fields
             .iter()
@@ -124,6 +129,22 @@ impl PreparedVortexRelational {
             .finish_prefix(context, batch_rows, Some(*prefix), true, output)?;
         Ok(true)
     }
+}
+
+fn source_has_ranked_payload(
+    declaration: &Source,
+    input: &Node,
+    spec: &native_relational_sort::Spec,
+    predicate: Option<&PredicateExpr>,
+) -> bool {
+    declaration.local.as_ref().is_some_and(|source| {
+        source.can_rank_columns(|name| {
+            spec.names
+                .iter()
+                .any(|key| source_column(input, key) == Some(name))
+                || predicate.is_some_and(|predicate| predicate_uses_column(predicate, name))
+        })
+    })
 }
 
 fn source_scan(mut node: &Node) -> Option<&Node> {
@@ -207,6 +228,13 @@ fn predicate_columns(predicate: &PredicateExpr, columns: &mut Vec<String>) {
             predicate_columns(child, columns);
         }
     }
+}
+
+fn predicate_uses_column(predicate: &PredicateExpr, name: &str) -> bool {
+    predicate
+        .column()
+        .is_some_and(|column| column.as_str() == name)
+        || matches!(predicate, PredicateExpr::And(children) if children.iter().any(|child| predicate_uses_column(child, name)))
 }
 
 struct Consumer<'a, 'm> {
