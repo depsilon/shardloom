@@ -15,6 +15,9 @@ use serde_json::{Value, json};
 #[path = "local_primitive_relational_source_demand_ranked_lifecycle_tests.rs"]
 mod lifecycle;
 
+#[path = "local_primitive_relational_source_demand_ranked_admission_tests.rs"]
+mod admission;
+
 fn key_value(id: i64) -> Option<i64> {
     (id % 11 != 0).then_some(((id * 97 + 23) % 397) % 13 - 6)
 }

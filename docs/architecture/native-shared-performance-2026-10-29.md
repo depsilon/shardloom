@@ -362,6 +362,25 @@ preserve absolute positions, and zero demand reads ranking dependencies but no
 payload groups. All 262 isolated installed-package tests pass without failures
 or skips, with exact binary integrity and verified uninstall.
 
+The October 30 PR review identified a correctness issue in optional ranked
+admission under a tight memory grant. Structural eligibility now precedes the
+temporary binding lease: single-group sources, source prefixes and projections
+containing only ranking/predicate columns decline without allocating ranked
+state. Refusal of the optional binding or adapter metadata lease also declines
+before the once-only source starts, leaving ordinary native streaming available.
+Source validation, cancellation, and failures after source consumption still
+propagate. The cost calculation and native key/selection semantics are unchanged.
+This is a review correction, not another performance candidate; final integration
+must validate the corrected source and retain the original candidate observation.
+
+Vortex-first check for this correction: retain the existing Vortex arrays,
+`StreamingPrefix`, source-demand lifecycle and shared memory pool. The change is
+ShardLoom admission policy around those existing providers, with no new array,
+decoder, external executor or materialization boundary. Focused checks cover
+ineligible admission without reservations, optional budget refusal before reads,
+ordinary consumption of the same producer, complete result retry, cancellation,
+invalid demand, and released credits.
+
 The first public attempt passed 177 executions and failed three DataFrame-adapter
 intakes before execution because one fixture mixed per-key direction/null
 placement. Correct only that fresh fixture to the adapter's admitted common

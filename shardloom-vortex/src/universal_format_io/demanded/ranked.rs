@@ -4,6 +4,17 @@
 use super::{Arc, NativeExecutionContext, PreparedColumnarSource, ProjectionMask, Result, failed};
 
 impl PreparedColumnarSource {
+    /// Allocation-free structural admission. Cost and generation checks still
+    /// belong to `prepare_ranking`, before the once-only producer is started.
+    pub(crate) fn can_rank_columns(&self, includes: impl Fn(&str) -> bool) -> bool {
+        self.max_rows.is_none()
+            && self.row_groups.len() > 1
+            && self
+                .projection
+                .iter()
+                .any(|&index| !includes(self.source.metadata().schema().field(index).name()))
+    }
+
     pub(crate) fn prepare_ranking(
         &self,
         columns: &[String],
@@ -25,16 +36,20 @@ impl PreparedColumnarSource {
                 "ranking demand references an unadmitted source column",
             ));
         }
-        let credit = context.memory().reserve(self.metadata.bytes())?;
+        if !self.can_rank_columns(|name| columns.iter().any(|column| column == name)) {
+            return Ok(None);
+        }
+        // Ranking is optional until the source is opened. Refusing its extra
+        // metadata leaves the original prepared source available for streaming.
+        let Ok(credit) = context.memory().reserve(self.metadata.bytes()) else {
+            return Ok(None);
+        };
         let projection: Vec<_> = self
             .projection
             .iter()
             .copied()
             .filter(|&index| columns.iter().any(|name| fields[index].name() == name))
             .collect();
-        if projection.len() == self.projection.len() {
-            return Ok(None);
-        }
         let mut original_bytes = 0_u64;
         let mut ranking_bytes = 0_u64;
         let mut payload_groups = Vec::with_capacity(self.row_groups.len());
