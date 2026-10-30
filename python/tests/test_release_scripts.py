@@ -6160,6 +6160,31 @@ jobs:
             status["blockers"],
         )
 
+    def test_ci_gate_matrix_requires_cancellable_aggregation_jobs(self) -> None:
+        module = self._load_script_module(
+            "check_ci_gate_matrix.py", "check_ci_gate_matrix_cancellation_for_test"
+        )
+        workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs/release/ci-gate-matrix.md").read_text(encoding="utf-8")
+        for job_id in ("native-tests", "python-tests", "python-native-wheel", "release-readiness"):
+            lane = next(lane for lane in module.REQUIRED_LANES if lane.job_id == job_id)
+            with self.subTest(job=job_id):
+                accepted = module.lane_status(lane, workflow, doc)
+                self.assertEqual(accepted["status"], "passed", accepted["blockers"])
+                section = module.workflow_job_section(workflow, job_id)
+                for broken in (
+                    section.replace("!cancelled()", "always()", 1),
+                    section.replace("!cancelled()", "success()", 1),
+                ):
+                    # A step/comment marker cannot satisfy the job's cancellation rule.
+                    broken += "        # if: ${{ !cancelled() }}\n"
+                    rejected = module.lane_status(lane, workflow.replace(section, broken), doc)
+                    self.assertEqual(rejected["status"], "failed")
+                    self.assertIn(
+                        f"workflow job {job_id} must aggregate failures but honor cancellation",
+                        rejected["blockers"],
+                    )
+
     def test_ci_gate_matrix_requires_hard_release_without_allow_blocked(self) -> None:
         module = self._load_script_module(
             "check_ci_gate_matrix.py", "check_ci_gate_matrix_readiness_for_test"
@@ -6367,7 +6392,7 @@ jobs:
             "  website-docs:", maxsplit=1
         )[0]
 
-        self.assertIn("if: ${{ always() }}", release_job)
+        self.assertIn("if: ${{ !cancelled() }}", release_job)
         self.assertIn("python scripts/check_release_readiness.py", release_job)
 
     def _write_public_status_docs_fixture(self, module: object, repo_root: Path) -> None:

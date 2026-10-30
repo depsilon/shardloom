@@ -28,6 +28,13 @@ skipped_gate=real_publication
 The workflow uses `concurrency:`, `cancel-in-progress: true`, and read-only `actions: read`
 permissions. No external query-engine fallback is permitted.
 
+Aggregation jobs use `!cancelled()` so failed prerequisite jobs still reach the
+failure-reporting gates, while an obsolete run releases its concurrency slot
+when cancelled. Step-level `always()` remains appropriate for uploading failure
+evidence. The CI matrix validator requires the cancellation condition at the job
+boundary; a step or comment cannot satisfy it. See GitHub's
+[workflow cancellation behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation).
+
 ## Execution topology
 
 - `rust-baseline` runs formatting, workspace Clippy, and all-target workspace tests as three
@@ -120,7 +127,7 @@ and workflow markers verbatim for contract checking.
 - Commands: `python scripts/ci_native_tests.py aggregate --bundle target/ci-native-tests --output target/ci-native-results`
 - Artifacts: `native-test-executable`; `native-test-partition-*`; `native-test-coverage`; `target/ci-native-results/coverage.json`
 - Release blockers: `native test ownership and failure propagation`
-- Workflow markers: `Rust feature matrix (native_vortex_tests)`; `always()`; `native-test-build`; `native-test-partitions`; `patched-provider-tests`; `rust-feature-matrix`
+- Workflow markers: `Rust feature matrix (native_vortex_tests)`; `!cancelled()`; `native-test-build`; `native-test-partitions`; `patched-provider-tests`; `rust-feature-matrix`
 
 ### native_cli_debug — native-cli-build-debug
 
@@ -155,7 +162,7 @@ and workflow markers verbatim for contract checking.
 - Commands: `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`; `python scripts/merge_python_test_shard_evidence.py`
 - Artifacts: `python-test-shard-*`; `target/python-test-evidence.json`; `python-test-evidence`
 - Release blockers: `Python tests`; `Python compile check`
-- Workflow markers: `needs:`; `python-test-shards`; `if: always()`; `actions/download-artifact@v8`; `merge-multiple: true`
+- Workflow markers: `needs:`; `python-test-shards`; `if: ${{ !cancelled() }}`; `actions/download-artifact@v8`; `merge-multiple: true`
 
 ### python_compatibility_matrix — python-compatibility-matrix
 
@@ -197,7 +204,7 @@ and workflow markers verbatim for contract checking.
 - Commands: `python scripts/ci_native_package.py aggregate --reports target/native-package-results --output target/ci-native-package-coverage.json`
 - Artifacts: `native-python-wheel-py*`; `native-python-wheel-coverage`; `target/ci-native-package-coverage.json`
 - Release blockers: `all platform proofs and identical Linux wheel acceptance`
-- Workflow markers: `always()`; `python-native-wheel-linux`; `python-native-wheel-macos`
+- Workflow markers: `!cancelled()`; `python-native-wheel-linux`; `python-native-wheel-macos`
 
 ### python_package_smoke — python-package
 
@@ -239,7 +246,7 @@ and workflow markers verbatim for contract checking.
 - Commands: `python scripts/ci_execution_plan.py summary --plan target/downloads/ci-execution-plan/ci-execution-plan.json --output target/ci-execution-summary.json`; `python scripts/merge_release_evidence_artifacts.py`; `python scripts/final_release_rehearsal.py --allow-blocked`; `python scripts/check_production_usability_gate.py`; `python scripts/check_v1_api_schema_stability.py`; `python scripts/check_v1_correctness_conformance.py`; `python scripts/check_v1_security_ci_hardening.py`; `python scripts/check_v1_release_boundary.py`; `python scripts/check_production_certification_gate.py`; `python scripts/check_release_readiness.py`; `python scripts/check_finished_product_readiness.py`
 - Artifacts: `target/dependency-audit-report.json`; `target/security-posture-report.json`; `target/release-dry-run-proof`; `target/release-provenance-dry-run`; `target/debug/shardloom`; `python/dist`; `target/python-test-evidence.json`; `target/release-security-gate-report.json`; `target/contribution-governance-report.json`; `target/package-channel-readiness-report.json`; `target/golden-workflow-report.json`; `target/golden-workflows`; `target/admitted-semantics-matrix-report.json`; `target/admitted-semantics-matrix`; `target/release-architecture-tracker-report.json`; `target/final-release-rehearsal`; `target/public-status-docs-report.json`; `target/website-readiness-report.json`; `target/workspace-version-source-report.json`; `target/production-usability-gate.json`; `target/v1-api-schema-stability-report.json`; `target/v1-example-replay-report.json`; `target/v1-example-replay`; `target/v1-correctness-conformance-report.json`; `target/v1-security-ci-hardening-report.json`; `target/v1-release-boundary-report.json`; `target/production-certification-gate.json`; `target/python-user-surface-completion-gate.json`; `target/sql-python-dataframe-parity-gate.json`; `target/v1-front-door-runtime-scope-report.json`; `target/v1-vortex-runtime-scope-report.json`; `target/v1-source-prepared-state-scope-report.json`; `target/v1-local-output-sink-scope-report.json`; `target/v1-local-resource-safety-report.json`; `target/v1-observability-support-report.json`; `target/user-surface-runtime-gap-inventory.json`; `target/user-surface-graduation-matrix.json`; `target/runtime-gap-family-burn-down.json`; `target/user-route-capability-report.json`; `target/ci-gate-matrix-report.json`; `target/ci-work-shaping-plan.json`; `target/ci-work-shaping-changed-files.txt`; `target/hard-release-readiness-gate.json`; `target/finished-product-readiness-report.json`; `target/ci-execution-summary.json`; `ci-execution-summary`
 - Release blockers: `final rehearsal`; `production usability gate`; `v1 API/schema stability gate`; `v1 correctness/conformance gate`; `v1 security/CI hardening gate`; `v1 release boundary firewall`; `production certification gate`; `hard release readiness gate`; `finished product readiness gate`; `release readiness artifact aggregation`
-- Workflow markers: `needs:`; `ci-work-shaping`; `ci-gate-matrix`; `dependency-security`; `python-tests`; `python-package`; `release-runtime-core`; `release-package-governance`; `release-user-surface`; `website-docs`; `actions/download-artifact@v8`; `ci-work-shaping-evidence`; `dependency-security-evidence`; `release-local-smoke-evidence`; `python-test-evidence`; `target/downloads`; `target/downloads/ci-work-shaping-evidence`; `ci-gate-matrix-report`; `release-runtime-core-evidence`; `release-package-governance-evidence`; `release-user-surface-evidence`; `website-docs-evidence`; `Merge downloaded release evidence`; `Verify downloaded release evidence`; `continue-on-error: true`; `Finished product readiness gate`; `always()`; `needs.ci-work-shaping.outputs.full_validation == 'true'`; `native-tests`; `python-native-wheel`; `native-cli-build-debug`; `native-cli-build-release`
+- Workflow markers: `needs:`; `ci-work-shaping`; `ci-gate-matrix`; `dependency-security`; `python-tests`; `python-package`; `release-runtime-core`; `release-package-governance`; `release-user-surface`; `website-docs`; `actions/download-artifact@v8`; `ci-work-shaping-evidence`; `dependency-security-evidence`; `release-local-smoke-evidence`; `python-test-evidence`; `target/downloads`; `target/downloads/ci-work-shaping-evidence`; `ci-gate-matrix-report`; `release-runtime-core-evidence`; `release-package-governance-evidence`; `release-user-surface-evidence`; `website-docs-evidence`; `Merge downloaded release evidence`; `Verify downloaded release evidence`; `continue-on-error: true`; `Finished product readiness gate`; `!cancelled()`; `needs.ci-work-shaping.outputs.full_validation == 'true'`; `native-tests`; `python-native-wheel`; `native-cli-build-debug`; `native-cli-build-release`
 
 ### website_docs_validation — website-docs
 
