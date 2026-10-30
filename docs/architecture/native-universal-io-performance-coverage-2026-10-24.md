@@ -46,6 +46,23 @@ the preserved `codex/universal-io` branch or claiming new runtime/timing proof.
 
 ## Contract and intake
 
+The October 30 maintainer clarification requires this package to extend the
+current accepted analytical performance capabilities across **all supported input
+and output families and their supported combinations**. Audit every applicable
+source-to-sink pairing and every public interface for reachability of the shared
+ordering, join, expression, aggregation, demand and ownership improvements. Cover
+mixed-format multi-source queries and multi-output requests, direct and prepared
+sources, small summaries and substantial written results with complete readback.
+Missing adapter implementation is a queue gap, not evidence that a native
+optimization is inherently format-specific. Reuse common operators; admit
+selective reads or ownership transfer only when the adapter supplies the required
+metadata, row identity, provenance and lifetime proof. Where physical format
+properties prevent equivalent pruning or transfer, document and test the exact
+limitation and required work; do not silently waive coverage or promise identical
+timings. Item 19 extends these same obligations to newly admitted rich types.
+The subsequent broader scenario campaign follows item 19, before Foundry;
+it does not defer this package's own format/interface acceptance or the 1.1.0 gate.
+
 Reuse source-encoding translation accepted by the preceding ingestion and
 analytical items, carrying its representation capabilities through the current
 shared native consumers. Extend proved type/validity/dictionary/

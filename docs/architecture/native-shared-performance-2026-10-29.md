@@ -471,3 +471,78 @@ consumer refusal, complete release and fresh retry. Require complete independent
 values across all five public interfaces and the three existing formats, actual
 read-byte reductions, workspace/package checks, then one unchanged 347-case pass
 under the existing binary engine-total rule. Full43 remains a combined gate.
+
+## Candidate 5: inline first rows in the shared membership index
+
+Disposition: **retained locally**, pending combined integration and hosted
+checks. The unchanged 347-query cohort records **13.433815339 engine seconds**
+against candidate 4's **13.477651246**, a reduction of **0.043835907 seconds
+(0.325%)**. All 347 complete comparisons and 12,565 result rows pass. This is
+the next candidate's accepted baseline under the binary complete-cohort rule,
+not a statistical or isolated causal claim.
+
+The join family records 1.131766710 seconds against 1.213341917; multiway joins
+record 0.895376375 against 0.934683084. Grouped aggregation records 5.487348256
+against 5.438681039. One case, `aggregate_signed_value_group_key_mixed_direct_all`,
+crosses the diagnostic regression threshold (0.026795917 to 0.040427334), with
+unchanged reported source counters. No family crosses its diagnostic threshold.
+Preserve all increases and the flagged case; no repeat or causal attribution is
+introduced to explain them.
+
+Exact memory controls fail against the previous representation and pass after
+the change: eight unique entries fit the 320-byte entry/bucket grant without any
+duplicate storage, and first-duplicate/growth denial preserves existing rows and
+permits retry. All seven focused index tests, 6,524 native workspace tests
+(35 existing opt-in cases ignored), 3,289 default tests without skips, strict
+native/default lint and formatting pass. Fresh public fixtures pass 225 complete
+comparisons over 44,295 rows across five interfaces and three formats. All 263
+installed-package tests pass without failures or skips, with verified uninstall.
+
+The retained packet is `broad-singleton-index-r1`, built from
+`singleton-index-release-r1`. All 3,125 frozen source identities, both runtime
+products and 694 baseline/candidate stdout hashes were independently verified
+before acceptance. `singleton-index-analysis.json` preserves complete case and
+family movements; `singleton-index-accepted-source.json` links the proof. Full43
+and portable/hosted acceptance remain combined gates. No competitor was rerun.
+
+The existing `native_relational_index::RowIndex` allocates a separate two-word
+link even for a key retained only once. Store that first row directly in its
+existing three-word entry. Allocate a link only for each additional duplicate.
+Keep the entry size unchanged by using its remaining word as the duplicate tail;
+a circular duplicate chain supplies its head through that tail. Append remains
+constant work. Iteration emits the inline first row followed by each duplicate
+exactly once, in insertion order. Hash collisions still require the same native
+equality callback against the first row. No key-domain, uniqueness or density
+inference is needed, and arbitrary row ordinals must not become iterator sentinels.
+
+Use the current credited `ReservedVec` owners for entries, links and buckets.
+Resolve every fallible reservation and cancellation check before publishing an
+entry or duplicate, including the singleton-to-duplicate transition and link
+capacity growth. Failed insertions retain the previously visible membership and
+duplicate order; all credits remain owned through failure and drop. Existing
+unique insertion keeps first-occurrence entry ordinals and allocates no duplicate
+state. Rehash preserves entry and chain identities. Do not reopen the dropped
+probe-cache/gather-coordinate experiment or combine this with a dense directory.
+
+This is a representation change in the existing shared native owner, used by
+joins and condition-join candidate iteration, RowSet membership and grouping,
+correlated subqueries, and DISTINCT window state. Keep each consumer's current
+NULL, equality, order, multiplicity and source-completion contracts. Pinned Vortex
+key/array providers remain authoritative for values; no new array abstraction,
+format dispatch, external executor, dependency or unsafe code is required.
+
+Prove the structural change with exact credited-memory and retained-link tests,
+including all-unique keys, long duplicate chains, interleaved collisions, missing
+keys, zero/one rows and arbitrary ordinals. Deny the first duplicate allocation
+and later growth independently; check cancellation and equality errors before
+publication, successful retry, and zero remaining credits. Run the full shared
+consumer suite plus fresh independent public comparisons across five interfaces
+and Parquet, Arrow IPC and Vortex, then installed-package and workspace checks.
+The existing public join/source counters must keep their meanings; exact private
+container tests establish link elimination without inventing a public metric.
+
+After acceptance, freeze one unchanged complete-cohort pass. Declare all affected
+families (joins, multiway joins, composite, distinct, sets, global and grouped aggregation)
+and retain every observation. Lower complete engine time retains this candidate;
+unchanged or higher drops it. No speed or whole-query memory saving is inferred
+from the smaller private representation alone.

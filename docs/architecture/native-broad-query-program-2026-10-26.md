@@ -44,7 +44,59 @@ development loop; a focused shared-runtime concern can justify using the existin
 isolated Full43 procedure. This program does not authorize routine repeats,
 cache manipulation, artificial pacing or reruns for presentation alone.
 
-## Active work unit: universal source demand, starting with Parquet
+## October 30 coverage expansion after item 19
+
+The maintainer schedules the expanded analytical testing/benchmark campaign after
+rich-data lifecycle item 19 and before Foundry item 21. Current item 20 continues
+its seven performance candidates plus explicit ordering-kernel, predicate and
+multiway/composed-movement follow-through; ordinary targeted acceptance is not
+deferred. The original 347-query corpus, denominator, inputs and historical
+observations remain frozen. Version the expanded corpus separately and extend
+the existing typed declarations, independent references, adapters and constrained
+interaction selector; do not create a second benchmarking system.
+
+Promote implemented capabilities missing from the executable catalog, including
+windows, as-of joins, richer aggregates, subqueries, reshaping, materialization
+and recursion. Cover expression placement in projection/filter/group/join/order,
+hidden/renamed columns, safe wrappers, repeated subplans and multiple consumers.
+Declare equivalence conditions; fallible expression reordering, floating
+reassociation and materialization-boundary crossing are not automatic rewrites.
+
+Case metadata must identify actual operator/composition, physical and logical
+types, floating policy, decimal precision/scale, temporal units/zones, nulls,
+cardinality/selectivity, skew/correlation/fanout, build/probe size ratio, source
+encoding/layout/chunks, result demand, resources and lifecycle/delivery. Exercise
+empty/singleton through high cardinality, long/wide/nested output, full sorts and
+large K/deep offsets, nullable/text/temporal ordering, heavy ties, mixed directions,
+partial ordering and actual spill. Numeric coverage includes column-column and
+literal operations, widths/signs, casts and expression chains; text includes
+substring/concat/pattern/regex/JSON and key/predicate consumers. Temporal coverage
+includes negative epochs, DST, arithmetic, windows, grids and interpolation.
+Include nullable CASE/COALESCE/NULLIF and guarded errors, large set branches and
+multiple distinct states. Generator options alone are not executed coverage.
+
+Keep 1M rows as the primary development scale. Use inexpensive tiny semantic
+fixtures, approximately 100–200 balanced smoke representatives, constrained
+pairwise plus targeted three-to-five-factor interactions, genuinely held-out
+plan/profile/cardinality/layout combinations, and 50–200 selected scale/resource
+sentinels. Grow toward the existing 80–120 archetype and 5,000–10,000 meaningful
+variant targets as budgets allow; counts do not establish completion. Record
+input bytes, key/state cardinality, actual layouts and large-output delivery,
+not row count alone. Once a held-out combination guides tuning, retain it as a
+regression and introduce a fresh acceptance combination. Bound generated storage
+and keep broad runs at cohesive integration boundaries.
+
+Report fixed-cohort engine total separately from per-family and family-balanced
+results, absolute gaps, severe outliers and actual interaction coverage. Include
+observed reads/decodes/copies/gathers/retained state/spill and selected routes.
+Incorrect, unsupported, adapter-missing, timed-out and unexecuted cases remain
+visible. Comparator cases require compatible semantics, complete results and
+matched clock/resource/input boundaries; unavailable comparison stays explicit.
+The retained Polars API clock is not an engine-only clock. Freeze the comparator
+protocol and execution budget at this later stage, preserving earlier observations
+without automatic repeats or a claim of broad superiority.
+
+## Historical first source-demand work unit
 
 The October 26 maintainer proposal follows the completed 347-case baseline and
 foundation, merged in PR #1611 as `4d25a06e`. The
