@@ -41,80 +41,101 @@ pub(super) fn consume(
         return Err(failed("bound compact aggregate input domain changed"));
     }
     #[cfg(all(test, debug_assertions))]
-    if owner.len() != 0 {
-        crate::local_primitives::native_relational_observation::record(|counts| {
-            if matches!(
-                slot.kind,
-                Kind::Integer | Kind::StrictFloat | Kind::ExtendedFloat
-            ) {
-                counts.aggregate_numeric_bound_batches += 1;
-                counts.aggregate_numeric_bound_rows += owner.len() as u64;
-            } else {
-                counts.aggregate_extrema_bound_batches += 1;
-                counts.aggregate_extrema_bound_rows += owner.len() as u64;
-            }
-        });
-    }
+    record_bound(slot.kind, owner.len());
     match slot.kind {
-        Kind::Integer => numeric(owner, ordinals, context, |group, value| {
-            let state = &mut table.integers[group * width + slot.index];
-            update_count(&mut state.count, 1)?;
-            NumericAggregateSum::add_integer_parts(&mut state.sum, &mut state.correction, value);
-            finite_sum(state.sum + state.correction)
+        Kind::Integer => bind_states!(table.integers, states, {
+            numeric(owner, ordinals, context, |group, value| {
+                let state = &mut states[group * width + slot.index];
+                update_count(&mut state.count, 1)?;
+                NumericAggregateSum::add_integer_parts(
+                    &mut state.sum,
+                    &mut state.correction,
+                    value,
+                );
+                finite_sum(state.sum + state.correction)
+            })
         })?,
-        Kind::StrictFloat => numeric(owner, ordinals, context, |group, value| {
-            validate_float_scalar(value, FloatPolicy::Strict)?;
-            let state = &mut table.strict[group * width + slot.index];
-            update_count(&mut state.count, 1)?;
-            state.sum += value;
-            finite_sum(state.sum)
+        Kind::StrictFloat => bind_states!(table.strict, states, {
+            numeric(owner, ordinals, context, |group, value| {
+                validate_float_scalar(value, FloatPolicy::Strict)?;
+                let state = &mut states[group * width + slot.index];
+                update_count(&mut state.count, 1)?;
+                state.sum += value;
+                finite_sum(state.sum)
+            })
         })?,
-        Kind::ExtendedFloat => numeric(owner, ordinals, context, |group, value| {
-            let state = &mut table.extended[group * width + slot.index];
-            update_count(&mut state.numeric.count, 1)?;
-            if !state.specials.add(value)? {
-                state.numeric.sum += value;
-                finite_sum(state.numeric.sum)?;
-            }
-            Ok(())
+        Kind::ExtendedFloat => bind_states!(table.extended, states, {
+            numeric(owner, ordinals, context, |group, value| {
+                let state = &mut states[group * width + slot.index];
+                update_count(&mut state.numeric.count, 1)?;
+                if !state.specials.add(value)? {
+                    state.numeric.sum += value;
+                    finite_sum(state.numeric.sum)?;
+                }
+                Ok(())
+            })
         })?,
-        Kind::SignedExtreme => extremum(owner, ordinals, context, |group, value| {
-            let StatValue::Int64(value) = value else {
-                return Err(failed("signed extremum domain changed"));
-            };
-            update_extreme(
-                &mut table.signed_extrema[group * width + slot.index],
-                value,
-                measure.function == Function::Min,
-                |left, right| left.cmp(&right),
-            )
+        Kind::SignedExtreme => bind_states!(table.signed_extrema, states, {
+            extremum(owner, ordinals, context, |group, value| {
+                let StatValue::Int64(value) = value else {
+                    return Err(failed("signed extremum domain changed"));
+                };
+                update_extreme(
+                    &mut states[group * width + slot.index],
+                    value,
+                    measure.function == Function::Min,
+                    |left, right| left.cmp(&right),
+                )
+            })
         })?,
-        Kind::UnsignedExtreme => extremum(owner, ordinals, context, |group, value| {
-            let StatValue::UInt64(value) = value else {
-                return Err(failed("unsigned extremum domain changed"));
-            };
-            update_extreme(
-                &mut table.unsigned_extrema[group * width + slot.index],
-                value,
-                measure.function == Function::Min,
-                |left, right| left.cmp(&right),
-            )
+        Kind::UnsignedExtreme => bind_states!(table.unsigned_extrema, states, {
+            extremum(owner, ordinals, context, |group, value| {
+                let StatValue::UInt64(value) = value else {
+                    return Err(failed("unsigned extremum domain changed"));
+                };
+                update_extreme(
+                    &mut states[group * width + slot.index],
+                    value,
+                    measure.function == Function::Min,
+                    |left, right| left.cmp(&right),
+                )
+            })
         })?,
-        Kind::FloatExtreme => extremum(owner, ordinals, context, |group, value| {
-            let StatValue::Float64(value) = value else {
-                return Err(failed("floating extremum domain changed"));
-            };
-            validate_float_scalar(value, table.policy)?;
-            update_extreme(
-                &mut table.float_extrema[group * width + slot.index],
-                value,
-                measure.function == Function::Min,
-                compare_float,
-            )
+        Kind::FloatExtreme => bind_states!(table.float_extrema, states, {
+            extremum(owner, ordinals, context, |group, value| {
+                let StatValue::Float64(value) = value else {
+                    return Err(failed("floating extremum domain changed"));
+                };
+                validate_float_scalar(value, table.policy)?;
+                update_extreme(
+                    &mut states[group * width + slot.index],
+                    value,
+                    measure.function == Function::Min,
+                    compare_float,
+                )
+            })
         })?,
         Kind::Count => unreachable!("COUNT was consumed before numeric binding"),
     }
     context.check_cancelled()
+}
+
+#[cfg(all(test, debug_assertions))]
+fn record_bound(kind: Kind, rows: usize) {
+    if rows != 0 {
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            if matches!(
+                kind,
+                Kind::Integer | Kind::StrictFloat | Kind::ExtendedFloat
+            ) {
+                counts.aggregate_numeric_bound_batches += 1;
+                counts.aggregate_numeric_bound_rows += rows as u64;
+            } else {
+                counts.aggregate_extrema_bound_batches += 1;
+                counts.aggregate_extrema_bound_rows += rows as u64;
+            }
+        });
+    }
 }
 
 fn count(
@@ -126,25 +147,27 @@ fn count(
     validity: Option<&Mask>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
-    for (row, group) in ordinals.iter() {
-        if row.is_multiple_of(1024) {
-            context.check_cancelled()?;
-        }
-        if column {
-            if !validity
-                .ok_or_else(|| failed("COUNT validity absent"))?
-                .value(row)
-            {
-                continue;
+    bind_states!(*pages, states, {
+        for (row, group) in ordinals.iter() {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
             }
-        } else {
-            #[cfg(all(test, debug_assertions))]
-            crate::local_primitives::native_relational_observation::record(|counts| {
-                counts.aggregate_row_updates += 1;
-            });
+            if column {
+                if !validity
+                    .ok_or_else(|| failed("COUNT validity absent"))?
+                    .value(row)
+                {
+                    continue;
+                }
+            } else {
+                #[cfg(all(test, debug_assertions))]
+                crate::local_primitives::native_relational_observation::record(|counts| {
+                    counts.aggregate_row_updates += 1;
+                });
+            }
+            update_count(&mut states[group * width + index], 1)?;
         }
-        update_count(&mut pages[group * width + index], 1)?;
-    }
+    });
     context.check_cancelled()
 }
 
@@ -200,9 +223,22 @@ pub(super) fn update_extreme<T: Copy>(
     minimum: bool,
     compare: impl FnOnce(T, T) -> Ordering,
 ) -> Result<()> {
-    let empty = state.count == 0;
     update_count(&mut state.count, 1)?;
-    let replace = empty || {
+    set_extreme_at_count(state, value, minimum, compare, state.count);
+    Ok(())
+}
+
+/// The caller has either checked this increment or proved complete-batch
+/// headroom and equal paired counts. The next count is therefore nonzero.
+pub(super) fn set_extreme_at_count<T: Copy>(
+    state: &mut Extreme<T>,
+    value: T,
+    minimum: bool,
+    compare: impl FnOnce(T, T) -> Ordering,
+    count: u64,
+) {
+    state.count = count;
+    let replace = count == 1 || {
         let order = compare(value, state.value);
         if minimum {
             order.is_lt()
@@ -213,5 +249,4 @@ pub(super) fn update_extreme<T: Copy>(
     if replace {
         state.value = value;
     }
-    Ok(())
 }

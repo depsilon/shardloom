@@ -593,6 +593,10 @@ impl<'p, 'i> Execution<'p, 'i> {
     ) -> Result<(Option<ResidentMemorySource>, bool)> {
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if let Some(source) = &declaration.local {
+            #[cfg(test)]
+            let _cost = super::super::native_relational_grouped_cost::scope(
+                super::super::native_relational_grouped_cost::Phase::SourceIntake,
+            );
             let mut owner = state
                 .local_reader
                 .try_borrow_mut()

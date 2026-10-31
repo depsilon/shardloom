@@ -425,6 +425,14 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_single_predicate_mask_packet.py -v
       - name: Rejected single-predicate mask complete saved-result replay
         run: python -B scripts/verify_single_predicate_mask_packet.py docs/benchmarks/evidence/native-single-predicate-masks-2026-10-30
+      - name: Grouped attribution rejection controls
+        run: python -B -m unittest discover -s scripts -p test_native_grouped_cost_diagnostic.py -v
+      - name: Grouped attribution complete saved-result replay
+        run: python -B scripts/verify_grouped_cost_packet.py docs/benchmarks/evidence/native-grouped-cost-2026-10-31
+      - name: Compact grouped-state corruption controls
+        run: python -B -m unittest discover -s scripts -p test_grouped_state_packet.py -v
+      - name: Compact grouped-state complete saved-result replay
+        run: python -B scripts/verify_grouped_state_packet.py docs/benchmarks/evidence/native-grouped-state-access-2026-10-31
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

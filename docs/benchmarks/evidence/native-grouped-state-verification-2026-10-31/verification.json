@@ -1,0 +1,63 @@
+{
+  "schema_version": "shardloom.grouped_state_verification.v1",
+  "status": "passed",
+  "main_manifest_sha256": "0c33e84017bab6451696f15a9701c2368cea2f2ceb27a2f1f68412add1b4d266",
+  "main_acceptance_sha256": "1db14c7477432726643fce4b96dc469d1d3c51b0480b930ad2ffa6f3dcc55b6c",
+  "corruption_tests": 9,
+  "process_gates": [
+    {
+      "name": "s027-grouped-state-portable-build.json",
+      "sha256": "c1c8d1292541b819c1496ecbe5d13c8f3f5e7ff8592bc975c198ff43fc56c80f",
+      "status": "passed"
+    },
+    {
+      "name": "s028-grouped-state-portable-replay.json",
+      "sha256": "7d9877857fc426018d29dbec76a4d3f9ed5a3a419c2476b5a5c7033d061a15c7",
+      "status": "failed"
+    },
+    {
+      "name": "s029-grouped-state-portable-replay-corrected.json",
+      "sha256": "2833f4d6a35ab9fb55dc183b3e9899e52bed7664e69d5516128bd3bda9226de5",
+      "status": "passed"
+    },
+    {
+      "name": "s030-grouped-state-corruption-controls.json",
+      "sha256": "7adce489b7fe17bb3ef085e74347dfbc5ffe5b83983a1d138b5942d23f7b8805",
+      "status": "passed"
+    },
+    {
+      "name": "s031-grouped-state-source-only-replay.json",
+      "sha256": "eef30c357331d6da806ba66f1fbc2fb7ba1df27e97d0891144a43abd0b41d003",
+      "status": "passed"
+    },
+    {
+      "name": "s032-grouped-state-ci-wiring.json",
+      "sha256": "4cd9fdbd5cde7ef27bea1ba15d6d9b76dbd509e01553e695d48e1802bd689833",
+      "status": "passed"
+    },
+    {
+      "name": "s033-grouped-state-public-status.json",
+      "sha256": "a843734851823ae3536964ef64c43e7d5afda59f9e0e7c1d230d3719ce62efd0",
+      "status": "passed"
+    }
+  ],
+  "source_only": {
+    "status": "passed",
+    "copied_files": 336,
+    "corruption_tests": 9,
+    "acceptance_sha256": "1db14c7477432726643fce4b96dc469d1d3c51b0480b930ad2ffa6f3dcc55b6c",
+    "original_source_and_data_access_forbidden": true,
+    "engine_imports_forbidden": true,
+    "subprocess_and_network_forbidden": true,
+    "new_query_executions": 0
+  },
+  "preserved_failed_attempt": "s028-grouped-state-portable-replay.json",
+  "supplemental_failed_setup": "grouped-state-anchor-attempt-r1.json",
+  "packet": {
+    "file": "verification.json.gz",
+    "bytes": 82257,
+    "sha256": "384dfedd68a791d07a69f5fc6280f182e9435b35348f7ba0680e990e0cdb8c69",
+    "uncompressed_sha256": "02455e90c22e9be251b01dfab3f724044722637eacf34e97a6e67700775c8867"
+  },
+  "query_executions": 0
+}

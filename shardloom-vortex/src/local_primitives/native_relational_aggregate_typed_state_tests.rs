@@ -12,6 +12,8 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "native_relational_aggregate_typed_access_tests.rs"]
+mod access_tests;
 #[path = "native_relational_aggregate_typed_proof_tests.rs"]
 mod proof_tests;
 

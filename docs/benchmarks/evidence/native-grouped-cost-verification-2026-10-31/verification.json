@@ -1,0 +1,38 @@
+{
+  "schema_version": "shardloom.grouped_cost_verification.v1",
+  "status": "passed",
+  "packet_acceptance_sha256": "36f6ba1c4a61fe0a44dcef585a9a9efb96b5b6180b6045de3333d7b54e56085a",
+  "records": {
+    "file": "records.json.gz",
+    "bytes": 27553,
+    "sha256": "80c6835bfebb22f942074f9b6b1d0edae1dedde16901b8921016d212ad0e0c70",
+    "expanded_bytes": 111020,
+    "expanded_sha256": "bfc6ab4a7c1f2d71dfee59c311d2e610c5fb81d6f1babaed5be4cda341636926"
+  },
+  "complete_portable_replay": true,
+  "source_only": {
+    "status": "passed",
+    "copied_files": 327,
+    "corruption_tests": 10,
+    "acceptance_sha256": "36f6ba1c4a61fe0a44dcef585a9a9efb96b5b6180b6045de3333d7b54e56085a",
+    "original_source_and_data_access_forbidden": true,
+    "engine_imports_forbidden": true,
+    "subprocess_and_network_forbidden": true,
+    "new_query_executions": 0
+  },
+  "ci_matrix_passed": true,
+  "public_docs_passed": true,
+  "rust_native_tests": {
+    "passed": 6574,
+    "ignored": 36,
+    "suites": 119
+  },
+  "rust_default_tests": {
+    "passed": 3290,
+    "ignored": 0,
+    "suites": 107
+  },
+  "production_runtime_changed": false,
+  "baseline_advanced": false,
+  "new_queries_during_verification": 0
+}

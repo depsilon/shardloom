@@ -176,6 +176,9 @@ mod native_relational_expression;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_gap_fill.rs"]
 mod native_relational_gap_fill;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_grouped_cost.rs"]
+pub(crate) mod native_relational_grouped_cost;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_index.rs"]
 mod native_relational_index;

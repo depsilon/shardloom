@@ -89,6 +89,10 @@ impl<'a> RowSet<'a> {
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
     ) -> Result<ReservedVec<usize>> {
+        #[cfg(test)]
+        let _cost = super::native_relational_grouped_cost::scope(
+            super::native_relational_grouped_cost::Phase::GroupInterning,
+        );
         if !self.nulls_equal {
             return Err(failed("group ordinals require null-equal membership"));
         }
@@ -126,6 +130,12 @@ impl<'a> RowSet<'a> {
         if batch_rows == 0 {
             return Err(failed("set output batch rows must be positive"));
         }
+        #[cfg(test)]
+        let preparation_cost = mapping.as_ref().map(|_| {
+            super::native_relational_grouped_cost::scope(
+                super::native_relational_grouped_cost::Phase::GroupPreparation,
+            )
+        });
         let batch = if self.nulls_equal && other.is_none() {
             Batch::for_membership(array, self.names, context)?
         } else {
@@ -134,6 +144,8 @@ impl<'a> RowSet<'a> {
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(batch.array.len())?;
         let mut cache = batch.key_cache(context)?;
+        #[cfg(test)]
+        drop(preparation_cost);
         let prior_rows = self.table.rows();
         for row in 0..batch.array.len() {
             if row.is_multiple_of(1024) {

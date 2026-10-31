@@ -574,8 +574,14 @@ visible and independent; this implementation does not automatically close them.
     October 30 additional shared-owner queue is now active. Its first
     [single-predicate-mask experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md)
     is dropped under the complete-cohort rule, with all correctness results and
-    failures preserved. Grouped-cost attribution is next, still within item 20
-    and before the later connector/refresh package.
+    failures preserved; #1629 and its 57 hosted checks are complete. The
+    [grouped-cost attribution](../benchmarks/native-grouped-cost-2026-10-31.md)
+    is complete and defers general worker routing for this workload. The
+    [compact grouped-state candidate](../benchmarks/native-grouped-state-access-2026-10-31.md)
+    is retained locally at **11.997152207 engine seconds**, against the prior
+    12.055132613 seconds, with all 347 complete results matching. Its hosted
+    acceptance is pending. Broader shared-owner work remains within item 20
+    and before the later connector/refresh package; the under-10 target remains open.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the

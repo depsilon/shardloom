@@ -100,6 +100,16 @@ impl<T: Copy> DensePages<T> {
         self.len
     }
 
+    /// Borrow a complete contiguous payload without changing its owner or lease.
+    /// A caller must finish the borrow before reserving or appending more state.
+    pub(super) fn single_page_mut(&mut self) -> Option<&mut [T]> {
+        match self.pages.as_mut_slice() {
+            [] => Some(&mut []),
+            [page] => Some(page.values.as_mut_slice()),
+            _ => None,
+        }
+    }
+
     #[cfg(test)]
     pub(super) fn reserved_bytes(&self) -> u64 {
         self.metadata.bytes()

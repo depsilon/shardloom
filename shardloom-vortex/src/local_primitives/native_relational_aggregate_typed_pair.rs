@@ -3,10 +3,11 @@
 
 use super::super::super::{NativeNumericOwner, extrema_pair};
 use super::{
-    ArrayRef, DensePages, Extreme, FloatPolicy, GroupOrdinals, Kind, NativeExecutionContext,
-    Result, Spec, Table, failed, updates,
+    ArrayRef, Extreme, FloatPolicy, GroupOrdinals, Kind, NativeExecutionContext, Result, Spec,
+    Table, failed, updates,
 };
 use shardloom_core::StatValue;
+use std::ops::IndexMut;
 
 #[allow(clippy::too_many_arguments)] // Existing prepared owner, proof and group state have distinct lifetimes.
 pub(super) fn accumulate(
@@ -71,63 +72,69 @@ pub(super) fn accumulate(
     let width = table.widths[first.kind as usize];
     let count_width = table.widths[Kind::Count as usize];
     let count = pair.count.then(|| table.slots[index + 2].index);
-    owner.visit_values(|row, value| {
-        if row.is_multiple_of(1024) {
-            context.check_cancelled()?;
-        }
-        if matches!(value, StatValue::Null) {
-            return Ok(());
-        }
-        let group = ordinals.at(row);
-        let first_position = group * width + first.index;
-        let second_position = group * width + second.index;
-        let total = match value {
-            StatValue::Int64(value) => update_pair(
-                &mut table.signed_extrema,
-                first_position,
-                second_position,
-                value,
-                pair.first_is_minimum,
-                |left, right| left.cmp(&right),
-            )?,
-            StatValue::UInt64(value) => update_pair(
-                &mut table.unsigned_extrema,
-                first_position,
-                second_position,
-                value,
-                pair.first_is_minimum,
-                |left, right| left.cmp(&right),
-            )?,
-            StatValue::Float64(value) => update_pair(
-                &mut table.float_extrema,
-                first_position,
-                second_position,
-                value,
-                pair.first_is_minimum,
-                updates::compare_float,
-            )?,
-            _ => return Err(failed("bound paired extremum input domain changed")),
+    macro_rules! visit {
+        ($pages:expr, $variant:ident, $compare:expr) => {
+            bind_states!($pages, states, {
+                bind_states!(table.counts, counts, {
+                    owner.visit_values(|row, value| {
+                        if row.is_multiple_of(1024) {
+                            context.check_cancelled()?;
+                        }
+                        if matches!(value, StatValue::Null) {
+                            return Ok(());
+                        }
+                        let StatValue::$variant(value) = value else {
+                            return Err(failed("bound paired extremum input domain changed"));
+                        };
+                        let group = ordinals.at(row);
+                        let total = update_pair(
+                            states,
+                            group * width + first.index,
+                            group * width + second.index,
+                            value,
+                            pair.first_is_minimum,
+                            $compare,
+                        );
+                        if let Some(count) = count {
+                            counts[group * count_width + count] = total;
+                        }
+                        #[cfg(all(test, debug_assertions))]
+                        crate::local_primitives::native_relational_observation::record(|counts| {
+                            counts.aggregate_typed_paired_count_proof_rows += 1;
+                        });
+                        Ok(())
+                    })
+                })
+            })
         };
-        if let Some(count) = count {
-            table.counts[group * count_width + count] = total;
+    }
+    match first.kind {
+        Kind::SignedExtreme => visit!(table.signed_extrema, Int64, |left, right| left.cmp(&right)),
+        Kind::UnsignedExtreme => {
+            visit!(table.unsigned_extrema, UInt64, |left, right| left
+                .cmp(&right))
         }
-        Ok(())
-    })?;
+        Kind::FloatExtreme => visit!(table.float_extrema, Float64, updates::compare_float),
+        _ => unreachable!("paired extrema kinds admitted before traversal"),
+    }?;
     context.check_cancelled()?;
     Ok(Some(pair.end))
 }
 
-fn update_pair<T: Copy>(
-    pages: &mut DensePages<Extreme<T>>,
+fn update_pair<T: Copy, S: IndexMut<usize, Output = Extreme<T>> + ?Sized>(
+    states: &mut S,
     first: usize,
     second: usize,
     value: T,
     minimum: bool,
     compare: impl Fn(T, T) -> std::cmp::Ordering,
-) -> Result<u64> {
-    updates::update_extreme(&mut pages[first], value, minimum, &compare)?;
-    updates::update_extreme(&mut pages[second], value, !minimum, compare)?;
-    Ok(pages[first].count)
+) -> u64 {
+    // Admission proved equal starting counts and room for every incoming row.
+    // This traversal touches each input row once; NULL rows return before here.
+    let total = states[first].count + 1;
+    updates::set_extreme_at_count(&mut states[first], value, minimum, &compare, total);
+    updates::set_extreme_at_count(&mut states[second], value, !minimum, compare, total);
+    total
 }
 
 #[cfg(all(test, debug_assertions))]

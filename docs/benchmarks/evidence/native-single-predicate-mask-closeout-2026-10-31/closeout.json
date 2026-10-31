@@ -1,0 +1,34 @@
+{
+  "schema_version": "shardloom.mask_closeout.v1",
+  "status": "passed",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1629",
+  "head": "9664970eacbaa320e7df947fbd9100eba52e7eab",
+  "merge_commit": "aae7ecf18ac6b04e33369dde4582309deab3e10b",
+  "complete_checks": 57,
+  "original_acceptance": "native-single-predicate-masks-2026-10-30/acceptance.json",
+  "cleanup": {
+    "regular_files": 12354,
+    "regular_bytes": 1230472666,
+    "symlinks": 3,
+    "retained_runtime": "application-batch-release-r1",
+    "retained_wheel": "installed-application-batch-r2/dist",
+    "accepted_baseline_unchanged": true,
+    "all_proofs_unchanged": true,
+    "complete_replay_after_retirement": true
+  },
+  "cleanup_plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 832849,
+    "sha256": "72b377b269faa686c7b307d41fa4f7d6174b50599f646561e9f4a11e0591f6d5"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 14780,
+    "sha256": "a51a2332f93ce010808640b67eb6f0b4685f98f6e903491a962c54ebc172b733",
+    "uncompressed_sha256": "f158dbf260d413329e957ab9af041304d72c585ed2bd5b569f99c02b5cc71c04"
+  },
+  "query_executions": 0,
+  "full43_run": false,
+  "package_publication_attempted": false,
+  "github_review_thread_resolution_attempted": false
+}
