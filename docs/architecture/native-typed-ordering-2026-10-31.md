@@ -1,6 +1,12 @@
 # Typed numeric comparisons in validated native ordering
 
-Status: prospective item-20 candidate, declared before runtime edits or candidate
+Status: **dropped** after both complete cohorts; accepted runtime sources restored.
+The 347-query total increases from 11.979219492 to 12.086481459 engine seconds;
+the supplemental 48 total falls from 0.920503372 to 0.808468919. Both original
+gates were required, so the accepted baseline is unchanged. See the
+[complete experiment](../benchmarks/native-typed-ordering-2026-10-31.md).
+
+The original prospective contract below was declared before runtime edits or candidate
 query execution. This is the allocation-free comparison experiment from the
 [shared-owner queue](native-shared-owner-optimizations-2026-10-30.md).
 The accepted ordered-input checkpoint records 11.979219492 engine seconds for

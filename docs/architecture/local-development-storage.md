@@ -29,6 +29,25 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 31 typed-ordering rejection cleanup](../benchmarks/evidence/native-typed-ordering-retirement-2026-10-31/cleanup.json)
+retires 13,470 generated regular files and three environment links after exact
+accepted-source restoration and isolated source-only verification. The rejected
+runtime/wheel, completed package environment, duplicate packet and two verification
+copies are removed; 2,850 raw comparison/output files remain byte-exact in the
+portable packet. Repeated identities, closed-handle checks and post-retirement
+replay pass. The accepted ordered-input runtime/wheel, original source/reference
+fixtures, all compact observations and failed attempts remain. No compiler cache,
+unrelated user files, payload backup or storage ceiling is changed.
+
+The [October 31 ordered-input closeout](../benchmarks/evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json)
+records #1632 merged with all 57 hosted checks passing. The earlier temporary
+cleanup retires 13,872 regular files and three environment links, retaining the
+accepted runtime and compact evidence. After merge, the three superseded
+grouped-state CLI/library/wheel files are retired with repeated identities and
+closed-handle checks. Ordered-input and grouped-state saved evidence both replay
+after retirement. Current inputs, the accepted ordered-input runtime/wheel,
+all results and failures remain; no payload backup or storage-limit change occurs.
+
 The [October 31 grouped-state closeout](../benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json)
 retires 2,863 generated files after #1630 merges with all 57 hosted checks passing.
 Superseded application/bounded-order binaries and wheels, archived output parts

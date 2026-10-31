@@ -185,8 +185,13 @@ work folder; review found five older Parquet inputs outside that folder, so the
 guard was extended and offline replay repeated. Both proof versions remain
 preserved in the [verification record](evidence/native-ordered-inputs-verification-2026-10-31/verification.json);
 no query observation was repeated or changed. The local CI gate matrix and
-public-status checks pass. Hosted acceptance and generated-artifact cleanup
-remain pending closeout work.
+public-status checks pass. [PR #1632](https://github.com/depsilon/shardloom/pull/1632)
+merges as `6e413dcc` after all 57 hosted checks pass and review findings are clear.
+The [closeout](evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json)
+binds the exact reviewed head, merge, prior temporary cleanup and verified
+retirement of the three superseded grouped-state runtime/wheel files. Complete
+ordered-input and grouped-state evidence still replays after retirement. The
+accepted ordered-input runtime, wheel, original inputs and compact evidence remain.
 
 Replay the complete results and rejection controls from a source checkout:
 

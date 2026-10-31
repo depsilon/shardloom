@@ -1,0 +1,110 @@
+{
+  "schema_version": "shardloom.typed_ordering_retirement_summary.v1",
+  "status": "passed",
+  "cleanup": {
+    "schema_version": "shardloom.typed_ordering_retirement.v1",
+    "status": "passed",
+    "plan_sha256": "0d57cc7d5af693b892ad04f19b87f36913590adda5308fd9387b3cf6e143cfe2",
+    "roots": [
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-release-r1/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-release-r1/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-portable-r1",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-typed-ordering-source-only-r1",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-typed-ordering-source-only-r2",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-typed1-parts",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-candidate-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-typed-ordering-r1/logs"
+    ],
+    "removed_entries": 14857,
+    "retained_runtime": "ordered-input-release-r2",
+    "retained_wheel": "installed-ordered-input-r1/dist",
+    "payload_backups_created": false,
+    "compiler_cache_untouched": true,
+    "user_files_and_worktrees_untouched": true,
+    "source_inputs_retained": true,
+    "symlink_targets_followed": false,
+    "query_executions": 0,
+    "closed_handle_checks": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-release-r1/shardloom",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-release-r1/_native.abi3.so",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/package",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/venv",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-typed-ordering-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-portable-r1",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-typed-ordering-source-only-r1",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-typed-ordering-source-only-r2",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-typed1-parts",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/typed-ordering-candidate-r1/logs",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-typed-ordering-r1/logs",
+        "returncode": 1,
+        "open_handles": 0
+      }
+    ],
+    "all_proofs_unchanged": true,
+    "complete_replay_after_retirement": true,
+    "regular_files": 13470,
+    "regular_bytes": 1077519997,
+    "symlinks": 3,
+    "archived_raw_files": 2850
+  },
+  "main_acceptance_sha256": "f1c9a7473aaa381dc11df64616f6368e94e8e72b333d5a06dca7731f26faf07c",
+  "main_manifest_sha256": "b59009f81927c84bb8e2b27d8637b57f6242bb133b847426de4a83a2b137d0cc",
+  "verification_sha256": "b608fd76ccf17859070fdd770bc23c9abc01273b159ba2c337bef1b376e1a365",
+  "restoration_sha256": "89b57dd22e3d2f496f57552eb120e6043cfd04d3d18b7886105be23ae0ea7360",
+  "plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 893610,
+    "sha256": "0d57cc7d5af693b892ad04f19b87f36913590adda5308fd9387b3cf6e143cfe2"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 20021,
+    "sha256": "35e35dfa33fdd0862f0e75a5dd7cc2f52a0349d264b0e209456f22559fb5b125",
+    "uncompressed_sha256": "661abc4a11cab1b3f45e5b8bcf7a9abe05d630afc15215f00692d438ea25b649"
+  },
+  "query_executions": 0
+}

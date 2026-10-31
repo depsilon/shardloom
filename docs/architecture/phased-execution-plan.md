@@ -465,16 +465,24 @@ Its record is merged in #1631 as `e56cc37d` after all 57 hosted checks pass.
 The [ordered-input experiment](../benchmarks/native-ordered-inputs-2026-10-31.md)
 is retained locally after both complete gates pass: 347 queries at
 **11.979219492 engine seconds** and 48 supplemental workflows at
-**0.920503372 engine seconds**. The analytical baseline advances; hosted
-integration and closeout remain pending. No Full43 is run.
-The guard-only dynamic-source proposal is deferred after tracing its inactive
-execution path. The broader pool covers reusable ordering/preparation,
-encoded reductions, scoped source demand, residual joins, spill merging/lookups,
-as-of/window bounds, restricted correlated rewriting, selected/adjacent reads,
-owned capture, strings and nested structure, plus three bounded feasibility
-screens. Reconcile overlap with completed/rejected work; freeze mechanism-specific
-whole-workflow controls and preserve the unchanged 347 regression baseline.
+**0.920503372 engine seconds**. The analytical baseline advances; PR #1632
+merges as `6e413dcc` after all 57 hosted checks pass, with verified closeout.
+No Full43 is run.
+The typed-comparison experiment is dropped: the complete 347 total increases
+to **12.086481459 engine seconds**, despite a lower supplemental 48 total.
+The [October 31 maintainer screen](native-shared-owner-optimizations-2026-10-30.md#october-31-maintainer-pruning-decision)
+removes likely marginal proposals without requiring implementation or timing.
+The active pool now has five areas: source/expression work, joins/correlated
+subqueries, spill/lookup, owned capture and exact quantiles. Check for material
+removable work before admitting each candidate. Preserve the original gates,
+complete observations and unchanged 347 regression denominator.
 This extends item 20; it does not advance Full43 or the post-item-19 campaign.
+The latest October 31 maintainer instruction batches all remaining retained
+optimizations into one implementation/build/validation unit and one final
+comparison campaign, replacing the per-candidate build and timing sequence.
+Keep correctness and activation controls for each owner; judge performance for
+the complete batch, with the unchanged 347 cohort and declared supplemental
+coverage for spill, residual/correlated joins, quantiles and other unexercised paths.
 
 The current implementation remains the RFC 0044 native execution program. Prior R3 cleanup is recorded in the completed ledger; this reconciliation adds no phase IDs and does not bypass an active cleanup dependency. CG-1 through CG-23 remain independent evidence gates.
 
@@ -601,8 +609,14 @@ visible and independent; this implementation does not automatically close them.
     is retained locally at **11.979219492 engine seconds** for the same 347
     complete results. Its separately frozen 48-workflow gate also passes at
     **0.920503372 engine seconds**, versus 1.307041040. The new analytical
-    baseline is 11.979219492; hosted integration and closeout remain pending.
-    Broader shared-owner work remains within item 20
+    baseline is 11.979219492. PR #1632 merges as `6e413dcc` after all 57 hosted
+    checks pass, with verified generated-artifact retirement and closeout.
+    The subsequent typed-comparison candidate loses its original complete-cohort
+    gate at 12.086481459 engine seconds; accepted sources are restored. The
+    October 31 pruning decision closes likely marginal proposals and keeps the
+    five source/expression, join/subquery, spill/lookup, capture and quantile
+    areas only while material removable work remains credible.
+    This pruned shared-owner work remains within item 20
     and before the later connector/refresh package; the under-10 target remains open.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.
@@ -979,6 +993,9 @@ marked complete by this resequencing.
 The October 30 follow-up adds the [shared-owner candidate queue](native-shared-owner-optimizations-2026-10-30.md)
 after the accepted priority-5 unit and before priority 6. It includes both supplied
 reviews, their mechanism/scaling controls and explicit retained/dropped decisions.
+The October 31 maintainer pruning decision screens out likely marginal candidates
+without implementation or another benchmark. The remaining five owner areas in
+that queue precede priority 6; correctness and capability obligations are unchanged.
 
 | Priority | Completion package | Implementation and acceptance contract |
 | --- | --- | --- |

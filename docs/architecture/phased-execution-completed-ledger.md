@@ -17,7 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Validated ordered-input sorting — local acceptance`
+- [x] `Typed ordering rejection and maintainer queue pruning`
+  — the [complete experiment](../benchmarks/native-typed-ordering-2026-10-31.md)
+  passes correctness for 347 queries/12,565 rows and 48 workflows/557,420 rows,
+  but the required 347 total increases from **11.979219492** to
+  **12.086481459 engine seconds**. The 48-workflow gain does not satisfy both
+  original gates. All 14 experimental Rust paths are restored after exact
+  portable source/patch proof; 2,609 Rust/Cargo inputs match the accepted runtime.
+  Native/default tests, public/package acceptance, 14 corruption controls and
+  isolated saved-result replay pass; original failed attempts and corrections
+  remain retained. The separate
+  [October 31 queue screen](native-shared-owner-optimizations-2026-10-30.md#october-31-maintainer-pruning-decision)
+  drops likely marginal proposals by judgment, without new experiments or
+  rewriting prior dispositions. Five owner areas remain ahead of connector/
+  refresh completion and item 18. The under-ten target and Full43 hold remain.
+
+- [x] `Validated ordered-input sorting — accepted and merged`
   — the [complete experiment](../benchmarks/native-ordered-inputs-2026-10-31.md)
   passes both original gates: **11.979219492 engine seconds** for 347 queries
   and 12,565 rows, against 11.997152207, and **0.920503372 engine seconds** for
@@ -29,8 +44,11 @@ phase plan first.
   Portable replay, 14 corruption controls and isolated source-only verification
   preserve all results, failures and exact source/runtime bindings. The source-only
   guard correction includes older input paths outside the task folder and proves
-  rejection of every original packet path. Hosted integration and retirement
-  remain pending; item 20, the under-ten-second objective and Full43 hold remain open.
+  rejection of every original packet path. PR #1632 merges as `6e413dcc`
+  after all 57 hosted checks pass. The [closeout](../benchmarks/evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json)
+  binds exact hosted acceptance, completed temporary cleanup and retirement of
+  the three superseded grouped-state runtime/wheel files. Item 20, the
+  under-ten-second objective and Full43 hold remain open.
 
 - [x] `Compact grouped-state access — accepted and merged`
   — [PR #1630](https://github.com/depsilon/shardloom/pull/1630) merges as `3b4c7d92`

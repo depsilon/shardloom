@@ -204,6 +204,8 @@ cohort passes all 12,565 result rows at **11.979219492 engine seconds**, against
 once in isolation. The [complete report](../benchmarks/native-ordered-inputs-2026-10-31.md)
 preserves slower cases/families, original failures, corrected test fixtures and
 the single-observation limits. Portable replay confirms both outcomes without
-new queries. Hosted integration and closeout remain pending; Full43 remains held
+new queries. PR #1632 merges as `6e413dcc` after all 57 hosted checks pass;
+the [closeout](../benchmarks/evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json)
+records verified temporary and superseded-runtime retirement. Full43 remains held
 until item 18. The prospective contract and original frozen snapshots remain
 unchanged as historical evidence.
