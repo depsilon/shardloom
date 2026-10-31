@@ -87,6 +87,10 @@ but make the performance disposition for the complete batch. Reuse the accepted
 that cohort does not exercise. No routine repeats, per-mechanism timing loops
 or Full43 run are added. Previously dropped proposals stay dropped.
 
+The [prospective combined contract](native-performance-batch-2026-10-31.md)
+records the ten admitted owner boundaries, the shared verification cycle and
+the complete 80-workflow supplemental grid before runtime implementation.
+
 Retain these ten concrete candidates in five owner areas. They can remove whole
 passes, copies, searches or repeated executions; **potential is not a speedup claim**.
 For each, first establish that the removable work is material in an actual
