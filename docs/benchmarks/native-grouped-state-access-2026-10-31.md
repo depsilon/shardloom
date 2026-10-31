@@ -140,3 +140,16 @@ is forbidden. All three checks execute zero queries. The
 binds these checks, their exact source versions and the failed packaging attempt.
 Hosted acceptance and artifact retirement follow. CG-1 through CG-23, item-20
 capability completion, broader owner experiments and publication remain separate work.
+
+The first hosted native build completed, but its partition preparation rejected
+the new manual grouped-cost probe because the explicit ignored-test inventory
+had not been updated. The correction adds that exact probe to the inventory;
+ordinary test selection and the strict inventory check remain unchanged. Local
+discovery reproduces the original rejection and verifies complete, once-only
+partition coverage after the correction. No runtime source or query observation
+changes. The [CI correction record](evidence/native-grouped-state-ci-correction-2026-10-31.json)
+retains the failing job, exact inventory difference and verification. All 12
+inventory, partition and result-parser tests pass. A broader local run passes
+16 of 17 tests but encounters macOS `PermissionError` during the unchanged
+orphan-child cleanup test; that failure is retained and is not counted as a
+passing suite. No child remains running afterward. Hosted checks still gate merge.
