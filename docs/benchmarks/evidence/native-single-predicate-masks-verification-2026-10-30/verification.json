@@ -1,0 +1,68 @@
+{
+  "schema_version": "shardloom.single_mask_verification.v1",
+  "status": "passed",
+  "main_manifest_sha256": "d45e84568bf56a5d0fc65c0aac1d138edbd58a8b12eb926de643928509ca75be",
+  "main_acceptance_sha256": "c1811305fe46897cbf39f6c70b689f39a3ac6163f264af257266d6f98e6333e8",
+  "corruption_tests": 11,
+  "process_gates": [
+    {
+      "name": "m031-mask-packet-build.json",
+      "sha256": "68e24b9499234832ad6f96740c512ea00cbad5b56e4a13689ebb66b0d715b5d2",
+      "status": "passed"
+    },
+    {
+      "name": "m032-mask-portable-replay.json",
+      "sha256": "f84e13f11d50f5b5b63432c6103d96f885854f6aa1201262e68cd20e4f705e59",
+      "status": "passed"
+    },
+    {
+      "name": "m033-mask-corruption-controls.json",
+      "sha256": "f5a10a895bdf05fbafab7a07b95ea5b59c50dbef587b59267694081246aff305",
+      "status": "failed"
+    },
+    {
+      "name": "m034-mask-corruption-controls-corrected.json",
+      "sha256": "d313c24305d557ffcae3e97e66d078a87b300f97c9d24e42fee62a892b6ee5c4",
+      "status": "passed"
+    },
+    {
+      "name": "m035-mask-restored-format.json",
+      "sha256": "7dc89ea0e88a04889bd74f55401fd37c96f4b4260e7015d13a0eb6e2646d55c6",
+      "status": "passed"
+    },
+    {
+      "name": "m036-mask-ci-wiring.json",
+      "sha256": "b11d595a0bd78aa88ca69fd76a64623db1a55ce4ae871f7b074564c3a36ef93b",
+      "status": "passed"
+    },
+    {
+      "name": "m037-mask-public-status.json",
+      "sha256": "cd70a6c0104ea451735d878c1581b7d94796fd2af24807ff764053b97b30397e",
+      "status": "passed"
+    },
+    {
+      "name": "m038-mask-source-only-replay.json",
+      "sha256": "e27541491d9bf7edf3a4e6ec4d151507c7e164d9b41fd2232964ebe17770f0b8",
+      "status": "passed"
+    }
+  ],
+  "source_only": {
+    "status": "passed",
+    "copied_files": 327,
+    "corruption_tests": 11,
+    "acceptance_sha256": "c1811305fe46897cbf39f6c70b689f39a3ac6163f264af257266d6f98e6333e8",
+    "original_source_and_data_access_forbidden": true,
+    "engine_imports_forbidden": true,
+    "subprocess_and_network_forbidden": true,
+    "new_query_executions": 0
+  },
+  "preserved_failed_attempt": "m033-mask-corruption-controls.json",
+  "correction": "The mutation test selected an aggregate count row with no row_id; mutate its existing integer field instead. No verifier, engine, reference or observation changed.",
+  "packet": {
+    "file": "verification.json.gz",
+    "bytes": 69776,
+    "sha256": "fbd8a2194d0a04e4dd9eae613c6791cba7daa222c38a3d7c4db444f575bf63d6",
+    "uncompressed_sha256": "513bcf7b96a29d85386d7ad897f70e08c4f3c1b77dabc9c45511592d6cf60f69"
+  },
+  "query_executions": 0
+}

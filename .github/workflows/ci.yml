@@ -421,6 +421,10 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_shared_followthrough_packet.py -v
       - name: Shared performance follow-through complete saved-result replay
         run: python -B scripts/verify_shared_followthrough_packet.py docs/benchmarks/evidence/native-shared-followthrough-2026-10-30
+      - name: Rejected single-predicate mask corruption controls
+        run: python -B -m unittest discover -s scripts -p test_single_predicate_mask_packet.py -v
+      - name: Rejected single-predicate mask complete saved-result replay
+        run: python -B scripts/verify_single_predicate_mask_packet.py docs/benchmarks/evidence/native-single-predicate-masks-2026-10-30
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

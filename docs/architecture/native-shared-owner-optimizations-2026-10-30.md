@@ -1,8 +1,9 @@
 # Shared-owner optimization continuation — October 30
 
-Status: maintainer-requested candidate queue inside active item 20. Finish the
+Status: maintainer-requested candidate queue inside active item 20. The
 [Rust/Python application batch-function unit](native-application-batch-functions-2026-10-30.md)
-and its acceptance first. The two supplied October 30 source reviews extend the
+is accepted and merged in #1628 as `b6883adc`, with all 57 hosted checks passing.
+The two supplied October 30 source reviews extend the
 existing finite performance work; they are hypotheses to verify, not measured
 speedups or permission to skip semantics and resource admission.
 
@@ -54,12 +55,16 @@ cleanup intact; no routine repeats, cache manipulation or artificial pacing.
 
 ## Initial current-cohort work
 
-Begin with single-predicate masks, then attribute grouped costs before selecting
-the grouped execution refinement. All entries below are pending investigation.
+The [single-predicate mask candidate](native-single-predicate-masks-2026-10-30.md)
+is **dropped**: all 347 results pass, but its complete engine total is
+12.199579628 seconds against 12.055132613. The candidate source is removed and
+the accepted baseline is unchanged; its complete evidence remains retained.
+Next, attribute grouped costs before selecting the grouped execution refinement.
+The remaining entries below are pending investigation.
 
 | Candidate | Existing owner and work to remove | Admission and evidence |
 | --- | --- | --- |
-| Single-comparison and null-test masks | Extend `native_relational_predicate_block` and the filter selection consumer to avoid Boolean-array construction, another key owner and a scalar selection pass. | Start with existing I64 comparison semantics; add null tests and other fixed-width domains only with exact validation proof. Preserve TRUE-only WHERE and projected three-valued Boolean behavior. Prove activation in filtered aggregate cases, eliminated bytes/preparations and complete engine time; source reads should not change. |
+| Single-comparison and null-test masks — dropped | The experiment extended `native_relational_predicate_block` to avoid Boolean-array construction and scalar selection above scan pushdown. | Complete correctness, work and ownership controls pass, but 12.199579628 engine seconds loses to 12.055132613. Candidate source removed; retain the [complete experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md). Do not revive the same mechanism from selected faster cases. |
 | Grouped cost attribution | Separate source intake, key preparation, group interning and aggregate updates inside the current grouped owner. | Diagnostic observation only; do not infer update cost from the entire grouped-family total. Its result determines whether worker routing is worth attempting. |
 | Compact grouped-state access and proof consumption | Inspect optimized code for `native_relational_aggregate_typed_pair`, typed updates and `aggregate_dense_pages`, then screen a once-bound contiguous state slice and existing count-headroom proof. | Preserve row and measure traversal, state ownership, first errors and result order. Keep ordinary paged/checked admission for unsuitable states. Compiler removal of the alleged work is a valid reason to decline. |
 | Complete-group worker reuse | Reuse existing complete-key routing, persistent workers and bounded outstanding jobs for general relational aggregation. | Proceed only if measured update work can repay coordination. Give each complete group one exclusive state owner and preserve per-accumulator row order, first-occurrence group order, complete validation/error priority, input lifetime and charged routing storage. Small/skewed/cheap workloads retain serial admission. PulseWeave/capillary control uses the current coordinator, not a second pool. |
