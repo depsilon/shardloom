@@ -456,8 +456,13 @@ batch-function unit is accepted and merged in #1628. Work through both supplied 
 [shared-owner continuation](native-shared-owner-optimizations-2026-10-30.md),
 still inside item 20. The single-predicate mask experiment is dropped after a
 complete 347-case result of 12.199579628 engine seconds against 12.055132613;
-candidate source is removed and the accepted baseline is unchanged. Next are
-grouped-cost attribution/proof screens. The broader pool covers reusable ordering/preparation,
+candidate source is removed and the accepted baseline is unchanged. Grouped-cost
+attribution is complete; compact grouped-state access is retained and merged
+in #1630 at 11.997152207 engine seconds, with all 57 hosted checks passing.
+The adjacent-read experiment is dropped at
+12.028866368 seconds, with accepted sources restored and all evidence preserved.
+The guard-only dynamic-source proposal is deferred after tracing its inactive
+execution path. The broader pool covers reusable ordering/preparation,
 encoded reductions, scoped source demand, residual joins, spill merging/lookups,
 as-of/window bounds, restricted correlated rewriting, selected/adjacent reads,
 owned capture, strings and nested structure, plus three bounded feasibility
@@ -578,9 +583,13 @@ visible and independent; this implementation does not automatically close them.
     [grouped-cost attribution](../benchmarks/native-grouped-cost-2026-10-31.md)
     is complete and defers general worker routing for this workload. The
     [compact grouped-state candidate](../benchmarks/native-grouped-state-access-2026-10-31.md)
-    is retained locally at **11.997152207 engine seconds**, against the prior
-    12.055132613 seconds, with all 347 complete results matching. Its hosted
-    acceptance is pending. Broader shared-owner work remains within item 20
+    is retained at **11.997152207 engine seconds**, against the prior
+    12.055132613 seconds, with all 347 complete results matching. It is merged
+    in #1630 as `3b4c7d92` after all 57 hosted checks pass, with verified
+    superseded-artifact retirement. The [adjacent-read experiment](../benchmarks/native-adjacent-parquet-reads-2026-10-31.md)
+    is dropped at **12.028866368 engine seconds** with all complete results
+    matching; accepted sources and the **11.997152207-second** baseline are
+    restored. Broader shared-owner work remains within item 20
     and before the later connector/refresh package; the under-10 target remains open.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.

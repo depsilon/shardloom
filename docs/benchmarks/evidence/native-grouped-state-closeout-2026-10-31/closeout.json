@@ -1,0 +1,114 @@
+{
+  "schema_version": "shardloom.grouped_state_closeout.v1",
+  "status": "passed",
+  "pull_request": {
+    "number": 1630,
+    "url": "https://github.com/depsilon/shardloom/pull/1630",
+    "state": "MERGED",
+    "head": "ebca251b449ac624586228b0535d25e47087fe20",
+    "merge_commit": "3b4c7d926fa0ebc5beb6de75de57beed922ee497"
+  },
+  "checks": {
+    "premerge": 57,
+    "merged": 57,
+    "success": 57
+  },
+  "current_runtime": {
+    "name": "grouped-state-release-r1",
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/grouped-state-release-r1/manifest.json",
+      "bytes": 551603,
+      "sha256": "5065b48a071218173bf60b0bb414e55f82b526afd883e98ad44003a8bae0bc67"
+    },
+    "products": {
+      "shardloom": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/grouped-state-release-r1/shardloom",
+        "bytes": 81002160,
+        "sha256": "2e412380d94f67e574a427832b87057304049a9c828b817842912ab2d79a635b"
+      },
+      "_native.abi3.so": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/grouped-state-release-r1/_native.abi3.so",
+        "bytes": 81420064,
+        "sha256": "be755a20f9ed858819229ef3a93bb9c6e4374919ba72f02fb3749eb42f0b1681"
+      }
+    }
+  },
+  "current_wheel": {
+    "name": "installed-grouped-state-r1/dist",
+    "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-grouped-state-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "bytes": 54201803,
+    "sha256": "28e5d0e3de8c32893a76cf710f896e1b9bed31c357942838270c48aad7b64db4"
+  },
+  "current_original_inputs_retained": true,
+  "cleanup": {
+    "regular_files": 2863,
+    "regular_bytes": 586886945,
+    "symlinks": 0,
+    "removed_entries": 2894,
+    "retained_runtime": "grouped-state-release-r1",
+    "retained_wheel": "installed-grouped-state-r1/dist",
+    "original_inputs_retained": true,
+    "all_proofs_unchanged": true,
+    "grouped_state_and_cost_replay_after_retirement": true,
+    "cargo_cache_untouched": true,
+    "user_files_and_worktrees_untouched": true,
+    "payload_backups_created": false,
+    "symlink_targets_followed": false
+  },
+  "failures": [
+    {
+      "gate": "s040retirementplan.json",
+      "status": "failed",
+      "returncode": 1,
+      "correction": "grouped-retirement-plan-correction.json",
+      "original_helper_path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_grouped_state_payloads.py",
+      "original_helper_bytes": 29577,
+      "original_helper_sha256": "20e84353dab49b444cb20c7a02e6bdc8416cdb96c7f28e0120b8e3d4b5eb0659"
+    }
+  ],
+  "linked_artifacts": {
+    "grouped_state_acceptance": {
+      "path": "native-grouped-state-access-2026-10-31/acceptance.json",
+      "bytes": 168839,
+      "sha256": "1db14c7477432726643fce4b96dc469d1d3c51b0480b930ad2ffa6f3dcc55b6c"
+    },
+    "grouped_state_manifest": {
+      "path": "native-grouped-state-access-2026-10-31/manifest.json",
+      "bytes": 3341639,
+      "sha256": "0c33e84017bab6451696f15a9701c2368cea2f2ceb27a2f1f68412add1b4d266"
+    },
+    "grouped_cost_acceptance": {
+      "path": "native-grouped-cost-2026-10-31/acceptance.json",
+      "bytes": 12089,
+      "sha256": "36f6ba1c4a61fe0a44dcef585a9a9efb96b5b6180b6045de3333d7b54e56085a"
+    },
+    "grouped_cost_manifest": {
+      "path": "native-grouped-cost-2026-10-31/manifest.json",
+      "bytes": 1496398,
+      "sha256": "56cbd03f6a176dd5d4c60d971d53eeb1f5b1ea463d00000a2fadc0fff0733242"
+    },
+    "grouped_state_verification": {
+      "path": "native-grouped-state-verification-2026-10-31/verification.json",
+      "bytes": 2371,
+      "sha256": "1d9e990c25625b83eca95df1db2124b97411b391a3cd2c0ce432fa7e0d6fd619"
+    },
+    "grouped_cost_verification": {
+      "path": "native-grouped-cost-verification-2026-10-31/verification.json",
+      "bytes": 1198,
+      "sha256": "c4f420627fa3b987940a720074d3da17bb85e8a2c419204c14c365e84a0a2121"
+    }
+  },
+  "cleanup_plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 234164,
+    "sha256": "9dd07352e212afcd83c2e3ffa313f8cebfa9ae869cda9ca7de68c492c0235623"
+  },
+  "packet": {
+    "file": "closeout.json.gz",
+    "bytes": 27519,
+    "sha256": "261fb19897646a2843638143d72f2453b943ca8b3b952807a11cf88968e69954",
+    "uncompressed_sha256": "abf7c7ee869e2e6e257331a69cb1d9c574359bf366a65b3731a153914274c86a"
+  },
+  "query_executions": 0,
+  "full43_run": false
+}

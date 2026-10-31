@@ -1,12 +1,15 @@
 # Compact grouped-state access and count proofs
 
-Status: retained locally inside item 20, following the completed
+Status: retained and merged in #1630 as `3b4c7d92` inside item 20, following the
+completed
 [48-case attribution](../benchmarks/native-grouped-cost-2026-10-31.md). The
 [complete acceptance observation](../benchmarks/native-grouped-state-access-2026-10-31.md)
 is 11.997152207 engine seconds for 347 queries and 12,565 result rows, against
-the unchanged prior observation of 12.055132613 seconds. Hosted acceptance is
-pending. The original prospective contract remains retained byte-for-byte in
-the evidence packet; the requirements below are unchanged.
+the unchanged prior observation of 12.055132613 seconds. All 57 hosted checks
+pass; the [closeout](../benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json)
+retains hosted acceptance and verified retirement. The original prospective
+contract remains retained byte-for-byte in the evidence packet; the requirements
+below are unchanged.
 
 ## Hypothesis and provider decision
 

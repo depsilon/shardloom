@@ -1,0 +1,68 @@
+{
+  "schema_version": "shardloom.adjacent_reads_verification.v1",
+  "status": "passed",
+  "main_manifest_sha256": "884c44c8f8df62d87ceba7426c107d9fba669e7818c796c02041fe2f5e4b8380",
+  "main_acceptance_sha256": "444670ffc750503e4d59efc0873ed0cadc6bb8cde8b11e6659cd0ec367e9db30",
+  "candidate_disposition": "drop_no_complete_engine_gain",
+  "preserved_failed_verification_attempt": "a028-adjacent-restoration.json",
+  "corruption_tests": 11,
+  "process_gates": [
+    {
+      "name": "a024-adjacent-packet.json",
+      "sha256": "f760aed03abf8460c15cb43fd2c0f8b4983d30536a9d8aae7aa23fd9fb6a3677",
+      "status": "passed"
+    },
+    {
+      "name": "a025-adjacent-stage.json",
+      "sha256": "5cdc2132d10d05b58e2de704ae1dfadab3b0ae3456a9bbcebb8d1bef78980b91",
+      "status": "passed"
+    },
+    {
+      "name": "a026-adjacent-corruption-controls.json",
+      "sha256": "0f07e1ce53832bc31d11ce802b1889e898ac9e3a486cb0196f02e630106da78b",
+      "status": "passed"
+    },
+    {
+      "name": "a027-adjacent-source-only-replay.json",
+      "sha256": "3898332ff6cda970083ad3dad5d239e7b0f83cf533dcd85deb3507ed95c23bd2",
+      "status": "passed"
+    },
+    {
+      "name": "a028-adjacent-restoration.json",
+      "sha256": "95677613fb07def134f577ec2ef7271a6bc28bb16ad46b79a0a68f77380d7a4d",
+      "status": "failed"
+    },
+    {
+      "name": "a029-adjacent-restoration-corrected.json",
+      "sha256": "9eaacd6e733bd229fcb620e9afcbdb0536b2b83c83d6fa3de9c90333441d6cc8",
+      "status": "passed"
+    },
+    {
+      "name": "a030-adjacent-ci-wiring.json",
+      "sha256": "3006f8960e3f1c8c2a0452388ac809425b2ef9c848bee0cddd61b8a7c5b35cd3",
+      "status": "passed"
+    },
+    {
+      "name": "a031-adjacent-public-status.json",
+      "sha256": "6b92a9417e7245be64f99e614d8ec3b4563a36d13d2e263a66a47b071849a637",
+      "status": "passed"
+    }
+  ],
+  "source_only": {
+    "status": "passed",
+    "copied_files": 341,
+    "corruption_tests": 11,
+    "acceptance_sha256": "444670ffc750503e4d59efc0873ed0cadc6bb8cde8b11e6659cd0ec367e9db30",
+    "original_source_and_data_access_forbidden": true,
+    "engine_imports_forbidden": true,
+    "subprocess_and_network_forbidden": true,
+    "new_query_executions": 0
+  },
+  "packet": {
+    "file": "verification.json.gz",
+    "bytes": 331094,
+    "sha256": "4f84c29b181812c2683df6020b1f0bf9e9caf5194f820f22f639357093a5f0d4",
+    "uncompressed_sha256": "8e2c2c0b49f5bce2903571cc68d3a785a0f17b5ba5f4553df1e0b8e4a516299e"
+  },
+  "query_executions": 0
+}

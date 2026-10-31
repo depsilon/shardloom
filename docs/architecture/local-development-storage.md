@@ -29,6 +29,27 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 31 grouped-state closeout](../benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json)
+retires 2,863 generated files after #1630 merges with all 57 hosted checks passing.
+Superseded application/bounded-order binaries and wheels, archived output parts
+and completed verification copies are removed with repeated identities and
+closed-handle checks. The current grouped-state runtime/wheel, five original
+Parquet inputs, public summary and complete compact results remain. Both
+grouped-state and cost packets replay after retirement. The failed first
+retirement-plan provenance lookup and exact correction remain recorded; no
+payload backup, compiler-cache removal or storage-ceiling change occurs.
+
+The [October 31 rejected adjacent-read retirement](../benchmarks/evidence/native-adjacent-parquet-reads-retirement-2026-10-31/cleanup.json)
+removes 12,351 generated regular files and three environment links after exact
+accepted-source restoration, 11 corruption controls and isolated source-only
+replay. It retires the rejected CLI/library copies and wheel, completed package
+environment, duplicate packet and verification sources, and archived raw result
+parts/logs. Both public summaries, all compact observations/failures/source
+evidence, five original Parquet inputs and the current grouped-state runtime
+and wheel remain. Repeated identities, closed-handle checks and complete
+post-retirement replay pass. The shared compiler cache and unrelated files are
+untouched; no payload backup or storage-ceiling change occurs.
+
 The [October 28 numeric-value cleanup](../benchmarks/evidence/native-shared-numeric-values-2026-10-28/cleanup.json)
 retires 23,269 completed regular files and six environment symlinks after complete
 portable replay, 30 corruption controls and isolated source-only acceptance.
