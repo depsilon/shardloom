@@ -1,0 +1,37 @@
+{
+  "schema_version": "shardloom.application_closeout.v1",
+  "status": "passed",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1628",
+  "head": "7cdb2d643c5915d689f422ea18c108b556ee1f9c",
+  "merge_commit": "b6883adc1d2a5193eb60f74b0b4c05c3cb75adfa",
+  "complete_checks": 57,
+  "final_installed_tests": 283,
+  "final_callback_tests": 16,
+  "original_acceptance": "native-application-batch-functions-2026-10-30/acceptance.json",
+  "review_correction": "native-application-batch-functions-2026-10-30/review-correction.json",
+  "cleanup": {
+    "regular_files": 19797,
+    "regular_bytes": 1089397838,
+    "symlinks": 6,
+    "retained_runtime": "application-batch-release-r1",
+    "retained_wheel": "installed-application-batch-r2/dist",
+    "retained_performance_baseline": "bounded-ordering-release-r2",
+    "all_proofs_unchanged": true,
+    "packet_identity_and_readback_after_retirement": true
+  },
+  "cleanup_plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 1308819,
+    "sha256": "ce99f10c6960c7862827b0e393dde18cc8fd5372dfbf4e0ed75337c942d8e144"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 15116,
+    "sha256": "e253eb880c8a221e0410d01b99347d4cf75d0f251e49f0b921a88c48ea7e9abe",
+    "uncompressed_sha256": "b51704672078130e0ad231eb1379e37a4d25b2bf0cf9986a6ee4d52b932a7568"
+  },
+  "query_executions": 0,
+  "full43_run": false,
+  "package_publication_attempted": false,
+  "github_review_thread_resolution_attempted": false
+}

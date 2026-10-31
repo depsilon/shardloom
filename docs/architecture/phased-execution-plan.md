@@ -451,11 +451,13 @@ the October 30 direct-Parquet result, and verify saved evidence without rerunnin
 queries. Full43 remains a later regression check; it cannot certify item 18's
 missing format, mixed-source, output and large-write coverage.
 
-**October 30 additional optimization queue:** after the active trusted Rust/Python
-batch-function unit, work through both supplied reviews in the
+**October 30 additional optimization queue:** the trusted Rust/Python
+batch-function unit is accepted and merged in #1628. Work through both supplied reviews in the
 [shared-owner continuation](native-shared-owner-optimizations-2026-10-30.md),
-still inside item 20. Begin with single-predicate masks and grouped-cost
-attribution/proof screens. The broader pool covers reusable ordering/preparation,
+still inside item 20. The single-predicate mask experiment is dropped after a
+complete 347-case result of 12.199579628 engine seconds against 12.055132613;
+candidate source is removed and the accepted baseline is unchanged. Next are
+grouped-cost attribution/proof screens. The broader pool covers reusable ordering/preparation,
 encoded reductions, scoped source demand, residual joins, spill merging/lookups,
 as-of/window bounds, restricted correlated rewriting, selected/adjacent reads,
 owned capture, strings and nested structure, plus three bounded feasibility
@@ -565,10 +567,15 @@ visible and independent; this implementation does not automatically close them.
     run the seven performance candidates before explicit batch-function work.
     Those candidates and the follow-through are merged in #1626/#1627. The
     [trusted Rust/Python batch-function unit](native-application-batch-functions-2026-10-30.md)
-    passes local workspace/package acceptance, including 280 clean installed
-    integration tests with no skips; hosted integration remains pending. The
-    October 30 additional shared-owner queue follows its acceptance,
-    still within item 20 and before the later connector/refresh package.
+    is accepted and merged in #1628 at `b6883adc`, with all 57 hosted checks,
+    the review correction and 283 installed-package tests with no skips. The
+    [closeout](../benchmarks/evidence/native-application-batch-closeout-2026-10-30/closeout.json)
+    preserves the exact tested source and completed-artifact retirement. The
+    October 30 additional shared-owner queue is now active. Its first
+    [single-predicate-mask experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md)
+    is dropped under the complete-cohort rule, with all correctness results and
+    failures preserved. Grouped-cost attribution is next, still within item 20
+    and before the later connector/refresh package.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.
   - **Remaining performance checklist:** the
@@ -942,7 +949,7 @@ units already delivered keep their acceptance obligations; no open package is
 marked complete by this resequencing.
 
 The October 30 follow-up adds the [shared-owner candidate queue](native-shared-owner-optimizations-2026-10-30.md)
-after the active priority-5 unit and before priority 6. It includes both supplied
+after the accepted priority-5 unit and before priority 6. It includes both supplied
 reviews, their mechanism/scaling controls and explicit retained/dropped decisions.
 
 | Priority | Completion package | Implementation and acceptance contract |
@@ -951,7 +958,7 @@ reviews, their mechanism/scaling controls and explicit retained/dropped decision
 | 2 | Temporal fidelity and time-series workflows | Preserve timestamp units and timezone identity, time-of-day, durations and calendar intervals from ingestion through comparisons, grouping, casts, serialization and reopen. Complete parsing, formatting, truncation, conversion and arithmetic in shared SQL/DataFrame semantics. Distinguish instant conversion from wall-clock reinterpretation and specify ambiguous/nonexistent local times. Verify dedicated as-of, calendar/time-based rolling, resampling, gap filling and interpolation first, then implement missing behavior through existing joins/windows. Specify ordering, ties, tolerance, nulls, group boundaries and timezone effects; row-count windows do not establish calendar-window support. |
 | 3 | SQL/DataFrame composition and parameters | Preserve the [connected programming package](native-connected-programming-model-2026-10-24.md), scoped named plans, nested ordinary WITH scopes, typed parameters and column-name lists. The [recursive/materialized continuation](native-recursive-composition-2026-10-29.md) now passes local complete-value, five-interface, pressure/failure, common-conformance and installed-wheel acceptance; hosted PR acceptance remains pending. It adds action-owned materialization and bounded native frontier iteration, including finite-cycle UNION semantics. GROUPING SETS, ROLLUP/CUBE, aggregate FILTER and ordered aggregates use existing shared providers. Broader combined item-20 acceptance remains open. |
 | 4 | Numeric-domain and rich-type fidelity | Define NaN, positive/negative infinity and signed-zero behavior across observation, equality, sorting, grouping, reductions, serialization and validation, preserving a strict caller-selectable policy. Keep NaN distinct from null. Add explicit decimal precision/scale/rounding choices alongside exact behavior, and an exact widened-integer SUM contract separately from floating AVG. Coordinate with [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md); carrying a value without observing it is distinct from implementing its arithmetic. |
-| 5 | Explicit batch-function integration | The [trusted Rust/Python application boundary](native-application-batch-functions-2026-10-30.md#local-acceptance--october-30) passes local workspace and clean installed-package acceptance; hosted integration remains pending. It declares exact schemas, rowwise/null/determinism/effect policy, errors, cancellation, independent ownership and resource limits under RFCs 0011/0023. Prefer native expressions where sufficient. Stock CLI callback transport and general/plugin UDFs remain blocked; no built-in-function performance claim is made. |
+| 5 | Explicit batch-function integration | The [trusted Rust/Python application boundary](native-application-batch-functions-2026-10-30.md#hosted-integration-and-cleanup) is accepted and merged in #1628 with all 57 hosted checks and 283 installed-package tests passing. It declares exact schemas, rowwise/null/determinism/effect policy, errors, cancellation, independent ownership and resource limits under RFCs 0011/0023. Prefer native expressions where sufficient. Stock CLI callback transport and general/plugin UDFs remain blocked; no built-in-function performance claim is made. |
 | 6 | Complete remote/table connectors and safe refresh | Extend the [universal-I/O package](native-universal-io-performance-coverage-2026-10-24.md), retaining immediate local writer work first. A selected workflow must authenticate → discover schema → read selected data → execute natively → publish safely, with credentials, ranges, retries and generation checks. Implement safe replacement/refresh before append/upsert against a defined table contract; broader transactions follow their separate persistence/recovery contract. |
 
 The merged foundation contains the six-function reducer family in

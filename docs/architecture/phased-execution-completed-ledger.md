@@ -17,6 +17,31 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Single-predicate mask experiment — rejected by complete-cohort rule`
+  — the [complete experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md)
+  passes all 347 queries and 12,565 complete result rows, but records
+  12.199579628 engine seconds against 12.055132613. The candidate source and
+  candidate-specific tests are removed; their exact bytes, work observations,
+  1,305 public comparisons, 284 installed tests and all failed attempts remain
+  preserved. The accepted baseline is unchanged. This closes the experiment,
+  not item 20, the under-ten-second objective or any competitive gate.
+
+- [x] `Trusted application batch transformations — hosted integration`
+  — [PR #1628](https://github.com/depsilon/shardloom/pull/1628) merges as `b6883adc`
+  after all 57 checks pass. Rust callbacks and Python callables share the existing
+  native batch owner with exact schemas, row preservation, explicit policy,
+  cancellation and independent credited input/output. The downstream-filter
+  review correction passes all 16 callback tests and 283 installed-package tests
+  without skips; the tested native runtime remains unchanged. The
+  [closeout](../benchmarks/evidence/native-application-batch-closeout-2026-10-30/closeout.json)
+  retains original acceptance, the reproduced review failure, correction and
+  hosted evidence. Verified retirement removes completed package environments
+  and the superseded first wheel while retaining the tested runtime/wheel,
+  current inputs and active comparison baseline. No query benchmark, Full43 or
+  publication occurs in this closeout. Item 20 continues through the additional
+  shared-owner optimization queue; stock CLI callback transport and general
+  plugin/UDF execution remain unsupported.
+
 - [x] `Shared analytical execution — current local UAT checkpoint`
   — the [October 28 checkpoint](../benchmarks/native-analytical-checkpoint-2026-10-28.md)
   validates the current shared native runtime with 5,057 native tests (35 existing

@@ -1,9 +1,10 @@
 # Native application batch transformations
 
-Implemented and locally accepted inside item 20, under RFCs 0011, 0021, 0023,
+Implemented and accepted inside item 20, under RFCs 0011, 0021, 0023,
 0033 and 0044. The [application API](../reference/application-batch-functions.md)
-admits trusted in-process Rust/Python transformations; hosted PR acceptance is
-pending. The preceding performance changes are frozen in merged PR #1627; their
+admits trusted in-process Rust/Python transformations. PR #1628 merged as
+`b6883adc1d2a5193eb60f74b0b4c05c3cb75adfa` after all 57 hosted checks passed.
+The preceding performance changes are frozen in merged PR #1627; their
 source, timings and acceptance remain independent of this continuation.
 
 ## Shared execution contract
@@ -170,4 +171,15 @@ identities remain unchanged. The original acceptance packet stays immutable.
 This accepts the declared local application boundary, not stock CLI callback
 transport, arbitrary code safety, a new release, a measured speedup, or all of
 item 20. The [additional shared-owner queue](native-shared-owner-optimizations-2026-10-30.md)
-follows hosted integration before connector/refresh completion.
+now continues before connector/refresh completion.
+
+### Hosted integration and cleanup
+
+The [closeout record](../benchmarks/evidence/native-application-batch-closeout-2026-10-30/closeout.json)
+binds all 57 hosted checks and the merge to tested head `7cdb2d64`. The merge tree
+is identical to that tested head. Exact identity and closed-handle checks retire
+19,797 completed package/environment files and six environment links, including
+the replaced first wheel. The final tested runtime/wheel, active performance
+baseline, current inputs and complete compact evidence remain. Packet readback
+passes after retirement. No new query execution, Full43 run, release publication
+or GitHub review-thread resolution occurs in this closeout.
