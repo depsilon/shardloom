@@ -335,6 +335,9 @@ fn pipeline_columns(stage: &Stage, required: &mut Option<Columns>) {
             );
         }
         Stage::Filter(predicate) => add_expression(required, predicate),
+        // The complete declared input is observable by application code. Output
+        // names and a downstream range cannot prove narrower callback demand.
+        Stage::ApplicationBatch(_) => *required = None,
         Stage::Observe(observation) => {
             if observation.projection.is_empty() {
                 if let Some(required) = required {

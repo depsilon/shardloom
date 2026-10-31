@@ -12,7 +12,10 @@ metadata in the JSON reference identifies the release and proof it describes.
 For deliberate behavior changes, read the [Python migration guide](python-api-migration.md).
 For the subsequent source implementation, read the
 [connected SQL/DataFrame and local-client guide](connected-programming.md)
-and [shared scalar definitions](native-scalar-functions.md).
+and [shared scalar definitions](native-scalar-functions.md). Trusted in-process
+rowwise application code uses the separate
+[batch-function API](application-batch-functions.md); its post-1.0.0 source scope
+does not enable plugin/UDF loading or stock CLI callback execution.
 
 ## Source Of Truth Order
 
@@ -44,7 +47,7 @@ completion only after full drain. Writes return the actual writer receipt.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `7dc293ddfcca7b9cd9158441d9c528a7f5a1778e8d180451331bb2ad39edc792` (SHA-256 of the listed source inputs).
+Source identity: `6c990556ed96eaac2329572599510871f0d1c6c49661dd0f9511a97817bafbb8` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -54,6 +57,8 @@ Method contracts are available on the linked classes; normal use starts with `co
 
 | Export | Kind | Contract |
 | --- | --- | --- |
+| [`BatchFunction`](../../python/src/shardloom/_batch_function.py) | class | Immutable registered function snapshot accepted by ``frame.map_batches``. |
+| [`BatchFunctionRegistry`](../../python/src/shardloom/_batch_function.py) | class | Named immutable callback snapshots belonging to one context or session. |
 | [`ColumnExpression`](../../python/src/shardloom/query.py) | class | A scoped column expression for Python query-builder predicates. |
 | [`ComplexProjectionExpression`](../../python/src/shardloom/query.py) | class | A scoped ARRAY or STRUCT projection expression for local-source rows. |
 | [`Diagnostic`](../../python/src/shardloom/models.py) | class | Diagnostic entry copied from a ShardLoom output envelope. |

@@ -23,6 +23,18 @@ impl Binder<'_> {
                 VortexRelationalStage::Limit { offset, count } => {
                     self.limit_input(*offset, *count, node)?
                 }
+                VortexRelationalStage::ApplicationBatch(function) => {
+                    let (fields, spec) = super::super::application::bind(
+                        function,
+                        &node.fields,
+                        &self.shared_memory_pool(),
+                    )?;
+                    self.charge_fields(fields.len())?;
+                    for (name, _) in &fields {
+                        validate_name(name)?;
+                    }
+                    append(node, fields, PipelineKind::ApplicationBatch(Box::new(spec)))
+                }
                 VortexRelationalStage::Observe(observation) => {
                     validate_name(&observation.name)?;
                     if self.parameterized_binding || self.outer_fields.is_some() {

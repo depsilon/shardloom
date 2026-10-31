@@ -65,6 +65,7 @@ impl RuntimeOwner {
         class: CallClass,
         cancellation: CancellationToken,
     ) -> Result<NativeExecutionContext<'_>> {
+        crate::application_batch::check_application_callback_reentry()?;
         cancellation.check()?;
         let queued = Instant::now();
         let gate = if let Some(admission) = &self.serving {

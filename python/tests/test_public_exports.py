@@ -41,6 +41,8 @@ NEW_EXPORTS = frozenset(
         "ShardLoomTimeoutError",
         "Window",
         "WindowSpec",
+        "BatchFunction",
+        "BatchFunctionRegistry",
     }
 )
 ADVANCED_RUNTIME_NAMES = frozenset(

@@ -6,6 +6,9 @@ use shardloom_vortex::resident_memory_source::{
 };
 use std::sync::Arc;
 
+#[path = "native_runtime_application_tests.rs"]
+mod application_tests;
+
 fn allocation() -> ExecutionResources {
     ExecutionResources::from_declaration(
         64 << 20,

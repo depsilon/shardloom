@@ -51,6 +51,7 @@ pub(super) fn visit(plan: &mut Plan, nodes: &mut usize) -> Result<()> {
                         }
                     }
                     Stage::Filter(value) => expression(value, 0, nodes)?,
+                    Stage::ApplicationBatch(_) => {}
                     Stage::Observe(observation) => {
                         for (_, value) in &mut observation.projection {
                             expression(value, 0, nodes)?;

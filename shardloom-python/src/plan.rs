@@ -316,6 +316,26 @@ impl NativePlan {
         })
     }
 
+    /// Bind a registered callback snapshot without invoking application code.
+    fn map_batches(
+        &self,
+        function: &super::application_batch::NativeBatchFunction,
+    ) -> PyResult<Self> {
+        function.check_owner(&self.session)?;
+        let declaration = self.declaration(&self.session)?;
+        let mapped = declaration
+            .map_batches(function.value.clone())
+            .map_err(native_error)?;
+        Self::relation(
+            self.session.clone(),
+            Arc::new(mapped),
+            vec![],
+            vec![],
+            vec![self],
+            self.spill.clone(),
+        )
+    }
+
     /// Add position-bound native metrics, retaining this plan's source owners.
     #[allow(clippy::needless_pass_by_value)] // PyO3 extracts an owned Python sequence.
     fn observe(&self, name: &str, measures: Vec<String>) -> PyResult<Self> {

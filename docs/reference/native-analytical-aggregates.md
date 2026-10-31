@@ -207,5 +207,6 @@ expansion and indicator width are validated before execution.
 See [native query spill](native-query-spill.md) and the
 [implementation contract](../architecture/native-analytical-completion-2026-10-27.md)
 for ownership and acceptance details. General temporal/recursive/numeric
-completion, application batch functions, remaining performance gaps and broad
+completion, combined [application batch-function](application-batch-functions.md)
+workflow acceptance, remaining performance gaps and broad
 competitive certification remain open.

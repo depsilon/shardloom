@@ -1,0 +1,58 @@
+{
+  "schema_version": "shardloom.application_batch_review_acceptance.v1",
+  "status": "passed",
+  "base_commit": "a7a9dc94177732c01167a0a27e48dea21a84442d",
+  "review_url": "https://github.com/depsilon/shardloom/pull/1628#discussion_r4428880276",
+  "issue": "dropna rewrote filters before application, projection and observation stages",
+  "correction": "append the requested null filter; preserve all preceding operations and their evaluation domains",
+  "reproduction": {
+    "tests": 2,
+    "failures": 6,
+    "errors": 6
+  },
+  "callback_tests": 16,
+  "installed_integration": {
+    "tests": 283,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "installed_integrity": {
+    "schema_version": "shardloom.native_python_wheel_integrity.v1",
+    "status": "passed",
+    "wheel": "shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "wheel_sha256": "b125f41fa84583c213b4b7cdbfb6accb6ff749aa30800adddb556ec3afe1214a",
+    "wheel_bytes": 54178642,
+    "native_library_sha256": "60f85a66d70541a4cd29fdd7dbde9fbef806f7016dbf83b116ab54e326889f0c",
+    "cli_sha256": "c10f6b8cc9de762f323d947234e926b45dbe1247ceb479fc392853db540fef1a",
+    "tag": "cp310-abi3-macosx_27_0_arm64",
+    "python_source_files": 31,
+    "linux_audit_verified": false,
+    "licenses": {
+      "status": "passed",
+      "registry_packages": 435,
+      "vendored_packages": 12,
+      "license_file_records": 827,
+      "unique_text_files": 249
+    },
+    "load_verified": false,
+    "published": false
+  },
+  "native_rebuild_performed": false,
+  "unchanged_native_source_files": 2618,
+  "source_python": {
+    "tests_run": 915,
+    "skipped_observations": 38,
+    "status": "passed"
+  },
+  "packet": {
+    "file": "review-correction.json.gz",
+    "bytes": 441377,
+    "sha256": "fb542419f58b8203f69e4e1e8c1eaf0e6ae5bc438f692a1693849fcf0e6f8de9",
+    "uncompressed_sha256": "053046bbb626317b8739bb6bdb0a3f1e3898f735b30152efb5e7f2606a8c9dc8"
+  },
+  "original_acceptance_preserved": true,
+  "full43_run": false,
+  "publication_attempted": false
+}

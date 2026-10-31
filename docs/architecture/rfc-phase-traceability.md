@@ -15,6 +15,14 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The October 30 [native application batch-function contract](native-application-batch-functions-2026-10-30.md)
+implements a scoped item-20 path under RFCs 0011/0021/0023/0033/0044: trusted
+in-process Rust/Python rowwise callbacks in the existing native pipeline. Earlier
+general-UDF/plugin deferrals remain historical and continue to govern dynamic
+loading, sandboxing and broader UDF admission; they do not negate this separate
+host-supplied callback boundary. Package and combined capability acceptance
+remain independently tracked in the phase plan.
+
 ## How to use this document
 
 - Before starting a new phase, check the mapped RFCs for that phase.

@@ -437,6 +437,8 @@ class ShardLoomSession:
         self._last_invalidation_reason: str | None = None
         from ._connected import Catalog
         self.catalog = Catalog(self.client)
+        from ._batch_function import BatchFunctionRegistry
+        self.batch_functions = BatchFunctionRegistry(self.client)
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -861,6 +863,7 @@ class ShardLoomSession:
         if not self._closed:
             self._prepared_cache.clear()
             self.catalog.clear()
+            self.batch_functions.clear()
             self.client.close()
             self._closed = True
         return self.evidence()

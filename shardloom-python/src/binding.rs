@@ -4,6 +4,8 @@ use pyo3::prelude::*;
 mod adbc;
 #[path = "aggregate.rs"]
 mod aggregate;
+#[path = "application_batch.rs"]
+mod application_batch;
 #[path = "batch_input.rs"]
 mod batch_input;
 #[path = "capsules.rs"]
@@ -41,6 +43,8 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<session::NativeSession>()?;
     module.add_class::<session::NativeSource>()?;
     module.add_class::<plan::NativePlan>()?;
+    module.add_class::<application_batch::NativeBatchFunction>()?;
+    module.add_class::<application_batch::NativeBatchCall>()?;
     module.add_class::<expression::NativeExpression>()?;
     module.add_class::<relation::NativeRelation>()?;
     module.add_class::<aggregate::NativeAggregateMeasure>()?;
@@ -90,6 +94,20 @@ fn command(py: Python<'_>, args: Vec<String>) -> PyResult<String> {
 #[allow(clippy::needless_pass_by_value)]
 fn native_error(error: shardloom_core::ShardLoomError) -> PyErr {
     Python::attach(|py| {
+        use std::error::Error as _;
+        if let Some(original) = error
+            .source()
+            .and_then(|source| source.downcast_ref::<PyErr>())
+        {
+            // A caller exception can itself expose a `diagnostic` attribute.
+            // Preserve its identity through the public adapter rather than
+            // mistaking that caller-owned attribute for an engine failure.
+            let _ = original.value(py).getattr("__dict__").and_then(|dict| {
+                dict.cast::<pyo3::types::PyDict>()?
+                    .set_item("_shardloom_application_callback_error", true)
+            });
+            return original.clone_ref(py);
+        }
         let diagnostic = error.to_diagnostic();
         let message = format!("{}: {error}", diagnostic.code.as_str());
         let exception = if diagnostic.code == shardloom_core::DiagnosticCode::ConfigurationError {

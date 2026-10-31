@@ -239,7 +239,7 @@ def native_declaration(backend, frame, spill=None):
         # plans. Only actual bound children/values require declaration composition;
         # this never expands a child relation or executes an intermediate.
         if len(current.operations) <= 8 and (root is None or not root.relations and not root.parameters) and all(
-            operation.right_frame is None and operation.kind != "observe" for operation in current.operations
+            operation.right_frame is None and operation.kind not in {"observe", "application_batch"} for operation in current.operations
         ):
             statement = current._relation_statement()
             if statement is None:
@@ -279,6 +279,11 @@ def native_declaration(backend, frame, spill=None):
                 break
             if operation.kind == "observe":
                 plan = _checked_native_call(plan.observe, operation.values[0], list(operation.values[1:]))
+                continue
+            if operation.kind == "application_batch":
+                function = operation.batch_function
+                plan = _checked_native_call(plan.map_batches, function._for_client(current.client))
+                columns = tuple(name for name, _ in function.output_schema)
                 continue
             group = [operation]
             if operation.kind == "group_by":

@@ -367,6 +367,22 @@ pub enum VortexRelationalStage {
     /// Accumulate selected global aggregates at this exact stage while passing
     /// the same native rows downstream. Private projections feed only metrics.
     Observe(VortexRelationalObservation),
+    /// Explicit trusted row-preserving application transformation. Its position,
+    /// callback identity and complete input/output schemas remain observable.
+    ApplicationBatch(crate::application_batch::ApplicationBatchFunction),
+}
+
+impl VortexRelationalPlan {
+    /// Append a trusted application batch transformation at this exact plan
+    /// position. The handle is inert until an action reaches a nonempty batch.
+    #[must_use]
+    pub fn map_batches(self, function: crate::application_batch::ApplicationBatchFunction) -> Self {
+        Self::Pipeline(Box::new(VortexRelationalPipeline {
+            input: self,
+            stages: vec![VortexRelationalStage::ApplicationBatch(function)],
+        }))
+        .compact_streaming()
+    }
 }
 
 /// An observation consumes its action's batches; it never owns a second scan.

@@ -30,6 +30,7 @@ pub(super) struct SessionOwner {
 
 impl SessionOwner {
     pub(super) fn begin(&self) -> Result<CancellationToken> {
+        shardloom_vortex::application_batch::check_application_callback_reentry()?;
         let state = self
             .lifecycle
             .lock()
@@ -93,7 +94,7 @@ pub(super) fn operation_cancellation(
 
 #[pyclass(name = "Session", module = "shardloom._native", frozen)]
 pub(super) struct NativeSession {
-    owner: Arc<SessionOwner>,
+    pub(super) owner: Arc<SessionOwner>,
 }
 
 #[pyclass(name = "Source", module = "shardloom._native", frozen)]

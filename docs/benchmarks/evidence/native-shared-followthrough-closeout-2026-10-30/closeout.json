@@ -1,0 +1,2105 @@
+{
+  "schema_version": "shardloom.shared_followthrough_closeout.v1",
+  "status": "passed",
+  "current_head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+  "hosted": {
+    "schema_version": "shardloom.hosted_followthrough.v1",
+    "status": "passed",
+    "stage": "merged",
+    "pull_request": {
+      "baseRefOid": "67a83dd45ebff17613f8b4ff5dce43e4a460f096",
+      "headRefOid": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "65be06c9d7324de45f0661f8fab9546e2f7d0259"
+      },
+      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "UNKNOWN",
+      "mergedAt": "2026-10-30T20:45:26Z",
+      "number": 1627,
+      "reviewDecision": "",
+      "reviews": [],
+      "state": "MERGED",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:14Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254792314",
+          "name": "CI work shaping plan",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:32:16Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602732/job/124254791613",
+          "name": "CodeQL rust",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CodeQL Analysis"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:45Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602732/job/124254791356",
+          "name": "CodeQL python",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CodeQL Analysis"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:01:28Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254792170",
+          "name": "Rust baseline (fmt)",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:03Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254791690",
+          "name": "Rust baseline (clippy)",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:23Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254791886",
+          "name": "Rust baseline (test)",
+          "startedAt": "2026-10-30T19:00:25Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:06:48Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254791948",
+          "name": "Python test shard (core)",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:01:17Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254792210",
+          "name": "Python test shard (front_door_benchmark_publication)",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:11Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254792119",
+          "name": "Python test shard (release_scripts)",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:33Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254791946",
+          "name": "Website and docs validation",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:01:25Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124254791955",
+          "name": "CI gate matrix contract",
+          "startedAt": "2026-10-30T19:00:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:10:53Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588054",
+          "name": "Rust feature matrix (default_features)",
+          "startedAt": "2026-10-30T19:03:43Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:06:04Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588166",
+          "name": "Rust feature matrix (all_features)",
+          "startedAt": "2026-10-30T19:04:12Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:06:27Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588772",
+          "name": "Rust feature matrix (no_default_features)",
+          "startedAt": "2026-10-30T19:05:29Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:06:15Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588230",
+          "name": "Rust feature matrix (upstream_vortex)",
+          "startedAt": "2026-10-30T19:04:58Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:05:28Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588129",
+          "name": "Rust feature matrix (vortex_file_io)",
+          "startedAt": "2026-10-30T19:04:22Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588010",
+          "name": "Rust feature matrix (vortex_local_primitives)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:55Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588113",
+          "name": "Rust feature matrix (vortex_encoded_read_spike)",
+          "startedAt": "2026-10-30T19:03:28Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:56Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588032",
+          "name": "Rust feature matrix (release_user_surfaces)",
+          "startedAt": "2026-10-30T19:03:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:09:31Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588255",
+          "name": "Rust feature matrix (native_vortex_observation)",
+          "startedAt": "2026-10-30T19:04:48Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:05:35Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588189",
+          "name": "Rust feature matrix (synthetic_spill_resources)",
+          "startedAt": "2026-10-30T19:03:47Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:08:24Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588236",
+          "name": "Rust feature matrix (preparation_resource_profile)",
+          "startedAt": "2026-10-30T19:04:57Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588072",
+          "name": "Rust feature matrix (native_release_clippy)",
+          "startedAt": "2026-10-30T19:02:24Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:24Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588109",
+          "name": "Rust feature matrix (packaging_deployment)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:12:10Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587763",
+          "name": "Build checked optimized native tests",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:07:03Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587711",
+          "name": "Patched Vortex providers (arrays)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:09:09Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587827",
+          "name": "Patched Vortex providers (io)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:32Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587888",
+          "name": "Patched Vortex providers (buffer)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:05:46Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587710",
+          "name": "Rust feature matrix (native_public_surface_tests)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:09:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587654",
+          "name": "Native release CLI build",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:46Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587716",
+          "name": "Rust MSRV validation",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:27Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587836",
+          "name": "Python compatibility (ubuntu-latest, 3.10)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:08:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587817",
+          "name": "Python compatibility (ubuntu-latest, 3.11)",
+          "startedAt": "2026-10-30T19:03:34Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:14Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587739",
+          "name": "Python compatibility (ubuntu-latest, 3.12)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:05:45Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255588177",
+          "name": "Python compatibility (ubuntu-latest, 3.13)",
+          "startedAt": "2026-10-30T19:04:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:21Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587774",
+          "name": "Python compatibility (macos-latest, 3.11)",
+          "startedAt": "2026-10-30T19:02:34Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:24:16Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587780",
+          "name": "Python compatibility (windows-latest, 3.11)",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:50:21Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587805",
+          "name": "Build native Python package (macos)",
+          "startedAt": "2026-10-30T19:03:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:09:47Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587746",
+          "name": "Python and package smoke",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:04:10Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587752",
+          "name": "Dependency and security gates",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:05:29Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124255587847",
+          "name": "Release runtime core evidence",
+          "startedAt": "2026-10-30T19:02:16Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T20:38:52Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124258199583",
+          "name": "Python tests",
+          "startedAt": "2026-10-30T19:06:51Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:22:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124260908145",
+          "name": "Native test partition (0)",
+          "startedAt": "2026-10-30T19:12:12Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:17:28Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124260908064",
+          "name": "Native test partition (1)",
+          "startedAt": "2026-10-30T19:12:13Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:18:26Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124260908113",
+          "name": "Native test partition (2)",
+          "startedAt": "2026-10-30T19:12:12Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:18:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124260908023",
+          "name": "Native test partition (3)",
+          "startedAt": "2026-10-30T19:12:12Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:22:23Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124259412045",
+          "name": "Build native Python package (linux)",
+          "startedAt": "2026-10-30T19:09:10Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:56:49Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124278828831",
+          "name": "Native Python wheel (py313_macos)",
+          "startedAt": "2026-10-30T19:50:24Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:11:02Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124259739692",
+          "name": "Release package and governance evidence",
+          "startedAt": "2026-10-30T19:09:49Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:12:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124259739668",
+          "name": "Release user-surface evidence",
+          "startedAt": "2026-10-30T19:09:50Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:23:44Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124265959366",
+          "name": "Rust feature matrix (native_vortex_tests)",
+          "startedAt": "2026-10-30T19:22:45Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:28:09Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124265805649",
+          "name": "Native Python wheel (py310_ubuntu)",
+          "startedAt": "2026-10-30T19:22:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:27:11Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124265805693",
+          "name": "Native Python wheel (py313_ubuntu)",
+          "startedAt": "2026-10-30T19:22:25Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:57:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124281762709",
+          "name": "Native Python wheel acceptance",
+          "startedAt": "2026-10-30T19:56:51Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T20:40:51Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/41111602655/job/124300471676",
+          "name": "Release readiness reports",
+          "startedAt": "2026-10-30T20:38:54Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:03:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/runs/124256322567",
+          "name": "CodeQL",
+          "startedAt": "2026-10-30T19:03:34Z",
+          "status": "COMPLETED",
+          "workflowName": ""
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T19:02:04Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/9f8f98fd-0b37-4d6e-8ee1-16ae33811410",
+          "name": "Workers Builds: shardloom",
+          "startedAt": "2026-10-30T19:02:04Z",
+          "status": "COMPLETED",
+          "workflowName": ""
+        }
+      ],
+      "title": "Reduce native aggregate state and bounded numeric ordering work",
+      "url": "https://github.com/depsilon/shardloom/pull/1627"
+    },
+    "composition_pull_request": {
+      "baseRefOid": "87205d288522f9bc59c63a8be4eff5ff42993650",
+      "headRefOid": "ba3392501c7189b1a592f9075923ffb0f24061ec",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "a1ff5bb1d8698eb261bc1c0e3e9987b7da1439b5"
+      },
+      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "UNKNOWN",
+      "mergedAt": "2026-10-30T02:54:59Z",
+      "number": 1625,
+      "reviewDecision": "",
+      "reviews": [],
+      "state": "MERGED",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:51Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831621036",
+          "name": "CI work shaping plan",
+          "startedAt": "2026-10-30T01:11:22Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:15Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831614830",
+          "name": "Rust baseline (fmt)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:49Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615198",
+          "name": "Rust baseline (clippy)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:16Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615092",
+          "name": "Rust baseline (test)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:36Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615707",
+          "name": "Python test shard (core)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:09Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615403",
+          "name": "Python test shard (front_door_benchmark_publication)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:15:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615373",
+          "name": "Python test shard (release_scripts)",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:30Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615585",
+          "name": "Website and docs validation",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:12:29Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123831615233",
+          "name": "CI gate matrix contract",
+          "startedAt": "2026-10-30T01:11:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:14:34Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140441",
+          "name": "Rust feature matrix (default_features)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:43Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140525",
+          "name": "Rust feature matrix (all_features)",
+          "startedAt": "2026-10-30T01:14:59Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:24Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140667",
+          "name": "Rust feature matrix (no_default_features)",
+          "startedAt": "2026-10-30T01:15:22Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:14:02Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140435",
+          "name": "Rust feature matrix (upstream_vortex)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:14:50Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140466",
+          "name": "Rust feature matrix (vortex_file_io)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:37Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140716",
+          "name": "Rust feature matrix (vortex_local_primitives)",
+          "startedAt": "2026-10-30T01:15:05Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:15:20Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140606",
+          "name": "Rust feature matrix (vortex_encoded_read_spike)",
+          "startedAt": "2026-10-30T01:14:04Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:22Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140670",
+          "name": "Rust feature matrix (release_user_surfaces)",
+          "startedAt": "2026-10-30T01:14:52Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:18:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140719",
+          "name": "Rust feature matrix (native_vortex_observation)",
+          "startedAt": "2026-10-30T01:14:07Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:15Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140650",
+          "name": "Rust feature matrix (synthetic_spill_resources)",
+          "startedAt": "2026-10-30T01:14:35Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:16:26Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140608",
+          "name": "Rust feature matrix (preparation_resource_profile)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:17:27Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140689",
+          "name": "Rust feature matrix (native_release_clippy)",
+          "startedAt": "2026-10-30T01:15:10Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:15:03Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140664",
+          "name": "Rust feature matrix (packaging_deployment)",
+          "startedAt": "2026-10-30T01:13:57Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:22:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140407",
+          "name": "Build checked optimized native tests",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:18:48Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140345",
+          "name": "Patched Vortex providers (arrays)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:19:36Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140319",
+          "name": "Patched Vortex providers (io)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:14:05Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140322",
+          "name": "Patched Vortex providers (buffer)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:17:44Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140391",
+          "name": "Rust feature matrix (native_public_surface_tests)",
+          "startedAt": "2026-10-30T01:13:17Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:22:36Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140303",
+          "name": "Native release CLI build",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:14:58Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140355",
+          "name": "Rust MSRV validation",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:54Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140591",
+          "name": "Python compatibility (ubuntu-latest, 3.10)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:55Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140470",
+          "name": "Python compatibility (ubuntu-latest, 3.11)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140417",
+          "name": "Python compatibility (ubuntu-latest, 3.12)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:50Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140420",
+          "name": "Python compatibility (ubuntu-latest, 3.13)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:15:46Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140505",
+          "name": "Python compatibility (macos-latest, 3.11)",
+          "startedAt": "2026-10-30T01:13:44Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:35:14Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140380",
+          "name": "Python compatibility (windows-latest, 3.11)",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:55:39Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140422",
+          "name": "Build native Python package (macos)",
+          "startedAt": "2026-10-30T01:13:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:19:16Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140346",
+          "name": "Python and package smoke",
+          "startedAt": "2026-10-30T01:12:53Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:15:37Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140394",
+          "name": "Dependency and security gates",
+          "startedAt": "2026-10-30T01:13:56Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:17:30Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123832140414",
+          "name": "Release runtime core evidence",
+          "startedAt": "2026-10-30T01:14:06Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T02:51:24Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123833390028",
+          "name": "Python tests",
+          "startedAt": "2026-10-30T01:16:38Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:28:08Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835368884",
+          "name": "Native test partition (0)",
+          "startedAt": "2026-10-30T01:22:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:30:57Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835368982",
+          "name": "Native test partition (1)",
+          "startedAt": "2026-10-30T01:22:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:28:20Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835368985",
+          "name": "Native test partition (2)",
+          "startedAt": "2026-10-30T01:22:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:37:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835368902",
+          "name": "Native test partition (3)",
+          "startedAt": "2026-10-30T01:22:40Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:36:23Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835356800",
+          "name": "Build native Python package (linux)",
+          "startedAt": "2026-10-30T01:22:38Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T02:00:29Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123845592440",
+          "name": "Native Python wheel (py313_macos)",
+          "startedAt": "2026-10-30T01:55:41Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:20:32Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123834266362",
+          "name": "Release package and governance evidence",
+          "startedAt": "2026-10-30T01:19:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:24:28Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123835356693",
+          "name": "Release user-surface evidence",
+          "startedAt": "2026-10-30T01:22:38Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:38:45Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123840116259",
+          "name": "Rust feature matrix (native_vortex_tests)",
+          "startedAt": "2026-10-30T01:37:43Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:40:48Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123839720134",
+          "name": "Native Python wheel (py310_ubuntu)",
+          "startedAt": "2026-10-30T01:36:25Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:40:45Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123839720088",
+          "name": "Native Python wheel (py313_ubuntu)",
+          "startedAt": "2026-10-30T01:36:25Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T02:01:17Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123847042850",
+          "name": "Native Python wheel acceptance",
+          "startedAt": "2026-10-30T02:00:32Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T02:53:27Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/depsilon/shardloom/actions/runs/40984315550/job/123863043197",
+          "name": "Release readiness reports",
+          "startedAt": "2026-10-30T02:51:26Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-30T01:13:14Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://dash.cloudflare.com/d0ffe71dd099a205b70c3bb4517f7bc9/workers/services/view/shardloom/production/builds/95b32374-1ea2-4a9a-bd0a-83bc56b55a5d",
+          "name": "Workers Builds: shardloom",
+          "startedAt": "2026-10-30T01:13:14Z",
+          "status": "COMPLETED",
+          "workflowName": ""
+        }
+      ],
+      "title": "Add native recursive and materialized relation execution",
+      "url": "https://github.com/depsilon/shardloom/pull/1625"
+    },
+    "complete_checks": 57,
+    "required_names": [
+      "CI gate matrix contract",
+      "CodeQL python",
+      "CodeQL rust",
+      "Dependency and security gates",
+      "Native Python wheel (py310_ubuntu)",
+      "Native Python wheel (py313_macos)",
+      "Native Python wheel (py313_ubuntu)",
+      "Native Python wheel acceptance",
+      "Native test partition (0)",
+      "Native test partition (1)",
+      "Native test partition (2)",
+      "Native test partition (3)",
+      "Python compatibility (windows-latest, 3.11)",
+      "Python tests",
+      "Release readiness reports",
+      "Rust MSRV validation",
+      "Rust baseline (clippy)",
+      "Rust baseline (fmt)",
+      "Rust baseline (test)",
+      "Rust feature matrix (native_release_clippy)",
+      "Rust feature matrix (native_vortex_tests)",
+      "Website and docs validation"
+    ]
+  },
+  "cleanup": {
+    "schema_version": "shardloom.generated_artifact_retirement.v1",
+    "status": "passed",
+    "plan_sha256": "6b24bf0b826d9ad413bfb3cd504e0279aa22d69ea2b4bc1ff9f0def69026d911",
+    "roots": [
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/shardloom"
+      },
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/_native.abi3.so"
+      },
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/shardloom"
+      },
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/_native.abi3.so"
+      },
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/shardloom"
+      },
+      {
+        "basis": "superseded runtime; source/build/identities retained; C8 r2 replaces it",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/_native.abi3.so"
+      },
+      {
+        "basis": "superseded installed-tested wheel; C8 tested wheel and package report retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+      },
+      {
+        "basis": "completed generated package/install environment; recipe and logs retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/venv"
+      },
+      {
+        "basis": "completed generated package/install environment; recipe and logs retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/package"
+      },
+      {
+        "basis": "completed generated package/install environment; recipe and logs retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/venv"
+      },
+      {
+        "basis": "completed generated package/install environment; recipe and logs retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/package"
+      },
+      {
+        "basis": "superseded installed-tested wheel; C8 tested wheel and package report retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-review-integration-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+      },
+      {
+        "basis": "completed generated fixtures; deterministic generator, seed, full references/results retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs"
+      },
+      {
+        "basis": "completed generated fixtures; deterministic generator, seed, full references/results retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs"
+      },
+      {
+        "basis": "complete raw bytes retained in verified portable evidence, including failed attempt",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-mixed-aggregate-r1/logs"
+      },
+      {
+        "basis": "complete raw bytes retained in verified portable evidence, including failed attempt",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-public-r1.json"
+      },
+      {
+        "basis": "complete raw bytes retained in verified portable evidence, including failed attempt",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r1.json"
+      },
+      {
+        "basis": "complete raw bytes retained in verified portable evidence, including failed attempt",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r2.json"
+      },
+      {
+        "basis": "byte-identical duplicate of committed portable bundle",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-packet-r1"
+      },
+      {
+        "basis": "completed isolated source-only verification copy; p218 receipt and source identities retained",
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-followthrough-source-only-r1"
+      }
+    ],
+    "removed_entries": 24957,
+    "retained_runtime": "bounded-ordering-release-r2",
+    "retained_cohort": "broad-bounded-ordering-r1",
+    "retained_wheel": "installed-bounded-ordering-r1/dist",
+    "source_inputs_retained": true,
+    "external_baselines_untouched": true,
+    "cargo_cache_untouched": true,
+    "user_files_and_worktrees_untouched": true,
+    "payload_backups_created": false,
+    "symlink_targets_followed": false,
+    "raw_pid_files_preserved": 0,
+    "closed_handle_checks": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/shardloom",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/_native.abi3.so",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/shardloom",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/_native.abi3.so",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/shardloom",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/_native.abi3.so",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/venv",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/package",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/venv",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/package",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-review-integration-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-mixed-aggregate-r1/logs",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-public-r1.json",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r1.json",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r2.json",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-packet-r1",
+        "returncode": 1,
+        "open_handles": 0
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-followthrough-source-only-r1",
+        "returncode": 1,
+        "open_handles": 0
+      }
+    ],
+    "portable_replay_after_retirement": true,
+    "regular_files": 22234,
+    "regular_bytes": 1839974165,
+    "symlinks": 6,
+    "all_proofs_unchanged": true,
+    "retained_comparison_and_runtime_unchanged": true
+  },
+  "process_receipts": [
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p222-followthrough-cleanup-plan.json",
+        "bytes": 1791,
+        "sha256": "0a6d2cc123d94f50e1b0504f5ec7b1d9f8d490449721c329dcde5c945687ee1c"
+      },
+      "receipt": {
+        "status": "failed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py",
+          "plan"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": "",
+        "changed_source_inventory": {},
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2555433198,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74397466624,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50860449792,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74397696000,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 16005,
+        "output_bytes": 743,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 1,
+        "seconds": 7.07193045783788,
+        "log_sha256": "2ade0037b730bea97ce6fd13de458ef6bdb5c0e8a49b777069fe9ca38c3865d6"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p222-followthrough-cleanup-plan.log",
+        "bytes": 743,
+        "sha256": "2ade0037b730bea97ce6fd13de458ef6bdb5c0e8a49b777069fe9ca38c3865d6"
+      },
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py\", line 261, in <module>\n    (make_plan if args.stage == 'plan' else apply_plan)()\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py\", line 155, in make_plan\n    need(actual == set(expected), 'fixture inventory changed')\n    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py\", line 27, in need\n    raise ValueError(message)\nValueError: fixture inventory changed\n"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p223-followthrough-cleanup-plan.json",
+        "bytes": 1794,
+        "sha256": "e1e23a2516435163b5ec7a44fe37c857c72a4ad65052a38bf7a827cb463b3e13"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py",
+          "plan"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": "",
+        "changed_source_inventory": {},
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2555441390,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74399223808,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50860449792,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74399260672,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 16045,
+        "output_bytes": 3121,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 11.555222457973287,
+        "log_sha256": "6ca8844ac98a145d6d15104e5d24439c7be2e35f95c4548f5c4ab10c0025a2ce"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p223-followthrough-cleanup-plan.log",
+        "bytes": 3121,
+        "sha256": "6ca8844ac98a145d6d15104e5d24439c7be2e35f95c4548f5c4ab10c0025a2ce"
+      },
+      "log": "{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/shardloom\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-release-r1/_native.abi3.so\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/shardloom\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-release-r1/_native.abi3.so\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/shardloom\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/review-integration-release-r1/_native.abi3.so\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/venv\", \"entries\": 10780}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-mixed-aggregate-r1/package\", \"entries\": 464}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/venv\", \"entries\": 10780}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-bounded-ordering-r1/package\", \"entries\": 465}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-review-integration-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-r1/inputs\", \"entries\": 9}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/materialized-reuse-semantics-r1/inputs\", \"entries\": 19}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-mixed-aggregate-r1/logs\", \"entries\": 2084}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/mixed-aggregate-public-r1.json\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r1.json\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/bounded-ordering-public-r2.json\", \"entries\": 1}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-packet-r1\", \"entries\": 8}\n{\"stage\": \"inventory\", \"path\": \"/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-followthrough-source-only-r1\", \"entries\": 337}\n{\"regular_files\": 22234, \"regular_bytes\": 1839974165, \"symlinks\": 6}\n"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p224-followthrough-cleanup-apply.json",
+        "bytes": 1793,
+        "sha256": "101d316cdd187d3979127b5abf3814b1f452889529ae3fcda496c1fd644a91d3"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py",
+          "apply"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": "",
+        "changed_source_inventory": {},
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 2556989678,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74402238464,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50860449792,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74401198080,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 16090,
+        "output_bytes": 159,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 15.93787420890294,
+        "log_sha256": "75748e380640fe436ddbce14cc22a21f492d14b7829ea81a56c578284bc219aa"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p224-followthrough-cleanup-apply.log",
+        "bytes": 159,
+        "sha256": "75748e380640fe436ddbce14cc22a21f492d14b7829ea81a56c578284bc219aa"
+      },
+      "log": "{\"stage\": \"identities_and_closed_handles_verified\", \"entries\": 24957}\n{\"status\": \"passed\", \"regular_files\": 22234, \"regular_bytes\": 1839974165, \"symlinks\": 6}\n"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p225-predicate-stage-attribution.json",
+        "bytes": 1781,
+        "sha256": "db447a4a40d30692978980d4dddd362657e1de1d73503ed3512a51f9e2b3ed73"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/summarize_predicate_attribution.py"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": "",
+        "changed_source_inventory": {},
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 659550208,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76321349632,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 50860449792,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 76321349632,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 600.0,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 16274,
+        "output_bytes": 321,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 6.161648791050538,
+        "log_sha256": "355fcc9ea8000879f3d4b06e95055ac6b9da7d1d683157e558bb91fdb7c1b012"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p225-predicate-stage-attribution.log",
+        "bytes": 321,
+        "sha256": "355fcc9ea8000879f3d4b06e95055ac6b9da7d1d683157e558bb91fdb7c1b012"
+      },
+      "log": "{\"status\": \"passed\", \"query_executions\": 0, \"complete_value_comparisons\": 91, \"c7_predicate_losses\": [\"predicate_ne\", \"predicate_lt\", \"predicate_le\", \"predicate_or\", \"predicate_not\"], \"c8_predicate_losses\": [\"predicate_ne\", \"predicate_lt\", \"predicate_or\", \"predicate_not\"], \"c8_global_losses\": [\"global_count_distinct\"]}\n"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p226-hosted-premerge.json",
+        "bytes": 8764,
+        "sha256": "204ff785d09cbe90edefa42fc1b933606f175d6e7f0d59043ef0225efcb5891c"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/capture_hosted_followthrough.py",
+          "premerge"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": " M python/src/shardloom/_connected.py\n M python/src/shardloom/_exports.py\n M python/src/shardloom/_relational_sql.py\n M python/src/shardloom/context.py\n M python/src/shardloom/query.py\n M python/src/shardloom/session.py\n M shardloom-cli/src/native_runtime_plan.rs\n M shardloom-cli/src/native_runtime_plan_expressions.rs\n M shardloom-cli/src/native_runtime_plan_lowering.rs\n M shardloom-cli/src/sql_native_relational_pruning.rs\n M shardloom-core/src/lib.rs\n M shardloom-python/src/binding.rs\n M shardloom-python/src/plan.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/lib.rs\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_query_run_store.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs\n M shardloom-vortex/src/local_primitive_relational_pipeline_bind.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_input_schema.rs\n M shardloom-vortex/src/relational_query.rs\n M shardloom-vortex/src/resident_execution_context.rs\n M shardloom-vortex/src/resident_operation_resources.rs\n?? docs/architecture/native-application-batch-functions-2026-10-30.md\n?? python/src/shardloom/_batch_function.py\n?? python/tests/test_native_application_batch_binding.py\n?? shardloom-python/src/application_batch.rs\n?? shardloom-vortex/src/application_batch.rs\n?? shardloom-vortex/src/application_batch_native.rs\n?? shardloom-vortex/src/local_primitive_relational_application.rs\n?? shardloom-vortex/src/local_primitive_relational_application_tests.rs\n",
+        "changed_source_inventory": {
+          "docs/architecture/native-application-batch-functions-2026-10-30.md": {
+            "sha256": "5ef33a2a74727e44cbae1abc48746eb3d910c0d79c710d7f00be18b55dc3e749",
+            "bytes": 7578
+          },
+          "python/src/shardloom/_batch_function.py": {
+            "sha256": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
+            "bytes": 7095
+          },
+          "python/src/shardloom/_connected.py": {
+            "sha256": "4f6476588cdf5d1c15384453ce1b3227b7c80fcbdfcd31abd9a4d4b29338922e",
+            "bytes": 14817
+          },
+          "python/src/shardloom/_exports.py": {
+            "sha256": "4ebf1529984869ae1b2da1037d42977f7ba5ba210f216d1e54ee6712cbae1af2",
+            "bytes": 15731
+          },
+          "python/src/shardloom/_relational_sql.py": {
+            "sha256": "1706cb28b1ada62700e2c3f7eab501246051dd3a61fcbf307dbfc4c0aae4d05b",
+            "bytes": 15383
+          },
+          "python/src/shardloom/context.py": {
+            "sha256": "306d66bef88d098e8a5e14a77394e08efcb9cf92239073384642c6383b39389e",
+            "bytes": 485188
+          },
+          "python/src/shardloom/query.py": {
+            "sha256": "24b5c00efb24c42606df531590f83455bc16b7d8e5d675bc9fb44231a02ae65c",
+            "bytes": 520166
+          },
+          "python/src/shardloom/session.py": {
+            "sha256": "96ff74e42964012ae2cf0e8d73ae35713660163572d7762237a0e6c0776b8043",
+            "bytes": 39351
+          },
+          "python/tests/test_native_application_batch_binding.py": {
+            "sha256": "6c9696931b8f74a05ad54ef0ef3002faf38a78dc9de33a692e27ce888fd90db6",
+            "bytes": 16800
+          },
+          "shardloom-cli/src/native_runtime_plan.rs": {
+            "sha256": "d4edc808c5e4241f83f44b39e74c696529a6db75a5f60356156f41365acda744",
+            "bytes": 58820
+          },
+          "shardloom-cli/src/native_runtime_plan_expressions.rs": {
+            "sha256": "bb35eddeb8682f690889043c471f8ff10ca5c8a52c8d5d6096689b0fc66ba7db",
+            "bytes": 6587
+          },
+          "shardloom-cli/src/native_runtime_plan_lowering.rs": {
+            "sha256": "ad70e3257857d63973353a50ac740086d7f5a6e651041dca1fea6c6727c7ac0f",
+            "bytes": 10147
+          },
+          "shardloom-cli/src/sql_native_relational_pruning.rs": {
+            "sha256": "03998903119a800e5b6593105406dc0d3e99a45365ad83977b9097aa2e287b81",
+            "bytes": 14813
+          },
+          "shardloom-core/src/lib.rs": {
+            "sha256": "53773c6ba167b546e5859a3ad7096c8a54280b856501cbb4f947191527964060",
+            "bytes": 30726
+          },
+          "shardloom-python/src/application_batch.rs": {
+            "sha256": "9bc9e9e931379393ec297e0526b14b93f86a2b903a3d93790ac9e9a744ff7827",
+            "bytes": 5688
+          },
+          "shardloom-python/src/binding.rs": {
+            "sha256": "ef2fa2a8d1ddc3bc08b55851f9ef7fa1b3f5f3e24a3d91c576cc475645b09bed",
+            "bytes": 5333
+          },
+          "shardloom-python/src/plan.rs": {
+            "sha256": "416f10b6c23557e8d930d1cdb62c3328a880540d5a06dac5f0e2e5864277d78d",
+            "bytes": 21792
+          },
+          "shardloom-python/src/session.rs": {
+            "sha256": "24a52cf43cbb3efc2dd8b83f685d3b6fa006ae3cda217e6c5b2c657bb3f079fa",
+            "bytes": 25683
+          },
+          "shardloom-vortex/src/application_batch.rs": {
+            "sha256": "81449dea246f84724d1f38a257c5d84750dd114471d9783a111461d7ccde7c01",
+            "bytes": 2837
+          },
+          "shardloom-vortex/src/application_batch_native.rs": {
+            "sha256": "e11cf0be6c6aa0bd2c1bafbb6fb94de953685ee2c5d4ff17d3e942bd66d16d90",
+            "bytes": 10114
+          },
+          "shardloom-vortex/src/lib.rs": {
+            "sha256": "a11fbd51e0f1eea027534464f4ed1010c4c479f201dafc5b8c95f6613a4b50f2",
+            "bytes": 79542
+          },
+          "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+            "sha256": "eb96518c965eafb02e0f3b0043e3e7a06ac5db16d6ef46c4b4e4bed19dd5050e",
+            "bytes": 97609
+          },
+          "shardloom-vortex/src/local_primitive_query_run_store.rs": {
+            "sha256": "77f58f1649b11759b482a3ed473e0c5ee1c20008e618d302ca8fc487422dcaea",
+            "bytes": 43490
+          },
+          "shardloom-vortex/src/local_primitive_relational_application.rs": {
+            "sha256": "c0fb6efbc87314b1eb08fbd96f7bb2b4398763f6521f8d0c52ecc6802016a186",
+            "bytes": 11591
+          },
+          "shardloom-vortex/src/local_primitive_relational_application_tests.rs": {
+            "sha256": "c59fb8706ae49a99d91aa70b2e43cf6b428407d6591bd38628a71897fae6c926",
+            "bytes": 18972
+          },
+          "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs": {
+            "sha256": "c2881f358162c862ec546e3bcfc789ce0d892eeadd4b0311a99ee62e23580b91",
+            "bytes": 26423
+          },
+          "shardloom-vortex/src/local_primitive_relational_pipeline_bind.rs": {
+            "sha256": "8870a18a2f311d1f46b5b9973230e960376749b3a8dbaf38583fd22062cfbaf5",
+            "bytes": 6232
+          },
+          "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+            "sha256": "3dad9a1cb7787e359d04a15a8db86c3de6ca1a2a33ba4ecae217c151c504964f",
+            "bytes": 13638
+          },
+          "shardloom-vortex/src/local_primitives/native_input_schema.rs": {
+            "sha256": "efea247b649d3a201b46c59eb6dcce38d39dccb76b7c37a56ddadb72a5fae6f3",
+            "bytes": 13621
+          },
+          "shardloom-vortex/src/relational_query.rs": {
+            "sha256": "25a6ad463f508453cd2ca31d0a582146bab6601b52ed5b86c9e225cdee98ce42",
+            "bytes": 24584
+          },
+          "shardloom-vortex/src/resident_execution_context.rs": {
+            "sha256": "fd3654235c191a30fb09c8c3e62bc88728b34f656b9483cc81645ffeeec3789e",
+            "bytes": 17211
+          },
+          "shardloom-vortex/src/resident_operation_resources.rs": {
+            "sha256": "78f20b3f7b0771098c205064e2f96b0a49c46c84bc36bcdac094648bb19f9dd7",
+            "bytes": 28421
+          }
+        },
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 662704128,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74293084160,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 54766714880,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74293084160,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 21178,
+        "output_bytes": 88,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1.9176764588337392,
+        "log_sha256": "763752ca9f845cd083463c64b560fc40f37969cc59ca1cf2947e4f58971e26ba"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p226-hosted-premerge.log",
+        "bytes": 88,
+        "sha256": "763752ca9f845cd083463c64b560fc40f37969cc59ca1cf2947e4f58971e26ba"
+      },
+      "log": "{\"status\": \"passed\", \"stage\": \"premerge\", \"complete_checks\": 57, \"merged_commit\": null}\n"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p227-hosted-merged.json",
+        "bytes": 8762,
+        "sha256": "00e81c7305a711f442e3f78102269cd501237e2b5ae27d16b76d9fd38c6d88ba"
+      },
+      "receipt": {
+        "status": "passed",
+        "command": [
+          "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+          "-B",
+          "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/capture_hosted_followthrough.py",
+          "merged"
+        ],
+        "cwd": "/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo",
+        "head": "7d6c02c6d2358e205fb60f6868830d905ab4b62d",
+        "working_tree": " M python/src/shardloom/_connected.py\n M python/src/shardloom/_exports.py\n M python/src/shardloom/_relational_sql.py\n M python/src/shardloom/context.py\n M python/src/shardloom/query.py\n M python/src/shardloom/session.py\n M shardloom-cli/src/native_runtime_plan.rs\n M shardloom-cli/src/native_runtime_plan_expressions.rs\n M shardloom-cli/src/native_runtime_plan_lowering.rs\n M shardloom-cli/src/sql_native_relational_pruning.rs\n M shardloom-core/src/lib.rs\n M shardloom-python/src/binding.rs\n M shardloom-python/src/plan.rs\n M shardloom-python/src/session.rs\n M shardloom-vortex/src/lib.rs\n M shardloom-vortex/src/local_primitive_prepared_relational.rs\n M shardloom-vortex/src/local_primitive_query_run_store.rs\n M shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs\n M shardloom-vortex/src/local_primitive_relational_pipeline_bind.rs\n M shardloom-vortex/src/local_primitive_relational_transform.rs\n M shardloom-vortex/src/local_primitives/native_input_schema.rs\n M shardloom-vortex/src/relational_query.rs\n M shardloom-vortex/src/resident_execution_context.rs\n M shardloom-vortex/src/resident_operation_resources.rs\n?? docs/architecture/native-application-batch-functions-2026-10-30.md\n?? python/src/shardloom/_batch_function.py\n?? python/tests/test_native_application_batch_binding.py\n?? shardloom-python/src/application_batch.rs\n?? shardloom-vortex/src/application_batch.rs\n?? shardloom-vortex/src/application_batch_native.rs\n?? shardloom-vortex/src/local_primitive_relational_application.rs\n?? shardloom-vortex/src/local_primitive_relational_application_tests.rs\n",
+        "changed_source_inventory": {
+          "docs/architecture/native-application-batch-functions-2026-10-30.md": {
+            "sha256": "5ef33a2a74727e44cbae1abc48746eb3d910c0d79c710d7f00be18b55dc3e749",
+            "bytes": 7578
+          },
+          "python/src/shardloom/_batch_function.py": {
+            "sha256": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
+            "bytes": 7095
+          },
+          "python/src/shardloom/_connected.py": {
+            "sha256": "4f6476588cdf5d1c15384453ce1b3227b7c80fcbdfcd31abd9a4d4b29338922e",
+            "bytes": 14817
+          },
+          "python/src/shardloom/_exports.py": {
+            "sha256": "4ebf1529984869ae1b2da1037d42977f7ba5ba210f216d1e54ee6712cbae1af2",
+            "bytes": 15731
+          },
+          "python/src/shardloom/_relational_sql.py": {
+            "sha256": "1706cb28b1ada62700e2c3f7eab501246051dd3a61fcbf307dbfc4c0aae4d05b",
+            "bytes": 15383
+          },
+          "python/src/shardloom/context.py": {
+            "sha256": "306d66bef88d098e8a5e14a77394e08efcb9cf92239073384642c6383b39389e",
+            "bytes": 485188
+          },
+          "python/src/shardloom/query.py": {
+            "sha256": "24b5c00efb24c42606df531590f83455bc16b7d8e5d675bc9fb44231a02ae65c",
+            "bytes": 520166
+          },
+          "python/src/shardloom/session.py": {
+            "sha256": "96ff74e42964012ae2cf0e8d73ae35713660163572d7762237a0e6c0776b8043",
+            "bytes": 39351
+          },
+          "python/tests/test_native_application_batch_binding.py": {
+            "sha256": "6c9696931b8f74a05ad54ef0ef3002faf38a78dc9de33a692e27ce888fd90db6",
+            "bytes": 16800
+          },
+          "shardloom-cli/src/native_runtime_plan.rs": {
+            "sha256": "d4edc808c5e4241f83f44b39e74c696529a6db75a5f60356156f41365acda744",
+            "bytes": 58820
+          },
+          "shardloom-cli/src/native_runtime_plan_expressions.rs": {
+            "sha256": "bb35eddeb8682f690889043c471f8ff10ca5c8a52c8d5d6096689b0fc66ba7db",
+            "bytes": 6587
+          },
+          "shardloom-cli/src/native_runtime_plan_lowering.rs": {
+            "sha256": "ad70e3257857d63973353a50ac740086d7f5a6e651041dca1fea6c6727c7ac0f",
+            "bytes": 10147
+          },
+          "shardloom-cli/src/sql_native_relational_pruning.rs": {
+            "sha256": "03998903119a800e5b6593105406dc0d3e99a45365ad83977b9097aa2e287b81",
+            "bytes": 14813
+          },
+          "shardloom-core/src/lib.rs": {
+            "sha256": "53773c6ba167b546e5859a3ad7096c8a54280b856501cbb4f947191527964060",
+            "bytes": 30726
+          },
+          "shardloom-python/src/application_batch.rs": {
+            "sha256": "9bc9e9e931379393ec297e0526b14b93f86a2b903a3d93790ac9e9a744ff7827",
+            "bytes": 5688
+          },
+          "shardloom-python/src/binding.rs": {
+            "sha256": "ef2fa2a8d1ddc3bc08b55851f9ef7fa1b3f5f3e24a3d91c576cc475645b09bed",
+            "bytes": 5333
+          },
+          "shardloom-python/src/plan.rs": {
+            "sha256": "416f10b6c23557e8d930d1cdb62c3328a880540d5a06dac5f0e2e5864277d78d",
+            "bytes": 21792
+          },
+          "shardloom-python/src/session.rs": {
+            "sha256": "24a52cf43cbb3efc2dd8b83f685d3b6fa006ae3cda217e6c5b2c657bb3f079fa",
+            "bytes": 25683
+          },
+          "shardloom-vortex/src/application_batch.rs": {
+            "sha256": "81449dea246f84724d1f38a257c5d84750dd114471d9783a111461d7ccde7c01",
+            "bytes": 2837
+          },
+          "shardloom-vortex/src/application_batch_native.rs": {
+            "sha256": "e11cf0be6c6aa0bd2c1bafbb6fb94de953685ee2c5d4ff17d3e942bd66d16d90",
+            "bytes": 10114
+          },
+          "shardloom-vortex/src/lib.rs": {
+            "sha256": "a11fbd51e0f1eea027534464f4ed1010c4c479f201dafc5b8c95f6613a4b50f2",
+            "bytes": 79542
+          },
+          "shardloom-vortex/src/local_primitive_prepared_relational.rs": {
+            "sha256": "eb96518c965eafb02e0f3b0043e3e7a06ac5db16d6ef46c4b4e4bed19dd5050e",
+            "bytes": 97609
+          },
+          "shardloom-vortex/src/local_primitive_query_run_store.rs": {
+            "sha256": "77f58f1649b11759b482a3ed473e0c5ee1c20008e618d302ca8fc487422dcaea",
+            "bytes": 43490
+          },
+          "shardloom-vortex/src/local_primitive_relational_application.rs": {
+            "sha256": "c0fb6efbc87314b1eb08fbd96f7bb2b4398763f6521f8d0c52ecc6802016a186",
+            "bytes": 11591
+          },
+          "shardloom-vortex/src/local_primitive_relational_application_tests.rs": {
+            "sha256": "c59fb8706ae49a99d91aa70b2e43cf6b428407d6591bd38628a71897fae6c926",
+            "bytes": 18972
+          },
+          "shardloom-vortex/src/local_primitive_relational_batch_input_tests.rs": {
+            "sha256": "c2881f358162c862ec546e3bcfc789ce0d892eeadd4b0311a99ee62e23580b91",
+            "bytes": 26423
+          },
+          "shardloom-vortex/src/local_primitive_relational_pipeline_bind.rs": {
+            "sha256": "8870a18a2f311d1f46b5b9973230e960376749b3a8dbaf38583fd22062cfbaf5",
+            "bytes": 6232
+          },
+          "shardloom-vortex/src/local_primitive_relational_transform.rs": {
+            "sha256": "3dad9a1cb7787e359d04a15a8db86c3de6ca1a2a33ba4ecae217c151c504964f",
+            "bytes": 13638
+          },
+          "shardloom-vortex/src/local_primitives/native_input_schema.rs": {
+            "sha256": "efea247b649d3a201b46c59eb6dcce38d39dccb76b7c37a56ddadb72a5fae6f3",
+            "bytes": 13621
+          },
+          "shardloom-vortex/src/relational_query.rs": {
+            "sha256": "25a6ad463f508453cd2ca31d0a582146bab6601b52ed5b86c9e225cdee98ce42",
+            "bytes": 24584
+          },
+          "shardloom-vortex/src/resident_execution_context.rs": {
+            "sha256": "fd3654235c191a30fb09c8c3e62bc88728b34f656b9483cc81645ffeeec3789e",
+            "bytes": 17211
+          },
+          "shardloom-vortex/src/resident_operation_resources.rs": {
+            "sha256": "78f20b3f7b0771098c205064e2f96b0a49c46c84bc36bcdac094648bb19f9dd7",
+            "bytes": 28421
+          }
+        },
+        "driver_sha256": "fb6449d74541f997ac47b36498b0c6c8363a098657dc234b3dc2098a4df9ceaf",
+        "environment": {
+          "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+          "CARGO_BUILD_JOBS": "2",
+          "CARGO_INCREMENTAL": "0",
+          "CLIPPY_CONF_DIR": null,
+          "SHARDLOOM_PIP_AUDIT_PYTHON": null
+        },
+        "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+        "storage_last_observation": {
+          "output": {
+            "workspace_bytes": 662769664,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74291814400,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          },
+          "cargo": {
+            "workspace_bytes": 54766714880,
+            "log_bytes": 0,
+            "max_log_bytes": 201326592,
+            "free_bytes": 74291814400,
+            "reserved_candidate_bytes": 134217728,
+            "reserved_log_bytes": 0
+          }
+        },
+        "timeout_seconds": 2400,
+        "cleanup_grace_seconds_per_signal": 3.0,
+        "output_limit_bytes": 8388608,
+        "timed_out": false,
+        "interrupted_signal": null,
+        "process_group_drained": true,
+        "direct_child_reaped": true,
+        "pid": 21199,
+        "output_bytes": 133,
+        "group_absence_unproved_at_cleanup": false,
+        "returncode": 0,
+        "seconds": 1.359065875178203,
+        "log_sha256": "b6323b87d625b66b3116912a73ece393d70630806e872f65c161742cda8b5537"
+      },
+      "log_identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/p227-hosted-merged.log",
+        "bytes": 133,
+        "sha256": "b6323b87d625b66b3116912a73ece393d70630806e872f65c161742cda8b5537"
+      },
+      "log": "{\"status\": \"passed\", \"stage\": \"merged\", \"complete_checks\": 57, \"merged_commit\": {\"oid\": \"65be06c9d7324de45f0661f8fab9546e2f7d0259\"}}\n"
+    }
+  ],
+  "collector_sources": [
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/retire_followthrough_payloads.py",
+        "bytes": 15041,
+        "sha256": "a861bb9c5e1dcc222b7209bf3f6b37e179f26d8e6f2d7592b684ce6018c3a2d3"
+      },
+      "text": "\"\"\"Retire exact completed C7/C8 payloads after portable acceptance.\"\"\"\nimport argparse\nimport gzip\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport stat\nimport subprocess\nimport sys\n\nROOT = Path('/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29')\nREPO = Path('/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo')\nPACKET = REPO / 'docs/benchmarks/evidence/native-shared-followthrough-2026-10-30'\nPLAN = ROOT / 'followthrough-cleanup-plan.json.gz'\nRESULT = ROOT / 'followthrough-cleanup.json'\nsys.path[:0] = [str(REPO / 'scripts'), str(REPO / 'python/src'),\n               str(REPO / 'benchmarks/traditional_analytics'),\n               '/Users/dylan/LocalData/shardloom/release-0.3.3-20260930']\nfrom shared_performance_bundle import Bundle\nfrom shared_followthrough_replay import verify\nfrom release_validation_guard import WorkloadGuard\n\n\ndef need(value, message):\n    if not value:\n        raise ValueError(message)\n\n\ndef read(path):\n    return json.loads(path.read_text())\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef identity(path):\n    state = path.lstat()\n    def generation(value):\n        return [value.st_dev, value.st_ino, value.st_mode, value.st_size,\n                value.st_mtime_ns, value.st_ctime_ns]\n    row = dict(path=str(path), generation=generation(state))\n    if stat.S_ISREG(state.st_mode):\n        row.update(kind='regular', sha256=digest(path), allocated_bytes=state.st_blocks * 512)\n    elif stat.S_ISLNK(state.st_mode):\n        row.update(kind='symlink', target=os.readlink(path))\n    elif stat.S_ISDIR(state.st_mode):\n        row.update(kind='directory')\n    else:\n        raise ValueError('unexpected generated entry: ' + str(path))\n    need(generation(path.lstat()) == row['generation'], 'entry changed during identity read')\n    return row\n\n\ndef inventory(path):\n    need(path.is_relative_to(ROOT) and path.resolve() == path, 'unsafe retirement root')\n    rows = [identity(path)]\n    if rows[0]['kind'] == 'directory':\n        need(not (path / '.git').exists(), 'source checkout selected')\n        for child in sorted(path.iterdir()):\n            rows.extend([identity(child)] if child.is_symlink() else inventory(child))\n    return rows\n\n\ndef closed(path):\n    command = ['/usr/sbin/lsof', '-nP', '-Fpn']\n    command += ['+D', str(path)] if path.is_dir() else [str(path)]\n    result = subprocess.run(command, capture_output=True, text=True, timeout=45)\n    need(result.returncode == 1 and not result.stdout and not result.stderr,\n         'open handles or incomplete handle check: ' + str(path))\n    return dict(path=str(path), returncode=1, open_handles=0)\n\n\ndef packet_files():\n    return {str(path): digest(path) for path in sorted(PACKET.rglob('*')) if path.is_file()}\n\n\ndef make_plan():\n    need(not PLAN.exists() and not RESULT.exists(), 'cleanup already planned or attempted')\n    bundle = Bundle(PACKET)\n    accepted = verify(bundle, read(REPO / 'scripts/shared_followthrough_anchors.json'))\n    need(accepted == read(PACKET / 'acceptance.json'), 'saved replay differs')\n    proofs = packet_files()\n    for name in ('p216-followthrough-corruption-controls', 'p217-followthrough-portable-replay',\n                 'p218-followthrough-source-only-replay', 'p219-followthrough-docs-ci'):\n        receipt, log = ROOT / (name + '.json'), ROOT / (name + '.log')\n        saved = read(receipt)\n        need(saved['status'] == 'passed' and saved['returncode'] == 0\n             and saved['process_group_drained'] and saved['direct_child_reaped']\n             and digest(log) == saved['log_sha256'], 'missing completed prerequisite: ' + name)\n        proofs[str(receipt)], proofs[str(log)] = digest(receipt), digest(log)\n    proofs[str(Path(__file__))] = digest(Path(__file__))\n    retained, roots, archived, payloads = {}, [], [], {}\n\n    def retain(path, expected=None):\n        actual = digest(path)\n        need(expected is None or actual == expected, 'retained identity differs: ' + str(path))\n        retained[str(path)] = actual\n\n    def retire(path, basis):\n        need(path.exists() and not path.is_symlink(), 'missing or linked retirement root: ' + str(path))\n        roots.append(dict(path=str(path), basis=basis))\n\n    for runtime in ('mixed-aggregate-release-r1', 'bounded-ordering-release-r1',\n                    'bounded-ordering-release-r2', 'review-integration-release-r1'):\n        manifest = ROOT / runtime / 'manifest.json'\n        saved = read(manifest)\n        retain(manifest)\n        if runtime != 'review-integration-release-r1':\n            need(json.loads(bundle.raw(str(manifest), digest(manifest))) == saved, 'runtime manifest changed')\n        for name, item in saved['files'].items():\n            path = manifest.parent / name\n            need(path.stat().st_size == item['bytes'] and digest(path) == item['sha256'], 'runtime changed')\n            if runtime == 'bounded-ordering-release-r2':\n                retain(path, item['sha256'])\n            else:\n                payloads[str(path)] = item\n                retire(path, 'superseded runtime; source/build/identities retained; C8 r2 replaces it')\n    for package in ('installed-mixed-aggregate-r1', 'installed-bounded-ordering-r1',\n                    'installed-review-integration-r1'):\n        report = ROOT / package / 'report.json'\n        saved = read(report)\n        need(saved['status'] == saved['uninstall_status'] == 'passed', 'package lifecycle incomplete')\n        retain(report)\n        wheel = report.parent / 'dist' / saved['integrity']['wheel']\n        need(wheel.stat().st_size == saved['integrity']['wheel_bytes']\n             and digest(wheel) == saved['integrity']['wheel_sha256'], 'wheel identity changed')\n        if package == 'installed-bounded-ordering-r1':\n            retain(wheel, saved['integrity']['wheel_sha256'])\n        else:\n            payloads[str(wheel)] = dict(bytes=wheel.stat().st_size, sha256=digest(wheel))\n            retire(wheel, 'superseded installed-tested wheel; C8 tested wheel and package report retained')\n        if package != 'installed-review-integration-r1':\n            for name in ('venv', 'package'):\n                retire(report.parent / name, 'completed generated package/install environment; recipe and logs retained')\n    for name in ('broad-bounded-ordering-r1', 'benchmark-harness-r2'):\n        for path in sorted((ROOT / name).rglob('*')):\n            if path.is_file():\n                need(not path.is_symlink(), 'linked retained comparison entry')\n                retain(path)\n    inputs = read(ROOT / 'broad-bounded-ordering-r1/inputs.json')\n    for item in inputs['frozen_files']:\n        if item['path'].endswith(('.parquet', '.arrow', '.vortex')):\n            retain(Path(item['path']), item['sha256'])\n    for name in ('materialized-reuse-r1', 'materialized-reuse-semantics-r1'):\n        prepared = ROOT / name / 'prepared.json'\n        saved = read(prepared)\n        need(saved['status'] == 'passed', 'generated fixture preparation incomplete')\n        need(json.loads(bundle.raw(str(prepared), digest(prepared))) == saved, 'fixture recipe changed')\n        retain(prepared)\n        expected = {item['path']: item for item in saved['input_files']}\n        actual = {str(path) for path in (prepared.parent / 'inputs').rglob('*') if path.is_file()}\n        cached = set()\n        if name == 'materialized-reuse-semantics-r1':\n            cached = {str(prepared.parent / 'inputs/.shardloom/prepared' / leaf) for leaf in (\n                'empty-dimension-57c233060a7cf260.vortex', 'empty-fact-2e65babe3a683c50.vortex',\n                'semantic-dimension-629572042d5a1097.vortex', 'semantic-fact-aa5e948656773cdd.vortex')}\n        need(actual == set(expected) | cached, 'fixture inventory changed')\n        for path, item in expected.items():\n            need(digest(Path(path)) == item['sha256'], 'generated fixture changed')\n            payloads[path] = dict(bytes=Path(path).stat().st_size, sha256=item['sha256'])\n        for path in sorted(cached):\n            payloads[path] = dict(bytes=Path(path).stat().st_size, sha256=digest(Path(path)),\n                basis='automatic Vortex preparation of the exact generated semantic fixture; source recipe and complete results retained')\n        retire(prepared.parent / 'inputs', 'completed generated fixtures; deterministic generator, seed, full references/results retained')\n    archived.append(ROOT / 'broad-mixed-aggregate-r1/logs')\n    archived.extend(Path(item['path']) for item in bundle.index['evidence']['public_reports'])\n    for path in archived:\n        retire(path, 'complete raw bytes retained in verified portable evidence, including failed attempt')\n    staged = ROOT / 'followthrough-packet-r1'\n    need({str(p.relative_to(staged)): digest(p) for p in staged.rglob('*') if p.is_file()}\n         == {str(Path(p).relative_to(PACKET)): value for p, value in packet_files().items()\n             if Path(p).name != 'acceptance.json'}, 'staged packet differs from committed replacement')\n    retire(staged, 'byte-identical duplicate of committed portable bundle')\n    retire(ROOT / 'replay-followthrough-source-only-r1', 'completed isolated source-only verification copy; p218 receipt and source identities retained')\n    root_paths = [Path(item['path']) for item in roots]\n    need(len(set(root_paths)) == len(root_paths), 'duplicate retirement roots')\n    for path in root_paths:\n        need(not any(path == Path(p) or path in Path(p).parents for p in retained), 'retained data selected')\n        need(not any(path != other and path in other.parents for other in root_paths), 'overlapping roots')\n    rows, pids = [], {}\n    for path in root_paths:\n        found = inventory(path)\n        if path in archived:\n            for row in found:\n                if row['kind'] != 'regular':\n                    continue\n                source = Path(row['path'])\n                if source.suffix == '.pid' and str(source) not in bundle.paths:\n                    data = source.read_bytes()\n                    need(len(data) <= 32 and data.strip().isdigit(), 'unrecognized process identifier')\n                    pids[str(source)] = dict(ascii=data.decode('ascii'), sha256=row['sha256'])\n                else:\n                    need(len(bundle.raw(str(source), row['sha256'])) == row['generation'][3], 'archive differs')\n        rows.extend(found)\n        print(json.dumps(dict(stage='inventory', path=str(path), entries=len(found))), flush=True)\n    need(len({row['path'] for row in rows}) == len(rows), 'duplicate retirement entries')\n    plan = dict(schema_version='shardloom.followthrough_retirement_plan.v1', roots=roots,\n        entries=rows, retained_sha256=retained, proof_sha256=proofs, payload_identities=payloads,\n        pid_records=pids, accepted=accepted, regular_files=sum(r['kind'] == 'regular' for r in rows),\n        regular_bytes=sum(r['generation'][3] for r in rows if r['kind'] == 'regular'),\n        symlinks=sum(r['kind'] == 'symlink' for r in rows))\n    raw = json.dumps(plan, sort_keys=True, separators=(',', ':')).encode()\n    need(len(raw) <= 64 << 20, 'cleanup inventory exceeds bound')\n    packed = gzip.compress(raw, mtime=0)\n    need(gzip.decompress(packed) == raw, 'cleanup inventory readback differs')\n    with PLAN.open('xb') as stream:\n        stream.write(packed)\n    print(json.dumps({k: plan[k] for k in ('regular_files', 'regular_bytes', 'symlinks')}), flush=True)\n\n\ndef apply_plan():\n    need(not RESULT.exists(), 'cleanup already attempted')\n    with gzip.open(PLAN, 'rb') as stream:\n        raw = stream.read((64 << 20) + 1)\n    need(len(raw) <= 64 << 20, 'cleanup plan exceeds bound')\n    plan = json.loads(raw)\n    need(plan['schema_version'] == 'shardloom.followthrough_retirement_plan.v1', 'wrong plan schema')\n    roots = [Path(row['path']) for row in plan['roots']]\n    need(all(root.is_relative_to(ROOT) and root.resolve() == root for root in roots), 'unsafe root')\n    record = dict(schema_version='shardloom.generated_artifact_retirement.v1', status='running',\n        plan_sha256=digest(PLAN), roots=plan['roots'], removed_entries=0,\n        retained_runtime='bounded-ordering-release-r2', retained_cohort='broad-bounded-ordering-r1',\n        retained_wheel='installed-bounded-ordering-r1/dist', source_inputs_retained=True,\n        external_baselines_untouched=True, cargo_cache_untouched=True,\n        user_files_and_worktrees_untouched=True, payload_backups_created=False,\n        symlink_targets_followed=False, raw_pid_files_preserved=len(plan['pid_records']))\n    try:\n        WorkloadGuard().check()\n        record['closed_handle_checks'] = [closed(root) for root in roots]\n        for key in ('proof_sha256', 'retained_sha256'):\n            need(all(digest(Path(p)) == value for p, value in plan[key].items()), key + ' changed')\n        need([row for root in roots for row in inventory(root)] == plan['entries'], 'inventory changed')\n        WorkloadGuard().check()\n        print(json.dumps(dict(stage='identities_and_closed_handles_verified', entries=len(plan['entries']))), flush=True)\n        for row in sorted(plan['entries'], key=lambda value: len(Path(value['path']).parts), reverse=True):\n            path = Path(row['path'])\n            need(any(path == root or root in path.parents for root in roots), 'entry outside selected roots')\n            if row['kind'] == 'directory':\n                state = path.lstat()\n                need([state.st_dev, state.st_ino, state.st_mode] == row['generation'][:3], 'directory changed')\n                path.rmdir()\n            else:\n                need(identity(path) == row, 'entry changed before unlink')\n                path.unlink()\n            record['removed_entries'] += 1\n        need(all(not root.exists() and not root.is_symlink() for root in roots), 'retirement incomplete')\n        for key in ('proof_sha256', 'retained_sha256'):\n            need(all(digest(Path(p)) == value for p, value in plan[key].items()), key + ' changed after retirement')\n        need(verify(Bundle(PACKET), read(REPO / 'scripts/shared_followthrough_anchors.json'))\n             == plan['accepted'], 'portable replay changed after retirement')\n        record.update(status='passed', portable_replay_after_retirement=True,\n            regular_files=plan['regular_files'], regular_bytes=plan['regular_bytes'], symlinks=plan['symlinks'],\n            all_proofs_unchanged=True, retained_comparison_and_runtime_unchanged=True)\n    except BaseException as error:\n        record.update(status='failed', error=repr(error))\n        raise\n    finally:\n        RESULT.write_text(json.dumps(record, indent=2) + '\\n')\n    print(json.dumps({k: record[k] for k in ('status', 'regular_files', 'regular_bytes', 'symlinks')}), flush=True)\n\n\nif __name__ == '__main__':\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument('stage', choices=('plan', 'apply'))\n    args = parser.parse_args()\n    (make_plan if args.stage == 'plan' else apply_plan)()\n",
+      "scope": "historical collector source; never executed by portable replay"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/summarize_predicate_attribution.py",
+        "bytes": 9631,
+        "sha256": "53f2dfad903dff48a77120c2a9d92933e8525c846bce21fb3b07fb99a964fcb1"
+      },
+      "text": "\"\"\"Derive predicate-stage facts from the immutable C7/C8 packet; execute no queries.\"\"\"\nimport hashlib\nimport json\nfrom pathlib import Path\nimport sys\n\nREPO = Path('/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo')\nOUT = Path('/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29')\nPACKET = REPO / 'docs/benchmarks/evidence/native-shared-followthrough-2026-10-30'\nsys.path[:0] = [str(REPO / 'scripts'), str(REPO / 'python/src'),\n               str(REPO / 'benchmarks/traditional_analytics')]\nfrom shared_performance_bundle import Bundle\nfrom shared_followthrough_replay import verify\nfrom query_surface.polars_adapter import compare_result\nfrom query_surface.semantics import result_from_record\nfrom query_surface.replay import contract\n\nFIELDS = (\n    'native_source_demand_row_groups_read', 'native_source_demand_row_groups_total',\n    'native_source_demand_rows_decoded', 'native_source_demand_data_read_bytes',\n    'native_source_demand_metadata_read_bytes', 'native_source_demand_projected_columns',\n    'native_source_demand_physical_leaf_columns', 'native_source_ranked_sources',\n    'native_input_batch_rows', 'native_input_max_batch_rows',\n    'native_input_columnar_buffer_bytes_copied', 'native_input_columnar_buffer_bytes_transferred',\n    'native_input_columnar_allocation_bytes_transferred', 'native_input_payload_bytes_copied',\n    'native_input_ordering_prefix_rows_validated', 'native_input_ordering_payload_buffer_bytes_copied',\n    'native_input_ordering_prefix_peak_retained_buffer_bytes', 'native_input_ordering_rows_detached',\n    'relational_scan_rows_delivered', 'relational_output_buffer_bytes',\n    'relational_retained_payload_bytes_copied', 'relational_materialized_relations',\n    'execution_resource_observed_native_allocation_peak_reserved_bytes',\n    'execution_resource_observed_native_denied_reservations',\n)\nSOURCES = {\n    'shardloom-vortex/src/universal_format_io/demanded.rs':\n        ['statistics::excluded', 'row_groups_read: self.next_group'],\n    'shardloom-vortex/src/local_primitive_relational_source_demand.rs': ['fn apply_source_demand'],\n    'shardloom-vortex/src/local_primitive_relational_scan_bind.rs': ['fn push_scan_filter'],\n    'shardloom-vortex/src/local_primitive_relational_provider_plan.rs': ['fn predicate(expr:'],\n    'shardloom-vortex/src/local_primitive_relational_scan.rs': ['add(&metrics.scan_rows'],\n    'shardloom-vortex/src/local_primitive_relational_transform.rs': ['fn filter_rows'],\n    'shardloom-vortex/src/local_primitives/native_relational_predicate_block.rs':\n        ['fn compile(expression:', 'fn evaluate_mask'],\n    'shardloom-vortex/src/local_primitive_relational_selection.rs': ['fn from_mask', 'fn select_compact_batch'],\n    'shardloom-vortex/src/local_primitives/native_relational_sort_streaming.rs': ['fn build(', 'fn finish('],\n    'shardloom-vortex/src/local_primitives/native_relational_sort_numeric.rs': ['impl'],\n    'shardloom-vortex/src/local_primitives/native_relational_aggregate.rs':\n        ['if let Some(distinct)', 'fn accumulate_distinct(', 'fn update_distinct('],\n}\n\n\ndef sha(data):\n    return hashlib.sha256(data).hexdigest()\n\n\ndef main():\n    bundle = Bundle(PACKET)\n    acceptance = verify(bundle, json.loads((REPO / 'scripts/shared_followthrough_anchors.json').read_text()))\n    assert acceptance == json.loads((PACKET / 'acceptance.json').read_text())\n    root = bundle.index['evidence']['root']\n    old = json.loads(bundle.raw(root + '/predicate-followthrough-observations.json'))\n    cohort = root + '/broad-bounded-ordering-r1'\n    cases = {row['id']: row for row in json.loads(bundle.raw(cohort + '/corpus.json'))}\n    runtime = json.loads(bundle.raw(root + '/bounded-ordering-release-r2/manifest.json'))\n    source_evidence = []\n    for relative, markers in SOURCES.items():\n        data = (REPO / relative).read_bytes()\n        assert sha(data) == runtime['source_snapshot'][relative]['sha256'], relative\n        text = data.decode()\n        lines = {marker: text[:text.index(marker)].count('\\n') + 1 for marker in markers}\n        source_evidence.append(dict(path=relative, sha256=sha(data), lines=lines,\n                                    matches_measured_runtime_source=True))\n    records, predicate_losses, global_losses = [], [], []\n    for row in old['cases']:\n        prior = row['current_native']\n        path = prior['stdout_path'].replace('/broad-mixed-aggregate-r1/', '/broad-bounded-ordering-r1/')\n        current_bytes = bundle.raw(path)\n        current = json.loads(current_bytes)\n        original_bytes = bundle.raw(row['original_polars']['evidence_path'], row['original_polars']['sha256_recorded'])\n        original = json.loads(original_bytes)\n        assert current['case_identity'] == row['case_identity'] == original['case_identity']\n        assert current['status'] == original['status'] == 'passed'\n        assert current['comparison_engine_invoked'] is False and original['comparison_engine_invoked'] is True\n        compare_result(result_from_record(current['actual']), result_from_record(original['actual']),\n                       contract(cases[row['case_id']]['contract']))\n        observed = current['observation']\n        fields, clocks = observed['fields'], observed['clocks']\n        comparison_seconds = original['observation']['clocks']['complete_workflow_seconds']\n        loss = clocks['complete_workflow_seconds'] > comparison_seconds\n        if loss and row['family'] == 'predicates':\n            predicate_losses.append(row['case_id'])\n        if loss and row['family'] == 'global_aggregation':\n            global_losses.append(row['case_id'])\n        before = {key: prior['fields'].get(key) for key in FIELDS}\n        after = {key: fields.get(key) for key in FIELDS}\n        records.append(dict(case_id=row['case_id'], family=row['family'], case_identity=row['case_identity'],\n            sql=observed['sql_declaration'], c7_engine_seconds=prior['engine_execution_seconds'],\n            c8_engine_seconds=clocks['engine_execution_seconds'],\n            c7_original_api_loss=row['comparison']['native_slower'], c8_original_api_loss=loss,\n            c8_api_seconds=clocks['complete_workflow_seconds'], original_polars_api_seconds=comparison_seconds,\n            original_polars_engine_seconds=None, original_polars_format='original_arrow_ipc', native_format='parquet',\n            c7_fields=before, c8_fields=after,\n            changed_fields={k: [before[k], after[k]] for k in FIELDS if before[k] != after[k]},\n            c8_stdout=dict(path=path, sha256=sha(current_bytes)),\n            original_stdout=dict(path=row['original_polars']['evidence_path'], sha256=sha(original_bytes))))\n    assert len(records) == 91\n    assert predicate_losses == ['predicate_ne', 'predicate_lt', 'predicate_or', 'predicate_not']\n    assert global_losses == ['global_count_distinct']\n    report = dict(schema_version='shardloom.predicate_attribution.v1', status='passed',\n        packet_manifest_sha256=sha((PACKET / 'manifest.json').read_bytes()),\n        acceptance_sha256=sha((PACKET / 'acceptance.json').read_bytes()),\n        recipe_sha256=sha(Path(__file__).read_bytes()), query_executions=0, new_comparator_executions=0,\n        complete_value_comparisons=len(records), source_evidence=source_evidence,\n        c7_predicate_losses=old['predicate_losses'], c8_predicate_losses=predicate_losses,\n        c7_global_losses=old['global_aggregation_losses'], c8_global_losses=global_losses,\n        interpretation=dict(\n            source_and_intake='Recorded data/read/row-group and copied/transferred buffer counters; intake bytes exclude decoder internals and later operators.',\n            native_pushdown='Source-inferred from exact snapshot: comparison and AND cases admit native scan predicates; scan delivered rows are after that provider filter.',\n            residual='Source-inferred: OR-of-NOT and NOT-of-AND retain the shared expression filter; their scan-delivered rows remain one million before filtering.',\n            masks='Source-inferred: admitted pure I64 Boolean recipe evaluates word masks; LocalSelection materializes bounded U16 indices and slices contiguous selections or takes others. No per-case mask bytes or elapsed times were recorded.',\n            ordering='Recorded prefix rows are the post-filter validation population, not input rows avoided. Copy bytes and peak buffers cover ordering ownership, not all physical traffic. C8 changes numeric comparison/location binding without changing these source/copy counts.',\n            distinct='COUNT DISTINCT reads the complete nullable key domain and uses exact native membership with null exclusion; no sort or bounded-ordering payload copy is recorded.',\n            limitation='Historical IPC/API-clock comparator observations remain diagnosis only. No matched-format speed ranking, phase timing decomposition, causal per-stage savings or total copied-byte claim.'),\n        unavailable_measurements=['predicate_kernel_seconds', 'selection_mask_seconds', 'selection_mask_allocated_bytes',\n                                  'filter_gather_total_bytes', 'ordering_comparison_seconds', 'complete_query_copy_bytes'],\n        records=records)\n    destination = OUT / 'predicate-stage-attribution.json'\n    assert not destination.exists()\n    destination.write_text(json.dumps(report, indent=2) + '\\n')\n    assert json.loads(destination.read_text()) == report\n    print(json.dumps({k: report[k] for k in ('status', 'query_executions', 'complete_value_comparisons',\n        'c7_predicate_losses', 'c8_predicate_losses', 'c8_global_losses')}))\n\n\nif __name__ == '__main__':\n    main()\n",
+      "scope": "historical collector source; never executed by portable replay"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/capture_hosted_followthrough.py",
+        "bytes": 3439,
+        "sha256": "de055f6402ca7a681c89ca62f61937fedd4e761f31c3d79c82bb7974c774c3b1"
+      },
+      "text": "\"\"\"Freeze exact-head hosted check receipts without changing GitHub state.\"\"\"\nimport argparse\nimport json\nfrom pathlib import Path\nimport subprocess\n\nOUT = Path('/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29')\nHEAD = '7d6c02c6d2358e205fb60f6868830d905ab4b62d'\nFIELDS = ('number,url,title,state,isDraft,baseRefOid,headRefOid,mergeStateStatus,mergeable,'\n          'reviewDecision,statusCheckRollup,reviews,mergedAt,mergeCommit')\nREQUIRED = {\n    'Rust baseline (fmt)', 'Rust baseline (clippy)', 'Rust baseline (test)',\n    'Rust feature matrix (native_release_clippy)', 'Rust feature matrix (native_vortex_tests)',\n    'Native test partition (0)', 'Native test partition (1)', 'Native test partition (2)',\n    'Native test partition (3)', 'Website and docs validation', 'Python tests',\n    'CI gate matrix contract', 'Dependency and security gates',\n    'Native Python wheel (py310_ubuntu)', 'Native Python wheel (py313_ubuntu)',\n    'Native Python wheel (py313_macos)', 'Native Python wheel acceptance',\n    'Python compatibility (windows-latest, 3.11)', 'Rust MSRV validation',\n    'Release readiness reports', 'CodeQL rust', 'CodeQL python',\n}\n\n\ndef snapshot(number):\n    result = subprocess.run(['/opt/homebrew/bin/gh', 'pr', 'view', str(number),\n        '--repo', 'depsilon/shardloom', '--json', FIELDS], check=True,\n        capture_output=True, text=True, timeout=60)\n    return json.loads(result.stdout)\n\n\ndef main():\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument('stage', choices=('premerge', 'merged'))\n    args = parser.parse_args()\n    report = snapshot(1627)\n    assert report['headRefOid'] == HEAD and not report['isDraft'], 'PR identity changed'\n    checks = report['statusCheckRollup']\n    names = {row['name'] for row in checks}\n    assert REQUIRED <= names, ('missing required jobs', sorted(REQUIRED - names))\n    assert all(row['status'] == 'COMPLETED' and row['conclusion'] in ('SUCCESS', 'NEUTRAL', 'SKIPPED')\n               for row in checks), 'hosted checks incomplete or failed'\n    assert all(row['conclusion'] == 'SUCCESS' for row in checks if row['name'] in REQUIRED), 'required job not successful'\n    assert report['reviewDecision'] != 'CHANGES_REQUESTED', 'unresolved blocking review'\n    if args.stage == 'premerge':\n        assert report['state'] == 'OPEN' and report['mergeable'] == 'MERGEABLE'\n    else:\n        assert report['state'] == 'MERGED' and report['mergeCommit']['oid'] and report['mergedAt']\n    prior = snapshot(1625)\n    assert prior['state'] == 'MERGED' and prior['mergeCommit']['oid'] == 'a1ff5bb1d8698eb261bc1c0e3e9987b7da1439b5'\n    assert len(prior['statusCheckRollup']) == 54 and all(\n        row['status'] == 'COMPLETED' and row['conclusion'] == 'SUCCESS' for row in prior['statusCheckRollup'])\n    result = dict(schema_version='shardloom.hosted_followthrough.v1', status='passed', stage=args.stage,\n                  pull_request=report, composition_pull_request=prior,\n                  complete_checks=len(checks), required_names=sorted(REQUIRED))\n    destination = OUT / ('hosted-followthrough-' + args.stage + '.json')\n    with destination.open('x') as stream:\n        json.dump(result, stream, indent=2)\n        stream.write('\\n')\n    print(json.dumps(dict(status='passed', stage=args.stage, complete_checks=len(checks),\n                         merged_commit=report.get('mergeCommit'))))\n\n\nif __name__ == '__main__':\n    main()\n",
+      "scope": "historical collector source; never executed by portable replay"
+    },
+    {
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/tools/build_followthrough_closeout.py",
+        "bytes": 4571,
+        "sha256": "037508f0b898899d38253f217551fd0f4e2437b2a280f6420fcb03007eb0641e"
+      },
+      "text": "\"\"\"Record hosted integration, exact generated-file retirement and saved-result attribution.\"\"\"\nimport gzip\nimport hashlib\nimport json\nfrom pathlib import Path\nimport shutil\nimport subprocess\n\nREPO = Path('/Users/dylan/.codex/worktrees/native-analytic-frames/shardloom-local-repo')\nOUT = Path('/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29')\nDEST = REPO / 'docs/benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30'\n\n\ndef read(path):\n    return json.loads(path.read_text())\n\n\ndef identity(path):\n    data = path.read_bytes()\n    return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest())\n\n\ndef main():\n    assert not DEST.exists()\n    hosted = read(OUT / 'hosted-followthrough-merged.json')\n    assert hosted['status'] == 'passed' and hosted['pull_request']['state'] == 'MERGED'\n    cleanup = read(OUT / 'followthrough-cleanup.json')\n    assert cleanup['status'] == 'passed' and cleanup['portable_replay_after_retirement']\n    assert not cleanup['payload_backups_created'] and cleanup['cargo_cache_untouched']\n    attribution = read(OUT / 'predicate-stage-attribution.json')\n    assert attribution['status'] == 'passed' and attribution['query_executions'] == 0\n    assert attribution['complete_value_comparisons'] == 91\n    plan_path = OUT / 'followthrough-cleanup-plan.json.gz'\n    assert identity(plan_path)['sha256'] == cleanup['plan_sha256']\n    with gzip.open(plan_path, 'rb') as stream:\n        plan = json.loads(stream.read())\n    assert cleanup['removed_entries'] == len(plan['entries'])\n    assert all(not Path(row['path']).exists() and not Path(row['path']).is_symlink()\n               for row in plan['roots'])\n    for path, digest in plan['retained_sha256'].items():\n        assert identity(Path(path))['sha256'] == digest\n    receipts = []\n    for number in range(222, 228):\n        candidates = list(OUT.glob(f'p{number}-*.json'))\n        assert len(candidates) == 1, number\n        path = candidates[0]\n        receipt = read(path)\n        log = path.with_suffix('.log')\n        assert identity(log)['sha256'] == receipt['log_sha256']\n        assert receipt['process_group_drained'] and receipt['direct_child_reaped']\n        assert (receipt['status'], receipt['returncode']) == (('failed', 1) if number == 222 else ('passed', 0))\n        receipts.append(dict(identity=identity(path), receipt=receipt,\n                             log_identity=identity(log), log=log.read_text()))\n    sources = []\n    for name in ('retire_followthrough_payloads.py', 'summarize_predicate_attribution.py',\n                 'capture_hosted_followthrough.py', 'build_followthrough_closeout.py'):\n        path = OUT / 'tools' / name\n        sources.append(dict(identity=identity(path), text=path.read_text(),\n                            scope='historical collector source; never executed by portable replay'))\n    report = dict(schema_version='shardloom.shared_followthrough_closeout.v1', status='passed',\n        current_head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip(),\n        hosted=hosted, cleanup=cleanup, process_receipts=receipts, collector_sources=sources,\n        cleanup_plan=identity(plan_path), predicate_attribution=identity(OUT / 'predicate-stage-attribution.json'),\n        expert_review=identity(OUT / 'followthrough-expert-review.md'),\n        query_executions=0, additional_full43_executions=0, comparator_executions=0,\n        performance_track='prior finite candidate and follow-through acceptance complete; subsequent October 30 candidate queue remains open',\n        item20='open: batch functions, October 30 shared-owner optimization continuation, remaining workflow/diagnostics and combined acceptance',\n        retained_engine_seconds=12.055132613, retained_complete_cases=347,\n        under_ten_engine_seconds_achieved=False)\n    DEST.mkdir()\n    for name, original in (\n        ('cleanup-plan.json.gz', plan_path),\n        ('predicate-attribution.json', OUT / 'predicate-stage-attribution.json'),\n        ('expert-review.md', OUT / 'followthrough-expert-review.md')):\n        target = DEST / name\n        shutil.copyfile(original, target)\n        assert target.read_bytes() == original.read_bytes()\n    path = DEST / 'closeout.json'\n    path.write_text(json.dumps(report, indent=2) + '\\n')\n    assert read(path) == report\n    print(json.dumps(dict(status='passed', directory=str(DEST), receipts=len(receipts),\n                         hosted_checks=hosted['complete_checks'], files=len(list(DEST.iterdir())))))\n\n\nif __name__ == '__main__':\n    main()\n",
+      "scope": "historical collector source; never executed by portable replay"
+    }
+  ],
+  "cleanup_plan": {
+    "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-cleanup-plan.json.gz",
+    "bytes": 1537316,
+    "sha256": "6b24bf0b826d9ad413bfb3cd504e0279aa22d69ea2b4bc1ff9f0def69026d911"
+  },
+  "predicate_attribution": {
+    "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/predicate-stage-attribution.json",
+    "bytes": 403001,
+    "sha256": "729e35e54ae5cff6352e77050a2e84507da81a2b39f5761ddf67f65c0c4c13a7"
+  },
+  "expert_review": {
+    "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/followthrough-expert-review.md",
+    "bytes": 2110,
+    "sha256": "44552dfb1f8963a91dc621a00654fc9f1b1bbeded5248edfc97e921528eda558"
+  },
+  "query_executions": 0,
+  "additional_full43_executions": 0,
+  "comparator_executions": 0,
+  "performance_track": "prior finite candidate and follow-through acceptance complete; subsequent October 30 candidate queue remains open",
+  "item20": "open: batch functions, October 30 shared-owner optimization continuation, remaining workflow/diagnostics and combined acceptance",
+  "retained_engine_seconds": 12.055132613,
+  "retained_complete_cases": 347,
+  "under_ten_engine_seconds_achieved": false
+}

@@ -306,6 +306,13 @@ These are [extension](docs/rfcs/0011-modular-extensibility-sql-udf-unstructured-
 [AI-data](docs/architecture/native-ai-data-workflows-2026-10-24.md) contracts; a type declaration
 or available upstream provider alone does not grant executable support.
 
+Post-1.0.0 development source admits the scoped
+[application batch-function API](docs/reference/application-batch-functions.md)
+for trusted, deterministic, row-preserving Rust/Python code inside native plans.
+It validates declared schemas and output ownership, exposes conversions, and
+preserves cancellation and action failures. Plugin loading, sandboxed UDFs and
+portable callback execution through the stock CLI remain separate contracts.
+
 > **Design principle:** keep native computation composable while making application code,
 > model execution, and external effects explicit.
 

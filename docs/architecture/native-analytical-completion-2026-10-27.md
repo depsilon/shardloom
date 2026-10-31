@@ -94,9 +94,17 @@ The earlier October 29 maintainer instruction moved remaining capability areas
 and acceptance first, beginning with time-series workflows. The latest follow-up
 supersedes that order: finish the active recursive/materialized composition unit
 and its acceptance, then run the seven performance candidates below before
-explicit batch-function integration. Batch functions and later connector/refresh
-work remain pending. The accepted 347-query checkpoint remains unchanged until
+explicit batch-function integration. The Rust/Python batch-function unit now
+passes local workspace/package acceptance; hosted integration and later
+connector/refresh work remain pending. The accepted 347-query checkpoint remains unchanged until
 a new complete, validated candidate comparison advances it.
+
+The October 30 [shared-owner continuation](native-shared-owner-optimizations-2026-10-30.md)
+extends this ordering after the active Rust/Python batch-function unit. It includes
+both newly supplied source reviews and mechanism-specific scaling/interaction
+controls, stays within item 20, and preserves the unchanged 347 history and
+Full43 hold. The original seven candidates and their follow-through have merged
+in #1626/#1627; their decisions are not reopened by new names for the same work.
 
 ### Performance candidates after composition acceptance
 
@@ -659,8 +667,13 @@ while a later prepared-source control establishes current-runtime reuse behavior
   follow this unit before explicit batch-function integration.
 - [ ] Complete caller-visible non-finite/signed-zero policy, decimal rounding
   choices and exact widened-integer summation without changing existing defaults.
-- [ ] Implement declared application batch functions with explicit schema,
+- [x] Implement declared application batch functions with explicit schema,
   determinism, null, effect, ownership, memory and cancellation boundaries.
+  The [trusted Rust/Python rowwise contract](native-application-batch-functions-2026-10-30.md)
+  passes [combined workspace/package acceptance](native-application-batch-functions-2026-10-30.md#local-acceptance--october-30),
+  including 280 clean installed integration tests with no skips. Hosted PR
+  integration remains pending; the additional shared-owner queue follows it.
+  Stock CLI transport and untrusted/general plugin UDFs remain separate blockers.
 - [ ] Replace structural depth/width ceilings with scalable traversal, shared
   references and resource admission; test binding, execution and destruction.
 - [ ] Complete meaningful physical-plan/work diagnostics and keep unavailable

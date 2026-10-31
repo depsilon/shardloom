@@ -138,11 +138,22 @@ pub(super) fn columns(
             Plan::Limit(node) => plan = &mut node.input,
             Plan::Pipeline(node) => {
                 for stage in node.stages.iter().rev() {
-                    if let shardloom_vortex::relational_query::VortexRelationalStage::Project(
-                        expressions,
-                    ) = stage
-                    {
-                        return Ok(expressions.iter().map(|(name, _)| name.clone()).collect());
+                    use shardloom_vortex::relational_query::VortexRelationalStage as Stage;
+                    match stage {
+                        Stage::Project(expressions) => {
+                            return Ok(expressions.iter().map(|(name, _)| name.clone()).collect());
+                        }
+                        Stage::ApplicationBatch(function) => {
+                            return Ok(function
+                                .declaration()
+                                .output
+                                .as_struct_fields()
+                                .names()
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect());
+                        }
+                        Stage::Filter(_) | Stage::Limit { .. } | Stage::Observe(_) => {}
                     }
                 }
                 plan = &mut node.input;

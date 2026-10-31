@@ -111,6 +111,13 @@ def _render_stages(
             # SQL text describes data expressions; positional metrics remain in
             # the separately bound native declaration and operation summary.
             continue
+        if kind == "application_batch":
+            # SQL cannot serialize caller-owned code. An unsupported table
+            # function fails even if a caller registers a relation with the same
+            # name; plain SQL must never silently omit this application stage.
+            statement = "SELECT * FROM APPLICATION_BATCH_LOCAL_HANDLE_REQUIRED()"
+            columns = tuple(name for name, _ in operation.batch_function.output_schema)
+            continue
         fragments = values
         if kind == "with_column":
             fragments = values[1:]

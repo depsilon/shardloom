@@ -268,6 +268,8 @@ EXPORTS: Final = MappingProxyType({
         if name not in STALE_EXPORTS
     },
     "__version__": ("_version", "application"),
+    "BatchFunction": ("_batch_function", "application"),
+    "BatchFunctionRegistry": ("_batch_function", "application"),
     "Result": ("query", "application"),
     "from_result": ("query", "application"),
     "ResultType": ("_result_schema", "application"),

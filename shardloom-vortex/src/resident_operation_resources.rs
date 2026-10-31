@@ -231,6 +231,7 @@ impl ConfigurableResidentSession {
         resources: ExecutionResources,
         cancellation: &CancellationToken,
     ) -> Result<ResidentOperationAdmission<'_>> {
+        crate::application_batch::check_application_callback_reentry()?;
         let resources = self.authorized(resources)?;
         let thread = std::thread::current().id();
         if self

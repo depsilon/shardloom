@@ -157,6 +157,8 @@ def execution_envelope(fields, *, result=None, operation="collect"):
 def _failure(error, *, check):
     from .errors import ShardLoomCommandError
 
+    if getattr(error, "_shardloom_application_callback_error", False) is True:
+        raise error
     diagnostic = getattr(error, "diagnostic", None)
     if diagnostic is None:
         raise error

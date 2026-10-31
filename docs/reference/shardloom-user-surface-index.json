@@ -1307,6 +1307,9 @@
       "apply": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route",
       "pipe": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route"
     },
+    "admitted_application_batch_methods": {
+      "map_batches": "post-1.0.0 source: immutable ctx.batch_functions.register handle for explicitly trusted, deterministic, null-aware, rowwise/row-preserving Python code; exact schemas, workspace/output limits, cancellation, independent native input/output ownership and original exception propagation; in-process transport only; stock CLI/plugin loading and effectful/shape-changing callbacks remain unsupported"
+    },
     "admitted_expression_runtime_methods": {
       "applymap": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python cell callables remain blocked",
       "eval": "in-place numeric scalar assignment such as eval(\"amount = amount + 5\") through the native/prepared Vortex expression-project primitive",
@@ -1399,35 +1402,54 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "7dc293ddfcca7b9cd9158441d9c528a7f5a1778e8d180451331bb2ad39edc792",
+    "source_identity": "6c990556ed96eaac2329572599510871f0d1c6c49661dd0f9511a97817bafbb8",
     "source_inputs": {
       "Cargo.lock": "0f326028ae5a9fc62629eca5d200158d190f01019c314975179934ef0e891974",
       "Cargo.toml": "be5c720183463a8c7f0287d254ce16fc9cca05b90fff4d3ca19ee2bedbe802f9",
       "docs/release/channel-proofs/pypi-v1.0.0-provenance.json": "0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba",
       "docs/release/package-channel-readiness-matrix.json": "a2ad776726a5eb9516e72f8e40d1894c2724e0da6c88b70358ec8fa1ebbfc5d9",
+      "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
-      "python/src/shardloom/_exports.py": "e240641a663fc8a17cdfa256a3969f76aacc31348791f9fdc8909d35e2837a54",
+      "python/src/shardloom/_exports.py": "840c701ca23693b98f4810b3d6c601a8400538a80985174748d02c286a37021e",
       "python/src/shardloom/_result_schema.py": "d174b14d2c08b896a5b3e96fbd489b6b830f0c0d245b236bfa16b2eb7a54cb1b",
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
       "python/src/shardloom/client.py": "90d91384852acf1ec3676fe70cacde080ae7421b575e1761d734fa962cb7e9b6",
-      "python/src/shardloom/context.py": "4ad1ac2f709817fea0d9491154c514111f6297b3e82386d39cd4238a8d55f45c",
+      "python/src/shardloom/context.py": "306d66bef88d098e8a5e14a77394e08efcb9cf92239073384642c6383b39389e",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
       "python/src/shardloom/functions.py": "4e5fb6a5d114f54de0ecccca209b04c8aa64a783dbedd6fc9acd4b36e2f0145f",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "e57a7374f1528424d336df50b05154a4128d82e90ba0efc9506c5042e358021d",
+      "python/src/shardloom/query.py": "10f77ea29d1d73d19b07af8e7e98e1087e0d1be511d5d3229ba95113dcae5378",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
-      "python/src/shardloom/session.py": "4800e8056102b8df6655ee9126c18acadbec70c4c165c018c0dbf00a57144d59",
+      "python/src/shardloom/session.py": "96ff74e42964012ae2cf0e8d73ae35713660163572d7762237a0e6c0776b8043",
       "python/src/shardloom/types.py": "71f2c9d225e59d9a090aea71db052ea6914e78c331a01be221cc6fbf3eae668b",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "shardloom-vortex/Cargo.toml": "f43c4eba832bb9fe185e40a05d7773ad5cee6b38b6a65f3e234aaf4bb8d0b83a"
     },
     "python_symbols": [
+      {
+        "name": "BatchFunction",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_batch_function.py",
+        "signature": "(name: 'str', version: 'str', input_schema: 'tuple', output_schema: 'tuple', max_batch_rows: 'int', max_output_bytes: 'int', workspace_bytes: 'int', _owner: 'object', _native: 'object') -> None",
+        "summary": "Immutable registered function snapshot accepted by ``frame.map_batches``."
+      },
+      {
+        "name": "BatchFunctionRegistry",
+        "namespace": "shardloom",
+        "audience": "application",
+        "kind": "class",
+        "source": "python/src/shardloom/_batch_function.py",
+        "signature": "(client)",
+        "summary": "Named immutable callback snapshots belonging to one context or session."
+      },
       {
         "name": "CapabilityPosture",
         "namespace": "shardloom.diagnostics",
@@ -2901,7 +2923,7 @@
         "audience": "testing",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, right_frame: \"'LazyFrame | None'\" = None, grouping_clause: 'str | None' = None) -> None",
+        "signature": "(kind: 'str', values: 'tuple[str, ...]', source_bindings: 'tuple[WorkflowSource, ...]' = (), right_statement: 'str | None' = None, projection_sql: 'tuple[str, ...] | None' = None, resource_limits: 'ExecutionResourceLimits | None' = None, right_frame: \"'LazyFrame | None'\" = None, grouping_clause: 'str | None' = None, batch_function: 'object | None' = None) -> None",
         "summary": "A lazy query-builder operation."
       },
       {
