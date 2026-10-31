@@ -1,0 +1,265 @@
+{
+  "schema_version": "shardloom.native_batch_retirement_summary.v1",
+  "status": "passed",
+  "cleanup": {
+    "all_proofs_unchanged": true,
+    "archived_raw_files": 8308,
+    "closed_handle_checks": [
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r1/shardloom",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r1/_native.abi3.so",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r2/shardloom",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r2/_native.abi3.so",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r3/shardloom",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r3/_native.abi3.so",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r4/shardloom",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r4/_native.abi3.so",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-metadata-reference-r1/shardloom",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-metadata-reference-r1/_native.abi3.so",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/package",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/venv",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/package",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/venv",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/package",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/venv",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/package",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/venv",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-subset-r1/package",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-subset-r1/venv",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/batch-portable-r1",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-batch-source-only-r1",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-accepted-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-candidate-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-reference-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-reference-r2/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-retained-candidate-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-performance-batch-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-performance-batch-retained-r1/logs",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch1-parts",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch2-parts",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch3-parts",
+        "returncode": 1
+      },
+      {
+        "open_handles": 0,
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-subset1-parts",
+        "returncode": 1
+      }
+    ],
+    "compiler_cache_untouched": true,
+    "complete_replay_after_retirement": true,
+    "payload_backups_created": false,
+    "plan_sha256": "8c0237db1de556828318dfccfe19d42f84bbc87876de1217175a23ba47ce2f2e",
+    "previous_runtime_retained_pending_merge": "ordered-input-release-r2",
+    "query_executions": 0,
+    "regular_files": 58542,
+    "removed_entries": 65397,
+    "retained_runtime": "performance-batch-retained-release-r1",
+    "retained_wheel": "installed-performance-batch-subset-r1/dist",
+    "roots": [
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r1/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r1/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r2/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r2/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r3/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r3/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r4/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-release-r4/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-metadata-reference-r1/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-metadata-reference-r1/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r2/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-r3/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-reference-r2/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-subset-r1/package",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-performance-batch-subset-r1/venv",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/batch-portable-r1",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-batch-source-only-r1",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-accepted-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-candidate-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-reference-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-reference-r2/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/performance-batch-retained-candidate-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-performance-batch-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/broad-performance-batch-retained-r1/logs",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch1-parts",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch2-parts",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-batch3-parts",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-public-subset1-parts"
+    ],
+    "schema_version": "shardloom.native_batch_retirement.v1",
+    "source_inputs_retained": true,
+    "status": "passed",
+    "symlink_targets_followed": false,
+    "symlinks": 15,
+    "user_files_and_worktrees_untouched": true
+  },
+  "main_acceptance_sha256": "bf45ceeb063c6aaab077407e4edf9300700f5e43f1cb430a92d3f0f1d2cb1699",
+  "main_manifest_sha256": "05f617c5829ececb006a7ea0b746c81388ac70f55c0961f370915ab8a50496eb",
+  "verification_sha256": "a650a3233bc1251e09550e22732c577de8e00ff4e241b2d0ba291d33c0796ffb",
+  "plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 3830800,
+    "sha256": "8c0237db1de556828318dfccfe19d42f84bbc87876de1217175a23ba47ce2f2e"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 77766,
+    "sha256": "71d5d3cf09519b2b9fcfea0548b12ee7ee04fe520e07593f84e6e421f6f01c03",
+    "uncompressed_sha256": "5b3b84331bc6595ff72fbc195d07a14761fe3ef7eef67bf3d3356c7e202bdd2f"
+  },
+  "query_executions": 0
+}

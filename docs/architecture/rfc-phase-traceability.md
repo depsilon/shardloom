@@ -15,6 +15,14 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The October 31 [engine-wide adaptive-execution item](phased-execution-plan.md#engine-wide-adaptive-execution)
+promotes missing shared runtime integration under RFCs 0013/0014/0016/0017/0044,
+reusing scoped PulseWeave, memory admission, streaming and spill. Relevant proof
+obligations remain with CG-8/CG-14/CG-15/CG-20/CG-21; all CG-1 through CG-23 gates
+retain their independent status. Advisory sizing reports are not runtime proof.
+This is queue item 23 within the existing native implementation program, not a
+new phase or a renaming of CG-23. The phase plan owns its order and completion.
+
 The October 30 [native application batch-function contract](native-application-batch-functions-2026-10-30.md)
 implements a scoped item-20 path under RFCs 0011/0021/0023/0033/0044: trusted
 in-process Rust/Python rowwise callbacks in the existing native pipeline. Earlier

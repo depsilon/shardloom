@@ -588,6 +588,50 @@ impl ResidentMemorySource {
     }
 }
 
+#[cfg(feature = "vortex-local-primitives")]
+fn infallible_fixed_width_values(array: &ArrayRef, budget: &mut usize, depth: usize) -> bool {
+    use vortex::array::arrays::{Bool, Chunked, Primitive, chunked::ChunkedArrayExt as _};
+
+    if *budget == 0 || depth > 8 || !array.is_host() {
+        return false;
+    }
+    *budget -= 1;
+    if let Some(chunks) = array.as_opt::<Chunked>() {
+        if chunks.nchunks() > *budget {
+            return false;
+        }
+        let offsets = chunks.chunk_offset_values();
+        return offsets.len() == chunks.nchunks() + 1
+            && offsets.first() == Some(&0)
+            && offsets.last() == Some(&array.len())
+            && chunks.iter_chunks().enumerate().all(|(index, child)| {
+                offsets[index + 1].checked_sub(offsets[index]) == Some(child.len())
+                    && child.dtype() == array.dtype()
+                    && infallible_fixed_width_values(child, budget, depth + 1)
+            });
+    }
+    if !(matches!(array.dtype(), DType::Primitive(ptype, _) if ptype.is_int())
+        && array.is::<Primitive>()
+        || matches!(array.dtype(), DType::Bool(_)) && array.is::<Bool>())
+    {
+        return false;
+    }
+    match array.validity() {
+        Ok(Validity::NonNullable | Validity::AllValid | Validity::AllInvalid) => true,
+        Ok(Validity::Array(valid)) => {
+            valid.len() == array.len()
+                && valid.is::<Bool>()
+                && !valid.dtype().is_nullable()
+                && valid.is_host()
+        }
+        _ => false,
+    }
+}
+
+#[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "resident_memory_infallible_tests.rs"]
+mod infallible_tests;
+
 /// Bound exact native operations over one immutable memory snapshot.
 pub struct PreparedMemoryProjection {
     source: ResidentMemorySource,
@@ -601,6 +645,31 @@ pub struct PreparedMemoryProjection {
 impl PreparedMemoryProjection {
     pub(crate) fn source_rows(&self) -> usize {
         self.source.row_count()
+    }
+
+    /// A metadata-only proof for removing repeated pure integer/Boolean work.
+    /// Opaque providers and generated inputs retain their original evaluation
+    /// order; logical types alone cannot prove that a hidden value is valid.
+    #[cfg(feature = "vortex-local-primitives")]
+    pub(crate) fn has_infallible_fixed_width_values(&self) -> bool {
+        use vortex::array::arrays::{Struct, struct_::StructArrayExt as _};
+
+        if self.source.0.generated_range.is_some()
+            || self.filter.is_some()
+            || self.limit.is_some()
+            || self.source.0.array.dtype().is_nullable()
+        {
+            return false;
+        }
+        let Some(record) = self.source.0.array.as_opt::<Struct>() else {
+            return false;
+        };
+        let mut budget = 4096;
+        self.columns.iter().all(|name| {
+            record.unmasked_field_by_name(name).is_ok_and(|array| {
+                array.len() == record.len() && infallible_fixed_width_values(array, &mut budget, 0)
+            })
+        })
     }
 
     /// Borrow the caller's existing admission; never reenter session execution.

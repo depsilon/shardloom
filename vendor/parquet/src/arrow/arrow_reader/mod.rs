@@ -676,6 +676,18 @@ impl ArrowReaderOptions {
         self
     }
 
+    /// Admit footer parsing through a caller-owned metadata reservation.
+    ///
+    /// The caller must retain the final reservation with this reader's metadata.
+    /// Input buffers and Arrow schema conversion remain separately owned.
+    pub fn with_metadata_memory_reservation(
+        mut self,
+        reservation: Arc<dyn crate::file::metadata::MetadataMemoryReservation>,
+    ) -> Self {
+        self.metadata_options = self.metadata_options.with_memory_reservation(reservation);
+        self
+    }
+
     /// Set whether to convert the [`encoding_stats`] in the Parquet `ColumnMetaData` to a bitmask
     /// (defaults to `false`).
     ///

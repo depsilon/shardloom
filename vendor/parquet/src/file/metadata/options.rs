@@ -22,6 +22,18 @@ use std::sync::Arc;
 
 use crate::schema::types::SchemaDescPtr;
 
+/// Admit metadata parsing workspace through a caller-owned reservation.
+///
+/// `bytes` is the total requested reservation, not an increment. The parser
+/// admits each row group's workspace before decoding it, then retains its
+/// measured heap size. The caller must keep the final reservation alive with
+/// the returned metadata. Input buffers and Arrow schema conversion have
+/// separate ownership. This hook is not an allocator or an RSS limit.
+pub trait MetadataMemoryReservation: std::fmt::Debug + Send + Sync {
+    /// Resize the reservation, or fail before the next parsing allocation.
+    fn resize(&self, bytes: usize) -> crate::errors::Result<()>;
+}
+
 /// Enum to control decoding of some Parquet statistics fields.
 ///
 /// # Example
@@ -94,6 +106,7 @@ pub struct ParquetMetaDataOptions {
     encoding_stats_policy: ParquetStatisticsPolicy,
     column_stats_policy: ParquetStatisticsPolicy,
     size_stats_policy: ParquetStatisticsPolicy,
+    memory_reservation: Option<Arc<dyn MetadataMemoryReservation>>,
 }
 
 impl Default for ParquetMetaDataOptions {
@@ -104,6 +117,7 @@ impl Default for ParquetMetaDataOptions {
             encoding_stats_policy: ParquetStatisticsPolicy::KeepAll,
             column_stats_policy: ParquetStatisticsPolicy::KeepAll,
             size_stats_policy: ParquetStatisticsPolicy::KeepAll,
+            memory_reservation: None,
         }
     }
 }
@@ -112,6 +126,19 @@ impl ParquetMetaDataOptions {
     /// Return a new default [`ParquetMetaDataOptions`].
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Connect footer parsing to a caller's metadata reservation.
+    pub fn with_memory_reservation(
+        mut self,
+        reservation: Arc<dyn MetadataMemoryReservation>,
+    ) -> Self {
+        self.memory_reservation = Some(reservation);
+        self
+    }
+
+    pub(crate) fn memory_reservation(&self) -> Option<&Arc<dyn MetadataMemoryReservation>> {
+        self.memory_reservation.as_ref()
     }
 
     /// Returns an optional [`SchemaDescPtr`] to use when decoding. If this is not `None` then

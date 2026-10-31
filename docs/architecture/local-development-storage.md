@@ -29,6 +29,19 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [October 31 reduced performance-batch retirement](../benchmarks/evidence/native-performance-batch-retirement-2026-10-31/cleanup.json)
+removes 58,542 completed generated regular files and 15 environment links after
+complete portable acceptance, 28 corruption controls and isolated source-only
+replay. It retires five superseded/reference runtime pairs, four old wheels,
+completed package/install environments, duplicate verification copies and raw
+output/log trees. All 8,308 retired raw files remain byte-exact in the compact
+packet; original rejected results and failed attempts remain visible. Repeated
+identity and closed-handle checks pass, and complete replay still passes after
+retirement. The accepted B6/B9 runtime and installed-tested wheel, current inputs
+and compact evidence remain; the prior ordered-input runtime/wheel stays through
+hosted integration. Source worktrees, the shared compiler cache, unrelated files
+and storage ceilings are unchanged. No payload backup is created.
+
 The [October 31 typed-ordering rejection cleanup](../benchmarks/evidence/native-typed-ordering-retirement-2026-10-31/cleanup.json)
 retires 13,470 generated regular files and three environment links after exact
 accepted-source restoration and isolated source-only verification. The rejected

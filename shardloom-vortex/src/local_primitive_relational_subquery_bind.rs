@@ -12,6 +12,9 @@ use crate::{
     },
 };
 
+#[path = "local_primitive_relational_decorrelate.rs"]
+mod decorrelate;
+
 impl Binder<'_> {
     pub(super) fn subquery(
         &mut self,
@@ -62,7 +65,7 @@ impl Binder<'_> {
                 "subquery evaluation guard requires a Boolean expression",
             ));
         }
-        let relation = self.subquery_relation(query, depth, parameterized, &input.fields)?;
+        let mut relation = self.subquery_relation(query, depth, parameterized, &input.fields)?;
         let width = input
             .fields
             .len()
@@ -87,7 +90,7 @@ impl Binder<'_> {
         let mut fields = input.fields.clone();
         fields.push((query.output_column.clone(), dtype));
         validate_unique(&fields)?;
-        let spec = Spec {
+        let mut spec = Spec {
             kind,
             guard,
             fields: fields.clone(),
@@ -96,6 +99,9 @@ impl Binder<'_> {
             correlation: query.correlation.len(),
             negated: query.negated,
         };
+        let initialize_on_demand = parameterized;
+        let parameterized =
+            parameterized && !decorrelate::rewrite(self, &input, &mut relation, &mut spec)?;
         Ok(Node {
             fields,
             kind: NodeKind::Subquery {
@@ -103,6 +109,7 @@ impl Binder<'_> {
                 relation,
                 spec,
                 parameterized,
+                initialize_on_demand,
             },
         })
     }

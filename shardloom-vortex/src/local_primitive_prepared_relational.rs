@@ -542,6 +542,7 @@ enum NodeKind {
         relation: SubqueryRelation,
         spec: native_relational_subquery::Spec,
         parameterized: bool,
+        initialize_on_demand: bool,
     },
 }
 

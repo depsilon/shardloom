@@ -21,6 +21,7 @@ impl PreparedVortexRelational {
             relation,
             spec,
             parameterized,
+            ..
         } = &node.kind
         else {
             return Err(failed("subquery dispatch received another operator"));
@@ -106,12 +107,14 @@ impl PreparedVortexRelational {
             relation: SubqueryRelation::Bound(relation),
             spec,
             parameterized: false,
+            initialize_on_demand,
         } = &node.kind
         else {
             return Err(failed("uncorrelated subquery requires a bound relation"));
         };
         let mut subquery = native_relational_subquery::Ready::empty(spec, context)?;
-        if spec.guard.is_some()
+        if *initialize_on_demand
+            || spec.guard.is_some()
             || matches!(spec.kind, native_relational_subquery::Kind::Scalar { .. })
         {
             let mut initialized = false;

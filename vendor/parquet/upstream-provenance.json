@@ -2,19 +2,24 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "fcce540a784726784d3355699f643ec40b073d48d7a0a699d06c2108dacfeeb0"
+    "README.shardloom.md": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a",
+    "src/file/metadata/memory_reservation.rs": "4ae4141063aba87d2f857357eb50b2ad379d1ace70ace32a80d201ebf571e3a1"
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
   "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "fcce540a784726784d3355699f643ec40b073d48d7a0a699d06c2108dacfeeb0"
+    "sha256": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a"
   },
-  "migration_status": "manifest_only_dependency_pin",
+  "migration_status": "manifest_and_metadata_patches",
   "modified_files_sha256": {
     "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d",
-    "src/arrow/schema/primitive.rs": "3fe5a0931d35e11a2205c09401de05b76dc0d137146e5c9a21b1e0751b2607e6"
+    "src/arrow/schema/primitive.rs": "3fe5a0931d35e11a2205c09401de05b76dc0d137146e5c9a21b1e0751b2607e6",
+    "src/arrow/arrow_reader/mod.rs": "cc695717a7ea4273a49691907066a6e7d8505c0e58eb8e8449fa52f0c2c69db7",
+    "src/file/metadata/mod.rs": "35fab5421ee6480e2095425876618b7c87c66b5abe06ed5c6a07be862c1814c8",
+    "src/file/metadata/options.rs": "abf5c8fcc8af05c051c493e4745c43745d47a7fef2ef2d256fab36a28e796a82",
+    "src/file/metadata/thrift/mod.rs": "6b27ca28f96d8afa0b17e0030145f59101c769bf18841a51dd368d1285f2ea5e"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#NOTICE.txt",

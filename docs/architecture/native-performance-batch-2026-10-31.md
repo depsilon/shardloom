@@ -1,5 +1,15 @@
 # Combined native performance batch — October 31
 
+Final local decision: **retain B6/B9 plus the shared metadata correctness repair;
+drop the other eight optimizations**. The reduced candidate passes both unchanged
+cohorts: 31.669017456 versus 40.838371451 engine seconds for 80 workflows, and
+11.978234339 versus 11.979219492 for 347 queries. The latter is effectively flat
+and passes the binary rule by 0.000985153 seconds in one observation. The
+[complete result record](../benchmarks/native-performance-batch-2026-10-31.md)
+preserves all movements and proof boundaries. The original ten-owner batch stays
+rejected. The prospective sections below are historical contracts, with their
+exact pre-execution versions preserved in the evidence packet.
+
 ## Decision and scope
 
 The maintainer requests the ten remaining owner optimizations together, with one
@@ -53,6 +63,44 @@ is optimized. A route may close at an evidence-backed screen if source inspectio
 proves the proposed work absent or unsafe under its existing contract. Record that
 decision explicitly; do not substitute a smaller unrelated patch or count a decline
 as implementation. Runtime fixes during shared validation remain part of this batch.
+
+B3's initial implementation admits integer storage only. In particular, floating
+COUNT currently observes validity without rejecting an unobserved nonfinite value;
+the existing encoded numeric visitor's scalar access has a stricter domain. Keep
+all floating columns on the original path instead of changing that contract.
+The B3/B5 physical checks also unwrap bounded, shape-identical single-chunk
+ownership and native field/selection projections. They never flatten multiple
+chunks or execute an unknown child merely to identify its encoding. B5's
+multichunk sources retain the ordinary condition path; integration controls
+exercise both that decline and the admitted file-backed single-chunk path.
+
+B6 admits statically bound resident scans and direct column projections, with
+an inner equality join or a pure equality filter over a cross join to `Outer`.
+Both source projections must expose already validated host primitive integer or
+Boolean buffers, including bounded native chunk composition and canonical
+validity. Logical types alone do not establish that an unselected encoded value
+is infallible. File, generated, opaque encoded and batch/callback sources retain
+per-parameter execution; this narrows the original native-file proposal before
+any campaign observation. Every exposed intermediate field is integer or Boolean.
+Rewritten relations initialize only at the first active outer row, including when
+there is no explicit guard. The SQL frontend's terminal Boolean `true` row-presence
+projection for `EXISTS` is also infallible; it supplies no membership key origin.
+B9 copies canonical primitive/Boolean fragments directly to
+credited buffers; noncanonical, nested, text and large-batch inputs keep immediate
+bounded detach. Raw floating storage moves without observing nonfinite values.
+
+B7's extra-reader admission requires flat payload fields as well as flat ordering
+keys. Installed-package validation found that first-occurrence ordering can have
+a numeric ordinal key while retaining rich set-union payloads alongside the key
+reducer. Looking only at the key admitted extra reader and writer overlap beyond
+the existing 16 MiB contract. Rich payloads retain two-way merging; native controls
+cover this decline even with ample headroom, and the existing complete rich-set
+public control keeps its original grant.
+The subsequent full native run found one stale reader-count assertion in the
+typed-key fixture: its date/timestamp payload also requires two readers when
+the ordering key is binary or decimal. Complete values had already matched;
+the assertion now follows the payload admission boundary, with the failed run
+retained and no further runtime change.
 
 ## Provider and source grounding
 
@@ -108,7 +156,7 @@ attempts retained; never select or discard cases using observed timings.
 | B4 text append | 2,051 / 16,387 rows | ASCII lower+upper; two-column concat; four-column concat; mixed Unicode control. Long values cycle lengths 0/7/127/1,025; consume all output through lengths and deterministic extrema. |
 | B5 residual join | 257 / 2,051 left rows; 509 right rows | Inner integer range; left join with two comparisons; semi join; anti join. Key fanout modulo 31, NULL/nonmatching keys, full deterministic result. |
 | B6 pure correlation | 127 / 1,025 outer rows; 4,097 inner rows | Equality EXISTS; equality IN; guarded EXISTS; uncorrelated membership control. Repeated and NULL parameters, no hidden effects or finite limit. |
-| B7 spill merge | 8,193 / 65,537 rows | Full stable sort; duplicate-key join build; window rank; resident sort control. Native spill enabled with a 64 KiB input buffer and 16 MiB shared grant; 256 MiB disk quota. Preserve complete results and cleanup. |
+| B7 spill merge | 8,193 / 65,537 rows | Full stable sort; duplicate-key join build; window rank; resident sort control. Native spill enabled with a 1 MiB input buffer and 16 MiB shared grant; 256 MiB disk quota. Preserve complete results and cleanup. |
 | B8 stored lookup | 8,193 / 65,537 build rows; 257 probes | Unique dispersed probes; duplicate spans crossing blocks; misses/NULL probes; keyless condition control. Same spill limits as B7; hash collision semantics also have direct native controls. |
 | B9 capture/replay | 4,097 / 32,771 rows | One-row fragments; 17-row fragments; 1,024-row large-batch control; pressured one-row fragments. Capture one definition and consume it twice through deterministic aggregates/joins; include capture and replay in the engine clock. |
 | B10 finite quantiles | 4,097 / 131,101 rows | One median; five continuous levels; five discrete levels with duplicates; grouped control. Levels 0/0.1/0.5/0.9/1, exact complete results with independently derived ranks/interpolation. |
@@ -119,6 +167,174 @@ reported as a protocol blocker; do not benchmark a standalone kernel and label i
 the full workflow. The same plans, inputs, formats and resource settings run once
 on the retained accepted runtime and once on the final candidate. No external engine
 runs, repeats, profiling, cache manipulation or artificial pacing are added.
+
+Pre-execution fixture intake correction: the original proposed 64 KiB public spill
+buffer is invalid under `VortexRelationalSpillPolicy::new`, whose existing minimum
+is 1 MiB. Use that minimum for both B7 and B8 without lowering runtime admission.
+This correction precedes all campaign executions; the original proposal remains
+in commit `787c6052`. Verify actual spill activation during separate controls.
+
+Further fixture intake details, also fixed before either performance pass:
+
+- B1 uses 127-character text and explicit 1,024-row writer batches/page limits;
+  its final page may be shorter. B1 retains one row group. Every Parquet source
+  is reopened with all schemas and values checked before execution.
+- B3's constant column is the nonnullable integer 7; a constant cannot represent
+  mixed NULLs. The other three shapes carry the declared NULL pattern. Native
+  fixture export verifies stored encodings and reads back every value through the
+  upstream Vortex provider without running a query engine. Terminal `lo+0` and
+  `hi+0` projections require the composed relational path. The original bare
+  aggregate plus simple HAVING shape can select the already existing standalone
+  aggregate provider and would not establish B3 activation.
+  Sliced RunEnd fixtures use Vortex 0.90's validated
+  `RunEnd::try_new_offset_length` constructor with offset 7. A lazy `Slice`
+  expression is not serializable; the failed fixture attempt remains recorded.
+- B6 binds canonical resident integer inputs before the engine clock. This follows
+  the physical admission proof above. Both runtime roles use identical bindings.
+- B7/B8 retain a 1,034-character payload through sort, join or window state and
+  compute its length afterward. The resident sort control uses a 16-character
+  payload. Their sources use 256-row Parquet groups to bound row decoding.
+  Complete source metadata must also fit the same grant. Join results
+  are completely consumed by per-probe count, minimum,
+  maximum and payload-width reductions, keeping final output within the same
+  declared grant while preserving duplicate-build work.
+- B9 names the same streaming definition in two aggregate consumers. Opening the
+  producer, native conversion, owned capture and replay belong to the engine
+  clock. The pressure case consumes all 16 additional integer columns and uses
+  a 64 MiB grant and the same 1 MiB spill buffer as the other pressure fixtures.
+- B10 uses nonnegative integer values for continuous interpolation and repeated
+  values modulo 127 for discrete ranks. Independent references derive ranks from
+  the exact binary floating level using Python rational arithmetic.
+
+Separate small public controls use different input sizes (33, 2,051, 4,099 or
+16,385 rows), complete independent references and spill/producer/ownership
+assertions. They establish fixture binding and path activation; their clocks do
+not enter either acceptance cohort. The four encoded-input controls also run in
+the native test suite. The declared 80 workloads are never executed as warmups.
+
+The first public control attempt completed 28 comparisons and rejected eight
+resident/streaming bindings before result production: the fixture supplied a
+display type name to the low-level API instead of its serialized Vortex DType.
+Both public and campaign bindings now serialize the existing nullable Int64
+declaration. Input values, SQL, references, resource settings and runtime sources
+are unchanged; the original attempt is retained. This correction precedes any
+acceptance workflow execution.
+
+The corrected bindings also exposed two fixture-contract corrections before
+timing: `CASE` with `EXISTS` and `FALSE` branches has a nonnullable Boolean result;
+the 18-column replay control requires more than the original 16 MiB grant while
+writing native spill blocks. B9's pressure shape now uses 64 MiB for both runtimes,
+with the 1 MiB spill buffer unchanged and actual spill required by the public
+control. The failed 16 MiB attempt remains retained. These changes do not alter
+runtime admission or measured input populations.
+
+The first accepted-runtime campaign attempted all 80 cases and has no valid
+complete-cohort engine total: 57 results passed, 16 bindings failed, and seven
+large spill cases were denied memory. Its protocol, inputs, observations and
+complete successful outputs remain immutable. No candidate campaign had run.
+This invalid observation requires a declared revision, not a performance
+disposition or selective retry.
+
+The driver correction restores bindings: JSON deserialization turns field tuples
+into lists; the driver now restores tuples at both resident and batch API
+boundaries before execution. For the seven 65,537-row B7/B8 spill cases, the
+599,963-byte Parquet footer requires `32 * 599963 + 8192 = 19,207,008` bytes
+under the existing metadata admission policy, exceeding the original 16 MiB
+grant before row decoding. A proposed per-case increase to 64 MiB was withdrawn
+before declaration or execution after the maintainer clarified that the engine
+must adapt within the user's ceiling. The original 16 MiB grant, 1 MiB spill
+buffer, 256 MiB quota, data bytes, SQL, expected results, case order and populations
+remain the regression contract. Correct the shared metadata admission boundary
+and audit how existing dynamic memory/work sizing applies before resuming timing.
+Retain the invalid first pass separately; never combine its successful cases
+with replacement timings. A revised comparison must explicitly declare how it
+handles an accepted runtime that cannot complete the original low-memory cases.
+
+The revised supplemental comparison uses the accepted production sources plus
+**only the shared metadata-admission repair** as its reference. The original
+accepted binary, failed 80-case observation and successful historical 347/48
+observations remain immutable. Verify every Rust/Cargo input against the accepted
+runtime manifest before applying the enumerated metadata patch; retain exact
+patch, build, provider and runtime identities. The corrected reference contains
+none of B1–B10. Apply the identical metadata repair to the combined candidate.
+This is a declared correctness prerequisite, not a retroactive change to the
+accepted runtime or its measurements.
+
+The failed first attempt exposed this workload and informed the shared repair.
+The revised pair is therefore a regression comparison over previously observed
+cases, not an untouched holdout. Preserve the original fresh declaration, and
+verify that the ten optimization implementations are unchanged since that
+attempt; only the common metadata repair changes production inputs.
+
+The first candidate release build reused both corrected-reference products from
+the shared Cargo cache. Reject that build before freezing or executing the
+candidate. Invalidate the three affected release packages, require fresh
+compilation of the native engine and both entry points, and verify distinct
+runtime product identities. Preserve the rejected build receipt and hashes;
+compiler success alone does not establish which source tree executed.
+
+The first corrected-reference attempt stopped after one successful query: the
+revised harness copy accidentally included 13 generated Python bytecode caches,
+and the unchanged generation guard detected one being rewritten. Preserve that
+interrupted observation with no complete engine total. A third declaration copies
+exactly the original declared Python source inventory, leaving generated caches
+outside the immutable input list as in the original harness. Source bytes, query
+execution, supervision, clocks, data and resource limits remain unchanged. Start
+a new complete reference pass; do not reuse the interrupted query's timing.
+
+After correctness and resource checks, execute one complete corrected-reference
+80-case pass and one complete candidate 80-case pass, using the same frozen data,
+SQL, order, original resources and tuple-binding correction. No successful case
+from the failed pass supplies a replacement timing. Compare the complete totals;
+retain the unchanged 347-case candidate gate against the saved accepted total.
+The ten optimizations still require both complete-cohort gains. A loss drops the
+optimization batch; it does not justify restoring the demonstrated metadata
+admission defect or hiding the failed first pass. The broader engine-wide
+integration remains [queued after universal I/O](phased-execution-plan.md#engine-wide-adaptive-execution).
+
+### Dynamic execution within a user-set ceiling
+
+The October 31 clarification governs the engine generally: use the input's actual
+schema, representation, cardinality and current shared memory headroom to choose
+execution geometry. Do not recognize fixture IDs or increase resource grants for
+particular row counts. Keep the caller's memory/CPU ceiling authoritative. Apply
+existing shared admission, sizing, streaming, pruning and spill mechanisms at
+the ownership boundary that actually needs them; a downstream adaptive operator
+cannot repair an earlier unconditional provider reservation. Fixed format rules,
+semantic capability checks and bounded proof/cancellation policies remain
+explicit safety contracts rather than workload tuning.
+
+The demonstrated first correction is metadata admission for every ordinary local
+Parquet source, including directory members. Reuse the existing `LiveMemoryPool`,
+held source generation, cancellation and provider metadata parser. The provider
+first inspects the borrowed footer structure without allocating row metadata.
+Before each row group's metadata is parsed, admit the retained preceding groups
+plus that group's bounded parsing workspace. After parsing, account for the
+provider's retained metadata size and release temporary headroom. Keep the raw
+footer read separately credited through the existing source reader. Preserve all
+statistics, embedded Arrow logical metadata and source/row-group identities;
+neither pruning semantics nor decoded values may change. Insufficient memory
+still fails explicitly under the same ceiling. This is reservation accounting,
+not a claim that the third-party decoder or process RSS uses a custom allocator.
+
+Provider check: pinned Vortex remains the execution and persistence substrate;
+it does not replace this compatibility-input Parquet metadata parser. The
+already pinned Apache-2.0 Parquet provider owns metadata parsing and exposes a
+retained-size calculation but lacks a shared admission callback. A narrow local
+callback connects that parser to ShardLoom's existing memory owner; it introduces
+no query engine or alternative execution path. Test both complete metadata
+equality and denial/cancellation/cleanup, with multiple footer shapes and grants.
+
+The wiring audit distinguishes actual runtime adaptation from planning reports.
+`AdaptiveSizer` selects advisory segment/task shapes; its dynamic feedback mode
+does not execute feedback. The demanded Parquet reader currently uses 8,192-row
+batches, and relational spill/replay have bounded block sizes and independent
+memory admissions. None consumes the advisory sizing feedback. Connecting a task
+size report to these owners would not, by itself, establish safe decoder or merge
+allocation behavior. The metadata correction therefore operates at the actual
+allocation boundary through the shared pool. It establishes neither universal
+adaptive batching nor a larger memory grant, and those broader capabilities must
+not be implied by the existence of the planning APIs.
 
 The final campaign consists of those two supplemental passes and **one candidate
 347 pass**. Keep every query result and per-query/family movement. Both complete
@@ -151,3 +367,47 @@ Routine communication uses engine time only. Portable evidence must replay compl
 results and decisions without the original runtimes or source paths. Complete one
 cohesive PR, hosted CI/review/merge and verified temporary-artifact retirement under
 the standing authorization. Do not publish a release.
+
+## Selective retention after the complete batch
+
+The complete ten-owner candidate passes all correctness comparisons but misses
+its original combined benefit gate. Its unchanged 347 cases total
+**12.387645581 engine seconds**, versus **11.979219492** previously accepted;
+all 12,565 rows match. Its supplemental 80 cases total **27.771706382**, versus
+**40.838371451** for the metadata-corrected reference; all 871,209 rows match.
+Preserve that whole-batch rejection. Grouped aggregation contributes 0.261693505
+of the 0.408426089-second broad regression. Four individual cases trigger the
+prospective diagnostic flag; no family does. These are single observations,
+with no isolated causal attribution.
+
+After reviewing those results, the maintainer explicitly requested retaining
+only the named gain areas and dropping the rest. This authorizes a new reduced
+composition: **B6 pure correlated membership and B9 tiny-fragment capture/replay**,
+with the shared metadata-admission correctness repair. Remove B1–B5, B7–B8 and
+B10, including their test-only observation hooks and implementation-only tests.
+Keep all original experiment evidence and independent public/reference fixtures.
+The recorded B6 totals are 0.861917833 → 0.007997251 seconds; B9 totals are
+18.602654124 → 7.925751876 seconds. Neither is proof that the reduced binary has
+already passed its own complete-query acceptance.
+
+Retain the two owners' exact tested implementations and required dependencies:
+the resident integer/Boolean proof and deferred first-active-row initialization
+for B6; credited native primitive construction, bounded capture and producer/
+last-alias lifetime controls for B9. In shared files retain only those hunks.
+All remaining Rust/Cargo/Python production inputs must equal the independently
+verified metadata-only reference. Record every retained, restored and removed
+file with exact before/after identities before building. Do not restore the
+known metadata denial, widen the user's resource ceiling or introduce another
+optimization while making this reduction.
+
+Run the focused correlation, replay/capture, original spill/recovery and metadata
+controls, then native/default workspace checks, public interface/format controls
+and installed-package proof for the reduced source. Freeze its release products
+and exact reduction evidence. Reuse the successful corrected-reference 80-case
+observation and the accepted 347-case observation without repeating either.
+Execute one new complete candidate pass for each unchanged cohort, with the same
+cases, order, references, engine clock, resource limits and isolated supervision.
+Both complete totals must improve for performance acceptance; retain all case/
+family movements and failures. The original ten-change result remains rejected
+regardless of the reduced composition's outcome. No Full43, competitor run or
+release publication is added. Item 23 remains queued after universal I/O.

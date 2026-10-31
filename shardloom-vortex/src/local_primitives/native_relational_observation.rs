@@ -85,6 +85,9 @@ pub(crate) struct Counts {
     pub(crate) expression_numeric_scalar_batches: u64,
     pub(crate) expression_numeric_scalar_rows: u64,
     pub(crate) join_retained_right_rows: u64,
+    pub(crate) subquery_equality_rewrites: u64,
+    pub(crate) replay_captured_fragments: u64,
+    pub(crate) replay_captured_rows: u64,
     pub(crate) join_output_rows: u64,
     pub(crate) join_output_cells: u64,
 }

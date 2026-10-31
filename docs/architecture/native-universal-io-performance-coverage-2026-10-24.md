@@ -2,9 +2,10 @@
 
 # Universal I/O performance and coverage
 
-Status: accepted October 24 maintainer handoff, amended October 28. The current
-sequence is item 20, item 18, the 1.1.0 milestone, then item 19; the
-[phase plan](phased-execution-plan.md#planned) owns the execution order.
+Status: accepted October 24 maintainer handoff, amended through October 31. The
+[phase plan](phased-execution-plan.md#planned) owns the execution order, including
+the newly requested [engine-wide adaptive-execution item](phased-execution-plan.md#engine-wide-adaptive-execution)
+immediately after this package's acceptance and before the 1.1.0 milestone.
 
 The original handoff followed
 [user-surface native execution parity](native-user-surface-execution-parity-2026-10-24.md)
@@ -39,8 +40,8 @@ everyday analytical completion and before the AI-data package.
 **October 28 continuation:** finish active item 20 first, then complete this
 item's remaining I/O work with the shared demand-aware defaults and the
 [cross-surface and format acceptance gate](#cross-surface-and-format-acceptance-gate)
-below. The planned **1.1.0 minor version bump follows item 18 acceptance**,
-before item 19. Foundry and AI acceptance move to the later 1.2.0 and 1.3.0
+below. The planned **1.1.0 minor version bump follows item 18 acceptance and the
+subsequently added item 23**, before item 19. Foundry and AI acceptance move to the later 1.2.0 and 1.3.0
 milestones respectively. This updates the earlier ordering without accepting
 the preserved `codex/universal-io` branch or claiming new runtime/timing proof.
 

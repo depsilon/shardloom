@@ -76,6 +76,23 @@ Execution-phase source-demand design is not silently supplied by the inactive gu
 
 ### Remaining active optimization work
 
+Current scope after the complete ten-owner comparison: the maintainer requests
+retaining only **B6 correlated membership and B9 tiny-fragment capture/replay**,
+plus the required metadata-admission repair. The original batch is rejected at
+12.387645581 versus 11.979219492 engine seconds over the unchanged 347 cases,
+despite its 80-workflow gain. Remove the other eight implementations; do not
+reopen them as independent experiments. The [new reduced-composition contract](native-performance-batch-2026-10-31.md#selective-retention-after-the-complete-batch)
+requires exact source reduction and fresh complete-candidate acceptance against
+the saved references. That acceptance now passes: **31.669017456 versus
+40.838371451 engine seconds** for all 80 workflows, and **11.978234339 versus
+11.979219492** for all 347 queries. The analytical difference is effectively
+flat and passes the binary rule by 0.000985153 seconds in a single observation.
+The [complete result](../benchmarks/native-performance-batch-2026-10-31.md)
+records the exact 2,662-input reduction, unchanged references and methods,
+slower cases, native/public/installed-package proof and both dispositions.
+Retain B6/B9 and the metadata repair; close the other eight owners as dropped.
+The original intake and combined gate below remain historical decision records.
+
 The subsequent October 31 maintainer instruction combines all retained
 optimizations into **one implementation batch**, one shared build/validation
 cycle and one final comparison campaign. The five areas below organize work;
