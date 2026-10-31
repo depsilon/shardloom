@@ -144,11 +144,48 @@ impl Table {
         Ok(())
     }
 
+    /// Prove each retained state's immutable key domains before output batching.
+    /// A single stack boolean conservatively declines all collection shortcuts
+    /// if any state is unproven; no per-measure cache or allocation is needed.
+    pub(super) fn order_domains_prevalidated(
+        &self,
+        spec: &Spec,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        if self.ordered {
+            return Ok(false);
+        }
+        for (index, measure) in spec.measures.iter().enumerate() {
+            context.check_cancelled()?;
+            if !measure.function.is_collection() {
+                continue;
+            }
+            let Some(selection) = &measure.selection else {
+                return Ok(false);
+            };
+            if selection.order.is_empty() {
+                continue;
+            }
+            let Some(Some(state)) = self.states.values.get(index) else {
+                return Ok(false);
+            };
+            if !state
+                .batches
+                .has_uniform_order_domain(selection.order.len(), context)?
+            {
+                return Ok(false);
+            }
+        }
+        context.check_cancelled()?;
+        Ok(true)
+    }
+
     pub(super) fn finish(
         &self,
         index: usize,
         measure: &Measure,
         groups: Range<usize>,
+        comparisons_prevalidated: bool,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         let state = self.states.values[index]
@@ -170,6 +207,8 @@ impl Table {
         // boundary compacts them into a single typed column under a new grant.
         let mut results = ReservedVec::new(context.memory())?;
         results.reserve(groups.len())?;
+        // consume() validated values and NULL policies before retention. The
+        // caller proved immutable domains once before producing any output chunk.
         for group in groups {
             context.check_cancelled()?;
             let mut rows = ReservedVec::new(context.memory())?;
@@ -177,9 +216,10 @@ impl Table {
             rows.values
                 .extend_from_slice(&state.groups.values[group].values);
             if !self.ordered && !spec.order.is_empty() {
-                native_relational_order::sort(
+                native_relational_order::sort_with_order_check(
                     &mut rows.values,
                     context.cancellation(),
+                    comparisons_prevalidated,
                     |left, right| {
                         let (a, arow) = state.batches.locate_batch(left)?;
                         let (b, brow) = state.batches.locate_batch(right)?;

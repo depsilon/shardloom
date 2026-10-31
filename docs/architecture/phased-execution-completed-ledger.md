@@ -17,6 +17,21 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Validated ordered-input sorting — local acceptance`
+  — the [complete experiment](../benchmarks/native-ordered-inputs-2026-10-31.md)
+  passes both original gates: **11.979219492 engine seconds** for 347 queries
+  and 12,565 rows, against 11.997152207, and **0.920503372 engine seconds** for
+  48 supplemental workflows and 557,420 rows, against 1.307041040. The native
+  sorter skips heap work only after complete value validation and matching flat
+  comparison domains; all five owners retain the ordinary heap on inversion or
+  declined proof. Native/default validation, 480 public comparisons, 285 installed
+  tests, 13 mechanism controls and seven-symbol optimized-code review pass.
+  Portable replay, 14 corruption controls and isolated source-only verification
+  preserve all results, failures and exact source/runtime bindings. The source-only
+  guard correction includes older input paths outside the task folder and proves
+  rejection of every original packet path. Hosted integration and retirement
+  remain pending; item 20, the under-ten-second objective and Full43 hold remain open.
+
 - [x] `Compact grouped-state access — accepted and merged`
   — [PR #1630](https://github.com/depsilon/shardloom/pull/1630) merges as `3b4c7d92`
   after all 57 hosted checks pass. The complete 347-query observation retains
@@ -40,7 +55,10 @@ phase plan first.
   the original failed attempts and corrected empty-row-group expectations.
   Eleven rejection controls and source-only replay pass. Verified retirement
   removes 12,351 generated files and three environment links while preserving
-  the accepted runtime, original inputs and complete compact evidence. The accepted baseline,
+  the accepted runtime, original inputs and complete compact evidence. The record
+  is merged in #1631 as `e56cc37d` after all 57 hosted checks pass; the
+  [hosted closeout](../benchmarks/evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json)
+  binds the exact head and merge to those existing proofs. The accepted baseline,
   item-20 continuation and Full43 hold remain unchanged.
 
 - [x] `Single-predicate mask experiment — rejected by complete-cohort rule`

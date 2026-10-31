@@ -155,8 +155,16 @@ impl<'a> Window<'a> {
                 context.memory(),
             )?);
         }
+        let comparison_domains_prevalidated = self
+            .table
+            .has_uniform_order_domain(self.spec.ordering_keys, context)?;
         for group in &self.spec.groups {
-            self.evaluate_group(group, &mut values.values, context)?;
+            self.evaluate_group(
+                group,
+                &mut values.values,
+                comparison_domains_prevalidated,
+                context,
+            )?;
         }
         for start in (0..self.table.rows()).step_by(batch_rows) {
             context.check_cancelled()?;
@@ -171,6 +179,7 @@ impl<'a> Window<'a> {
         &self,
         group: &Group,
         values: &mut [Values],
+        comparison_domains_prevalidated: bool,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let mut ordinals = ReservedVec::new(context.memory())?;
@@ -188,9 +197,12 @@ impl<'a> Window<'a> {
             }
             ordinals.values.push(row);
         }
-        native_relational_order::sort(
+        // build() validates the full ordering-key prefix. The original loop
+        // above validates this group's NULL policy before any comparisons.
+        native_relational_order::sort_with_order_check(
             &mut ordinals.values,
             context.cancellation(),
+            comparison_domains_prevalidated,
             |left, right| {
                 let partition = self.compare_partition(group, left, right)?;
                 if partition != Ordering::Equal {

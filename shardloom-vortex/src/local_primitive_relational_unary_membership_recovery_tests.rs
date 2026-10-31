@@ -13,6 +13,8 @@ const VARIANT: &str = "SHARDLOOM_UNARY_MEMBERSHIP_RECOVERY_VARIANT";
 struct ChildOwner(Child);
 impl Drop for ChildOwner {
     fn drop(&mut self) {
+        // Child::wait closes its stdin; retain the pipe until termination.
+        let _stdin = self.0.stdin.take();
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
@@ -112,6 +114,8 @@ fn unary_membership_recovery_preserves_live_unknown_and_foreign_owners_then_rest
             assert_eq!(&fs::read(path).unwrap(), bytes);
         }
         assert_eq!(fs::read(directory.join("foreign")).unwrap(), b"preserve");
+        // Prevent EOF from unwinding the child and deleting the abandoned runs.
+        let _stdin = child.0.stdin.take();
         child.0.kill().unwrap();
         assert!(!child.0.wait().unwrap().success());
 

@@ -12,6 +12,8 @@ const WORKSPACE: &str = "SHARDLOOM_WINDOW_RECOVERY_WORKSPACE";
 struct ChildOwner(Child);
 impl Drop for ChildOwner {
     fn drop(&mut self) {
+        // Child::wait closes its stdin; retain the pipe until termination.
+        let _stdin = self.0.stdin.take();
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
@@ -101,6 +103,8 @@ fn streaming_window_recovery_preserves_live_and_unknown_owners_then_restarts_com
     for (path, bytes) in &members {
         assert_eq!(&fs::read(path).unwrap(), bytes);
     }
+    // Prevent EOF from unwinding the child and deleting the abandoned runs.
+    let _stdin = child.0.stdin.take();
     child.0.kill().unwrap();
     assert!(!child.0.wait().unwrap().success());
     let unknown = owned.join("user.txt");

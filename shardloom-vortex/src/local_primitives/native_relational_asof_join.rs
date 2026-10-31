@@ -57,11 +57,17 @@ impl<'a> Join<'a> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let keys = self.spec.right_keys.len();
-        native_relational_order::sort(&mut self.ordered.values, context.cancellation(), |a, b| {
-            let (left, left_row) = self.right.locate_batch(a)?;
-            let (right, right_row) = self.right.locate_batch(b)?;
-            Ok(compare(left, left_row, right, right_row, keys)?.then_with(|| a.cmp(&b)))
-        })?;
+        // build() validated all keys before retaining each immutable batch.
+        native_relational_order::sort_with_order_check(
+            &mut self.ordered.values,
+            context.cancellation(),
+            self.right.has_uniform_order_domain(keys, context)?,
+            |a, b| {
+                let (left, left_row) = self.right.locate_batch(a)?;
+                let (right, right_row) = self.right.locate_batch(b)?;
+                Ok(compare(left, left_row, right, right_row, keys)?.then_with(|| a.cmp(&b)))
+            },
+        )?;
         self.sealed = true;
         context.check_cancelled()
     }

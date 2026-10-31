@@ -73,12 +73,19 @@ impl<'a> Groups<'a> {
             }
             rows.values.push(row);
         }
-        native_relational_order::sort(&mut rows.values, context.cancellation(), |left, right| {
-            Ok(groups
-                .at(left)
-                .cmp(&groups.at(right))
-                .then_with(|| left.cmp(&right)))
-        })?;
+        // Both group indexes and source ordinals are already in bounds; this
+        // comparator has no fallible value lookup or user-type dispatch.
+        native_relational_order::sort_with_order_check(
+            &mut rows.values,
+            context.cancellation(),
+            true,
+            |left, right| {
+                Ok(groups
+                    .at(left)
+                    .cmp(&groups.at(right))
+                    .then_with(|| left.cmp(&right)))
+            },
+        )?;
         Ok(Self::Grouped { rows, groups })
     }
 

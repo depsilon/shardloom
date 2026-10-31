@@ -4,6 +4,44 @@ use shardloom_core::Result;
 use shardloom_exec::compute_pool::CancellationToken;
 use std::cmp::Ordering;
 
+#[cfg(test)]
+#[path = "native_relational_order_check_tests.rs"]
+mod order_check_tests;
+
+/// Check unchanged ordinals only after the caller has validated every compared
+/// value and established an infallible comparison domain. An unproven domain
+/// goes straight to the original heap, preserving its comparison/error order.
+pub(super) fn sort_with_order_check<T: Copy>(
+    rows: &mut [T],
+    cancellation: &CancellationToken,
+    comparisons_prevalidated: bool,
+    mut compare: impl FnMut(T, T) -> Result<Ordering>,
+) -> Result<()> {
+    if !comparisons_prevalidated {
+        return sort(rows, cancellation, compare);
+    }
+    cancellation.check()?;
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| counts.order_checks += 1);
+    for (index, pair) in rows.windows(2).enumerate() {
+        if index.is_multiple_of(1024) {
+            cancellation.check()?;
+        }
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.order_check_comparisons += 1);
+        if compare(pair[0], pair[1])?.is_gt() {
+            return sort(rows, cancellation, compare);
+        }
+    }
+    cancellation.check()?;
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| {
+        counts.ordered_input_sorts += 1;
+        counts.ordered_input_rows += rows.len() as u64;
+    });
+    Ok(())
+}
+
 /// Heap ordering is unstable; callers include source ordinals as the final key
 /// when stable ties are required. Errors stop before any sorted output is used.
 pub(super) fn sort<T: Copy>(
@@ -12,6 +50,8 @@ pub(super) fn sort<T: Copy>(
     mut compare: impl FnMut(T, T) -> Result<Ordering>,
 ) -> Result<()> {
     cancellation.check()?;
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| counts.order_heap_sorts += 1);
     let mut comparisons = 0usize;
     let mut compare = |left, right| {
         if comparisons.is_multiple_of(1024) {

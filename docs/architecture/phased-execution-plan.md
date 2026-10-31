@@ -461,6 +461,12 @@ attribution is complete; compact grouped-state access is retained and merged
 in #1630 at 11.997152207 engine seconds, with all 57 hosted checks passing.
 The adjacent-read experiment is dropped at
 12.028866368 seconds, with accepted sources restored and all evidence preserved.
+Its record is merged in #1631 as `e56cc37d` after all 57 hosted checks pass.
+The [ordered-input experiment](../benchmarks/native-ordered-inputs-2026-10-31.md)
+is retained locally after both complete gates pass: 347 queries at
+**11.979219492 engine seconds** and 48 supplemental workflows at
+**0.920503372 engine seconds**. The analytical baseline advances; hosted
+integration and closeout remain pending. No Full43 is run.
 The guard-only dynamic-source proposal is deferred after tracing its inactive
 execution path. The broader pool covers reusable ordering/preparation,
 encoded reductions, scoped source demand, residual joins, spill merging/lookups,
@@ -589,7 +595,14 @@ visible and independent; this implementation does not automatically close them.
     superseded-artifact retirement. The [adjacent-read experiment](../benchmarks/native-adjacent-parquet-reads-2026-10-31.md)
     is dropped at **12.028866368 engine seconds** with all complete results
     matching; accepted sources and the **11.997152207-second** baseline are
-    restored. Broader shared-owner work remains within item 20
+    restored. Its record is merged in #1631 as `e56cc37d` after all 57 hosted
+    checks pass, with [hosted closeout evidence](../benchmarks/evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json).
+    The subsequent [ordered-input candidate](../benchmarks/native-ordered-inputs-2026-10-31.md)
+    is retained locally at **11.979219492 engine seconds** for the same 347
+    complete results. Its separately frozen 48-workflow gate also passes at
+    **0.920503372 engine seconds**, versus 1.307041040. The new analytical
+    baseline is 11.979219492; hosted integration and closeout remain pending.
+    Broader shared-owner work remains within item 20
     and before the later connector/refresh package; the under-10 target remains open.
     This supersedes the earlier capabilities-first ordering. Status reports must show both tracks;
     none of this performance work moves into items 18/19 or the optional queue.

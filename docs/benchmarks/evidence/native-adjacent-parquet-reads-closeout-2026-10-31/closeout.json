@@ -1,0 +1,46 @@
+{
+  "schema_version": "shardloom.adjacent_reads_hosted_closeout.v1",
+  "status": "passed",
+  "pull_request": {
+    "number": 1631,
+    "url": "https://github.com/depsilon/shardloom/pull/1631",
+    "head": "0127c3dc446a6ac678819c88f83ef047247e12c0",
+    "merge_commit": "e56cc37d13eaadc31421a6e836b6e22bf213b713",
+    "state": "MERGED"
+  },
+  "complete_checks": 57,
+  "outstanding_review_findings": 0,
+  "candidate_disposition": "drop_no_complete_engine_gain",
+  "accepted_baseline_engine_seconds": 11.997152207,
+  "linked_artifacts": {
+    "main_manifest": {
+      "path": "native-adjacent-parquet-reads-2026-10-31/manifest.json",
+      "bytes": 3332467,
+      "sha256": "884c44c8f8df62d87ceba7426c107d9fba669e7818c796c02041fe2f5e4b8380"
+    },
+    "main_acceptance": {
+      "path": "native-adjacent-parquet-reads-2026-10-31/acceptance.json",
+      "bytes": 128879,
+      "sha256": "444670ffc750503e4d59efc0873ed0cadc6bb8cde8b11e6659cd0ec367e9db30"
+    },
+    "verification": {
+      "path": "native-adjacent-parquet-reads-verification-2026-10-31/verification.json",
+      "bytes": 2480,
+      "sha256": "539d07f72deca85a450e0713f57a70b59610eb40090dbd164a619068f37e815c"
+    },
+    "retirement": {
+      "path": "native-adjacent-parquet-reads-retirement-2026-10-31/cleanup.json",
+      "bytes": 1228,
+      "sha256": "271af10b44fbff8018e179ed0c8c83c9c0e8692cb56b0c4aa823d8d75ff2cffd"
+    }
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 11190,
+    "sha256": "7c19d04c086862dd65b54ba257b80b71576816c29bbeb944e49469d5418adbc3",
+    "uncompressed_sha256": "0c3a3a66cbe339b9b1bf790c92c848308a11affe4ef1345a472954f4094f8556"
+  },
+  "query_executions": 0,
+  "full43_run": false,
+  "package_publication_attempted": false
+}

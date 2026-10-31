@@ -133,9 +133,13 @@ impl<'a> Sort<'a> {
                 )?;
             }
         } else {
-            native_relational_order::sort(
+            // build() validated every key and the explicit NULL policy before
+            // retaining these immutable batches.
+            native_relational_order::sort_with_order_check(
                 &mut ordinals.values,
                 context.cancellation(),
+                self.table
+                    .has_uniform_order_domain(self.spec.keys.len(), context)?,
                 |left, right| self.compare_rows(left, right),
             )?;
         }
