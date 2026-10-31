@@ -1,10 +1,11 @@
 # Compact grouped-state acceptance — October 31
 
-The candidate is **retained locally** under the unchanged complete-cohort rule.
+The candidate is **retained and merged** under the unchanged complete-cohort rule.
 Exactly one isolated execution of each of the original **347 queries** produced
 all **12,565 expected rows and schemas**. Native engine time is **11.997152207
 seconds**, against the prior accepted **12.055132613 seconds**: an observed
-reduction of **0.057980406 seconds (0.48%)**. Hosted acceptance remains pending.
+reduction of **0.057980406 seconds (0.48%)**. PR #1630 merges as `3b4c7d92`
+after all 57 hosted checks pass.
 The under-10-engine-second target is still open.
 
 ## Runtime change and its proof
@@ -138,8 +139,9 @@ and evidence directory, engine imports, subprocesses and network connections
 is forbidden. All three checks execute zero queries. The
 [verification record](evidence/native-grouped-state-verification-2026-10-31/verification.json)
 binds these checks, their exact source versions and the failed packaging attempt.
-Hosted acceptance and artifact retirement follow. CG-1 through CG-23, item-20
-capability completion, broader owner experiments and publication remain separate work.
+Hosted acceptance and artifact retirement are recorded below. CG-1 through CG-23,
+item-20 capability completion, broader owner experiments and publication remain
+separate work.
 
 The first hosted native build completed, but its partition preparation rejected
 the new manual grouped-cost probe because the explicit ignored-test inventory
@@ -152,4 +154,29 @@ retains the failing job, exact inventory difference and verification. All 12
 inventory, partition and result-parser tests pass. A broader local run passes
 16 of 17 tests but encounters macOS `PermissionError` during the unchanged
 orphan-child cleanup test; that failure is retained and is not counted as a
-passing suite. No child remains running afterward. Hosted checks still gate merge.
+passing suite. No child remains running afterward. All 57 hosted checks subsequently pass.
+
+## Hosted integration and retirement
+
+[PR #1630](https://github.com/depsilon/shardloom/pull/1630) merges the tested
+head `ebca251b449ac624586228b0535d25e47087fe20` as
+`3b4c7d926fa0ebc5beb6de75de57beed922ee497`. The
+[closeout](evidence/native-grouped-state-closeout-2026-10-31/closeout.json)
+retains the before/after hosted receipts, all 57 successful checks and the
+exact cleanup plan. No outstanding review findings were present at merge.
+
+Retirement removes 2,863 generated files: superseded application/bounded-order
+CLI/library copies and wheels, archived public/cohort/diagnostic output parts,
+and completed source-only verification copies. The current grouped-state
+runtime/wheel, five original Parquet inputs, public summary, all compact
+observations and failure/source evidence remain. Repeated identities,
+closed-handle checks and complete post-retirement grouped-state/cost replay
+pass. The shared compiler cache, unrelated files and storage limits are unchanged;
+no payload backups are created.
+
+The first retirement plan stopped before deletion because it looked for the
+older bounded-order wheel's identity in the later mask cleanup plan. That
+wheel's report belongs to the verified shared-followthrough packet. The
+corrected helper verifies that original packet and the exact report before
+selecting the wheel; the failed receipt and original helper are retained.
+This closeout executes no queries and does not change the accepted timing.

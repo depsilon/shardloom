@@ -12,8 +12,10 @@ merged as `65be06c9d7324de45f0661f8fab9546e2f7d0259` after 57 passing checks.
 Its accepted 347-query total is **12.055132613 engine seconds**, with 12,565
 complete result rows. Preserve its original observations and dropped mechanisms.
 The subsequent [compact grouped-state candidate](../benchmarks/native-grouped-state-access-2026-10-31.md)
-is retained locally at **11.997152207 engine seconds** for the same complete
-cohort; hosted acceptance is pending. This advances the local baseline without
+is retained at **11.997152207 engine seconds** for the same complete
+cohort and merged in #1630 as `3b4c7d92`, with all 57 hosted checks passing.
+The [closeout](../benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json)
+records verified retirement. This advances the accepted baseline without
 rewriting the review baseline or attributing all observed movement to grouping.
 The [prior follow-through closeout](../benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json)
 records hosted integration, generated-artifact retirement and saved predicate
@@ -76,7 +78,7 @@ a production speedup. The broader owner candidates below remain open.
 | --- | --- | --- |
 | Single-comparison and null-test masks — dropped | The experiment extended `native_relational_predicate_block` to avoid Boolean-array construction and scalar selection above scan pushdown. | Complete correctness, work and ownership controls pass, but 12.199579628 engine seconds loses to 12.055132613. Candidate source removed; retain the [complete experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md). Do not revive the same mechanism from selected faster cases. |
 | Grouped cost attribution — complete | Separate source intake, key preparation, group interning and aggregate updates inside the current grouped owner. | All 48 cases/1,920 rows pass; typed updates contribute 9.41% of this instrumented sample. The baseline is unchanged. See the [complete attribution](../benchmarks/native-grouped-cost-2026-10-31.md). |
-| Compact grouped-state access and proof consumption — retained locally | Bind a leased single-page state slice before typed traversal and consume the existing paired-extrema count-headroom proof once per non-null row. | All 347 results pass; 11.997152207 engine seconds is lower than 12.055132613. Boundary, overflow, cancellation, ownership, public-interface, package and compiled-code controls pass. Preserve the [complete observation and regressions](../benchmarks/native-grouped-state-access-2026-10-31.md); hosted acceptance is pending. |
+| Compact grouped-state access and proof consumption — retained and merged | Bind a leased single-page state slice before typed traversal and consume the existing paired-extrema count-headroom proof once per non-null row. | All 347 results pass; 11.997152207 engine seconds is lower than 12.055132613. Boundary, overflow, cancellation, ownership, public-interface, package and compiled-code controls pass. Preserve the [complete observation and regressions](../benchmarks/native-grouped-state-access-2026-10-31.md); #1630 merges as `3b4c7d92` after all 57 checks pass. |
 | Complete-group worker reuse — deferred for current workload | Reuse existing complete-key routing, persistent workers and bounded outstanding jobs for general relational aggregation. | The 48-case sample records about 3 microseconds per typed-update scope and 0.32% update share for selective cases; it does not justify this route now. A larger workload needs separate evidence that updates can repay coordination. Give each complete group one exclusive state owner and preserve row/error order, input lifetime and charged routing storage. PulseWeave/capillary control uses the current coordinator, not a second pool. |
 
 ## Broader execution and source candidates
