@@ -138,3 +138,41 @@ belong before/after execution. Do not manipulate caches, add pacing or run a
 competitor. Retain portable complete evidence before retiring temporary payloads.
 Full43 stays held until item 18; CG-1 through CG-23 and publication remain separate
 gates. The under-ten-second objective is not an acceptance claim.
+
+## Supplemental fixture declaration
+
+Before either runtime executes, the independent generator in
+[`native_ordered_input_cases.py`](../../python/tests/native_ordered_input_cases.py)
+defines all 48 cases in size-major order. Each input has nonnullable `id: u64`,
+`grp: i16` and UTF-8 `payload`, plus nullable `ord: i64`, `minor: i32`,
+`value: i64` and UTF-8 `text`. Seven groups, repeated ordering keys, NULL keys,
+NULL values, empty strings, Unicode and integers above 2^53 are explicit.
+Physical source position resolves ties; logical `id` is deliberately not a
+tie-breaking query key.
+
+The four full sorts project/rename `ord` to `ordered_key`; the mixed variant
+orders that key ascending with NULLs last and `minor` descending with NULLs
+first. Partitioned windows compute `ROW_NUMBER` and preserve source order.
+As-of operations preserve a separate reverse-logical-order probe input and
+choose the last right-source occurrence at the greatest eligible key.
+Collections produce complete ordered nullable integer arrays and joined text.
+Selectors combine FIRST, LAST, ARG_MIN and ARG_MAX with aggregate-local order.
+Ordered and shuffled variants retain the same logical population. Reversed
+sort input reverses ties as well as keys, making stability observable.
+
+Inputs are fresh Parquet files with Zstd compression, dictionaries and 2,048-row
+row groups, reopened through PyArrow for complete schema/value comparison.
+Python standard-library operations generate every complete reference before
+native execution; PyArrow performs file I/O only. Exact SQL, references, inputs,
+driver and frozen Python harness identities are retained in the supplemental
+protocol. Each operation runs through native Python SQL with a fresh session;
+the result is exported only after its plan/session are released. The existing
+standard supervisor and lightweight guard provide deadlines, storage limits,
+process cleanup and observations. The unchanged 347 runner is separate.
+
+The accepted binary's existing build/source manifest remains authoritative.
+The new fixture and observer are explicitly outside that earlier build and
+receive their own immutable identities. Pure reference controls check complete
+populations, NULL and stable-tie expectations, and compare the as-of bisect
+reference against an exhaustive independent selection on small inputs. No
+native query or runtime change is needed to prepare these controls.
