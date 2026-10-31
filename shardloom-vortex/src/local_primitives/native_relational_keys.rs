@@ -9,6 +9,9 @@ mod demand_hash_tests;
 #[path = "native_relational_nested_keys_tests.rs"]
 mod nested_tests;
 #[cfg(test)]
+#[path = "native_relational_order_domain_tests.rs"]
+mod order_domain_tests;
+#[cfg(test)]
 #[path = "native_relational_typed_keys_tests.rs"]
 mod typed_tests;
 #[cfg(test)]
@@ -340,6 +343,37 @@ impl KeyColumn {
             Self::Variable(values) => values.rows,
             Self::Decimal(values) => values.values.len(),
             Self::Nested(values) => values.len(),
+        }
+    }
+
+    /// Metadata proof only: after complete value validation, matching flat
+    /// domains cannot introduce a comparison error for in-bounds rows. Nested
+    /// and mixed domains retain their original fallible comparison sequence.
+    pub(super) fn same_flat_order_domain(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null(_), Self::Null(_)) | (Self::Boolean { .. }, Self::Boolean { .. }) => true,
+            (Self::Numeric(left), Self::Numeric(right))
+            | (Self::Date(left), Self::Date(right))
+            | (Self::Timestamp(left), Self::Timestamp(right)) => {
+                left.ptype() == right.ptype() && left.float_policy() == right.float_policy()
+            }
+            (Self::Variable(left), Self::Variable(right)) => left.binary == right.binary,
+            (Self::Decimal(left), Self::Decimal(right)) => left.dtype == right.dtype,
+            (
+                Self::Temporal {
+                    values: left,
+                    dtype: left_dtype,
+                },
+                Self::Temporal {
+                    values: right,
+                    dtype: right_dtype,
+                },
+            ) => {
+                left_dtype == right_dtype
+                    && left.ptype() == right.ptype()
+                    && left.float_policy() == right.float_policy()
+            }
+            _ => false,
         }
     }
 

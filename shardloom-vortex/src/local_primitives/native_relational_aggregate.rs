@@ -24,6 +24,10 @@ mod compact;
 #[path = "native_relational_aggregate_compact_tests.rs"]
 mod compact_tests;
 
+#[cfg(test)]
+#[path = "native_relational_ordered_output_tests.rs"]
+mod ordered_output_tests;
+
 #[path = "native_relational_aggregate_extrema.rs"]
 mod extrema;
 
@@ -928,6 +932,11 @@ impl<'a> Aggregate<'a> {
         let count = self.groups.as_ref().map_or(1, RowSet::rows);
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(count.min(batch_rows))?;
+        let collection_comparisons_prevalidated = if let Some(collections) = &self.collections {
+            collections.order_domains_prevalidated(self.spec, context)?
+        } else {
+            false
+        };
         for start in (0..count).step_by(batch_rows) {
             context.check_cancelled()?;
             let end = count.min(start.saturating_add(batch_rows));
@@ -948,6 +957,7 @@ impl<'a> Aggregate<'a> {
                         index,
                         measure,
                         start..end,
+                        collection_comparisons_prevalidated,
                         context,
                     )?);
                     continue;
@@ -1041,13 +1051,20 @@ impl<'a> Aggregate<'a> {
         index: usize,
         measure: &Measure,
         groups: std::ops::Range<usize>,
+        collection_comparisons_prevalidated: bool,
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         if measure.function.is_collection() {
             self.collections
                 .as_ref()
                 .ok_or_else(|| failed("collection aggregate state is absent"))?
-                .finish(index, measure, groups, context)
+                .finish(
+                    index,
+                    measure,
+                    groups,
+                    collection_comparisons_prevalidated,
+                    context,
+                )
         } else {
             self.selections
                 .as_ref()

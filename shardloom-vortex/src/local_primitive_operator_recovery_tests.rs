@@ -86,6 +86,8 @@ struct ChildOwner(Child);
 
 impl Drop for ChildOwner {
     fn drop(&mut self) {
+        // Child::wait closes its stdin; retain the pipe until termination.
+        let _stdin = self.0.stdin.take();
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
@@ -171,6 +173,8 @@ pub(crate) fn recover_operator(
             .contains("workspace is active")
     );
     assert_eq!(files(&directory), before);
+    // Prevent EOF from unwinding the child and deleting the abandoned runs.
+    let _stdin = child.0.stdin.take();
     child.0.kill().unwrap();
     assert_eq!(child.0.wait().unwrap().signal(), Some(9));
     assert_eq!(files(&directory), before);

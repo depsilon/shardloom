@@ -20,6 +20,17 @@ rewriting the review baseline or attributing all observed movement to grouping.
 The [prior follow-through closeout](../benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json)
 records hosted integration, generated-artifact retirement and saved predicate
 attribution without new query execution.
+The rejected adjacent-read experiment is merged in #1631 as `e56cc37d`, after
+all 57 hosted checks pass. Its
+[closeout](../benchmarks/evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json)
+links the original rejection and verified retirement; the accepted baseline remains unchanged.
+
+The subsequent [ordered-input experiment](../benchmarks/native-ordered-inputs-2026-10-31.md)
+passes both complete-cohort gates: **11.979219492 engine seconds** for the
+unchanged 347 queries and **0.920503372 engine seconds** for the separately
+declared 48 workflows, against 11.997152207 and 1.307041040 respectively.
+The analytical comparison baseline advances to this retained candidate. These
+are single-pass observations; hosted integration and closeout remain pending.
 
 This queue stays in item 20, before connector/refresh completion and item 18.
 Item 18 still owns comprehensive I/O format/interface acceptance. The later
@@ -92,7 +103,7 @@ hypotheses, as are fewer spill generations and bulk winning-span processing.
 | Candidate | Existing owner and work to remove | Admission and evidence |
 | --- | --- | --- |
 | Typed ordering beyond Top-K | Reuse typed key views/comparisons across full sorts, windows, as-of preparation and spill. | Preserve NULL placement, direction, stable ties and floating normalization. Do not blindly grow K-location metadata to N; reuse ordinals and charge any additional locations. The existing ten bounded-order cases do not cover this extension. |
-| Order-aware shared sorting — prospective experiment selected | Avoid unconditional heap sorting for already ordered validated input in `native_relational_order`; screen monotonic-run merging separately. | The [October 31 contract](native-ordered-inputs-2026-10-31.md) restricts comparison reordering to completely validated matching flat domains and pure group ordinals. It preserves the ordinary sorter on decline and requires both the unchanged 347 observation and a separate 48-workflow full-sort/window/as-of/aggregate cohort. No speedup is yet measured. |
+| Order-aware shared sorting — retained locally | Avoid unconditional heap sorting for already ordered validated input in `native_relational_order`; screen monotonic-run merging separately. | The [October 31 contract](native-ordered-inputs-2026-10-31.md) restricts comparison reordering to completely validated matching flat domains and pure group ordinals. Both complete gates pass: 347 queries at 11.979219492 engine seconds versus 11.997152207, and 48 full-sort/window/as-of/aggregate workflows at 0.920503372 versus 1.307041040. All complete results, ownership and mechanism controls pass; preserve slower cases and the [single-pass limits](../benchmarks/native-ordered-inputs-2026-10-31.md). Hosted integration remains pending. |
 | Repeated input-view preparation | Reuse a prepared input view within one batch across distinct expressions, separately from completed-expression reuse. | Key identity includes exact array/slice, dtype, float policy, preparation purpose and selected domain. Populate lazily at first evaluation and release before producer return. Demonstrate repeated preparation/canonicalization and bound retained credit; single-use inputs keep ordinary preparation. |
 | Encoded composed reductions | Route eligible Constant/RunEnd inputs to the existing encoded reduction owner before primitive preparation. | Begin with exact count, extrema and eligible distinct membership. Preserve ordered SUM/AVG and group/selection domains. Record actual physical representation and avoided primitive work; a Parquet dictionary page alone proves no activation. Keep existing provider declines. |
 | Scoped dynamic-source demand — guard-only proposal deferred | The incomplete-analysis guard runs in static preparation; dynamic execution binders copy prepared source owners into an already-created input executor without calling that guard. | A guard-only patch cannot activate on this path. Execution-phase narrowing needs an explicit contract for consumed sources, replay, root discovery callbacks and executor ownership. Preserve reachable schemas, aliases/shared sources, outer fields and first errors. No patch or query experiment was performed; see the [source-path screen](native-adjacent-parquet-reads-2026-10-31.md#current-operation-and-selection). |

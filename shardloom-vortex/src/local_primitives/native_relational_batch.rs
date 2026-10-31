@@ -276,6 +276,43 @@ impl Table {
             .map(|segment| (segment.start, &segment.batch))
     }
 
+    /// Establish only the metadata half of an ordered-input proof. Owners must
+    /// already have validated every compared value in their original order.
+    /// No new key preparation, row lookup, allocation or payload visit occurs.
+    pub(super) fn has_uniform_order_domain(
+        &self,
+        keys: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
+        context.check_cancelled()?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.order_domain_checks += 1);
+        let Some(first) = self.segments.values.first() else {
+            return Ok(true);
+        };
+        let Some(reference) = first.batch.keys.values.get(..keys) else {
+            return Ok(false);
+        };
+        for (batch_index, (_, batch)) in self.batches().enumerate() {
+            if batch_index.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            let Some(columns) = batch.keys.values.get(..keys) else {
+                return Ok(false);
+            };
+            for (key_index, (column, first)) in columns.iter().zip(reference).enumerate() {
+                if key_index.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                if column.len() != batch.array.len() || !column.same_flat_order_domain(first) {
+                    return Ok(false);
+                }
+            }
+        }
+        context.check_cancelled()?;
+        Ok(true)
+    }
+
     pub(super) fn push(&mut self, batch: Batch) -> Result<std::ops::Range<usize>> {
         let start = self.rows;
         let end = start

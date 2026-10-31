@@ -437,6 +437,10 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_adjacent_reads_packet.py -v
       - name: Rejected adjacent-read complete saved-result replay
         run: python -B scripts/verify_adjacent_reads_packet.py docs/benchmarks/evidence/native-adjacent-parquet-reads-2026-10-31
+      - name: Ordered-input corruption controls
+        run: python -B -m unittest discover -s scripts -p test_ordered_input_packet.py -v
+      - name: Ordered-input complete saved-result replay
+        run: python -B scripts/verify_ordered_input_packet.py docs/benchmarks/evidence/native-ordered-inputs-2026-10-31
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

@@ -75,10 +75,20 @@ fn native_relational_sort_resolves_each_row_once_for_tied_multikey_comparisons()
             let observation = super::super::native_relational_observation::Session::start();
             let actual = sort.ordered_rows(context)?;
             #[cfg(debug_assertions)]
-            assert_eq!(
-                observation.finish().row_location_searches,
-                comparison_count * 2
-            );
+            {
+                let counts = observation.finish();
+                let adjacent = values
+                    .windows(2)
+                    .position(|pair| pair[0] > pair[1])
+                    .unwrap()
+                    + 1;
+                assert_eq!(counts.order_check_comparisons, adjacent as u64);
+                assert_eq!(counts.order_heap_sorts, 1);
+                assert_eq!(
+                    counts.row_location_searches,
+                    (comparison_count + adjacent as u64) * 2
+                );
+            }
             assert_eq!(actual.values, expected);
             Ok(())
         })
@@ -108,6 +118,8 @@ fn native_relational_sort_validates_payload_after_the_consumer_has_enough_rows()
             let mut sort = Sort::new(&binding, context.memory())?;
             sort.build(array, context)?;
             let mut emitted = 0;
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
             let error = sort
                 .finish(context, 1, &mut |batch| {
                     // A downstream LIMIT has no remaining output demand after
@@ -117,6 +129,12 @@ fn native_relational_sort_validates_payload_after_the_consumer_has_enough_rows()
                     Ok(())
                 })
                 .unwrap_err();
+            #[cfg(debug_assertions)]
+            {
+                let counts = observation.finish();
+                assert_eq!(counts.ordered_input_sorts, 1);
+                assert_eq!(counts.order_heap_sorts, 0);
+            }
             assert_eq!(emitted, 1);
             assert!(
                 error.to_string().contains("finite declared dtype"),
@@ -147,12 +165,95 @@ fn native_relational_sort_validates_every_key_before_ordering() {
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let mut sort = Sort::new(&binding, context.memory())?;
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
             let error = sort.build(array, context).unwrap_err();
+            #[cfg(debug_assertions)]
+            assert_eq!(observation.finish().order_checks, 0);
             assert!(error.to_string().contains("nonfinite"), "{error}");
             assert_eq!(sort.table.rows(), 0);
             Ok(())
         })
         .unwrap();
+}
+
+#[test]
+fn ordered_input_full_sort_declines_cross_batch_types_before_the_unchanged_heap_error() {
+    use vortex::array::arrays::VarBinViewArray;
+    let array = |key: ArrayRef| {
+        let length = key.len();
+        StructArray::new(
+            FieldNames::from(["key"]),
+            vec![key],
+            length,
+            Validity::NonNullable,
+        )
+        .into_array()
+    };
+    let first = array(PrimitiveArray::from_iter([0i64, 1]).into_array());
+    let later = array(VarBinViewArray::from_iter_str(["x", "y"]).into_array());
+    let binding = spec(&first, &["key"]);
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut sorter = Sort::new(&binding, context.memory())?;
+            sorter.build(first, context)?;
+            sorter.build(later, context)?;
+            let mut original = (0..4).collect::<Vec<_>>();
+            let expected =
+                native_relational_order::sort(&mut original, context.cancellation(), |a, b| {
+                    sorter.compare_rows(a, b)
+                })
+                .unwrap_err();
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
+            let Err(actual) = sorter.ordered_rows(context) else {
+                panic!("mixed comparison domains must retain their original error");
+            };
+            assert_eq!(actual.to_string(), expected.to_string());
+            #[cfg(debug_assertions)]
+            {
+                let counts = observation.finish();
+                assert_eq!(counts.order_checks, 0);
+                assert_eq!(counts.order_heap_sorts, 1);
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn ordered_input_full_sort_keeps_memory_denial_before_comparison() {
+    let array = StructArray::new(
+        FieldNames::from(["key"]),
+        vec![PrimitiveArray::from_iter(0_i64..33).into_array()],
+        33,
+        Validity::NonNullable,
+    )
+    .into_array();
+    let binding = spec(&array, &["key"]);
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut sorter = Sort::new(&binding, context.memory())?;
+            sorter.build(array, context)?;
+            let snapshot = memory.snapshot();
+            let _occupied = memory.reserve(snapshot.limit_bytes - snapshot.reserved_bytes)?;
+            #[cfg(debug_assertions)]
+            let observation = super::super::native_relational_observation::Session::start();
+            assert!(sorter.ordered_rows(context).is_err());
+            #[cfg(debug_assertions)]
+            assert_eq!(observation.finish().order_checks, 0);
+            assert!(memory.snapshot().denied_reservations > 0);
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

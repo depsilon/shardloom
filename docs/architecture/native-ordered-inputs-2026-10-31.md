@@ -176,3 +176,34 @@ receive their own immutable identities. Pure reference controls check complete
 populations, NULL and stable-tie expectations, and compare the as-of bisect
 reference against an exhaustive independent selection on small inputs. No
 native query or runtime change is needed to prepare these controls.
+
+## Implementation clarification before candidate execution
+
+Collection completion receives one output chunk of groups at a time. Review of
+the first implementation found that placing its metadata proof at that boundary
+could repeatedly scan every retained batch. The corrected implementation proves
+all collection states before the aggregate's output loop and passes one stack
+boolean to each chunk. If any state's domain is unproven, all collection measures
+conservatively use the original sorter. No cache, retained state or allocation is
+added. Window groups similarly share their retained table's metadata proof.
+
+Regression checks cover multiple collection states and window order groups,
+one-row input batches and output batches of one, seven and 33 rows. They assert
+complete values, fixed metadata-check counts and full memory-credit release.
+The first full native test pass remains recorded, and checks run again for the
+correction. Validation domains, query declarations, reference values and both
+prospective complete-cohort benefit gates are unchanged; no candidate benchmark
+has executed before this correction.
+
+## Recorded complete-cohort outcome
+
+The candidate is retained under both original gates. The unchanged 347-query
+cohort passes all 12,565 result rows at **11.979219492 engine seconds**, against
+11.997152207. The separate 48-workflow cohort passes all 557,420 rows at
+**0.920503372 engine seconds**, against 1.307041040. Each candidate cohort ran
+once in isolation. The [complete report](../benchmarks/native-ordered-inputs-2026-10-31.md)
+preserves slower cases/families, original failures, corrected test fixtures and
+the single-observation limits. Portable replay confirms both outcomes without
+new queries. Hosted integration and closeout remain pending; Full43 remains held
+until item 18. The prospective contract and original frozen snapshots remain
+unchanged as historical evidence.

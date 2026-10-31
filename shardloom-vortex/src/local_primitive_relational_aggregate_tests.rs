@@ -4,6 +4,8 @@ use super::*;
 mod distinct_additive_tests;
 #[path = "local_primitive_relational_grouping_tests.rs"]
 mod grouping_tests;
+#[path = "local_primitive_relational_ordered_input_tests.rs"]
+mod ordered_input_tests;
 #[path = "local_primitive_relational_quantile_tests.rs"]
 mod quantile_tests;
 #[path = "local_primitive_relational_ordered_selector_tests.rs"]

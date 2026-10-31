@@ -125,6 +125,13 @@ Parquet inputs, compact observations, both public summaries, failures and
 source evidence remain. Complete replay passes afterward; no payload backup,
 storage-limit change or additional query execution occurs.
 
+PR [#1631](https://github.com/depsilon/shardloom/pull/1631) is merged as
+`e56cc37d13eaadc31421a6e836b6e22bf213b713`, after all 57 hosted checks pass at
+`0127c3dc446a6ac678819c88f83ef047247e12c0`, with no outstanding review findings.
+The [hosted closeout](evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json)
+binds both check snapshots to the existing complete replay, verification and
+retirement records. It does not change the rejected disposition or accepted baseline.
+
 ```bash
 python -B scripts/verify_adjacent_reads_packet.py docs/benchmarks/evidence/native-adjacent-parquet-reads-2026-10-31
 python -B -m unittest discover -s scripts -p test_adjacent_reads_packet.py -v

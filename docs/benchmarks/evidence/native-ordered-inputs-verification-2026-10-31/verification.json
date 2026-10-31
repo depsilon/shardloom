@@ -1,0 +1,91 @@
+{
+  "schema_version": "shardloom.ordered_input_verification.v1",
+  "status": "passed",
+  "main_manifest_sha256": "3962bd8db9aaa5cbe8b24556e76c195acb35ba7305c1949799c3c0f362596312",
+  "main_acceptance_sha256": "35e7ceec8267cc1d41ab81282e10f507874086f20bdc892d64bb2944fa5351e2",
+  "disposition": "retain_both_complete_cohort_gains",
+  "original_failed_attempts": [
+    "o005-ordered-input-native-focused.json",
+    "o008-ordered-input-native-clippy.json",
+    "o014-ordered-input-native-workspace.json",
+    "o026-ordered-input-public-results.json",
+    "o032-ordered-input-assembly.json"
+  ],
+  "corruption_tests": 14,
+  "process_gates": [
+    {
+      "name": "o040-ordered-input-portable-build.json",
+      "sha256": "f15d507999dc738ebbaa2f9a242691a4594d12da87eb17cda676f3e1564db731",
+      "status": "passed",
+      "log_sha256": "f0fac2471ce3f1bc1c0bf9ee427e8aab006056dbc85c050748b620e4f314b1b1"
+    },
+    {
+      "name": "o041-ordered-input-portable-replay.json",
+      "sha256": "a0bfd238b35bebac10476c0726df4ad98bef945a5ce5dbe506f6a1b67fb98951",
+      "status": "passed",
+      "log_sha256": "af5a91433498d6c190de899c2b5aff149082bb9a1cc9b248d58c6378f26081fa"
+    },
+    {
+      "name": "o042-ordered-input-corruption-controls.json",
+      "sha256": "5ab735c39c4e14a0eaa4fc8d0749dd2f0c56fbb76f66363d122df5a9d419ea6c",
+      "status": "passed",
+      "log_sha256": "fc8db9c6c3655c9c1527a57a433cd16ada128978712a04a4392ce02b583c4293"
+    },
+    {
+      "name": "o043-ordered-input-source-only-replay.json",
+      "sha256": "e351abe1fc90a61940e7592715ce9faebbbd26f8f6e5fe0dba018056d4f7b147",
+      "status": "passed",
+      "log_sha256": "10e25adf3d4a8741283e751a00e30c2711e0c64fc15b55a6a6add301ae554fdc"
+    },
+    {
+      "name": "o044-ordered-input-source-only-all-paths.json",
+      "sha256": "f5875da2c12abb32b9ccf20e86a1e2a16cb0021918096460d4a685057dbcc279",
+      "status": "passed",
+      "log_sha256": "53b66f273d8cf932f9055674b11c411780b2d32ed61105dce18f89f13c2b67b7"
+    },
+    {
+      "name": "o045-ordered-input-ci-wiring.json",
+      "sha256": "8bfb10faa5fbfc136c8eb4fae04e34aedf819301a2c13a6a1ebeb5fa4ccd4e57",
+      "status": "passed",
+      "log_sha256": "af561b242d47e0e95a26ba72f4b324d42ec5a957761c88b5c9839289c28ddda2"
+    },
+    {
+      "name": "o046-ordered-input-public-status.json",
+      "sha256": "5b9cb399d67a7200f3dba6ffa74d461d02c7018f3db251c4035c8a7365db692f",
+      "status": "passed",
+      "log_sha256": "b10122535445c45fb30425edbeb855c8e8d83b596fe4a69f2ed3ea730c02199f"
+    }
+  ],
+  "source_only": {
+    "acceptance_sha256": "35e7ceec8267cc1d41ab81282e10f507874086f20bdc892d64bb2944fa5351e2",
+    "all_archived_original_paths_forbidden": true,
+    "copied_driver": {
+      "bytes": 3803,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/replay-ordered-input-source-only-r1/prove-all-paths.py",
+      "sha256": "9d849c2f620dd6b79ec38715be5b521a9f68a3511304aac88c2a6369058d9253"
+    },
+    "copied_files": 348,
+    "corruption_tests": 14,
+    "engine_imports_forbidden": true,
+    "external_payload_paths": 296,
+    "guard_scope_correction": "also reject original inputs outside the task workspace",
+    "initial_scope_proof": {
+      "bytes": 327,
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-source-only-proof.json",
+      "sha256": "9373e196c34503c77b246d87d05b89cb37359c21f258a92ef5c11a18bdf3a537"
+    },
+    "new_query_executions": 0,
+    "original_path_rejection_probes": 9185,
+    "original_source_and_data_access_forbidden": true,
+    "source_manifest_sha256": "3962bd8db9aaa5cbe8b24556e76c195acb35ba7305c1949799c3c0f362596312",
+    "status": "passed",
+    "subprocess_and_network_forbidden": true
+  },
+  "packet": {
+    "file": "verification.json.gz",
+    "bytes": 64824,
+    "sha256": "07a971b8e4e651164f296fccaca8d935ac5589137a650e3c649bde60ebf5241a",
+    "uncompressed_sha256": "41e1c8046617f1aa2c914ee9e0be5c64bced2d926d3b87630e1d7e00f902c9fc"
+  },
+  "query_executions": 0
+}
