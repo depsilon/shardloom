@@ -282,6 +282,10 @@ impl<'a> Aggregate<'a> {
         array: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        #[cfg(test)]
+        let _cost = super::native_relational_grouped_cost::scope(
+            super::native_relational_grouped_cost::Phase::StateReservation,
+        );
         let memory = context.memory();
         if let Some(groups) = &self.groups {
             let count = groups
@@ -493,6 +497,10 @@ impl<'a> Aggregate<'a> {
         batch_rows: usize,
         accumulate_distinct_values: bool,
     ) -> Result<()> {
+        #[cfg(test)]
+        let _cost = super::native_relational_grouped_cost::scope(
+            super::native_relational_grouped_cost::Phase::AggregateRemainder,
+        );
         context.check_cancelled()?;
         if self.spec.measures.is_empty()
             && let Some(groups) = &mut self.groups
@@ -593,6 +601,10 @@ impl<'a> Aggregate<'a> {
                 prepared = None;
                 continue;
             }
+            #[cfg(test)]
+            let preparation_cost = super::native_relational_grouped_cost::scope(
+                super::native_relational_grouped_cost::Phase::MeasurePreparation,
+            );
             let column = measure
                 .column
                 .as_ref()
@@ -629,7 +641,13 @@ impl<'a> Aggregate<'a> {
             let validity = prepared
                 .as_ref()
                 .and_then(|column| column.validity.as_ref());
+            #[cfg(test)]
+            drop(preparation_cost);
             if let Some(table) = &mut self.compact {
+                #[cfg(test)]
+                let _cost = super::native_relational_grouped_cost::scope(
+                    super::native_relational_grouped_cost::Phase::TypedUpdates,
+                );
                 if matches!(measure.function, Function::Min | Function::Max)
                     && let Some(KeyColumn::Numeric(owner)) = values
                 {
@@ -679,6 +697,10 @@ impl<'a> Aggregate<'a> {
                 }
                 continue;
             }
+            #[cfg(test)]
+            let _cost = super::native_relational_grouped_cost::scope(
+                super::native_relational_grouped_cost::Phase::OtherUpdates,
+            );
             if measure.function.is_quantile() {
                 self.quantiles
                     .as_mut()
@@ -899,6 +921,10 @@ impl<'a> Aggregate<'a> {
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        #[cfg(test)]
+        let _cost = super::native_relational_grouped_cost::scope(
+            super::native_relational_grouped_cost::Phase::Finalization,
+        );
         let count = self.groups.as_ref().map_or(1, RowSet::rows);
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(count.min(batch_rows))?;
@@ -998,7 +1024,13 @@ impl<'a> Aggregate<'a> {
             )
             .map_err(vortex_error)?
             .into_array();
+            #[cfg(test)]
+            let downstream_cost = super::native_relational_grouped_cost::scope(
+                super::native_relational_grouped_cost::Phase::DownstreamExcluded,
+            );
             consume(output)?;
+            #[cfg(test)]
+            drop(downstream_cost);
             context.check_cancelled()?;
         }
         Ok(())

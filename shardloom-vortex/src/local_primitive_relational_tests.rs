@@ -35,6 +35,9 @@ mod dynamic_tests;
 mod engine_cost_tests;
 #[path = "local_primitive_relational_expression_tests.rs"]
 mod expression_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_grouped_cost_tests.rs"]
+mod grouped_cost_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]
 mod join_condition_tests;
 #[path = "local_primitive_relational_join_spill_tests.rs"]

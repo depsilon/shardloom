@@ -21,6 +21,29 @@ use vortex::{
     mask::Mask,
 };
 
+// Select the representation once, outside the row loop. Expanding the same
+// body for a slice and DensePages keeps indexing static without copying state
+// or adding a per-row enum/trait-object dispatch.
+macro_rules! bind_states {
+    ($pages:expr, $states:ident, $body:block) => {{
+        let pages = &mut $pages;
+        if let Some($states) = pages.single_page_mut() {
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record(|counts| {
+                counts.aggregate_typed_contiguous_state_binds += 1;
+            });
+            $body
+        } else {
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record(|counts| {
+                counts.aggregate_typed_paged_state_binds += 1;
+            });
+            let $states = pages;
+            $body
+        }
+    }};
+}
+
 #[path = "native_relational_aggregate_typed_pair.rs"]
 mod pair;
 
