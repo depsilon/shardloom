@@ -60,6 +60,7 @@
     "local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen",
     "local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen",
     "local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen",
+    "local_primitives::prepared_relational::tests::grouped_cost_tests::native_grouped_cost_attribution",
     "local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen",
     "local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen",
     "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
