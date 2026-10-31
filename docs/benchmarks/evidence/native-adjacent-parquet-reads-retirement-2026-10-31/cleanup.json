@@ -1,0 +1,32 @@
+{
+  "schema_version": "shardloom.adjacent_reads_retirement_summary.v1",
+  "status": "passed",
+  "candidate_disposition": "drop_no_complete_engine_gain",
+  "main_manifest_sha256": "884c44c8f8df62d87ceba7426c107d9fba669e7818c796c02041fe2f5e4b8380",
+  "main_acceptance_sha256": "444670ffc750503e4d59efc0873ed0cadc6bb8cde8b11e6659cd0ec367e9db30",
+  "cleanup": {
+    "regular_files": 12351,
+    "regular_bytes": 1070783494,
+    "symlinks": 3,
+    "kept_grouped_state_runtime": "grouped-state-release-r1",
+    "kept_grouped_state_wheel": "installed-grouped-state-r1/dist",
+    "source_inputs_retained": true,
+    "all_proofs_unchanged": true,
+    "complete_replay_after_retirement": true,
+    "payload_backups_created": false
+  },
+  "cleanup_plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 835316,
+    "sha256": "eb15b0305ea1a4717868e082aceab32f5115a090117fd1881cb425d4b1d25cdf"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 15596,
+    "sha256": "1ec00fc2a026b533290d86f52fe1d9327811230132d1f018ccd17c514c5d3819",
+    "uncompressed_sha256": "7f12a5d70ff3fba94664e4ae6f6c1ecca1e76c0e95e6775f640ecb89ff47b9e7"
+  },
+  "query_executions": 0,
+  "full43_run": false,
+  "package_publication_attempted": false
+}

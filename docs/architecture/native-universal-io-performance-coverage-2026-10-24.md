@@ -69,6 +69,46 @@ timings. Item 19 extends these same obligations to newly admitted rich types.
 The subsequent broader scenario campaign follows item 19, before Foundry;
 it does not defer this package's own format/interface acceptance or the 1.1.0 gate.
 
+The subsequent October 30 direct-source clarification makes the acceptance
+objective explicit: **ordinary queries over fresh original sources must reach
+every applicable shared native optimization without requiring a complete prepared
+input artifact, and result format must remain independently selectable.**
+The existing direct-Parquet SQL/collect route is the starting point. Internal
+Vortex arrays do not require a durable Vortex input or output file.
+
+Begin with a source-capability and strategy audit of the current shared operators
+and prepared-file count, filtered-count, aggregate, projection and sorting
+providers. Record each strategy's exact metadata, representation, row-identity,
+validation and ownership prerequisites. Connect reusable computation to direct
+sources where those prerequisites are proved; preserve genuinely file-specific
+requirements. Removing a prepared-file admission guard alone is insufficient.
+Exact metadata `COUNT(*)` is the first bounded candidate: define metadata
+validity, source generations, multiple-file accumulation, overflow and validation
+scope before admitting a row-free source. Filtered counts and `COUNT(column)`
+need separate semantic proofs.
+
+Complete this direct-source outcome with:
+
+- Actual read/decode/copy/allocation and operator-work evidence, including
+  dictionary, validity and original-width preservation where readers expose it.
+  A post-decode selection does not establish fewer source reads.
+- Ordinary demand-aware native batches for the other supported adapters, with
+  explicit text parsing/schema costs and format-specific limitations.
+- Proof of the actual selected strategy, original source identity and absence of
+  required prepared-input creation or substitution. An input-format label alone
+  cannot prove direct execution when a validated prepared artifact may be reused.
+- Direct and explicitly prepared controls on the same runtime when their costs
+  are compared; historical prepared-file results do not certify a fresh direct path.
+- Independent collected output and supported writers, plus complete large
+  write/reopen and multi-output controls. Small ClickBench results do not certify
+  bulk writer throughput or make an output-format change an input-cost remedy.
+- Runner help, examples and routine invocation that unambiguously select the
+  intended original-Parquet route and retain its actual source-strategy evidence.
+
+Use focused source/operator controls and saved evidence during development.
+The existing Full43 hold remains until this item's format/interface acceptance
+is complete; this clarification does not authorize another Full43 run now.
+
 Reuse source-encoding translation accepted by the preceding ingestion and
 analytical items, carrying its representation capabilities through the current
 shared native consumers. Extend proved type/validity/dictionary/
@@ -93,8 +133,8 @@ The #1583 provider-selection and scalar-writer repairs are completed foundations
 The October 25 addition originally placed explicit multi-output reuse in item
 15, whose implementation has since been dropped. Ground the one-producer
 contract against current shared producer/replay owners here; do not assume that
-discarded implementation survives or restore it unchanged. Immediate I/O work
-starts with bulk writer policy. Rich ORC output, long values, target-aware
+discarded implementation survives or restore it unchanged. After the source-capability
+audit above, the immediate writer work starts with bulk writer policy. Rich ORC output, long values, target-aware
 conversion and streaming JSON follow. Selective first-use reading, dataset
 layouts, variants and enterprise,
 table and transport adapters remain later implementation groups; they must not

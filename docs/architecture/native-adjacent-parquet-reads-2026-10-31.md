@@ -113,3 +113,16 @@ case/family regressions, partial attempts, changed supervision and failed gates;
 request reduction alone cannot retain a slower complete query cohort. Full43
 stays held until item 18. The broader item-20 queue and CG-1 through CG-23 remain
 separate obligations, with no publication authorized here.
+
+## Recorded disposition — October 31
+
+The experiment above is **dropped**. Its one complete 347-query observation
+passes all 12,565 rows but records 12.028866368 engine seconds against
+11.997152207. Requests fall in 16 cases, with unchanged compressed bytes, but
+the complete engine total is higher. The runtime changes and experimental
+tests are removed; accepted product sources and the baseline are restored.
+The [complete record](../benchmarks/native-adjacent-parquet-reads-2026-10-31.md)
+retains the implementation, all correctness checks, corrected empty-file
+fixture, failed attempts, unchanged protocol, per-case observations and
+portable replay. This section records the outcome without rewriting the
+original prospective contract or reclassifying the performance gate.

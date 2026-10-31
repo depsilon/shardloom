@@ -17,6 +17,19 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Exact adjacent Parquet reads — rejected by complete-cohort rule`
+  — the [complete experiment](../benchmarks/native-adjacent-parquet-reads-2026-10-31.md)
+  passes 347 queries and 12,565 complete result rows but records 12.028866368
+  engine seconds against 11.997152207. Requests fall in 16 cases with identical
+  compressed bytes. The runtime and experimental tests are removed; 2,655 product
+  inputs match the accepted source. The packet retains 450 successful public
+  comparisons, 285 installed tests, all native/resource/ownership controls,
+  the original failed attempts and corrected empty-row-group expectations.
+  Eleven rejection controls and source-only replay pass. Verified retirement
+  removes 12,351 generated files and three environment links while preserving
+  the accepted runtime, original inputs and complete compact evidence. The accepted baseline,
+  item-20 continuation and Full43 hold remain unchanged.
+
 - [x] `Single-predicate mask experiment — rejected by complete-cohort rule`
   — the [complete experiment](../benchmarks/native-single-predicate-masks-2026-10-30.md)
   passes all 347 queries and 12,565 complete result rows, but records
