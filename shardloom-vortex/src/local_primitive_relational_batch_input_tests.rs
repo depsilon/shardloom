@@ -644,6 +644,79 @@ fn completion_input_consumes_all_batches_beyond_the_prior_count_limit() {
 }
 
 #[test]
+fn completion_input_tiny_primitive_replay_compacts_before_each_producer_return() {
+    const ROWS: usize = 2051;
+    for fragment in [1, 17, 1024] {
+        let plan = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+            left: scan(),
+            right: scan(),
+            kind: crate::relational_query::VortexRelationalSetKind::UnionAll,
+        }));
+        let prepared = prepare_relational_with_schema(policy(), |preparation| {
+            preparation.register_batch_source(DatasetUri::new("memory://stream")?, |session| {
+                ResidentMemorySource::from_batch_columns(
+                    session,
+                    &[MemoryColumn {
+                        name: "n",
+                        values: MemoryColumnValues::Int64(&[]),
+                    }],
+                )
+            })?;
+            Ok(plan)
+        })
+        .unwrap();
+        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let mut position = 0;
+        let mut prior: Option<Weak<MemoryLease>> = None;
+        #[cfg(debug_assertions)]
+        let observed = crate::local_primitives::native_relational_observation::Session::start();
+        let result = prepared
+            .with_batch_input(&mut |session| {
+                assert!(prior.as_ref().is_none_or(|owner| owner.strong_count() == 0));
+                if position == ROWS {
+                    return Ok(None);
+                }
+                let end = (position + fragment).min(ROWS);
+                let values = (position..end)
+                    .map(|row| (!row.is_multiple_of(19)).then_some(i64::try_from(row).unwrap()))
+                    .collect::<Vec<_>>();
+                position = end;
+                let batch = ResidentMemorySource::from_batch_columns(
+                    session,
+                    &[MemoryColumn {
+                        name: "n",
+                        values: MemoryColumnValues::Int64(&values),
+                    }],
+                )?;
+                prior = Some(batch.batch_release_witness()?);
+                Ok(Some(batch))
+            })
+            .unwrap()
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        let expected = (0..2)
+            .flat_map(|_| {
+                (0..ROWS).map(|row| {
+                    serde_json::json!({"n":
+            (!row.is_multiple_of(19)).then_some(row)})
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(json_rows(&result), expected);
+        let input = result.execution.input.as_ref().unwrap();
+        assert_eq!(input.replay_sources, 1);
+        assert_eq!(input.replay_rows_detached, ROWS as u64);
+        #[cfg(debug_assertions)]
+        {
+            let captured = observed.finish().replay_captured_rows;
+            assert_eq!(captured, if fragment < 256 { ROWS as u64 } else { 3 });
+        }
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
+#[test]
 fn completion_input_late_failure_schema_drift_and_cancellation_survive_count_growth() {
     for terminal in 0..3 {
         let prepared = prepare(&scan(), 2 << 20).unwrap();

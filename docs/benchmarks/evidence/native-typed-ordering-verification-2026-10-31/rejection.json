@@ -1,0 +1,173 @@
+{
+  "schema_version": "shardloom.typed_ordering_rejection.v1",
+  "status": "passed",
+  "disposition": "drop_one_or_both_cohorts_no_gain",
+  "accepted_baseline_advanced": false,
+  "source_restored_to": "94e88391b3d8e35c8909e35316099373af50636e",
+  "changed_sources": [
+    {
+      "path": "shardloom-vortex/src/local_primitive_relational_ordered_input_tests.rs",
+      "candidate": {
+        "bytes": 8406,
+        "sha256": "df78ac78fa0c45c112838915fa9da5748182c1a97948525d4eac5de435ac6ccd"
+      },
+      "restored": {
+        "bytes": 8128,
+        "sha256": "772f1bf9de85bdbed11cf9d5d2f5bad88a7cc891d16eb415b56198c47e710093"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives.rs",
+      "candidate": {
+        "bytes": 2904042,
+        "sha256": "7eaf0288140fc9a82b77ec8c73cf47089f5651e828c952a25cb04796b0d290cb"
+      },
+      "restored": {
+        "bytes": 2903908,
+        "sha256": "eddfd1b935865d6c0fdd4139d7a1d1189dd74513baf10d5cd4bfd735576cd193"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_asof_join.rs",
+      "candidate": {
+        "bytes": 10363,
+        "sha256": "4d583647b294ac65b87cff651be05b54d624d859f35ceb98ffdbfc551cbedaab"
+      },
+      "restored": {
+        "bytes": 9822,
+        "sha256": "a437d55af9ca5a98e2a2565b174b78123b0abdcd79fdc900e795e73f43313c0f"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+      "candidate": {
+        "bytes": 27078,
+        "sha256": "6a886cc838c462f6666e6dc8992bbacf4a4de9328add752bf11a9a650ea7b069"
+      },
+      "restored": {
+        "bytes": 26433,
+        "sha256": "d74c336f1d4a5e99f71a219967b91ba5c6ff49139012b4c98ad11b5404015b83"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_collections.rs",
+      "candidate": {
+        "bytes": 10060,
+        "sha256": "1fa29dc19a2f5d98f04a3d9538e9b53f0a628dcf8216fb91a6f648496633e3ed"
+      },
+      "restored": {
+        "bytes": 9714,
+        "sha256": "fe53a77fb6018f3b1d95c0f258107dcacc57475aeff251fb3f044c14ececfb56"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+      "candidate": {
+        "bytes": 50385,
+        "sha256": "ce53c4928a72a7389164d3becc145691625286647cd5aa4c19679311cd7897dd"
+      },
+      "restored": {
+        "bytes": 48579,
+        "sha256": "27322a86e6e1e2e570cf3ea1c9d27557966b0332a4ca77ac34efb0e1e15fd40b"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "candidate": {
+        "bytes": 5283,
+        "sha256": "25b4b9c71b1be1f62ac4f49bb2c97a483b204dede37f752cef7c6091c03608a1"
+      },
+      "restored": {
+        "bytes": 5192,
+        "sha256": "b2956a87b012ec20e08d6914c2b4902e7ca9d983daf19826f4f6a35e8f74150f"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+      "candidate": {
+        "bytes": 11473,
+        "sha256": "74d879c826dbed40b78c6f8255c87a34893f8b60b5770233b83eaefb1fede463"
+      },
+      "restored": {
+        "bytes": 10920,
+        "sha256": "5021fc77c028c92d970be69e396082fc55bab910c0a5631693d38f78dbe228f5"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_sort_numeric.rs",
+      "candidate": {
+        "bytes": 4686,
+        "sha256": "c40bc1bca7aa722a3c0940128b1a8c759bd93898ed1ade81845c4018bfedb529"
+      },
+      "restored": {
+        "bytes": 7338,
+        "sha256": "e34ae3134c59a130c7a153b40dac22e8f1d9be2977e5ca603354911327400fa8"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_sort_numeric_tests.rs",
+      "candidate": {
+        "bytes": 18909,
+        "sha256": "8c97882ff2ded2477c6b48c29eb892276b4b6f2d504dd22f244f7f6ac69dfaef"
+      },
+      "restored": {
+        "bytes": 17913,
+        "sha256": "a363fd82891d3332b59254b5f6c1fef5c2afd6ec3d1019889b9f88064a43995a"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_sort_tests.rs",
+      "candidate": {
+        "bytes": 21505,
+        "sha256": "eac69c07b05c42482131ee21e9f40df4c6c0c6ffe6dc768c63552be90a21b2c6"
+      },
+      "restored": {
+        "bytes": 21315,
+        "sha256": "aeb4c2a243c108e2cca94eb62f2ad163dcc2a95cc6910d7f61549b31a40198d2"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_window.rs",
+      "candidate": {
+        "bytes": 28783,
+        "sha256": "d20ba3e4753e7e03be672fc30e37f8a5a0a1052ff6c94ed54131d562e9c037fb"
+      },
+      "restored": {
+        "bytes": 27723,
+        "sha256": "ab40d2fc29a6650871c2af337fc6928a1cd8eaa015dec2d991c6b697959a35ac"
+      }
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_numeric_order.rs",
+      "candidate": {
+        "bytes": 3075,
+        "sha256": "3c0371b92e1fe0956949441939b0b6cbb90939b083b8e6ac0aaf1e21053dcf85"
+      },
+      "restored": null
+    },
+    {
+      "path": "shardloom-vortex/src/local_primitives/native_relational_numeric_order_tests.rs",
+      "candidate": {
+        "bytes": 5342,
+        "sha256": "57816d7ad36cf7097e6ca388df39a81246990c4b9145e254132662bc6d25fab7"
+      },
+      "restored": null
+    }
+  ],
+  "source_patch": {
+    "bytes": 34204,
+    "sha256": "7e2b10f43bd45354da246283c9f0df2e20b884cedbbc28ac23293583635a78d1"
+  },
+  "main_manifest": {
+    "bytes": 3850405,
+    "sha256": "b59009f81927c84bb8e2b27d8637b57f6242bb133b847426de4a83a2b137d0cc"
+  },
+  "main_acceptance": {
+    "bytes": 138921,
+    "sha256": "f1c9a7473aaa381dc11df64616f6368e94e8e72b333d5a06dca7731f26faf07c"
+  },
+  "matching_accepted_rust_and_cargo_inputs": 2609,
+  "retained_runtime": "ordered-input-release-r2",
+  "query_executions": 0,
+  "unrelated_files_changed": false
+}

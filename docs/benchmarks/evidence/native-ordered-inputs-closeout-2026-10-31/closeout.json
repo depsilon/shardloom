@@ -1,0 +1,134 @@
+{
+  "schema_version": "shardloom.ordered_input_closeout.v1",
+  "status": "passed",
+  "pull_request": {
+    "number": 1632,
+    "url": "https://github.com/depsilon/shardloom/pull/1632",
+    "state": "MERGED",
+    "head": "13516838e12e9161554e2556c1e088fca85d3769",
+    "merge_commit": "6e413dcc3c9b0b23ca91b269051fc3f6c9fda3ab"
+  },
+  "checks": {
+    "premerge": 57,
+    "merged": 57,
+    "success": 57
+  },
+  "reviews": {
+    "threads": 0,
+    "reviews": 0
+  },
+  "retained_runtime": {
+    "name": "ordered-input-release-r2",
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-release-r2/manifest.json",
+      "bytes": 554526,
+      "sha256": "c14f92a6a3b09265cdb4f59bb9d517545a5f547e13b343de872c14f2047a3677"
+    },
+    "products": {
+      "shardloom": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-release-r2/shardloom",
+        "bytes": 81003376,
+        "sha256": "6635a2940e5ba55541f96e2c107e8bc919cd81d1056036f7be086e994296e233"
+      },
+      "_native.abi3.so": {
+        "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-release-r2/_native.abi3.so",
+        "bytes": 81437472,
+        "sha256": "c2fa8d14b46d883f4ef1fc1f33a2d5dea26d8a526456bfeac4b91718f284839e"
+      }
+    },
+    "source_overlay": {
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/ordered-input-release-r2/source-overlay.patch",
+      "bytes": 43822,
+      "sha256": "178c96efef7763d5a11fb0bf3837c2f458b7b7bf9a4748ef7f00d38624b910b0"
+    }
+  },
+  "retained_package": {
+    "name": "installed-ordered-input-r1/dist",
+    "wheel": {
+      "path": "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-ordered-input-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "bytes": 54204859,
+      "sha256": "1009d7ed69e18c1a8365781febad0e459142c1db8d1eb1f8d4208edc621849b1"
+    }
+  },
+  "previous_runtime_retirement": {
+    "files": 3,
+    "bytes": 216624027,
+    "paths": [
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/grouped-state-release-r1/shardloom",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/grouped-state-release-r1/_native.abi3.so",
+      "/Users/dylan/LocalData/shardloom/shared-performance-2026-10-29/installed-grouped-state-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl"
+    ],
+    "all_proofs_unchanged": true,
+    "ordered_and_grouped_replay_after_retirement": true
+  },
+  "previous_runtime_plan": {
+    "file": "previous-runtime-plan.json.gz",
+    "bytes": 27028,
+    "sha256": "178847d0628ef33c70a1d4d3d950bbc3a21197c8b3d347abca2c20120c530322",
+    "uncompressed_sha256": "a2f0117e1728f771b2aa182d8afc1cadf96532ef1112ec563e2a4084b4cbcdc8"
+  },
+  "temporary_retirement": {
+    "path": "native-ordered-inputs-retirement-2026-10-31/cleanup.json",
+    "bytes": 1576,
+    "sha256": "7291e2976ecf1e59322c4fa33d089e437a4ec3ffe1c1a4d97c0c067b3876b5c5"
+  },
+  "linked_artifacts": {
+    "main_acceptance": {
+      "path": "native-ordered-inputs-2026-10-31/acceptance.json",
+      "bytes": 136816,
+      "sha256": "35e7ceec8267cc1d41ab81282e10f507874086f20bdc892d64bb2944fa5351e2"
+    },
+    "main_manifest": {
+      "path": "native-ordered-inputs-2026-10-31/manifest.json",
+      "bytes": 4153037,
+      "sha256": "3962bd8db9aaa5cbe8b24556e76c195acb35ba7305c1949799c3c0f362596312"
+    },
+    "verification": {
+      "path": "native-ordered-inputs-verification-2026-10-31/verification.json",
+      "bytes": 3997,
+      "sha256": "0505e81e609bbdcd1969a57e3ac2a219b9512cafc59521d5fa82314ec7572bbf"
+    },
+    "temp_cleanup": {
+      "path": "native-ordered-inputs-retirement-2026-10-31/cleanup.json",
+      "bytes": 1576,
+      "sha256": "7291e2976ecf1e59322c4fa33d089e437a4ec3ffe1c1a4d97c0c067b3876b5c5"
+    },
+    "temp_plan": {
+      "path": "native-ordered-inputs-retirement-2026-10-31/cleanup-plan.json.gz",
+      "bytes": 946125,
+      "sha256": "bb9def2b689430dfb931bd837bbd2b2f2fd701c2f7700b1ba1e18fb78999714f"
+    },
+    "temp_validation": {
+      "path": "native-ordered-inputs-retirement-2026-10-31/validation.json.gz",
+      "bytes": 14183,
+      "sha256": "6387ae5c4030c924dd7aaa1c0a892e39112c8a9cd224f7ee2872a6848681df5c"
+    }
+  },
+  "observations": {
+    "primary": {
+      "comparisons": 347,
+      "engine_seconds": 11.979219492,
+      "rows": 12565
+    },
+    "supplemental": {
+      "comparisons": 48,
+      "engine_seconds": 0.920503372,
+      "rows": 557420
+    }
+  },
+  "failed_attempts": [
+    "o005-ordered-input-native-focused.json",
+    "o008-ordered-input-native-clippy.json",
+    "o014-ordered-input-native-workspace.json",
+    "o026-ordered-input-public-results.json",
+    "o032-ordered-input-assembly.json"
+  ],
+  "query_executions": 0,
+  "full43_run": false,
+  "packet": {
+    "file": "closeout.json.gz",
+    "bytes": 61276,
+    "sha256": "8e243b6a0889fccba118baab3b1bd24eafb36eeb5d9f0545e914d55a57de62af",
+    "uncompressed_sha256": "3f698fa1cbce38bb40d47c078b27274915f2123afffc847605bf86f08187f0fa"
+  }
+}

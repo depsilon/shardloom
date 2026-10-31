@@ -10,6 +10,13 @@ The report is intentionally advisory. It does not apply feedback, resize live
 tasks, execute streams, read data, perform object-store I/O, spill, write, or
 delegate to another engine.
 
+The October 31 maintainer request schedules the missing engine-wide runtime
+integration in [phase-plan item 23](phased-execution-plan.md#engine-wide-adaptive-execution).
+That item reuses the scoped PulseWeave and live memory/streaming/spill owners,
+with actual data/headroom decisions inside user-set memory/CPU ceilings. It does
+not change this report-only command's behavior or count advisory flags as applied
+feedback. The phase plan owns sequence, implementation checks and acceptance.
+
 ## Command
 
 ```text

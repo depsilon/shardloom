@@ -912,7 +912,7 @@ fn write_primitive(
     Ok(())
 }
 
-fn primitive(ptype: PType, data: ByteBuffer, validity: Validity) -> Result<ArrayRef> {
+pub(super) fn primitive(ptype: PType, data: ByteBuffer, validity: Validity) -> Result<ArrayRef> {
     macro_rules! array {
         ($t:ty) => {
             PrimitiveArray::new(Buffer::<$t>::from_byte_buffer(data), validity).into_array()

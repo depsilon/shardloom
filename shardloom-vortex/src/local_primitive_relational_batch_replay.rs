@@ -10,6 +10,13 @@ use vortex::array::dtype::DType;
 
 const COPY_ROWS: usize = 1024;
 
+#[path = "local_primitive_relational_replay_capture.rs"]
+mod capture;
+
+#[cfg(test)]
+#[path = "local_primitive_relational_replay_capture_tests.rs"]
+mod capture_tests;
+
 #[derive(Default)]
 pub(super) struct CopyStats {
     pub(super) batches: u64,
@@ -60,6 +67,7 @@ impl Schema {
 pub(super) struct Recorder<'p, 's> {
     resident: ReservedVec<ArrayRef>,
     copy_rows: usize,
+    capture: Option<capture::Capture>,
     #[cfg(feature = "vortex-write")]
     ordering: Option<native_relational_spill::Ordering<'p, 's>>,
     _scope: std::marker::PhantomData<(&'p (), &'s ())>,
@@ -118,6 +126,7 @@ impl<'p, 's> Recorder<'p, 's> {
         Ok(Self {
             resident: ReservedVec::new(context.memory())?,
             copy_rows,
+            capture: None,
             #[cfg(feature = "vortex-write")]
             ordering: metrics
                 .spill
@@ -131,6 +140,44 @@ impl<'p, 's> Recorder<'p, 's> {
     }
 
     pub(super) fn build(
+        &mut self,
+        array: &ArrayRef,
+        report: &mut CopyStats,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if array.len() < self.copy_rows / 4 && capture::admitted(array) {
+            let mut start = 0;
+            while start < array.len() {
+                if self.capture.is_none() {
+                    self.capture = capture::Capture::new(array.dtype(), self.copy_rows, context)?;
+                }
+                let Some(capture) = &mut self.capture else {
+                    break;
+                };
+                let count = capture.remaining().min(array.len() - start);
+                capture.append(array, start, count, report, context)?;
+                start += count;
+                if capture.remaining() == 0 {
+                    self.flush_capture(context)?;
+                }
+            }
+            if start == array.len() {
+                return Ok(());
+            }
+            if start != 0 {
+                self.flush_capture(context)?;
+                return self.copy(
+                    &array.slice(start..array.len()).map_err(vortex_error)?,
+                    report,
+                    context,
+                );
+            }
+        }
+        self.flush_capture(context)?;
+        self.copy(array, report, context)
+    }
+
+    fn copy(
         &mut self,
         array: &ArrayRef,
         report: &mut CopyStats,
@@ -151,18 +198,30 @@ impl<'p, 's> Recorder<'p, 's> {
             checked_add(&mut report.rows, compact.len() as u64)?;
             checked_add(&mut report.buffer_bytes, compact.nbytes())?;
             report.max_batch_rows = report.max_batch_rows.max(compact.len());
-            #[cfg(feature = "vortex-write")]
-            if let Some(ordering) = &mut self.ordering {
-                ordering.build(compact, context)?;
-                continue;
-            }
-            self.resident.push(compact)?;
+            self.retain(compact, context)?;
         }
         Ok(())
     }
 
-    pub(super) fn finish(self, context: &NativeExecutionContext<'_>) -> Result<Completed> {
+    fn retain(&mut self, array: ArrayRef, context: &NativeExecutionContext<'_>) -> Result<()> {
+        #[cfg(feature = "vortex-write")]
+        if let Some(ordering) = &mut self.ordering {
+            return ordering.build(array, context);
+        }
         context.check_cancelled()?;
+        self.resident.push(array)
+    }
+
+    fn flush_capture(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+        if let Some(capture) = self.capture.take() {
+            self.retain(capture.finish(context)?, context)?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn finish(mut self, context: &NativeExecutionContext<'_>) -> Result<Completed> {
+        context.check_cancelled()?;
+        self.flush_capture(context)?;
         #[cfg(feature = "vortex-write")]
         if let Some(ordering) = self.ordering {
             return Ok(Completed::Stored(

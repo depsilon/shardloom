@@ -746,6 +746,7 @@ pub(crate) fn parquet_metadata_from_bytes(
     buf: &[u8],
     options: Option<&ParquetMetaDataOptions>,
 ) -> Result<ParquetMetaData> {
+    let mut reservation = super::memory_reservation::FooterReservation::new(buf, options)?;
     let mut prot = ThriftSliceInputProtocol::new(buf);
 
     // begin reading the file metadata
@@ -822,7 +823,13 @@ pub(crate) fn parquet_metadata_from_bytes(
                             "Row group ordinal {ordinal} exceeds i16 max value",
                         ))
                     })?;
+                    if let Some(reservation) = &reservation {
+                        reservation.before_group(&prot)?;
+                    }
                     let rg = read_row_group(&mut prot, schema_descr, options)?;
+                    if let Some(reservation) = &mut reservation {
+                        reservation.after_group(&rg)?;
+                    }
                     rg_vec.push(assigner.ensure(ordinal, rg)?);
                 }
                 row_groups = Some(rg_vec);

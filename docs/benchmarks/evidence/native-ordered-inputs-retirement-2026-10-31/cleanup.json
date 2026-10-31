@@ -1,0 +1,37 @@
+{
+  "schema_version": "shardloom.ordered_input_temporary_retirement_summary.v1",
+  "status": "passed",
+  "disposition": "retain_both_complete_cohort_gains",
+  "main_manifest_sha256": "3962bd8db9aaa5cbe8b24556e76c195acb35ba7305c1949799c3c0f362596312",
+  "main_acceptance_sha256": "35e7ceec8267cc1d41ab81282e10f507874086f20bdc892d64bb2944fa5351e2",
+  "verification_summary_sha256": "0505e81e609bbdcd1969a57e3ac2a219b9512cafc59521d5fa82314ec7572bbf",
+  "cleanup": {
+    "regular_files": 13872,
+    "regular_bytes": 1107281509,
+    "symlinks": 3,
+    "raw_archived_files": 3612,
+    "kept_runtime": "ordered-input-release-r2",
+    "kept_current_wheel": "installed-ordered-input-r1/dist",
+    "kept_previous_runtime_until_hosted_merge": "grouped-state-release-r1",
+    "kept_previous_wheel_until_hosted_merge": "installed-grouped-state-r1/dist",
+    "source_inputs_retained": true,
+    "all_proofs_unchanged": true,
+    "complete_replay_after_retirement": true,
+    "payload_backups_created": false
+  },
+  "preserved_failed_preflight": "o048-ordered-input-temporary-plan.json",
+  "cleanup_plan": {
+    "file": "cleanup-plan.json.gz",
+    "bytes": 946125,
+    "sha256": "bb9def2b689430dfb931bd837bbd2b2f2fd701c2f7700b1ba1e18fb78999714f"
+  },
+  "packet": {
+    "file": "validation.json.gz",
+    "bytes": 14183,
+    "sha256": "6387ae5c4030c924dd7aaa1c0a892e39112c8a9cd224f7ee2872a6848681df5c",
+    "uncompressed_sha256": "53d231365870f0d4482bc501a409fa6bf9fcc62ff2609a6a00f048d38b869a5a"
+  },
+  "query_executions": 0,
+  "full43_run": false,
+  "package_publication_attempted": false
+}

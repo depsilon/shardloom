@@ -25,8 +25,12 @@ fn compare(left: Expression, op: ComparisonOp, right: Expression) -> Expression 
 }
 
 fn filtered_inner(inner: &Fixture) -> VortexRelationalPlan {
+    filtered_source(inner.scan())
+}
+
+fn filtered_source(inner: VortexRelationalPlan) -> VortexRelationalPlan {
     VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
-        left: inner.scan(),
+        left: inner,
         right: VortexRelationalPlan::Outer,
         kind: JoinKind::Inner,
         keys: vec![],
@@ -106,6 +110,238 @@ fn fixtures() -> (Fixture, Fixture) {
             2,
         ),
     )
+}
+
+fn memory_scan(name: &str) -> VortexRelationalPlan {
+    VortexRelationalPlan::Scan(VortexRelationalScan {
+        source_uri: DatasetUri::new(format!("memory://pure-{name}")).unwrap(),
+        projection: shardloom_plan::ProjectionRequest::All,
+        predicate: None,
+    })
+}
+
+fn prepare_pure(plan: &VortexRelationalPlan, empty_outer: bool) -> PreparedVortexRelational {
+    use crate::resident_memory_source::{MemoryColumn, MemoryColumnValues, MemorySourceBounds};
+    prepare_relational_with_schema(policy(), |schemas| {
+        let outer = [Some(2), None, Some(1), Some(1), Some(3)];
+        let inner = [Some(1), Some(1), Some(2), Some(3), None];
+        for (name, keys, amounts) in [
+            (
+                "outer",
+                outer.as_slice(),
+                [Some(30), Some(0), Some(10), None, Some(41)],
+            ),
+            (
+                "inner",
+                inner.as_slice(),
+                [Some(10), None, Some(30), Some(40), Some(50)],
+            ),
+        ] {
+            let end = if empty_outer && name == "outer" { 0 } else { 5 };
+            schemas.register_memory_source(
+                DatasetUri::new(format!("memory://pure-{name}"))?,
+                |session| {
+                    ResidentMemorySource::from_columns(
+                        session,
+                        &[
+                            MemoryColumn {
+                                name: "entity",
+                                values: MemoryColumnValues::Int64(&keys[..end]),
+                            },
+                            MemoryColumn {
+                                name: "amount",
+                                values: MemoryColumnValues::Int64(&amounts[..end]),
+                            },
+                        ],
+                        MemorySourceBounds::default(),
+                    )
+                },
+            )?;
+        }
+        Ok(plan.clone())
+    })
+    .unwrap()
+}
+
+#[test]
+fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guards() {
+    for kind in [Kind::Exists, membership("amount", "amount")] {
+        for inactive in [false, true] {
+            let mut relation = filtered_source(memory_scan("inner"));
+            let VortexRelationalPlan::Join(join) = &mut relation else {
+                unreachable!()
+            };
+            join.condition = Some(compare(
+                column("left.entity"),
+                ComparisonOp::Eq,
+                column("right.entity"),
+            ));
+            let mut plan = correlated(memory_scan("outer"), relation, kind.clone(), "predicate");
+            if inactive {
+                let VortexRelationalPlan::CorrelatedSubquery(query) = &mut plan else {
+                    unreachable!()
+                };
+                query.evaluation_guard = Some(Expression::literal(
+                    ExprId::new("guard").unwrap(),
+                    ScalarValue::Boolean(false),
+                ));
+            }
+            #[cfg(debug_assertions)]
+            let observed = crate::local_primitives::native_relational_observation::Session::start();
+            let prepared = prepare_pure(&plan, false);
+            #[cfg(debug_assertions)]
+            assert_eq!(observed.finish().subquery_equality_rewrites, 1);
+            let initial = prepared.snapshot().memory.reserved_bytes;
+            let result = prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let expected = if inactive {
+                vec![matches!(kind, Kind::Exists).then_some(false); 5]
+            } else if matches!(kind, Kind::Exists) {
+                vec![Some(true), Some(false), Some(true), Some(true), Some(true)]
+            } else {
+                vec![Some(true), Some(false), Some(true), None, Some(false)]
+            };
+            assert_eq!(
+                json_rows(&result)
+                    .iter()
+                    .map(|row| row["predicate"].as_bool())
+                    .collect::<Vec<_>>(),
+                expected
+            );
+            assert_eq!(
+                result.execution.scan_rows_delivered,
+                if inactive { 5 } else { 10 }
+            );
+            assert!(
+                !result
+                    .execution
+                    .native_io_certificate
+                    .side_effects
+                    .fallback_attempted
+            );
+            drop(result);
+            assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        }
+    }
+    let mut inner = filtered_source(memory_scan("inner"));
+    let VortexRelationalPlan::Join(join) = &mut inner else {
+        unreachable!()
+    };
+    join.condition = Some(compare(
+        column("left.entity"),
+        ComparisonOp::Eq,
+        column("right.entity"),
+    ));
+    let prepared = prepare_pure(
+        &correlated(memory_scan("outer"), inner, Kind::Exists, "predicate"),
+        true,
+    );
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.execution.scan_rows_delivered, 0);
+    assert_eq!(json_rows(&result), [] as [serde_json::Value; 0]);
+}
+
+#[test]
+fn pure_correlation_cross_filter_aliases_preserve_complete_projection() {
+    use crate::relational_query::{
+        VortexRelationalPipeline, VortexRelationalProject, VortexRelationalStage,
+    };
+    let joined = VortexRelationalPlan::Join(Box::new(VortexRelationalJoin {
+        left: memory_scan("inner"),
+        right: VortexRelationalPlan::Outer,
+        kind: JoinKind::Cross,
+        keys: vec![],
+        condition: None,
+        columns: [
+            (Side::Left, "entity", "inner_key"),
+            (Side::Right, "entity", "outer_key"),
+            (Side::Left, "amount", "value"),
+        ]
+        .into_iter()
+        .map(|(side, name, output)| VortexRelationalJoinColumn {
+            side,
+            column: ColumnRef::new(name).unwrap(),
+            output_column: output.into(),
+        })
+        .collect(),
+    }));
+    for pipeline in [false, true] {
+        let predicate = compare(column("outer_key"), ComparisonOp::Eq, column("inner_key"));
+        let expressions = vec![("answer".into(), column("value"))];
+        let relation = if pipeline {
+            VortexRelationalPlan::Pipeline(Box::new(VortexRelationalPipeline {
+                input: joined.clone(),
+                stages: vec![
+                    VortexRelationalStage::Filter(predicate),
+                    VortexRelationalStage::Project(expressions),
+                ],
+            }))
+        } else {
+            VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                input: VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+                    input: joined.clone(),
+                    predicate,
+                })),
+                expressions,
+            }))
+        };
+        let plan = correlated(
+            memory_scan("outer"),
+            relation,
+            membership("amount", "answer"),
+            "predicate",
+        );
+        #[cfg(debug_assertions)]
+        let observed = crate::local_primitives::native_relational_observation::Session::start();
+        let prepared = prepare_pure(&plan, false);
+        #[cfg(debug_assertions)]
+        assert_eq!(observed.finish().subquery_equality_rewrites, 1);
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(result.execution.scan_rows_delivered, 10);
+        assert_eq!(
+            json_rows(&result)
+                .iter()
+                .map(|row| row["predicate"].as_bool())
+                .collect::<Vec<_>>(),
+            [Some(true), Some(false), Some(true), None, Some(false)]
+        );
+    }
+}
+
+#[test]
+fn pure_correlation_does_not_reorder_opaque_file_value_validation() {
+    let (left, right) = fixtures();
+    let mut relation = filtered_inner(&right);
+    let VortexRelationalPlan::Join(join) = &mut relation else {
+        unreachable!()
+    };
+    join.condition = Some(compare(
+        column("left.entity"),
+        ComparisonOp::Eq,
+        column("right.entity"),
+    ));
+    let plan = correlated(left.scan(), relation, Kind::Exists, "predicate");
+    #[cfg(debug_assertions)]
+    let observed = crate::local_primitives::native_relational_observation::Session::start();
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    #[cfg(debug_assertions)]
+    assert_eq!(observed.finish().subquery_equality_rewrites, 0);
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(result.execution.scan_rows_delivered, 30);
+    assert_eq!(
+        json_rows(&result)
+            .iter()
+            .map(|row| row["predicate"].as_bool())
+            .collect::<Vec<_>>(),
+        [Some(true), Some(false), Some(true), Some(true), Some(true)]
+    );
 }
 
 #[test]

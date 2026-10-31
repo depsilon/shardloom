@@ -88,6 +88,7 @@
 //! ```
 mod footer_tail;
 mod memory;
+mod memory_reservation;
 mod options;
 mod parser;
 mod push_decoder;
@@ -125,7 +126,7 @@ use crate::{
 };
 
 pub use footer_tail::FooterTail;
-pub use options::{ParquetMetaDataOptions, ParquetStatisticsPolicy};
+pub use options::{MetadataMemoryReservation, ParquetMetaDataOptions, ParquetStatisticsPolicy};
 pub use push_decoder::ParquetMetaDataPushDecoder;
 pub use reader::{PageIndexPolicy, ParquetMetaDataReader};
 use std::io::Write;

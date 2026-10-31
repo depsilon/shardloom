@@ -105,6 +105,19 @@ both newly supplied source reviews and mechanism-specific scaling/interaction
 controls, stays within item 20, and preserves the unchanged 347 history and
 Full43 hold. The original seven candidates and their follow-through have merged
 in #1626/#1627; their decisions are not reopened by new names for the same work.
+The [October 31 pruning decision](native-shared-owner-optimizations-2026-10-30.md#october-31-maintainer-pruning-decision)
+closes the likely marginal comparator/index/accounting, as-of/window-bound and
+nested-static proposals. Remaining screens cover source/expression passes,
+join/subquery construction, spill/lookup, owned capture and static exact quantiles.
+Stop proposals that lack credible material removed work before implementation;
+this is a selection judgment, not a measured failure or a changed historical gate.
+The typed-comparison experiment is separately dropped at 12.086481459 engine
+seconds for 347 queries; the accepted 11.979219492-second baseline is unchanged.
+Connector/refresh completion and required capability/format acceptance remain open.
+The subsequent maintainer instruction implements the retained optimizations
+together, sharing one build/validation cycle and one final comparison campaign.
+This supersedes per-optimization sequencing for new work while preserving all
+completed experiments, their original protocols and the accepted baseline.
 
 ### Performance candidates after composition acceptance
 

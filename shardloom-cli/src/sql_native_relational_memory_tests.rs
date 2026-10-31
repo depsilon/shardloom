@@ -230,6 +230,52 @@ pub(super) fn verify_memory(statement: &str, expected: &Value) {
 }
 
 #[test]
+fn native_relational_sql_pure_equality_predicates_build_resident_inner_once() {
+    for predicate in [
+        "EXISTS (SELECT column_1 FROM (VALUES (1),(1),(3),(NULL)) AS r WHERE column_1=outer.column_1)",
+        "column_1 IN (SELECT column_1 FROM (VALUES (1),(1),(3),(NULL)) AS r WHERE column_1=outer.column_1)",
+    ] {
+        let statement = format!(
+            "SELECT column_1,{predicate} AS found FROM (VALUES (2),(NULL),(1),(1),(3)) AS l"
+        );
+        let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 2).unwrap();
+        policy.resource_envelope.memory_budget_bytes = 32 << 20;
+        let prepared = prepare(&statement, policy, |_| {
+            panic!("resident source must not resolve a file")
+        })
+        .unwrap();
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        let rows = result
+            .result_jsonl
+            .value()
+            .lines()
+            .map(|row| serde_json::from_str::<Value>(row).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            rows,
+            vec![
+                json!({"column_1":2,"found":false}),
+                json!({"column_1":null,"found":false}),
+                json!({"column_1":1,"found":true}),
+                json!({"column_1":1,"found":true}),
+                json!({"column_1":3,"found":true})
+            ]
+        );
+        assert_eq!(result.execution.scan_rows_delivered, 9, "{statement}");
+        assert_eq!(result.execution.runtime.prepared_source_opens, 0);
+        assert!(
+            !result
+                .execution
+                .native_io_certificate
+                .side_effects
+                .fallback_attempted
+        );
+    }
+}
+
+#[test]
 fn native_relational_sql_memory_literals_and_values_share_native_expressions() {
     verify_memory(
         "SELECT 9223372036854775807 AS n, 'λ,;''%=' AS s, TRUE AS b, NULL AS absent",

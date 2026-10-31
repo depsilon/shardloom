@@ -441,6 +441,14 @@ jobs:
         run: python -B -m unittest discover -s scripts -p test_ordered_input_packet.py -v
       - name: Ordered-input complete saved-result replay
         run: python -B scripts/verify_ordered_input_packet.py docs/benchmarks/evidence/native-ordered-inputs-2026-10-31
+      - name: Rejected typed-ordering corruption controls
+        run: python -B -m unittest discover -s scripts -p test_typed_ordering_packet.py -v
+      - name: Rejected typed-ordering complete saved-result replay
+        run: python -B scripts/verify_typed_ordering_packet.py docs/benchmarks/evidence/native-typed-ordering-2026-10-31
+      - name: Native performance batch and retained composition corruption controls
+        run: python -B -m unittest discover -s scripts -p 'test_native_performance_batch*_packet.py' -v
+      - name: Combined native performance batch complete saved-result replay
+        run: python -B scripts/verify_native_performance_batch_packet.py docs/benchmarks/evidence/native-performance-batch-2026-10-31
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

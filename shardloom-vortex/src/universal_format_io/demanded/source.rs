@@ -12,6 +12,9 @@ use std::{
     },
 };
 
+#[path = "metadata_admission.rs"]
+mod metadata_admission;
+
 pub(super) struct ColumnarFile {
     path: PathBuf,
     pub(super) identity: Arc<SourceIdentity>,
@@ -185,19 +188,16 @@ impl LocalColumnarSource {
             cancellation.check()?;
             let identity = Arc::new(SourceIdentity::capture(&path)?);
             let mut file = identity.open_checked()?;
-            let length = super::super::metadata::footer_length(&mut file, b"PAR1", 4)?;
-            let mut footer_credit = memory.reserve(
-                (length as u64)
-                    .checked_mul(32)
-                    .and_then(|n| n.checked_add(8192))
-                    .ok_or_else(|| failed("source metadata capacity overflow"))?,
-            )?;
+            super::super::metadata::footer_length(&mut file, b"PAR1", 4)?;
+            let admission = metadata_admission::Admission::new(memory, cancellation)?;
             let reader = OwnedLocalRead::metadata(Arc::clone(&identity), memory, cancellation)?;
             let metadata = ArrowReaderMetadata::load(
                 &reader,
-                super::super::parquet_metadata_first_reader_options(),
+                super::super::parquet_metadata_first_reader_options()
+                    .with_metadata_memory_reservation(admission.clone()),
             )
-            .map_err(failed)?;
+            .map_err(metadata_admission::source_error)?;
+            let mut footer_credit = admission.finish()?;
             if files
                 .first()
                 .is_some_and(|first| first.metadata.schema().fields() != metadata.schema().fields())
