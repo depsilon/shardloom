@@ -69,6 +69,16 @@ the provider's actual page-reader requests against narrowed ranges before admitt
 B1. Metadata/index loading must retain held identity, admission and byte reporting;
 do not impose a broad index load on every unfiltered/full-source query.
 
+The subsequent pre-implementation provider check resolves B1 through the existing
+`SerializedPageReaderState::Values` path: it requests a header stream and each
+compressed page body separately, and the admitted reader limit stops that stream.
+For a partial final prefix group, `SelectedChunks` can therefore serve checked
+page-body requests directly from the held source instead of eagerly buffering the
+whole selected chunk. Header streams use at most 512 bytes of bounded read-ahead
+inside the same chunk; report those bytes too. Complete groups retain the original
+buffered path. This uses the provider's existing page parser, requires no new offset
+index read, and does not change the flat/unfiltered prefix or validation domain.
+
 `native_relational_spill` currently merges pairs; specialized native sort and
 weighted-count owners already demonstrate bounded multi-run geometry. Reuse the
 native store contracts rather than introducing another spill format. Stored hash
