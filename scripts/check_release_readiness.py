@@ -34,9 +34,12 @@ from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
 from check_v1_correctness_conformance import (
     EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
     EXPECTED_ADMITTED_VALIDATOR_CASES,
+    EXPECTED_DIAGNOSTIC_CASES,
     EXPECTED_EXECUTABLE_FIXTURES,
     EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
     EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+    EXPECTED_SOURCE_INPUT_FORMATS,
+    EXPECTED_UNSUPPORTED_DIAGNOSTICS,
     MATRIX_EXPECTED_COUNTS,
     REQUIRED_SEMANTIC_CASE_IDS,
     REQUIRED_UNSUPPORTED_CASE_IDS,
@@ -590,12 +593,12 @@ def main() -> int:
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("diagnostic_case_count") != 25:
+        if admitted_semantics.get("diagnostic_case_count") != EXPECTED_DIAGNOSTIC_CASES:
             admitted_semantics_blockers.append(
                 "admitted semantics diagnostic_case_count="
                 + str(admitted_semantics.get("diagnostic_case_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 23:
+        if admitted_semantics.get("unsupported_diagnostic_count") != EXPECTED_UNSUPPORTED_DIAGNOSTICS:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
@@ -1929,8 +1932,8 @@ def main() -> int:
         else:
             expected_summary_values = {
                 ("admitted_semantics", "executable_fixture_count"): EXPECTED_EXECUTABLE_FIXTURES,
-                ("admitted_semantics", "diagnostic_case_count"): 25,
-                ("admitted_semantics", "unsupported_diagnostic_count"): 23,
+                ("admitted_semantics", "diagnostic_case_count"): EXPECTED_DIAGNOSTIC_CASES,
+                ("admitted_semantics", "unsupported_diagnostic_count"): EXPECTED_UNSUPPORTED_DIAGNOSTICS,
                 ("admitted_semantics", "property_lane_count"): 10,
                 ("admitted_semantics", "deterministic_fuzz_execution_performed"): True,
                 ("admitted_semantics", "deterministic_fuzz_case_count"): 5,
@@ -1950,11 +1953,11 @@ def main() -> int:
                     "admitted_semantics",
                     "deterministic_unsupported_scope_status",
                 ): "passed",
-                ("admitted_semantics", "deterministic_unsupported_row_count"): 25,
+                ("admitted_semantics", "deterministic_unsupported_row_count"): EXPECTED_DIAGNOSTIC_CASES,
                 (
                     "admitted_semantics",
                     "deterministic_unsupported_oracle_row_count",
-                ): 25,
+                ): EXPECTED_DIAGNOSTIC_CASES,
                 ("admitted_semantics", "semantic_fixture_evidence_status"): "passed",
                 ("admitted_semantics", "required_executable_stage_evidence_count"): len(REQUIRED_SEMANTIC_CASE_IDS),
                 ("admitted_semantics", "required_unsupported_stage_evidence_count"): len(REQUIRED_UNSUPPORTED_CASE_IDS),
@@ -1992,7 +1995,7 @@ def main() -> int:
                 ("front_door", "expected_error_scenario_count"): 0,
                 ("golden_workflow", "workflow_count"): 3,
                 ("golden_workflow", "stage_count"): 9,
-                ("source_prepared_state", "supported_input_format_count"): 7,
+                ("source_prepared_state", "supported_input_format_count"): EXPECTED_SOURCE_INPUT_FORMATS,
                 ("source_prepared_state", "route_count"): 1,
                 ("source_prepared_state", "invalidation_case_count"): 7,
                 ("vortex_runtime", "primitive_route_count"): 11,

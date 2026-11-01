@@ -2869,11 +2869,14 @@ fn public_run_executes_local_write_through_prepared_vortex_row_export() {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         let expected_blocker = if cfg!(feature = "vortex-write") {
-            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            "cg21.route.local_file_vortex_primitive_feature_gated"
         } else {
             "cg21.route.local_file_vortex_ingest_feature_gated"
         };
-        assert!(stdout.contains(&field("public_workflow_blocker_id", expected_blocker)));
+        assert!(
+            stdout.contains(&field("public_workflow_blocker_id", expected_blocker)),
+            "{stdout}"
+        );
         assert!(stdout.contains(&field("runtime_execution", "false")));
         assert!(stdout.contains(&field("output_io_performed", "false")));
     }
@@ -2961,11 +2964,14 @@ fn public_run_executes_local_fanout_through_native_relational_writer() {
         assert!(stdout.contains("\"status\":\"unsupported\""));
         assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
         let expected_blocker = if cfg!(feature = "vortex-write") {
-            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            "cg21.route.local_file_vortex_primitive_feature_gated"
         } else {
             "cg21.route.local_file_vortex_ingest_feature_gated"
         };
-        assert!(stdout.contains(&field("public_workflow_blocker_id", expected_blocker)));
+        assert!(
+            stdout.contains(&field("public_workflow_blocker_id", expected_blocker)),
+            "{stdout}"
+        );
         assert!(stdout.contains(&field(
             "public_workflow_underlying_runtime_command",
             "not_resolved"

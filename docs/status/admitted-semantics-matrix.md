@@ -26,12 +26,16 @@ docs/status/admitted-semantics-matrix.json
 shardloom.admitted_semantics_fixture_matrix.v1
 ```
 
-The 151-row matrix runs its 124 executable fixtures and 25 diagnostic cases
+The 153-row matrix runs its 128 executable fixtures and 23 diagnostic cases
 through the public `run sql` workflow, alongside two capability reports. SQL,
 source fixtures, property seeds and row ordering retain their original independent
 expectations. Complete native results must include their declared Vortex schema;
 missing, duplicate, unsafe or truncated result evidence fails validation. Writer
-cases check the full file and committed native sink evidence. No decoded runtime
+cases check the full file and committed native sink evidence. The ORC list/struct
+and decimal cases also read the completed file through the native source route
+and compare complete typed values with literal references. Their file hashes
+and readback envelopes are retained; independent provider fidelity tests remain
+separate. No decoded runtime
 or benchmark-specific execution command is used.
 
 The expected transport follows the native schema: binary values use lowercase
@@ -210,8 +214,8 @@ Covered fixture rows:
 - `unsupported_list_array_access_cast`
 - `unsupported_struct_access_cast`
 - `unsupported_complex_subquery_membership`
-- `unsupported_orc_nested_output_preservation`
-- `unsupported_orc_typed_decimal_sink_preservation`
+- `orc_nested_output_preservation`
+- `orc_typed_decimal_sink_preservation`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `unsupported_arbitrary_interval_arithmetic`

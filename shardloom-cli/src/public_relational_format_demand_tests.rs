@@ -157,6 +157,64 @@ fn public_tsv_preserves_quoted_tabs_newlines_bom_and_empty_declared_schema() {
 }
 
 #[test]
+fn public_delimited_sources_preserve_all_null_rows_and_skip_empty_lines() {
+    let fixture = Fixture::new();
+    for (format, delimiter) in [("csv", ','), ("tsv", '\t')] {
+        for ending in ["\n", "\r\n", ""] {
+            let source = fixture.0.join(format!("all-null.{format}"));
+            fs::write(
+                &source,
+                format!("a{delimiter}b\r\n1{delimiter}2\n\n\r\n{delimiter}\r\n\"\"{delimiter}\"\"\n{delimiter}{ending}"),
+            )
+            .unwrap();
+            let request = Fixture::request(
+                &source,
+                format,
+                format!("SELECT a,b FROM '{}'", source.display()),
+            );
+            let operation = Fixture::prepare(&request).unwrap();
+            for _ in 0..2 {
+                let result = operation
+                    .collect_jsonl(&CancellationToken::default())
+                    .unwrap();
+                let rows = result
+                    .result_jsonl
+                    .value()
+                    .lines()
+                    .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    rows,
+                    [
+                        serde_json::json!({"a":1,"b":2}),
+                        serde_json::json!({"a":null,"b":null}),
+                        serde_json::json!({"a":null,"b":null}),
+                        serde_json::json!({"a":null,"b":null}),
+                    ],
+                    "{format}, ending={ending:?}"
+                );
+            }
+            let request = Fixture::request(
+                &source,
+                format,
+                format!(
+                    "SELECT COUNT(*) AS rows,COUNT(a) AS present FROM '{}'",
+                    source.display()
+                ),
+            );
+            let result = Fixture::prepare(&request)
+                .unwrap()
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(result.result_jsonl.value()).unwrap(),
+                serde_json::json!({"rows":4,"present":1})
+            );
+        }
+    }
+}
+
+#[test]
 fn inferred_text_numeric_promotion_never_rounds_large_integer_values() {
     let fixture = Fixture::new();
     for (format, contents) in [

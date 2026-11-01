@@ -788,7 +788,16 @@ impl Frames {
             if quoted {
                 return Err(failed("CSV quoted record is not closed"));
             }
-            if record.value().iter().any(|b| !b.is_ascii_whitespace()) {
+            // Delimiters and whitespace fields are data in CSV/TSV. Only an
+            // empty physical line (including CRLF) is blank in this framing.
+            // JSON Lines retains its whitespace-only-line behavior.
+            let has_record = match self.framing {
+                TextFraming::Csv => record.value().iter().any(|b| *b != b'\r'),
+                TextFraming::JsonLines | TextFraming::JsonDocument => {
+                    record.value().iter().any(|b| !b.is_ascii_whitespace())
+                }
+            };
+            if has_record {
                 return Ok(Some(record));
             }
             if matches!(self.state, State::Done) {
