@@ -41,14 +41,14 @@ rust-version = "1.96"
 [workspace.dependencies]
 adbc_core = "=0.24.0"
 adbc_ffi = "=0.24.0"
-arrow-array = "=59.3.1"
-arrow-buffer = "=59.3.1"
-arrow-data = "=59.3.1"
-arrow-avro = { version = "=59.3.1", default-features = false, features = ["deflate", "snappy"] }
-arrow-flight = { version = "=59.3.1", default-features = false, features = ["flight-sql", "tls-ring"] }
+arrow-array = "=60.1.0"
+arrow-buffer = "=60.1.0"
+arrow-data = "=60.1.0"
+arrow-avro = { version = "=60.1.0", default-features = false, features = ["deflate", "snappy"] }
+arrow-flight = { version = "=60.1.0", default-features = false, features = ["flight-sql", "tls-ring"] }
 arrow-ipc = "=59.3.1"
-arrow-pyarrow = "=59.3.1"
-arrow-schema = "=59.3.1"
+arrow-pyarrow = "=60.1.0"
+arrow-schema = "=60.1.0"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
