@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.native_scalar_functions.v1",
   "source": "shardloom-core/src/expression_builtins.rs",
-  "source_sha256": "1a0613b5ac04e9993fa1ea2da801e1ebb77577442edf5aa580877791238b575c",
+  "source_sha256": "065375b91c320442a8f094b30ced089d8d6807eb082b7704f53751f7e7a88273",
   "functions": [
     {
       "name": "is_nan",

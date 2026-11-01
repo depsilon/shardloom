@@ -15,7 +15,7 @@ use arrow_array::{Array as _, RecordBatch, StructArray as ArrowStructArray};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use parquet::{
     arrow::ArrowWriter,
-    basic::{Compression, Encoding},
+    basic::Compression,
     file::properties::{EnabledStatistics, WriterProperties},
 };
 use shardloom_exec::compute_pool::CancellationToken;
@@ -39,6 +39,8 @@ use vortex::{
 };
 
 use crate::native_arrow_conversion as nested;
+#[path = "local_primitive_columnar_compat_batches.rs"]
+mod batches;
 #[cfg(test)]
 use vortex::array::arrays::VarBinViewArray;
 
@@ -86,6 +88,7 @@ impl CompatibilityLimits {
             batches: usize::MAX,
             columns: usize::MAX,
             file_bytes: u64::MAX,
+            string_bytes: i32::MAX as usize,
             streaming: true,
             parent_cancellation: Some(cancellation.clone()),
             ..Self::default()
@@ -117,8 +120,8 @@ impl CompatibilityLimits {
                 || self.batches > 256
                 || self.file_bytes > 128 * 1024 * 1024))
             || self.batch_rows > 2048
-            || self.string_bytes > 64 * 1024
-            || self.arrow_batch_bytes > 8 * 1024 * 1024
+            || (!self.streaming
+                && (self.string_bytes > 64 * 1024 || self.arrow_batch_bytes > 8 * 1024 * 1024))
         {
             return Err(error(
                 "requested bounds exceed the bounded flat-scalar candidate profile",
@@ -152,7 +155,7 @@ pub(super) struct PreparedCompatibilityExport {
     format: VortexLocalPrimitiveRowExportFormat,
     limits: CompatibilityLimits,
     schema_fields: usize,
-    _schema_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
+    schema_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
 }
 
 type CompatibilityWork = super::VortexColumnarCompatibilitySinkEvidence;
@@ -201,16 +204,6 @@ pub(super) fn prepare_plan(
     if plan.limit.is_some_and(|limit| limit > limits.output_rows) {
         return Err(error("requested output limit exceeds row admission"));
     }
-    let nested = plan.dtype.as_struct_fields_opt().is_some_and(|fields| {
-        fields
-            .fields()
-            .any(|dtype| super::native_payload::is_nested(&dtype))
-    });
-    if nested && format == VortexLocalPrimitiveRowExportFormat::Orc {
-        return Err(error(
-            "ORC does not admit nested output: the pinned native ORC writer cannot preserve list/struct fields",
-        ));
-    }
     // Check type eligibility without constructing Arrow metadata. Reserve the
     // growing root schema before its field vectors, names or lookup index.
     let Some(fields) = plan.dtype.as_struct_fields_opt() else {
@@ -231,23 +224,8 @@ pub(super) fn prepare_plan(
     let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
         return Ok(None);
     };
-    if format == VortexLocalPrimitiveRowExportFormat::Orc
-        && schema.fields().iter().any(|field| {
-            matches!(
-                field.data_type(),
-                DataType::Decimal128(..)
-                    | DataType::Date32
-                    | DataType::Date64
-                    | DataType::Time32(..)
-                    | DataType::Time64(..)
-                    | DataType::Timestamp(..)
-                    | DataType::Duration(..)
-            )
-        })
-    {
-        return Err(error(
-            "ORC does not admit decimal or temporal output in the pinned writer; use Vortex, Arrow IPC or Parquet",
-        ));
+    if format == VortexLocalPrimitiveRowExportFormat::Orc {
+        crate::universal_format_io::translate_orc_schema(&schema)?;
     }
     let schema_fields = plan
         .dtype
@@ -264,7 +242,7 @@ pub(super) fn prepare_plan(
         format,
         limits,
         schema_fields,
-        _schema_metadata: schema_metadata,
+        schema_metadata,
     }))
 }
 
@@ -278,7 +256,10 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
     let mut arrow_fields = Vec::with_capacity(fields.nfields());
     let mut names = std::collections::BTreeSet::new();
     for (name, dtype) in fields.names().iter().zip(fields.fields()) {
-        if name.as_ref().is_empty() || name.as_ref().len() > 256 || !names.insert(name.as_ref()) {
+        if name.as_ref().is_empty()
+            || name.as_ref().len() > i32::MAX as usize
+            || !names.insert(name.as_ref())
+        {
             return None;
         }
         let kind = nested::data_type(&dtype)?;
@@ -366,11 +347,18 @@ impl Write for CappedWriter<'_> {
     }
 }
 
-enum Writer<'a> {
+enum CodecWriter<'a> {
     Ipc(Box<arrow_ipc::writer::FileWriter<CappedWriter<'a>>>),
     Parquet(Box<ArrowWriter<CappedWriter<'a>>>),
     Avro(Box<arrow_avro::writer::AvroWriter<CappedWriter<'a>>>),
     Orc(Box<orc_rust::ArrowWriter<CappedWriter<'a>>>),
+}
+struct Writer<'a> {
+    codec: CodecWriter<'a>,
+    // Conservative input-size envelope for the complete unflushed file unit.
+    // This is neither a provider allocation count nor process RSS.
+    buffered_input_bytes: u64,
+    target_bytes: u64,
 }
 impl<'a> Writer<'a> {
     fn new(
@@ -378,56 +366,133 @@ impl<'a> Writer<'a> {
         schema: SchemaRef,
         file: &'a mut File,
         limits: &'a CompatibilityLimits,
+        target_bytes: u64,
+        parquet_page_bytes: usize,
+        parquet_dictionary_enabled: bool,
     ) -> Result<Self> {
         let sink = CappedWriter {
             file,
             limits,
             written: 0,
         };
-        match format {
-            VortexLocalPrimitiveRowExportFormat::Avro => Ok(Self::Avro(Box::new(
+        let codec = match format {
+            VortexLocalPrimitiveRowExportFormat::Avro => CodecWriter::Avro(Box::new(
                 arrow_avro::writer::AvroWriter::new(sink, schema.as_ref().clone())
                     .map_err(vortex_error)?,
-            ))),
-            VortexLocalPrimitiveRowExportFormat::Orc => Ok(Self::Orc(Box::new(
-                orc_rust::ArrowWriterBuilder::new(sink, translated_schema(&schema, format))
+            )),
+            VortexLocalPrimitiveRowExportFormat::Orc => CodecWriter::Orc(Box::new(
+                orc_rust::ArrowWriterBuilder::new(sink, translated_schema(&schema, format)?)
                     .with_batch_size(limits.batch_rows)
-                    .with_stripe_byte_size(1024 * 1024)
+                    .with_stripe_byte_size(usize::try_from(target_bytes).map_err(vortex_error)?)
+                    .with_compression(orc_rust::compression::CompressionType::Snappy)
                     .try_build()
                     .map_err(vortex_error)?,
-            ))),
-            VortexLocalPrimitiveRowExportFormat::ArrowIpc => Ok(Self::Ipc(Box::new(
+            )),
+            VortexLocalPrimitiveRowExportFormat::ArrowIpc => CodecWriter::Ipc(Box::new(
                 arrow_ipc::writer::FileWriter::try_new(sink, &schema).map_err(vortex_error)?,
-            ))),
+            )),
             VortexLocalPrimitiveRowExportFormat::Parquet => {
                 let properties = WriterProperties::builder()
-                    .set_compression(Compression::UNCOMPRESSED)
-                    .set_dictionary_enabled(false)
-                    .set_encoding(Encoding::PLAIN)
-                    .set_statistics_enabled(EnabledStatistics::None)
+                    .set_compression(Compression::SNAPPY)
+                    .set_dictionary_enabled(parquet_dictionary_enabled)
+                    .set_dictionary_page_size_limit(parquet_page_bytes)
+                    .set_data_page_size_limit(parquet_page_bytes)
+                    .set_statistics_enabled(EnabledStatistics::Chunk)
                     .set_write_batch_size(limits.batch_rows)
-                    // Keep automatic flushing beyond one admitted batch so
-                    // memory_size observes that batch before our explicit flush.
-                    .set_max_row_group_row_count(Some(limits.batch_rows + 1))
-                    .set_data_page_row_count_limit(limits.batch_rows)
+                    .set_max_row_group_row_count(Some(65_536))
+                    .set_data_page_row_count_limit(8192)
                     .build();
-                Ok(Self::Parquet(Box::new(
+                CodecWriter::Parquet(Box::new(
                     ArrowWriter::try_new(sink, schema, Some(properties)).map_err(vortex_error)?,
-                )))
+                ))
             }
-            _ => Err(error("unsupported compatibility writer")),
-        }
+            _ => return Err(error("unsupported compatibility writer")),
+        };
+        Ok(Self {
+            codec,
+            buffered_input_bytes: 0,
+            target_bytes,
+        })
     }
-    fn write(&mut self, batch: &RecordBatch, work: &mut CompatibilityWork) -> Result<()> {
-        match self {
-            Self::Ipc(writer) => writer.write(batch).map_err(vortex_error),
-            Self::Avro(writer) => writer.write(batch).map_err(vortex_error),
-            Self::Orc(writer) => writer
-                .write(&crate::universal_format_io::translate_orc_record_batch(
-                    batch,
-                )?)
-                .map_err(vortex_error),
-            Self::Parquet(writer) => {
+    fn units(&self, batches: u64) -> Result<usize> {
+        Ok(match &self.codec {
+            CodecWriter::Ipc(_) => usize::try_from(batches).map_err(vortex_error)?,
+            CodecWriter::Avro(_) => 1,
+            CodecWriter::Parquet(writer) => {
+                writer.flushed_row_groups().len() + usize::from(writer.in_progress_rows() != 0)
+            }
+            CodecWriter::Orc(writer) => {
+                writer.flushed_stripes() + usize::from(writer.in_progress_rows() != 0)
+            }
+        })
+    }
+    fn pending_units(&self, batches: u64, rows: usize) -> Result<usize> {
+        // A conversion batch usually extends the current row group/stripe.
+        // Reserve its actual maximum resulting footer count, not another copy
+        // of every column descriptor for each conversion batch.
+        let (completed, pending) = match &self.codec {
+            CodecWriter::Ipc(_) => (usize::try_from(batches).map_err(vortex_error)?, 1),
+            CodecWriter::Avro(_) => (0, 1),
+            CodecWriter::Parquet(writer) => (
+                writer.flushed_row_groups().len(),
+                writer
+                    .in_progress_rows()
+                    .checked_add(rows)
+                    .ok_or_else(|| error("Parquet pending row count overflow"))?
+                    .div_ceil(65_536),
+            ),
+            // Each admitted conversion has at most the ORC writer's batch_rows,
+            // and that provider can flush only after encoding that batch.
+            CodecWriter::Orc(writer) => (writer.flushed_stripes(), 1),
+        };
+        completed
+            .checked_add(pending)
+            .ok_or_else(|| error("writer pending unit count overflow"))
+    }
+    fn flush(&mut self, work: &mut CompatibilityWork, pressure: bool) -> Result<()> {
+        if self.buffered_input_bytes == 0 {
+            return Ok(());
+        }
+        match &mut self.codec {
+            CodecWriter::Parquet(writer) => writer.flush().map_err(vortex_error)?,
+            CodecWriter::Orc(writer) if writer.in_progress_rows() > 0 => {
+                writer.flush_stripe().map_err(vortex_error)?;
+            }
+            _ => {}
+        }
+        self.buffered_input_bytes = 0;
+        add(&mut work.writer_flushes, 1)?;
+        if pressure {
+            add(&mut work.pressure_flushes, 1)?;
+        }
+        Ok(())
+    }
+    fn write(
+        &mut self,
+        batch: &RecordBatch,
+        bytes: u64,
+        work: &mut CompatibilityWork,
+    ) -> Result<()> {
+        let retains = matches!(self.codec, CodecWriter::Parquet(_) | CodecWriter::Orc(_));
+        match &mut self.codec {
+            CodecWriter::Ipc(writer) => writer.write(batch).map_err(vortex_error)?,
+            CodecWriter::Avro(writer) => writer.write(batch).map_err(vortex_error)?,
+            CodecWriter::Orc(writer) => {
+                writer
+                    .write(&crate::universal_format_io::translate_orc_record_batch(
+                        batch,
+                    )?)
+                    .map_err(vortex_error)?;
+                let retained = usize_to_u64(writer.memory_size())?;
+                work.max_observed_orc_in_progress_bytes =
+                    work.max_observed_orc_in_progress_bytes.max(retained);
+                if retained > work.writer_reserved_bytes {
+                    return Err(error(
+                        "ORC observed state exceeded the pre-admitted writer envelope",
+                    ));
+                }
+            }
+            CodecWriter::Parquet(writer) => {
                 writer.write(batch).map_err(vortex_error)?;
                 let retained = usize_to_u64(writer.memory_size())?;
                 work.max_observed_parquet_in_progress_bytes =
@@ -437,16 +502,27 @@ impl<'a> Writer<'a> {
                         "Parquet observed state exceeded the pre-admitted writer envelope",
                     ));
                 }
-                writer.flush().map_err(vortex_error)
             }
         }
+        if retains {
+            add(&mut self.buffered_input_bytes, bytes)?;
+            let empty = match &self.codec {
+                CodecWriter::Parquet(writer) => writer.in_progress_rows() == 0,
+                CodecWriter::Orc(writer) => writer.in_progress_rows() == 0,
+                _ => false,
+            };
+            if empty {
+                self.buffered_input_bytes = 0;
+            }
+        }
+        Ok(())
     }
     fn finish(self) -> Result<()> {
-        match self {
-            Self::Ipc(mut writer) => writer.finish().map_err(vortex_error),
-            Self::Parquet(writer) => (*writer).close().map(|_| ()).map_err(vortex_error),
-            Self::Avro(mut writer) => writer.finish().map_err(vortex_error),
-            Self::Orc(writer) => writer.close().map_err(vortex_error),
+        match self.codec {
+            CodecWriter::Ipc(mut writer) => writer.finish().map_err(vortex_error),
+            CodecWriter::Parquet(writer) => (*writer).close().map(|_| ()).map_err(vortex_error),
+            CodecWriter::Avro(mut writer) => writer.finish().map_err(vortex_error),
+            CodecWriter::Orc(writer) => writer.close().map_err(vortex_error),
         }
     }
 }
@@ -518,13 +594,19 @@ impl PreparedCompatibilityExport {
         self.limits.check()?;
         self.plan.validate_destination(output_path)?;
         let mut metadata = self.limits.metadata_reservation(self.schema_fields)?;
-        let initial = metadata
-            .checked_add(64 * 1024)
+        // Admit bounded page/dictionary and codec scratch before construction.
+        // Actual retained state is additionally sampled inside this envelope.
+        let initial = self
+            .writer_overhead()?
+            .checked_add(metadata)
             .ok_or_else(|| error("writer admission overflow"))?;
+        let target_bytes = (self.plan.session.memory().snapshot().limit_bytes / 64)
+            .clamp(64 * 1024, 8 * 1024 * 1024);
         let mut work_owner = self.plan.session.memory().reserve(initial)?;
         let mut output = native_sink::OwnedOutput::new(output_path, overwrite)?;
         let mut work = CompatibilityWork {
             writer_reserved_bytes: initial,
+            file_unit_target_bytes: target_bytes,
             ..Default::default()
         };
         let mut rows = 0_u64;
@@ -542,9 +624,11 @@ impl PreparedCompatibilityExport {
                     Arc::clone(&self.schema),
                     &mut output.file,
                     &self.limits,
+                    target_bytes,
+                    usize::try_from(self.parquet_page_bytes()).map_err(vortex_error)?,
+                    self.parquet_dictionary_enabled(),
                 )?;
                 let mut ctx = session.create_execution_ctx();
-                let target = Field::new("", DataType::Struct(self.schema.fields().clone()), false);
                 if self.plan.source.is_produced()
                     || (!self.plan.metadata_pruned && self.plan.row_count > 0)
                 {
@@ -586,89 +670,20 @@ impl PreparedCompatibilityExport {
                             } else {
                                 array
                             };
-                            if work.arrow_batches >= usize_to_u64(self.limits.batches)? {
-                                return Err(error("writer batch count exceeds admission"));
-                            }
                             add(&mut work.native_batches, 1)?;
                             add(&mut work.native_logical_bytes, array.nbytes())?;
-                            let (canonical, expanded) = admitted_canonical(
+                            self.write_native_batch(
                                 &array,
-                                &self.plan.columns,
+                                execution,
                                 &mut ctx,
-                                &self.limits,
+                                &mut writer,
+                                &mut work,
+                                &mut work_owner,
+                                &mut metadata,
+                                initial,
+                                &mut rows,
+                                &mut after_batch,
                             )?;
-                            let view_target =
-                                if self.format == VortexLocalPrimitiveRowExportFormat::Parquet {
-                                    nested::immediate_parquet_target(
-                                        &canonical,
-                                        &self.schema,
-                                        expanded,
-                                        self.limits.arrow_batch_bytes,
-                                    )?
-                                } else {
-                                    None
-                                };
-                            let conversion_bytes =
-                                view_target.as_ref().map_or(expanded, |(_, bytes)| *bytes);
-                            if self.limits.streaming {
-                                metadata = CompatibilityLimits::metadata_for_batches(
-                                    self.schema_fields,
-                                    usize::try_from(work.arrow_batches + 1)
-                                        .map_err(vortex_error)?,
-                                )?;
-                            }
-                            let admitted = conversion_bytes
-                                .checked_mul(8)
-                                .and_then(|n| n.checked_add(metadata))
-                                .ok_or_else(|| error("writer admission overflow"))?
-                                .max(initial);
-                            // Grow before Arrow allocates or the writer retains this
-                            // batch. Keep the largest grant through writer destruction.
-                            if admitted > work_owner.bytes() {
-                                work_owner.resize(admitted)?;
-                            }
-                            work.writer_reserved_bytes =
-                                work.writer_reserved_bytes.max(work_owner.bytes());
-                            let batch_schema = view_target
-                                .as_ref()
-                                .map_or(&self.schema, |(schema, _)| schema);
-                            let view_field = view_target.as_ref().map(|(schema, _)| {
-                                Field::new("", DataType::Struct(schema.fields().clone()), false)
-                            });
-                            let target = view_field.as_ref().unwrap_or(&target);
-                            let export_options = ArrowExportOptions::default()
-                                .with(CompactBuffers(view_target.is_none()));
-                            let arrow = session
-                                .arrow()
-                                .exporter(&export_options)
-                                .execute_arrow(canonical, Some(target), &mut ctx)
-                                .map_err(vortex_error)?;
-                            let structure = arrow
-                                .as_any()
-                                .downcast_ref::<ArrowStructArray>()
-                                .ok_or_else(|| {
-                                    error("Arrow provider did not return the admitted struct")
-                                })?;
-                            let batch = RecordBatch::try_new(
-                                Arc::clone(batch_schema),
-                                structure.columns().to_vec(),
-                            )
-                            .map_err(vortex_error)?;
-                            if batch.num_rows() != retain {
-                                return Err(error("Arrow provider changed row count"));
-                            }
-                            let actual = usize_to_u64(batch.get_array_memory_size())?;
-                            // This is a post-conversion consistency check inside the
-                            // pre-reserved envelope, not posthoc admission of a buffer.
-                            if actual > self.limits.arrow_batch_bytes {
-                                return Err(error("Arrow retained buffers exceed batch admission"));
-                            }
-                            add(&mut work.admitted_arrow_expansion_bytes, expanded)?;
-                            work.max_arrow_batch_bytes = work.max_arrow_batch_bytes.max(actual);
-                            writer.write(&batch, &mut work)?;
-                            add(&mut work.arrow_batches, 1)?;
-                            add(&mut rows, usize_to_u64(retain)?)?;
-                            after_batch(rows)?;
                             if self.plan.limit == Some(rows) {
                                 stopped = true;
                                 return Ok(false);
@@ -677,6 +692,7 @@ impl PreparedCompatibilityExport {
                         },
                     )?;
                 }
+                work.output_file_units = usize_to_u64(writer.units(work.arrow_batches)?)?;
                 writer.finish()?;
                 self.limits.check()?;
                 output.file.sync_all().map_err(vortex_error)?;
@@ -741,13 +757,13 @@ impl PreparedCompatibilityExport {
             output_sha256: checksum,
             metadata_fidelity: match self.format {
                 VortexLocalPrimitiveRowExportFormat::Avro => {
-                    "compatibility_arrow_boundary;avro_integer_widths_widened_unsigned_to_signed_checked;uint64_above_i64_max_rejected;fixed_size_lists_reopen_as_variable_lists;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
+                    "compatibility_arrow_boundary;avro_integer_widths_widened_unsigned_to_signed_checked;uint64_above_i64_max_rejected;timestamp_instants_and_units_preserved_presentation_zone_normalized_zero_offset;fixed_size_lists_reopen_as_variable_lists;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
                 }
                 VortexLocalPrimitiveRowExportFormat::Orc => {
-                    "compatibility_arrow_boundary;orc_unsigned_to_signed_checked;uint64_above_i64_max_rejected;schema_nullability_relaxed;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
+                    "compatibility_arrow_boundary;orc_snappy_stripes_independent_of_conversion_batches;orc_unsigned_to_signed_checked;uint64_above_i64_max_rejected;decimal128_list_struct_preserved;date64_whole_days_checked_to_date32;timestamp_instants_preserved_presentation_zone_normalized_utc_reader_precision_explicit;time_duration_unsupported;fixed_size_and_large_lists_reopen_as_variable_lists;large_offsets_narrowed_checked;schema_nullability_and_list_element_names_not_preserved;native_encodings_layout_statistics_user_metadata_not_copied;provider_copy_bytes_not_measured"
                 }
                 VortexLocalPrimitiveRowExportFormat::Parquet => {
-                    "compatibility_arrow_boundary;logical_dtype_names_order_validity_preserved;native_encodings_layout_statistics_user_metadata_not_copied;parquet_plain_uncompressed_no_dictionary;provider_copy_bytes_not_measured;read_decode_materialize_flags_conservative_scan_scope_not_observed_bytes"
+                    "compatibility_arrow_boundary;logical_dtype_names_order_validity_preserved;native_encodings_layout_statistics_user_metadata_not_copied;parquet_snappy_bounded_dictionary_chunk_statistics;row_groups_independent_of_conversion_batches;provider_copy_bytes_not_measured;read_decode_materialize_flags_conservative_scan_scope_not_observed_bytes"
                 }
                 _ => {
                     "compatibility_arrow_boundary;logical_dtype_names_order_validity_preserved;native_encodings_layout_statistics_user_metadata_not_copied;arrow_ipc_uncompressed;provider_copy_bytes_not_measured;read_decode_materialize_flags_conservative_scan_scope_not_observed_bytes"
@@ -825,21 +841,31 @@ fn validate_reopen(
         }
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc => {
             use arrow_array::RecordBatchReader as _;
-            let reader: Box<dyn arrow_array::RecordBatchReader> = match format {
-                VortexLocalPrimitiveRowExportFormat::Avro => Box::new(
+            let expected = translated_schema(schema, format)?;
+            let reader: Box<dyn arrow_array::RecordBatchReader> = if format
+                == VortexLocalPrimitiveRowExportFormat::Avro
+            {
+                Box::new(
                     arrow_avro::reader::ReaderBuilder::new()
                         .with_batch_size(limits.batch_rows)
                         .build(std::io::BufReader::new(file))
                         .map_err(vortex_error)?,
-                ),
-                _ => Box::new(
-                    orc_rust::ArrowReaderBuilder::try_new(file)
-                        .map_err(vortex_error)?
+                )
+            } else {
+                let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(vortex_error)?;
+                if !crate::universal_format_io::orc_wire_schema_matches(
+                    &builder.schema(),
+                    &expected,
+                ) {
+                    return Err(error("ORC file schema differs from declared translation"));
+                }
+                Box::new(
+                    builder
+                        .with_schema(expected.clone())
                         .with_batch_size(limits.batch_rows)
                         .build(),
-                ),
+                )
             };
-            let expected = translated_schema(schema, format);
             let actual = reader.schema();
             if actual.fields().len() != expected.fields().len()
                 || actual
@@ -879,7 +905,10 @@ fn validate_reopen(
     Ok(())
 }
 
-fn translated_schema(schema: &SchemaRef, format: VortexLocalPrimitiveRowExportFormat) -> SchemaRef {
+fn translated_schema(
+    schema: &SchemaRef,
+    format: VortexLocalPrimitiveRowExportFormat,
+) -> Result<SchemaRef> {
     fn translate(field: &Field, format: VortexLocalPrimitiveRowExportFormat) -> Field {
         let dtype = match (format, field.data_type()) {
             (
@@ -889,6 +918,12 @@ fn translated_schema(schema: &SchemaRef, format: VortexLocalPrimitiveRowExportFo
             | (_, DataType::UInt16) => DataType::Int32,
             (_, DataType::UInt8) => DataType::Int16,
             (_, DataType::UInt32 | DataType::UInt64) => DataType::Int64,
+            (VortexLocalPrimitiveRowExportFormat::Avro, DataType::Timestamp(unit, Some(_))) => {
+                // Avro distinguishes instants from local timestamps, but has no
+                // presentation-zone field. The pinned reader uses this exact
+                // zero-offset spelling and preserves the timestamp's wire unit.
+                DataType::Timestamp(*unit, Some("+00:00".into()))
+            }
             (_, DataType::List(child)) => DataType::List(Arc::new(translate(child, format))),
             (VortexLocalPrimitiveRowExportFormat::Avro, DataType::FixedSizeList(child, _)) => {
                 DataType::List(Arc::new(translate(child, format)))
@@ -907,12 +942,15 @@ fn translated_schema(schema: &SchemaRef, format: VortexLocalPrimitiveRowExportFo
         };
         Field::new(field.name(), dtype, field.is_nullable())
     }
+    if format == VortexLocalPrimitiveRowExportFormat::Orc {
+        return crate::universal_format_io::translate_orc_schema(schema);
+    }
     let fields = schema
         .fields()
         .iter()
         .map(|field| translate(field, format))
         .collect::<Vec<_>>();
-    Arc::new(Schema::new(fields))
+    Ok(Arc::new(Schema::new(fields)))
 }
 
 fn error(message: &str) -> ShardLoomError {

@@ -32,6 +32,7 @@ from .query import (
     read_json,
     read_orc,
     read_parquet,
+    read_tsv,
     read_vortex,
     sql as sql_workflow,
 )
@@ -498,15 +499,17 @@ class ShardLoomSession:
         self,
         uri: str | os.PathLike[str],
         *,
+        input_format: str | None = None,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a session-bound lazy source by inferring the local adapter."""
+        """Declare a session-bound lazy source with an optional explicit format."""
 
         self._ensure_open()
         return _session_frame(
             session=self,
             frame=read_source(
                 uri,
+                input_format=input_format,
                 schema=schema,
                 client=self.client,
                 engine_mode=self.engine,
@@ -526,6 +529,26 @@ class ShardLoomSession:
         return _session_frame(
             session=self,
             frame=read_csv(
+                uri,
+                schema=schema,
+                client=self.client,
+                engine_mode=self.engine,
+                resources=self.resources, resource_limits=self.resource_limits,
+            ),
+        )
+
+    def read_tsv(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a session-bound lazy quoted TAB-delimited source."""
+
+        self._ensure_open()
+        return _session_frame(
+            session=self,
+            frame=read_tsv(
                 uri,
                 schema=schema,
                 client=self.client,

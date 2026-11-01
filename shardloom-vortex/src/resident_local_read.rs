@@ -39,6 +39,20 @@ struct Reader {
 }
 
 impl OwnedLocalRead {
+    /// Explicit full-source ingestion uses a synchronous, single-reader I/O
+    /// scope. It shares source buffers/cancellation with the supplied grant;
+    /// it is not counted as a native query execution.
+    pub(crate) fn sequential(
+        identity: Arc<SourceIdentity>,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        metrics: Arc<LocalReadMetrics>,
+    ) -> Result<Self> {
+        let budget = super::io_ownership::IoBudget::new(1, memory.snapshot().limit_bytes);
+        let scope = IoScope::new(budget, memory, cancellation.clone())?;
+        Self::new(identity, memory, cancellation, metrics, Some(scope))
+    }
+
     pub(crate) fn metadata(
         identity: Arc<SourceIdentity>,
         memory: &LiveMemoryPool,

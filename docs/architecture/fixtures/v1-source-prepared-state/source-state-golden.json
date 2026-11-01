@@ -12,7 +12,7 @@
   "source_inputs": {
     "native_vortex": "direct",
     "memory": "direct",
-    "compatibility_formats": ["csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
+    "compatibility_formats": ["csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
     "compatibility_normalization": "through_vortex_before_shared_query",
     "source_free": "shared_engine_without_mandatory_publication"
   },

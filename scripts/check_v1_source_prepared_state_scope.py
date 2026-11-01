@@ -27,7 +27,7 @@ CANONICAL_ROUTE = (
     "declared input or source-free expression -> native Vortex admission -> "
     "native_vortex_unified_plan -> typed result or declared sink"
 )
-SUPPORTED_FORMATS = ("csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+SUPPORTED_FORMATS = ("csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 ROUTE_IDS = ("native_vortex_query",)
 INVALIDATION_CASE_IDS = (
     "first_request",

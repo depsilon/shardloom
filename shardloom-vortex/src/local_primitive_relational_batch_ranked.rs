@@ -26,7 +26,7 @@ impl Execution<'_, '_> {
             .batch_sources
             .get(index)
             .ok_or_else(|| failed("ranked input declaration is absent"))?;
-        if state.started.get() || !state.usage.get().admits_ranked() || prefix > 16_384 {
+        if state.started.get() || !state.usage.get().admits_independent_read() || prefix > 16_384 {
             return Ok(false);
         }
         let Some(source) = &declaration.local else {

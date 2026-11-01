@@ -2,11 +2,12 @@ use super::*;
 use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 use std::path::Path;
 
-pub(super) const FORMATS: [Format; 7] = [
+pub(super) const FORMATS: [Format; 8] = [
     Format::Vortex,
     Format::Parquet,
     Format::ArrowIpc,
     Format::Avro,
+    Format::Orc,
     Format::Json,
     Format::Jsonl,
     Format::Csv,
@@ -116,14 +117,6 @@ fn typed_unary_writers_reopen_complete_typed_values_and_empty_schemas() {
                     );
                 }
             }
-            let path = fixture.0.join(format!("denied-{direct}.orc"));
-            assert!(
-                write(&fixture, &req, direct, &path, Format::Orc, false)
-                    .unwrap_err()
-                    .to_string()
-                    .contains("ORC does not admit decimal or temporal")
-            );
-            assert!(!path.exists());
         }
     }
 }

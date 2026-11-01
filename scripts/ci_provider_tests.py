@@ -17,6 +17,7 @@ GROUPS = {
                "vortex-datetime-parts"),
     "io": ("vortex-layout", "vortex-file", "vortex-io"),
     "buffer": ("vortex-buffer",),
+    "formats": ("orc-rust",),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": []},
@@ -31,6 +32,8 @@ CONFIGURATIONS = {
                     "patches": ["vortex-array", "vortex-io", "vortex-layout"], "clippy_tests": True},
     "vortex-io": {"features": "object_store", "patches": ["vortex-array"], "clippy_tests": True},
     "vortex-buffer": {"features": None, "patches": []},
+    "orc-rust": {"features": None, "patches": [], "no_default_features": True,
+                 "clippy_tests": True, "clippy_conf_dir": "vendor/orc-rust"},
 }
 
 
@@ -39,6 +42,8 @@ def configuration_arguments(crate: str) -> list[str]:
     args = ["--manifest-path", f"vendor/{crate}/Cargo.toml"]
     for patch in config["patches"]:
         args += ["--config", f'patch.crates-io.{patch}.path="vendor/{patch}"']
+    if config.get("no_default_features"):
+        return [*args, "--no-default-features"]
     return [*args, "--features", config["features"]] if config["features"] else [*args, "--all-features"]
 
 
@@ -57,13 +62,18 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
     if output.exists() or output.is_symlink():
         raise ValueError("provider evidence directory must be new")
     output.mkdir(parents=True)
-    env = dict(os.environ, CLIPPY_CONF_DIR=str(root / "vendor/vortex-array"))
+    env = dict(os.environ)
     target = Path(env.get("CARGO_TARGET_DIR", root / "target/providers"))
     env["CARGO_TARGET_DIR"] = str(target.resolve())
     report = {"schema_version": "shardloom.ci_provider_tests.v1", "group": group,
               "status": "running", "target_directory": str(target.resolve()), "commands": []}
     try:
         for crate in GROUPS[group]:
+            # Vortex's aliases policy belongs only to its provider family.
+            # Other codecs retain their own lint configuration, even if the
+            # calling environment selected Vortex's configuration globally.
+            env["CLIPPY_CONF_DIR"] = str(root / CONFIGURATIONS[crate].get(
+                "clippy_conf_dir", "vendor/vortex-array"))
             frozen = root / ".github/provider-locks" / f"{crate}.lock"
             if frozen.is_symlink() or not frozen.is_file():
                 raise ValueError(f"missing reviewed provider lockfile: {crate}")
@@ -74,7 +84,8 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
             for command in commands(crate):
                 log = output / f"{crate}-{command[1]}.log"
                 started = time.monotonic()
-                entry = {"crate": crate, "command": command, "lock_sha256": sha(frozen)}
+                entry = {"crate": crate, "command": command, "lock_sha256": sha(frozen),
+                         "clippy_conf_dir": env["CLIPPY_CONF_DIR"]}
                 report["commands"].append(entry)
                 print("Running " + " ".join(command), flush=True)
                 with log.open("xb") as stream:

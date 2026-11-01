@@ -46,15 +46,16 @@ described in the [release and migration guide](/field-guide/development).
 
 ## Local formats
 
-`ctx.read(path)` infers the adapter; named helpers make the format explicit.
-Published release builds include the listed local readers. Source builds need
-their matching features. Network and catalog protocols are not implicit readers.
+`ctx.read(path)` infers the adapter; `ctx.read(path, input_format=...)` and named
+helpers make the format explicit. Current source builds include the readers
+below with their matching features. Directory, glob and manifest inputs require
+an explicit format. Network and catalog protocols are not implicit readers.
 
 | Boundary | Formats or types | Practical restriction |
 | --- | --- | --- |
 | Vortex files | Vortex | Highest-fidelity input and persistence; file/schema validation still applies. |
-| Text input | CSV, JSON, JSONL/NDJSON | Parsing and schema rules apply; source loading prepares a Vortex representation. |
-| Columnar/structured files | Parquet, Arrow IPC/Feather, Avro, ORC | The file's schema must be representable by the adapter. |
+| Text input | CSV, TSV, JSON, JSONL/NDJSON | Shared direct readers apply parsing, schema and generation checks. Explicit preparation creates a reusable Vortex file. |
+| Columnar/structured files | Parquet, Arrow IPC file/stream, Feather V2, Avro, ORC | Direct readers use the embedded schema; it must be representable by the adapter. |
 | Typed memory | Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps | Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision. |
 | Nested values | Static List, FixedSizeList and ordered Struct | Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied. |
 
@@ -72,7 +73,7 @@ batches; they do not require a Python row tuple.
 | Parquet, Arrow IPC, Avro | Preserve representable logical schemas; exact adapter restrictions apply. |
 | JSON and JSONL | Use explicit encodings for binary, decimal and temporal values; Vortex-specific metadata is not preserved. |
 | CSV | Nested values become quoted JSON text cells; logical data types and Vortex-specific metadata are not preserved. |
-| ORC | Rejects nested, decimal and temporal output; supported binary/scalar types retain their writer contract. |
+| ORC | Current source supports admitted decimal, list, struct, date and timestamp output. Timestamp units and nested field metadata follow ORC's wire contract; unsupported temporal types and unsigned values above Int64's maximum are rejected explicitly. |
 
 Use a new destination. Do not assume overwrite or atomic publication across
 multiple files. A failed write must not be reported as a completed output; retain

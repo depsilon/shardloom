@@ -59,15 +59,6 @@ fn roundtrip(
             }
             fs::remove_file(path).unwrap();
         }
-        let path = fixture.0.join("denied.orc");
-        let error = io_tests::write(fixture, req, direct, &path, Format::Orc, false).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("ORC does not admit decimal or temporal"),
-            "{error}"
-        );
-        assert!(!path.exists());
         assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
     }
 }

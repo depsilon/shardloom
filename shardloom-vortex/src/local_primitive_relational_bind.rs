@@ -161,6 +161,29 @@ impl<'a> Binder<'a> {
         self.charge_items(count, 4096)
     }
 
+    pub(super) fn charge_names<'b>(
+        &mut self,
+        names: impl IntoIterator<Item = &'b str>,
+    ) -> Result<()> {
+        self.charge(names_bytes(names)?)
+    }
+
+    pub(super) fn charge_named_fields(&mut self, fields: &[(String, DType)]) -> Result<()> {
+        self.charge_names(fields.iter().map(|(name, _)| name.as_str()))
+    }
+
+    // Existing fixed field/expression envelopes cover names through 256 bytes.
+    // Admit longer names before cloning aliases or expression references.
+    pub(super) fn charge_name(&mut self, name: &str) -> Result<()> {
+        validate_name(name)?;
+        self.charge(
+            name.len()
+                .saturating_sub(256)
+                .checked_mul(16)
+                .ok_or_else(|| failed("column name metadata size overflow"))?,
+        )
+    }
+
     pub(super) fn finish(mut self) -> Result<BoundSources> {
         self.cancellation.check()?;
         let (sources, mut source_credit) = self.sources.into_parts();
@@ -408,12 +431,16 @@ impl<'a> Binder<'a> {
                 self.subquery(subquery, depth, true)
             }
             VortexRelationalPlan::Outer => {
-                let width = self
-                    .outer_fields
-                    .as_ref()
-                    .ok_or_else(|| failed("outer row source requires a correlated subquery scope"))?
-                    .len();
-                self.charge_fields(width)?;
+                let bytes = names_bytes(
+                    self.outer_fields
+                        .as_ref()
+                        .ok_or_else(|| {
+                            failed("outer row source requires a correlated subquery scope")
+                        })?
+                        .iter()
+                        .map(|(name, _)| name.as_str()),
+                )?;
+                self.charge(bytes)?;
                 Ok(Node {
                     fields: self
                         .outer_fields
@@ -431,7 +458,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
             VortexRelationalPlan::Unary(unary) => {
                 let input = Box::new(self.bind(&unary.input, depth + 1)?);
-                self.charge_fields(input.fields.len())?;
+                self.charge_named_fields(&input.fields)?;
                 let operation = BoundUnary::for_relation(
                     &unary.request,
                     &DType::struct_(input.fields.clone(), Nullability::NonNullable),
@@ -441,7 +468,7 @@ impl<'a> Binder<'a> {
                     return self.complete_pivot(&input, operation);
                 }
                 validate_width(operation.fields().len())?;
-                self.charge_fields(operation.fields().len())?;
+                self.charge_named_fields(operation.fields())?;
                 for (name, dtype) in operation.fields() {
                     validate_name(name)?;
                     if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
@@ -528,6 +555,19 @@ impl<'a> Binder<'a> {
         Ok(source)
     }
 
+    pub(super) fn primitive_plan(
+        &mut self,
+        request: &VortexQueryPrimitiveRequest,
+        input: VortexRelationalPlan,
+    ) -> Result<VortexRelationalPlan> {
+        let uri = request
+            .source_uri
+            .as_ref()
+            .ok_or_else(|| failed("primitive source is absent"))?;
+        let source = self.input(uri)?;
+        super::request_plan::lower(request, input, self.source_dtype(source))
+    }
+
     pub(super) fn source_columns(
         &mut self,
         uri: &shardloom_core::DatasetUri,
@@ -537,13 +577,8 @@ impl<'a> Binder<'a> {
             .source_dtype(source)
             .as_struct_fields_opt()
             .ok_or_else(|| failed("relational source requires a struct schema"))?;
-        self.charge(
-            fields
-                .names()
-                .len()
-                .checked_mul(4096)
-                .ok_or_else(|| failed("source metadata size overflow"))?,
-        )?;
+        let bytes = names_bytes(fields.names().iter().map(AsRef::as_ref))?;
+        self.charge(bytes)?;
         let fields = self
             .source_dtype(source)
             .as_struct_fields_opt()
@@ -570,18 +605,14 @@ impl<'a> Binder<'a> {
             for column in columns {
                 validate_name(column.as_str())?;
             }
-            self.charge_fields(columns.len())?;
+            self.charge_names(columns.iter().map(shardloom_core::ColumnRef::as_str))?;
         }
         let source = self.input(&scan.source_uri)?;
         let dtype = self.source_dtype(source);
         let source_fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| failed("relational source requires a struct schema"))?;
-        let schema_bytes = source_fields
-            .names()
-            .len()
-            .checked_mul(4096)
-            .ok_or_else(|| failed("source schema metadata overflow"))?;
+        let schema_bytes = names_bytes(source_fields.names().iter().map(AsRef::as_ref))?;
         self.charge(schema_bytes)?;
         let dtype = self.source_dtype(source);
         if let Some(predicate) = &scan.predicate {
@@ -722,8 +753,16 @@ impl<'a> Binder<'a> {
             validate_name(&column.output_column)?;
             validate_name(column.column.as_str())?;
         }
-        self.charge_items(join.keys.len(), 8192)?;
-        self.charge_items(join.columns.len(), 8192)?;
+        self.charge_names(
+            join.keys
+                .iter()
+                .flat_map(|key| [key.left.as_str(), key.right.as_str()]),
+        )?;
+        self.charge_names(
+            join.columns
+                .iter()
+                .flat_map(|column| [column.output_column.as_str(), column.column.as_str()]),
+        )?;
         let mut left = Box::new(self.bind(join.left, depth + 1)?);
         let mut right = Box::new(self.bind(join.right, depth + 1)?);
         let mut left_keys = Vec::new();
@@ -769,7 +808,7 @@ impl<'a> Binder<'a> {
         let condition = self.join_condition(join.condition, &left.fields, &right.fields)?;
         let mut right_key_fields = Vec::new();
         if matches!(join.kind, JoinKind::LeftSemi | JoinKind::LeftAnti) && condition.is_none() {
-            self.charge_fields(right_keys.len())?;
+            self.charge_names(right_keys.iter().map(String::as_str))?;
             for name in &right_keys {
                 if !right_key_fields.iter().any(|(prior, _)| prior == name) {
                     right_key_fields.push((name.clone(), field(&right.fields, name)?.clone()));
@@ -799,7 +838,7 @@ impl<'a> Binder<'a> {
         if left.fields.len() != right.fields.len() {
             return Err(failed("set branches have different column counts"));
         }
-        self.charge_fields(left.fields.len())?;
+        self.charge_named_fields(&left.fields)?;
         let fields = left
             .fields
             .iter()
@@ -832,10 +871,22 @@ fn validate_width(width: usize) -> Result<()> {
 }
 
 fn validate_name(name: &str) -> Result<()> {
-    if name.is_empty() || name.len() > 256 {
-        return Err(failed("column names require 1 through 256 bytes"));
+    if name.is_empty() || name.len() > i32::MAX as usize {
+        return Err(failed(
+            "column names require a nonempty value within the native metadata offset range",
+        ));
     }
     Ok(())
+}
+
+fn names_bytes<'b>(names: impl IntoIterator<Item = &'b str>) -> Result<usize> {
+    names.into_iter().try_fold(0usize, |bytes, name| {
+        validate_name(name)?;
+        name.len()
+            .checked_mul(16)
+            .and_then(|name_bytes| bytes.checked_add(name_bytes.max(4096)))
+            .ok_or_else(|| failed("column name metadata size overflow"))
+    })
 }
 
 fn validate_unique(fields: &[(String, DType)]) -> Result<()> {

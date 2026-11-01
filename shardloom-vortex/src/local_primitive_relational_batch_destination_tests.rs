@@ -209,7 +209,7 @@ fn completion_input_fanout_executes_once_for_all_writers_and_typed_empty_output(
 
 #[test]
 fn completion_input_fanout_failures_leave_no_published_prefix_or_owners() {
-    for failure in ["producer", "schema", "cancel", "later_adapter"] {
+    for failure in ["producer", "schema", "cancel"] {
         let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
         let prepared = prepare(&scan(), 32 << 20).unwrap();
         let initial = prepared.snapshot().memory.reserved_bytes;
@@ -218,11 +218,6 @@ fn completion_input_fanout_failures_leave_no_published_prefix_or_owners() {
             (fixture.0.join("second.parquet"), Format::Parquet),
         ];
         let token = CancellationToken::default();
-        let text = if failure == "later_adapter" {
-            "x".repeat(65_537)
-        } else {
-            "ordinary".into()
-        };
         let mut calls = 0;
         let mut input = |session: &ResidentVortexSession| {
             calls += 1;
@@ -245,23 +240,20 @@ fn completion_input_fanout_failures_leave_no_published_prefix_or_owners() {
                 };
             }
             assert_eq!(calls, 1);
-            Ok(Some(source(session, &[Some(1)], &[Some(text.as_str())])?))
+            Ok(Some(source(session, &[Some(1)], &[Some("ordinary")])?))
         };
         let error = prepared
             .with_batch_input(&mut input)
             .unwrap()
             .write_many_controlled(&targets, false, &token)
             .err()
-            .expect("whole fanout must fail");
+            .unwrap_or_else(|| panic!("{failure}: whole fanout must fail; producer calls={calls}"));
         if failure == "producer" {
             assert!(
                 error
                     .to_string()
                     .contains("late destination producer error")
             );
-        }
-        if failure == "later_adapter" {
-            assert!(error.to_string().contains("string"), "{error}");
         }
         assert_eq!(calls, 2, "{failure}");
         assert!(targets.iter().all(|(path, _)| !path.exists()));
@@ -273,6 +265,75 @@ fn completion_input_fanout_failures_leave_no_published_prefix_or_owners() {
         );
         assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1, "{failure}");
     }
+}
+
+#[test]
+fn completion_input_later_orc_value_refusal_cleans_an_already_staged_native_output() {
+    let fixture = Fixture::new(keyed(&[Some(0)], &[0]), 1);
+    let dtype =
+        serde_json::to_string(&DType::Primitive(PType::U64, Nullability::Nullable)).unwrap();
+    let input = |session: &ResidentVortexSession, values: &[Option<u64>]| {
+        let values = values
+            .iter()
+            .map(|value| value.map(|value| value.to_string()))
+            .collect::<Vec<_>>();
+        let values = values
+            .iter()
+            .map(|value| value.as_deref())
+            .collect::<Vec<_>>();
+        ResidentMemorySource::from_batch_columns(
+            session,
+            &[MemoryColumn {
+                name: "n",
+                values: MemoryColumnValues::TypedJson {
+                    dtype_json: &dtype,
+                    values: &values,
+                },
+            }],
+        )
+    };
+    let mut grant = policy();
+    grant.resource_envelope.memory_budget_bytes = 32 << 20;
+    let prepared = prepare_relational_with_schema(grant, |preparation| {
+        preparation.register_batch_source(DatasetUri::new("memory://stream")?, |session| {
+            input(session, &[])
+        })?;
+        Ok(scan())
+    })
+    .unwrap();
+    let initial = prepared.snapshot().memory.reserved_bytes;
+    let targets = [
+        (fixture.0.join("first.vortex"), Format::Vortex),
+        (fixture.0.join("second.orc"), Format::Orc),
+    ];
+    let mut calls = 0;
+    let mut produce = |session: &ResidentVortexSession| {
+        calls += 1;
+        assert!(targets.iter().all(|(path, _)| !path.exists()));
+        if calls == 1 {
+            input(session, &[Some(u64::MAX)]).map(Some)
+        } else {
+            assert_eq!(calls, 2);
+            Ok(None)
+        }
+    };
+    let error = prepared
+        .with_batch_input(&mut produce)
+        .unwrap()
+        .write_many_controlled(&targets, false, &CancellationToken::default())
+        .err()
+        .expect("ORC cannot exactly represent u64::MAX");
+    assert!(
+        error
+            .to_string()
+            .contains("ORC cannot represent uint64 above i64::MAX"),
+        "{error}"
+    );
+    assert_eq!(calls, 2);
+    assert!(targets.iter().all(|(path, _)| !path.exists()));
+    assert_eq!(prepared.snapshot().completed_executions, 0);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
 }
 
 #[test]

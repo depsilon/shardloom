@@ -59,7 +59,7 @@ impl Binder<'_> {
             binding
         };
         let node = binding.node()?;
-        self.charge_fields(node.fields.len())?;
+        self.charge_named_fields(&node.fields)?;
         let fields = node.fields.clone();
         drop(node);
         Ok(Node {
@@ -87,8 +87,8 @@ impl Binder<'_> {
                 "recursive input identity or column names differ from its anchor",
             ));
         }
-        let width = scope.fields.len();
-        self.charge_fields(width)?;
+        let bytes = super::names_bytes(scope.fields.iter().map(|(name, _)| name.as_str()))?;
+        self.charge(bytes)?;
         let scope = self.recursion.as_mut().expect("admitted recursive scope");
         scope.uses = scope
             .uses
@@ -114,7 +114,7 @@ impl Binder<'_> {
             ));
         }
         let anchor = Box::new(self.bind(&definition.anchor, depth + 1)?);
-        self.charge_fields(anchor.fields.len())?;
+        self.charge_named_fields(&anchor.fields)?;
         let fields = anchor
             .fields
             .iter()
@@ -125,7 +125,7 @@ impl Binder<'_> {
                 validate_key(dtype)?;
             }
         }
-        self.charge_fields(fields.len())?;
+        self.charge_named_fields(&fields)?;
         self.recursion = Some(Scope {
             identity: definition.identity.clone(),
             fields: fields.clone(),

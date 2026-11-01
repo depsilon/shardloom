@@ -47,6 +47,38 @@ fn workspace() -> Fixture {
     Fixture::new(keyed(&[], &[]), 1)
 }
 
+#[test]
+fn metadata_count_cannot_substitute_a_schema_or_hint_for_external_producer_completion() {
+    let fixture = workspace();
+    let plan = aggregate(scan(), &[], vec![measure("count", None, "rows")]);
+    let prepared = prepared(&plan, &fixture, false, 8 << 20);
+    let mut calls = 0;
+    let mut input = |session: &ResidentVortexSession| {
+        calls += 1;
+        if calls == 1 {
+            source(
+                session,
+                &[None, Some(1), Some(2)],
+                &[None, Some("a"), Some("b")],
+            )
+            .map(Some)
+        } else {
+            Ok(None)
+        }
+    };
+    let result = prepared
+        .with_batch_input(&mut input)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(json_rows(&result), vec![json!({"rows":3})]);
+    assert_eq!(calls, 2);
+    let report = result.execution.input.as_ref().unwrap();
+    assert_eq!(report.metadata_count_sources, 0);
+    assert_eq!(report.rows, 3);
+    assert!(report.end_of_input_observed);
+}
+
 fn prepared(
     plan: &VortexRelationalPlan,
     fixture: &Fixture,

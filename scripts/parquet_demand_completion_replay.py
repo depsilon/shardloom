@@ -20,6 +20,49 @@ def need(value, message):
         raise ValueError(message)
 
 
+def validate_projection_work(fields):
+    """A zero-column answer needs explicit completed metadata-count evidence.
+
+    Historical packets without this capability retain the original positive
+    projection requirement. This changes saved-result validation, not execution.
+    """
+    def number(name):
+        value = fields.get(name)
+        need(isinstance(value, str) and value.isdecimal(), 'invalid work counter: ' + name)
+        parsed = int(value)
+        need(parsed <= (1 << 64) - 1, 'work counter exceeds u64: ' + name)
+        return parsed
+    projected = number('native_source_demand_projected_columns')
+    available = number('native_source_demand_available_columns')
+    need(available > 0 and projected <= available, 'invalid projection')
+    if projected > 0:
+        return
+    sources = number('native_source_metadata_count_sources')
+    need(sources > 0 and sources == number('native_source_demand_sources')
+         == number('native_input_batch_sources'), 'zero projection lacks complete metadata sources')
+    rows = number('native_source_metadata_count_rows')
+    for key in ('native_source_demand_physical_leaf_columns', 'native_source_demand_rows_decoded',
+                'native_source_demand_row_groups_read', 'native_source_demand_data_read_bytes',
+                'native_source_demand_data_read_requests', 'native_input_batches',
+                'native_input_batch_rows'):
+        need(number(key) == 0, 'metadata count reports payload work: ' + key)
+    need(fields.get('native_input_end_observed') == 'true', 'metadata source did not complete')
+    need(fields.get('native_input_output_ownership_detached') == 'true', 'metadata output not owned')
+    operations = fields.get('local_primitive_native_io_pushdown_accepted_operations', '').split(',')
+    need('native_source_metadata_count_all' in operations, 'metadata strategy not certified')
+    proof = fields.get('local_primitive_native_io_pushdown_proof_basis', '')
+    proof_tokens = set(proof.replace(';', ' ').split())
+    for token in (f'metadata_count_sources={sources}', f'metadata_count_rows={rows}',
+                  'exact_nonnegative_file_and_row_group_counts', 'checked_u64_accumulation',
+                  'complete_held_source_inventory', 'unfiltered_scalar_count_all',
+                  'metadata_validation_only_no_page_or_value_validation',
+                  'no_payload_reader', 'metadata_and_fingerprint_admission_reads_separate',
+                  'held_generation_checked_through_final_consumer'):
+        need(token in proof_tokens, 'metadata count proof absent: ' + token)
+    need('no_data_page_or_value_validation' in fields.get('native_source_demand_validation_scope', ''),
+         'metadata count validation scope absent')
+
+
 def benefit_decision(retention, before, after, families):
     """Honor the frozen rule without reinterpreting historical percentage gates."""
     rule = retention.get('rule')
@@ -97,7 +140,7 @@ def replay(raw, root):
             need(isinstance(value, str) and value.isdecimal(), 'invalid physical counter: ' + name)
             return int(value)
         need(number('sources') > 0 and number('files') >= number('sources') and number('prepared_input_bytes_written') == 0, 'demand route absent')
-        need(0 < number('projected_columns') <= number('available_columns'), 'invalid projection')
+        validate_projection_work(fields)
         need(0 <= number('row_groups_read') <= number('row_groups_total'), 'invalid row groups')
         need('not_full_ingest_certification' in fields['native_source_demand_validation_scope'], 'validation scope absent')
         need(fields['native_input_end_observed'] == fields['native_input_output_ownership_detached'] == 'true', 'input ownership incomplete')

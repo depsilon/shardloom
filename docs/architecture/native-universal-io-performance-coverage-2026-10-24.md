@@ -2,7 +2,7 @@
 
 # Universal I/O performance and coverage
 
-Status: accepted October 24 maintainer handoff, amended through October 31. The
+Status: accepted October 24 maintainer handoff, amended through November 1. The
 [phase plan](phased-execution-plan.md#planned) owns the execution order, including
 the newly requested [engine-wide adaptive-execution item](phased-execution-plan.md#engine-wide-adaptive-execution)
 immediately after this package's acceptance and before the 1.1.0 milestone.
@@ -53,6 +53,34 @@ Full43 is a later regression check and cannot substitute for the matrix below.
 
 ## Contract and intake
 
+**November 1 completeness priority:** complete item 18 and the subsequent
+item 23 shared adaptive-execution integration before performance optimization.
+The maintainer accepts the r8 combined local-I/O runtime's observed 0.73%
+engine-time increase for the broader direct-original-source/shared-execution
+correction. Its original strict-gain failure and measurements remain unchanged;
+remaining correctness, resource, ownership, lifecycle and coverage gates still
+apply. Different I/O formats and execution surfaces may take slightly different
+times. Retain and explain those observations, including necessary physical and
+interface costs, rather than requiring equal timings or another tuning cycle.
+This supersedes performance-only blocking rules in the earlier acceptance
+handoff below. It does not defer missing supported routes or correctness defects.
+
+**October 31 implementation batching decision:** the maintainer requests the
+remaining item 18 implementation as one cohesive batch, followed by a combined
+build and acceptance pass. Fold the in-progress exact direct-source count into
+that batch. Preserve completed and failed checks; do not start a separate build,
+package or timing cycle for each adapter or writer change. The combined pass
+still owes the source/sink, public-interface, resource, correctness and timing
+evidence below. Optional future adapter breadth retains its existing scope;
+this scheduling change does not waive acceptance or authorize publication.
+
+**October 31 remote-workflow deferral:** when asked to select an authenticated
+storage service and disposable test dataset, the maintainer deferred that work.
+The active combined batch and acceptance gate cover local I/O and the five
+interfaces. Remote connector implementation and its authenticated read/compute/
+safe-refresh/readback proof remain explicitly deferred; they are not a blocker
+for this local batch and are not recorded as implemented or accepted.
+
 The October 30 maintainer clarification requires this package to extend the
 current accepted analytical performance capabilities across **all supported input
 and output families and their supported combinations**. Audit every applicable
@@ -87,6 +115,14 @@ Exact metadata `COUNT(*)` is the first bounded candidate: define metadata
 validity, source generations, multiple-file accumulation, overflow and validation
 scope before admitting a row-free source. Filtered counts and `COUNT(column)`
 need separate semantic proofs.
+
+The [October 31 direct-source count contract](native-direct-source-count-2026-10-31.md)
+records that audit and the first implementation in progress. It extends the
+existing owned-source lifecycle and native scalar aggregate with exact Parquet
+cardinality, distinct payload-work counters and explicit metadata-only
+validation. Source generation, checked multi-file totals, refusal, ownership,
+public-interface and saved-evidence controls gate acceptance; this does not
+complete the wider format and writer matrix.
 
 Complete this direct-source outcome with:
 
@@ -335,12 +371,13 @@ benefit decisions before each performance candidate and preserve every outcome.
 
 The October 28 maintainer instruction makes correctness and timing across all
 execution surfaces and I/O scenarios a required item-18 acceptance deliverable
-before the 1.1.0 version bump. The objective is to eliminate avoidable performance
-differences on equivalent work. CSV parsing, compressed decoding and different
-output encodings need not take identical time; necessary physical work must be
-distinguished from redundant preparation, weaker planning or wrapper-specific
-execution. Existing smoke tests and declarative parity reports do not establish
-this gate, and the earlier failed surface timing screen stays failed.
+before the 1.1.0 version bump. Under the November 1 decision, the acceptance
+objective is complete shared native capability and correct I/O behavior across
+those surfaces. CSV parsing, compressed decoding, output encoding and interface
+delivery have different costs; timing remains diagnostic. Required prepared
+artifacts or disconnected shared operators remain integration defects. Existing
+smoke tests and declarative parity reports do not establish this gate, and the
+earlier failed surface timing screens keep their original dispositions.
 
 Freeze a coverage manifest against the accepted runtime and package, recording
 every applicable surface, input, output and scenario combination. Use all five
@@ -387,14 +424,15 @@ Missing clocks or counters remain unavailable. Routine timing updates remain
 engine-only. Record complete values, schemas, nulls, ordering, metadata and native
 no-fallback certificates, with independent output readback.
 
-Define relative and absolute material-gap thresholds, controls, comparison order
-and a finite investigation/confirmation budget before candidate measurements.
-Compare case and family results, not only a suite total. Investigate material
-gaps in shared planning/operators first, then justified adapter policy; preserve
-every observation and original failed gate. A single sequential observation is
-not proof of timing equivalence. No routine repeated Full43, cache manipulation,
-artificial pacing or new competitor run follows from this addition; existing
-competitor observations retain their original formats and clocks.
+Preserve the declared relative/absolute screens, comparison order, finite
+investigation budgets and every original observation. Report case and family
+results as diagnostic evidence; carry performance-only findings into the
+subsequent optimization queue after items 18 and 23. A timing finding that exposes
+a missing supported route or incorrect resource behavior still requires a
+functional correction. A single sequential observation is not proof of timing
+equivalence. No routine repeated Full43, cache manipulation, artificial pacing
+or new competitor run follows from this addition; existing competitor
+observations retain their original formats and clocks.
 
 Before advancing to the version bump:
 
@@ -402,10 +440,9 @@ Before advancing to the version bump:
   across all five surfaces and every admitted format/scenario family.
 - [ ] Prove default demand decisions, complete-source boundaries, exact output
   fidelity and lifecycle/resource behavior through ordinary public calls.
-- [ ] Fix demonstrated avoidable performance gaps and validate neighboring and
-  held-out controls. Keep unavoidable format costs and measurement uncertainty
-  explicit; unresolved material avoidable gaps block acceptance unless the
-  maintainer explicitly accepts a source/evidence-linked exception.
+- [ ] Close missing supported execution paths and correctness/resource defects.
+  Record timing differences, necessary format/interface costs and measurement
+  uncertainty; defer performance-only tuning until items 18 and 23 are complete.
 - [ ] Produce a replayable report with per-case engine timings, work evidence,
   complete result/readback checks, coverage gaps and retain/drop decisions.
 - [ ] Complete applicable workspace, native, installed-package and regression

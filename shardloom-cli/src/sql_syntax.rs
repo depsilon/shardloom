@@ -11294,6 +11294,25 @@ mod tests {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn assert_text_discovery_policy(fields: &BTreeMap<String, String>, expected: &str) {
+        let policy = &fields["source_state_stream_policy"];
+        let parts = policy.split(';').collect::<Vec<_>>();
+        assert_eq!(parts[0], expected);
+        assert!(parts.contains(&"record_batch_stream_batch_size_8192"));
+        assert!(parts.contains(&"single_record_and_credited_batch"));
+        let bytes = parts
+            .iter()
+            .filter_map(|part| part.strip_prefix("schema_discovery_read_bytes="))
+            .map(|bytes| bytes.parse::<u64>().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(bytes.len(), 1);
+        assert!(
+            bytes[0] > 0,
+            "complete discovery must report its source reads"
+        );
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn assert_ingest_stream_lane_recipe(fields: &BTreeMap<String, String>, requested: usize) {
         // Small finite-budget fixtures run ready source, conversion, and
         // provider tasks on the shared native runtime. Task-window capacity
@@ -12951,13 +12970,13 @@ mod tests {
                 "csv",
                 "input.csv",
                 "id,label,amount\n1,alpha,10\n2,beta,20\n",
-                "inferred_csv_record_batch_stream_batch_size_65536_rows",
+                "incremental_csv_schema_discovery_replay",
             ),
             (
                 "jsonl",
                 "input.jsonl",
                 "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":\"beta\",\"amount\":20}\n",
-                "inferred_jsonl_record_batch_stream_batch_size_65536_rows",
+                "incremental_jsonl_schema_discovery_replay",
             ),
         ];
 
@@ -12975,25 +12994,25 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_state_materialization_layout",
-                "inferred_text_to_streaming_arrow_record_batch_source_state",
+                "incremental_text_to_streaming_arrow_record_batch_source_state",
             );
             assert_field_eq(
                 &fields,
                 "source_state_parse_normalization",
-                "inferred_text_to_record_batch_stream",
+                "text_incremental_records_with_explicit_schema_replay",
             );
             assert_field_eq(&fields, "source_state_columnar_preserved", "true");
             assert_field_eq(&fields, "source_state_record_batch_count", "1");
-            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_text_discovery_policy(&fields, stream_policy);
             assert_field_eq(
                 &fields,
                 "source_state_stream_unit_hint_kind",
-                "inferred_text_record_batch_stream",
+                "width_bounded_text_record_batches",
             );
             assert_field_eq(
                 &fields,
                 "source_state_dictionary_preservation_status",
-                "inferred_text_typed_builders_preserve_inferred_scalar_types",
+                "text_typed_builders_no_source_dictionary",
             );
             assert_field_eq(
                 &fields,
@@ -13471,13 +13490,13 @@ mod tests {
                 "csv",
                 "input.csv",
                 "id,label,amount\n1,alpha,10\n2,beta,20\n",
-                "inferred_csv_record_batch_stream_batch_size_65536_rows",
+                "incremental_csv_schema_discovery_replay",
             ),
             (
                 "jsonl",
                 "input.jsonl",
                 "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":99,\"amount\":20.5}\n",
-                "inferred_jsonl_record_batch_stream_batch_size_65536_rows",
+                "incremental_jsonl_schema_discovery_replay",
             ),
         ];
 
@@ -13496,26 +13515,26 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_state_materialization_layout",
-                "inferred_text_to_streaming_arrow_record_batch_source_state",
+                "incremental_text_to_streaming_arrow_record_batch_source_state",
             );
             assert_field_eq(
                 &fields,
                 "source_state_parse_normalization",
-                "inferred_text_to_record_batch_stream",
+                "text_incremental_records_with_explicit_schema_replay",
             );
             assert_field_eq(&fields, "source_state_columnar_preserved", "true");
-            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_text_discovery_policy(&fields, stream_policy);
             assert_field_eq(
                 &fields,
                 "source_state_dictionary_preservation_status",
-                "inferred_text_typed_builders_preserve_inferred_scalar_types",
+                "text_typed_builders_no_source_dictionary",
             );
             assert_field_eq(&fields, "source_state_record_batch_count", "1");
             assert_field_eq(&fields, "compatibility_parse_millis", "0");
             assert_field_eq(
                 &fields,
                 "source_read_buffer_carry_status",
-                "metadata_only_source_identity_columnar_reader_not_preopened",
+                "incremental_schema_discovery_then_generation_checked_record_replay",
             );
             assert_field_eq(
                 &fields,
@@ -13797,7 +13816,7 @@ mod tests {
     fn direct_jsonl_builder_rejects_invalid_rows_before_emitting_a_batch() {
         let cases = [
             (r#"{"v":-1}"#, LogicalDType::UInt64),
-            (r#"{"v":9223372036854775808}"#, LogicalDType::UInt64),
+            (r#"{"v":18446744073709551616}"#, LogicalDType::UInt64),
             (r#"{"v":1.5}"#, LogicalDType::Int64),
             (r#"{"v":1}"#, LogicalDType::Boolean),
             (r#"{"v":true}"#, LogicalDType::Float64),
@@ -13879,13 +13898,13 @@ mod tests {
                 "csv",
                 "input.csv",
                 "id,label,amount\n1,alpha,10\n2,beta,20\n",
-                "schema_declared_csv_record_batch_stream_batch_size_65536_rows",
+                "incremental_csv_schema_discovery_replay",
             ),
             (
                 "jsonl",
                 "input.jsonl",
                 "{\"id\":1,\"label\":\"alpha\",\"amount\":10}\n{\"id\":2,\"label\":\"beta\",\"amount\":20}\n",
-                "schema_declared_jsonl_record_batch_stream_batch_size_65536_rows",
+                "incremental_jsonl_schema_discovery_replay",
             ),
         ];
         let hints = vec![
@@ -13911,19 +13930,19 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_state_materialization_layout",
-                "schema_declared_text_to_streaming_arrow_record_batch_source_state",
+                "incremental_text_to_streaming_arrow_record_batch_source_state",
             );
             assert_field_eq(
                 &fields,
                 "source_state_parse_normalization",
-                "schema_declared_text_to_record_batch_stream",
+                "text_incremental_records_with_explicit_schema_replay",
             );
             assert_field_eq(&fields, "source_state_columnar_preserved", "true");
-            assert_field_eq(&fields, "source_state_stream_policy", stream_policy);
+            assert_text_discovery_policy(&fields, stream_policy);
             assert_field_eq(
                 &fields,
                 "source_read_buffer_carry_status",
-                "metadata_only_source_identity_columnar_reader_not_preopened",
+                "incremental_schema_discovery_then_generation_checked_record_replay",
             );
             assert_field_eq(
                 &fields,
@@ -13935,7 +13954,7 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "source_state_dictionary_preservation_status",
-                "schema_declared_text_typed_builders_preserve_declared_scalar_types",
+                "text_typed_builders_no_source_dictionary",
             );
             assert_field_eq(&fields, "source_state_record_batch_count", "1");
             assert_field_eq(&fields, "compatibility_parse_millis", "0");
@@ -13982,17 +14001,17 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_read_buffer_carry_status",
-            "read_once_buffer_carried_to_text_parser",
+            "incremental_schema_discovery_then_generation_checked_record_replay",
         );
         assert_field_eq(
             &fields,
             "source_read_mmap_eligibility_status",
-            "not_used_owned_text_buffer_default",
+            "not_used_columnar_reader_owns_buffer_lifetime",
         );
-        assert_field_eq(&fields, "source_content_fingerprint_performed", "true");
+        assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
         assert_eq!(
             report.source.materialization_layout,
-            "whole_json_typed_columns_with_batched_writer"
+            "incremental_json_to_streaming_arrow_record_batch_source_state"
         );
         assert!(
             report
@@ -14126,11 +14145,7 @@ mod tests {
             summary.contains("__shardloom_derived_url_domain_URL:"),
             "{summary}"
         );
-        assert_field_eq(
-            &fields,
-            "source_state_stream_policy",
-            "schema_hinted_jsonl_record_batch_stream_batch_size_65536_rows",
-        );
+        assert_text_discovery_policy(&fields, "incremental_jsonl_schema_discovery_replay");
         assert_field_contains(
             &fields,
             "source_state_dictionary_preservation_status",
@@ -14174,11 +14189,7 @@ mod tests {
             summary.contains("__shardloom_derived_url_domain_URL:"),
             "{summary}"
         );
-        assert_field_eq(
-            &fields,
-            "source_state_stream_policy",
-            "schema_hinted_csv_record_batch_stream_batch_size_65536_rows",
-        );
+        assert_text_discovery_policy(&fields, "incremental_csv_schema_discovery_replay");
         assert_field_contains(
             &fields,
             "source_state_dictionary_preservation_status",
@@ -14217,7 +14228,7 @@ mod tests {
         assert!(
             smoke_error
                 .to_string()
-                .contains("supports at most 50000 CSV data rows"),
+                .contains("supports at most 50000 text data rows"),
             "{smoke_error}"
         );
 
@@ -14235,18 +14246,14 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_materialization_layout",
-            "schema_declared_text_to_streaming_arrow_record_batch_source_state",
+            "incremental_text_to_streaming_arrow_record_batch_source_state",
         );
-        assert_field_eq(&fields, "source_state_stream_batch_size", "262144");
-        assert_field_eq(
-            &fields,
-            "source_state_stream_policy",
-            "schema_declared_csv_record_batch_stream_batch_size_262144_rows",
-        );
+        assert_field_eq(&fields, "source_state_stream_batch_size", "8192");
+        assert_text_discovery_policy(&fields, "incremental_csv_schema_discovery_replay");
         assert_field_eq(
             &fields,
             "source_read_buffer_carry_status",
-            "metadata_only_source_identity_columnar_reader_not_preopened",
+            "incremental_schema_discovery_then_generation_checked_record_replay",
         );
         assert_field_eq(&fields, "source_fingerprint_policy", "metadata_only");
         assert_field_eq(&fields, "source_content_fingerprint_performed", "false");
@@ -14263,7 +14270,7 @@ mod tests {
         assert!(
             inferred_smoke_error
                 .to_string()
-                .contains("supports at most 50000 CSV data rows"),
+                .contains("supports at most 50000 text data rows"),
             "{inferred_smoke_error}"
         );
 
@@ -14282,18 +14289,14 @@ mod tests {
         assert_field_eq(
             &inferred_fields,
             "source_state_materialization_layout",
-            "inferred_text_to_streaming_arrow_record_batch_source_state",
+            "incremental_text_to_streaming_arrow_record_batch_source_state",
         );
-        assert_field_eq(&inferred_fields, "source_state_stream_batch_size", "262144");
-        assert_field_eq(
-            &inferred_fields,
-            "source_state_stream_policy",
-            "inferred_csv_record_batch_stream_batch_size_262144_rows",
-        );
+        assert_field_eq(&inferred_fields, "source_state_stream_batch_size", "8192");
+        assert_text_discovery_policy(&inferred_fields, "incremental_csv_schema_discovery_replay");
         assert_field_eq(
             &inferred_fields,
             "source_read_buffer_carry_status",
-            "metadata_only_source_identity_columnar_reader_not_preopened",
+            "incremental_schema_discovery_then_generation_checked_record_replay",
         );
         assert_field_eq(
             &inferred_fields,

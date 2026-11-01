@@ -13,6 +13,9 @@ mod spill_tests;
 #[path = "local_primitive_relational_batch_order_prefix_tests.rs"]
 mod prefix_tests;
 
+#[path = "local_primitive_relational_batch_order_projection_tests.rs"]
+mod projection_tests;
+
 #[path = "local_primitive_relational_batch_order_rich_prefix_tests.rs"]
 mod rich_prefix_tests;
 
@@ -351,7 +354,7 @@ fn streamed_ordering_limits_and_offsets_apply_once_and_drain_every_input_batch()
 }
 
 #[test]
-fn streamed_ordering_prefix_is_admitted_only_for_an_immediate_limit() {
+fn streamed_ordering_prefix_stops_at_computed_projections_and_filters() {
     let rows = fixture_rows();
     let keys = vec![
         key("n", true, NullOrder::Last),

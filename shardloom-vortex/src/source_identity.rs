@@ -54,6 +54,16 @@ pub struct SourceIdentity {
 }
 
 impl SourceIdentity {
+    #[cfg(feature = "universal-format-io")]
+    pub(crate) fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    pub(crate) fn same_generation(&self, other: &Self) -> bool {
+        self.path == other.path && self.generation == other.generation
+    }
+
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     pub(crate) fn preparation_binding(&self) -> Result<serde_json::Value> {
         self.validate()?;
@@ -76,7 +86,11 @@ impl SourceIdentity {
         )
     }
     /// Capture a generation for a native path that must reopen the source.
-    #[cfg(any(unix, feature = "vortex-local-primitives"))]
+    #[cfg(any(
+        unix,
+        feature = "vortex-local-primitives",
+        feature = "universal-format-io"
+    ))]
     pub(crate) fn capture(path: &std::path::Path) -> Result<Self> {
         let path = std::path::absolute(path).map_err(identity_error)?;
         let file = File::open(&path).map_err(identity_error)?;

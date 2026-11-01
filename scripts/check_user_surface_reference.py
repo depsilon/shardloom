@@ -240,7 +240,8 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         except KeyError:
             blockers.append(f"{JSON_PATH}: missing {pointer}")
             continue
-        if value in ("", [], {}, None):
+        allowed_empty = pointer == "native_nested_composition.denied_nested_writers" and value == []
+        if value in ("", [], {}, None) and not allowed_empty:
             blockers.append(f"{JSON_PATH}: {pointer} must not be empty")
 
     reported_count = nested_get(payload, "cli.registered_command_count")
@@ -383,8 +384,8 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "fallback_attempted", "external_engine_invoked"):
         if relational_spill.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_relational_order_spill.{field} must be false")
-    if relational_spill.get("relational_fanout_scope") != "repeatable_inputs_reexecute_per_target;finite_inputs_execute_once_with_credited_result_replay":
-        blockers.append(f"{JSON_PATH}: relational fanout must distinguish repeatable and finite input execution")
+    if relational_spill.get("relational_fanout_scope") != "all_inputs_execute_once_with_credited_result_replay":
+        blockers.append(f"{JSON_PATH}: relational fanout must execute once and replay its credited result")
     for family in ("order", "aggregate", "join", "window"):
         section_name = f"native_relational_{family}_spill"
         section = payload.get(section_name, {})
@@ -402,10 +403,10 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
                   "fallback_attempted", "external_engine_invoked"):
         if nested.get(field) is not False:
             blockers.append(f"{JSON_PATH}: native_nested_composition.{field} must be false")
-    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"}:
+    if set(nested.get("nested_writers", [])) != {"vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv", "orc"}:
         blockers.append(f"{JSON_PATH}: nested writers must match the representable static nested contract")
-    if set(nested.get("denied_nested_writers", [])) != {"orc"}:
-        blockers.append(f"{JSON_PATH}: the pinned nested ORC writer must remain explicitly denied")
+    if nested.get("denied_nested_writers") != []:
+        blockers.append(f"{JSON_PATH}: admitted static nested types must retain all eight local writers")
     if "CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence" not in nested.get("writer_fidelity", ""):
         blockers.append(f"{JSON_PATH}: nested CSV must declare its JSON text and dtype-loss boundary")
 
@@ -419,8 +420,8 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
             blockers.append(f"{JSON_PATH}: native_typed_payloads.{field} must be false")
     for field, value in (("nested_leaves", True), ("decimal_precision", [1, 38]),
                          ("decimal_scale", "0_to_precision"), ("binary_local_writer_count", 8),
-                         ("decimal_temporal_local_writer_count", 7),
-                         ("denied_decimal_temporal_writers", ["orc"])):
+                         ("decimal_temporal_local_writer_count", 8),
+                         ("denied_decimal_temporal_writers", [])):
         if typed.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_typed_payloads.{field} differs from its contract")
     if "timestamp_timezone" not in typed or typed["timestamp_timezone"] is not None:
@@ -578,9 +579,9 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("shared_direct_and_relational_state", True),
         ("compact_selected_payload", True),
         ("maximum_top_level_fields", 128),
-        ("nested_writers", ["vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl"]),
+        ("nested_writers", ["vortex", "parquet", "arrow_ipc", "avro", "json", "jsonl", "orc"]),
         ("csv_nested_translation", "quoted_json_text_without_logical_dtype"),
-        ("denied_nested_writers", ["orc"]),
+        ("denied_nested_writers", []),
     ):
         if nested_pivot.get(field) != value:
             blockers.append(f"{JSON_PATH}: native_nested_pivot_state.{field} differs from its contract")
@@ -612,7 +613,7 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         ("type_scope", "existing_scalar_typed_and_static_nested_pivot_contracts"),
         ("maximum_top_level_fields", 128),
         ("file_and_resident_scalar_writer_count", 8),
-        ("typed_nested_writers", ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv"]),
+        ("typed_nested_writers", ["vortex", "json", "jsonl", "arrow_ipc", "parquet", "avro", "csv", "orc"]),
         ("dead_owner_recovery", "identity_checked_owned_cleanup_and_restart"),
     ):
         if pivot_spill.get(field) != value:

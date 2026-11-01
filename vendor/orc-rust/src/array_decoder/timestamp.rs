@@ -35,7 +35,7 @@ use arrow::datatypes::{
 };
 use arrow::{array::ArrayRef, buffer::NullBuffer};
 use chrono::offset::TimeZone;
-use chrono::TimeDelta;
+use chrono::Offset;
 use chrono_tz::{Tz, UTC};
 
 use super::{
@@ -78,8 +78,12 @@ fn get_timestamp_decoder<T: ArrowTimestampType + Send>(
 ) -> Box<dyn ArrayBatchDecoder> {
     let inner = get_inner_timestamp_decoder::<T>(column, stripe, seconds_since_unix_epoch);
     match stripe.writer_tz() {
-        Some(writer_tz) => Box::new(TimestampOffsetArrayDecoder { inner, writer_tz }),
-        None => Box::new(inner),
+        Some(writer_tz) if writer_tz != UTC => {
+            Box::new(TimestampOffsetArrayDecoder { inner, writer_tz })
+        }
+        // UTC has no offset conversion. Routing it through chrono would reduce
+        // the valid original-width timestamp domain to chrono's calendar range.
+        _ => Box::new(inner),
     }
 }
 
@@ -248,39 +252,14 @@ impl<T: ArrowTimestampType> ArrayBatchDecoder for TimestampOffsetArrayDecoder<T>
             .inner
             .next_primitive_batch(batch_size, parent_present)?;
 
-        let convert_timezone = |ts| {
-            // Convert from writer timezone to reader timezone (which we default to UTC)
-            // TODO: more efficient way of doing this?
-            let microseconds_in_timeunit = match T::UNIT {
-                TimeUnit::Second => 1_000_000,
-                TimeUnit::Millisecond => 1_000,
-                TimeUnit::Microsecond => 1,
-                TimeUnit::Nanosecond => -1, // not used in this case
-            };
-
-            match T::UNIT {
-                TimeUnit::Second | TimeUnit::Millisecond | TimeUnit::Microsecond => self
-                    .writer_tz
-                    .timestamp_micros(ts * microseconds_in_timeunit)
-                    .single()
-                    .map(|dt| {
-                        dt.naive_local().and_utc().timestamp_micros() / microseconds_in_timeunit
-                    }),
-                TimeUnit::Nanosecond => self
-                    .writer_tz
-                    .timestamp_nanos(ts)
-                    .naive_local()
-                    .and_utc()
-                    .timestamp_nanos_opt(),
-            }
-        };
-        let array = array
-            // first try to convert all non-nullable batches to non-nullable batches
-            .try_unary::<_, T, _>(|ts| convert_timezone(ts).ok_or(()))
-            // in the rare case one of the values was out of the timeunit's range (eg. see
-            // <https://docs.rs/chrono/latest/chrono/struct.DateTime.html#method.timestamp_nanos_opt>),
-            // for nanoseconds), try again by allowing a nullable batch as output
-            .unwrap_or_else(|()| array.unary_opt::<_, T>(convert_timezone));
+        let array = array.try_unary::<_, T, _>(|ts| {
+            timestamp_with_writer_offset(ts, &T::UNIT, self.writer_tz).ok_or_else(|| {
+                crate::error::OutOfSpecSnafu {
+                    msg: "timestamp writer timezone conversion exceeds the exact supported range",
+                }
+                .build()
+            })
+        })?;
         let array = Arc::new(array) as ArrayRef;
         Ok(array)
     }
@@ -288,6 +267,23 @@ impl<T: ArrowTimestampType> ArrayBatchDecoder for TimestampOffsetArrayDecoder<T>
     fn skip_values(&mut self, n: usize, parent_present: Option<&NullBuffer>) -> Result<()> {
         self.inner.skip_values(n, parent_present)
     }
+}
+
+fn timestamp_with_writer_offset(ts: i64, unit: &TimeUnit, writer_tz: Tz) -> Option<i64> {
+    let units_per_second = match unit {
+        TimeUnit::Second => 1,
+        TimeUnit::Millisecond => 1_000,
+        TimeUnit::Microsecond => 1_000_000,
+        TimeUnit::Nanosecond => 1_000_000_000,
+    };
+    let seconds = ts.div_euclid(units_per_second);
+    let remainder = ts.rem_euclid(units_per_second);
+    let nanos = u32::try_from(remainder * (1_000_000_000 / units_per_second)).ok()?;
+    let date = writer_tz.timestamp_opt(seconds, nanos).single()?;
+    let offset = i128::from(date.offset().fix().local_minus_utc());
+    ((i128::from(seconds) + offset) * i128::from(units_per_second) + i128::from(remainder))
+        .try_into()
+        .ok()
 }
 
 /// Wrapper around PrimitiveArrayDecoder to allow specifying the timezone of the output
@@ -316,19 +312,13 @@ impl<T: ArrowTimestampType> ArrayBatchDecoder for TimestampInstantArrayDecoder<T
 struct TimestampNanosecondAsDecimalWithTzDecoder(TimestampNanosecondAsDecimalDecoder, Tz);
 
 impl TimestampNanosecondAsDecimalWithTzDecoder {
-    fn next_inner(&self, ts: i128) -> i128 {
-        let seconds = ts.div_euclid(NANOSECONDS_IN_SECOND);
-        let nanoseconds = ts.rem_euclid(NANOSECONDS_IN_SECOND);
-
-        // The addition may panic, because chrono stores dates in an i32,
-        // which can be overflowed with an i64 of seconds.
-        let dt = (self.1.timestamp_nanos(0)
-            + TimeDelta::new(seconds as i64, nanoseconds as u32)
-                .expect("TimeDelta duration out of bound"))
-        .naive_local()
-        .and_utc();
-
-        (dt.timestamp() as i128) * NANOSECONDS_IN_SECOND + (dt.timestamp_subsec_nanos() as i128)
+    fn next_inner(&self, ts: i128) -> Result<i128> {
+        decimal_timestamp_with_writer_offset(ts, self.1).ok_or_else(|| {
+            crate::error::OutOfSpecSnafu {
+                msg: "decimal timestamp writer timezone conversion exceeds the exact supported range",
+            }
+            .build()
+        })
     }
 }
 
@@ -341,8 +331,128 @@ impl PrimitiveValueDecoder<i128> for TimestampNanosecondAsDecimalWithTzDecoder {
     fn decode(&mut self, out: &mut [i128]) -> Result<()> {
         self.0.decode(out)?;
         for x in out.iter_mut() {
-            *x = self.next_inner(*x);
+            *x = self.next_inner(*x)?;
         }
         Ok(())
+    }
+}
+
+fn decimal_timestamp_with_writer_offset(ts: i128, writer_tz: Tz) -> Option<i128> {
+    let seconds = i64::try_from(ts.div_euclid(NANOSECONDS_IN_SECOND)).ok()?;
+    let nanoseconds = u32::try_from(ts.rem_euclid(NANOSECONDS_IN_SECOND)).ok()?;
+    let date = writer_tz.timestamp_opt(seconds, nanoseconds).single()?;
+    let offset = i128::from(date.offset().fix().local_minus_utc());
+    ts.checked_add(offset * NANOSECONDS_IN_SECOND)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow::array::{Array, TimestampMicrosecondArray};
+    use chrono_tz::{America::New_York, Asia::Kathmandu};
+
+    struct Values(std::vec::IntoIter<i64>);
+
+    impl PrimitiveValueDecoder<i64> for Values {
+        fn skip(&mut self, n: usize) -> Result<()> {
+            for _ in 0..n {
+                self.0.next().unwrap();
+            }
+            Ok(())
+        }
+
+        fn decode(&mut self, out: &mut [i64]) -> Result<()> {
+            for value in out {
+                *value = self.0.next().unwrap();
+            }
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn writer_offsets_preserve_negative_fractions_and_seasonal_offsets() {
+        for (seconds, zone, offset) in [
+            (-1_i64, New_York, -18_000_i64),
+            (1_704_067_200, New_York, -18_000),
+            (1_719_792_000, New_York, -14_400),
+            (1_704_067_200, Kathmandu, 20_700),
+        ] {
+            for (unit, factor) in [
+                (TimeUnit::Second, 1_i64),
+                (TimeUnit::Millisecond, 1_000),
+                (TimeUnit::Microsecond, 1_000_000),
+                (TimeUnit::Nanosecond, 1_000_000_000),
+            ] {
+                let fraction = factor - 1;
+                assert_eq!(
+                    timestamp_with_writer_offset(seconds * factor + fraction, &unit, zone),
+                    Some((seconds + offset) * factor + fraction)
+                );
+            }
+            let nanos = i128::from(seconds) * NANOSECONDS_IN_SECOND + 999_999_999;
+            assert_eq!(
+                decimal_timestamp_with_writer_offset(nanos, zone),
+                Some(nanos + i128::from(offset) * NANOSECONDS_IN_SECOND)
+            );
+        }
+    }
+
+    #[test]
+    fn writer_offset_range_errors_do_not_wrap_panic_or_create_nulls() {
+        for value in [i64::MIN, i64::MAX] {
+            for unit in [
+                TimeUnit::Second,
+                TimeUnit::Millisecond,
+                TimeUnit::Microsecond,
+            ] {
+                assert_eq!(timestamp_with_writer_offset(value, &unit, New_York), None);
+            }
+        }
+        assert_eq!(
+            timestamp_with_writer_offset(i64::MAX, &TimeUnit::Nanosecond, Kathmandu),
+            None
+        );
+        assert_eq!(
+            timestamp_with_writer_offset(i64::MIN, &TimeUnit::Nanosecond, New_York),
+            None
+        );
+        for value in [
+            i128::MIN,
+            i128::MAX,
+            i128::from(i64::MAX) * NANOSECONDS_IN_SECOND,
+        ] {
+            assert_eq!(decimal_timestamp_with_writer_offset(value, Kathmandu), None);
+        }
+        let inner = PrimitiveArrayDecoder::<TimestampMicrosecondType>::new(
+            Box::new(Values(vec![i64::MAX].into_iter())),
+            None,
+        );
+        let mut decoder = TimestampOffsetArrayDecoder {
+            inner,
+            writer_tz: New_York,
+        };
+        let error = decoder.next_batch(1, None).unwrap_err().to_string();
+        assert!(error.contains("timezone conversion exceeds"), "{error}");
+    }
+
+    #[test]
+    fn writer_offset_conversion_preserves_parent_nulls() {
+        let inner = PrimitiveArrayDecoder::<TimestampMicrosecondType>::new(
+            Box::new(Values(vec![-1, 1_704_067_200_000_123].into_iter())),
+            None,
+        );
+        let mut decoder = TimestampOffsetArrayDecoder {
+            inner,
+            writer_tz: New_York,
+        };
+        let present = NullBuffer::from(vec![false, true, false, true]);
+        let array = decoder.next_batch(4, Some(&present)).unwrap();
+        let values = array
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+            .unwrap();
+        assert_eq!(values.nulls(), Some(&present));
+        assert_eq!(values.value(1), -18_000_000_001);
+        assert_eq!(values.value(3), 1_704_049_200_000_123);
     }
 }

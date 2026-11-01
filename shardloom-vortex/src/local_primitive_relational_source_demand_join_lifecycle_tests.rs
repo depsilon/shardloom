@@ -162,7 +162,7 @@ fn parquet_join_demand_keeps_computed_projection_first_error_order() {
 }
 
 #[test]
-fn parquet_join_demand_keeps_unrelated_count_projection_validation_scope() {
+fn parquet_join_demand_keeps_unrelated_metadata_count_validation_scope() {
     let fixture = ParquetFixture::new();
     fixture.corrupt_chunk(3, 2);
     let plan = aggregate(
@@ -174,15 +174,12 @@ fn parquet_join_demand_keeps_unrelated_count_projection_validation_scope() {
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
     assert_eq!(json_rows(&result), vec![json!({"rows":16})]);
-    assert_eq!(
-        result
-            .execution
-            .input
-            .as_ref()
-            .unwrap()
-            .columnar_projected_columns,
-        1
-    );
+    let report = result.execution.input.as_ref().unwrap();
+    assert_eq!(report.columnar_projected_columns, 0);
+    assert_eq!(report.metadata_count_sources, 1);
+    assert_eq!(report.metadata_count_rows, 16);
+    assert_eq!(report.columnar_rows_decoded, 0);
+    assert_eq!(report.columnar_data_read_bytes, 0);
 }
 
 #[test]

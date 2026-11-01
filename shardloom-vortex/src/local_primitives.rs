@@ -2757,6 +2757,13 @@ pub struct VortexColumnarCompatibilitySinkEvidence {
     pub admitted_arrow_expansion_bytes: u64,
     pub max_arrow_batch_bytes: u64,
     pub max_observed_parquet_in_progress_bytes: u64,
+    pub max_observed_orc_in_progress_bytes: u64,
+    pub writer_flushes: u64,
+    pub pressure_flushes: u64,
+    pub output_file_units: u64,
+    pub conversion_splits: u64,
+    pub large_value_batches: u64,
+    pub file_unit_target_bytes: u64,
     pub writer_reserved_bytes: u64,
     pub output_bytes: u64,
 }

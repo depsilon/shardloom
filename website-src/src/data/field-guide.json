@@ -103,7 +103,7 @@
     "title": "internal_local_source_smoke",
     "category": "Execution Routes",
     "status": "internal_smoke_only",
-    "summary": "An internal smoke-only route; public local-file workflows must use Vortex preparation or native Vortex input.",
+    "summary": "An internal smoke-only route; public local-file workflows use the admitted shared native source readers.",
     "route": "Internal local-source smoke safeguard",
     "evidence_fields": [
       "execution_mode",

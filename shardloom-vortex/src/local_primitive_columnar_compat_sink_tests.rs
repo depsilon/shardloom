@@ -128,6 +128,165 @@ fn columnar_avro_reopen_checks_nested_names_types_nullability_and_metadata() {
     ));
 }
 
+#[test]
+fn columnar_avro_reopen_preserves_timestamp_ticks_with_explicit_zone_translation() {
+    use arrow_array::types::{
+        TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
+    };
+    check_avro_timestamps::<TimestampMillisecondType>(arrow_schema::TimeUnit::Millisecond);
+    check_avro_timestamps::<TimestampMicrosecondType>(arrow_schema::TimeUnit::Microsecond);
+    check_avro_timestamps::<TimestampNanosecondType>(arrow_schema::TimeUnit::Nanosecond);
+}
+
+fn check_avro_timestamps<T: arrow_array::types::ArrowTimestampType>(unit: arrow_schema::TimeUnit) {
+    use arrow_array::{ListArray, PrimitiveArray as ArrowPrimitiveArray};
+    use arrow_buffer::{NullBuffer, OffsetBuffer};
+
+    let fixture = Fixture::new();
+    let ticks = vec![
+        Some(i64::MIN),
+        None,
+        Some(-1),
+        Some(0),
+        Some(1),
+        Some((1_i64 << 53) + 1),
+        Some(i64::MAX),
+    ];
+    for (index, zone) in [None, Some("UTC"), Some("America/New_York")]
+        .into_iter()
+        .enumerate()
+    {
+        let values: arrow_array::ArrayRef = Arc::new(
+            ArrowPrimitiveArray::<T>::from_iter(ticks.iter().copied()).with_timezone_opt(zone),
+        );
+        let child = Arc::new(Field::new("instant", values.data_type().clone(), true));
+        let structure: arrow_array::ArrayRef = Arc::new(ArrowStructArray::new(
+            vec![child.clone()].into(),
+            vec![values.clone()],
+            Some(NullBuffer::from(vec![
+                true, true, false, true, true, true, true,
+            ])),
+        ));
+        let list: arrow_array::ArrayRef = Arc::new(ListArray::new(
+            Arc::new(child.as_ref().clone().with_name("item")),
+            OffsetBuffer::new(vec![0_i32, 1, 1, 3, 4, 4, 6, 7].into()),
+            values.clone(),
+            Some(NullBuffer::from(vec![
+                true, false, true, true, true, true, true,
+            ])),
+        ));
+        let schema = Arc::new(Schema::new(vec![
+            child.as_ref().clone(),
+            Field::new("record", structure.data_type().clone(), true),
+            Field::new("items", list.data_type().clone(), true),
+        ]));
+        let batch = RecordBatch::try_new(schema.clone(), vec![values, structure, list]).unwrap();
+        for rows in [0, ticks.len()] {
+            let path = fixture.0.join(format!("timestamps-{index}-{rows}.avro"));
+            let mut writer = arrow_avro::writer::AvroWriter::new(
+                File::create(&path).unwrap(),
+                schema.as_ref().clone(),
+            )
+            .unwrap();
+            writer.write(&batch.slice(0, rows)).unwrap();
+            writer.finish().unwrap();
+            drop(writer);
+            validate_reopen(
+                &path,
+                VortexLocalPrimitiveRowExportFormat::Avro,
+                &schema,
+                rows as u64,
+                &CompatibilityLimits::default(),
+            )
+            .unwrap();
+            let reader = arrow_avro::reader::ReaderBuilder::new()
+                .build(std::io::BufReader::new(File::open(&path).unwrap()))
+                .unwrap();
+            let reopened = reader.schema();
+            assert_eq!(
+                reopened.field(0).data_type(),
+                &DataType::Timestamp(unit, zone.map(|_| "+00:00".into()),)
+            );
+            let batches = reader.collect::<std::result::Result<Vec<_>, _>>().unwrap();
+            assert_eq!(
+                batches.iter().map(RecordBatch::num_rows).sum::<usize>(),
+                rows
+            );
+            for actual in batches {
+                assert_avro_timestamp_batch::<T>(&actual, &batch, &ticks);
+            }
+        }
+    }
+}
+
+fn assert_avro_timestamp_batch<T: arrow_array::types::ArrowTimestampType>(
+    actual: &RecordBatch,
+    source: &RecordBatch,
+    ticks: &[Option<i64>],
+) {
+    let read_ticks = |array: &arrow_array::ArrayRef| {
+        array
+            .as_any()
+            .downcast_ref::<arrow_array::PrimitiveArray<T>>()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(read_ticks(actual.column(0)), ticks);
+    let record = actual
+        .column(1)
+        .as_any()
+        .downcast_ref::<ArrowStructArray>()
+        .unwrap();
+    assert_eq!(record.nulls(), source.column(1).nulls());
+    let mut nested_ticks = ticks.to_vec();
+    nested_ticks[2] = None;
+    assert_eq!(read_ticks(record.column(0)), nested_ticks);
+    let list = actual
+        .column(2)
+        .as_any()
+        .downcast_ref::<arrow_array::ListArray>()
+        .unwrap();
+    assert_eq!(list.nulls(), source.column(2).nulls());
+    assert_eq!(list.value_offsets(), &[0, 1, 1, 3, 4, 4, 6, 7]);
+    assert_eq!(read_ticks(list.values()), ticks);
+}
+
+#[test]
+fn columnar_avro_timestamp_annotation_requires_exact_unit_and_schema() {
+    use arrow_schema::TimeUnit;
+    let expected = Field::new(
+        "instant",
+        DataType::Timestamp(TimeUnit::Nanosecond, Some("+00:00".into())),
+        true,
+    );
+    let annotated = |field: Field, value: &str| {
+        field.with_metadata([("arrowTimeUnit".into(), value.into())].into())
+    };
+    let actual = annotated(expected.clone(), "\"nanosecond\"");
+    assert!(nested::avro_field_matches(&actual, &expected));
+    for value in ["nanosecond", "\"microsecond\"", "\"second\"", "null"] {
+        assert!(!nested::avro_field_matches(
+            &annotated(expected.clone(), value),
+            &expected
+        ));
+    }
+    for dtype in [
+        DataType::Timestamp(TimeUnit::Microsecond, Some("+00:00".into())),
+        DataType::Timestamp(TimeUnit::Nanosecond, None),
+        DataType::Timestamp(TimeUnit::Nanosecond, Some("+01:00".into())),
+    ] {
+        assert!(!nested::avro_field_matches(
+            &actual,
+            &expected.clone().with_data_type(dtype)
+        ));
+    }
+    assert!(!nested::avro_field_matches(
+        &actual,
+        &expected.with_nullable(false)
+    ));
+}
+
 fn identifier(row: usize) -> i64 {
     match row {
         0 => i64::MIN,
@@ -534,6 +693,8 @@ fn columnar_compatibility_after_batch_cancel_error_and_mutation_never_publish() 
     for format in [
         VortexLocalPrimitiveRowExportFormat::ArrowIpc,
         VortexLocalPrimitiveRowExportFormat::Parquet,
+        VortexLocalPrimitiveRowExportFormat::Avro,
+        VortexLocalPrimitiveRowExportFormat::Orc,
     ] {
         for fault in ["cancel", "error", "mutation", "target_race"] {
             let fixture = Fixture::new();

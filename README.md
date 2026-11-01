@@ -120,7 +120,12 @@ The first optimization opportunity is often before an operator receives any valu
 Read granularity remains explicit: an adapter may retrieve whole column chunks from selected
 row groups even when only a few rows survive.
 
-For prepared local workflows, reusable structure stays with the data in a `.vortex` artifact:
+Ordinary local queries read the original source through the shared native source owner. They
+do not require a prepared input file, and an old automatically prepared sibling does not replace
+the original source. SQL, DataFrame, typed relations, embedded workflows and CLI calls share this
+default. Input format and result format remain independently selectable.
+
+When preparation is explicitly requested, reusable structure stays with the data in a `.vortex` artifact:
 native layouts, statistics, and supported derived metadata. Embedded helpers such as string
 lengths or time buckets support later queries without appearing in ordinary `SELECT *` output.
 

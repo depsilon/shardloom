@@ -60,6 +60,11 @@ pub(in crate::local_primitives) enum Function {
     Domain {
         regex: bool,
     },
+    PrimitiveRefererCase,
+    PrimitiveHaving {
+        op: shardloom_core::ComparisonOp,
+        right: serde_json::Value,
+    },
     Unhex,
     FromBase64,
     Temporal {
@@ -109,7 +114,18 @@ impl Function {
             | (Self::Replace, Self::Replace)
             | (Self::ByteLength, Self::ByteLength)
             | (Self::Unhex, Self::Unhex)
-            | (Self::FromBase64, Self::FromBase64) => true,
+            | (Self::FromBase64, Self::FromBase64)
+            | (Self::PrimitiveRefererCase, Self::PrimitiveRefererCase) => true,
+            (
+                Self::PrimitiveHaving {
+                    op: left,
+                    right: lv,
+                },
+                Self::PrimitiveHaving {
+                    op: right,
+                    right: rv,
+                },
+            ) => left == right && lv == rv,
             // The binder uses the same fixed RegexBuilder limits and default
             // flags for every pattern; inline flags are part of as_str().
             (Self::Regex(left), Self::Regex(right)) => left.as_str() == right.as_str(),
@@ -140,6 +156,7 @@ impl Function {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // Dispatch preserves specialized NULL rules before common propagation.
     pub(in crate::local_primitives) fn evaluate(
         &self,
         columns: &[KeyColumn],
@@ -147,6 +164,12 @@ impl Function {
         dtype: &DType,
         scratch: &mut MemoryLease,
     ) -> Result<Value<'static>> {
+        if let Self::PrimitiveHaving { op, right } = self {
+            return primitive_having(columns[0].raw_cell(row)?, *op, right);
+        }
+        if matches!(self, Self::PrimitiveRefererCase) {
+            return primitive_referer_case(columns, row, scratch);
+        }
         for column in columns {
             if column.is_null(row)? {
                 return Ok(Value::Null);
@@ -492,6 +515,53 @@ fn concat(columns: &[KeyColumn], row: usize, scratch: &mut MemoryLease) -> Resul
         output.push_str(utf8(&text(column.cell(row)?)?)?);
     }
     Ok(Value::Text(Cow::Owned(output)))
+}
+
+fn primitive_referer_case(
+    columns: &[KeyColumn],
+    row: usize,
+    scratch: &mut MemoryLease,
+) -> Result<Value<'static>> {
+    // This existing primitive validates required controls before NULL propagation.
+    let search = i64::try_from(integer(&columns[1].raw_cell(row)?)?).map_err(vortex_error)?;
+    let advertising = i64::try_from(integer(&columns[2].raw_cell(row)?)?).map_err(vortex_error)?;
+    if search == 0 && advertising == 0 {
+        let bytes = text(columns[0].cell(row)?)?;
+        let value = utf8(&bytes)?;
+        return output(scratch, value.len(), || value.to_owned());
+    }
+    output(scratch, 0, String::new)
+}
+
+fn primitive_having(
+    left: Cell,
+    op: shardloom_core::ComparisonOp,
+    right: &serde_json::Value,
+) -> Result<Value<'static>> {
+    use crate::local_primitives as native;
+    // Reuse the primitive result comparison without constructing a row or
+    // copying text. Its mixed numeric rule deliberately predates SQL comparison.
+    let ordering = match left {
+        Cell::Null => std::cmp::Ordering::Less,
+        Cell::Boolean(value) => native::compare_json_values(&serde_json::Value::Bool(value), right),
+        Cell::NegativeInteger(value) => {
+            native::compare_json_values(&serde_json::Value::from(value), right)
+        }
+        Cell::NonnegativeInteger(value) => native::compare_u64_json_value(value, right),
+        Cell::Float(bits) => native::compare_f64_json_value(f64::from_bits(bits), right),
+        Cell::Utf8(value) => match right.as_str() {
+            Some(right) => utf8(&value)?.cmp(right),
+            None => 3_u8.cmp(&native::json_type_rank(right)),
+        },
+        _ => {
+            return Err(failed(
+                "primitive HAVING received an unadmitted value family",
+            ));
+        }
+    };
+    Ok(Value::Bool(native::aggregate_having_ordering_matches(
+        ordering, op,
+    )))
 }
 
 fn text(value: Cell) -> Result<ByteBuffer> {

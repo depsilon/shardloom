@@ -28,12 +28,12 @@ separate checks; unsupported work returns an actionable diagnostic.
 
 ## Load and reuse data
 
-Loading or ingestion performs actual source processing. A supported local file
-can be imported into Vortex before query execution. Ordinary reads use the
-engine's preparation machinery when execution requires it; advanced source
-preparation APIs can explicitly create a reusable data file.
+Ordinary local queries read the original files through the shared native source
+owner. They do not create or depend on an automatically prepared Vortex copy.
+An explicit source preparation call imports the complete source into a reusable
+Vortex file when persistence is wanted.
 
-Loaded data is reused only while the source, schema, and file identities still
+Source handles and explicit preparation are reused only while the source, schema, and file identities still
 match. Generation checks span reuse and execution, and detected changes fail
 explicitly. Reusing data preparation does not cache query answers.
 

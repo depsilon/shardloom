@@ -6,13 +6,13 @@ use shardloom_core::ShardLoomError;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-pub(super) struct Admission {
+pub(in super::super) struct Admission {
     credit: Mutex<MemoryLease>,
     cancellation: CancellationToken,
 }
 
 impl Admission {
-    pub(super) fn new(
+    pub(in super::super) fn new(
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<Arc<Self>> {
@@ -22,7 +22,7 @@ impl Admission {
         }))
     }
 
-    pub(super) fn finish(self: Arc<Self>) -> Result<MemoryLease> {
+    pub(in super::super) fn finish(self: Arc<Self>) -> Result<MemoryLease> {
         self.cancellation.check()?;
         let this = Arc::try_unwrap(self)
             .map_err(|_| failed("metadata parser retained its admission callback"))?;
@@ -48,7 +48,7 @@ impl MetadataMemoryReservation for Admission {
     }
 }
 
-pub(super) fn source_error(error: ParquetError) -> ShardLoomError {
+pub(in super::super) fn source_error(error: ParquetError) -> ShardLoomError {
     match error {
         ParquetError::External(error) => match error.downcast::<ShardLoomError>() {
             Ok(error) => *error,

@@ -212,7 +212,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [arrays, io, buffer]
+        group: [arrays, io, buffer, formats]
     needs: [ci-work-shaping]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
@@ -404,7 +404,9 @@ jobs:
       - name: Native regression family coverage and supervision
         run: python -B -m unittest discover -s scripts -p test_native_relational_suite.py -v
       - name: Parquet completion portable evidence and corruption controls
-        run: python -B -m unittest discover -s scripts -p test_parquet_demand_completion_packet.py -v
+        run: |
+          python -B -m unittest discover -s scripts -p test_parquet_demand_completion_packet.py -v
+          python -B -m unittest discover -s scripts -p test_direct_source_count_evidence.py -v
       - name: Temporal fidelity portable evidence and corruption controls
         run: python -B -m unittest discover -s scripts -p test_native_temporal_fidelity_packet.py -v
       - name: Rich bounded retention portable evidence and corruption controls

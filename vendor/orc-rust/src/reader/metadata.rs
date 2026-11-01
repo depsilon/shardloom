@@ -43,6 +43,9 @@
 
 use std::collections::HashMap;
 use std::io::Read;
+use std::sync::Arc;
+
+use arrow::datatypes::TimeUnit;
 
 use bytes::{Bytes, BytesMut};
 use prost::Message;
@@ -70,6 +73,7 @@ pub struct FileMetadata {
     column_statistics: Vec<ColumnStatistics>,
     stripes: Vec<StripeMetadata>,
     user_custom_metadata: HashMap<String, Vec<u8>>,
+    timestamp_units: Arc<HashMap<usize, TimeUnit>>,
     /// The maximum number of rows in each index entry (default 10,000)
     row_index_stride: Option<u32>,
 }
@@ -83,6 +87,41 @@ impl FileMetadata {
         let compression =
             Compression::from_proto(postscript.compression(), postscript.compression_block_size);
         let root_data_type = RootDataType::from_proto(&footer.types)?;
+        let mut timestamp_units = HashMap::new();
+        for (index, dtype) in footer.types.iter().enumerate() {
+            for attribute in &dtype.attributes {
+                if attribute.key.as_deref() != Some(crate::schema::ARROW_TIMESTAMP_UNIT_ATTRIBUTE) {
+                    continue;
+                }
+                ensure!(
+                    matches!(
+                        dtype.kind(),
+                        proto::r#type::Kind::Timestamp | proto::r#type::Kind::TimestampInstant
+                    ),
+                    OutOfSpecSnafu {
+                        msg: "timestamp unit attribute on non-timestamp column"
+                    }
+                );
+                let unit = match attribute.value.as_deref() {
+                    Some("s") => TimeUnit::Second,
+                    Some("ms") => TimeUnit::Millisecond,
+                    Some("us") => TimeUnit::Microsecond,
+                    Some("ns") => TimeUnit::Nanosecond,
+                    _ => {
+                        return OutOfSpecSnafu {
+                            msg: "invalid timestamp unit attribute",
+                        }
+                        .fail()
+                    }
+                };
+                ensure!(
+                    timestamp_units.insert(index, unit).is_none(),
+                    OutOfSpecSnafu {
+                        msg: "duplicate timestamp unit attribute"
+                    }
+                );
+            }
+        }
         let number_of_rows = footer.number_of_rows();
         let column_statistics = footer
             .statistics
@@ -134,6 +173,7 @@ impl FileMetadata {
             column_statistics,
             stripes,
             user_custom_metadata,
+            timestamp_units: Arc::new(timestamp_units),
             row_index_stride: footer.row_index_stride,
         })
     }
@@ -160,6 +200,10 @@ impl FileMetadata {
 
     pub fn user_custom_metadata(&self) -> &HashMap<String, Vec<u8>> {
         &self.user_custom_metadata
+    }
+
+    pub(crate) fn timestamp_units(&self) -> Arc<HashMap<usize, TimeUnit>> {
+        Arc::clone(&self.timestamp_units)
     }
 
     /// Get the row index stride (rows per row group)

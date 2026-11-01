@@ -3282,7 +3282,7 @@ pub fn evaluate_vortex_prepared_state_append_only_refinement(
             &fields,
         ));
     }
-    if !matches!(request.source_format.as_str(), "csv" | "jsonl") {
+    if !matches!(request.source_format.as_str(), "csv" | "tsv" | "jsonl") {
         return Ok(append_only_refinement_blocked(
             request,
             "blocked_changed_compression_or_format_posture",
@@ -10667,7 +10667,11 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     }
     if let Some(binding) = &request.prepared_source_binding {
         #[cfg(unix)]
-        crate::prepared_source_binding::validate_controlled(binding, cancellation)?;
+        if let Some(pool) = &request.shared_native_memory_pool {
+            crate::prepared_source_binding::validate_in_pool(binding, cancellation, pool)?;
+        } else {
+            crate::prepared_source_binding::validate_controlled(binding, cancellation)?;
+        }
         #[cfg(not(unix))]
         return Err(ShardLoomError::InvalidOperation(format!(
             "prepared source binding requires Unix generation admission ({} bytes); no fallback execution was attempted",
@@ -12035,7 +12039,8 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     use vortex::VortexSessionDefault as _;
     use vortex::arrow::ArrowSessionExt as _;
 
-    let schema = crate::native_temporal::arrow::schema(batch.schema().as_ref())?;
+    let source_schema = batch.schema();
+    let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
     let session = vortex::session::VortexSession::default();
     crate::native_temporal::register(&session);
     session
@@ -12145,7 +12150,8 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             memory.input_ownership,
         )?;
         timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
-        let schema = crate::native_temporal::arrow::schema(retained.schema().as_ref())?;
+        let source_schema = retained.schema();
+        let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
         let result = memory
             .session
             .arrow()
@@ -13376,7 +13382,7 @@ fn arrow_column_family_with_float_policy(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
+pub(crate) fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
     let ArrowDataType::Dictionary(key_dtype, value_dtype) = dtype else {
         return None;
     };
@@ -13414,7 +13420,10 @@ fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn reject_dictionary_non_finite_float_values(column: &str, array: &dyn Array) -> Result<()> {
+pub(crate) fn reject_dictionary_non_finite_float_values(
+    column: &str,
+    array: &dyn Array,
+) -> Result<()> {
     let Some(dictionary) = array.as_any_dictionary_opt() else {
         return Ok(());
     };
@@ -14496,7 +14505,18 @@ impl LocalVortexWriteContext {
                     }
                     #[cfg(unix)]
                     if let Some(binding) = prepared_source_binding {
-                        crate::prepared_source_binding::validate_controlled(binding, cancellation)?;
+                        if let Some(memory) = native_memory {
+                            crate::prepared_source_binding::validate_in_pool(
+                                binding,
+                                cancellation,
+                                &memory.pool,
+                            )?;
+                        } else {
+                            crate::prepared_source_binding::validate_controlled(
+                                binding,
+                                cancellation,
+                            )?;
+                        }
                     }
                     cancellation.check()
                 },

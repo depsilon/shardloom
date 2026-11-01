@@ -30,6 +30,104 @@ fn batch(columns: Vec<(&str, ArrayRef)>) -> RecordBatch {
 }
 
 #[test]
+fn local_file_dictionary_intake_preserves_float_bits_and_owned_credits() {
+    use arrow_array::{DictionaryArray, types::Int8Type};
+    use shardloom_core::FloatPolicy;
+    use vortex::array::{
+        VortexSessionExecute as _,
+        arrays::{Struct, struct_::StructArraySlotsExt as _},
+    };
+    let bits = [0xfff0_0000_0000_0042_u64, 0x8000_0000_0000_0000, 0];
+    let dictionary: ArrayRef = Arc::new(
+        DictionaryArray::<Int8Type>::try_new(
+            Int8Array::from(vec![Some(0), Some(1), Some(2), None, Some(3)]),
+            Arc::new(Float64Array::from(vec![
+                Some(f64::from_bits(bits[0])),
+                Some(f64::from_bits(bits[1])),
+                Some(f64::from_bits(bits[2])),
+                None,
+            ])),
+        )
+        .unwrap(),
+    );
+    let input = batch(vec![("value", dictionary)]);
+    let session =
+        ResidentVortexSession::new_with_float_policy(4 << 20, 1, FloatPolicy::Extended).unwrap();
+    let source = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            ResidentMemorySource::from_local_arrow_with_ownership(
+                &session,
+                input.clone(),
+                context,
+                arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+            )
+        })
+        .unwrap();
+    assert!(source.intake_columnar_buffer_bytes_copied() > 0);
+    drop(input);
+    session
+        .with_native_session(|native, _| {
+            let mut execution = native.create_execution_ctx();
+            let field = source.0.array.as_::<Struct>().fields()[0].clone();
+            assert_eq!(field.encoding_id().as_str(), "vortex.dict");
+            for (row, expected) in bits.into_iter().enumerate() {
+                let actual =
+                    f64::try_from(&field.execute_scalar(row, &mut execution).unwrap()).unwrap();
+                assert_eq!(actual.to_bits(), expected);
+            }
+            for row in [3, 4] {
+                assert!(field.execute_scalar(row, &mut execution).unwrap().is_null());
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert!(session.snapshot().memory.reserved_bytes > 0);
+    drop(source);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn local_file_dictionary_intake_preserves_strict_domain_and_schema_refusals() {
+    use arrow_array::{DictionaryArray, types::Int8Type};
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    // Ingest's strict contract validates the complete dictionary value domain,
+    // including a nonfinite value that no row references.
+    let values: ArrayRef = Arc::new(Float64Array::from(vec![1.0, f64::INFINITY]));
+    let dictionary: ArrayRef =
+        Arc::new(DictionaryArray::<Int8Type>::try_new(Int8Array::from(vec![0]), values).unwrap());
+    let error = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            ResidentMemorySource::from_local_arrow_with_ownership(
+                &session,
+                batch(vec![("value", dictionary)]),
+                context,
+                arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
+            )
+        })
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("non-finite"));
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    for dtype in [
+        DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Boolean)),
+        DataType::Dictionary(
+            Box::new(DataType::Int8),
+            Box::new(DataType::Decimal128(8, 2)),
+        ),
+        DataType::Struct(
+            vec![Field::new(
+                "child",
+                DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Float64)),
+                true,
+            )]
+            .into(),
+        ),
+    ] {
+        assert!(schema_metadata_bytes(&dtype, Origin::LocalFile).is_err());
+    }
+}
+
+#[test]
 fn direct_columnar_intake_keeps_exact_types_nulls_and_endpoint_values() {
     let input = rich_columnar_intake_fixture();
     let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
@@ -255,6 +353,84 @@ fn direct_columnar_borrowed_context_rejects_another_session_before_intake() {
     assert!(error.to_string().contains("different session"));
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
     assert_eq!(foreign.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn direct_columnar_intake_validates_later_values_before_any_payload_admission() {
+    use arrow_ownership::ArrowOwnershipPolicy::{ControlledParquet, ValidatedCopy};
+    for policy in [ValidatedCopy, ControlledParquet] {
+        // Metadata fits, but either first-column copying or transfer would
+        // exceed the grant. The later invalid value must remain the first error.
+        let session = ResidentVortexSession::new(32 << 10, 1).unwrap();
+        let input = batch(vec![
+            ("first", Arc::new(Int64Array::from(vec![7; 32_768]))),
+            (
+                "later",
+                Arc::new(Float64Array::from(vec![f64::INFINITY; 32_768])),
+            ),
+        ]);
+        let error = session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                ResidentMemorySource::from_local_arrow_with_ownership(
+                    &session, input, context, policy,
+                )
+            })
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("non-finite"));
+        assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn direct_columnar_intake_snapshot_preserves_shared_buffer_ownership() {
+    use arrow_ownership::ArrowOwnershipPolicy::{ControlledParquet, ValidatedCopy};
+    for policy in [ValidatedCopy, ControlledParquet] {
+        for retain_producer in [false, true] {
+            let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+            let original: ArrayRef = Arc::new(Int64Array::from_iter_values(0..16));
+            let pointer = original.to_data().buffers()[0].as_ptr();
+            let producer = retain_producer.then(|| Arc::clone(&original));
+            let input = batch(vec![("left", Arc::clone(&original)), ("right", original)]);
+            let source = session
+                .with_native_execution_context(&CancellationToken::default(), |context| {
+                    ResidentMemorySource::from_local_arrow_with_ownership(
+                        &session, input, context, policy,
+                    )
+                })
+                .unwrap();
+            // The first alias always needs a copy. Only the last remaining
+            // private reference can prove the standard allocation is unique.
+            let transfer_last = policy == ControlledParquet && !retain_producer;
+            assert_eq!(
+                source.intake_columnar_buffer_bytes_copied(),
+                if transfer_last { 128 } else { 256 }
+            );
+            assert_eq!(
+                source.intake_columnar_buffer_bytes_transferred(),
+                if transfer_last { 128 } else { 0 }
+            );
+            let left = source.0.array.slots()[1].as_ref().unwrap();
+            let right = source.0.array.slots()[2].as_ref().unwrap();
+            assert_ne!(left.buffers()[0].as_ptr(), pointer);
+            assert_eq!(right.buffers()[0].as_ptr() == pointer, transfer_last);
+            for field in [left, right] {
+                session
+                    .with_native_session(|native, _| {
+                        use vortex::array::VortexSessionExecute as _;
+                        let values = field
+                            .clone()
+                            .execute::<PrimitiveArray>(&mut native.create_execution_ctx())
+                            .unwrap();
+                        assert!(values.as_slice::<i64>().iter().copied().eq(0..16));
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+            drop((source, producer));
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
 }
 
 #[test]

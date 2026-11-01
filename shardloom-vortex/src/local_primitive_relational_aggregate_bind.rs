@@ -90,7 +90,7 @@ impl Binder<'_> {
         self.charge_items(width, 16_384)?;
         let mut groups = Vec::new();
         for column in group_by {
-            validate_name(column.as_str())?;
+            self.charge_name(column.as_str())?;
             validate_key(field(input_fields, column.as_str())?)?;
             groups.push((
                 column.as_str().to_owned(),
@@ -114,12 +114,22 @@ impl Binder<'_> {
         })
     }
 
+    #[allow(clippy::too_many_lines)] // Keep name admission and ordered measure validation together.
     fn aggregate_measure(
         &mut self,
         measure: &crate::query_primitive::VortexSimpleAggregateMeasure,
         input_fields: &[(String, DType)],
     ) -> Result<kernel::Measure> {
-        validate_name(&measure.alias)?;
+        self.charge_name(&measure.alias)?;
+        for column in measure
+            .column
+            .iter()
+            .chain(measure.secondary_column.iter())
+            .chain(measure.filter_column.iter())
+            .chain(measure.order_by.iter().map(|key| &key.column))
+        {
+            self.charge_name(column.as_str())?;
+        }
         if measure.argument_offset.is_some() || measure.value_transform.is_some() {
             return Err(failed(
                 "aggregate arguments must be lowered to explicit native projections",

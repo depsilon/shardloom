@@ -1,83 +1,80 @@
-//! Whole-document JSON construction without retained named scalar rows.
-//!
-//! Input text and typed columns remain whole-document allocations. Only writer
-//! batches are bounded; this is not a streaming JSON parser or an RSS bound.
+//! Incremental text preparation with explicit complete schema-discovery replay.
 
 use super::{
-    Arc, BTreeMap, CancellationToken, ColumnarSourceScoutEvidence, Instant,
-    LocalInputAdapterSelection, LocalSourceFormat, LocalSourceReadPlan, RecordBatch, ScalarValue,
-    Schema, ShardLoomError, VortexIngestReport, VortexIngestRequest, VortexIngestSourceData,
-    decode_local_text_source, enforce_local_source_row_budget,
-    finish_text_streaming_vortex_prepare, fnv64_digest, fnv64_digest_bytes_controlled,
-    read_local_source_bytes_with_budget_report_controlled, text_stream_record_batch_size,
-    unsupported_sql_error, visit_json_source_rows_with_plan_controlled,
+    Arc, Instant, LocalInputAdapterSelection, LocalSourceFormat, LocalSourceReadPlan,
+    ShardLoomError, VortexIngestReport, VortexIngestRequest, VortexIngestSourceData,
+    fingerprint_local_source_file_with_budget_report, finish_text_streaming_vortex_prepare,
+    fnv64_digest, text_stream_record_batch_size,
 };
-use arrow_array::RecordBatchIterator;
-use shardloom_vortex::universal_format_io::InferredTextColumnBuilder;
+#[cfg(test)]
+use super::{
+    CancellationToken, RecordBatch, parse_flat_json_object_with_plan, unsupported_sql_error,
+};
+use shardloom_vortex::universal_format_io::text_stream::TextReadMetrics;
+#[cfg(test)]
+use shardloom_vortex::universal_format_io::text_stream::{
+    TextFraming, TextRecordDecoder, TextSource,
+};
 
-const CONTEXT: &str = "JSON Universal Ingest typed text RecordBatch";
+#[cfg(test)]
+pub(super) fn decoder() -> TextRecordDecoder {
+    Arc::new(|record| {
+        parse_flat_json_object_with_plan(
+            record,
+            &LocalSourceReadPlan::full("streaming_json_record"),
+        )
+    })
+}
 
 #[allow(clippy::too_many_lines)]
 pub(super) fn prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
+    schema_hints: &[(String, shardloom_core::LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     request.cancellation.check()?;
     let prepare_start = Instant::now();
     let limits = request.runtime_profile.read_limits();
-    let byte_read = read_local_source_bytes_with_budget_report_controlled(
+    let read_start = Instant::now();
+    let format = source_adapter.source_format;
+    let scout = fingerprint_local_source_file_with_budget_report(
         &request.source_path,
-        "JSON",
+        format.row_label(),
         limits.source_bytes,
+        request.source_fingerprint_policy,
         &request.cancellation,
     )?;
-    let read_millis = byte_read.total_read_millis();
-    let scout = ColumnarSourceScoutEvidence {
-        bytes: u64::try_from(byte_read.bytes.len())
-            .map_err(|_| unsupported_sql_error("JSON source length does not fit in u64"))?,
-        digest: fnv64_digest_bytes_controlled(&byte_read.bytes, &request.cancellation)?,
-        fingerprint_kind: "local_file_content_digest".to_string(),
-        fingerprint_policy: "content_digest".to_string(),
-        identity_source: "local_file_explicit_proof_digest".to_string(),
-        content_fingerprint_requested: true,
-        content_fingerprint_performed: true,
-        metadata_scout_millis: byte_read.source_metadata_scout_millis,
-        byte_acquisition_millis: byte_read.source_byte_acquisition_millis,
-        full_body_millis: byte_read.source_full_body_millis,
-    };
+    let read_millis = read_start.elapsed().as_millis();
     let build_start = Instant::now();
-    let content = decode_local_text_source(
+    let memory = request.native_memory_pool()?;
+    let text = super::direct_text::prepare_single(
         &request.source_path,
-        LocalSourceFormat::Json,
-        byte_read.bytes,
-    )?;
-    let batch_size = text_stream_record_batch_size(limits.input_rows);
-    let batches = parse_controlled(
-        &content,
+        format.as_str(),
+        schema_hints,
         limits.input_rows,
-        batch_size,
+        &memory,
         &request.cancellation,
     )?;
-    drop(content);
-    let batch = &batches[0];
-    let header = batch
-        .schema()
+    let schema = text.schema();
+    let header = schema
         .fields()
         .iter()
         .map(|field| field.name().clone())
         .collect::<Vec<_>>();
-    // Source schema identity excludes the writer's derived metadata columns.
     let source_schema_digest = fnv64_digest(&header.join(","));
-    let column_arrow_dtypes = batch
-        .schema()
+    let column_arrow_dtypes = schema
         .fields()
         .iter()
         .map(|field| Some(field.data_type().clone()))
         .collect::<Vec<_>>();
-    let schema = batch.schema();
-    let rows = batches.iter().map(RecordBatch::num_rows).sum::<usize>();
-    let batch_count = batches.len();
-    let reader = RecordBatchIterator::new(batches.into_iter().map(Ok), schema);
+    let rows = text.rows();
+    let batch_size = text_stream_record_batch_size(limits.input_rows).min(8192);
+    let reader = text.open(
+        &(0..header.len()).collect::<Vec<_>>(),
+        batch_size,
+        &request.cancellation,
+        Arc::new(TextReadMetrics::default()),
+    )?;
     let columnar_source = shardloom_vortex::FlatLocalColumnarStreamSource {
         column_dtypes: vec![None; header.len()],
         column_arrow_dtypes,
@@ -85,27 +82,23 @@ pub(super) fn prepare(
         reader_projection_columns: header.clone(),
         header,
         row_count_hint: Some(rows),
-        record_batch_count_hint: Some(batch_count),
+        record_batch_count_hint: None,
         source_stream_batch_size: batch_size,
-        source_stream_unit_count_hint: Some(batch_count),
-        source_stream_unit_row_ranges: Some(
-            (0..rows)
-                .step_by(batch_size)
-                .map(|start| (start, start + batch_size.min(rows - start)))
-                .collect(),
-        ),
-        source_stream_unit_hint_kind: "text_record_batch_count".to_string(),
+        source_stream_unit_count_hint: None,
+        source_stream_unit_row_ranges: None,
+        source_stream_unit_hint_kind: "width_bounded_text_record_batches".into(),
         source_stream_policy: format!(
-            "whole_json_typed_columns_writer_batch_size_{batch_size}_rows"
+            "incremental_{}_schema_discovery_replay;schema_discovery_read_bytes={};record_batch_stream_batch_size_{batch_size};single_record_and_credited_batch",
+            format.as_str(),
+            text.discovery_bytes(),
         ),
-        source_dictionary_preservation_status: "json_typed_builders_no_source_dictionary"
-            .to_string(),
-        ingest_executor_status: "whole_json_typed_columns_ready".to_string(),
-        ingest_executor_kind: "whole_json_typed_columns_to_record_batch_reader".to_string(),
-        ingest_executor_requested_parallelism: 1,
+        source_dictionary_preservation_status: "text_typed_builders_no_source_dictionary".into(),
+        ingest_executor_status: "streaming_text_schema_discovered".into(),
+        ingest_executor_kind: "incremental_text_record_reader".into(),
+        ingest_executor_requested_parallelism: request.resources.max_parallelism(),
         ingest_executor_applied_parallelism: 1,
-        ingest_executor_unit_count_hint: Some(batch_count),
-        source_identities: Vec::new(),
+        ingest_executor_unit_count_hint: None,
+        source_identities: vec![text.identity()],
         #[cfg(feature = "vortex-write")]
         ingest_runtime: None,
         embedded_derived_build_micros: shardloom_vortex::new_embedded_derived_build_micros_counter(
@@ -128,11 +121,14 @@ pub(super) fn prepare(
         read_millis,
         build_start.elapsed().as_millis(),
     );
-    source.read_plan = LocalSourceReadPlan::full("whole_json_typed_vortex_ingest_source_state");
-    source.projection_pushdown_status =
-        LocalSourceFormat::Json.projection_pushdown_status(&source.read_plan);
-    source.materialization_layout = "whole_json_typed_columns_with_batched_writer";
-    source.parse_normalization = "json_adapter_to_whole_typed_columns";
+    source.read_plan = LocalSourceReadPlan::full("incremental_text_schema_replay");
+    source.projection_pushdown_status = format.projection_pushdown_status(&source.read_plan);
+    source.materialization_layout = if format == LocalSourceFormat::Json {
+        "incremental_json_to_streaming_arrow_record_batch_source_state"
+    } else {
+        "incremental_text_to_streaming_arrow_record_batch_source_state"
+    };
+    source.parse_normalization = "text_incremental_records_with_explicit_schema_replay";
     finish_text_streaming_vortex_prepare(
         request,
         source,
@@ -151,95 +147,55 @@ fn parse(
     parse_controlled(content, max_rows, batch_size, &CancellationToken::default())
 }
 
+#[cfg(test)]
 fn parse_controlled(
     content: &str,
     max_rows: Option<usize>,
     batch_size: usize,
     cancellation: &CancellationToken,
 ) -> Result<Vec<RecordBatch>, ShardLoomError> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
     cancellation.check()?;
-    let batch_size = batch_size.clamp(
-        1,
-        shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
-    );
-    let read_plan = LocalSourceReadPlan::full("whole_json_typed_columns");
-    let mut indices = BTreeMap::<String, usize>::new();
-    let mut values = Vec::<ScalarValue>::new();
-    let mut builders = Vec::<InferredTextColumnBuilder>::new();
-    let mut row_count = 0;
-    visit_json_source_rows_with_plan_controlled(content, &read_plan, cancellation, |fields| {
-        cancellation.check()?;
-        row_count += 1;
-        enforce_local_source_row_budget(row_count, max_rows, "JSON")?;
-        values.fill(ScalarValue::Null);
-        for (name, value) in fields {
-            cancellation.check()?;
-            let index = if let Some(&index) = indices.get(&name) {
-                index
-            } else {
-                let index = builders.len();
-                builders.push(InferredTextColumnBuilder::new(
-                    &name,
-                    row_count - 1,
-                    batch_size,
-                    CONTEXT,
-                )?);
-                values.push(ScalarValue::Null);
-                indices.insert(name, index);
-                index
-            };
-            values[index] = value;
-        }
-        for (builder, value) in builders.iter_mut().zip(&values) {
-            cancellation.check()?;
-            builder.append(value)?;
-        }
-        Ok(())
-    })?;
-    if row_count == 0 {
-        return Err(unsupported_sql_error(
-            "JSON source must include at least one object row",
-        ));
-    }
-    let (fields, columns): (Vec<_>, Vec<_>) = builders
-        .into_iter()
-        .map(|builder| {
-            cancellation.check()?;
-            builder.finish()
-        })
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .unzip();
-    let schema = Arc::new(Schema::new(fields));
-    let mut batches = (0..row_count.div_ceil(batch_size))
-        .map(|_| Vec::with_capacity(columns.len()))
-        .collect::<Vec<_>>();
-    for column in columns {
-        cancellation.check()?;
-        if column.len() != batches.len() {
-            return Err(unsupported_sql_error(
-                "JSON typed column batch counts differ",
-            ));
-        }
-        for (batch, array) in batches.iter_mut().zip(column) {
-            cancellation.check()?;
-            batch.push(array);
-        }
-    }
-    batches
-        .into_iter()
-        .map(|arrays| {
-            cancellation.check()?;
-            RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
-                unsupported_sql_error(&format!("{CONTEXT} failed to construct columns: {error}"))
-            })
-        })
-        .collect()
+    let path = std::env::temp_dir().join(format!(
+        "shardloom-json-stream-{}-{}.json",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    std::fs::write(&path, content).map_err(|e| unsupported_sql_error(&e.to_string()))?;
+    let result = (|| {
+        let memory = shardloom_exec::live_memory::LiveMemoryPool::new(64 << 20)?;
+        let source = TextSource::admit(
+            &path,
+            TextFraming::JsonDocument,
+            false,
+            decoder(),
+            None,
+            max_rows,
+            &memory,
+            cancellation,
+        )?;
+        source
+            .open(
+                &(0..source.schema().fields().len()).collect::<Vec<_>>(),
+                batch_size,
+                cancellation,
+                Arc::new(TextReadMetrics::default()),
+            )?
+            .map(|batch| batch.map_err(|e| unsupported_sql_error(&e.to_string())))
+            .collect()
+    })();
+    std::fs::remove_file(&path).map_err(|e| unsupported_sql_error(&e.to_string()))?;
+    result
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::{ordered_source_rows, parse_json_source_content};
+    use super::super::{
+        fnv64_digest_bytes_controlled, ordered_source_rows, parse_json_source_content,
+        read_local_source_bytes_with_budget_report_controlled,
+        visit_json_source_rows_with_plan_controlled,
+    };
     use super::*;
 
     #[test]

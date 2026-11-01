@@ -162,10 +162,10 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/provider-evidence/${{ matrix.group }}",
         ),
         release_blocker_refs=(
-            "all eight patched-provider test and lint configurations",
+            "all ten patched-provider test and lint configurations",
         ),
         workflow_markers=(
-            "group: [arrays, io, buffer]",
+            "group: [arrays, io, buffer, formats]",
             "CARGO_TARGET_DIR: ${{ github.workspace }}/target/providers",
             ".github/provider-locks/*.lock",
         ),

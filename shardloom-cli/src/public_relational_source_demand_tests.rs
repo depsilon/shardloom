@@ -7,6 +7,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[path = "public_relational_primitive_demand_tests.rs"]
+mod primitive_tests;
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
@@ -107,7 +110,7 @@ fn public_parquet_nested_computation_and_reduction_narrow_bound_scan_columns() {
         (
             format!("SELECT COUNT(*) AS rows FROM {source}"),
             r#"{"rows":4}"#,
-            1,
+            0,
         ),
         (
             format!("SELECT SUM(value) AS total FROM {source}"),
@@ -194,7 +197,7 @@ fn public_parquet_demand_keeps_unused_fallible_projection_errors() {
 }
 
 #[test]
-fn public_parquet_explicit_preparation_and_existing_artifact_reuse_remain_available() {
+fn public_parquet_direct_reads_ignore_existing_and_stale_prepared_artifacts() {
     let fixture = Fixture::new();
     let mut request = Fixture::request(&fixture.path());
     request.execution_policy = "prepare_once".into();
@@ -210,18 +213,28 @@ fn public_parquet_explicit_preparation_and_existing_artifact_reuse_remain_availa
     let reused = Fixture::prepare(&request).unwrap();
     let result = reused.collect_jsonl(&CancellationToken::default()).unwrap();
     assert_eq!(result.result_jsonl.value(), first.result_jsonl.value());
-    assert!(result.execution.input.is_none());
+    assert_eq!(result.execution.input.as_ref().unwrap().columnar_sources, 1);
     let after = fs::metadata(&target).unwrap();
     assert_eq!(
         (before.ino(), before.len(), before.mtime_nsec()),
         (after.ino(), after.len(), after.mtime_nsec())
     );
-    // A stale cache fails admission; it must not restart full preparation.
+    // Replacing the original invalidates its existing reader, but an ordinary
+    // new query binds the new source without inspecting or replacing the cache.
     let replacement = fixture.0.join("replacement.parquet");
     Fixture::write(&replacement);
     fs::rename(replacement, fixture.path()).unwrap();
-    assert!(Fixture::prepare(&request).is_err());
+    assert!(reused.collect_jsonl(&CancellationToken::default()).is_err());
+    let fresh = Fixture::prepare(&request)
+        .unwrap()
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(fresh.result_jsonl.value(), first.result_jsonl.value());
+    assert_eq!(fresh.execution.input.as_ref().unwrap().columnar_sources, 1);
     assert_eq!(fs::metadata(&target).unwrap().ino(), before.ino());
+    // Explicit preparation still refuses to reuse a stale persisted generation.
+    request.execution_policy = "prepare_once".into();
+    assert!(Fixture::prepare(&request).is_err());
 }
 
 #[test]
@@ -264,7 +277,7 @@ fn public_parquet_directory_and_content_digest_use_demand_without_persistence() 
 }
 
 #[test]
-fn public_parquet_fingerprint_policy_rejects_unknown_and_reuses_explicit_content_preparation() {
+fn public_parquet_content_fingerprint_uses_direct_reads_despite_explicit_preparation() {
     let fixture = Fixture::new();
     let mut request = Fixture::request(&fixture.path());
     request.source_fingerprint_policy = Some("unknown".into());
@@ -293,7 +306,13 @@ fn public_parquet_fingerprint_policy_rejects_unknown_and_reuses_explicit_content
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
     assert_eq!(reused.result_jsonl.value(), result.result_jsonl.value());
-    assert!(reused.execution.input.is_none());
+    let input = reused.execution.input.as_ref().unwrap();
+    assert_eq!(input.columnar_sources, 1);
+    assert_eq!(input.columnar_content_fingerprints.len(), 1);
+    assert_eq!(
+        input.columnar_fingerprint_read_bytes,
+        fs::metadata(fixture.path()).unwrap().len()
+    );
     assert_eq!(fs::metadata(target).unwrap().ino(), before.ino());
 }
 

@@ -76,15 +76,24 @@ pub(super) fn certificate(
     let batch_sources = input.map_or(0, |input| input.sources);
     let sources = file_sources + memory_sources + batch_sources;
     let columnar = input.map_or(0, |input| input.columnar_sources);
-    let columnar_data = input.is_some_and(|input| input.columnar_rows_decoded > 0);
+    let parquet_sources = input.map_or(0, |input| input.columnar_parquet_sources);
+    let parquet_only = columnar > 0 && columnar == parquet_sources;
+    let metadata_counts = input.map_or(0, |input| input.metadata_count_sources);
+    let columnar_data = input.is_some_and(|input| {
+        input.columnar_rows_decoded > 0 || input.columnar_schema_discovery_read_bytes > 0
+    });
     let data_work = metrics.data_scans.get() > 0 || columnar_data;
-    let source_kind = if columnar > 0 {
+    let source_kind = if parquet_only {
         "native_arrays_and_parquet"
+    } else if columnar > 0 {
+        "native_arrays_and_compatibility_sources"
     } else {
         "vortex"
     };
-    let adapter = if columnar > 0 {
+    let adapter = if parquet_only {
         "shardloom.native_relational.parquet_59_3_1_to_vortex_0_90"
+    } else if columnar > 0 {
+        "shardloom.native_relational.arrow_59_3_1_orc_0_9_to_vortex_0_90"
     } else {
         "shardloom.native_relational.vortex_0_90"
     };
@@ -142,15 +151,19 @@ pub(super) fn certificate(
         input.replay_buffer_bytes_copied, input.replay_spilled_sources,
         input.replay_prefilled_sources,
     ));
-    let source_demand_proof = input.filter(|input| input.columnar_sources > 0).map_or_else(String::new, |input| format!(
-        "parquet_sources={} parquet_projected_columns={} parquet_available_columns={} parquet_physical_leaf_columns={} parquet_row_groups_total={} parquet_row_groups_read={} parquet_rows_decoded={} parquet_metadata_read_bytes={} parquet_data_read_bytes={} parquet_data_read_requests={} parquet_prefix_sources={} parquet_requested_prefix_rows={} parquet_files={} parquet_fingerprint_read_bytes={} parquet_content_fingerprints={};demand_reader_sources_only;query_validation_of_requested_columns_and_regions;declared_end_is_requested_region_or_prefix;fingerprinting_reads_bytes_without_validating_undemanded_pages;no_full_ingest_certification;no_prepared_input_writes;decoder_workspace_admission_is_not_an_allocator_or_rss_limit",
+    let source_demand_proof = input.filter(|input| input.columnar_sources > 0).map_or_else(String::new, |input| {
+        let prefix = if parquet_only { "parquet" } else { "source" };
+        let proof = format!(
+        "{prefix}_sources={} {prefix}_projected_columns={} {prefix}_available_columns={} {prefix}_physical_leaf_columns={} {prefix}_row_groups_total={} {prefix}_row_groups_read={} {prefix}_rows_decoded={} {prefix}_metadata_read_bytes={} {prefix}_data_read_bytes={} {prefix}_data_read_requests={} {prefix}_prefix_sources={} {prefix}_requested_prefix_rows={} {prefix}_files={} {prefix}_fingerprint_read_bytes={} {prefix}_content_fingerprints={};demand_reader_sources_only;query_validation_of_requested_columns_and_regions;declared_end_is_requested_region_or_prefix;fingerprinting_reads_bytes_without_validating_undemanded_pages;no_full_ingest_certification;no_prepared_input_writes;decoder_workspace_admission_is_not_an_allocator_or_rss_limit",
         input.columnar_sources, input.columnar_projected_columns, input.columnar_available_columns,
         input.columnar_physical_leaf_columns, input.columnar_row_groups_total, input.columnar_row_groups_read,
         input.columnar_rows_decoded, input.columnar_metadata_read_bytes, input.columnar_data_read_bytes, input.columnar_data_read_requests,
         input.columnar_prefix_sources, input.columnar_requested_prefix_rows,
         input.columnar_files, input.columnar_fingerprint_read_bytes,
         input.columnar_content_fingerprints.join(","),
-    ));
+    );
+        format!("{proof};source_formats={};complete_text_schema_discovery_read_bytes={};binary_projection_uses_provider_decode;ipc_may_read_full_batch_bodies;avro_and_text_parse_record_streams;non_parquet_statistics_and_row_group_pruning_not_claimed;parquet_union_or_virtual_partition_sources_use_conservative_provider_projection_without_statistics_pruning", input.columnar_source_formats.join(","), input.columnar_schema_discovery_read_bytes)
+    });
     let ranked_proof = input.filter(|input| input.ranked_sources > 0).map_or_else(String::new, |input| format!(
         "ranked_sources={} ranked_rank_columns={} ranked_rank_rows={} ranked_payload_rows={} ranked_rank_group_visits={} ranked_payload_group_visits={} ranked_rank_read_bytes={} ranked_payload_read_bytes={} ranked_selected_rows={};same_held_generation;complete_rank_dependencies_before_complete_decoded_winning_group_payload;unselected_payload_groups_unread;zero_prefix_completes_rank_only;rank_failure_precedes_payload_failure;distinct_sources_metadata_groups_once;phase_visits_reads_and_decoded_rows_include_rereads;whole_selected_group_chunks_then_native_gather;strict_worst_case_compressed_byte_saving;optional_source_capability_not_format_dispatch",
         input.ranked_sources, input.ranked_rank_columns, input.ranked_rank_rows,
@@ -200,7 +213,7 @@ pub(super) fn certificate(
                 )
             },
             statistics_availability: if columnar > 0 {
-                format!("held_parquet_row_group_metadata_sources={columnar};exact_type_compatible_facts_only;missing_ambiguous_or_unsupported_statistics_retain_regions;batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}")
+                format!("held_parquet_row_group_metadata_sources={parquet_sources};exact_type_compatible_facts_only;missing_ambiguous_or_unsupported_statistics_retain_regions;non_parquet_source_statistics_not_admitted;batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}")
             } else if batch_sources > 0 {
                 format!(
                     "completion_aware_native_batch_sources={batch_sources};batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
@@ -344,6 +357,20 @@ pub(super) fn certificate(
         vec![],
     )?;
     let proof = &mut certificate.source_pushdown_report.proof_basis;
+    if metadata_counts > 0 {
+        use std::fmt::Write as _;
+        let rows = input.map_or(0, |input| input.metadata_count_rows);
+        write!(proof, " metadata_count_sources={metadata_counts} metadata_count_rows={rows};exact_nonnegative_file_and_row_group_counts;checked_u64_accumulation;complete_held_source_inventory;unfiltered_scalar_count_all;metadata_validation_only_no_page_or_value_validation;no_payload_reader;metadata_and_fingerprint_admission_reads_separate;held_generation_checked_through_final_consumer")
+            .expect("String writes cannot fail");
+        certificate
+            .source_capability_report
+            .pushdown_capabilities
+            .push_str(";exact_source_metadata_count_all");
+        certificate
+            .source_pushdown_report
+            .accepted_operations
+            .push("native_source_metadata_count_all".into());
+    }
     proof.push_str(" temporal_calendar_provider=jiff-0.2.35 temporal_timezone_database=");
     proof.push_str(shardloom_core::temporal::timezone::database_version());
     proof.push_str(" temporal_timezone_policy=pinned_embedded");

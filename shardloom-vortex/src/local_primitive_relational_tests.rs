@@ -25,6 +25,9 @@ static NEXT: AtomicUsize = AtomicUsize::new(0);
 mod aggregate_tests;
 #[path = "local_primitive_relational_batch_input_tests.rs"]
 mod batch_input_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_bulk_writer_tests.rs"]
+mod bulk_writer_tests;
 #[path = "local_primitive_relational_compact_index_cost_tests.rs"]
 mod compact_index_cost_tests;
 #[path = "local_primitive_relational_correlated_tests.rs"]

@@ -117,6 +117,7 @@ fn native_decimal_reduction_writers_preserve_declared_results_and_retained_buffe
             Format::Parquet,
             Format::ArrowIpc,
             Format::Avro,
+            Format::Orc,
             Format::Json,
             Format::Jsonl,
         ] {
@@ -294,15 +295,25 @@ fn native_typed_payload_writers_preserve_complete_values_types_and_empty_outputs
         }
         let path = fixture.0.join(format!("typed-denied-{count}.orc"));
         let before = prepared.snapshot().completed_executions;
-        let error = prepared.write(&path, Format::Orc, false).err().unwrap();
-        assert!(
-            error
-                .to_string()
-                .contains("ORC does not admit decimal or temporal"),
-            "{error}"
-        );
-        assert_eq!(prepared.snapshot().completed_executions, before);
-        assert!(!path.exists());
+        if count == 0 {
+            let report = prepared.write(&path, Format::Orc, false).unwrap();
+            assert_eq!(report.output.rows_written, 0);
+            assert_eq!(
+                reopen(&path, Format::Orc, &prepared.output_dtype().unwrap()),
+                expected
+            );
+            assert_eq!(prepared.snapshot().completed_executions, before + 1);
+        } else {
+            // This fixture contains -1 microsecond, in ORC-763's unrepresentable
+            // pre-epoch interval. Reject the value without a partial destination.
+            let error = prepared.write(&path, Format::Orc, false).err().unwrap();
+            assert!(
+                error.to_string().contains("Cannot encode timestamp"),
+                "{error}"
+            );
+            assert_eq!(prepared.snapshot().completed_executions, before);
+            assert!(!path.exists());
+        }
         let path = fixture.0.join(format!("typed-{count}.csv"));
         prepared.write(&path, Format::Csv, false).unwrap();
         let csv = if count == 0 {

@@ -56,6 +56,12 @@ pub trait ColumnStripeEncoder: EstimateMemory {
     /// Emit buffered streams to be written to the writer, and reset state
     /// in preparation for next stripe.
     fn finish(&mut self) -> Vec<Stream>;
+
+    /// Emit this column and its descendants in schema preorder. Nested owners
+    /// override this to preserve the exact type-ID/stream-ID correspondence.
+    fn finish_columns(&mut self) -> Vec<(ColumnEncoding, Vec<Stream>)> {
+        vec![(self.column_encoding(), self.finish())]
+    }
 }
 
 // TODO: simplify these generics, probably overcomplicating things here

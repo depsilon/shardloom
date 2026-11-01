@@ -13,6 +13,10 @@ use super::replay;
 #[path = "local_primitive_relational_batch_ranked.rs"]
 mod ranked;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_batch_metadata_count.rs"]
+mod metadata_count;
+
 pub(super) struct Source {
     pub(super) uri: shardloom_core::DatasetUri,
     pub(super) schema: ResidentMemorySource,
@@ -65,7 +69,7 @@ impl Usage {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    pub(super) fn admits_ranked(self) -> bool {
+    pub(super) fn admits_independent_read(self) -> bool {
         self.uses == 1
             && !self.requires_replay()
             && !self.detach_before_consume
@@ -157,6 +161,9 @@ pub struct ExecutedVortexBatchInput {
     /// reads exclude the separately counted metadata binding reads. Columns and
     /// regions are counts, not bytes or a claim about upstream decoder RSS.
     pub columnar_sources: u64,
+    pub columnar_parquet_sources: u64,
+    pub columnar_source_formats: Vec<String>,
+    pub columnar_schema_discovery_read_bytes: u64,
     pub columnar_files: u64,
     pub columnar_projected_columns: u64,
     pub columnar_available_columns: u64,
@@ -175,6 +182,10 @@ pub struct ExecutedVortexBatchInput {
     pub columnar_content_fingerprints: Vec<String>,
     pub columnar_data_read_bytes: u64,
     pub columnar_data_read_requests: u64,
+    /// Exact source cardinality completed from held metadata. These rows were
+    /// neither delivered as input batches nor decoded or value-validated.
+    pub metadata_count_sources: u64,
+    pub metadata_count_rows: u64,
     /// Two-phase source demand. Existing group counts remain distinct groups;
     /// these phase counts are actual visits, and decoded rows include rereads.
     pub ranked_sources: u64,
@@ -270,6 +281,9 @@ impl Default for ExecutedVortexBatchInput {
     fn default() -> Self {
         Self {
             columnar_sources: 0,
+            columnar_parquet_sources: 0,
+            columnar_source_formats: Vec::new(),
+            columnar_schema_discovery_read_bytes: 0,
             columnar_files: 0,
             columnar_projected_columns: 0,
             columnar_available_columns: 0,
@@ -284,6 +298,8 @@ impl Default for ExecutedVortexBatchInput {
             columnar_content_fingerprints: Vec::new(),
             columnar_data_read_bytes: 0,
             columnar_data_read_requests: 0,
+            metadata_count_sources: 0,
+            metadata_count_rows: 0,
             ranked_sources: 0,
             ranked_rank_columns: 0,
             ranked_rank_rows: 0,
@@ -451,6 +467,15 @@ impl PreparedVortexRelational {
 /// out of schema binding. It carries no alternate array representation.
 pub(super) trait Input {
     fn require_usage(&self, index: usize, usage: Usage) -> Result<()>;
+
+    /// Complete an eligible owned source without opening its payload reader.
+    /// A schema or producer row hint cannot supply this capability.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn metadata_count(
+        &self,
+        index: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<u64>>;
 
     fn run(
         &self,
@@ -637,6 +662,27 @@ impl<'p, 'i> Execution<'p, 'i> {
     ) -> Result<()> {
         let mut report = self.report.borrow_mut();
         checked_add(&mut report.columnar_sources, 1)?;
+        if observed.parquet_selected_chunks {
+            checked_add(&mut report.columnar_parquet_sources, 1)?;
+        }
+        if !report
+            .columnar_source_formats
+            .iter()
+            .any(|format| format == observed.format)
+        {
+            report
+                .columnar_source_formats
+                .try_reserve(1)
+                .map_err(|error| failed(&error.to_string()))?;
+            report
+                .columnar_source_formats
+                .push(observed.format.to_owned());
+            report.columnar_source_formats.sort();
+        }
+        checked_add(
+            &mut report.columnar_schema_discovery_read_bytes,
+            observed.schema_discovery_read_bytes,
+        )?;
         checked_add(&mut report.columnar_files, observed.files as u64)?;
         checked_add(
             &mut report.columnar_fingerprint_read_bytes,
@@ -874,6 +920,15 @@ fn verify_released(
 }
 
 impl Input for Execution<'_, '_> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn metadata_count(
+        &self,
+        index: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<u64>> {
+        self.consume_metadata_count(index, context)
+    }
+
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn run_ranked(
         &self,

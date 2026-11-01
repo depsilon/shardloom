@@ -137,6 +137,7 @@ LEGACY_EXPORTS: Final = MappingProxyType({
     "read_avro": ("query", "application"),
     "read_csv": ("query", "application"),
     "read_json": ("query", "application"),
+    "read_tsv": ("query", "application"),
     "read_orc": ("query", "application"),
     "read_parquet": ("query", "application"),
     "read_vortex": ("query", "application"),

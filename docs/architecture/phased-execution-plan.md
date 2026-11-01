@@ -251,13 +251,41 @@ the ledger.
 
 Current autonomous execution order:
 
+**November 1 completeness priority:** items 18 and 23 complete and integrate
+the engine's supported capabilities. Finish both before returning to performance
+optimization. Correctness, source/operator/sink reachability, ownership, user
+resource ceilings, lifecycle behavior and no-fallback execution remain acceptance
+gates. Keep matched timing evidence and explain format/interface costs; slight
+differences across I/O formats and execution surfaces are expected. Timing-only
+gain and material-gap screens are diagnostic for these two items, rather than
+reasons for another optimization cycle. Preserve their original protocols and
+observations, including the r8 item-18 result of 12.065099498 engine seconds
+against 11.978234339; the maintainer accepts that 0.73% tradeoff for the broader
+direct-read/shared-execution correction, subject to remaining coverage gates.
+This supersedes the performance-blocking language in earlier item-18 handoffs.
+Remote work remains deferred, and release publication retains separate approval.
+
+**October 31 implementation batching decision:** implement the rest of item 18
+as one cohesive batch, including the direct-source metadata count already in
+progress, then run the combined build and acceptance checks. Preserve the
+existing checks and finish PR #1633's integration and cleanup alongside that
+work. Do not repeat build/package/timing cycles for each I/O subpart. Required
+coverage, no-fallback/resource contracts, the Full43 hold and separate release
+authorization remain in force.
+
+**October 31 remote-workflow deferral:** the maintainer deferred selecting a
+remote service/test dataset and the authenticated connector workflow. Complete
+item 18's local combined implementation and five-interface/format acceptance;
+retain remote read/compute/safe-refresh/readback as deferred, with no remote
+completion claim or blocker on the local batch.
+
 **October 31 adaptive-execution queue addition:** item 20 remains active.
 Then finish item 18 with shared demand-aware reading as the ordinary default
 across admitted formats and all five execution surfaces. Its
 [acceptance gate](native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
-requires matched correctness, engine timing and I/O scenario coverage, with
-material avoidable performance gaps resolved or explicitly accepted before the
-version bump. Immediately after universal I/O acceptance, complete **item 23,
+requires matched correctness, engine timing and I/O scenario coverage. The
+November 1 priority makes performance tuning subsequent to completing both
+integration items. Immediately after universal I/O acceptance, complete **item 23,
 [engine-wide adaptive execution within user-set ceilings](#engine-wide-adaptive-execution)**.
 This explicit maintainer addition promotes the missing shared runtime integration
 from an advisory/reporting gap into scheduled implementation. The **1.1.0 minor
@@ -561,7 +589,7 @@ implementation projects, completed capabilities or a PR forecast.
 
 - [ ] **Item 23 — apply shared adaptive execution within user-set ceilings.**
   - Source: October 31 maintainer request; the [batch memory investigation](native-performance-batch-2026-10-31.md#dynamic-execution-within-a-user-set-ceiling); [dynamic work shaping](dynamic-work-shaping.md) and [PulseWeave runtime control](pulseweave-runtime-control.md); RFCs 0013, 0014, 0016, 0017 and 0044. This extends the existing RFC 0044 implementation program and PERF-03/PERF-06/PERF-07/PERF-11 owners. CG-8, CG-14, CG-15, CG-20 and CG-21 supply relevant proof obligations; CG-1 through CG-23 retain their independent gates.
-  - Sequence and scope: explicitly requested, `required_for_v1` under the plan's existing scope vocabulary, now scheduled as post-1.0 work immediately after item 18 acceptance and before the 1.1.0 milestone. Cover all currently supported native execution paths and every applicable source/operator/sink owner. Unsupported formats, remote systems and live/distributed engines do not become implicit new requirements.
+  - Sequence and scope: explicitly requested, `required_for_v1` under the plan's existing scope vocabulary, now scheduled as post-1.0 work immediately after item 18 acceptance and before the 1.1.0 milestone. Cover all currently supported native execution paths and every applicable source/operator/sink owner. The November 1 decision prioritizes this functional integration and item 18 completeness before performance tuning; preserve timing evidence without requiring an engine-time gain to wire a missing supported path. Unsupported formats, remote systems and live/distributed engines do not become implicit new requirements.
   - Current state: `AdaptiveSizer` and `plan_dynamic_sizing_feedback` provide planning decisions; `DynamicSizingFeedbackMode::executes_feedback()` remains false. PulseWeave has scoped prepared/local and cold-preparation integration, while live shared memory admission, streaming and native spill already exist. The ordinary demanded Parquet reader does not consume that advisory sizing policy, and relational spill/replay combine bounded constants with separate admissions. A whole-footer reservation blocked the October 31 workload before downstream adaptation could act. Reground this inventory after item 18; neither all-dynamic nor all-report-only accurately describes the engine.
   - Intake decision: accept the missing shared runtime wiring as a global follow-through item, reusing existing owners. Classify fixture sizes, semantic/type admission, format constants, cancellation cadence and proof bounds separately from tunable execution geometry. Do not remove a safety bound merely because it is a constant, or revive previously rejected mechanisms unchanged.
   - Implementation scope and user surface: shared resource/sizing/PulseWeave and compute-pool policy in `shardloom-exec`; source metadata, native/provider readers, conversion, replay/capture, stateful operators, spill readers/merges, result delivery and writer buffers in `shardloom-vortex`; shared preparation/public policy binding and execution evidence. CLI SQL, embedded workflows, Python SQL, DataFrame and typed native callers use the same owners and retain simple defaults.

@@ -61,6 +61,19 @@ pub use metadata::inspect_local_columnar_schema;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub mod demanded;
 
+pub mod text_stream;
+
+#[cfg(test)]
+mod ipc_variant_tests;
+
+#[cfg(all(feature = "vortex-write", unix))]
+pub(crate) mod local_dataset;
+
+mod orc_translation;
+pub(crate) use orc_translation::{
+    schema as translate_orc_schema, wire_schema_matches as orc_wire_schema_matches,
+};
+
 mod budgeted_projection;
 pub use budgeted_projection::{
     ColumnarSourceVisit, visit_budgeted_avro_source_with_projection,
@@ -91,12 +104,16 @@ struct FlatColumnarStreamSourcePlan {
 }
 
 impl FlatColumnarStreamSourcePlan {
-    fn source_defined_batches(record_batch_count_hint: usize) -> Self {
+    fn source_defined_batches(record_batch_count_hint: Option<usize>) -> Self {
         Self {
-            record_batch_count_hint: Some(record_batch_count_hint),
-            source_unit_count_hint: Some(record_batch_count_hint),
+            record_batch_count_hint,
+            source_unit_count_hint: record_batch_count_hint,
             source_unit_row_ranges: None,
-            source_unit_hint_kind: "source_defined_record_batch_count",
+            source_unit_hint_kind: if record_batch_count_hint.is_some() {
+                "source_defined_record_batch_count"
+            } else {
+                "ipc_stream_record_batch_count_unknown_before_read"
+            },
             stream_batch_size: 0,
             stream_policy: "source_defined_record_batches",
             dictionary_preservation_status: "source_arrow_batches_preserve_dictionary_arrays_when_present",
@@ -3666,13 +3683,7 @@ pub fn read_flat_arrow_ipc_columnar_source(
     path: &Path,
     max_rows: usize,
 ) -> Result<FlatLocalColumnarSource> {
-    let file = open_local_source_file(path, "Arrow IPC")?;
-    let mut reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create local Arrow IPC source reader for '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let (mut reader, _) = open_arrow_ipc_reader(path, None)?;
 
     read_flat_record_batch_reader_columnar(&mut reader, path, "Arrow IPC", max_rows)
 }
@@ -3686,16 +3697,9 @@ pub fn stream_flat_arrow_ipc_columnar_source(
     path: &Path,
     max_rows: usize,
 ) -> Result<FlatLocalColumnarStreamSource> {
-    let file = open_local_source_file(path, "Arrow IPC")?;
-    let reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create streaming local Arrow IPC source reader for '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let (reader, batch_hint) = open_arrow_ipc_reader(path, None)?;
     let schema = reader.schema();
     let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
-    let batch_hint = reader.num_batches();
     let stream_plan = FlatColumnarStreamSourcePlan::source_defined_batches(batch_hint);
     Ok(flat_columnar_stream_source_from_reader(
         schema.as_ref(),
@@ -3745,13 +3749,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
     max_rows: usize,
     required_columns: &[String],
 ) -> Result<FlatLocalColumnarSource> {
-    let full_file = open_local_source_file(path, "Arrow IPC")?;
-    let full_reader = arrow_ipc::reader::FileReader::try_new(full_file, None).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create local Arrow IPC source reader for '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let (full_reader, _) = open_arrow_ipc_reader(path, None)?;
     let schema = full_reader.schema();
     let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
     let column_dtypes = source_schema_column_dtypes(schema.as_ref());
@@ -3760,14 +3758,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
     let projected_header = projection_header(&header, &projection_indices);
     drop(full_reader);
 
-    let file = open_local_source_file(path, "Arrow IPC")?;
-    let mut reader = arrow_ipc::reader::FileReader::try_new(file, Some(projection_indices))
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to create projected local Arrow IPC source reader for '{}': {error}",
-                path.display()
-            ))
-        })?;
+    let (mut reader, _) = open_arrow_ipc_reader(path, Some(projection_indices))?;
 
     read_flat_record_batch_reader_columnar_with_header(
         &mut reader,
@@ -3779,6 +3770,44 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
         column_arrow_dtypes,
         &projected_header,
     )
+}
+
+// File and stream framing are variants of the same explicit codec boundary.
+// A stream has no footer batch count; do not manufacture one from a sample.
+#[allow(clippy::type_complexity)]
+fn open_arrow_ipc_reader(
+    path: &Path,
+    projection: Option<Vec<usize>>,
+) -> Result<(Box<dyn RecordBatchReader + Send>, Option<usize>)> {
+    use std::io::{Read as _, Seek as _};
+    let mut file = open_local_source_file(path, "Arrow IPC")?;
+    let mut magic = [0_u8; 6];
+    file.read_exact(&mut magic).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Arrow IPC source '{}' has no framing header: {error}",
+            path.display()
+        ))
+    })?;
+    file.rewind().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Arrow IPC source '{}' cannot rewind its framing header: {error}",
+            path.display()
+        ))
+    })?;
+    let failed = |error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create local Arrow IPC source reader for '{}': {error}",
+            path.display()
+        ))
+    };
+    if magic == *b"ARROW1" {
+        let reader = arrow_ipc::reader::FileReader::try_new(file, projection).map_err(failed)?;
+        let batches = reader.num_batches();
+        Ok((Box::new(reader), Some(batches)))
+    } else {
+        let reader = arrow_ipc::reader::StreamReader::try_new(file, projection).map_err(failed)?;
+        Ok((Box::new(reader), None))
+    }
 }
 
 /// Read a local Avro file into flat scalar rows for scoped runtime smokes.
@@ -4734,8 +4763,8 @@ mod orc_output_admission_tests {
                 .unwrap_err();
         assert!(error.to_string().contains("above i64::MAX"));
         let batch = RecordBatch::new_empty(Arc::new(Schema::new(vec![Field::new(
-            "date",
-            DataType::Date32,
+            "duration",
+            DataType::Duration(TimeUnit::Microsecond),
             true,
         )])));
         assert!(
@@ -4748,117 +4777,7 @@ mod orc_output_admission_tests {
 }
 
 pub(crate) fn translate_orc_record_batch(batch: &RecordBatch) -> Result<RecordBatch> {
-    use arrow_array::{
-        Int16Array, Int32Array, Int64Array, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
-    };
-    validate_orc_record_batch_supported(batch)?;
-    let mut arrays = Vec::<arrow_array::ArrayRef>::with_capacity(batch.num_columns());
-    for array in batch.columns() {
-        let converted: arrow_array::ArrayRef = match array.data_type() {
-            DataType::UInt8 => Arc::new(Int16Array::from_iter(
-                array
-                    .as_any()
-                    .downcast_ref::<UInt8Array>()
-                    .ok_or_else(|| orc_conversion_error("invalid UInt8 array"))?
-                    .iter()
-                    .map(|value| value.map(i16::from)),
-            )),
-            DataType::UInt16 => Arc::new(Int32Array::from_iter(
-                array
-                    .as_any()
-                    .downcast_ref::<UInt16Array>()
-                    .ok_or_else(|| orc_conversion_error("invalid UInt16 array"))?
-                    .iter()
-                    .map(|value| value.map(i32::from)),
-            )),
-            DataType::UInt32 => Arc::new(Int64Array::from_iter(
-                array
-                    .as_any()
-                    .downcast_ref::<UInt32Array>()
-                    .ok_or_else(|| orc_conversion_error("invalid UInt32 array"))?
-                    .iter()
-                    .map(|value| value.map(i64::from)),
-            )),
-            DataType::UInt64 => {
-                let values = array
-                    .as_any()
-                    .downcast_ref::<UInt64Array>()
-                    .ok_or_else(|| orc_conversion_error("invalid UInt64 array"))?
-                    .iter()
-                    .map(|value| {
-                        value.map(i64::try_from).transpose().map_err(|_| {
-                            orc_conversion_error("ORC cannot represent uint64 above i64::MAX")
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                Arc::new(Int64Array::from(values))
-            }
-            _ => Arc::clone(array),
-        };
-        arrays.push(converted);
-    }
-    let fields = batch
-        .schema()
-        .fields()
-        .iter()
-        .zip(&arrays)
-        .map(|(field, array)| {
-            Field::new(field.name(), array.data_type().clone(), field.is_nullable())
-        })
-        .collect::<Vec<_>>();
-    RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays)
-        .map_err(|error| orc_conversion_error(&error.to_string()))
-}
-
-fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
-    for field in batch.schema().fields() {
-        if matches!(
-            field.data_type(),
-            DataType::List(_)
-                | DataType::LargeList(_)
-                | DataType::FixedSizeList(_, _)
-                | DataType::Struct(_)
-        ) {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local ORC output does not yet admit typed nested preservation for column '{}'; orc-rust 0.9.0 panics on nested Arrow writer conversion with unsupported datatype, so ShardLoom blocks before provider conversion; scoped typed nested compatibility sinks are admitted through Parquet/Arrow IPC/Avro after Arrow schema inference, while ORC remains blocked until writer/readback evidence is available; no fallback execution was attempted",
-                field.name()
-            )));
-        }
-        if matches!(
-            field.data_type(),
-            DataType::Decimal128(_, _) | DataType::Decimal256(_, _)
-        ) {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; orc-rust 0.9.0 can read decimal128 but its Arrow writer does not support decimal128 columns, so ShardLoom blocks before provider conversion instead of allowing a writer panic; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries and scoped local Vortex typed decimal output in this runtime slice; no fallback execution was attempted",
-                field.name()
-            )));
-        }
-        if !matches!(
-            field.data_type(),
-            DataType::Boolean
-                | DataType::Int8
-                | DataType::Int16
-                | DataType::Int32
-                | DataType::Int64
-                | DataType::UInt8
-                | DataType::UInt16
-                | DataType::UInt32
-                | DataType::UInt64
-                | DataType::Float32
-                | DataType::Float64
-                | DataType::Utf8
-                | DataType::LargeUtf8
-                | DataType::Binary
-                | DataType::LargeBinary
-        ) {
-            return Err(orc_conversion_error(&format!(
-                "unsupported writer dtype {:?} for column '{}'",
-                field.data_type(),
-                field.name()
-            )));
-        }
-    }
-    Ok(())
+    orc_translation::batch(batch)
 }
 
 fn flat_rows_to_record_batch(
@@ -9340,72 +9259,78 @@ mod tests {
     }
 
     #[test]
-    fn orc_decimal_output_blocks_before_writer_conversion() {
-        let columns = vec!["amount".to_string()];
-        let dtypes = vec![Some(LogicalDType::Extension(
-            "decimal128(10,2)".to_string(),
-        ))];
-        let rows = vec![vec![(
-            "amount".to_string(),
-            ScalarValue::Decimal128 {
-                value: 1234,
-                precision: 10,
-                scale: 2,
-            },
-        )]];
-
-        let error = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows)
-            .expect_err("ORC decimal output remains blocked");
-
-        assert!(
-            error.to_string().contains(
-                "local ORC output does not yet admit typed decimal128 preservation for column 'amount'"
-            ),
-            "{error}"
+    fn orc_decimal_output_reopens_exact_values() {
+        let columns = vec!["amount".to_owned()];
+        let dtypes = vec![Some(LogicalDType::Extension("decimal128(38,2)".to_owned()))];
+        let maximum = 10_i128.pow(38) - 1;
+        let rows = [Some(maximum), None, Some(-maximum)].map(|value| {
+            vec![(
+                "amount".to_owned(),
+                value.map_or(ScalarValue::Null, |value| ScalarValue::Decimal128 {
+                    value,
+                    precision: 38,
+                    scale: 2,
+                }),
+            )]
+        });
+        let bytes = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows).unwrap();
+        let batches = orc_rust::ArrowReaderBuilder::try_new(bytes::Bytes::from(bytes))
+            .unwrap()
+            .build()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            batches[0].schema().field(0).data_type(),
+            &DataType::Decimal128(38, 2)
         );
-        assert!(
-            error
-                .to_string()
-                .contains("orc-rust 0.9.0 can read decimal128 but its Arrow writer does not support decimal128 columns"),
-            "{error}"
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("no fallback execution was attempted"),
-            "{error}"
+        assert_eq!(
+            batches[0]
+                .column(0)
+                .as_any()
+                .downcast_ref::<Decimal128Array>()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>(),
+            [Some(maximum), None, Some(-maximum)]
         );
     }
 
     #[test]
-    fn orc_nested_output_blocks_before_writer_conversion() {
-        let columns = vec!["tags".to_string()];
+    fn orc_nested_output_reopens_null_and_empty_lists() {
+        let columns = vec!["tags".to_owned()];
         let dtypes = vec![Some(LogicalDType::List)];
-        let rows = vec![vec![(
-            "tags".to_string(),
-            ScalarValue::List(vec![ScalarValue::Utf8("alpha".to_string())]),
-        )]];
-
-        let error = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows)
-            .expect_err("ORC nested output remains blocked");
-
-        assert!(
-            error.to_string().contains(
-                "local ORC output does not yet admit typed nested preservation for column 'tags'"
-            ),
-            "{error}"
-        );
-        assert!(
-            error.to_string().contains(
-                "orc-rust 0.9.0 panics on nested Arrow writer conversion with unsupported datatype"
-            ),
-            "{error}"
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("no fallback execution was attempted"),
-            "{error}"
+        let rows = [
+            ScalarValue::List(vec![
+                ScalarValue::Utf8("alpha".to_owned()),
+                ScalarValue::Null,
+            ]),
+            ScalarValue::Null,
+            ScalarValue::List(vec![]),
+        ]
+        .map(|value| vec![("tags".to_owned(), value)]);
+        let bytes = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows).unwrap();
+        let batches = orc_rust::ArrowReaderBuilder::try_new(bytes::Bytes::from(bytes))
+            .unwrap()
+            .build()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        let lists = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        assert_eq!(lists.len(), 3);
+        assert!(lists.is_null(1));
+        assert_eq!(lists.value_length(2), 0);
+        let first = lists.value(0);
+        assert_eq!(
+            first
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .iter()
+                .collect::<Vec<_>>(),
+            [Some("alpha"), None]
         );
     }
 }

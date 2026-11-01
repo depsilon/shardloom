@@ -183,8 +183,26 @@ fn streamed_ordering_bounded_prefix_failure_cleanup_allows_fresh_retry() {
     let keys = vec![key("n", false, NullOrder::Last)];
     let mut expected = rows.clone();
     reference_sort(&mut expected, &keys);
-    for fault in ["denied", "cancel", "consumer"] {
-        let prepared = prepare_rows(&limited(sorted(scan(), keys.clone()), 0, 7));
+    for (fault, projection) in [
+        ("denied", false),
+        ("cancel", false),
+        ("consumer", false),
+        ("denied", true),
+        ("cancel", true),
+        ("consumer", true),
+    ] {
+        let mut plan = sorted(scan(), keys.clone());
+        if projection {
+            plan = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+                input: plan,
+                expressions: vec![
+                    ("id".into(), col("id")),
+                    ("s".into(), col("s")),
+                    ("n".into(), col("n")),
+                ],
+            }));
+        }
+        let prepared = prepare_rows(&limited(plan, 0, 7));
         let memory = prepared.session.memory().clone();
         let baseline = memory.snapshot().reserved_bytes;
         let token = CancellationToken::default();

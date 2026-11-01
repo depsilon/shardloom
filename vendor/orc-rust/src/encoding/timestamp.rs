@@ -23,7 +23,7 @@ use snafu::ensure;
 
 use crate::{
     encoding::{PrimitiveValueDecoder, PrimitiveValueEncoder},
-    error::{DecodeTimestampSnafu, EncodeTimestampSnafu, Result},
+    error::{DecodeTimestampSnafu, EncodeTimestampSnafu, OutOfSpecSnafu, Result},
     memory::EstimateMemory,
 };
 
@@ -204,31 +204,61 @@ impl PrimitiveValueDecoder<i128> for TimestampNanosecondAsDecimalDecoder {
         for (index, (&seconds_since_orc_base, &nanoseconds)) in
             data.iter().zip(secondary.iter()).enumerate()
         {
-            out[index] =
-                decode_timestamp_as_i128(self.base_from_epoch, seconds_since_orc_base, nanoseconds);
+            out[index] = decode_timestamp_as_i128(
+                self.base_from_epoch,
+                seconds_since_orc_base,
+                nanoseconds,
+            )?;
         }
         Ok(())
     }
 }
 
-fn decode(base: i64, seconds_since_orc_base: i64, nanoseconds: i64) -> (i128, i64, u64) {
+fn decode(base: i64, seconds_since_orc_base: i64, nanoseconds: i64) -> Result<(i128, i64, u64)> {
     let data = seconds_since_orc_base;
-    // TODO: is this a safe cast?
-    let mut nanoseconds = nanoseconds as u64;
+    let mut nanoseconds = u64::try_from(nanoseconds).map_err(|_| {
+        OutOfSpecSnafu {
+            msg: "negative encoded timestamp nanoseconds",
+        }
+        .build()
+    })?;
     // Last 3 bits indicate how many trailing zeros were truncated
     let zeros = nanoseconds & 0x7;
     nanoseconds >>= 3;
     // Multiply by powers of 10 to get back the trailing zeros
     // TODO: would it be more efficient to unroll this? (if LLVM doesn't already do so)
     if zeros != 0 {
-        nanoseconds *= 10_u64.pow(zeros as u32 + 1);
+        nanoseconds = nanoseconds
+            .checked_mul(10_u64.pow(zeros as u32 + 1))
+            .ok_or_else(|| {
+                OutOfSpecSnafu {
+                    msg: "timestamp nanoseconds expansion overflow",
+                }
+                .build()
+            })?;
     }
-    let seconds_since_epoch = data + base;
+    ensure!(
+        nanoseconds < 1_000_000_000,
+        OutOfSpecSnafu {
+            msg: "timestamp nanoseconds exceed one second"
+        }
+    );
+    let seconds_since_epoch = data.checked_add(base).ok_or_else(|| {
+        OutOfSpecSnafu {
+            msg: "timestamp epoch conversion overflow",
+        }
+        .build()
+    })?;
     // Timestamps below the UNIX epoch with nanoseconds > 999_999 need to be
     // adjusted to have 1 second subtracted due to ORC-763:
     // https://issues.apache.org/jira/browse/ORC-763
     let seconds = if seconds_since_epoch < 0 && nanoseconds > 999_999 {
-        seconds_since_epoch - 1
+        seconds_since_epoch.checked_sub(1).ok_or_else(|| {
+            OutOfSpecSnafu {
+                msg: "timestamp negative fraction adjustment overflow",
+            }
+            .build()
+        })?
     } else {
         seconds_since_epoch
     };
@@ -240,7 +270,7 @@ fn decode(base: i64, seconds_since_orc_base: i64, nanoseconds: i64) -> (i128, i6
         (seconds as i128 * NANOSECONDS_IN_SECOND as i128) + (nanoseconds as i128);
     // Returning seconds & nanoseconds only for error message
     // TODO: does the error message really need those details? Can simplify by removing.
-    (nanoseconds_since_epoch, seconds, nanoseconds)
+    Ok((nanoseconds_since_epoch, seconds, nanoseconds))
 }
 
 fn decode_timestamp<T: ArrowTimestampType>(
@@ -249,7 +279,7 @@ fn decode_timestamp<T: ArrowTimestampType>(
     nanoseconds: i64,
 ) -> Result<i64> {
     let (nanoseconds_since_epoch, seconds, nanoseconds) =
-        decode(base, seconds_since_orc_base, nanoseconds);
+        decode(base, seconds_since_orc_base, nanoseconds)?;
 
     let nanoseconds_in_timeunit = match T::UNIT {
         TimeUnit::Second => 1_000_000_000,
@@ -284,9 +314,13 @@ fn decode_timestamp<T: ArrowTimestampType>(
     Ok(num_since_epoch)
 }
 
-fn decode_timestamp_as_i128(base: i64, seconds_since_orc_base: i64, nanoseconds: i64) -> i128 {
-    let (nanoseconds_since_epoch, _, _) = decode(base, seconds_since_orc_base, nanoseconds);
-    nanoseconds_since_epoch
+fn decode_timestamp_as_i128(
+    base: i64,
+    seconds_since_orc_base: i64,
+    nanoseconds: i64,
+) -> Result<i128> {
+    let (nanoseconds_since_epoch, _, _) = decode(base, seconds_since_orc_base, nanoseconds)?;
+    Ok(nanoseconds_since_epoch)
 }
 
 #[cfg(test)]
@@ -306,6 +340,27 @@ mod tests {
     use super::*;
 
     const ORC_EPOCH_SECONDS: i64 = 1_420_070_400;
+
+    #[test]
+    fn malformed_timestamp_streams_return_errors_without_wrapping() {
+        for (base, seconds, nanos) in [
+            (ORC_EPOCH_SECONDS, i64::MAX, 0),
+            (0, i64::MIN, 8_000_000),
+            (0, 0, -1),
+            (0, 0, i64::MAX),
+            (0, 0, 8_000_000_000),
+        ] {
+            assert!(decode(base, seconds, nanos).is_err());
+        }
+    }
+
+    #[test]
+    fn timestamp_original_width_endpoints_roundtrip() {
+        roundtrip::<TimestampMicrosecondType>(&[i64::MIN, i64::MAX]);
+        roundtrip::<TimestampMillisecondType>(&[i64::MIN, i64::MAX]);
+        roundtrip::<TimestampNanosecondType>(&[i64::MIN, i64::MAX]);
+        roundtrip::<TimestampSecondType>(&[i64::MIN + ORC_EPOCH_SECONDS, i64::MAX]);
+    }
 
     fn encoder<T: ArrowTimestampType>() -> TimestampEncoder<T> {
         TimestampEncoder::new(

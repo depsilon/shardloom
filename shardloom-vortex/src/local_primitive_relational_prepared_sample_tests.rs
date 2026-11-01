@@ -831,8 +831,8 @@ fn prepared_sampling_writer_publication_failure_clears_provisional_model() {
         assert!(result.is_err());
         let counts = observed.finish();
         assert_eq!(counts.calibrations, 1);
-        assert_eq!(counts.model_searches, ROWS as u64 * (1 + u64::from(fanout)));
-        assert_eq!(counts.model_reuses, u64::from(fanout));
+        assert_eq!(counts.model_searches, ROWS as u64);
+        assert_eq!(counts.model_reuses, 0);
         assert_eq!(retained(&prepared), 0);
         assert_eq!(memory.snapshot().reserved_bytes, initial);
         assert_eq!(fs::read(&target).unwrap(), b"concurrent destination");

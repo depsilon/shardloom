@@ -298,6 +298,8 @@ fn function_result_dtype(
         | T::JsonText
         | T::TimestampParse
         | T::Temporal
+        | T::PrimitiveRefererCase
+        | T::PrimitiveHaving
         | T::DecimalOutput => Err(EvalFailure::unsupported(
             "function_call",
             "function has no admitted reference result type",

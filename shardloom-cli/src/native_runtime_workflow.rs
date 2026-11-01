@@ -13,8 +13,7 @@ use shardloom_vortex::{
         collect, prepared_aggregate, prepared_count, prepared_relational, prepared_unary,
     },
     relational_query::{
-        VortexRelationalAggregate, VortexRelationalLimit, VortexRelationalPlan,
-        VortexRelationalScan, VortexRelationalSet, VortexRelationalSetKind, VortexRelationalUnary,
+        VortexRelationalPlan, VortexRelationalScan, VortexRelationalSet, VortexRelationalSetKind,
     },
 };
 
@@ -139,8 +138,19 @@ impl NativeWorkflowDeclaration {
         }
         if primitive.is_none()
             || session.float_policy() == shardloom_core::FloatPolicy::Extended
-            || (self.sql_preserves_operation && workflow::uses_source_demand(&request))
+            || workflow::uses_source_demand(&request)
         {
+            if workflow::uses_primitive_source_demand(&request) {
+                let (operation, reusable, _) =
+                    workflow::resident_relational::prepare_primitive_in_session(
+                        &request,
+                        session,
+                        cancellation,
+                    )?;
+                return Ok(
+                    PreparedNativeOperation::relational(operation, resources).with_reuse(reusable)
+                );
+            }
             let statement = request.sql_statement.as_deref().ok_or_else(|| {
                 failed("a compatibility input requires its complete shared SQL declaration")
             })?;
@@ -156,12 +166,16 @@ impl NativeWorkflowDeclaration {
                 PreparedNativeOperation::relational(operation, resources).with_reuse(reusable)
             );
         }
-        // Normalize compatibility sources through the same accounted preparation
-        // used by CLI. Keep explicit primitive options on the rebound request;
-        // dispatching only its SQL text would silently omit those options.
+        // Persistence is only the caller's explicit prepare_once operation.
+        // Ordinary compatibility queries use the shared direct owner above.
         let mut preparation_fields = Vec::new();
         let mut preparation_identity = None;
         if request.input_format.as_deref() != Some("vortex") {
+            if request.execution_policy != "prepare_once" {
+                return Err(failed(
+                    "ordinary compatibility queries require the shared direct source route",
+                ));
+            }
             let route = workflow::plan_public_workflow_route(&request);
             let rebound = workflow::prepared_local_workflow_native_request(&request)
                 .map_err(|plan| failed(plan.blocker_reason))?;
@@ -448,46 +462,7 @@ fn prepare_collection(
                 })
                 .collect::<Vec<_>>();
             let input = union_all(scans)?;
-            match request.kind {
-                Kind::CountWhere => Ok(VortexRelationalPlan::Aggregate(Box::new(
-                    VortexRelationalAggregate {
-                        input,
-                        group_by: Vec::new(),
-                        grouping_sets: None,
-                        measures: vec![shardloom_vortex::VortexSimpleAggregateMeasure::new(
-                            "count",
-                            None,
-                            "count_all".into(),
-                        )],
-                    },
-                ))),
-                Kind::ProjectColumns | Kind::FilterPredicate | Kind::FilterAndProject => {
-                    Ok(match request.source_order_limit {
-                        None => input,
-                        Some(count) => {
-                            VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
-                                input,
-                                offset: 0,
-                                count,
-                            }))
-                        }
-                    })
-                }
-                Kind::ExpressionProjectRows if request.structured_projection.is_some() => {
-                    prepared_dispatch::structured_projection_plan(request, input)
-                }
-                _ => {
-                    let mut operation = request.clone();
-                    operation.source_uri = None;
-                    operation.predicate = None; // Applied exactly once to the part scans above.
-                    Ok(VortexRelationalPlan::Unary(Box::new(
-                        VortexRelationalUnary {
-                            input,
-                            request: operation,
-                        },
-                    )))
-                }
-            }
+            schemas.primitive_plan(request, input)
         },
         cancellation,
     )

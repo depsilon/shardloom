@@ -32,9 +32,10 @@ answers.
 
 - Memory and native Vortex inputs are direct inputs to the shared native query route; memory and
   native Vortex inputs are direct.
-- Compatibility inputs (`csv`, `json`, `jsonl`, `parquet`, `arrow-ipc`, `avro`, and `orc`) normalize
-  through Vortex before entering that shared query route. Feature gates still apply to formats
-  whose adapters are gated. Compatibility inputs normalize through Vortex before shared execution.
+- Compatibility inputs (`csv`, `tsv`, `json`, `jsonl`, `parquet`, `arrow-ipc`, `avro`, and `orc`)
+  feed demand-aware native batches directly into the shared query route. Feature gates still apply
+  to formats whose adapters are gated. Compatibility inputs normalize through Vortex before shared
+  execution without creating a durable prepared input for an ordinary query.
 - Source-free expressions use the shared engine and do not require publication or durable output;
   source-free execution does not require publication.
 - Durable `vortex-prepare` is optional. A caller may choose an explicit Vortex artifact when

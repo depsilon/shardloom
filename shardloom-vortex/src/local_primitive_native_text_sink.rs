@@ -18,7 +18,6 @@ use std::{
 use vortex::array::VortexSessionExecute as _;
 
 const BATCH_ROWS: usize = 2048;
-const BATCH_BYTES: u64 = 8 * 1024 * 1024;
 
 fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
@@ -86,10 +85,7 @@ pub(super) fn write(
             if plan.source.is_produced() || (!plan.metadata_pruned && plan.row_count > 0) {
                 plan.consume(file, context, BATCH_ROWS, producer, |array| {
                     context.check_cancelled()?;
-                    if array.dtype() != &plan.dtype
-                        || array.len() > BATCH_ROWS
-                        || array.nbytes() > BATCH_BYTES
-                    {
+                    if array.dtype() != &plan.dtype || array.len() > BATCH_ROWS {
                         return Err(failed("result batch changed its admitted schema or size"));
                     }
                     matched_rows_observed = matched_rows_observed
@@ -191,6 +187,13 @@ pub(super) fn write(
                             }
                             let scalar =
                                 super::result_batch::scalar(column, row, &mut scalar_context)?;
+                            // Native decoding owns its allocation separately.
+                            // Admit terminal CSV string/hex copies by their
+                            // decoded size, even when the input was compressed.
+                            let bytes = terminal_copy_bytes(&scalar)?;
+                            if bytes > scratch.bytes() {
+                                scratch.resize(bytes)?;
+                            }
                             let value = terminal_scalar(&scalar)?;
                             scalars_materialized = scalars_materialized
                                 .checked_add(1)
@@ -302,6 +305,22 @@ pub(super) fn write(
         evidence,
         diagnostics: Vec::new(),
     })
+}
+
+fn terminal_copy_bytes(scalar: &vortex::array::scalar::Scalar) -> Result<u64> {
+    let scalar = match scalar.value() {
+        Some(vortex::array::scalar::ScalarValue::Variant(value)) => value.as_ref(),
+        _ => scalar,
+    };
+    let bytes = match scalar.value() {
+        Some(vortex::array::scalar::ScalarValue::Utf8(value)) => value.as_str().len(),
+        Some(vortex::array::scalar::ScalarValue::Binary(value)) => value.len(),
+        _ => 0,
+    };
+    usize_to_u64(bytes)?
+        .checked_mul(8)
+        .and_then(|bytes| bytes.checked_add(128 * 1024))
+        .ok_or_else(|| failed("terminal text copy admission overflow"))
 }
 
 fn terminal_scalar(scalar: &vortex::array::scalar::Scalar) -> Result<StatValue> {

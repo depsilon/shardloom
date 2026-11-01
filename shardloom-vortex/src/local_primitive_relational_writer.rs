@@ -10,6 +10,8 @@ use shardloom_core::{ColumnRef, DatasetUri};
 #[path = "local_primitive_relational_writer_fanout.rs"]
 mod fanout;
 pub use fanout::{VortexRelationalOutputReplay, WrittenVortexRelationalFanout};
+#[path = "local_primitive_relational_writer_report.rs"]
+mod report_copy;
 
 /// Relational execution proof and its terminal output-adapter proof.
 pub struct WrittenVortexRelational {
@@ -41,9 +43,9 @@ impl WrittenVortexRelational {
 }
 
 impl PreparedVortexRelational {
-    /// Write the same admitted plan to each output adapter, staging every result
-    /// before publication. Each target executes the plan with the same retained
-    /// sources and budget. See `output_fanout::write` for partial-commit recovery.
+    /// Execute one admitted plan and replay its native result to every output
+    /// adapter, staging all results before publication. The vector preserves the
+    /// original Rust API; its entries carry copies of the same execution report.
     /// # Errors
     /// Propagates query, adapter, destination, generation and publication errors.
     pub fn write_many(
@@ -63,19 +65,20 @@ impl PreparedVortexRelational {
         overwrite: bool,
         cancellation: &CancellationToken,
     ) -> Result<Vec<WrittenVortexRelational>> {
-        let sampling = self.sampling_failure_guard();
-        self.validate_batch_provider(false)?;
-        let mut written = super::super::output_fanout::write(
-            targets,
-            overwrite,
-            |path| self.validate_writer_destination(path, cancellation),
-            |path, format| self.write_controlled(path, format, false, cancellation),
-        )?;
-        for (result, (path, _)) in written.iter_mut().zip(targets) {
-            result.output.output_path = path.display().to_string();
-        }
-        sampling.complete();
-        Ok(written)
+        let (written, mut copies) =
+            self.write_many_with_completion(targets, overwrite, cancellation, None, |execution| {
+                let mut copies = Vec::with_capacity(targets.len().saturating_sub(1));
+                for _ in 1..targets.len() {
+                    copies.push(execution.duplicate_for_writer()?);
+                }
+                Ok(copies)
+            })?;
+        copies.push(written.execution);
+        Ok(copies
+            .into_iter()
+            .zip(written.outputs)
+            .map(|(execution, output)| WrittenVortexRelational { execution, output })
+            .collect())
     }
 
     /// Write complete results through an admitted local output adapter.

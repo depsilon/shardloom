@@ -53,3 +53,22 @@ Update a lock only with the matching configuration arguments, inspect the
 resolved dependency/license changes, and rerun that provider's tests and lint.
 Do not remove development tests or add an external execution engine to simplify
 resolution.
+
+## October 31 ORC provider configuration
+
+`orc-rust.lock` freezes the existing provider manifest with
+`--no-default-features`, matching ShardLoom's synchronous codec boundary.
+The `formats` CI group runs its complete library tests and strict library/test
+Clippy checks. This supplements the earlier provider configurations; their
+historical acceptance above is unchanged. ORC validation for the combined I/O
+batch remains pending until the corresponding command receipts pass.
+
+The resolution was seeded from the workspace lock and then resolved against the
+provider's unchanged dependency declarations. Its development dependencies include
+Arrow 58.4.1, Criterion, Proptest and OpenDAL; these are excluded from the shipped
+runtime graph. The runtime Arrow boundary remains 59.3.1. The
+[resolution review](orc-rust-review.json) records the root and standalone lock
+identities and every added package/version relative to the root lock. All added
+packages provide Apache-2.0, MIT or BSD-3-Clause terms in their Cargo manifests;
+existing upstream license texts are preserved. No query-engine dependency or
+runtime fallback is introduced.

@@ -48,6 +48,10 @@ mod io_ownership;
 #[path = "resident_admission.rs"]
 mod serving_admission;
 pub use execution_context::{NativeExecutionContext, ResidentCallTiming};
+/// A borrowed native batch consumer, keeping upstream array details inside the
+/// Vortex adapter while sharing the producer's admitted resource context.
+pub type NativeBatchConsumer<'a> =
+    dyn FnMut(ArrayRef, &NativeExecutionContext<'_>) -> Result<()> + 'a;
 pub use io_ownership::ResidentIoSnapshot;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
 #[path = "resident_local_read.rs"]
@@ -1387,6 +1391,38 @@ pub struct OwnedVortexResultBatch {
 }
 
 impl OwnedVortexResultBatch {
+    /// Deliver already completed native batches under their retained resource
+    /// owner. No query executes and buffers remain credited through the callback.
+    /// An empty result still delivers its declared native schema once.
+    /// # Errors
+    /// Propagates cancellation, invalid completed rows/schema and consumer errors.
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    pub fn for_each_native_batch(
+        &self,
+        cancellation: &CancellationToken,
+        mut consume: impl FnMut(vortex::array::ArrayRef, &NativeExecutionContext<'_>) -> Result<()>,
+    ) -> Result<()> {
+        self.validate_schema_and_rows()?;
+        self.retained_session()
+            .with_native_execution_context(cancellation, |context| {
+                if self.arrays().is_empty() {
+                    consume(
+                        crate::local_primitives::native_payload::empty_record(
+                            self.dtype(),
+                            context,
+                        )?,
+                        context,
+                    )?;
+                } else {
+                    for array in self.arrays() {
+                        context.check_cancelled()?;
+                        consume(array.clone(), context)?;
+                    }
+                }
+                context.check_cancelled()
+            })
+    }
+
     /// Authoritative result schema, including results with no data arrays.
     #[must_use]
     pub const fn dtype(&self) -> &DType {

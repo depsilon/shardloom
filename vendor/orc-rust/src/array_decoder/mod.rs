@@ -548,17 +548,9 @@ impl NaiveStripeDecoder {
                 ))
             }
         } else {
-            //TODO(weny): any better way?
-            let fields = self
-                .schema_ref
-                .fields
-                .into_iter()
-                .map(|field| field.name())
-                .zip(fields)
-                .collect::<Vec<_>>();
-
             Ok(Some(
-                RecordBatch::try_from_iter(fields).context(error::ConvertRecordBatchSnafu)?,
+                RecordBatch::try_new(Arc::clone(&self.schema_ref), fields)
+                    .context(error::ConvertRecordBatchSnafu)?,
             ))
         }
     }

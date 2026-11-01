@@ -9,7 +9,7 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `1a0613b5ac04e9993fa1ea2da801e1ebb77577442edf5aa580877791238b575c`.
+Definition source SHA-256: `065375b91c320442a8f094b30ced089d8d6807eb082b7704f53751f7e7a88273`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |

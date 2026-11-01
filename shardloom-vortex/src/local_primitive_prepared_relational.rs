@@ -51,6 +51,8 @@ mod bind;
 mod grouping;
 #[path = "local_primitive_relational_batch_replay.rs"]
 mod replay;
+#[path = "local_primitive_relational_request_plan.rs"]
+mod request_plan;
 #[path = "local_primitive_relational_retained.rs"]
 mod retained;
 pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
@@ -79,6 +81,9 @@ mod scan;
 #[path = "local_primitive_relational_selection.rs"]
 mod selection;
 use selection::LocalSelection;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "local_primitive_relational_metadata_count.rs"]
+mod metadata_count;
 #[path = "local_primitive_relational_observation.rs"]
 mod observation;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -93,6 +98,11 @@ mod writer;
 pub use writer::{
     VortexRelationalOutputReplay, WrittenVortexRelational, WrittenVortexRelationalFanout,
 };
+#[cfg(feature = "vortex-write")]
+#[path = "local_primitive_produced_fanout.rs"]
+mod produced_fanout;
+#[cfg(feature = "vortex-write")]
+pub use produced_fanout::{WrittenNativeProducedFanout, write_produced_many_controlled};
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "local_primitive_relational_arrow.rs"]
 mod arrow;
@@ -688,6 +698,18 @@ impl VortexRelationalPreparation<'_> {
     /// Rejects unavailable sources, nonstruct schemas and denied metadata capacity.
     pub fn source_columns(&mut self, uri: &shardloom_core::DatasetUri) -> Result<Vec<String>> {
         self.binding.source_columns(uri)
+    }
+
+    /// Lower a primitive declaration over its admitted source into shared native
+    /// operators. This reads schema only and never persists compatibility input.
+    /// # Errors
+    /// Rejects invalid payloads, unavailable sources and unsupported expressions.
+    pub fn primitive_plan(
+        &mut self,
+        request: &VortexQueryPrimitiveRequest,
+        input: VortexRelationalPlan,
+    ) -> Result<VortexRelationalPlan> {
+        self.binding.primitive_plan(request, input)
     }
 }
 
@@ -1766,6 +1788,17 @@ impl PreparedVortexRelational {
                 spec,
                 expansion,
             } => {
+                #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+                if expansion.is_none()
+                    && spec.is_scalar_count_all()
+                    && parameter.is_none()
+                    && let Some(rows) = metadata_count::source_count(input, metrics, context)?
+                {
+                    let mut aggregate =
+                        native_relational_aggregate::Aggregate::new(spec, context.memory())?;
+                    aggregate.add_metadata_count(rows, context)?;
+                    return aggregate.finish(context, batch_rows, consume);
+                }
                 let produce = |accept: &mut dyn FnMut(ArrayRef) -> Result<()>| {
                     grouping::produce(
                         expansion.as_deref(),

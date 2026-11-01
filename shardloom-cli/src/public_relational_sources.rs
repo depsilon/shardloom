@@ -18,7 +18,30 @@ use std::{
 
 #[path = "public_relational_native_declaration.rs"]
 mod typed;
-pub(crate) use typed::prepare_native_in_session;
+pub(crate) use typed::{prepare_native_in_session, prepare_primitive_in_session};
+
+/// Only the source spelling is used for declaration and collection validation;
+/// primitive operators retain their payload and never execute this scan text.
+pub(super) fn source_statement(
+    request: &PublicWorkflowRouteRequest,
+) -> Result<std::borrow::Cow<'_, str>, ShardLoomError> {
+    if super::super::uses_primitive_source_demand(request) {
+        let source = request
+            .input_uri
+            .as_deref()
+            .ok_or_else(|| failed("primitive source is absent"))?;
+        Ok(std::borrow::Cow::Owned(format!(
+            "SELECT * FROM {}",
+            super::super::sql_string_literal(source)
+        )))
+    } else {
+        request
+            .sql_statement
+            .as_deref()
+            .map(std::borrow::Cow::Borrowed)
+            .ok_or_else(|| failed("native relational SQL is absent"))
+    }
+}
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use super::super::{
@@ -518,58 +541,53 @@ impl Sources {
                     .then_some(request.source_schema.as_deref())
                     .flatten()
             });
-        if format == "parquet" && schema.is_some() {
+        if matches!(format, "parquet" | "arrow-ipc" | "avro" | "orc") && schema.is_some() {
             return Err(failed(
-                "columnar Parquet sources use their embedded schema evidence; source schema hints apply only to local text adapters",
+                "columnar sources use their embedded schema evidence; source schema hints apply only to local text adapters",
             ));
         }
-        let mut target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
-        if self.float_policy != shardloom_core::FloatPolicy::Strict {
-            target.set_extension("extended.vortex");
-        }
-        if format == "parquet" && request.execution_policy != "prepare_once" {
+        if matches!(
+            format,
+            "parquet" | "arrow-ipc" | "avro" | "orc" | "csv" | "tsv" | "json" | "jsonl" | "ndjson"
+        ) && request.execution_policy != "prepare_once"
+        {
             let memory =
                 memory.ok_or_else(|| failed("source metadata requires the native owner"))?;
-            let fingerprint = super::super::sql_local_source_runtime::parquet_source_content_fingerprint_requested(request.source_fingerprint_policy.as_deref())?;
-            match std::fs::metadata(&target) {
-                Ok(_) => {
-                    // Reuse is read-only: a missing/replaced artifact after this
-                    // check fails; it never triggers a fresh full preparation.
-                    use shardloom_vortex::prepared_source_binding::local_preparation_identity_controlled;
-                    let expected =
-                        super::super::sql_local_source_runtime::parquet_preparation_source_binding_with_float_policy(
-                            Path::new(source),
-                            request.source_fingerprint_policy.as_deref(),
-                            memory,
-                            &self.cancellation,
-                            self.float_policy,
-                        )?;
-                    self.preparations.push(std::sync::Arc::new(
-                        local_preparation_identity_controlled(
-                            &target,
-                            &expected,
-                            memory,
-                            &self.cancellation,
-                        )?,
-                    ));
-                    self.normalized += 1;
-                    return DatasetUri::new(target.to_string_lossy().into_owned());
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(failed(&format!("prepared source metadata: {error}"))),
-            }
+            let fingerprint =
+                super::super::sql_local_source_runtime::source_content_fingerprint_requested(
+                    request.source_fingerprint_policy.as_deref(),
+                )?;
             let uri = DatasetUri::new(source)?;
-            let descriptor =
+            let descriptor = if matches!(format, "csv" | "tsv" | "json" | "jsonl" | "ndjson") {
+                super::super::sql_local_source_runtime::direct_text::admit(
+                    Path::new(source),
+                    format,
+                    schema,
+                    fingerprint,
+                    memory,
+                    &self.cancellation,
+                )?
+            } else {
                 shardloom_vortex::universal_format_io::demanded::LocalColumnarSource::admit_with_content_fingerprint(
                     Path::new(source),
                     format,
                     fingerprint,
                     memory,
                     &self.cancellation,
-                )?;
+                )?
+            };
             self.local.push((uri.clone(), descriptor));
             self.normalized += 1;
             return Ok(uri);
+        }
+        if request.execution_policy != "prepare_once" {
+            return Err(failed(
+                "ordinary queries require an admitted direct source format",
+            ));
+        }
+        let mut target = auto_prepared_vortex_target_path_with_schema(source, format, schema);
+        if self.float_policy != shardloom_core::FloatPolicy::Strict {
+            target.set_extension("extended.vortex");
         }
         let resources = public_workflow_effective_resource_envelope(request)?;
         let preparation = prepare_local_source_for_public_workflow_with_float_policy(
@@ -641,6 +659,14 @@ fn failed(message: &str) -> ShardLoomError {
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 #[path = "public_relational_source_demand_tests.rs"]
 mod source_demand_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "public_relational_format_demand_tests.rs"]
+mod format_demand_tests;
+
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "public_relational_dataset_tests.rs"]
+mod dataset_tests;
 
 #[cfg(test)]
 mod tests {
@@ -780,6 +806,7 @@ mod tests {
         let target =
             auto_prepared_vortex_target_path_with_schema(source_uri, "csv", Some("value:int64"));
         let mut request = PublicWorkflowRouteRequest::new("sql".into());
+        request.execution_policy = "prepare_once".into();
         request.resources.memory_bytes = Some((8_u64 << 20).to_string());
         request.resources.max_parallelism = Some("1".into());
         request.input_uri = Some("memory://held".into());

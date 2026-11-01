@@ -4,7 +4,7 @@
 use super::duration::Duration;
 use arrow_array::{Array, ArrayRef as ArrowArray, make_array};
 use arrow_schema::{DataType, Field, Schema, extension::EXTENSION_TYPE_NAME_KEY};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use vortex::{
     array::{
         ArrayRef, ExecutionCtx, IntoArray,
@@ -32,12 +32,7 @@ pub(super) fn register(session: &VortexSession) {
 /// Logical schema admission and its resource bounds belong to the caller;
 /// preparation may preserve physical Null/dictionary fields that cannot be keys.
 pub(crate) fn field(field: &Field) -> shardloom_core::Result<Field> {
-    if !crate::native_payload_schema::arrow_field_metadata_admitted(field) {
-        return Err(shardloom_core::ShardLoomError::InvalidOperation(
-            "Arrow source extension metadata is not admitted; no fallback execution was attempted"
-                .into(),
-        ));
-    }
+    validate_field_metadata(field)?;
     let dtype = match field.data_type() {
         DataType::Struct(fields) => DataType::Struct(
             fields
@@ -67,15 +62,54 @@ pub(crate) fn field(field: &Field) -> shardloom_core::Result<Field> {
     Ok(result)
 }
 
-pub(crate) fn schema(schema: &Schema) -> shardloom_core::Result<Schema> {
-    Ok(Schema::new_with_metadata(
+fn validate_field_metadata(field: &Field) -> shardloom_core::Result<()> {
+    if !crate::native_payload_schema::arrow_field_metadata_admitted(field) {
+        return Err(shardloom_core::ShardLoomError::InvalidOperation(
+            "Arrow source extension metadata is not admitted; no fallback execution was attempted"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
+fn needs_annotation(field: &Field) -> shardloom_core::Result<bool> {
+    validate_field_metadata(field)?;
+    Ok(match field.data_type() {
+        DataType::Struct(fields) => {
+            let mut needed = false;
+            for child in fields {
+                // Validation must visit later fields even after a missing marker.
+                needed |= needs_annotation(child)?;
+            }
+            needed
+        }
+        DataType::List(child)
+        | DataType::LargeList(child)
+        | DataType::ListView(child)
+        | DataType::LargeListView(child)
+        | DataType::FixedSizeList(child, _) => needs_annotation(child)?,
+        DataType::Duration(_) => !field.metadata().contains_key(EXTENSION_TYPE_NAME_KEY),
+        _ => false,
+    })
+}
+
+/// Reuse the authoritative schema when dispatch needs no metadata changes.
+pub(crate) fn schema(schema: &Schema) -> shardloom_core::Result<Cow<'_, Schema>> {
+    let mut needed = false;
+    for field in schema.fields() {
+        needed |= needs_annotation(field)?;
+    }
+    if !needed {
+        return Ok(Cow::Borrowed(schema));
+    }
+    Ok(Cow::Owned(Schema::new_with_metadata(
         schema
             .fields()
             .iter()
             .map(|f| field(f))
             .collect::<shardloom_core::Result<Vec<_>>>()?,
         schema.metadata().clone(),
-    ))
+    )))
 }
 
 impl ArrowImportVTable for DurationArrow {
@@ -243,9 +277,13 @@ mod tests {
             }
             let source = builder.finish();
             for source in [source.slice(1, 4), source.slice(0, 0)] {
-                let plain = Schema::new(vec![Field::new("elapsed", dtype.clone(), true)]);
+                let plain = Arc::new(Schema::new(vec![Field::new(
+                    "elapsed",
+                    dtype.clone(),
+                    true,
+                )]));
                 let tagged = schema(&plain).unwrap();
-                let batch = RecordBatch::try_new(Arc::new(plain), vec![source.clone()]).unwrap();
+                let batch = RecordBatch::try_new(Arc::clone(&plain), vec![source.clone()]).unwrap();
                 let native = session
                     .arrow()
                     .from_arrow_record_batch(batch, &tagged)
@@ -273,9 +311,13 @@ mod tests {
                 Some(vec![]),
             ]),
         ) as ArrowArray;
-        let plain = Schema::new(vec![Field::new("values", source.data_type().clone(), true)]);
+        let plain = Arc::new(Schema::new(vec![Field::new(
+            "values",
+            source.data_type().clone(),
+            true,
+        )]));
         let tagged = schema(&plain).unwrap();
-        let batch = RecordBatch::try_new(Arc::new(plain), vec![source.clone()]).unwrap();
+        let batch = RecordBatch::try_new(Arc::clone(&plain), vec![source.clone()]).unwrap();
         let native = session
             .arrow()
             .from_arrow_record_batch(batch, &tagged)
@@ -328,7 +370,7 @@ mod tests {
                 true,
             ),
         ]);
-        assert_eq!(schema(&plain).unwrap(), plain);
+        assert_eq!(schema(&plain).unwrap().as_ref(), &plain);
         // Metadata validation still reaches nested fields before annotation.
         let foreign = Field::new("span", DataType::Duration(TimeUnit::Second), true).with_metadata(
             std::collections::HashMap::from([(
@@ -342,5 +384,72 @@ mod tests {
             true,
         )]);
         assert!(schema(&nested).is_err());
+    }
+
+    #[test]
+    fn temporal_duration_dispatch_reuses_unchanged_schema_storage() {
+        use std::collections::HashMap;
+
+        let annotated = field(&Field::new(
+            "elapsed",
+            DataType::Duration(TimeUnit::Nanosecond),
+            true,
+        ))
+        .unwrap();
+        let plain = Schema::new_with_metadata(
+            vec![
+                Field::new("id", DataType::UInt64, false),
+                Field::new("empty", DataType::Null, true),
+                Field::new(
+                    "domain",
+                    DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8)),
+                    true,
+                ),
+                Field::new(
+                    "nested",
+                    DataType::List(Arc::new(Field::new(
+                        "item",
+                        DataType::Struct(vec![annotated].into()),
+                        true,
+                    ))),
+                    true,
+                ),
+            ],
+            HashMap::from([("dataset".into(), "unchanged schema".into())]),
+        );
+        let translated = schema(&plain).unwrap();
+        assert!(std::ptr::eq(
+            translated.fields().as_ptr(),
+            plain.fields().as_ptr()
+        ));
+        assert!(std::ptr::eq(translated.metadata(), plain.metadata()));
+        assert_eq!(translated.fields(), plain.fields());
+    }
+
+    #[test]
+    fn temporal_duration_dispatch_validates_later_metadata_when_annotation_is_needed() {
+        use std::collections::HashMap;
+
+        let missing = Field::new("elapsed", DataType::Duration(TimeUnit::Second), true);
+        let foreign =
+            Field::new("foreign", DataType::Int64, true).with_metadata(HashMap::from([(
+                EXTENSION_TYPE_NAME_KEY.into(),
+                "unknown.extension".into(),
+            )]));
+        for fields in [
+            vec![missing.clone(), foreign.clone()],
+            vec![Field::new(
+                "nested",
+                DataType::Struct(vec![missing, foreign].into()),
+                true,
+            )],
+        ] {
+            let error = schema(&Schema::new(fields)).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("extension metadata is not admitted")
+            );
+        }
     }
 }

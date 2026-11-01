@@ -29,7 +29,7 @@ impl Binder<'_> {
                         &node.fields,
                         &self.shared_memory_pool(),
                     )?;
-                    self.charge_fields(fields.len())?;
+                    self.charge_named_fields(&fields)?;
                     for (name, _) in &fields {
                         validate_name(name)?;
                     }
@@ -60,7 +60,7 @@ impl Binder<'_> {
                     let projection = if observation.projection.is_empty() {
                         None
                     } else {
-                        self.charge_fields(node.fields.len())?;
+                        self.charge_named_fields(&node.fields)?;
                         let projected = self.project_input(
                             &observation.projection,
                             Node {
@@ -90,7 +90,7 @@ impl Binder<'_> {
                             "observations support COUNT, SUM, MIN and MAX without DISTINCT",
                         ));
                     }
-                    self.charge_fields(node.fields.len())?;
+                    self.charge_named_fields(&node.fields)?;
                     let output_fields = node.fields.clone();
                     append(
                         node,

@@ -18,9 +18,14 @@ impl Binder<'_> {
         depth: usize,
     ) -> Result<Node> {
         validate_width(fill.partition_by.len().saturating_add(1))?;
-        self.charge_fields(fill.partition_by.len() + 1)?;
+        self.charge_names(
+            fill.partition_by
+                .iter()
+                .map(shardloom_core::ColumnRef::as_str)
+                .chain(std::iter::once(fill.time.as_str())),
+        )?;
         let input = self.bind(&fill.input, depth + 1)?;
-        self.charge_fields(input.fields.len())?;
+        self.charge_named_fields(&input.fields)?;
         let time = top_level(&input.fields, fill.time.as_str())?;
         let temporal =
             crate::native_temporal::temporal_dtype(&input.fields[time].1).ok_or_else(|| {
