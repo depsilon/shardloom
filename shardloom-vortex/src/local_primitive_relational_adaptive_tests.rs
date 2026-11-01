@@ -34,7 +34,7 @@ fn counter(proof: &str, name: &str) -> u64 {
                 .strip_prefix(name)
                 .and_then(|suffix| suffix.strip_prefix('='))
         })
-        .unwrap_or_else(|| panic!("missing {name}: {proof}"))
+        .unwrap_or_else(|| panic!("missing execution counter {name}"))
         .parse()
         .unwrap()
 }
