@@ -42,7 +42,7 @@ fn directory() -> ParquetFixture {
     fs::copy(first.path(), fixture.0.join("a.PARQUET")).unwrap();
     fs::write(fixture.0.join("ignored.txt"), b"not parquet").unwrap();
     fs::create_dir(fixture.0.join("nested")).unwrap();
-    fs::write(fixture.0.join("nested/ignored.parquet"), b"not admitted").unwrap();
+    fs::write(fixture.0.join("nested/ignored.txt"), b"not parquet").unwrap();
     fixture
 }
 

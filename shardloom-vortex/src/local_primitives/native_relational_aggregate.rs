@@ -115,6 +115,25 @@ pub(super) struct Spec {
     pub(super) measures: Vec<Measure>,
 }
 
+impl Spec {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn is_scalar_count_all(&self) -> bool {
+        self.groups.is_empty()
+            && self.group_names.is_empty()
+            && !self.measures.is_empty()
+            && self.fields.len() == self.measures.len()
+            && self.measures.iter().all(|measure| {
+                measure.function == Function::Count
+                    && measure.column.is_none()
+                    && measure.secondary_column.is_none()
+                    && measure.filter_column.is_none()
+                    && measure.selection.is_none()
+                    && matches!(measure.dtype, DType::Primitive(PType::U64, _))
+                    && !measure.dtype.is_nullable()
+            })
+    }
+}
+
 #[derive(Default)]
 struct State {
     count: u64,
@@ -195,6 +214,26 @@ pub(super) struct Aggregate<'a> {
 impl<'a> Aggregate<'a> {
     pub(super) fn new(spec: &'a Spec, memory: &LiveMemoryPool) -> Result<Self> {
         Self::with_distinct_sets(spec, memory, true)
+    }
+
+    /// The source lifecycle proves exact cardinality before this scalar update.
+    /// Reuse ordinary count overflow handling and native output construction.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn add_metadata_count(
+        &mut self,
+        rows: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if !self.spec.is_scalar_count_all() || self.groups.is_some() {
+            return Err(failed(
+                "metadata count requires only scalar COUNT(*) measures",
+            ));
+        }
+        for state in &mut self.states.values {
+            context.check_cancelled()?;
+            add_count(state, rows)?;
+        }
+        context.check_cancelled()
     }
 
     /// The ordered executor supplies exact distinct counts and one scalar group.

@@ -584,34 +584,26 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                 (path, output_format.replace("_", "-"), text_schema if output_format in {"csv", "json", "jsonl"} else None)
                 for output_format, path in written.items()
             ]
-            control_reports = {}
-            for source_index, (source_path_for_query, input_format, schema) in enumerate(sources):
-                for query_index, (projection, suffix, expected) in enumerate(queries):
+            for source_path_for_query, input_format, schema in sources:
+                for projection, suffix, expected in queries:
                     statement = f"SELECT {projection} FROM '{source_path_for_query}'{suffix}"
                     plan = session.sql(statement, files=[(str(source_path_for_query), input_format, schema)])
                     result = plan.collect()
-                    reuse_field = ("resident_relational_declaration_reused" if input_format == "parquet"
-                                   else "resident_native_preparation_reused")
+                    reuse_field = ("resident_native_preparation_reused" if input_format == "vortex"
+                                   else "resident_relational_declaration_reused")
                     self.assertTrue(reuse_field in result.report,
                                     (input_format, projection, suffix, result.report.get("mode")))
                     actual_rows = self.pa.RecordBatchReader.from_stream(result).read_all().to_pylist()
                     self.assertEqual(actual_rows, expected)
-                    if source_index == 0:
-                        control_reports[projection, suffix] = result.report
-                    elif input_format == "parquet":
-                        self.assertEqual(result.report["native_source_demand_sources"], "1")
-                        self.assertEqual(result.report["native_source_demand_prepared_input_bytes_written"], "0")
+                    if input_format == "vortex":
                         self.assertEqual(result.report.get("fallback_attempted"), "false")
                         self.assertEqual(result.report.get("external_engine_invoked"), "false")
                     else:
-                        control_report = control_reports[projection, suffix]
-                        for field in ("mode", "primitive", "vortex_primitive_arg"):
-                            self.assertEqual(result.report.get(field), control_report.get(field), field)
+                        self.assertEqual(result.report.get("native_source_demand_sources"), "1")
+                        self.assertEqual(result.report.get("native_source_demand_prepared_input_bytes_written"), "0")
+                        self.assertIsNone(result.report.get("public_workflow_local_source_prepared_vortex_path"))
                         self.assertEqual(result.report.get("fallback_attempted"), "false")
                         self.assertEqual(result.report.get("external_engine_invoked"), "false")
-                        if query_index > 0:
-                            self.assertEqual(result.report["public_workflow_preparation_prepared_state_reuse_hit"], "true")
-                            self.assertEqual(result.report["public_workflow_local_source_vortex_ingest_performed"], "false")
 
             csv_path = written["csv"]
             for count_source, input_format, source_schema in (
@@ -626,10 +618,15 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                     for output_format in ("vortex",) + formats:
                         destination = self.root / f"count-{input_format}-{threshold}.{output_format}"
                         writer_report = counted.write(destination, f"write_{output_format}")
+                        # This policy flag belongs to the legacy Vortex
+                        # primitive; direct CSV uses the shared batch writer.
                         self.assertEqual(
                             writer_report["local_primitive_physical_policy_writer_coalescing_enabled"],
-                            "true",
+                            "true" if input_format == "vortex" else "false",
                         )
+                        if input_format == "csv":
+                            self.assertEqual(writer_report["native_source_demand_sources"], "1")
+                            self.assertEqual(writer_report["native_source_demand_prepared_input_bytes_written"], "0")
                         self.assertEqual(writer_report["fallback_attempted"], "false")
                         self.assertEqual(writer_report["external_engine_invoked"], "false")
                         schema = "count_all:uint64" if output_format in {"csv", "json", "jsonl"} else None
@@ -696,16 +693,13 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                 retained = plan.collect()
                 retained_table = self.pa.RecordBatchReader.from_stream(retained).read_all()
                 self.assertEqual(retained_table.to_pylist(), [{"total": 6.0}])
-                if input_format == "parquet":
-                    self.assertEqual(retained.report.get("native_source_demand_sources"), "1")
-                    self.assertEqual(retained.report.get("native_source_demand_prepared_input_bytes_written"), "0")
+                self.assertEqual(retained.report.get("native_source_demand_sources"), "1")
+                self.assertEqual(retained.report.get("native_source_demand_prepared_input_bytes_written"), "0")
                 path.write_bytes(replacement_path.read_bytes())
                 with self.assertRaises(RuntimeError) as raised:
                     plan.collect()
-                # Direct Parquet holds SourceIdentity; ORC retains the complete
-                # preparation binding. Both must reject the changed generation.
-                message = "prepared source changed" if input_format == "parquet" else "source generation changed"
-                self.assertIn(message, str(raised.exception).lower())
+                # Both direct readers use the shared source-generation guard.
+                self.assertIn("prepared source changed", str(raised.exception).lower())
                 self.assertEqual(retained_table.to_pylist(), [{"total": 6.0}])
 
             primary = self.root / "declaration-primary.parquet"
@@ -754,20 +748,19 @@ class NativePrimitiveBindingTests(unittest.TestCase):
 
             first = grouped(source).collect(check=True)
             self.assertEqual(first.to_arrow().to_pylist(), expected)
-            if input_format == "parquet":
-                self.assertEqual(first.envelope.field("native_source_demand_sources"), "1")
-                self.assertEqual(first.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
-                self.assertIsNone(first.envelope.field("public_workflow_local_source_prepared_vortex_path"))
-                prepared = self.root / "context-demand-control.vortex"
-                ctx.prepare_vortex(source, prepared, input_format="parquet", check=True)
-            else:
-                prepared = Path(first.envelope.field("public_workflow_local_source_prepared_vortex_path"))
+            self.assertEqual(first.envelope.field("native_source_demand_sources"), "1")
+            self.assertEqual(first.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
+            self.assertIsNone(first.envelope.field("public_workflow_local_source_prepared_vortex_path"))
+            prepared = self.root / f"context-demand-control-{input_format}.vortex"
+            ctx.prepare_vortex(source, prepared, input_format=input_format, check=True)
             original_generation = generation(prepared)
             def filtered(path):
                 return ctx.read(path).filter(sl.col("value") >= 0).select("value").sort("value")
 
             altered = filtered(source).collect(check=True)
             altered_control = filtered(prepared).collect(check=True)
+            self.assertEqual(altered.envelope.field("native_source_demand_sources"), "1")
+            self.assertEqual(altered.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
             for result in (altered, altered_control):
                 self.assertEqual(result.to_arrow().to_pylist(), [{"value": 0}, {"value": 2}, {"value": 4}])
                 self.assertFalse(result.envelope.fallback.attempted)
@@ -779,17 +772,12 @@ class NativePrimitiveBindingTests(unittest.TestCase):
             self.assertEqual(generation(prepared), original_generation)
             repeated = grouped(source).collect(check=True)
             self.assertEqual(repeated.to_arrow().to_pylist(), expected)
-            if input_format == "parquet":
-                self.assertEqual(repeated.envelope.field("native_source_demand_sources"), "1")
-                self.assertEqual(repeated.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
-            else:
-                self.assertEqual(repeated.envelope.field("public_workflow_preparation_prepared_state_reuse_hit"), "true")
-                self.assertEqual(repeated.envelope.field("public_workflow_local_source_vortex_ingest_performed"), "false")
+            self.assertEqual(repeated.envelope.field("native_source_demand_sources"), "1")
+            self.assertEqual(repeated.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
             native_control = grouped(prepared).collect(check=True)
             self.assertEqual(native_control.to_arrow().to_pylist(), expected)
-            if input_format != "parquet":
-                for field in ("mode", "primitive", "vortex_primitive_arg"):
-                    self.assertEqual(first.envelope.field(field), native_control.envelope.field(field), field)
+            for result in (first, native_control):
+                self.assertFalse(result.envelope.fallback.attempted)
             for output_format in ("parquet", "orc"):
                 destination = self.root / f"context-{input_format}-to-{output_format}.{output_format}"
                 written = grouped(source).write(destination, output_format=output_format, check=True)
@@ -1053,7 +1041,7 @@ class NativePrimitiveBindingTests(unittest.TestCase):
             )
             with self.assertRaises(RuntimeError) as raised:
                 plan.collect()
-            self.assertIn("source generation changed", str(raised.exception).lower())
+            self.assertIn("prepared source changed", str(raised.exception).lower())
             self.assertEqual(retained_table.to_pylist(), expected)
         finally:
             session.close()

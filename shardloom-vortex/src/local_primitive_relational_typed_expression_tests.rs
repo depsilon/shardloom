@@ -1169,6 +1169,7 @@ fn native_typed_expressions_write_complete_computed_values_above_collection_limi
         Format::Parquet,
         Format::ArrowIpc,
         Format::Avro,
+        Format::Orc,
         Format::Json,
         Format::Jsonl,
         Format::Csv,
@@ -1201,10 +1202,7 @@ fn native_typed_expressions_write_complete_computed_values_above_collection_limi
             "{format:?}"
         );
     }
-    let path = fixture.0.join("computed-denied.orc");
-    assert!(prepared.write(&path, Format::Orc, false).is_err());
-    assert!(!path.exists());
-    assert_eq!(prepared.snapshot().completed_executions, 7);
+    assert_eq!(prepared.snapshot().completed_executions, 8);
     let memory = prepared.session.memory().clone();
     drop(prepared);
     assert_eq!(memory.snapshot().reserved_bytes, 0);

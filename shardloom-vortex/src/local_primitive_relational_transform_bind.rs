@@ -1,9 +1,11 @@
 //! Schema-bound projection, predicates, ordering and output ranges.
 
+use super::super::PipelineKind;
 use super::{
     Binder, DType, Node, NodeKind, Result, failed, field, native_relational_sort, validate_key,
     validate_name, validate_payload, validate_unique, validate_width,
 };
+use crate::local_primitives::native_relational_expression::{Expression, Kind};
 use crate::relational_query::{
     VortexRelationalFilter, VortexRelationalLimit, VortexRelationalProject, VortexRelationalSort,
 };
@@ -24,7 +26,7 @@ impl Binder<'_> {
         input: Node,
     ) -> Result<Node> {
         validate_width(projected.len())?;
-        self.charge_fields(projected.len())?;
+        self.charge_names(projected.iter().map(|(name, _)| name.as_str()))?;
         let mut input = Box::new(input);
         let mut fields = Vec::new();
         let mut expressions = Vec::new();
@@ -104,7 +106,7 @@ impl Binder<'_> {
         if !matches!(predicate.dtype, DType::Bool(_) | DType::Null) {
             return Err(failed("filter predicate must produce a nullable boolean"));
         }
-        self.charge_fields(input.fields.len())?;
+        self.charge_named_fields(&input.fields)?;
         if self.push_scan_filter(&mut input, &predicate, predicate_metadata)? {
             return Ok(*input);
         }
@@ -125,9 +127,9 @@ impl Binder<'_> {
         input: Node,
     ) -> Result<Node> {
         validate_width(keys.len())?;
-        self.charge_fields(keys.len())?;
+        self.charge_names(keys.iter().map(|key| key.column.as_str()))?;
         let input = Box::new(input);
-        self.charge_fields(input.fields.len())?;
+        self.charge_named_fields(&input.fields)?;
         for key in keys {
             validate_name(key.column.as_str())?;
             validate_key(field(&input.fields, key.column.as_str())?)?;
@@ -161,15 +163,11 @@ impl Binder<'_> {
             .checked_add(count)
             .ok_or_else(|| failed("output range overflow"))?;
         let mut input = Box::new(input);
-        // Only an immediate Sort may omit output. Intervening projections and
-        // filters can still observe rows that this Limit will discard.
-        if let NodeKind::Sort { output_prefix, .. } = &mut input.kind {
-            *output_prefix = Some(if count == 0 { 0 } else { prefix });
-        }
+        cap_ordering_prefix(&mut input, if count == 0 { 0 } else { prefix });
         if count != 0 {
             cap_rolling_prefix(&mut input, prefix)?;
         }
-        self.charge_fields(input.fields.len())?;
+        self.charge_named_fields(&input.fields)?;
         Ok(Node {
             fields: input.fields.clone(),
             kind: NodeKind::Limit {
@@ -178,6 +176,39 @@ impl Binder<'_> {
                 count,
             },
         })
+    }
+}
+
+fn column_projection(expressions: &[Expression]) -> bool {
+    expressions
+        .iter()
+        .all(|expression| matches!(&expression.kind, Kind::Column(_)))
+}
+
+fn cap_ordering_prefix(mut node: &mut Node, rows: usize) {
+    // Bound column selections only rename, duplicate, reorder or remove fields.
+    // Sorting still validates the complete incoming payload before retaining
+    // its prefix. Computed projections and all other stages remain observation
+    // barriers, including ranges that have their own input-domain semantics.
+    loop {
+        match &mut node.kind {
+            NodeKind::Sort { output_prefix, .. } => {
+                *output_prefix = Some(rows);
+                break;
+            }
+            NodeKind::Project { input, expressions } if column_projection(expressions) => {
+                node = input;
+            }
+            NodeKind::Pipeline { input, stages }
+                if stages.iter().all(|stage| {
+                    matches!(&stage.kind, PipelineKind::Project(expressions)
+                        if column_projection(expressions))
+                }) =>
+            {
+                node = input;
+            }
+            _ => break,
+        }
     }
 }
 

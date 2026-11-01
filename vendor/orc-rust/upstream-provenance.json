@@ -1,25 +1,38 @@
 {
   "added_files_sha256": {
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "README.shardloom.md": "5d600b08152f07409267edc16d83327cd567f4eb0c1cb07d163a7b97eec77da3"
+    "README.shardloom.md": "adb5be8cd2ac37177c89b758c0e9d98ba9a7ee49df3122c9dee084f1f0332963",
+    "src/writer/rich_column.rs": "9f27b3e53db3633e7c6c51482a31485e13d1d4a1fdc9abe261e78fafcc7aad4d",
+    "src/writer/rich_tests.rs": "0a6e852adad03a25b19d88adaccf38ab70e7f954f44829b8daabcd5021e89252",
+    "src/writer/schema.rs": "b6258d122125eeafc64faf830312d65662463ef688dd0a243ae135bed36695ec"
   },
   "license": "Apache-2.0",
   "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
   "license_url": "https://raw.githubusercontent.com/datafusion-contrib/orc-rust/d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307/LICENSE",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "5d600b08152f07409267edc16d83327cd567f4eb0c1cb07d163a7b97eec77da3"
+    "sha256": "adb5be8cd2ac37177c89b758c0e9d98ba9a7ee49df3122c9dee084f1f0332963"
   },
-  "migration_status": "dependency_pin_and_compressed_error_propagation",
+  "migration_status": "dependency_pin_compressed_errors_rich_writer_and_checked_temporal_codec",
   "modified_files_sha256": {
     "Cargo.toml": "a9fb8010ed971119ba99328cbd430f8559df293d32fc3e5ee6a9b8ed00bc7b1c",
-    "src/compression.rs": "2eed1c6d5d823ea6974520f957dd34eda6e2e5b0f7f1e149c1e81e9de6b533e5"
+    "src/array_decoder/mod.rs": "d3c33d1059eeb2fb0a0f2db3fe55d007cf55773b2b4cd602eab60da7a7b6436d",
+    "src/array_decoder/timestamp.rs": "15ea37094b9f0cd6c3b19a312d12cea7ade2a73849153af3c9eaef78b11980f1",
+    "src/arrow_reader.rs": "be8ca8389b699eff0e22b147dc0e9dc25244120600863a5c4b939c6c7accbc58",
+    "src/arrow_writer.rs": "0822c1b0601c0a4e1ce0ebba7f2bff5c274a71af7635f3c41dc44dd8642353a5",
+    "src/compression.rs": "510e1b06a82db4b896d48589aae2edd649dbc2a35feb70b725360cb53a7ba835",
+    "src/encoding/timestamp.rs": "ffe46b0efbe71010f514bcec384f26b3d1b892de0e46838cf67d05abb70d6052",
+    "src/reader/metadata.rs": "81fcd4c57fe9f2ac4b03ff20214b7364dc7e87596f1dc1114eff55b76806077e",
+    "src/schema.rs": "aa472d807026acf4a9db996989c116a5cecdd22f7efeffc1b20595e93db2463f",
+    "src/writer/column.rs": "d3814ab75eed980e43a2217501a7e50944955315434f5b1ab0a6a2d353436fb8",
+    "src/writer/mod.rs": "563cf977e1768258f0f7e6db74f8c744ed59aca6f859df5eaaa8a320b73dd31d",
+    "src/writer/stripe.rs": "0702e8d47af4d78365b73b08c739ce5f6ea393a4e5f94d9f6742a3b712f0c54f"
   },
   "notice_status": "No NOTICE exists at pinned upstream revision d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307 (prior recorded evidence).",
   "omitted_files": {
     "Cargo.lock": {
       "original_sha256": "8560813fa02d0a832a2eb3076c4852ba21df0ceabc90c862625f3a00599bc41b",
-      "reason": "Omitted from committed patch because repository-root Cargo.lock owns dependency resolution. Existing ignored local original copy is preserved byte-for-byte and not included."
+      "reason": "Upstream lock omitted from committed provider; repository root Cargo.lock owns runtime resolution. Standalone validation uses .github/provider-locks/orc-rust.lock with the unchanged development dependency declarations and default features disabled."
     }
   },
   "original_files_sha256": {

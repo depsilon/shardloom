@@ -3172,6 +3172,37 @@ def executable_cases() -> list[SqlFixtureCase]:
     return [
         property_numeric_case(),
         SqlFixtureCase(
+            case_id="orc_nested_output_preservation",
+            source_name="orc-nested-output.csv",
+            source_text="id,label,amount\n1,alpha,8\n2,beta,\n",
+            statement_template=(
+                "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label,amount) AS payload "
+                "FROM '{source}' LIMIT 10"
+            ),
+            expected_jsonl=(
+                '{"id":1,"values":[1,2,null],"payload":{"label":"alpha","amount":8}}\n'
+                '{"id":2,"values":[1,2,null],"payload":{"label":"beta","amount":null}}\n'
+            ),
+            output_format="orc",
+            output_name="nested.orc",
+        ),
+        SqlFixtureCase(
+            case_id="orc_typed_decimal_sink_preservation",
+            source_name="orc-decimal-output.csv",
+            source_text="id,amount\n1,12.34\n2,-5.67\n3,\n",
+            statement_template=(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal "
+                "FROM '{source}' LIMIT 10"
+            ),
+            expected_jsonl=(
+                '{"id":1,"amount_decimal":"decimal128(10,2):1234"}\n'
+                '{"id":2,"amount_decimal":"decimal128(10,2):-567"}\n'
+                '{"id":3,"amount_decimal":null}\n'
+            ),
+            output_format="orc",
+            output_name="decimal.orc",
+        ),
+        SqlFixtureCase(
             case_id="try_cast_projection_null_on_invalid",
             source_name="try-cast.csv",
             source_text="id,raw_amount\n1,8\n2,not_an_int\n3,15\n",
@@ -3640,31 +3671,6 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization",
         ),
         UnsupportedCase(
-            case_id="unsupported_orc_nested_output_preservation",
-            source_name="orc-nested-output-unsupported.csv",
-            source_text="id,label\n1,alpha\n",
-            statement_template=(
-                "SELECT id,ARRAY[1,2] AS values FROM '{source}' LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment='ORC does not admit nested output',
-            output_format="orc",
-            output_name="nested.orc",
-        ),
-        UnsupportedCase(
-            case_id="unsupported_orc_typed_decimal_sink_preservation",
-            source_name="orc-decimal-output-unsupported.csv",
-            source_text="id,amount\n1,12.34\n",
-            statement_template=(
-                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal "
-                "FROM '{source}' LIMIT 10"
-            ),
-            diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment='ORC does not admit decimal or temporal output',
-            output_format="orc",
-            output_name="decimal.orc",
-        ),
-        UnsupportedCase(
             case_id="unsupported_variant_access",
             source_name="variant-unsupported.csv",
             source_text="id,payload\n1,alpha\n",
@@ -4042,6 +4048,35 @@ def materialize_source(work_dir: Path, case_id: str, source_name: str, source_te
     return source_path
 
 
+def readback_binary_output(
+    *, repo_root: Path, binary: Path, output_path: Path, output_format: str,
+    artifact_ref: Path, expected: list[dict[str, Any]], case_id: str,
+) -> tuple[str, list[str]]:
+    """Check native readback against literal references; no external query oracle."""
+    command = public_workflow_command(
+        binary, "SELECT * FROM '" + str(output_path).replace("'", "''") + "'",
+        source_bindings={str(output_path): {"input_format": output_format}},
+        requested_output="collect",
+    )
+    completed = run_subprocess(repo_root=repo_root, command=command)
+    payload, blockers = parse_json_output(completed, case_id + " readback")
+    write_json(artifact_ref, payload or {
+        "stdout_tail": tail(completed.stdout), "stderr_tail": tail(completed.stderr),
+    })
+    if completed.returncode != 0 or payload.get("status") != "success":
+        blockers.append(f"{case_id}: binary output readback did not succeed")
+    blockers.extend(no_fallback_blockers(payload, case_id + " readback"))
+    digest = ""
+    try:
+        rows = extract_result(payload)
+        digest = canonical_rows_digest(rows)
+        if not equivalent(rows, expected):
+            blockers.append(f"{case_id}: binary output readback differs from reference")
+    except Exception as exc:  # noqa: BLE001 - incomplete/schema-invalid results are blockers.
+        blockers.append(f"{case_id}: binary output readback is invalid: {exc}")
+    return digest, blockers
+
+
 def run_executable_case(
     *,
     repo_root: Path,
@@ -4092,6 +4127,8 @@ def run_executable_case(
     observed_output_digest_source = ""
     expected_output_digest = ""
     expected_output_digest_source = ""
+    output_artifact_digest = ""
+    output_readback_ref = ""
     fields: dict[str, Any] = {}
     expected = []
     try:
@@ -4099,7 +4136,7 @@ def run_executable_case(
     except Exception as exc:  # noqa: BLE001 - invalid reference is reported with the case.
         blockers.append(f"{case.case_id}: decoded reference JSONL is invalid: {exc}")
 
-    if output_path is None:
+    if output_path is None or case.output_format == "orc":
         expected_output_digest = canonical_rows_digest(expected)
         expected_output_digest_source = "canonical_decoded_reference_rows"
     elif case.expected_output_text is None:
@@ -4142,10 +4179,24 @@ def run_executable_case(
             blockers.append(f"{case.case_id}: expected output artifact was not written")
         else:
             observed_output_bytes = output_path.read_bytes()
-            observed_output_digest = "sha256:" + hashlib.sha256(observed_output_bytes).hexdigest()
-            observed_output_digest_source = "sink_output_artifact"
-            if case.expected_output_text is not None and observed_output_bytes != case.expected_output_text.encode("utf-8"):
-                blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
+            output_artifact_digest = "sha256:" + hashlib.sha256(observed_output_bytes).hexdigest()
+            if case.output_format == "orc":
+                readback_ref = work_dir / "artifacts" / f"{case.case_id}.readback.json"
+                observed_output_digest, readback_blockers = readback_binary_output(
+                    repo_root=repo_root, binary=binary, output_path=output_path,
+                    output_format=case.output_format, artifact_ref=readback_ref,
+                    expected=expected, case_id=case.case_id,
+                )
+                blockers.extend(readback_blockers)
+                output_readback_ref = rel(repo_root, readback_ref)
+                observed_output_digest_source = "complete_native_result_rows"
+                if hashlib.sha256(output_path.read_bytes()).hexdigest() != output_artifact_digest.removeprefix("sha256:"):
+                    blockers.append(f"{case.case_id}: output changed during readback")
+            else:
+                observed_output_digest = output_artifact_digest
+                observed_output_digest_source = "sink_output_artifact"
+                if case.expected_output_text is not None and observed_output_bytes != case.expected_output_text.encode("utf-8"):
+                    blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
     elif payload and fields:
         try:
             observed_rows = extract_result(payload)
@@ -4199,6 +4250,8 @@ def run_executable_case(
         "source_ref": rel(repo_root, source_path),
         "auxiliary_source_refs": [rel(repo_root, path) for path in auxiliary_refs],
         "output_ref": rel(repo_root, output_path) if output_path is not None else "",
+        "output_artifact_digest": output_artifact_digest,
+        "output_readback_ref": output_readback_ref,
         "decoded_reference_digest": expected_digest,
         "expected_output_digest": expected_output_digest or "",
         "expected_output_digest_source": expected_output_digest_source,

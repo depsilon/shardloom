@@ -30,56 +30,49 @@ fn verify(
             let path = fixture
                 .0
                 .join(format!("stored-{count}.{}", format.as_str()));
-            if nested && format == Format::Orc {
-                let error = prepared.write(&path, format, false).err().unwrap();
-                assert!(error.to_string().contains("nested"), "{error}");
-                assert!(!path.exists());
-                assert_eq!(prepared.snapshot().completed_executions, executions);
-            } else {
-                let written = prepared.write(&path, format, false).unwrap();
-                executions += 1;
-                assert_eq!(written.execution.ordered_window_stages, 1);
-                assert_eq!(written.output.rows_written, count as u64);
-                assert!(written.execution.native_io_certificate.is_certified());
-                assert!(
-                    written
-                        .execution
-                        .spill
-                        .as_ref()
-                        .unwrap()
-                        .owned_cleanup_completed
+            let written = prepared.write(&path, format, false).unwrap();
+            executions += 1;
+            assert_eq!(written.execution.ordered_window_stages, 1);
+            assert_eq!(written.output.rows_written, count as u64);
+            assert!(written.execution.native_io_certificate.is_certified());
+            assert!(
+                written
+                    .execution
+                    .spill
+                    .as_ref()
+                    .unwrap()
+                    .owned_cleanup_completed
+            );
+            assert_eq!(prepared.snapshot().completed_executions, executions);
+            if format == Format::Csv {
+                assert_eq!(
+                    fs::read_to_string(&path).unwrap(),
+                    if count == 0 { "out\n" } else { csv }
                 );
-                assert_eq!(prepared.snapshot().completed_executions, executions);
-                if format == Format::Csv {
-                    assert_eq!(
-                        fs::read_to_string(&path).unwrap(),
-                        if count == 0 { "out\n" } else { csv }
-                    );
-                } else if nested && format == Format::Vortex {
-                    let VortexRelationalPlan::Scan(mut scan) = fixture.scan() else {
-                        panic!("writer fixture requires a native scan");
-                    };
-                    scan.source_uri = DatasetUri::new(path.display().to_string()).unwrap();
-                    let reopened =
-                        prepare_relational(&VortexRelationalPlan::Scan(scan), policy()).unwrap();
-                    assert_eq!(reopened.output_dtype(), prepared.output_dtype());
-                    assert_eq!(
-                        json_rows(
-                            &reopened
-                                .collect_jsonl(&CancellationToken::default())
-                                .unwrap()
-                        ),
-                        expected[..count]
-                    );
-                } else {
-                    assert_eq!(
-                        writer_tests::read_rows(&path, format, &prepared.output_dtype().unwrap()),
-                        expected[..count],
-                        "{format:?} {count}"
-                    );
-                }
-                drop(written);
+            } else if nested && format == Format::Vortex {
+                let VortexRelationalPlan::Scan(mut scan) = fixture.scan() else {
+                    panic!("writer fixture requires a native scan");
+                };
+                scan.source_uri = DatasetUri::new(path.display().to_string()).unwrap();
+                let reopened =
+                    prepare_relational(&VortexRelationalPlan::Scan(scan), policy()).unwrap();
+                assert_eq!(reopened.output_dtype(), prepared.output_dtype());
+                assert_eq!(
+                    json_rows(
+                        &reopened
+                            .collect_jsonl(&CancellationToken::default())
+                            .unwrap()
+                    ),
+                    expected[..count]
+                );
+            } else {
+                assert_eq!(
+                    writer_tests::read_rows(&path, format, &prepared.output_dtype().unwrap()),
+                    expected[..count],
+                    "{format:?} {count}"
+                );
             }
+            drop(written);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
             assert_eq!(
                 fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),

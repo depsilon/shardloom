@@ -258,9 +258,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale division lower through
   the same ShardLoom generic-expression route from SQL and Python/DataFrame helpers. Public
   local-source compatibility sinks must derive from a certified native Vortex result/export
-  contract: scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project exports are admitted
-  through Vortex preparation plus native Vortex row export, while arbitrary compatibility exports
-  and ORC nested output remain deterministic future-contract boundaries. Local Vortex remains the
+  contract: scoped structured Vortex/Parquet/Arrow IPC/Avro/ORC expression-project exports are admitted
+  through native Vortex row export. All-null computed nested columns without child-schema evidence
+  and schemas outside the admitted output domains produce runtime unsupported diagnostics. Local Vortex remains the
   highest-fidelity sink where the provider or scoped structured route is admitted. Scoped
   `pivot_table` accepts one aggregate as a scalar string, one-element sequence, or one-column
   mapping when it maps to the admitted sum/count/mean/min/max native Vortex pivot aggregate family. Scoped

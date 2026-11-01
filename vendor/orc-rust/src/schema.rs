@@ -27,6 +27,10 @@ use crate::proto;
 
 use arrow::datatypes::{DataType as ArrowDataType, Field, Schema, TimeUnit, UnionMode};
 
+/// Optional codec metadata; ordinary ORC readers may select their own precision.
+/// Values are checked against the timestamp stream during decoding.
+pub(crate) const ARROW_TIMESTAMP_UNIT_ATTRIBUTE: &str = "shardloom.arrow.timestamp.unit";
+
 /// Configuration for timestamp precision when converting ORC timestamps to Arrow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TimestampPrecision {
@@ -41,6 +45,7 @@ pub enum TimestampPrecision {
 #[derive(Debug, Clone)]
 pub struct ArrowSchemaOptions {
     timestamp_precision: TimestampPrecision,
+    source_timestamp_units: Arc<HashMap<usize, TimeUnit>>,
 }
 
 impl Default for ArrowSchemaOptions {
@@ -55,6 +60,7 @@ impl ArrowSchemaOptions {
     pub fn new() -> Self {
         Self {
             timestamp_precision: TimestampPrecision::default(),
+            source_timestamp_units: Arc::default(),
         }
     }
 
@@ -67,6 +73,15 @@ impl ArrowSchemaOptions {
     /// Default: [`TimestampPrecision::Nanosecond`]
     pub fn with_timestamp_precision(mut self, precision: TimestampPrecision) -> Self {
         self.timestamp_precision = precision;
+        self.source_timestamp_units = Arc::default();
+        self
+    }
+
+    pub(crate) fn with_source_timestamp_units(
+        mut self,
+        units: Arc<HashMap<usize, TimeUnit>>,
+    ) -> Self {
+        self.source_timestamp_units = units;
         self
     }
 
@@ -502,10 +517,15 @@ impl DataType {
     /// Convert this ORC data type to an Arrow data type with custom options.
     pub fn to_arrow_data_type_with_options(&self, options: ArrowSchemaOptions) -> ArrowDataType {
         let timestamp_precision = options.timestamp_precision();
-        let time_unit = match timestamp_precision {
+        let default_time_unit = match timestamp_precision {
             TimestampPrecision::Microsecond => TimeUnit::Microsecond,
             TimestampPrecision::Nanosecond => TimeUnit::Nanosecond,
         };
+        let time_unit = options
+            .source_timestamp_units
+            .get(&self.column_index())
+            .cloned()
+            .unwrap_or(default_time_unit);
 
         match self {
             DataType::Boolean { .. } => ArrowDataType::Boolean,

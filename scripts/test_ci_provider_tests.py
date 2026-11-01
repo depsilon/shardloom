@@ -15,7 +15,7 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts",)
+NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust")
 
 
 # Cargo commands as they appeared in the frozen workflow, before the intentional
@@ -67,16 +67,16 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 
 
 class ProviderCommandTests(unittest.TestCase):
-    def test_all_providers_are_assigned_once_to_three_groups(self) -> None:
+    def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 9)
+        self.assertEqual(len(assigned), 10)
         self.assertEqual(set(assigned), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
-        self.assertEqual(set(providers.GROUPS), {"arrays", "io", "buffer"})
+        self.assertEqual(set(providers.GROUPS), {"arrays", "io", "buffer", "formats"})
 
     def test_new_datetime_parts_provider_is_configured_without_rewriting_frozen_history(self) -> None:
-        self.assertEqual(providers.GROUPS["arrays"][-1:], NEW_PROVIDERS)
+        self.assertEqual(providers.GROUPS["arrays"][-1:], ("vortex-datetime-parts",))
         self.assertEqual(providers.CONFIGURATIONS["vortex-datetime-parts"], {
             "features": "vortex-array/table-display", "patches": ["vortex-array"]})
         test_command, clippy_command = providers.commands("vortex-datetime-parts")
@@ -86,6 +86,15 @@ class ProviderCommandTests(unittest.TestCase):
         expected_clippy = normalize_frozen_command(FROZEN_COMMANDS["vortex-zstd"][1].replace(
             "vortex-zstd", "vortex-datetime-parts").split())
         self.assertEqual(clippy_command, expected_clippy)
+
+    def test_orc_provider_matches_admitted_runtime_features_and_checks_tests(self) -> None:
+        self.assertEqual(providers.GROUPS["formats"], ("orc-rust",))
+        self.assertEqual(providers.commands("orc-rust"), [
+            ["cargo", "test", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
+             "--no-default-features", "--lib", "--", "--test-threads=2"],
+            ["cargo", "clippy", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
+             "--no-default-features", "--lib", "--tests", "--", "-D", "warnings"],
+        ])
 
     def test_generated_commands_preserve_frozen_feature_patch_target_and_thread_behavior(self) -> None:
         self.assertEqual(set(FROZEN_COMMANDS), set(FROZEN_CRATES))
@@ -136,10 +145,26 @@ class RunGroupTests(unittest.TestCase):
             report = providers.run_group(self.group, output, root=self.root)
         self.assertEqual(report["status"], "passed")
         self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.kwargs["env"]["CLIPPY_CONF_DIR"],
+                         str(self.root / "vendor/vortex-array"))
         self.assertEqual((self.root / "vendor/vortex-buffer/Cargo.lock").read_text(), "vortex-buffer lock\n")
         saved = json.loads((output / "report.json").read_text())
         self.assertEqual(saved["status"], "passed")
         self.assertEqual(len(saved["commands"]), 2)
+
+    def test_orc_commands_do_not_inherit_vortex_lint_policy(self) -> None:
+        (self.root / ".github/provider-locks/orc-rust.lock").write_text("orc-rust lock\n")
+        (self.root / "vendor/orc-rust").mkdir()
+        with patch.dict(providers.os.environ, {"CLIPPY_CONF_DIR": "/inherited/vortex-policy"}):
+            with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
+                report = providers.run_group("formats", self.root / "out", root=self.root)
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(run.call_count, 2)
+        expected = str(self.root / "vendor/orc-rust")
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs["env"]["CLIPPY_CONF_DIR"], expected)
+        for command in report["commands"]:
+            self.assertEqual(command["clippy_conf_dir"], expected)
 
     def test_command_failure_is_rejected_and_failed_report_written(self) -> None:
         output = self.root / "out"

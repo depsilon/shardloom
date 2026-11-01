@@ -85,6 +85,32 @@ fn completed(
     );
 }
 
+fn direct_compatibility_source(result: &Value, normalized: usize, first_binding: bool) {
+    assert_eq!(
+        field(result, "relational_normalized_source_count"),
+        normalized.to_string(),
+        "{result}"
+    );
+    assert_eq!(
+        field(result, "public_workflow_preparation_included"),
+        first_binding.to_string(),
+        "{result}"
+    );
+    assert_eq!(
+        field(result, "native_source_demand_prepared_input_bytes_written"),
+        "0",
+        "{result}"
+    );
+}
+
+fn assert_no_prepared_artifacts(root: &Path) {
+    assert!(
+        !root.join(".shardloom/prepared").exists(),
+        "direct compatibility reads must not create .shardloom/prepared under {}",
+        root.display()
+    );
+}
+
 #[test]
 fn worker_relational_families_reuse_bound_readers_and_deliver_complete_results() {
     let source = fixture().display().to_string();
@@ -283,7 +309,7 @@ fn declared_nested_arrow_source() -> (Cleanup, PathBuf, String) {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)] // Keep reader reuse, source changes and sink lifetimes in one scenario.
-fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation() {
+fn worker_flat_declared_arrow_reads_nested_and_empty_results_directly() {
     let (root, source, bindings) = declared_nested_arrow_source();
     let original = std::fs::read(&source).unwrap();
     let mut worker = Worker::new();
@@ -326,39 +352,14 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
                     &result,
                     &expected,
                     1,
-                    case * 2 + 1,
+                    0,
                     case * 3 + execution,
                     execution > 1,
                 );
-                if matches!(index, 0 | 3) {
-                    // Eligible flat declarations normalize before metadata
-                    // selection; extended values still use the shared binder.
-                    assert_eq!(
-                        field(&result, "public_workflow_local_source_format"),
-                        "arrow-ipc"
-                    );
-                    assert_eq!(
-                        field(&result, "public_workflow_local_source_preparation_included"),
-                        "true"
-                    );
-                    assert_eq!(field(&result, "relational_normalized_source_count"), "0");
-                    assert_eq!(
-                        field(
-                            &result,
-                            "public_workflow_local_source_vortex_ingest_performed"
-                        ),
-                        (surface_index == 0 && index == 0 && execution == 1).to_string()
-                    );
-                } else {
-                    assert_eq!(
-                        field(&result, "public_workflow_preparation_included"),
-                        (execution == 1).to_string()
-                    );
-                    assert_eq!(field(&result, "relational_normalized_source_count"), "1");
-                }
+                direct_compatibility_source(&result, 1, execution == 1);
                 assert_eq!(
                     field(&result, "resident_source_generation_validation"),
-                    "all_sources_before_and_after_native_execution_and_final_consumer"
+                    "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed"
                 );
             }
             let output = root.0.join(format!("{surface}-{index}.jsonl"));
@@ -387,14 +388,16 @@ fn worker_flat_declared_arrow_rebinds_nested_and_empty_results_after_preparation
             assert_eq!(json!(rows), expected);
             assert_eq!(field(&written, "fallback_attempted"), "false");
             assert_eq!(field(&written, "external_engine_invoked"), "false");
+            direct_compatibility_source(&written, 1, true);
         }
     }
     assert_eq!(std::fs::read(source).unwrap(), original);
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
+fn worker_flat_direct_source_change_rejects_stale_handle_and_rebinds() {
     let (root, source, bindings) = declared_nested_arrow_source();
     let statement = format!(
         "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
@@ -403,80 +406,33 @@ fn worker_flat_prepared_source_change_rejects_reuse_and_releases_the_session() {
     let expected = json!([{"items":[1,null],"n":2},{"items":[],"n":1},{"items":null,"n":1}]);
     let mut worker = Worker::new();
     let first = worker.relational(&statement, &["--source-bindings", &bindings]);
-    completed(&first, &expected, 1, 1, 1, false);
-    completed(
-        &worker.relational(&statement, &["--source-bindings", &bindings]),
-        &expected,
-        1,
-        1,
-        2,
-        true,
-    );
-    // Inspect only this test's owned preparation directory. Relational reports
-    // describe all source leaves rather than publishing one privileged path.
-    let artifacts = std::fs::read_dir(root.0.join(".shardloom/prepared"))
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|path| {
-            path.extension()
-                .is_some_and(|extension| extension == "vortex")
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(artifacts.len(), 1);
-    let prepared = &artifacts[0];
-    // Direct native use and use through an original compatibility source have
-    // distinct preparation obligations even when their lowered SQL is identical.
-    drop(worker);
-    let mut worker = Worker::new();
-    let native_statement = format!(
-        "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
-        prepared.display()
-    );
-    let native_bindings =
-        json!({prepared.display().to_string(): {"input_format":"vortex"}}).to_string();
-    completed(
-        &worker.relational(&native_statement, &["--source-bindings", &native_bindings]),
-        &expected,
-        1,
-        1,
-        1,
-        false,
-    );
-    for execution in 1..=2 {
-        completed(
-            &worker.relational(&statement, &["--source-bindings", &bindings]),
-            &expected,
-            1,
-            2,
-            execution + 1,
-            execution > 1,
-        );
-    }
     let original = std::fs::read(&source).unwrap();
-    std::fs::write(&source, &original).unwrap();
+    completed(&first, &expected, 1, 0, 1, false);
+    direct_compatibility_source(&first, 1, true);
+    let second = worker.relational(&statement, &["--source-bindings", &bindings]);
+    completed(&second, &expected, 1, 0, 2, true);
+    direct_compatibility_source(&second, 1, false);
+    let replacement = root.0.join("replacement.arrow");
+    std::fs::write(&replacement, &original).unwrap();
+    std::fs::rename(&replacement, &source).unwrap();
     let rejected = worker.relational(&statement, &["--source-bindings", &bindings]);
     assert_eq!(rejected["status"], "error", "{rejected}");
     assert!(
-        rejected.to_string().contains("source binding"),
+        rejected
+            .to_string()
+            .contains("prepared source changed; prepare the source again"),
         "{rejected}"
     );
-    // Explicitly retire this fixture's stale preparation. The next call must
-    // prepare the new generation and cannot keep the rejected reader alive.
-    std::fs::remove_file(prepared).unwrap();
-    completed(
-        &worker.relational(&statement, &["--source-bindings", &bindings]),
-        &expected,
-        1,
-        3,
-        4,
-        false,
-    );
+    let rebound = worker.relational(&statement, &["--source-bindings", &bindings]);
+    completed(&rebound, &expected, 1, 0, 3, false);
+    direct_compatibility_source(&rebound, 1, true);
     assert_eq!(std::fs::read(source).unwrap(), original);
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn worker_flat_prepared_nested_writers_preserve_the_original_source() {
+fn worker_flat_direct_nested_writers_preserve_the_original_source() {
     for request in [
         "write_vortex",
         "write_json",
@@ -484,8 +440,9 @@ fn worker_flat_prepared_nested_writers_preserve_the_original_source() {
         "write_parquet",
         "write_arrow_ipc",
         "write_avro",
+        "write_orc",
     ] {
-        let (_root, source, bindings) = declared_nested_arrow_source();
+        let (root, source, bindings) = declared_nested_arrow_source();
         let original = std::fs::read(&source).unwrap();
         let statement = format!(
             "SELECT items, COUNT(*) AS n FROM '{}' GROUP BY items LIMIT 10",
@@ -509,6 +466,7 @@ fn worker_flat_prepared_nested_writers_preserve_the_original_source() {
             rejected.to_string().contains("different files"),
             "{request}: {rejected}"
         );
+        assert_no_prepared_artifacts(&root.0);
     }
 }
 
@@ -541,29 +499,21 @@ fn worker_relational_retains_each_sources_declared_format_and_schema() {
             &result,
             &json!([{"key":"001","amount":2,"label":"0009"}, {"key":"1","amount":3,"label":"0010"}]),
             2,
-            2,
+            0,
             execution,
             execution > 1,
         );
-        assert_eq!(field(&result, "relational_normalized_source_count"), "2");
-        assert_eq!(
-            field(&result, "public_workflow_preparation_included"),
-            (execution == 1).to_string()
-        );
+        direct_compatibility_source(&result, 2, execution == 1);
     }
     let statement = format!(
         "SELECT key FROM '{}' UNION SELECT key FROM '{}' ORDER BY key",
         left.display(),
         right.display()
     );
-    completed(
-        &worker.relational(&statement, &["--source-bindings", &bindings]),
-        &json!([{"key":"001"},{"key":"1"}]),
-        2,
-        4,
-        3,
-        false,
-    );
+    let union = worker.relational(&statement, &["--source-bindings", &bindings]);
+    completed(&union, &json!([{"key":"001"},{"key":"1"}]), 2, 0, 3, false);
+    direct_compatibility_source(&union, 2, true);
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[test]
@@ -656,19 +606,22 @@ fn worker_relational_normalizes_every_nested_leaf_once_and_preserves_path_litera
             &result,
             &json!([{"renamed":2,"flag":"match"},{"renamed":3,"flag":"match"}]),
             3,
-            3,
+            1,
             execution,
             execution > 1,
         );
-        assert_eq!(field(&result, "relational_normalized_source_count"), "2");
+        direct_compatibility_source(&result, 2, execution == 1);
     }
     std::fs::write(&right, "{\"value\":1}\n").unwrap();
     let stale = worker.relational(&statement, &[]);
     assert_eq!(stale["status"], "error", "{stale}");
     assert!(
-        stale.to_string().contains("source generation changed"),
+        stale
+            .to_string()
+            .contains("prepared source changed; prepare the source again"),
         "{stale}"
     );
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -697,14 +650,16 @@ fn worker_relational_writers_reject_aliases_of_original_compatibility_sources() 
         input.display()
     );
     let mut worker = Worker::new();
+    let first = worker.relational(&statement, &[]);
     completed(
-        &worker.relational(&statement, &[]),
+        &first,
         &json!([{"renamed":1,"ranked":3},{"renamed":2,"ranked":2},{"renamed":3,"ranked":1}]),
         1,
-        1,
+        0,
         1,
         false,
     );
+    direct_compatibility_source(&first, 1, true);
     for request in requests {
         let alias = root.0.join(format!("alias-{request}"));
         let result = worker.relational(
@@ -726,6 +681,7 @@ fn worker_relational_writers_reject_aliases_of_original_compatibility_sources() 
         assert_eq!(std::fs::read_to_string(&input).unwrap(), original);
         assert_eq!(std::fs::read_to_string(&alias).unwrap(), original);
     }
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -750,15 +706,18 @@ fn worker_relational_projected_subquery_does_not_inherit_the_reference_value_cap
             input.display(),
             input.display()
         );
+        let result = Worker::new().relational(&statement, &[]);
         completed(
-            &Worker::new().relational(&statement, &[]),
+            &result,
             &json!([{"renamed":40},{"renamed":39}]),
             1,
-            1,
+            0,
             1,
             false,
         );
+        direct_compatibility_source(&result, 1, true);
     }
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -807,16 +766,19 @@ fn worker_relational_prunes_wide_sources_with_nested_outer_scope_dependencies() 
     let mut worker = Worker::new();
     for (case, (statement, expected)) in cases.into_iter().enumerate() {
         for execution in 1..=2 {
+            let result = worker.relational(&statement, &[]);
             completed(
-                &worker.relational(&statement, &[]),
+                &result,
                 &expected,
                 1,
-                case + 1,
+                0,
                 case * 2 + execution,
                 execution > 1,
             );
+            direct_compatibility_source(&result, 1, execution == 1);
         }
     }
+    assert_no_prepared_artifacts(&root.0);
 }
 
 #[test]

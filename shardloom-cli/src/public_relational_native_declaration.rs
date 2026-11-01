@@ -15,6 +15,92 @@ use std::{collections::BTreeMap, sync::Arc};
 
 type Result<T> = std::result::Result<T, ShardLoomError>;
 
+/// Primitive payloads share the same source resolver and native plan owner.
+pub(crate) fn prepare_primitive_in_session(
+    request: &PublicWorkflowRouteRequest,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<(PreparedVortexRelational, bool, usize)> {
+    use shardloom_vortex::{
+        VortexQueryPrimitiveKind as Kind,
+        relational_query::{VortexRelationalPlan, VortexRelationalScan},
+    };
+    let workflow = request;
+    let uri = DatasetUri::new(
+        request
+            .input_uri
+            .as_deref()
+            .ok_or_else(|| failed("primitive source is absent"))?,
+    )?;
+    let primitive = super::super::super::normalized_vortex_primitive(request)
+        .ok_or_else(|| failed("primitive declaration is absent"))?;
+    let (request, _) =
+        super::super::super::native_vortex_request_and_arg(request, primitive, uri.clone())?;
+    let declaration = crate::native::NativeRelationDeclaration::new(VortexRelationalPlan::Scan(
+        VortexRelationalScan {
+            source_uri: uri,
+            projection: if matches!(
+                request.kind,
+                Kind::ProjectColumns | Kind::FilterPredicate | Kind::FilterAndProject
+            ) {
+                request.projection.clone()
+            } else {
+                shardloom_plan::ProjectionRequest::All
+            },
+            predicate: request.predicate.clone(),
+        },
+    ))?;
+    let policy = native_vortex_materializing_policy(workflow)?;
+    validate_session_policy(policy, session)?;
+    let declaration_bytes = declaration
+        .metadata_bytes
+        .checked_add(
+            format!("{request:?}")
+                .len()
+                .checked_mul(128)
+                .ok_or_else(|| failed("primitive metadata overflow"))?,
+        )
+        .ok_or_else(|| failed("primitive metadata overflow"))?;
+    let mut metadata = session.reserve_input_scratch(declaration_bytes as u64)?;
+    let resolved = resolve_sources(
+        &declaration,
+        workflow,
+        session,
+        cancellation,
+        &mut metadata,
+        None,
+    )?;
+    let sources = resolved.sources;
+    let uris = resolved
+        .uses
+        .values()
+        .map(|(uri, _)| uri.clone())
+        .collect::<Vec<_>>();
+    let mut request = request;
+    request.source_uri = uris.first().cloned();
+    let operation = prepare_relational_with_dynamic_inputs_in_session_controlled(
+        &uris,
+        policy,
+        session,
+        usize::try_from(metadata.bytes()).map_err(|_| failed("primitive metadata overflow"))?,
+        |schemas| register_local_sources(&sources, schemas),
+        move |schemas| {
+            let token = schemas.cancellation_token();
+            let scan = declaration.lower(schemas, &resolved.resolved, &token)?.plan;
+            let mut plan = schemas.primitive_plan(&request, scan)?;
+            native_relational::prune_bound_plan(&mut plan, schemas, &token)?;
+            Ok(plan)
+        },
+        cancellation,
+    )?;
+    finish_source_preparation(
+        operation,
+        sources,
+        workflow,
+        super::PublicSourcePreparations::default(),
+    )
+}
+
 pub(crate) fn prepare_native_in_session(
     declaration: &crate::native::NativeRelationDeclaration,
     request: &PublicWorkflowRouteRequest,

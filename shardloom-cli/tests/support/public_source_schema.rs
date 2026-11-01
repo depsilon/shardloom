@@ -41,13 +41,14 @@ fn declared_json_numeric_schema_rejects_incompatible_values_before_publication()
         ]);
         assert!(!success, "{case}: {report}");
         assert!(
-            report.contains("schema-declared JSON input"),
+            report.contains("native demanded text source column"),
             "{case}: {report}"
         );
         assert!(
             report.contains(&format!("declared {dtype}")),
             "{case}: {report}"
         );
+        assert!(report.contains("SL_INVALID_INPUT"), "{case}: {report}");
         assert!(!output.exists(), "{case}");
     }
 }
@@ -78,28 +79,28 @@ fn compatibility_sql_reuses_native_producers_and_preserves_path_values_through_e
                 "SELECT COUNT(*) AS n,SUM(amount) AS total FROM '{source}' WHERE label = '{source}'"
             ),
             vec![serde_json::json!({"n":2,"total":40.0})],
-            "native_vortex_aggregate",
+            "native_vortex_relational_collect",
             "n:uint64,total:float64",
         ),
         (
             "count",
             format!("SELECT COUNT(*) FROM '{source}'"),
             vec![serde_json::json!({"count_all":3})],
-            "native_vortex_count_all",
+            "native_vortex_relational_collect",
             "count_all:uint64",
         ),
         (
             "count_alias",
             "SELECT COUNT(*) FROM arbitrary_source".into(),
             vec![serde_json::json!({"count_all":3})],
-            "native_vortex_count_all",
+            "native_vortex_relational_collect",
             "count_all:uint64",
         ),
         (
             "count_where",
             format!("SELECT COUNT(*) FROM '{source}' WHERE label = '{source}'"),
             vec![serde_json::json!({"count_all":2})],
-            "native_vortex_count_where",
+            "native_vortex_relational_collect",
             "count_all:uint64",
         ),
     ] {
@@ -132,8 +133,21 @@ fn compatibility_sql_reuses_native_producers_and_preserves_path_values_through_e
             route,
         );
         assert_eq!(
-            complete_result::field_value(&report, "public_workflow_local_source_format"),
-            "csv",
+            complete_result::field_value(&report, "relational_normalized_source_count"),
+            "1",
+        );
+        assert_eq!(
+            complete_result::field_value(&report, "public_workflow_preparation_included"),
+            "true"
+        );
+        let source_report = report.to_string();
+        assert!(
+            source_report.contains("source_formats=csv"),
+            "{source_report}"
+        );
+        assert!(
+            source_report.contains("no_prepared_input_writes"),
+            "{source_report}"
         );
         for output in [
             "vortex",
@@ -153,16 +167,18 @@ fn compatibility_sql_reuses_native_producers_and_preserves_path_values_through_e
             let report: serde_json::Value = serde_json::from_str(&run_route(&arguments)).unwrap();
             assert_eq!(
                 complete_result::field_value(&report, "public_workflow_route_id"),
-                "native_vortex_primitive_row_export",
+                "native_vortex_relational_write",
                 "{output}: {report}",
             );
-            if matches!(case, "count" | "count_alias") {
-                assert_eq!(
-                    complete_result::field_value(&report, "upstream_vortex_scan_called"),
-                    "false"
-                );
-                assert_eq!(complete_result::field_value(&report, "data_read"), "false");
-            }
+            let source_report = report.to_string();
+            assert!(
+                source_report.contains("source_formats=csv"),
+                "{source_report}"
+            );
+            assert!(
+                source_report.contains("no_prepared_input_writes"),
+                "{source_report}"
+            );
             let reopen_sql = format!("SELECT * FROM '{target}'");
             let input_format = output.replace('_', "-");
             let mut reopen = vec![

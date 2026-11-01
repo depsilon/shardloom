@@ -1317,23 +1317,18 @@ assert later.row_count == 2
                 report = plan.write_many(targets)
                 self.assertEqual(report["native_vortex_result_export_target_count"], "8")
                 self.assertEqual(report["native_vortex_result_export_fanout_count"], "7")
-                self.assertEqual(report["native_vortex_result_export_execution_count"], "8")
+                self.assertEqual(report["native_vortex_result_export_execution_count"], "1")
                 self.assertEqual(report["native_vortex_result_export_execution_model"],
-                                 "native_query_replayed_once_per_output_adapter")
+                                 "native_query_once_with_credited_result_replay")
+                self.assertEqual(report["native_vortex_result_export_replay_count"], "8")
+                self.assertEqual(report["native_vortex_result_export_replay_rows_detached"],
+                                 str(len(expected)))
                 self.assertEqual(report["execution_resource_declared_memory_bytes"], str(64 << 20))
                 self.assertEqual(report["native_vortex_result_export_target_roles"],
                                  "primary," + ",".join(["fanout"] * 7))
                 self.assertEqual(retained.row_export()[0], expected)
                 for (path, _), name in zip(targets, formats):
                     with self.subTest(empty=empty, format=name):
-                        if empty and name in {"json", "jsonl"}:
-                            # Empty JSON has no embedded schema. The shared input
-                            # adapter currently requires a row even with a schema.
-                            if name == "json":
-                                self.assertEqual(json.loads(path.read_text()), [])
-                            else:
-                                self.assertEqual(path.read_text(), "")
-                            continue
                         reader = session.sql(
                             f"SELECT id FROM '{path}'",
                             files=[(str(path), name.replace("_", "-"),
@@ -1497,13 +1492,15 @@ assert later.row_count == 2
                 finally:
                     events.append("closed")
 
-            frame = sl.from_batches(producer, schema=schema, streaming=True, client=client)
+            denied = sl.from_batches(producer, schema={**schema, "span": "duration(us)"},
+                                     streaming=True, client=client)
             with self.assertRaises(ShardLoomCommandError) as rejected:
-                frame.fanout({"vortex": root / "denied.vortex", "orc": root / "denied.orc"})
-            self.assertIn("ORC does not admit nested output", str(rejected.exception))
+                denied.fanout({"vortex": root / "denied.vortex", "orc": root / "denied.orc"})
+            self.assertIn("unsupported writer dtype", str(rejected.exception))
             self.assertEqual(events, [])
             self.assertEqual(list(root.iterdir()), [])
-            targets = {name: root / ("rich." + name) for name in ("vortex", "parquet", "arrow_ipc", "avro")}
+            frame = sl.from_batches(producer, schema=schema, streaming=True, client=client)
+            targets = {name: root / ("rich." + name) for name in ("vortex", "parquet", "arrow_ipc", "avro", "orc")}
             with patch("subprocess.Popen", side_effect=AssertionError("child process")), \
                  patch("shardloom._batches.BatchInput.encode", side_effect=AssertionError("JSON input")):
                 report = frame.fanout(targets)
@@ -1514,6 +1511,11 @@ assert later.row_count == 2
                     with self.subTest(format=name):
                         actual = getattr(sl, "read_" + name)(path, client=client).collect(check=True).to_arrow()
                         self.assertTrue(actual.equals(table), (actual.schema, table.schema, actual.to_pylist()))
+                        if name == "orc":
+                            import pyarrow.orc as orc
+                            independent = orc.ORCFile(path).read()
+                            self.assertEqual(independent.to_pylist(), table.to_pylist())
+                            self.assertEqual(independent.column_names, table.column_names)
             self.assertFalse(list(root.glob(".shardloom-fanout-*")))
 
     def test_public_native_stream_composition_preserves_each_producer_across_terminals(self):

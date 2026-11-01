@@ -272,6 +272,7 @@ EXPORTS: Final = MappingProxyType({
     "BatchFunctionRegistry": ("_batch_function", "application"),
     "Result": ("query", "application"),
     "from_result": ("query", "application"),
+    "read_tsv": ("query", "application"),
     "ResultType": ("_result_schema", "application"),
     "Window": ("_window", "application"),
     "WindowSpec": ("_window", "application"),

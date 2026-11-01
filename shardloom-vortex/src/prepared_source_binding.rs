@@ -2,75 +2,75 @@
 //! Generation checks are local change detection, not cryptographic authentication.
 
 use crate::source_identity::SourceIdentity;
+use crate::universal_format_io::local_dataset::LocalDataset;
 use sha2::{Digest as _, Sha256};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_exec::live_memory::LiveMemoryPool;
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(crate) const KEY: &str = "shardloom.prepared-source.v1";
 const MAX_BYTES: usize = 64 * 1024;
+
+/// Fingerprint every selected file in a local collection under one grant.
+/// The returned FNV-64 digest is change-detection evidence, not authentication.
+/// # Errors
+/// Rejects changes, cancellation, invalid collections and denied read buffers.
+pub fn fingerprint_local_dataset(
+    source: &Path,
+    format: &str,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<(u64, String)> {
+    use std::os::unix::fs::FileExt as _;
+    let collection = LocalDataset::admit(source, format, memory, cancellation)?;
+    let _scratch = memory.reserve(1 << 20)?;
+    let mut buffer = vec![0_u8; 1 << 20];
+    let mut total = 0_u64;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut update = |bytes: &[u8]| {
+        for byte in bytes {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    };
+    for entry in &collection.files {
+        cancellation.check()?;
+        let identity = SourceIdentity::capture(&entry.path)?;
+        let len = identity.generation.len;
+        if collection.files.len() > 1 || source.is_dir() || collection.manifest_identity().is_some()
+        {
+            update(&(entry.path.as_os_str().len() as u64).to_le_bytes());
+            update(entry.path.as_os_str().as_encoded_bytes());
+            update(&len.to_le_bytes());
+        }
+        let mut position = 0_u64;
+        while position < len {
+            cancellation.check()?;
+            identity.validate()?;
+            let count =
+                usize::try_from((len - position).min(buffer.len() as u64)).map_err(error)?;
+            identity
+                .file
+                .read_exact_at(&mut buffer[..count], position)
+                .map_err(error)?;
+            update(&buffer[..count]);
+            position += count as u64;
+        }
+        identity.validate()?;
+        total = total
+            .checked_add(len)
+            .ok_or_else(|| error("source byte count overflow"))?;
+    }
+    collection.validate(cancellation)?;
+    Ok((total, format!("fnv64:{hash:016x}")))
+}
 
 fn error(message: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "prepared source binding: {message}; no fallback execution was attempted"
     ))
-}
-
-fn source_paths(
-    source: &Path,
-    format: &str,
-    cancellation: &CancellationToken,
-) -> Result<Vec<PathBuf>> {
-    let mut paths = Vec::new();
-    visit_source_paths(source, format, cancellation, |path| {
-        paths.push(path.to_owned());
-        Ok(())
-    })?;
-    paths.sort();
-    Ok(paths)
-}
-
-/// Shared nonrecursive discovery for prepared and demanded local sources.
-/// The visitor admits retained metadata before allocating its own inventory.
-pub(crate) fn visit_source_paths(
-    source: &Path,
-    format: &str,
-    cancellation: &CancellationToken,
-    mut visit: impl FnMut(&Path) -> Result<()>,
-) -> Result<()> {
-    cancellation.check()?;
-    if !source.is_dir() {
-        return visit(source);
-    }
-    let mut found = false;
-    for entry in std::fs::read_dir(source).map_err(error)? {
-        cancellation.check()?;
-        let entry = entry.map_err(error)?;
-        let path = entry.path();
-        if !entry.metadata().map_err(error)?.is_file() {
-            continue;
-        }
-        let extension = path
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        let matches = match format {
-            "arrow_ipc" => matches!(extension.as_str(), "arrow" | "ipc" | "feather"),
-            "jsonl" => matches!(extension.as_str(), "jsonl" | "ndjson"),
-            other => extension == other,
-        };
-        if matches {
-            visit(&path)?;
-            found = true;
-        }
-    }
-    cancellation.check()?;
-    if !found {
-        return Err(error("source directory has no admitted files"));
-    }
-    Ok(())
 }
 
 /// Capture a versioned local source-generation binding for embedded preparation metadata.
@@ -132,19 +132,51 @@ pub fn local_preparation_binding_with_float_policy(
     cancellation: &CancellationToken,
     float_policy: FloatPolicy,
 ) -> Result<String> {
+    // Preserve the legacy metadata API with a finite standalone envelope.
+    // Product callers use the operation's shared pool via the explicit variant.
+    let memory = LiveMemoryPool::new(64 << 20)?;
+    local_preparation_binding_in_pool(
+        source,
+        format,
+        fingerprint,
+        source_schema,
+        cancellation,
+        float_policy,
+        &memory,
+    )
+}
+
+/// Bind a complete local inventory using the operation's metadata grant.
+/// # Errors
+/// Rejects invalid collections, changes, cancellation and denied reservations.
+#[allow(clippy::too_many_arguments)]
+pub fn local_preparation_binding_in_pool(
+    source: &Path,
+    format: &str,
+    fingerprint: &str,
+    source_schema: Option<&str>,
+    cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
+    memory: &LiveMemoryPool,
+) -> Result<String> {
     cancellation.check()?;
     if source_schema.is_some_and(|schema| schema.len() > MAX_BYTES) {
         return Err(error("schema metadata exceeds 64 KiB"));
     }
     let source = std::path::absolute(source).map_err(error)?;
-    let files = source_paths(&source, format, cancellation)?;
+    let collection = LocalDataset::admit(&source, format, memory, cancellation)?;
     // Bound the embedded metadata independently of partition count. Hash each
     // sorted generation with an explicit length delimiter; this fingerprints
     // the inventory, not file contents or artifact authenticity.
     let mut generations = Sha256::new();
-    for path in &files {
+    if let Some(manifest) = collection.manifest_identity() {
+        let generation = manifest.preparation_binding()?.to_string();
+        generations.update((generation.len() as u64).to_le_bytes());
+        generations.update(generation.as_bytes());
+    }
+    for file in &collection.files {
         cancellation.check()?;
-        let generation = SourceIdentity::capture(path)?
+        let generation = SourceIdentity::capture(&file.path)?
             .preparation_binding()?
             .to_string();
         generations.update(
@@ -160,7 +192,10 @@ pub fn local_preparation_binding_with_float_policy(
     }
     let mut binding = serde_json::json!({"version":1,"engine":env!("CARGO_PKG_VERSION"),
         "provider":crate::UPSTREAM_VORTEX_PROVIDER_VERSION,"source":source,"format":format,
-        "fingerprint":fingerprint,"file_count":files.len(),"generations_sha256":generations_sha256});
+        "fingerprint":fingerprint,"file_count":collection.files.len(),"generations_sha256":generations_sha256});
+    if matches!(format, "csv" | "tsv" | "json" | "jsonl" | "ndjson") {
+        binding["text_codec_version"] = 2.into();
+    }
     if let Some(schema) = source_schema {
         binding["source_schema"] = schema.into();
     }
@@ -176,6 +211,15 @@ pub fn local_preparation_binding_with_float_policy(
 }
 
 pub(crate) fn validate_controlled(binding: &str, cancellation: &CancellationToken) -> Result<()> {
+    let memory = LiveMemoryPool::new(64 << 20)?;
+    validate_in_pool(binding, cancellation, &memory)
+}
+
+pub(crate) fn validate_in_pool(
+    binding: &str,
+    cancellation: &CancellationToken,
+    memory: &LiveMemoryPool,
+) -> Result<()> {
     cancellation.check()?;
     if binding.len() > MAX_BYTES {
         return Err(error("metadata exceeds 64 KiB"));
@@ -205,13 +249,14 @@ pub(crate) fn validate_controlled(binding: &str, cancellation: &CancellationToke
         .map(FloatPolicy::parse)
         .transpose()?
         .unwrap_or_default();
-    if local_preparation_binding_with_float_policy(
+    if local_preparation_binding_in_pool(
         Path::new(source),
         format,
         fingerprint,
         source_schema,
         cancellation,
         float_policy,
+        memory,
     )? != binding
     {
         return Err(error("source generation changed during preparation"));
@@ -240,6 +285,7 @@ pub struct LocalPreparationIdentity {
     pub prepared_digest: String,
     artifact: SourceIdentity,
     source_binding: String,
+    memory: LiveMemoryPool,
     _metadata: shardloom_exec::live_memory::MemoryLease,
 }
 
@@ -259,7 +305,7 @@ impl LocalPreparationIdentity {
     pub fn validate_generation_controlled(&self, cancellation: &CancellationToken) -> Result<()> {
         cancellation.check()?;
         self.artifact.validate()?;
-        validate_controlled(&self.source_binding, cancellation)?;
+        validate_in_pool(&self.source_binding, cancellation, &self.memory)?;
         self.artifact.validate()?;
         cancellation.check()
     }
@@ -292,16 +338,8 @@ impl LocalPreparationIdentity {
         let format = fields["format"]
             .as_str()
             .ok_or_else(|| error("format missing"))?;
-        if source.is_dir() {
-            let parent = path
-                .parent()
-                .filter(|parent| !parent.as_os_str().is_empty())
-                .unwrap_or_else(|| Path::new("."));
-            let parent = std::fs::canonicalize(parent).map_err(error)?;
-            if parent.starts_with(std::fs::canonicalize(source).map_err(error)?) {
-                return Err(error("output must not change a source directory inventory"));
-            }
-        }
+        let collection = LocalDataset::admit(source, format, &self.memory, cancellation)?;
+        collection.validate_destination(path)?;
         let target = match std::fs::metadata(path) {
             Ok(target) => target,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -317,9 +355,9 @@ impl LocalPreparationIdentity {
         {
             return Err(error("source and output must be different files"));
         }
-        for source in source_paths(source, format, cancellation)? {
+        for source in &collection.files {
             cancellation.check()?;
-            let metadata = std::fs::metadata(source).map_err(error)?;
+            let metadata = std::fs::metadata(&source.path).map_err(error)?;
             if (target.dev(), target.ino()) == (metadata.dev(), metadata.ino()) {
                 return Err(error("source and output must be different files"));
             }
@@ -428,7 +466,7 @@ pub fn local_preparation_identity_controlled(
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| error("metadata reservation overflow"))?,
     )?;
-    validate_controlled(expected, cancellation)?;
+    validate_in_pool(expected, cancellation, memory)?;
     let identity = SourceIdentity::capture(path)?;
     let runtime = vortex::io::runtime::current::CurrentThreadRuntime::new();
     let session = vortex::session::VortexSession::default()
@@ -463,7 +501,7 @@ pub fn local_preparation_identity_controlled(
         ));
     }
     identity.validate()?;
-    validate_controlled(expected, cancellation)?;
+    validate_in_pool(expected, cancellation, memory)?;
     let source_digest = identity_digest(expected.as_bytes())?;
     let generation = identity.preparation_binding()?;
     let prepared_binding = serde_json::json!({
@@ -478,6 +516,7 @@ pub fn local_preparation_identity_controlled(
         prepared_digest: identity_digest(prepared_binding.to_string().as_bytes())?,
         artifact: identity,
         source_binding: expected.to_owned(),
+        memory: memory.clone(),
         _metadata: metadata,
     })
 }

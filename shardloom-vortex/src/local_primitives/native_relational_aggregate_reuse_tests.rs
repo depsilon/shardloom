@@ -36,6 +36,47 @@ fn spec(measures: Vec<Measure>) -> Spec {
 }
 
 #[test]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn metadata_count_native_result_preserves_the_full_unsigned_domain_and_overflow_errors() {
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let dtype = DType::Primitive(PType::U64, Nullability::NonNullable);
+    let mut binding = spec(vec![
+        measure(Function::Count, None, dtype.clone()),
+        measure(Function::Count, None, dtype.clone()),
+    ]);
+    binding.fields = vec![("rows".into(), dtype.clone()), ("also".into(), dtype)];
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            for rows in [(1 << 53) + 1, u64::MAX] {
+                let mut aggregate = Aggregate::new(&binding, context.memory())?;
+                aggregate.add_metadata_count(rows, context)?;
+                aggregate.finish(context, 1, &mut |array| {
+                    assert_eq!(array.len(), 1);
+                    for name in ["rows", "also"] {
+                        let value = keys(&logical_field_from_native_array(&array, name)?, context)?;
+                        assert_eq!(value.raw_cell(0)?, Cell::NonnegativeInteger(rows));
+                    }
+                    Ok(())
+                })?;
+                if rows == u64::MAX {
+                    assert!(
+                        aggregate
+                            .add_metadata_count(1, context)
+                            .unwrap_err()
+                            .to_string()
+                            .contains("aggregate count overflow")
+                    );
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn aggregate_reuse_scalar_count_uses_checked_batch_addition_without_row_sized_state() {
     let session = ResidentVortexSession::new(16 << 10, 1).unwrap();
     let memory = session.memory().clone();

@@ -153,8 +153,9 @@ pub(crate) fn immediate_parquet_target(
 
 /// The pinned Avro reader attaches record names to nested Arrow fields. They
 /// identify Avro records, not different logical payload types. Decimal fields
-/// also repeat precision/scale as metadata; require exact agreement with the
-/// declared decimal dtype. Keep names, nullability and every leaf exact.
+/// also repeat precision/scale as metadata, and nanosecond timestamps repeat
+/// their unit as a JSON string. Require exact agreement with the translated
+/// dtype. Keep names, nullability and every leaf exact.
 pub(crate) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
     if actual.name() != expected.name()
         || actual.is_nullable() != expected.is_nullable()
@@ -166,6 +167,9 @@ pub(crate) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
                     value != &precision.to_string()
                 }
                 ("scale", DataType::Decimal128(_, scale)) => value != &scale.to_string(),
+                ("arrowTimeUnit", DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _)) => {
+                    value != "\"nanosecond\""
+                }
                 _ => true,
             }
         })
@@ -322,6 +326,7 @@ fn canonical_text(
         .clone()
         .execute::<VarBinViewArray>(ctx)
         .map_err(vortex_error)?;
+    let before_values = *expanded;
     for (index, view) in text.views().iter().enumerate() {
         if index.is_multiple_of(1024) {
             limits.check()?;
@@ -332,10 +337,15 @@ fn canonical_text(
         }
         charge(expanded, usize_to_u64(len)?, limits)?;
     }
-    // A compatible contiguous byte array can share its offsets and payload with
-    // Arrow. The view above is only for byte/length admission; do not replace
-    // this representation and force the provider to rebuild it from views.
-    if array.is::<VarBin>() {
+    // A complete contiguous byte array can share its offsets and payload with
+    // Arrow. Vortex slices retain the entire bytes buffer, though, and the
+    // provider's offset-array export keeps that buffer even with CompactBuffers.
+    // In that case use the already validated views so its native builder copies
+    // only the selected values. This keeps a small conversion slice from holding
+    // unrelated large rows without increasing its resource admission.
+    if let Some(contiguous) = array.as_opt::<VarBin>()
+        && usize_to_u64(contiguous.bytes_handle().len())? <= *expanded - before_values
+    {
         Ok(array.clone())
     } else {
         Ok(text.into_array())

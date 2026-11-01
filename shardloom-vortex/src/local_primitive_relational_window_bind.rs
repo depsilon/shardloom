@@ -33,7 +33,7 @@ impl Binder<'_> {
         let mut fields = Vec::new();
         let mut columns = Vec::new();
         for column in &window.columns {
-            validate_name(column.as_str())?;
+            self.charge_name(column.as_str())?;
             fields.push((
                 column.as_str().to_owned(),
                 field(&input.fields, column.as_str())?.clone(),
@@ -52,7 +52,7 @@ impl Binder<'_> {
             ordering_keys: 0,
         };
         for expression in &window.expressions {
-            validate_name(&expression.output_column)?;
+            self.charge_name(&expression.output_column)?;
             self.window_group(expression, &input.fields, &mut spec)?;
         }
         // All ordering keys precede measure-only owners. Validate only the
@@ -110,8 +110,13 @@ impl Binder<'_> {
             if !measure.order_by.is_empty() {
                 validate_width(measure.order_by.len())?;
             }
-            self.charge_fields(measure.order_by.len())?;
-            self.charge_fields(usize::from(measure.filter_column.is_some()))?;
+            self.charge_names(measure.order_by.iter().map(|key| key.column.as_str()))?;
+            self.charge_names(
+                measure
+                    .filter_column
+                    .iter()
+                    .map(shardloom_core::ColumnRef::as_str),
+            )?;
             self.charge_items(measure.separator.as_ref().map_or(0, String::len), 3)?;
         }
         if expression.order_by.is_empty() {
@@ -124,8 +129,13 @@ impl Binder<'_> {
         if expression.partition_by.len() > 128 {
             return Err(failed("window partition exceeds 128 columns"));
         }
-        self.charge_fields(expression.partition_by.len())?;
-        self.charge_fields(expression.order_by.len())?;
+        self.charge_names(
+            expression
+                .partition_by
+                .iter()
+                .map(shardloom_core::ColumnRef::as_str),
+        )?;
+        self.charge_names(expression.order_by.iter().map(|key| key.column.as_str()))?;
         let mut partition = Vec::new();
         for column in &expression.partition_by {
             let index = key(spec, fields, column.as_str())?;

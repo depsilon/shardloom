@@ -80,7 +80,7 @@ class V1CorrectnessConformanceReportTests(unittest.TestCase):
                 "native_vortex_unified_plan -> typed result or declared sink"
             ),
             "route_ids": ["native_vortex_query"],
-            "supported_input_formats": ["csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
+            "supported_input_formats": ["csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
             "state_owner": "ResidentVortexSession",
             "reuse_scope": "native_session_or_explicit_vortex_artifact",
             "reuse_policy": "validate_source_generation_and_declaration_before_each_execution",

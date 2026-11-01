@@ -1,4 +1,4 @@
-//! Single-use input shares one certified execution and its credited native replay.
+//! Every multi-output action shares one certified execution and its credited replay.
 
 use super::super::{DType, Nullability, ReservedVec, batch_input, replay};
 use super::{
@@ -34,6 +34,21 @@ pub struct WrittenVortexRelationalFanout {
 }
 
 impl PreparedVortexRelational {
+    /// Execute once and deliver the completed native result to every destination.
+    /// A single target streams directly; multiple targets use the existing
+    /// credited native replay, with spill only under the caller's explicit policy.
+    /// # Errors
+    /// Propagates source, resource, cancellation, adapter and publication failures.
+    pub fn write_many_shared_controlled(
+        &self,
+        targets: &[(PathBuf, VortexLocalPrimitiveRowExportFormat)],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+    ) -> Result<WrittenVortexRelationalFanout> {
+        self.write_many_with_completion(targets, overwrite, cancellation, None, |_| Ok(()))
+            .map(|(written, ())| written)
+    }
+
     pub(in super::super) fn write_many_with_input(
         &self,
         targets: &[(PathBuf, VortexLocalPrimitiveRowExportFormat)],
@@ -41,24 +56,47 @@ impl PreparedVortexRelational {
         cancellation: &CancellationToken,
         input: batch_input::Provider<'_>,
     ) -> Result<WrittenVortexRelationalFanout> {
-        self.validate_batch_provider(true)?;
+        self.write_many_with_completion(targets, overwrite, cancellation, Some(input), |_| Ok(()))
+            .map(|(written, ())| written)
+    }
+
+    // The legacy vector-returning API prepares its duplicated *reports* before
+    // publication. It never repeats computation, and metadata admission failure
+    // cannot turn a successful publish into an unreported result.
+    #[allow(clippy::too_many_lines)] // One execution/staging/publication lifecycle keeps failure cleanup explicit.
+    pub(in super::super) fn write_many_with_completion<T>(
+        &self,
+        targets: &[(PathBuf, VortexLocalPrimitiveRowExportFormat)],
+        overwrite: bool,
+        cancellation: &CancellationToken,
+        input: Option<batch_input::Provider<'_>>,
+        prepare_reports: impl FnOnce(&ExecutedVortexRelational) -> Result<T>,
+    ) -> Result<(WrittenVortexRelationalFanout, T)> {
+        let sampling = self.sampling_failure_guard();
+        self.validate_batch_provider(input.is_some())?;
         cancellation.check()?;
-        output_fanout::preflight_targets(targets, overwrite)?;
         for (path, _) in targets {
             self.validate_writer_destination(path, cancellation)?;
         }
+        output_fanout::preflight_targets(targets, overwrite)?;
         if let [(path, format)] = targets {
-            let written =
-                self.write_with_input(path, *format, overwrite, cancellation, Some(input))?;
-            return Ok(WrittenVortexRelationalFanout {
-                execution: written.execution,
-                outputs: vec![written.output],
-                replay: None,
-            });
+            let written = self.write_with_input(path, *format, overwrite, cancellation, input)?;
+            // Both callers use an infallible empty result for the single target.
+            let reports = prepare_reports(&written.execution)?;
+            sampling.complete();
+            return Ok((
+                WrittenVortexRelationalFanout {
+                    execution: written.execution,
+                    outputs: vec![written.output],
+                    replay: None,
+                },
+                reports,
+            ));
         }
+        let sampling_call = self.begin_sampling_call()?;
         let (mut execution, (staged, replay)) = self.session.with_sources_execution(
             &self.sources, cancellation, |context| {
-                self.with_bound_root(context, Some(input), |root, metrics| {
+                self.with_bound_root(context, input, |root, metrics| {
                     let (_declaration_metadata, request) = self.writer_request(root, context)?;
                     let dtype = DType::struct_(root.fields.clone(), Nullability::NonNullable);
                     let mut writers = ReservedVec::new(context.memory())?;
@@ -124,6 +162,7 @@ impl PreparedVortexRelational {
             },
         )?;
         execution.runtime = self.snapshot();
+        let reports = prepare_reports(&execution)?;
         let mut outputs =
             staged.publish(|path| self.validate_writer_destination(path, cancellation))?;
         for (output, (path, _)) in outputs.iter_mut().zip(targets) {
@@ -132,10 +171,15 @@ impl PreparedVortexRelational {
             output.arrays_read_count =
                 usize::try_from(execution.scan_batches).map_err(vortex_error)?;
         }
-        Ok(WrittenVortexRelationalFanout {
-            execution,
-            outputs,
-            replay: Some(replay),
-        })
+        sampling_call.complete();
+        sampling.complete();
+        Ok((
+            WrittenVortexRelationalFanout {
+                execution,
+                outputs,
+                replay: Some(replay),
+            },
+            reports,
+        ))
     }
 }

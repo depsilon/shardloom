@@ -34,6 +34,7 @@ NEW_EXPORTS = frozenset(
         "__version__",
         "Result",
         "from_result",
+        "read_tsv",
         "ResultType",
         "ShardLoomError",
         "ShardLoomInstallationError",

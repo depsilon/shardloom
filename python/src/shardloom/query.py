@@ -47,7 +47,7 @@ from .execution_resources import (
     optional_resources, resolve_resources,
 )
 
-SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
+SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
 _NATIVE_UNARY_PRIMITIVES = frozenset({
     "distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
     "expression_project", "melt", "explode", "pivot", "rolling_window",
@@ -4547,7 +4547,7 @@ class LazyFrame:
         The final iterator report establishes completion. Retained native batch
         buffers remain charged to the original grant until their last owner is
         released; separate Python and consumer allocations use caller memory.
-        Prepare compatibility file inputs to Vortex before batch consumption.
+        Supported local files use the shared direct readers for batch consumption.
         """
         statement = self._relation_statement()
         if statement is None:
@@ -8077,9 +8077,11 @@ def column(name: object) -> ColumnExpression:
 
 
 def _source_kind_from_path(uri: str | os.PathLike[str]) -> str:
-    suffix = Path(uri).suffix.lower()
+    suffix = _source_suffix_for_local_ref(uri)
     if suffix == ".csv":
         return "csv"
+    if suffix == ".tsv":
+        return "tsv"
     if suffix in {".json", ".jsonl", ".ndjson"}:
         return "json"
     if suffix == ".parquet":
@@ -8092,24 +8094,47 @@ def _source_kind_from_path(uri: str | os.PathLike[str]) -> str:
         return "orc"
     if suffix in {".vortex", ".vtx", ".vortex-manifest"}:
         return "vortex"
-    admitted = ".csv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex, .vtx, .vortex-manifest"
+    admitted = ".csv, .tsv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex, .vtx, .vortex-manifest"
     raise ValueError(
         f"ShardLoom cannot infer a local source adapter for {uri!s}; "
         f"admitted local source extensions are {admitted}"
     )
 
 
+def _source_suffix_for_local_ref(uri: str | os.PathLike[str]) -> str:
+    """Return the local source suffix, stripping only admitted text compression."""
+
+    value = os.fspath(uri).lower()
+    if "://" in value or value.startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return Path(value).suffix.lower()
+    compression_suffixes = (".gz", ".zst", ".zstd")
+    text_suffixes = {".csv", ".tsv", ".json", ".jsonl", ".ndjson"}
+    for compression in compression_suffixes:
+        if value.endswith(compression):
+            base_suffix = Path(value[: -len(compression)]).suffix.lower()
+            if base_suffix in text_suffixes:
+                return base_suffix
+            break
+    return Path(value).suffix.lower()
+
+
 def read(
     uri: str | os.PathLike[str],
     *,
+    input_format: str | None = None,
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy local source by inferring the adapter from the path extension."""
+    """Declare a lazy local source, with an explicit format for folders or manifests.
 
-    source_kind = _source_kind_from_path(uri)
+    Omit ``input_format`` to infer the adapter from a file extension. Use
+    ``input_format="jsonl"`` for JSON Lines collections whose path does not
+    declare record framing. Source declaration does not read data.
+    """
+
+    source_kind = _source_kind_from_path(uri) if input_format is None else input_format
     if source_kind == "vortex":
         return read_vortex(
             uri,
@@ -8148,6 +8173,26 @@ def read_csv(
     )
 
 
+def read_tsv(
+    uri: str | os.PathLike[str],
+    *,
+    schema: Mapping[str, object] | None = None,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Declare a lazy quoted TAB-delimited source; no source data is loaded by this call."""
+
+    return _read_source(
+        "tsv",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+
+
 def read_json(
     uri: str | os.PathLike[str],
     *,
@@ -8178,8 +8223,8 @@ def read_parquet(
 ) -> LazyFrame:
     """Declare a lazy Parquet source without loading data.
 
-    On execution, supported local workflows load or reuse Vortex data and run
-    in the ShardLoom engine. A build with `universal-format-io` is required;
+    On execution, supported local workflows read the original file through
+    ShardLoom's shared native source owner. A build with `universal-format-io` is required;
     other builds report that the Parquet reader is unavailable.
     """
 
@@ -8201,10 +8246,10 @@ def read_arrow_ipc(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy Arrow IPC file source without loading data.
+    """Declare a lazy local Arrow IPC file or stream source without loading data.
 
-    On execution, supported local workflows load or reuse Vortex data and run
-    in the ShardLoom engine. A build with `universal-format-io` is required;
+    On execution, supported local workflows read the original file through
+    ShardLoom's shared native source owner. A build with `universal-format-io` is required;
     other builds report that the Arrow IPC reader is unavailable. This reader
     accepts local files, not in-memory Arrow tables.
     """
@@ -8229,10 +8274,10 @@ def read_avro(
 ) -> LazyFrame:
     """Declare a lazy Avro source without loading data.
 
-    On execution, supported local workflows load or reuse Vortex data and run
-    in the ShardLoom engine. A build with `universal-format-io` is required;
-    other builds report that the Avro reader is unavailable. Supported local
-    files contain flat scalar data; general Avro schema evolution is unsupported.
+    On execution, supported local workflows read the original file through
+    ShardLoom's shared native source owner. A build with `universal-format-io` is required;
+    other builds report that the Avro reader is unavailable. The embedded schema
+    must be representable; general Avro schema evolution is unsupported.
     """
 
     return _read_source(
@@ -8255,11 +8300,10 @@ def read_orc(
 ) -> LazyFrame:
     """Declare a lazy ORC source without loading data.
 
-    On execution, supported local workflows load or reuse Vortex data and run
-    in the ShardLoom engine. A build with `universal-format-io` is required;
-    other builds report that the ORC reader is unavailable. Supported local
-    files contain flat scalar data; general ORC stripe/statistics execution
-    is unsupported.
+    On execution, supported local workflows read the original file through
+    ShardLoom's shared native source owner. A build with `universal-format-io` is required;
+    other builds report that the ORC reader is unavailable. The embedded schema
+    and compression must be supported by the local adapter.
     """
 
     return _read_source(
@@ -8557,9 +8601,21 @@ def _source_format_for_sql_input_ref(value: str) -> str | None:
 
     if _is_local_vortex_source_ref(value):
         return "vortex"
-    return _source_format_for_local_source_ref(value) or _source_format_for_local_source_ref(
-        repr(value)
-    )
+    # Keep path punctuation intact for local inputs: in particular, ``?`` can
+    # be a glob wildcard and is not a URL query delimiter here. The local
+    # suffix helper recognizes compressed text suffixes while refusing to
+    # strip compression wrappers from columnar formats. Remote URI handling
+    # remains outside local SQL input inference.
+    local_format = _source_format_for_local_source_ref(value)
+    if local_format is not None:
+        if local_format == "json":
+            suffix = _source_suffix_for_local_ref(value)
+            if suffix in {".jsonl", ".ndjson"}:
+                return suffix[1:]
+        return local_format
+    if "://" in value or value.lower().startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return None
+    return _source_format_for_local_source_ref(repr(value))
 
 
 def calendar(
@@ -9228,6 +9284,8 @@ def _read_source(
 ) -> LazyFrame:
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
     normalized = source_format.strip().lower().replace("_", "-")
+    if normalized == "ndjson":
+        normalized = "jsonl"
     if normalized not in SUPPORTED_SOURCE_FORMATS:
         raise ValueError(
             f"source_format must be one of {SUPPORTED_SOURCE_FORMATS}; got {source_format!r}"
@@ -12485,9 +12543,10 @@ def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
-    return lower.endswith(
-        (
+    suffix = _source_suffix_for_local_ref(lower)
+    return suffix in {
             ".csv",
+            ".tsv",
             ".json",
             ".jsonl",
             ".ndjson",
@@ -12497,8 +12556,7 @@ def _is_local_source_sql_ref(value: str) -> bool:
             ".feather",
             ".avro",
             ".orc",
-        )
-    )
+        }
 
 
 def _is_local_vortex_source_ref(value: str) -> bool:
@@ -12597,25 +12655,26 @@ def _find_top_level_sql_phrase_span_outside_quotes(
 
 
 def _is_local_csv_source_ref(value: str) -> bool:
-    lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith(".csv")
+    return _is_local_source_sql_ref(value) and _source_suffix_for_local_ref(value) == ".csv"
 
 
 def _source_format_for_local_source_ref(value: str) -> str | None:
     if not _is_local_source_sql_ref(value):
         return None
-    lower = value.strip().lower()
-    if lower.endswith(".csv"):
+    suffix = _source_suffix_for_local_ref(value)
+    if suffix == ".csv":
         return "csv"
-    if lower.endswith((".json", ".jsonl", ".ndjson")):
+    if suffix == ".tsv":
+        return "tsv"
+    if suffix in {".json", ".jsonl", ".ndjson"}:
         return "json"
-    if lower.endswith(".parquet"):
+    if suffix == ".parquet":
         return "parquet"
-    if lower.endswith((".arrow", ".ipc", ".feather")):
+    if suffix in {".arrow", ".ipc", ".feather"}:
         return "arrow-ipc"
-    if lower.endswith(".avro"):
+    if suffix == ".avro":
         return "avro"
-    if lower.endswith(".orc"):
+    if suffix == ".orc":
         return "orc"
     return None
 
@@ -12626,10 +12685,10 @@ def _public_workflow_input_format(source: WorkflowSource) -> str | None:
     if source.relation is not None:
         return None
     if source.source_format == "json":
-        lower = source.uri.strip().lower()
-        if lower.endswith(".jsonl"):
+        suffix = _source_suffix_for_local_ref(source.uri)
+        if suffix == ".jsonl":
             return "jsonl"
-        if lower.endswith(".ndjson"):
+        if suffix == ".ndjson":
             return "ndjson"
     return source.source_format
 
@@ -12666,7 +12725,7 @@ def _workflow_batch_inputs(sources: Sequence[WorkflowSource]) -> dict[str, objec
 def _prepare_vortex_schema_hints(source: WorkflowSource) -> Mapping[str, object] | None:
     """Return CLI schema hints only for text adapters that accept them."""
 
-    if source.source_format in {"csv", "json"}:
+    if source.source_format in {"csv", "tsv", "json", "jsonl"}:
         return source.schema or None
     return None
 
@@ -12700,7 +12759,7 @@ def _is_local_orc_source_ref(value: str) -> bool:
 def _is_declared_local_source(source: WorkflowSource) -> bool:
     uri = source.uri.strip().lower()
     return (
-        source.source_format in {"csv", "json", "parquet", "arrow-ipc", "avro", "orc"}
+        source.source_format in {"csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"}
         and "://" not in uri
         and not uri.startswith(("s3:", "gs:", "abfs:", "abfss:"))
     )

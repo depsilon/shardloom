@@ -94,12 +94,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "public_workflow_native_vortex_plan_route_family"
     )
     local_file_source_opens = local_file.envelope.field_int("resident_source_opens")
+    local_file_direct_source_verified = (
+        local_file.envelope.field_int("native_source_demand_sources") == 1
+        and local_file.envelope.field("native_source_demand_formats") == "csv"
+        and (local_file.envelope.field_int("native_source_demand_data_read_bytes") or 0) > 0
+        and (local_file.envelope.field_int("native_source_demand_data_read_requests") or 0) > 0
+    )
     generated_native_plan_family = generated.envelope.field(
         "public_workflow_native_vortex_plan_route_family"
     )
     generated_session_source_opens = generated.envelope.field_int("resident_source_opens")
     # Both operations retain the same native runtime. Its opening counter is
-    # cumulative, so memory input must add zero file opens after the CSV read.
+    # cumulative and counts prepared Vortex files. Direct CSV and generated
+    # memory input must not open an intermediate Vortex file.
     generated_source_opens = (
         generated_session_source_opens - local_file_source_opens
         if generated_session_source_opens is not None and local_file_source_opens is not None
@@ -109,7 +116,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         local_file_blocker_id is None
         and local_file_runtime_execution
         and local_file_native_plan_family == "native_vortex_unified_plan"
-        and local_file_source_opens == 1
+        and local_file_source_opens == 0
+        and local_file_direct_source_verified
         and not local_file_fallback_attempted
         and not local_file_external_engine_invoked
         and local_file.output_row_count == 2
@@ -153,6 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"{local_file_native_plan_family}"
     )
     print(f"quickstart_local_file_source_opens={local_file_source_opens}")
+    print(f"quickstart_local_file_direct_source_verified={str(local_file_direct_source_verified).lower()}")
     print(f"quickstart_local_file_output_row_count={local_file.output_row_count}")
     print(f"quickstart_local_file_result_rows={local_file_result_rows}")
     print(

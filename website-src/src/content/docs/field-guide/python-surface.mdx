@@ -65,9 +65,9 @@ with plan.iter_batches(batch_rows=1024) as batches:
     assert batches.report is not None
 ```
 
-Here `plan` is a supported Vortex or typed-input plan and `consume` is your own
-batch consumer. Load other file inputs into Vortex before
-batch consumption. Python batch pipes require Linux or macOS; the Windows
+Here `plan` is a supported local-file or typed-input plan and `consume` is your own
+batch consumer. Local compatibility inputs use the shared direct readers.
+Python batch pipes require Linux or macOS; the Windows
 CLI-backed package supports collection and writers instead. A batch is provisional until the input is fully drained and
 the final report succeeds: a later producer error invalidates completion.
 Closing early cancels delivery and does not certify unobserved input.

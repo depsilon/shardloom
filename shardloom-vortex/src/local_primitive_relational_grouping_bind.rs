@@ -110,20 +110,25 @@ impl Binder<'_> {
             return Err(failed("grouping sets require at least one set"));
         }
         self.charge_items(grouping.sets.len(), 256)?;
-        self.charge_fields(grouping.indicators.len())?;
+        self.charge_names(
+            grouping
+                .indicators
+                .iter()
+                .map(|indicator| indicator.alias.as_str()),
+        )?;
         for set in &grouping.sets {
             self.charge_items(set.len(), 512)?;
         }
         for indicator in &grouping.indicators {
             self.charge_items(indicator.columns.len(), 512)?;
         }
-        self.charge_fields(
+        self.charge_fields(aggregate.measures.len())?;
+        self.charge_names(
             input
                 .fields
-                .len()
-                .checked_add(aggregate.fields.len())
-                .and_then(|count| count.checked_add(aggregate.measures.len()))
-                .ok_or_else(|| failed("grouping-set schema width overflow"))?,
+                .iter()
+                .chain(&aggregate.fields)
+                .map(|(name, _)| name.as_str()),
         )
     }
 }

@@ -288,13 +288,11 @@ impl<'consumer> CompletedRows<'consumer> {
                             let batch = super::native_payload::take_record(
                                 &array, &indices, &dtype, context,
                             )?;
-                            if batch.nbytes() <= MAX_BYTES as u64 {
+                            if batch.nbytes() <= MAX_BYTES as u64 || count == 1 {
+                                // A complete large value is already native and
+                                // credited. The terminal consumer admits its
+                                // own representation; never truncate the value.
                                 break batch;
-                            }
-                            if count == 1 {
-                                return Err(failed(
-                                    "one complete output row exceeds the native batch byte bound",
-                                ));
                             }
                             count = count.div_ceil(2);
                         };

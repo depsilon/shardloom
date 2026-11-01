@@ -67,6 +67,7 @@ from .query import (
     sql_literal_select as generated_sql_literal_select,
     sql_values as generated_sql_values,
     read_csv,
+    read_tsv,
     read_json,
     read_orc,
     read_parquet,
@@ -182,7 +183,7 @@ V1_SOURCE_PREPARED_CANONICAL_ROUTE = (
 )
 
 V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS = (
-    "csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc",
+    "csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc",
 )
 V1_SOURCE_PREPARED_ROUTE_IDS = ("native_vortex_query",)
 
@@ -1645,7 +1646,7 @@ class UserRouteCapabilityReport:
                 operation_family=family,
                 public_surfaces=_ALL_USER_FRONT_DOORS,
                 source_variants=(
-                    "csv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc",
+                    "csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc",
                     "vortex", "declared_memory", "source_free",
                 ),
                 primary_route_id=native.route_id,
@@ -3017,6 +3018,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
     ),
     _df_method(
+        "read_tsv",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
         "read_json",
         "source",
         "source_declaration_supported",
@@ -3395,7 +3402,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "Scoped `sample(n=..., seed=...)`, `sample(n=..., random_state=<int>, "
             "replace=False|True)`, and `sample(frac|fraction=..., seed|random_state=..., "
             "replace=False|True)`, with optional `weights='<numeric-column>'`, "
-            "lower local compatibility sources through prepared Vortex or native Vortex input, then "
+            "bind local compatibility sources through direct native reads or accept native Vortex input, then "
             "apply deterministic ShardLoom seeded row selection at an explicit bounded "
             "materialization boundary. Replacement sampling carries explicit duplicate-output "
             "provenance, and weighted sampling carries explicit positive weight-column evidence. "
@@ -3427,8 +3434,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         claim_boundary=(
             "Scoped `explode(\"list_column\")` and same-length multi-column "
-            "`explode(\"a\", \"b\", ...)` lower local compatibility sources through prepared "
-            "Vortex or native Vortex input, then expand declared list/fixed-size-list columns "
+            "`explode(\"a\", \"b\", ...)` bind local compatibility sources through direct "
+            "native reads or accept native Vortex input, then expand declared list/fixed-size-list columns "
             "with scalar, nullable, list, or struct element values at an explicit ShardLoom "
             "materialization boundary with cardinality and null-shape evidence. Single-level "
             "`explode(\"items.field\")` over list-of-struct elements is admitted as an explicit "
@@ -3506,8 +3513,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "with first-unique duplicate handling and duplicate-cell fail-closed diagnostics. "
             "Static List/FixedSizeList/Struct roles preserve recursive types through compact "
             "native state. Dynamic schemas compose with native operators and bounded local "
-            "writers subject to format fidelity, 128 fields and memory admission. ORC denies "
-            "nested output; CSV translates it to JSON text. Nested roles require a source "
+            "writers subject to format fidelity, 128 fields and memory admission. ORC admits "
+            "supported list/struct payloads; CSV translates nested values to JSON text. Nested roles require a source "
             "build after published v0.4.0. Relational file/resident-memory pivots accept "
             "explicit native spill under one query grant and disk quota; direct unary "
             "execution remains resident and one-shot batch input is unsupported. "
@@ -3954,7 +3961,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "a ShardLoom LazyFrame during lazy plan construction. Arbitrary unwrapped Python "
             "callables, row/column UDF execution, axis semantics, side effects, and non-LazyFrame "
             "return values still fail closed or raise local validation errors; terminal execution "
-            "remains on the selected Vortex-prepared/native route with no fallback."
+            "remains on the shared native source route with no fallback."
         ),
     ),
     _df_method(
@@ -3973,7 +3980,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "a ShardLoom LazyFrame during lazy plan construction. Arbitrary unwrapped Python "
             "callables, data UDF execution, effectful row transforms, and non-LazyFrame return "
             "values still fail closed or raise local validation errors; terminal execution remains "
-            "on the selected Vortex-prepared/native route with no fallback."
+            "on the shared native source route with no fallback."
         ),
     ),
     _df_method(
@@ -4116,7 +4123,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Exact native Vortex cast/provider projection shapes only; broad expression trees remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Exact native Vortex cast/provider projection shapes only; broad expression trees remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4134,7 +4141,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Alias over repeated admitted with_column shapes; broad expression trees remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Alias over repeated admitted with_column shapes; broad expression trees remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4152,7 +4159,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Alias over admitted with_column shapes; broad pandas-style assignment remains blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Alias over admitted with_column shapes; broad pandas-style assignment remains blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4170,7 +4177,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Exact native Vortex hash-join provider shapes only; broad join planning remains blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Exact native Vortex hash-join provider shapes only; broad join planning remains blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4260,7 +4267,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Exact native Vortex global top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Exact native Vortex global top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4278,7 +4285,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4296,7 +4303,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4314,7 +4321,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Pandas-style alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources must normalize through Vortex preparation first; "
+            "Pandas-style alias over admitted top-N provider shapes only; broad ordering semantics remain blocked. Local compatibility sources use the shared native source readers; "
             "non-admitted shapes return deterministic blockers without external fallback."
         ),
     ),
@@ -4469,7 +4476,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         claim_boundary=(
             "Scoped window projection shapes append to the ShardLoom local workflow only when "
-            "the expression is admitted and the source is Vortex-prepared or Vortex-native. "
+            "the expression is admitted and the source is admitted by the shared native source owner. "
             "Unsupported frame/order/expression shapes still return deterministic blockers "
             "without external fallback."
         ),
@@ -4488,7 +4495,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "schema_contract is admitted for bounded local workflows after Vortex preparation and "
+            "schema_contract is admitted for bounded local workflows after native source admission and "
             "schema report evidence. It is not a pandas/Polars profiler, external engine, "
             "object-store/table schema contract, or benchmark-backed schema-performance claim."
         ),
@@ -4506,7 +4513,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "schema is admitted for bounded local workflows after Vortex preparation and schema "
+            "schema is admitted for bounded local workflows after native source admission and schema "
             "report evidence. It is not object-store/table schema discovery, a pandas/Polars "
             "profiler, external engine, or benchmark-backed schema-performance claim."
         ),
@@ -4524,7 +4531,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "describe_schema is admitted for bounded local workflows after Vortex preparation and "
+            "describe_schema is admitted for bounded local workflows after native source admission and "
             "schema report evidence. It is not object-store/table schema discovery, a "
             "pandas/Polars profiler, external engine, or benchmark-backed schema-performance claim."
         ),
@@ -4543,7 +4550,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "validate_schema is admitted for bounded local workflows after Vortex preparation and "
+            "validate_schema is admitted for bounded local workflows after native source admission and "
             "schema report evidence. It is not object-store/table schema validation, a "
             "pandas/Polars profiler, external engine, or benchmark-backed schema-performance claim."
         ),
@@ -4562,7 +4569,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "data_quality_check is admitted for bounded local workflows after Vortex preparation, "
+            "data_quality_check is admitted for bounded local workflows after native source admission, "
             "schema report evidence, and declared checks. It is not a pandas/Polars profiler, "
             "external engine, production data-quality service, or benchmark-backed claim."
         ),
@@ -4581,7 +4588,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "data_quality is admitted for bounded local workflows after Vortex preparation, schema "
+            "data_quality is admitted for bounded local workflows after native source admission, schema "
             "report evidence, and declared checks. It is not a pandas/Polars profiler, external "
             "engine, production data-quality service, or benchmark-backed claim."
         ),
@@ -4600,7 +4607,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "data_quality_summary is admitted for bounded local workflows after Vortex preparation "
+            "data_quality_summary is admitted for bounded local workflows after native source admission "
             "and schema/data-quality report evidence. It is not a pandas/Polars profiler, "
             "external engine, production data-quality service, or benchmark-backed claim."
         ),
@@ -4620,8 +4627,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "Scoped bounded collect is admitted only when the local compatibility source is "
-            "prepared into Vortex or the source is already Vortex-native and the normalized "
+            "Scoped bounded collect is admitted when the shared native source owner validates "
+            "the local source and the normalized "
             "operation shape maps to an admitted primitive/provider route. It is not broad "
             "decoded DataFrame materialization, object-store/table source, external engine, "
             "fallback, or performance claim."
@@ -4641,7 +4648,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary=(
-            "Scoped count is admitted for local compatibility sources after Vortex preparation "
+            "Scoped count is admitted for local compatibility sources after native source admission "
             "and for native Vortex count/count-where primitive routes. No broad SQL/DataFrame "
             "runtime, decoded row materialization, object-store/table source, external engine, "
             "fallback, or production performance claim."
@@ -4776,7 +4783,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_pandas is admitted for bounded local workflows after Vortex preparation and a "
+            "to_pandas is admitted for bounded local workflows after native source admission and a "
             "bounded ShardLoom materialization report. pandas is an optional container boundary "
             "only, not an execution engine; missing packages fail deterministically."
         ),
@@ -4796,7 +4803,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow is admitted for bounded local workflows after Vortex preparation and a "
+            "to_arrow is admitted for bounded local workflows after native source admission and a "
             "bounded ShardLoom materialization report. PyArrow is an optional container boundary "
             "only, not an execution engine; missing packages fail deterministically."
         ),
@@ -4816,7 +4823,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow_table is admitted for bounded local workflows after Vortex preparation and a "
+            "to_arrow_table is admitted for bounded local workflows after native source admission and a "
             "bounded ShardLoom materialization report. PyArrow is an optional container boundary "
             "only, not an execution engine; missing packages fail deterministically."
         ),
@@ -4836,7 +4843,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow_ipc is admitted for bounded local workflows after Vortex preparation and a "
+            "to_arrow_ipc is admitted for bounded local workflows after native source admission and a "
             "bounded ShardLoom materialization report. PyArrow is an optional container/encoder "
             "boundary only, not an execution engine; missing packages fail deterministically."
         ),
@@ -4856,7 +4863,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_numpy is admitted for bounded local workflows after Vortex preparation and a "
+            "to_numpy is admitted for bounded local workflows after native source admission and a "
             "bounded ShardLoom materialization report. NumPy is an optional container boundary "
             "only, not an execution engine; missing packages fail deterministically."
         ),
@@ -4875,7 +4882,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_python_objects is admitted for bounded local workflows after Vortex preparation and "
+            "to_python_objects is admitted for bounded local workflows after native source admission and "
             "a bounded ShardLoom materialization report. This is decoded Python-row output, not "
             "external engine execution, object-store/table materialization, or a performance claim."
         ),
@@ -4896,7 +4903,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "preview is a bounded collect convenience only when the resulting collect shape is "
-            "admitted by the Vortex-prepared/native route. Bare select-star or broad decoded preview "
+            "admitted by the shared native route. Bare select-star or broad decoded preview "
             "shapes remain deterministic blockers until native materialization evidence exists."
         ),
     ),
@@ -4916,7 +4923,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "head is a bounded collect convenience only when the resulting collect shape is "
-            "admitted by the Vortex-prepared/native route. Bare select-star or broad decoded preview "
+            "admitted by the shared native route. Bare select-star or broad decoded preview "
             "shapes remain deterministic blockers until native materialization evidence exists."
         ),
     ),
@@ -4955,7 +4962,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "display is admitted as a bounded local preview after Vortex preparation and a "
+            "display is admitted as a bounded local preview after native source admission and a "
             "ShardLoom materialization report. It is notebook presentation only, not an external "
             "execution engine, object-store/table materialization, or a performance claim."
         ),
@@ -4997,7 +5004,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_parquet is admitted for local workflows after Vortex preparation and "
+            "write_parquet is admitted for local workflows after native source admission and "
             "Parquet sink replay evidence. Parquet is a compatibility output, not a fallback "
             "engine or a full native Vortex-layout preservation claim."
         ),
@@ -5017,7 +5024,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_arrow_ipc is admitted for local workflows after Vortex preparation and "
+            "write_arrow_ipc is admitted for local workflows after native source admission and "
             "Arrow IPC sink replay evidence. Arrow IPC is a compatibility output/container "
             "boundary, not fallback execution or a full native Vortex-layout preservation claim."
         ),
@@ -5037,7 +5044,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_avro is admitted for local workflows after Vortex preparation and Avro "
+            "write_avro is admitted for local workflows after native source admission and Avro "
             "sink replay evidence. Avro is a compatibility output, not fallback execution or a "
             "full native Vortex-layout preservation claim."
         ),
@@ -5057,7 +5064,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_orc is admitted for local workflows after Vortex preparation and ORC "
+            "write_orc is admitted for local workflows after native source admission and ORC "
             "sink replay evidence. ORC is a compatibility output, not fallback execution or a "
             "full native Vortex-layout preservation claim."
         ),
@@ -5078,7 +5085,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "quarantine is admitted for bounded local workflows after Vortex preparation and "
+            "quarantine is admitted for bounded local workflows after native source admission and "
             "declared checks, with optional local sink replay evidence. It is not object-store/"
             "table quarantine, production remediation, external engine execution, or fallback."
         ),
@@ -5199,7 +5206,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "high_level_context",
         "global_runtime_supported",
         cli_commands=("run", "vortex-prepare"),
-        context_methods=("sql", "run", "read", "read_csv", "read_json", "read_vortex",
+        context_methods=("sql", "run", "read", "read_csv", "read_tsv", "read_json", "read_vortex",
                          "from_vortex_ipc",
                          "register", "table", "list_tables", "drop_view",
                          "from_rows", "from_result", "from_batches", "literal_table", "range", "sequence", "calendar",
@@ -5383,7 +5390,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         runtime_route="native_vortex_query",
         promotion_criteria=(
             "structured adapters are format-specific ingress only; admitted public workflows must "
-            "normalize into Vortex preparation/native runtime or return deterministic adapter blockers"
+            "bind direct source reads to the shared native runtime or return deterministic adapter blockers"
         ),
         evidence_refs=("feature_gated_structured_adapter_tests", "universal_input_contract"),
         claim_boundary=(
@@ -6063,7 +6070,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         sql_surface="ctx.sql(...).schema/validate_schema/data_quality/preview/head/take",
         python_surface="LazyFrame.schema/validate_schema/data_quality/preview/head/take",
         dataframe_surface="DataFrame-style schema/data-quality/preview helpers",
-        shared_runtime_path="local source -> Vortex preparation -> bounded prepared local collect/schema/materialization evidence",
+        shared_runtime_path="local source -> direct native source binding -> bounded collect/schema/materialization evidence",
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
         runtime_execution=True,
@@ -6078,7 +6085,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Scoped local schema, validation, data-quality, preview/head/take, and bounded display "
-            "helpers are admitted after Vortex preparation through the prepared local workflow "
+            "helpers are admitted after native source admission through the shared local workflow "
             "evidence path. Object-store/table schema discovery, arbitrary SQL/DataFrame breadth, "
             "and benchmark-backed performance equivalence remain blocked."
         ),
@@ -6123,9 +6130,9 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "scoped JSON-array/JSONL/CSV row export plus JSONL/CSV fanout with an explicit "
             "decode/materialization boundary. Native `.vortex` "
             "input is already at the Vortex boundary, so this row is the direct Vortex-normalized "
-            "case. Structured Parquet/Arrow IPC/Avro compatibility exports for scoped ARRAY/STRUCT "
+            "case. Structured Parquet/Arrow IPC/Avro/ORC compatibility exports for scoped ARRAY/STRUCT "
             "projections are tracked in the typed nested compatibility sink row. This is not broad "
-            "Vortex SQL/DataFrame parity, object-store runtime, ORC/Vortex nested output, or "
+            "Vortex SQL/DataFrame parity, object-store runtime, or "
             "benchmark-backed performance equivalence."
         ),
     ),
@@ -6135,18 +6142,18 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         "global_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
-            ".write_parquet/write_arrow_ipc/write_avro"
+            ".write_parquet/write_arrow_ipc/write_avro/write_orc"
         ),
         python_surface=(
-            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro and "
+            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro/write_orc and "
             "ctx.read(...).with_columns({'values': sl.array(...), 'payload': sl.struct(...)})"
         ),
         dataframe_surface=(
-            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro"
+            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro/write_orc"
         ),
         shared_runtime_path=(
-            "compatibility input -> Vortex preparation -> native_vortex expression_project "
-            "structured row export -> Parquet/Arrow IPC/Avro compatibility sink"
+            "compatibility input -> direct native source binding -> native_vortex expression_project "
+            "structured row export -> Parquet/Arrow IPC/Avro/ORC compatibility sink"
         ),
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
@@ -6164,21 +6171,21 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Scoped ARRAY literal and STRUCT-from-source-column projections over local CSV/JSONL "
-            "after Vortex preparation, or native `.vortex` input, can export through ShardLoom's "
-            "native Vortex structured row stream into Parquet, Arrow IPC, and Avro compatibility "
-            "sinks with explicit decode/materialization evidence. This does not claim ORC nested "
-            "output, Vortex nested output, all-null computed nested columns without child-schema "
+            "after native source admission, or native `.vortex` input, can export through ShardLoom's "
+            "native Vortex structured row stream into Parquet, Arrow IPC, Avro, and ORC compatibility "
+            "sinks with explicit decode/materialization evidence. Native Vortex output retains its "
+            "separate fidelity contract. This does not claim all-null computed nested columns without child-schema "
             "evidence, broad nested ordering, complex-key joins, production SQL nested parity, or "
             "benchmarked performance equivalence."
         ),
     ),
     _front_door_row(
         "native_vortex_general_runtime",
-        "general admitted native/prepared Vortex read, transform, and write workflows",
+        "general admitted native Vortex and direct local read, transform, and write workflows",
         "global_runtime_supported",
         runtime_gap_status="admitted_scope",
-        sql_surface="admitted SQL `.vortex` and Vortex-prepared local workflows using the shared native Vortex plan contract",
-        python_surface="ctx.read_vortex(...), prepared local LazyFrame.collect(), profile, and write_* for admitted operator/sink families",
+        sql_surface="admitted SQL `.vortex` and direct local workflows using the shared native Vortex plan contract",
+        python_surface="ctx.read_vortex(...), local LazyFrame.collect(), profile, and write_* for admitted operator/sink families",
         dataframe_surface="read_vortex(...).filter/select/group_by/join/nlargest/cast/contains/profile/write_* for admitted operator families",
         shared_runtime_path="native_vortex_unified_plan over primitive/provider/profile/sink capillaries",
         parity_status="equivalent_admitted_scope",
@@ -6198,7 +6205,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Admitted SQL, Python, and DataFrame-style native `.vortex` inputs, plus local "
-            "compatibility sources after Vortex preparation, share the `native_vortex_unified_plan` "
+            "compatibility sources after native source admission, share the `native_vortex_unified_plan` "
             "contract for primitive, provider, profile, and declared sink capillaries. This covers "
             "only the documented operator families and explicit typed result/sink boundaries; it "
             "does not claim arbitrary SQL/DataFrame breadth, object-store/table runtime, UDF/effect "
@@ -6214,7 +6221,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         python_surface="from_pandas/from_arrow_table/from_arrow_ipc and LazyFrame to_* helpers",
         dataframe_surface="DataFrame-style bounded materialization and notebook preview helpers",
         shared_runtime_path=(
-            "local source -> Vortex preparation -> bounded prepared local collect -> optional "
+            "local source -> direct native source binding -> bounded local collect -> optional "
             "container conversion boundary"
         ),
         parity_status="equivalent_admitted_scope",
@@ -6233,7 +6240,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         ),
         claim_boundary=(
             "Bounded decoded Python/Arrow/NumPy/display interop is admitted only after local "
-            "compatibility inputs are Vortex-prepared and collected through the prepared local "
+            "compatibility inputs are bound and collected through the shared native local "
             "workflow. Optional packages are containers or compatibility encoders, not execution "
             "engines. This row does not claim object-store/table materialization, arbitrary "
             "SQL/DataFrame breadth, or benchmark-backed performance equivalence."
@@ -6292,7 +6299,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "materialization, declared sinks, deterministic blockers, and no fallback"
         ),
         shared_runtime_path=(
-            "front-door expression -> ShardLoom semantic profile -> Vortex preparation/native "
+            "front-door expression -> ShardLoom semantic profile -> direct native source binding/native "
             "Vortex unified plan -> primitive/provider/profile/sink capillaries"
         ),
         parity_status="equivalent_admitted_scope",
@@ -11435,11 +11442,12 @@ class ShardLoomContext:
         self,
         uri: str | os.PathLike[str],
         *,
+        input_format: str | None = None,
         schema: Mapping[str, object] | None = None,
     ) -> LazyFrame:
-        """Declare a lazy local source by inferring the adapter from the path extension."""
+        """Declare a lazy local source with an optional explicit collection format."""
 
-        return read_source(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
+        return read_source(uri, input_format=input_format, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_csv(
         self,
@@ -11450,6 +11458,16 @@ class ShardLoomContext:
         """Declare a lazy CSV source using this context's execution settings."""
 
         return read_csv(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
+
+    def read_tsv(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy quoted TAB-delimited source using this context's execution settings."""
+
+        return read_tsv(uri, schema=schema, client=self.client, engine_mode=self.engine, resources=self.resources, resource_limits=self.resource_limits)
 
     def read_json(
         self,

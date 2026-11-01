@@ -188,6 +188,55 @@ class NativeSemanticsTransportTests(unittest.TestCase):
                 self.assertEqual(stage["status"], "failed")
                 self.assertTrue(any(failure in blocker for blocker in stage["blockers"]), stage["blockers"])
 
+    def test_binary_writer_requires_complete_safe_readback_and_unchanged_artifact(self) -> None:
+        expected = [{"id": 1, "score": 2.5, "label": None}]
+        case = self.checker.SqlFixtureCase(
+            case_id="transport_orc_writer", source_name="fact.csv",
+            source_text="id,score,label\n1,2.5,\n", statement_template="SELECT * FROM '{source}'",
+            expected_jsonl=json.dumps(expected[0]) + "\n", output_format="orc", output_name="result.orc",
+        )
+        for mutation in (None, "wrong_values", "truncated", "unsafe", "changed_file", "uncommitted", "failed_readback"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                output = root / "work" / case.case_id / "result.orc"
+                fields = [
+                    {"key": "native_vortex_result_export_path", "value": str(output)},
+                    {"key": "native_vortex_result_export_format", "value": "orc"},
+                    {"key": "public_workflow_requested_output", "value": "write_orc"},
+                    {"key": "native_vortex_result_export_rows_written", "value": "1"},
+                    {"key": "native_vortex_result_export_all_targets_committed", "value": "false" if mutation == "uncommitted" else "true"},
+                ]
+
+                def run_binary(**kwargs):
+                    command = kwargs["command"]
+                    request = command[command.index("--request") + 1]
+                    if request == "write_orc":
+                        output.write_bytes(b"mock ORC artifact; real codec checked by executable fixtures")
+                        return self.completed(command, workflow_envelope(fields))
+                    self.assertEqual(request, "collect")
+                    self.assertEqual(json.loads(command[command.index("--source-bindings") + 1]),
+                                     {str(output): {"input_format": "orc"}})
+                    self.assertIn(str(output), command[command.index("--sql") + 1])
+                    rows = [{"id": 2, "score": 2.5, "label": None}] if mutation == "wrong_values" else expected
+                    payload = workflow_envelope(self.typed_result_fields(rows, row_count=2 if mutation == "truncated" else 1))
+                    if mutation == "unsafe":
+                        payload["fallback"]["attempted"] = True
+                    if mutation == "changed_file":
+                        output.write_bytes(b"changed during readback")
+                    return self.completed(command, payload, returncode=1 if mutation == "failed_readback" else 0)
+
+                with mock.patch.object(self.checker, "run_subprocess", side_effect=run_binary) as run:
+                    stage = self.checker.run_executable_case(
+                        repo_root=root, binary=self.binary, work_dir=root / "work", case=case,
+                        matrix_row={"support_state": "executable", "decoded_reference_kind": "jsonl_inline_reference"},
+                    )
+                self.assertEqual(run.call_count, 2)
+                self.assertEqual(stage["status"], "passed" if mutation is None else "failed", stage["blockers"])
+                self.assertTrue(stage["output_artifact_digest"].startswith("sha256:"))
+                self.assertTrue((root / stage["output_readback_ref"]).is_file())
+                if mutation is None:
+                    self.assertEqual(stage["expected_output_digest"], stage["observed_output_digest"])
+
     def test_writer_requires_commit_evidence_and_exact_complete_output_bytes(self) -> None:
         case = self.checker.SqlFixtureCase(
             case_id="transport_csv_writer",

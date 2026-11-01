@@ -26,7 +26,7 @@ mod sources;
 pub(super) use batches::run as run_batches;
 pub(super) use sources::{
     has_file_collection, prepare_in_session, prepare_in_session_with_reuse,
-    prepare_native_in_session,
+    prepare_native_in_session, prepare_primitive_in_session,
 };
 
 pub(super) struct PreparedPublicRelational {
@@ -49,7 +49,20 @@ pub(super) fn route(request: &PublicWorkflowRouteRequest) -> Option<PublicWorkfl
 pub(super) fn route_admitted_statement(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<PublicWorkflowRoutePlan> {
-    let statement = request.sql_statement.as_deref()?;
+    if super::uses_primitive_source_demand(request)
+        && let Some(primitive) = super::normalized_vortex_primitive(request)
+        && let Some(blocked) = super::native_vortex_primitive_payload_blocker(request, primitive)
+    {
+        return Some(blocked);
+    }
+    if request.sql_statement.is_none() && !super::uses_primitive_source_demand(request) {
+        return None;
+    }
+    let statement = match sources::source_statement(request) {
+        Ok(statement) => statement,
+        Err(error) => return Some(denied(&error.to_string())),
+    };
+    let statement = statement.as_ref();
     if let Err(error) = sources::validate_bindings(statement, request) {
         return Some(denied(&error.to_string()));
     }
@@ -185,9 +198,9 @@ fn execute(
     admission: &crate::command_context::CommandAdmission<'_>,
 ) -> Result<(), ShardLoomError> {
     admission.check()?;
-    let statement = request.sql_statement.as_deref().ok_or_else(|| {
-        ShardLoomError::InvalidOperation("native relational SQL is absent".into())
-    })?;
+    let primitive = super::uses_primitive_source_demand(request);
+    let statement = sources::source_statement(request)?;
+    let statement = statement.as_ref();
     let reused = session.relational.as_ref().is_some_and(|entry| {
         entry.request == *request && entry.preparations.same_generations(&preparations)
     }) && !sources::has_file_collection(
@@ -198,14 +211,23 @@ fn execute(
     )?;
     if !reused {
         session.clear();
-        let (operation, prepared_sources) = sources::prepare_with_source_in_session(
-            statement,
-            request,
-            source,
-            preparations.clone(),
-            admission.native_session()?,
-            &admission.cancellation(),
-        )?;
+        let (operation, prepared_sources) = if primitive {
+            let (operation, _, normalized) = sources::prepare_primitive_in_session(
+                request,
+                admission.native_session()?,
+                &admission.cancellation(),
+            )?;
+            (operation, normalized)
+        } else {
+            sources::prepare_with_source_in_session(
+                statement,
+                request,
+                source,
+                preparations.clone(),
+                admission.native_session()?,
+                &admission.cancellation(),
+            )?
+        };
         session.relational = Some(PreparedPublicRelational {
             request: request.clone(),
             operation,
@@ -311,37 +333,16 @@ fn execute_write_controlled(
                 blocked.blocker_reason, blocked.diagnostics
             ))
         })?;
-    let written = if targets.len() == 1 {
-        let target = &targets[0];
-        vec![operation.write_controlled(
-            &target.path,
-            target.format,
-            request.allow_overwrite,
-            cancellation,
-        )?]
-    } else {
-        operation.write_many_controlled(
-            &targets
-                .iter()
-                .map(|target| (target.path.clone(), target.format))
-                .collect::<Vec<_>>(),
-            request.allow_overwrite,
-            cancellation,
-        )?
-    };
-    emit_written(format, &targets, written, fields, reused);
-    Ok(())
-}
-
-#[cfg(feature = "vortex-write")]
-fn emit_written(
-    format: OutputFormat,
-    targets: &[super::NativeVortexPrimitiveRowExportTarget],
-    written: Vec<shardloom_vortex::local_primitives::prepared_relational::WrittenVortexRelational>,
-    mut fields: Vec<(String, String)>,
-    reused: bool,
-) {
-    let primary = append_written(&mut fields, targets, written, reused);
+    let written = operation.write_many_shared_controlled(
+        &targets
+            .iter()
+            .map(|target| (target.path.clone(), target.format))
+            .collect::<Vec<_>>(),
+        request.allow_overwrite,
+        cancellation,
+    )?;
+    let mut fields = fields;
+    let primary = append_written_fanout(&mut fields, &targets, written, reused);
     emit(
         "run",
         format,
@@ -354,6 +355,7 @@ fn emit_written(
         primary.diagnostics,
         fields,
     );
+    Ok(())
 }
 
 #[cfg(feature = "vortex-write")]
@@ -398,7 +400,17 @@ pub(super) fn append_written_fanout(
         },
     );
     append_execution(fields, &written.execution, reused);
-    let replay = written.replay.as_ref();
+    append_output_replay_fields(fields, written.replay.as_ref());
+    written.outputs.remove(0)
+}
+
+#[cfg(feature = "vortex-write")]
+pub(super) fn append_output_replay_fields(
+    fields: &mut Vec<(String, String)>,
+    replay: Option<
+        &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalOutputReplay,
+    >,
+) {
     fields.extend([
         (
             "native_vortex_result_export_replay_performed".into(),
@@ -425,7 +437,6 @@ pub(super) fn append_written_fanout(
             replay.map_or(0, |r| r.replays).to_string(),
         ),
     ]);
-    written.outputs.remove(0)
 }
 
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
@@ -887,6 +898,9 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     // and owner release, rather than a transport snapshot taken during binding.
     let completed = [
         ("native_source_demand_sources", input.columnar_sources.to_string()),
+        ("native_source_demand_formats", input.columnar_source_formats.join(",")),
+        ("native_source_demand_parquet_sources", input.columnar_parquet_sources.to_string()),
+        ("native_source_demand_schema_discovery_read_bytes", input.columnar_schema_discovery_read_bytes.to_string()),
         ("native_source_demand_files", input.columnar_files.to_string()),
         ("native_source_demand_projected_columns", input.columnar_projected_columns.to_string()),
         ("native_source_demand_available_columns", input.columnar_available_columns.to_string()),
@@ -901,6 +915,9 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_source_demand_content_fingerprints", input.columnar_content_fingerprints.join(";")),
         ("native_source_demand_data_read_bytes", input.columnar_data_read_bytes.to_string()),
         ("native_source_demand_data_read_requests", input.columnar_data_read_requests.to_string()),
+        ("native_source_metadata_count_sources", input.metadata_count_sources.to_string()),
+        ("native_source_metadata_count_rows", input.metadata_count_rows.to_string()),
+        ("native_source_metadata_count_validation_scope", "when_active:exact_nonnegative_file_and_row_group_counts;checked_u64_accumulation;complete_held_inventory;generation_before_completion_and_after_final_consumer;metadata_only;no_data_page_or_value_validation".into()),
         ("native_source_ranked_sources", input.ranked_sources.to_string()),
         ("native_source_ranked_rank_columns", input.ranked_rank_columns.to_string()),
         ("native_source_ranked_rank_rows", input.ranked_rank_rows.to_string()),
@@ -954,7 +971,9 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_replay_spilled_sources", input.replay_spilled_sources.to_string()),
         ("native_input_replay_prefilled_sources", input.replay_prefilled_sources.to_string()),
         ("native_input_replay_pass_accounting", "completed_replay_scans;includes_first_query_read_after_prefill;excludes_direct_consumption_while_recording".into()),
-        ("native_batch_input_storage", if input.replay_sources > 0 {
+        ("native_batch_input_storage", if input.metadata_count_sources == input.sources as u64 {
+            "held_source_metadata;no_payload_reader_or_input_batch;independent_native_scalar_output"
+        } else if input.replay_sources > 0 {
             "single_current_producer_batch;released_before_next_demand;declared_replay_retained_as_credited_native_arrays_or_policy_admitted_query_runs;replay_and_operator_state_reported_separately"
         } else {
             "single_current_native_batch;released_before_next_demand;operator_state_spill_reported_separately"
@@ -968,24 +987,44 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         fields.push((key.into(), value));
     }
     if input.columnar_sources > 0 {
-        append_columnar_input_scope(fields);
+        append_columnar_input_scope(
+            fields,
+            input.metadata_count_sources == input.columnar_sources,
+            input.columnar_parquet_sources == input.columnar_sources,
+        );
     }
 }
 
-fn append_columnar_input_scope(fields: &mut Vec<(String, String)>) {
+fn append_columnar_input_scope(
+    fields: &mut Vec<(String, String)>,
+    metadata_only: bool,
+    parquet_only: bool,
+) {
     for (key, value) in [
         (
             "native_source_demand_validation_scope",
-            "metadata;demanded_columns_and_regions;held_generation_before_reads_and_after_final_consumer;not_full_ingest_certification",
+            if metadata_only {
+                "exact_file_and_row_group_cardinality;complete_held_inventory;held_generation_before_completion_and_after_final_consumer;metadata_only;no_data_page_or_value_validation;not_full_ingest_certification"
+            } else {
+                "metadata;demanded_columns_and_regions;metadata_count_sources_validate_cardinality_only;held_generation_before_reads_and_after_final_consumer;not_full_ingest_certification"
+            },
         ),
         (
             "native_source_demand_decoder_memory_scope",
-            "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copied_or_transferred_buffers_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound",
+            if parquet_only {
+                "selected_chunk_uncompressed_workspace_admitted_before_decode;read_buffers_and_native_copied_or_transferred_buffers_credited;upstream_decoder_allocations_not_allocator_limited;not_rss_bound"
+            } else {
+                "format_metadata_and_batch_shape_workspace;retained_arrow_and_native_copies_credited;incremental_text_records_and_batches_credited;upstream_binary_decoder_allocations_not_allocator_limited;not_rss_bound"
+            },
         ),
         ("native_source_demand_prepared_input_bytes_written", "0"),
         (
             "native_source_demand_byte_scope",
-            "owned_demand_reader_sources_only;excludes_other_inputs_and_output_writes;actual_execution_positional_read_bytes;metadata_bytes_are_initial_admission_measurements_repeated_with_cached_descriptors;not_unique_bytes_or_decoded_bytes;source_counts_summed",
+            if parquet_only {
+                "owned_demand_reader_sources_only;excludes_other_inputs_and_output_writes;actual_execution_positional_read_bytes;metadata_bytes_are_initial_admission_measurements_repeated_with_cached_descriptors;not_unique_bytes_or_decoded_bytes;source_counts_summed"
+            } else {
+                "owned_demand_reader_sources_only;actual_execution_read_bytes_including_provider_metadata_rereads_and_readahead;initial_metadata_and_complete_text_schema_discovery_reported_separately;projection_does_not_imply_byte_pruning;row_group_counts_only_for_parquet;not_unique_or_decoded_bytes"
+            },
         ),
     ] {
         fields.retain(|(existing, _)| existing != key);

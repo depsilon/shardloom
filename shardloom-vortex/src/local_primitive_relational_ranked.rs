@@ -54,7 +54,9 @@ impl PreparedVortexRelational {
             return Ok(false);
         };
         let declaration = &self.batch_sources[*index];
-        if !declaration.usage.admits_ranked() || (plan.filter.is_some() && predicate.is_none()) {
+        if !declaration.usage.admits_independent_read()
+            || (plan.filter.is_some() && predicate.is_none())
+        {
             return Ok(false);
         }
         context.check_cancelled()?;

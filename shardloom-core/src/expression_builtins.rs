@@ -30,6 +30,8 @@ pub enum ScalarTypeRule {
     Coalesce,
     NullIf,
     Conditional,
+    PrimitiveRefererCase,
+    PrimitiveHaving,
 }
 
 impl ScalarTypeRule {
@@ -78,6 +80,12 @@ impl ScalarTypeRule {
             Self::Conditional => {
                 "Boolean condition and compatible branches -> shared native common branch type"
             }
+            Self::PrimitiveRefererCase => {
+                "UTF8, integer, integer -> UTF8; preserve the declared primitive CASE contract"
+            }
+            Self::PrimitiveHaving => {
+                "scalar, literal comparison, literal value -> Boolean; preserve primitive HAVING value ordering"
+            }
         }
     }
 }
@@ -88,6 +96,8 @@ pub enum ScalarNullRule {
     AlwaysNullable,
     AllNullable,
     Branches,
+    RequiredControlValues,
+    OrderedNull,
 }
 
 impl ScalarNullRule {
@@ -100,6 +110,10 @@ impl ScalarNullRule {
             Self::Branches => {
                 "TRUE selects first branch; FALSE/NULL selects second; branch nullability"
             }
+            Self::RequiredControlValues => {
+                "NULL controls or a selected NULL text value are errors; successful results are nonnull"
+            }
+            Self::OrderedNull => "NULL sorts below nonnull values; the result is nonnull",
         }
     }
     #[must_use]
@@ -132,8 +146,8 @@ impl ScalarDefinition {
 }
 
 macro_rules! definitions {
-    ($(($name:literal, [$($alias:literal),*], $min:literal, $max:literal, $types:ident, $nulls:ident, $family:literal, $reference:literal, $summary:literal)),* $(,)?) => {
-        pub const SCALARS: &[ScalarDefinition] = &[$(ScalarDefinition {
+    ($visibility:vis $catalog:ident, $(($name:literal, [$($alias:literal),*], $min:literal, $max:literal, $types:ident, $nulls:ident, $family:literal, $reference:literal, $summary:literal)),* $(,)?) => {
+        $visibility const $catalog: &[ScalarDefinition] = &[$(ScalarDefinition {
             name: $name, aliases: &[$($alias),*], min_args: $min, max_args: $max,
             type_rule: ScalarTypeRule::$types, null_rule: ScalarNullRule::$nulls,
             family: $family, reference_supported: $reference, summary: $summary,
@@ -142,6 +156,33 @@ macro_rules! definitions {
 }
 
 definitions!(
+    PRIMITIVE_SCALARS,
+    (
+        "primitive_aggregate_having",
+        [],
+        3,
+        3,
+        PrimitiveHaving,
+        OrderedNull,
+        "primitive_aggregate_having",
+        false,
+        "Apply the existing primitive aggregate HAVING comparison, including NULL and mixed value-family ordering."
+    ),
+    (
+        "case_search_adv_zero_referer_else_empty",
+        [],
+        3,
+        3,
+        PrimitiveRefererCase,
+        RequiredControlValues,
+        "primitive_conditional_projection",
+        false,
+        "Preserve the native primitive CASE: return referer when both integer controls are zero, otherwise empty text; required NULL values are errors."
+    ),
+);
+
+definitions!(
+    pub SCALARS,
     (
         "is_nan",
         [],
@@ -882,6 +923,16 @@ pub fn scalar(name: &str) -> Option<&'static ScalarDefinition> {
     })
 }
 
+/// Compatibility kernels used while lowering existing primitive declarations.
+/// These are separate from the public SQL/DataFrame function catalog.
+#[doc(hidden)]
+#[must_use]
+pub fn primitive_scalar(name: &str) -> Option<&'static ScalarDefinition> {
+    PRIMITIVE_SCALARS
+        .iter()
+        .find(|definition| definition.name == name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -906,5 +957,20 @@ mod tests {
             }
         }
         assert!(scalar("external_evaluator").is_none());
+    }
+
+    #[test]
+    fn primitive_compatibility_kernels_do_not_expand_public_function_discovery() {
+        for name in [
+            "primitive_aggregate_having",
+            "case_search_adv_zero_referer_else_empty",
+        ] {
+            let definition = primitive_scalar(name).unwrap();
+            assert_eq!(definition.min_args, 3);
+            assert_eq!(definition.max_args, 3);
+            assert!(!definition.reference_supported);
+            assert!(scalar(name).is_none());
+        }
+        assert!(primitive_scalar("external_evaluator").is_none());
     }
 }

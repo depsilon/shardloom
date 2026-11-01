@@ -268,6 +268,7 @@ mod native {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn memory_query_fanout_reopens_all_eight_formats_through_the_public_engine() {
         use std::{
             fs,
@@ -321,6 +322,14 @@ mod native {
         );
         assert_eq!(
             field(&envelope, "native_vortex_result_export_execution_count"),
+            Some("1")
+        );
+        assert_eq!(
+            field(&envelope, "native_vortex_result_export_replay_performed"),
+            Some("true")
+        );
+        assert_eq!(
+            field(&envelope, "native_vortex_result_export_replay_count"),
             Some("8")
         );
         assert_eq!(

@@ -22,6 +22,8 @@ use bytes::Bytes;
 use crate::proto;
 
 pub mod column;
+mod rich_column;
+pub(crate) mod schema;
 pub mod stripe;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

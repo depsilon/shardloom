@@ -7,6 +7,17 @@
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod whole_json_typed;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(crate) mod direct_text;
+
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+mod dataset_prepare;
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
@@ -51,7 +62,7 @@ pub(crate) use syntax::native_unary_request;
 const VORTEX_PREPARE_COMMAND: &str = "vortex-prepare";
 
 const ADMITTED_LOCAL_SOURCE_EXTENSIONS: &str =
-    ".csv,.json,.jsonl,.ndjson,.parquet,.arrow,.ipc,.feather,.avro,.orc";
+    ".csv,.tsv,.json,.jsonl,.ndjson,.parquet,.arrow,.ipc,.feather,.avro,.orc";
 const VORTEX_PREPARE_SCHEMA_VERSION: &str = "shardloom.vortex_prepare.v1";
 const LOCAL_SOURCE_STATE_SCHEMA_VERSION: &str = "shardloom.local_source_state.v1";
 const LOCAL_INPUT_ADAPTER_REGISTRY_VERSION: &str = "shardloom.local_input_adapter_registry.v1";
@@ -243,7 +254,7 @@ impl SqlLocalSourceRuntimeProfile {
 fn vortex_prepare_usage() -> String {
     format!(
         "usage: shardloom {VORTEX_PREPARE_COMMAND} <local-source-path> <target.vortex> \
-         [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex] \
+         [--input-format csv|tsv|json|jsonl|parquet|arrow-ipc|avro|orc|vortex] \
          [--schema name:dtype,...] [--allow-overwrite] \
          [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] \
          [--source-fingerprint-policy metadata_only|content_digest] \
@@ -265,6 +276,7 @@ fn vortex_prepare_usage_error(missing: &str) -> ShardLoomError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LocalSourceFormat {
     Csv,
+    Tsv,
     Json,
     JsonLines,
     Parquet,
@@ -290,6 +302,7 @@ impl LocalSourceFormat {
     fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
             "csv" => Some(Self::Csv),
+            "tsv" => Some(Self::Tsv),
             "json" => Some(Self::Json),
             "jsonl" | "ndjson" => Some(Self::JsonLines),
             "parquet" => Some(Self::Parquet),
@@ -303,6 +316,7 @@ impl LocalSourceFormat {
     fn from_extension(extension: &str) -> Option<Self> {
         match extension.to_ascii_lowercase().as_str() {
             "csv" => Some(Self::Csv),
+            "tsv" => Some(Self::Tsv),
             "json" => Some(Self::Json),
             "jsonl" | "ndjson" => Some(Self::JsonLines),
             "parquet" => Some(Self::Parquet),
@@ -316,6 +330,7 @@ impl LocalSourceFormat {
     const fn as_str(self) -> &'static str {
         match self {
             Self::Csv => "csv",
+            Self::Tsv => "tsv",
             Self::Json => "json",
             Self::JsonLines => "jsonl",
             Self::Parquet => "parquet",
@@ -328,6 +343,7 @@ impl LocalSourceFormat {
     const fn row_label(self) -> &'static str {
         match self {
             Self::Csv => "CSV",
+            Self::Tsv => "TSV",
             Self::Json => "JSON",
             Self::JsonLines => "JSONL",
             Self::Parquet => "Parquet",
@@ -340,6 +356,7 @@ impl LocalSourceFormat {
     const fn adapter_id(self) -> &'static str {
         match self {
             Self::Csv => "local_csv_input_adapter",
+            Self::Tsv => "local_tsv_input_adapter",
             Self::Json => "local_json_input_adapter",
             Self::JsonLines => "local_jsonl_input_adapter",
             Self::Parquet => "local_parquet_input_adapter",
@@ -352,6 +369,7 @@ impl LocalSourceFormat {
     const fn adapter_registry_entry_id(self) -> &'static str {
         match self {
             Self::Csv => "shardloom.local_input_adapter.csv.v1",
+            Self::Tsv => "shardloom.local_input_adapter.tsv.v1",
             Self::Json => "shardloom.local_input_adapter.json.v1",
             Self::JsonLines => "shardloom.local_input_adapter.jsonl.v1",
             Self::Parquet => "shardloom.local_input_adapter.parquet.v1",
@@ -364,6 +382,7 @@ impl LocalSourceFormat {
     const fn admitted_extensions(self) -> &'static str {
         match self {
             Self::Csv => ".csv",
+            Self::Tsv => ".tsv",
             Self::Json => ".json",
             Self::JsonLines => ".jsonl,.ndjson",
             Self::Parquet => ".parquet",
@@ -375,14 +394,16 @@ impl LocalSourceFormat {
 
     const fn feature_gate(self) -> &'static str {
         match self {
-            Self::Csv | Self::Json | Self::JsonLines => "default",
+            Self::Csv | Self::Tsv | Self::Json | Self::JsonLines => "default",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => "universal-format-io",
         }
     }
 
     const fn adapter_boundary(self) -> &'static str {
         match self {
-            Self::Csv | Self::Json | Self::JsonLines => "local_text_source_state_adapter",
+            Self::Csv | Self::Tsv | Self::Json | Self::JsonLines => {
+                "local_text_source_state_adapter"
+            }
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "local_columnar_source_state_adapter"
             }
@@ -391,7 +412,7 @@ impl LocalSourceFormat {
 
     const fn scalar_parse_normalization(self) -> &'static str {
         match self {
-            Self::Csv | Self::Json | Self::JsonLines => "local_text_to_scalar_rows",
+            Self::Csv | Self::Tsv | Self::Json | Self::JsonLines => "local_text_to_scalar_rows",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "arrow_record_batch_to_scalar_rows"
             }
@@ -406,7 +427,7 @@ impl LocalSourceFormat {
             return LocalSourceProjectionPushdownStatus::NotRequestedFullRead;
         }
         match self {
-            Self::Csv | Self::Json | Self::JsonLines => {
+            Self::Csv | Self::Tsv | Self::Json | Self::JsonLines => {
                 LocalSourceProjectionPushdownStatus::TextParserColumnPruning
             }
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
@@ -421,6 +442,14 @@ impl LocalSourceFormat {
             self,
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
         )
+    }
+
+    fn delimiter(self) -> Result<char, ShardLoomError> {
+        match self {
+            Self::Csv => Ok(','),
+            Self::Tsv => Ok('\t'),
+            _ => Err(unsupported_sql_error("source format is not delimited text")),
+        }
     }
 }
 
@@ -439,6 +468,19 @@ enum LocalInputAdapterSelectionKind {
 
 impl LocalInputAdapterSelection {
     fn infer_from_path(path: &Path) -> Result<Self, ShardLoomError> {
+        let unwrapped;
+        let compressed = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| {
+                matches!(value.to_ascii_lowercase().as_str(), "gz" | "zst" | "zstd")
+            });
+        let path = if compressed {
+            unwrapped = path.with_extension("");
+            unwrapped.as_path()
+        } else {
+            path
+        };
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
             return Err(unsupported_sql_error(&format!(
                 "local input adapter registry requires a supported file extension; admitted local source extensions are {ADMITTED_LOCAL_SOURCE_EXTENSIONS}"
@@ -450,6 +492,19 @@ impl LocalInputAdapterSelection {
                 "local input adapter registry cannot infer a supported source adapter from extension '.{normalized_extension}'; admitted local source extensions are {ADMITTED_LOCAL_SOURCE_EXTENSIONS}"
             )));
         };
+        if compressed
+            && !matches!(
+                source_format,
+                LocalSourceFormat::Csv
+                    | LocalSourceFormat::Tsv
+                    | LocalSourceFormat::Json
+                    | LocalSourceFormat::JsonLines
+            )
+        {
+            return Err(unsupported_sql_error(
+                "compression wrappers are admitted only for CSV, TSV, JSON and JSONL sources",
+            ));
+        }
         Ok(Self {
             source_format,
             source_extension: normalized_extension,
@@ -846,7 +901,13 @@ impl VortexIngestSourceData {
     }
 
     fn source_read_buffer_carry_status(&self) -> &'static str {
-        if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
+        if matches!(
+            self.materialization_layout,
+            "incremental_json_to_streaming_arrow_record_batch_source_state"
+                | "incremental_text_to_streaming_arrow_record_batch_source_state"
+        ) {
+            "incremental_schema_discovery_then_generation_checked_record_replay"
+        } else if self.materialization_layout == "whole_json_typed_columns_with_batched_writer" {
             "read_once_buffer_carried_to_text_parser"
         } else if self.columnar_source_preserved {
             if self.source_fingerprint.content_performed {
@@ -1187,7 +1248,7 @@ impl SchemaDeclaredTextRecordBatchReader {
                 self.source_format.row_label(),
             )?;
             let row = match self.source_format {
-                LocalSourceFormat::Csv => self.csv_row_from_line(&line)?,
+                LocalSourceFormat::Csv | LocalSourceFormat::Tsv => self.csv_row_from_line(&line)?,
                 LocalSourceFormat::JsonLines
                 | LocalSourceFormat::Json
                 | LocalSourceFormat::Parquet
@@ -1216,12 +1277,13 @@ impl SchemaDeclaredTextRecordBatchReader {
 
     fn csv_row_from_line(&self, line: &str) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
         let trimmed = line.trim_end_matches(['\r', '\n']);
-        let fields = split_csv_record(trimmed).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "{} CSV row {} is not admitted: {error}; no fallback execution was attempted",
-                self.context, self.next_row_number
-            ))
-        })?;
+        let fields =
+            split_delimited_record(trimmed, self.source_format.delimiter()?).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "{} CSV row {} is not admitted: {error}; no fallback execution was attempted",
+                    self.context, self.next_row_number
+                ))
+            })?;
         if fields.len() != self.header.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "{} CSV row {} has {} fields, expected {}; no fallback execution was attempted",
@@ -1380,6 +1442,7 @@ fn text_stream_policy_token(
 ) -> String {
     let format = match source_format {
         LocalSourceFormat::Csv => "csv",
+        LocalSourceFormat::Tsv => "tsv",
         LocalSourceFormat::JsonLines => "jsonl",
         LocalSourceFormat::Json
         | LocalSourceFormat::Parquet
@@ -1402,7 +1465,7 @@ fn schema_declared_text_stream_contract(
     if source_schema_hints.is_empty()
         || !matches!(
             source_format,
-            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+            LocalSourceFormat::Csv | LocalSourceFormat::Tsv | LocalSourceFormat::JsonLines
         )
         || source_schema_hints
             .iter()
@@ -1427,7 +1490,7 @@ fn schema_declared_text_stream_contract(
         .map(|(name, dtype)| schema_declared_text_arrow_dtype(dtype, name, &context).map(Some))
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
     match source_format {
-        LocalSourceFormat::Csv => {
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv => {
             let file = fs::File::open(source_path).map_err(|error| {
                 ShardLoomError::InvalidOperation(format!(
                     "{context} failed to open {} for streaming read: {error}; no fallback execution was attempted",
@@ -1447,7 +1510,12 @@ fn schema_declared_text_stream_contract(
                     "CSV source must include a header row",
                 ));
             }
-            let mut header = split_csv_record(header_line.trim_end_matches(['\r', '\n']))?;
+            let mut header = split_delimited_record(
+                header_line
+                    .trim_start_matches('\u{feff}')
+                    .trim_end_matches(['\r', '\n']),
+                source_format.delimiter()?,
+            )?;
             strip_utf8_bom_from_first_header_cell(&mut header);
             for column in &header {
                 validate_sql_identifier(column)?;
@@ -1631,7 +1699,7 @@ fn inferred_text_stream_contract(
     cancellation.check()?;
     if !matches!(
         source_format,
-        LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv | LocalSourceFormat::JsonLines
     ) {
         return Ok(None);
     }
@@ -1640,9 +1708,12 @@ fn inferred_text_stream_contract(
         source_format.row_label()
     );
     let (header, inferred) = match source_format {
-        LocalSourceFormat::Csv => {
-            infer_csv_text_stream_schema(source_path, max_input_rows, cancellation)?
-        }
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv => infer_csv_text_stream_schema(
+            source_path,
+            source_format.delimiter()?,
+            max_input_rows,
+            cancellation,
+        )?,
         LocalSourceFormat::JsonLines => {
             infer_jsonl_text_stream_schema(source_path, max_input_rows, cancellation)?
         }
@@ -1667,7 +1738,10 @@ fn inferred_text_stream_contract(
         ))
     })?;
     let mut reader = BufReader::new(file);
-    if source_format == LocalSourceFormat::Csv {
+    if matches!(
+        source_format,
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv
+    ) {
         let mut header_line = String::new();
         read_csv_record(&mut reader, &mut header_line).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -1693,6 +1767,7 @@ fn inferred_text_stream_contract(
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn infer_csv_text_stream_schema(
     source_path: &Path,
+    delimiter: char,
     max_input_rows: Option<usize>,
     cancellation: &CancellationToken,
 ) -> Result<(Vec<String>, Vec<InferredTextColumnKind>), ShardLoomError> {
@@ -1717,7 +1792,12 @@ fn infer_csv_text_stream_schema(
             "CSV source must include a header row",
         ));
     }
-    let mut header = split_csv_record(header_line.trim_end_matches(['\r', '\n']))?;
+    let mut header = split_delimited_record(
+        header_line
+            .trim_start_matches('\u{feff}')
+            .trim_end_matches(['\r', '\n']),
+        delimiter,
+    )?;
     strip_utf8_bom_from_first_header_cell(&mut header);
     if header.is_empty() {
         return Err(unsupported_sql_error("CSV source header must not be empty"));
@@ -1745,7 +1825,7 @@ fn infer_csv_text_stream_schema(
         }
         row_count += 1;
         enforce_local_source_row_budget(row_count, max_input_rows, "CSV")?;
-        let record = split_csv_record(line.trim_end_matches(['\r', '\n']))?;
+        let record = split_delimited_record(line.trim_end_matches(['\r', '\n']), delimiter)?;
         if record.len() != header.len() {
             return Err(unsupported_sql_error(
                 "CSV row width must match the header width for the inferred-schema Universal Ingest stream",
@@ -1944,6 +2024,9 @@ fn coerce_schema_declared_json_scalar(
         }
         (LogicalDType::Float64, ScalarValue::Float64(value)) => Ok(ScalarValue::Float64(value)),
         (LogicalDType::Float64, ScalarValue::Int64(value)) => {
+            Ok(ScalarValue::Float64(value as f64))
+        }
+        (LogicalDType::Float64, ScalarValue::UInt64(value)) => {
             Ok(ScalarValue::Float64(value as f64))
         }
         (LogicalDType::Utf8, ScalarValue::Utf8(value)) => Ok(ScalarValue::Utf8(value)),
@@ -2913,6 +2996,7 @@ pub(crate) fn prepare_local_source_as_vortex_for_public_workflow_with_float_poli
         source_schema,
         cancellation,
         float_policy,
+        &preparation_memory,
     )?);
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
     drop(binding_control);
@@ -3104,7 +3188,7 @@ fn public_preparation_identity_fields(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-pub(crate) fn parquet_source_content_fingerprint_requested(
+pub(crate) fn source_content_fingerprint_requested(
     policy: Option<&str>,
 ) -> Result<bool, ShardLoomError> {
     Ok(policy
@@ -3115,29 +3199,7 @@ pub(crate) fn parquet_source_content_fingerprint_requested(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-pub(crate) fn parquet_preparation_source_binding_with_float_policy(
-    path: &Path,
-    policy: Option<&str>,
-    memory: &shardloom_exec::live_memory::LiveMemoryPool,
-    cancellation: &CancellationToken,
-    float_policy: shardloom_core::FloatPolicy,
-) -> Result<String, ShardLoomError> {
-    let policy = policy
-        .map(SourceFingerprintPolicy::parse)
-        .transpose()?
-        .unwrap_or(SourceFingerprintPolicy::DEFAULT_PUBLIC_PREPARE);
-    let _control = memory.reserve(preparation_control_bytes(policy))?;
-    public_preparation_source_binding(
-        path,
-        Some(LocalSourceFormat::Parquet),
-        policy,
-        None,
-        cancellation,
-        float_policy,
-    )
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+#[allow(clippy::too_many_arguments)]
 fn public_preparation_source_binding(
     path: &Path,
     format: Option<LocalSourceFormat>,
@@ -3145,40 +3207,36 @@ fn public_preparation_source_binding(
     source_schema: Option<&str>,
     cancellation: &CancellationToken,
     float_policy: shardloom_core::FloatPolicy,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<String, ShardLoomError> {
     cancellation.check()?;
     let format = LocalInputAdapterSelection::select(path, format)?.source_format;
-    let initial =
-        shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
-            path,
-            format.as_str(),
-            policy.as_str(),
-            source_schema,
-            cancellation,
-            float_policy,
-        )?;
-    if policy == SourceFingerprintPolicy::MetadataOnly {
-        return Ok(initial);
-    }
-    let scout = if path.is_dir() {
-        scout_local_source_partition_files_with_budget(path, format, None, policy, cancellation)?
-            .evidence
-    } else {
-        fingerprint_local_source_file_with_budget_report(
-            path,
-            format.row_label(),
-            None,
-            policy,
-            cancellation,
-        )?
-    };
-    if shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
+    let initial = shardloom_vortex::prepared_source_binding::local_preparation_binding_in_pool(
         path,
         format.as_str(),
         policy.as_str(),
         source_schema,
         cancellation,
         float_policy,
+        memory,
+    )?;
+    if policy == SourceFingerprintPolicy::MetadataOnly {
+        return Ok(initial);
+    }
+    let (_, digest) = shardloom_vortex::prepared_source_binding::fingerprint_local_dataset(
+        path,
+        format.as_str(),
+        memory,
+        cancellation,
+    )?;
+    if shardloom_vortex::prepared_source_binding::local_preparation_binding_in_pool(
+        path,
+        format.as_str(),
+        policy.as_str(),
+        source_schema,
+        cancellation,
+        float_policy,
+        memory,
     )? != initial
     {
         return Err(ShardLoomError::InvalidOperation(
@@ -3186,13 +3244,14 @@ fn public_preparation_source_binding(
                 .into(),
         ));
     }
-    shardloom_vortex::prepared_source_binding::local_preparation_binding_with_float_policy(
+    shardloom_vortex::prepared_source_binding::local_preparation_binding_in_pool(
         path,
         format.as_str(),
-        &scout.digest,
+        &digest,
         source_schema,
         cancellation,
         float_policy,
+        memory,
     )
 }
 
@@ -3864,6 +3923,15 @@ fn run_vortex_ingest_prepare_once_with_adapter(
     };
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
     let _ = &source_adapter;
+    #[cfg(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))]
+    if dataset_prepare::is_collection(&request.source_path) {
+        return dataset_prepare::prepare(request, source_adapter, source_schema_hints);
+    }
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
         if source_adapter
@@ -4326,6 +4394,9 @@ fn layout_uses_streaming_columnar_source(source: &VortexIngestSourceData) -> boo
             | "typed_text_rows_to_streaming_arrow_record_batch_source_state"
             | "schema_declared_text_to_streaming_arrow_record_batch_source_state"
             | "whole_json_typed_columns_with_batched_writer"
+            | "incremental_json_to_streaming_arrow_record_batch_source_state"
+            | "incremental_text_to_streaming_arrow_record_batch_source_state"
+            | "complete_local_dataset_to_streaming_arrow_record_batch_source_state"
     ) || source
         .source_stream_policy
         .contains("record_batch_stream_batch_size")
@@ -4703,11 +4774,15 @@ fn run_scalar_vortex_prepare(
     source_schema_hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-    if source_adapter.source_format == LocalSourceFormat::Json
-        && !request.source_path.is_dir()
-        && source_schema_hints.is_empty()
+    if matches!(
+        source_adapter.source_format,
+        LocalSourceFormat::Csv
+            | LocalSourceFormat::Tsv
+            | LocalSourceFormat::Json
+            | LocalSourceFormat::JsonLines
+    ) && !request.source_path.is_dir()
     {
-        return whole_json_typed::prepare(request, source_adapter);
+        return whole_json_typed::prepare(request, source_adapter, source_schema_hints);
     }
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     if let Some(report) = try_run_schema_declared_text_vortex_prepare(
@@ -4868,7 +4943,7 @@ fn try_run_schema_declared_text_vortex_prepare(
     if request.source_path.is_dir()
         || !matches!(
             source_adapter.source_format,
-            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+            LocalSourceFormat::Csv | LocalSourceFormat::Tsv | LocalSourceFormat::JsonLines
         )
     {
         return Ok(None);
@@ -5110,7 +5185,7 @@ fn try_run_inferred_text_vortex_prepare(
     if request.source_path.is_dir()
         || !matches!(
             source_adapter.source_format,
-            LocalSourceFormat::Csv | LocalSourceFormat::JsonLines
+            LocalSourceFormat::Csv | LocalSourceFormat::Tsv | LocalSourceFormat::JsonLines
         )
     {
         return Ok(None);
@@ -5942,7 +6017,7 @@ fn stream_columnar_vortex_ingest_file_source(
             shardloom_vortex::stream_flat_avro_columnar_source(path, max_rows)
         }
         LocalSourceFormat::Orc => shardloom_vortex::stream_flat_orc_columnar_source(path, max_rows),
-        LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
             Err(ShardLoomError::InvalidOperation(format!(
                 "local {} source does not have a columnar vortex_ingest SourceState route; no fallback execution was attempted",
                 source_format.row_label()
@@ -8703,6 +8778,7 @@ fn source_state_digest_for_source(
     source.source_state_digest(source_schema_digest)
 }
 
+#[allow(clippy::too_many_lines)] // One exhaustive format dispatch keeps adapter semantics visible.
 fn read_local_source_with_plan_and_adapter(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -8738,10 +8814,14 @@ fn read_local_source_with_plan_and_adapter(
     let source_digest = fnv64_digest_bytes(&bytes);
     let parse_start = Instant::now();
     let content = match source_format {
-        LocalSourceFormat::Csv => {
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            let (header, rows) =
-                parse_csv_source_content_with_plan(&content, read_plan, read_limits.input_rows)?;
+            let (header, rows) = parse_csv_source_content_with_delimiter(
+                &content,
+                read_plan,
+                read_limits.input_rows,
+                source_format.delimiter()?,
+            )?;
             LocalSourceReadContent::text(source_format, header, rows)
         }
         LocalSourceFormat::Json => {
@@ -8831,11 +8911,12 @@ fn read_local_source_directory_with_plan_and_adapter(
     let read_millis = read_start.elapsed().as_millis();
     let parse_start = Instant::now();
     let content = match source_format {
-        LocalSourceFormat::Csv => {
-            let (header, rows) = parse_csv_partition_files_with_plan(
+        LocalSourceFormat::Csv | LocalSourceFormat::Tsv => {
+            let (header, rows) = parse_delimited_partition_files_with_plan(
                 &partition_files.files,
                 read_plan,
                 read_limits.input_rows,
+                source_format,
             )?;
             LocalSourceReadContent::text(source_format, header, rows)
         }
@@ -9083,10 +9164,20 @@ fn read_orc_source_content(
     ))
 }
 
+#[cfg(test)]
 fn parse_csv_source_content_with_plan(
     content: &str,
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    parse_csv_source_content_with_delimiter(content, read_plan, max_input_rows, ',')
+}
+
+fn parse_csv_source_content_with_delimiter(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
+    max_input_rows: Option<usize>,
+    delimiter: char,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut reader = std::io::Cursor::new(content.as_bytes());
     let mut line = String::new();
@@ -9095,7 +9186,12 @@ fn parse_csv_source_content_with_plan(
             match read_csv_record(&mut reader, &mut line) {
                 Ok(0) => return None,
                 Ok(_) if line.trim().is_empty() => {}
-                Ok(_) => return Some(split_csv_record(line.trim_end_matches(['\r', '\n']))),
+                Ok(_) => {
+                    return Some(split_delimited_record(
+                        line.trim_end_matches(['\r', '\n']),
+                        delimiter,
+                    ));
+                }
                 Err(error) => return Some(Err(error)),
             }
         }
@@ -9133,22 +9229,24 @@ fn parse_csv_source_content_with_plan(
     Ok((header, rows))
 }
 
-fn parse_csv_partition_files_with_plan(
+fn parse_delimited_partition_files_with_plan(
     files: &[LocalSourcePartitionFile],
     read_plan: &LocalSourceReadPlan,
     max_input_rows: Option<usize>,
+    source_format: LocalSourceFormat,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut header: Option<Vec<String>> = None;
     let mut rows = Vec::new();
+    let delimiter = source_format.delimiter()?;
     for file in files {
-        let content =
-            decode_local_text_source(&file.path, LocalSourceFormat::Csv, file.bytes.clone())?;
+        let content = decode_local_text_source(&file.path, source_format, file.bytes.clone())?;
         let (file_header, mut file_rows) =
-            parse_csv_source_content_with_plan(&content, read_plan, None)?;
+            parse_csv_source_content_with_delimiter(&content, read_plan, None, delimiter)?;
         if let Some(header) = &header {
             if header != &file_header {
                 return Err(unsupported_sql_error(&format!(
-                    "CSV partition file {} has header {}, expected {}; no fallback execution was attempted",
+                    "{} partition file {} has header {}, expected {}; no fallback execution was attempted",
+                    source_format.row_label(),
                     file.path.display(),
                     file_header.join(","),
                     header.join(",")
@@ -9158,7 +9256,7 @@ fn parse_csv_partition_files_with_plan(
             header = Some(file_header);
         }
         rows.append(&mut file_rows);
-        enforce_partition_row_budget(rows.len(), max_input_rows, "CSV")?;
+        enforce_partition_row_budget(rows.len(), max_input_rows, source_format.row_label())?;
     }
     Ok((header.unwrap_or_default(), rows))
 }
@@ -9858,6 +9956,16 @@ fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
         Ok(ScalarValue::Boolean(false))
     } else if let Ok(parsed) = token.parse::<i64>() {
         Ok(ScalarValue::Int64(parsed))
+    } else if let Ok(parsed) = token.parse::<u64>() {
+        Ok(ScalarValue::UInt64(parsed))
+    } else if token
+        .trim_start_matches(['-', '+'])
+        .bytes()
+        .all(|byte| byte.is_ascii_digit())
+    {
+        Err(unsupported_sql_error(
+            "JSON integer is outside the exact int64/uint64 range; use an explicit string representation",
+        ))
     } else if let Ok(parsed) = token.parse::<f64>() {
         if parsed.is_finite() {
             Ok(ScalarValue::Float64(parsed))
@@ -10624,6 +10732,16 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         ScalarValue::Boolean(false)
     } else if let Ok(parsed) = value.parse::<i64>() {
         ScalarValue::Int64(parsed)
+    } else if let Ok(parsed) = value.parse::<u64>() {
+        ScalarValue::UInt64(parsed)
+    } else if value
+        .trim_start_matches(['-', '+'])
+        .bytes()
+        .all(|byte| byte.is_ascii_digit())
+    {
+        // Text outside the exact integer domain stays text; interpreting it
+        // through float64 would silently change its value.
+        ScalarValue::Utf8(raw.to_string())
     } else if let Some(parsed) = csv_decimal_exponent_integer(value) {
         ScalarValue::Int64(parsed)
     } else if let Ok(parsed) = value.parse::<f64>() {
@@ -10733,23 +10851,50 @@ fn read_csv_record(
     }
 }
 
+#[cfg(test)]
 fn split_csv_record(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    split_delimited_record(raw, ',')
+}
+
+fn split_delimited_record(raw: &str, delimiter: char) -> Result<Vec<String>, ShardLoomError> {
     let mut values = Vec::new();
     let mut current = String::new();
     let mut chars = raw.chars().peekable();
     let mut in_quote = false;
+    let mut field_started = false;
     while let Some(ch) = chars.next() {
         match ch {
             '"' if in_quote && chars.peek() == Some(&'"') => {
                 current.push('"');
                 let _ = chars.next();
+                field_started = true;
             }
-            '"' => in_quote = !in_quote,
-            ',' if !in_quote => {
+            '"' if in_quote => {
+                in_quote = false;
+                if chars.peek().is_some_and(|next| *next != delimiter) {
+                    return Err(unsupported_sql_error(
+                        "delimited text closing quote must be followed by the delimiter or end of record",
+                    ));
+                }
+            }
+            '"' if !field_started => {
+                in_quote = true;
+                field_started = true;
+            }
+            '"' => {
+                return Err(unsupported_sql_error(
+                    "delimited text quote may only open at the beginning of a field",
+                ));
+            }
+            ch if ch == delimiter && !in_quote => {
                 values.push(current);
                 current = String::new();
+                field_started = false;
             }
-            _ => current.push(ch),
+            _ => {
+                current.push(ch);
+                field_started = true;
+            }
         }
     }
     if in_quote {
@@ -10794,7 +10939,7 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
     format!("fnv64:{hash:016x}")
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 fn fnv64_digest_bytes_controlled(
     value: &[u8],
     cancellation: &CancellationToken,
@@ -10832,6 +10977,24 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "{reason}; no fallback execution was attempted and external_engine_invoked=false"
     ))
+}
+
+#[cfg(test)]
+mod tsv_delimited_record_tests {
+    use super::*;
+
+    #[test]
+    fn tsv_parser_handles_quotes_multiline_bom_and_malformed_quotes() {
+        let row = split_delimited_record("\u{feff}id\tlabel\ttext", '\t').unwrap();
+        assert_eq!(row, ["\u{feff}id", "label", "text"]);
+        let row = split_delimited_record("1\t\"hello\tworld\"\t\"say \"\"hi\"\"\"", '\t').unwrap();
+        assert_eq!(row, ["1", "hello\tworld", "say \"hi\""]);
+        let row = split_delimited_record("2\t\"line one\nline two\"\tend", '\t').unwrap();
+        assert_eq!(row, ["2", "line one\nline two", "end"]);
+        assert!(split_delimited_record("1\tpre\"post\tend", '\t').is_err());
+        assert!(split_delimited_record("1\t\"open\tend", '\t').is_err());
+        assert!(split_delimited_record("1\t\"closed\"suffix", '\t').is_err());
+    }
 }
 
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]

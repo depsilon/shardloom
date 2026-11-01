@@ -44,7 +44,7 @@ pub struct ArrowReaderBuilder<R> {
     pub(crate) schema_ref: Option<SchemaRef>,
     pub(crate) file_byte_range: Option<Range<usize>>,
     pub(crate) row_selection: Option<RowSelection>,
-    pub(crate) timestamp_precision: TimestampPrecision,
+    pub(crate) timestamp_precision: Option<TimestampPrecision>,
     pub(crate) predicate: Option<Predicate>,
 }
 
@@ -58,7 +58,7 @@ impl<R> ArrowReaderBuilder<R> {
             schema_ref: None,
             file_byte_range: None,
             row_selection: None,
-            timestamp_precision: TimestampPrecision::default(),
+            timestamp_precision: None,
             predicate: None,
         }
     }
@@ -133,7 +133,7 @@ impl<R> ArrowReaderBuilder<R> {
     ///     .build();
     /// ```
     pub fn with_timestamp_precision(mut self, precision: TimestampPrecision) -> Self {
-        self.timestamp_precision = precision;
+        self.timestamp_precision = Some(precision);
         self
     }
 
@@ -191,8 +191,11 @@ impl<R> ArrowReaderBuilder<R> {
             .map(|(key, value)| (key.clone(), String::from_utf8_lossy(value).to_string()))
             .collect::<HashMap<_, _>>();
         self.schema_ref.clone().unwrap_or_else(|| {
-            let options =
-                ArrowSchemaOptions::new().with_timestamp_precision(self.timestamp_precision);
+            let options = match self.timestamp_precision {
+                Some(precision) => ArrowSchemaOptions::new().with_timestamp_precision(precision),
+                None => ArrowSchemaOptions::new()
+                    .with_source_timestamp_units(self.file_metadata.timestamp_units()),
+            };
             Arc::new(projected_data_type.create_arrow_schema_with_options(&metadata, options))
         })
     }

@@ -450,7 +450,8 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "local_file_vortex_collect_present": (
             marker_present(stdout, "quickstart_local_file_route_status=passed")
             and marker_present(stdout, "quickstart_local_file_native_plan_family=native_vortex_unified_plan")
-            and marker_present(stdout, "quickstart_local_file_source_opens=1")
+            and marker_present(stdout, "quickstart_local_file_source_opens=0")
+            and marker_present(stdout, "quickstart_local_file_direct_source_verified=true")
         ),
         "unsupported_fixture_present": (
             marker_present(stdout, "quickstart_unsupported_blocker_id=")

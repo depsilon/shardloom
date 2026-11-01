@@ -1089,6 +1089,13 @@ class NativeFloatPolicyTests(unittest.TestCase):
                         batches.close()
                         self.equal(retained_table, wanted(kind, 0, retained_table.num_rows))
                         clean()
+                        # Retained output correctly continues to charge this
+                        # same small grant after cancellation. Prove its refund
+                        # before asking the grant to run another complete query.
+                        held = bounded._native_backend.session.snapshot()["reserved_bytes"]
+                        del retained, retained_table, batches
+                        self.assertLess(
+                            bounded._native_backend.session.snapshot()["reserved_bytes"], held)
                     consume(frame, kind, spill)
                 bounded.close()
 

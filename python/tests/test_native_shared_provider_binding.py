@@ -194,7 +194,7 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         self.assertEqual(result.report["external_engine_invoked"], "false")
         return self.pa.RecordBatchReader.from_stream(result).read_all()
 
-    def all_surfaces(self, frame, relation, statement, report_checks=None):
+    def all_surfaces(self, frame, relation, statement, report_checks=None, *, file_binding=None):
         """Execute complete declarations through five real public entry points."""
         import shardloom as sl
 
@@ -207,12 +207,17 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         self.assertEqual(result.envelope.field("external_engine_invoked"), "false")
         check(result.envelope.field)
         tables = [result.to_arrow()]
-        for plan in (self.session.plan(relation), self.session.sql(statement)):
+        files = [] if file_binding is None else [(str(file_binding[0]), file_binding[1], None)]
+        for plan in (self.session.plan(relation, files=files), self.session.sql(statement, files=files)):
             result = plan.collect()
             check(result.report.get)
             tables.append(self.table(result))
         arguments = ["sql", "--sql", statement, "--request", "collect", "--bounded", "true",
                      "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
+        query_input = {}
+        if file_binding is not None:
+            query_input = {"input": str(file_binding[0]), "input_format": file_binding[1]}
+            arguments.extend(["--input", query_input["input"], "--input-format", query_input["input_format"]])
         result = self.session.workflow(arguments).collect()
         check(result.report.get)
         tables.append(self.table(result))
@@ -224,7 +229,7 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                                     transport="subprocess", use_persistent_worker=False,
                                     memory_bytes=128 << 20, max_parallelism=2, timeout=30)
             try:
-                result = sl.sql(statement, client=cli).collect(check=True)
+                result = sl.sql(statement, client=cli, **query_input).collect(check=True)
                 self.assertFalse(result.envelope.fallback.attempted)
                 self.assertEqual(result.envelope.field("external_engine_invoked"), "false")
                 check(result.envelope.field)
@@ -2342,6 +2347,53 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
                     self.assertEqual(table.to_pylist(), [{"record_total": expected}])
                     self.assertEqual(table.schema.field("record_total").type, pa.uint64())
                     self.assertEqual(table.schema, tables[0].schema)
+
+    def test_direct_parquet_metadata_count_all_five_surfaces_and_owned_outputs(self):
+        if __package__:
+            from .native_metadata_count_cases import check_counts_and_outputs
+        else:
+            from native_metadata_count_cases import check_counts_and_outputs
+        check_counts_and_outputs(self)
+
+    def test_direct_parquet_metadata_count_declines_other_aggregate_domains(self):
+        if __package__:
+            from .native_metadata_count_cases import check_declines
+        else:
+            from native_metadata_count_cases import check_declines
+        check_declines(self)
+
+    def test_json_lines_aliases_and_compression_use_shared_direct_reads(self):
+        import gzip
+        import shardloom as sl
+
+        client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+        self.addCleanup(client.close)
+        records = [{"id": -1, "label": None}, {"id": 2, "label": "café雪"}]
+        content = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in records).encode()
+        expr = self.native.Expression
+        with tempfile.TemporaryDirectory(prefix="shardloom-json-lines-alias-") as directory:
+            root = Path(directory)
+            for suffix, data in (
+                ("jsonl", content), ("ndjson", content),
+                ("ndjson.gz", gzip.compress(content)),
+                ("ndjson.zst", self.pa.compress(content, codec="zstd").to_pybytes()),
+            ):
+                with self.subTest(suffix=suffix):
+                    path = root / f"records.{suffix}"
+                    path.write_bytes(data)
+                    frame = sl.read(path, client=client).filter("id > 0").select("id", "label")
+                    relation = self.native.Relation.scan(str(path)).filter(
+                        expr.column("id") > expr.literal(0)).project([
+                            ("id", expr.column("id")), ("label", expr.column("label"))])
+                    sql = f"SELECT id,label FROM '{path}' WHERE id > 0"
+                    checks = {"native_source_demand_sources": "1",
+                              "native_source_demand_formats": "jsonl",
+                              "native_source_demand_prepared_input_bytes_written": "0"}
+                    for table in self.all_surfaces(frame, relation, sql, checks,
+                                                   file_binding=(path, "ndjson")):
+                        self.assertEqual(table.to_pylist(), [records[1]])
+                    self.assertEqual(path.read_bytes(), data)
+                    self.assertFalse((root / ".shardloom").exists())
 
     def test_constant_group_reads_only_real_keys_on_every_surface(self):
         import shardloom as sl

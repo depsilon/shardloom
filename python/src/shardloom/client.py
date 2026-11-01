@@ -42,7 +42,7 @@ Binary = Union[CommandPart, Sequence[CommandPart]]
 FanoutOutputs = Union[Mapping[str, CommandPart], Sequence[tuple[str, CommandPart]]]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset(
-    {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
+    {"csv", "tsv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
 )
 DECIMAL_CAST_TYPED_DECIMAL_OUTPUT_BOUNDARY = (
     "jsonl_exact_decimal_string_csv_exact_decimal_text_"

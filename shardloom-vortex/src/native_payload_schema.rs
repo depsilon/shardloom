@@ -324,6 +324,24 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
     Ok(budget.bytes)
 }
 
+/// File readers retain the existing ingest dictionary admission, independently
+/// of the experimental caller-owned encoded Arrow transport boundary.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub(crate) fn arrow_file_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64> {
+    if let arrow_schema::DataType::Dictionary(keys, values) = dtype {
+        if crate::vortex_ingest::dictionary_column_family(dtype).is_none() {
+            return Err(unsupported());
+        }
+        // The ingest contract permits scalar dictionaries only at the top
+        // level. Nested layouts still use the ordinary bounded schema visitor.
+        return arrow_metadata_bytes(keys)?
+            .checked_add(arrow_metadata_bytes(values)?)
+            .and_then(|bytes| bytes.checked_add(1024))
+            .ok_or_else(|| failed("columnar schema metadata overflow"));
+    }
+    arrow_metadata_bytes(dtype)
+}
+
 // The experimental transport control does not broaden the logical-value
 // validator. These leaves have no finite-float or decimal-precision condition;
 // Arrow's full validation checks their buffers before the owned copy/import.

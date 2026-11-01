@@ -3123,6 +3123,7 @@ dependencies = [
  "arrow-schema",
  "bytes",
  "flatbuffers",
+ "flate2",
  "futures",
  "hashbrown 0.17.1",
  "lending-iterator",
@@ -3146,6 +3147,7 @@ dependencies = [
  "vortex",
  "vortex-compressor",
  "vortex-zstd",
+ "zstd",
 ]
 
 [[package]]

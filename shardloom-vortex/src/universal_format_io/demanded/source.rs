@@ -2,7 +2,7 @@
 //! fingerprints. Metadata admission never decodes pages or writes preparation.
 
 use super::{ArrowReaderMetadata, CancellationToken, OwnedLocalRead, Result, failed};
-use crate::{prepared_source_binding::visit_source_paths, source_identity::SourceIdentity};
+use crate::{source_identity::SourceIdentity, universal_format_io::local_dataset::LocalDataset};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::{
     path::{Path, PathBuf},
@@ -13,7 +13,7 @@ use std::{
 };
 
 #[path = "metadata_admission.rs"]
-mod metadata_admission;
+pub(super) mod metadata_admission;
 
 pub(super) struct ColumnarFile {
     path: PathBuf,
@@ -24,8 +24,9 @@ pub(super) struct ColumnarFile {
 /// One held local Parquet source, including a sorted partition directory.
 /// Other formats require their own explicit reader admission.
 pub struct LocalColumnarSource {
-    directory: Option<PathBuf>,
-    invalidated: AtomicBool,
+    pub(super) collection: LocalDataset,
+    pub(super) invalidated: AtomicBool,
+    pub(super) other: Option<super::generic::Source>,
     pub(super) files: Vec<ColumnarFile>,
     pub(super) metadata_read_bytes: u64,
     pub(super) metadata_credit: MemoryLease,
@@ -35,6 +36,25 @@ pub struct LocalColumnarSource {
 }
 
 impl LocalColumnarSource {
+    pub(super) fn schema(&self) -> arrow_schema::SchemaRef {
+        self.other.as_ref().map_or_else(
+            || Arc::clone(self.metadata().schema()),
+            |source| Arc::clone(&source.schema),
+        )
+    }
+
+    pub(super) fn inventory(&self) -> impl Iterator<Item = (&Path, &Arc<SourceIdentity>)> {
+        self.files
+            .iter()
+            .map(|file| (file.path.as_path(), &file.identity))
+            .chain(
+                self.other
+                    .iter()
+                    .flat_map(|source| source.files.iter())
+                    .map(|file| (file.path.as_path(), &file.identity)),
+            )
+    }
+
     pub(super) fn metadata(&self) -> &ArrowReaderMetadata {
         &self.files[0].metadata
     }
@@ -54,31 +74,11 @@ impl LocalColumnarSource {
             ));
         }
         let result = (|| {
-            for file in &self.files {
+            for (_, identity) in self.inventory() {
                 cancellation.check()?;
-                file.identity.validate()?;
+                identity.validate()?;
             }
-            if let Some(directory) = &self.directory {
-                let mut count = 0;
-                visit_source_paths(directory, "parquet", cancellation, |path| {
-                    if self
-                        .files
-                        .binary_search_by(|file| file.path.as_path().cmp(path))
-                        .is_err()
-                    {
-                        return Err(failed(
-                            "source directory membership changed; prepare the source again",
-                        ));
-                    }
-                    count += 1;
-                    Ok(())
-                })?;
-                if count != self.files.len() {
-                    return Err(failed(
-                        "source directory membership changed; prepare the source again",
-                    ));
-                }
-            }
+            self.collection.validate(cancellation)?;
             cancellation.check()
         })();
         if result.is_err() && !cancellation.is_cancelled() {
@@ -90,24 +90,12 @@ impl LocalColumnarSource {
     pub(crate) fn validate_destination(&self, path: &Path) -> Result<()> {
         use std::os::unix::fs::MetadataExt as _;
         self.validate_generation()?;
-        if let Some(directory) = &self.directory
-            && path
-                .extension()
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case("parquet"))
-            && let Some(parent) = std::path::absolute(path).map_err(failed)?.parent()
-            && parent.canonicalize().ok().as_ref()
-                == Some(&directory.canonicalize().map_err(failed)?)
-        {
-            return Err(failed(
-                "output must not change the input directory's Parquet membership",
-            ));
-        }
+        self.collection.validate_destination(path)?;
         match std::fs::metadata(path) {
             Ok(target)
-                if self.files.iter().any(|file| {
-                    target.dev() == file.identity.generation.device
-                        && target.ino() == file.identity.generation.inode
+                if self.inventory().any(|(_, identity)| {
+                    target.dev() == identity.generation.device
+                        && target.ino() == identity.generation.inode
                 }) =>
             {
                 Err(failed("source and output must be different files"))
@@ -137,6 +125,7 @@ impl LocalColumnarSource {
     /// existing local FNV-64 content-digest convention, not authentication.
     /// # Errors
     /// Propagates admission, read, cancellation and generation failures.
+    #[allow(clippy::too_many_lines)] // Keep generation, metadata and credit admission in one transaction.
     pub fn admit_with_content_fingerprint(
         path: &Path,
         format: &str,
@@ -146,7 +135,7 @@ impl LocalColumnarSource {
     ) -> Result<Arc<Self>> {
         cancellation.check()?;
         if format != "parquet" {
-            return Err(failed("source has no admitted demand reader"));
+            return super::generic::admit(path, format, fingerprint, memory, cancellation, None);
         }
         let mut credit = memory.reserve(
             (path.as_os_str().len() as u64)
@@ -155,10 +144,24 @@ impl LocalColumnarSource {
                 .ok_or_else(|| failed("source metadata capacity overflow"))?,
         )?;
         let path = std::path::absolute(path).map_err(failed)?;
-        let directory = path.is_dir().then(|| path.clone());
-        let mut paths = Vec::new();
-        visit_source_paths(&path, format, cancellation, |path| {
-            let bytes = (path.as_os_str().len() as u64)
+        let collection = LocalDataset::admit(&path, format, memory, cancellation)?;
+        if collection.union_by_name
+            || collection
+                .files
+                .iter()
+                .any(|file| !file.partitions.is_empty())
+        {
+            return super::generic::admit_collection(
+                collection,
+                "parquet",
+                fingerprint,
+                memory,
+                cancellation,
+                None,
+            );
+        }
+        for file in &collection.files {
+            let bytes = (file.path.as_os_str().len() as u64)
                 .checked_mul(4)
                 .and_then(|n| n.checked_add(8192))
                 .ok_or_else(|| failed("source inventory capacity overflow"))?;
@@ -168,24 +171,23 @@ impl LocalColumnarSource {
                     .checked_add(bytes)
                     .ok_or_else(|| failed("source inventory capacity overflow"))?,
             )?;
-            paths.try_reserve(1).map_err(failed)?;
-            paths.push(path.to_owned());
-            Ok(())
-        })?;
-        paths.sort();
+        }
         let mut files: Vec<ColumnarFile> = Vec::new();
-        files.try_reserve_exact(paths.len()).map_err(failed)?;
+        files
+            .try_reserve_exact(collection.files.len())
+            .map_err(failed)?;
         let mut content_fingerprints = Vec::new();
         if fingerprint {
             content_fingerprints
-                .try_reserve_exact(paths.len())
+                .try_reserve_exact(collection.files.len())
                 .map_err(failed)?;
         }
         let mut metadata_read_bytes = 0_u64;
         let mut fingerprint_read_bytes = 0_u64;
         let mut row_groups_total = 0_usize;
-        for path in paths {
+        for collected in &collection.files {
             cancellation.check()?;
+            let path = collected.path.clone();
             let identity = Arc::new(SourceIdentity::capture(&path)?);
             let mut file = identity.open_checked()?;
             super::super::metadata::footer_length(&mut file, b"PAR1", 4)?;
@@ -227,8 +229,9 @@ impl LocalColumnarSource {
             });
         }
         let source = Arc::new(Self {
-            directory,
+            collection,
             invalidated: AtomicBool::new(false),
+            other: None,
             files,
             metadata_read_bytes,
             metadata_credit: credit,
@@ -242,7 +245,7 @@ impl LocalColumnarSource {
     }
 }
 
-fn content_fingerprint(
+pub(super) fn content_fingerprint(
     reader: &OwnedLocalRead,
     cancellation: &CancellationToken,
 ) -> Result<String> {

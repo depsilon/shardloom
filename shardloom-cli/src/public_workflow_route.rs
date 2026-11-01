@@ -725,37 +725,7 @@ fn native_vortex_primitive_row_export_execution(
     primitive: PublicVortexPrimitive,
 ) -> Result<NativeVortexPrimitiveRowExportExecution, ShardLoomError> {
     let uri = shardloom_core::DatasetUri::new(input_uri)?;
-    let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
-    let mut primitive_request =
-        vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
-    spill::attach(request, &mut primitive_request)?;
-    attach_native_unary_source_predicate(request, &mut primitive_request)?;
-    if let Some(limit) = request.vortex_source_order_limit.as_deref() {
-        primitive_request = primitive_request
-            .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
-    }
-    if let Some(seed) = request.vortex_sample_seed.as_ref() {
-        primitive_request =
-            primitive_request.with_sample_seed(non_negative_u64_arg("sample seed", seed)?);
-    }
-    if let Some(fraction) = request.vortex_sample_fraction.as_ref() {
-        primitive_request = primitive_request
-            .with_sample_fraction(sample_fraction_arg("sample fraction", fraction)?);
-    }
-    primitive_request =
-        primitive_request.with_sample_replacement(request.vortex_sample_replacement);
-    if let Some(column) = request.vortex_sample_weight_column.as_ref() {
-        primitive_request =
-            primitive_request.with_sample_weight_column(shardloom_core::ColumnRef::new(column)?);
-    }
-    if let Some(columns) = request.vortex_deduplicate_key_columns.as_ref() {
-        primitive_request = primitive_request.with_deduplicate_key_projection(
-            vortex_primitive_execution::parse_projection_columns(columns)?,
-        );
-    }
-    primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
-        request.vortex_duplicate_keep.as_deref(),
-    )?);
+    let (primitive_request, _) = native_vortex_request_and_arg(request, primitive, uri)?;
     let policy = native_vortex_materializing_policy(request)?;
     Ok(NativeVortexPrimitiveRowExportExecution {
         primitive_request,
@@ -1434,6 +1404,16 @@ fn append_columnar_compatibility_sink_fields(
             "max_observed_parquet_in_progress_bytes",
             evidence.max_observed_parquet_in_progress_bytes,
         ),
+        (
+            "max_observed_orc_in_progress_bytes",
+            evidence.max_observed_orc_in_progress_bytes,
+        ),
+        ("writer_flushes", evidence.writer_flushes),
+        ("pressure_flushes", evidence.pressure_flushes),
+        ("output_file_units", evidence.output_file_units),
+        ("conversion_splits", evidence.conversion_splits),
+        ("large_value_batches", evidence.large_value_batches),
+        ("file_unit_target_bytes", evidence.file_unit_target_bytes),
         ("writer_reserved_bytes", evidence.writer_reserved_bytes),
         ("output_bytes", evidence.output_bytes),
     ] {
@@ -3447,6 +3427,16 @@ fn native_vortex_bound_request_and_arg(
         .iter()
         .map(|source| DatasetUri::new(source.clone()))
         .collect::<Result<Vec<_>, _>>()?;
+    let (primitive_request, primitive_arg) =
+        native_vortex_request_and_arg(request, primitive, uri)?;
+    Ok((primitive_request, primitive_arg, source_uris))
+}
+
+fn native_vortex_request_and_arg(
+    request: &PublicWorkflowRouteRequest,
+    primitive: PublicVortexPrimitive,
+    uri: DatasetUri,
+) -> Result<(shardloom_vortex::VortexQueryPrimitiveRequest, String), ShardLoomError> {
     let primitive_arg = native_vortex_primitive_arg_for_request(request, primitive)?;
     let mut primitive_request =
         vortex_primitive_execution::parse_vortex_primitive_request(uri, &primitive_arg)?;
@@ -3478,7 +3468,7 @@ fn native_vortex_bound_request_and_arg(
     primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
         request.vortex_duplicate_keep.as_deref(),
     )?);
-    Ok((primitive_request, primitive_arg, source_uris))
+    Ok((primitive_request, primitive_arg))
 }
 
 fn native_vortex_materializing_policy(
@@ -7867,7 +7857,22 @@ fn infer_native_vortex_route_payload(
         return infer_native_vortex_sql_payload(request);
     }
     if request.input_format.as_deref() != Some("vortex") {
-        return None;
+        if !request
+            .input_format
+            .as_deref()
+            .is_some_and(is_local_file_format)
+        {
+            return None;
+        }
+        // Interpret the same inert operation summary against the original URI.
+        // This adapts its source label only; it does not prepare or probe files.
+        let mut native_summary = request.clone();
+        native_summary.plan_summary = Some(prepared_local_workflow_plan_summary(
+            request,
+            Path::new(request.input_uri.as_deref()?),
+            None,
+        )?);
+        return infer_native_vortex_primitive_payload(&native_summary);
     }
     infer_native_vortex_primitive_payload(request)
 }
@@ -7880,17 +7885,30 @@ fn uses_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
         feature = "universal-format-io"
     )) && request.execution_policy == "vortex_middle"
         && request.requested_output != "prepare"
-        && request.sql_statement.is_some()
-        && request.native_operator_options == NativeOperatorOptions::Automatic
-        && request
-            .source_fingerprint_policy
+        && (request.sql_statement.is_some() || normalized_vortex_primitive(request).is_some())
+        && (request
+            .input_format
             .as_deref()
-            .is_none_or(|policy| policy == "metadata_only")
-        && (request.input_format.as_deref() == Some("parquet")
+            .is_some_and(demand_source_format)
             || request
                 .source_bindings
                 .values()
-                .any(|binding| binding.input_format == "parquet"))
+                .any(|binding| demand_source_format(&binding.input_format)))
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn uses_primitive_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
+    uses_source_demand(request)
+        && (request.native_operator_options == NativeOperatorOptions::Explicit
+            || request.sql_statement.is_none())
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+fn demand_source_format(format: &str) -> bool {
+    matches!(
+        format,
+        "parquet" | "arrow-ipc" | "avro" | "orc" | "csv" | "tsv" | "json" | "jsonl" | "ndjson"
+    )
 }
 
 fn effective_public_workflow_request(
@@ -10607,7 +10625,7 @@ fn positive_usize_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'
 fn is_local_file_format(format: &str) -> bool {
     matches!(
         format,
-        "csv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow-ipc" | "avro" | "orc"
+        "csv" | "tsv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow-ipc" | "avro" | "orc"
     )
 }
 
@@ -10633,6 +10651,12 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
         return local_file_vortex_ingest_feature_gated_route(request);
     }
+    if request.requested_output != "prepare"
+        && request.execution_policy == "vortex_middle"
+        && !cfg!(all(feature = "vortex-local-primitives", unix))
+    {
+        return local_file_vortex_primitive_feature_gated_route(request);
+    }
     if request.requested_output == "prepare" {
         admitted_route(
             "local_file_prepare_once",
@@ -10643,10 +10667,7 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
             true,
             true,
         )
-    } else if matches!(
-        request.execution_policy.as_str(),
-        "vortex_middle" | "prepare_once"
-    ) {
+    } else if request.execution_policy == "prepare_once" {
         let prepared_run = match prepared_local_workflow_native_request(request) {
             Ok(prepared_run) => prepared_run,
             Err(blocked) => return *blocked,
@@ -10751,22 +10772,22 @@ fn local_file_vortex_middle_required_route(
 ) -> PublicWorkflowRoutePlan {
     blocked_route(
         "cg21.route.local_file_vortex_middle_required",
-        "local-file public workflow requires Vortex preparation/runtime before execution",
+        "local-file public workflow requires an admitted native declaration",
         Diagnostic::new(
             DiagnosticCode::NotImplemented,
             DiagnosticSeverity::Error,
             DiagnosticCategory::UnsupportedFeature,
-            "public local-file workflows cannot execute through a direct decoded compatibility middle"
+            "local-source execution requires complete SQL, a typed plan or an admitted primitive declaration"
                 .to_string(),
             Some("public_workflow_route.vortex_normalization_point".to_string()),
             Some(format!(
-                "execution_policy={} input_format={} requested_output={} required_middle=VortexPreparedState_or_native_vortex",
+                "execution_policy={} input_format={} requested_output={} required_execution=shared_native_plan",
                 request.execution_policy,
                 request.input_format.as_deref().unwrap_or("not_declared"),
                 request.requested_output
             )),
             Some(
-                "run prepare dataframe with Vortex preparation enabled or pass input_format=vortex with an admitted native Vortex route; no public workflow may execute direct local-source compatibility runtime as its middle"
+                "supply a complete native declaration; use prepare explicitly when a durable Vortex copy is wanted"
                     .to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
@@ -11557,6 +11578,9 @@ fn native_vortex_plan_source_count(
         plan.route_id,
         "native_vortex_relational_collect" | "native_vortex_relational_write"
     ) {
+        if uses_primitive_source_demand(request) {
+            return usize::from(request.input_uri.is_some());
+        }
         return request
             .sql_statement
             .as_deref()
@@ -12877,7 +12901,7 @@ fn normalize_surface(value: &str) -> Result<String, ShardLoomError> {
 fn normalize_input_format(value: &str) -> Result<String, ShardLoomError> {
     let normalized = value.trim().to_ascii_lowercase().replace('_', "-");
     match normalized.as_str() {
-        "csv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow-ipc" | "avro" | "orc"
+        "csv" | "tsv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow-ipc" | "avro" | "orc"
         | "vortex" | "memory" => Ok(normalized),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route input format: {value}"
@@ -12955,16 +12979,41 @@ fn parse_bool_flag(flag: &str, value: &str) -> Result<bool, ShardLoomError> {
 
 fn infer_input_format_from_ref(value: &str) -> Option<&'static str> {
     let trimmed = value.trim();
-    let source_ref = trimmed.split(['?', '#']).next().unwrap_or(trimmed);
-    let extension = std::path::Path::new(source_ref)
+    let source_ref = if trimmed.contains("://") {
+        trimmed.split(['?', '#']).next().unwrap_or(trimmed)
+    } else {
+        trimmed
+    };
+    let source_path = std::path::Path::new(source_ref);
+    let unwrapped;
+    let compressed = source_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| matches!(value.to_ascii_lowercase().as_str(), "gz" | "zst" | "zstd"));
+    let source_path = if compressed {
+        unwrapped = source_path.with_extension("");
+        unwrapped.as_path()
+    } else {
+        source_path
+    };
+    let extension = source_path
         .extension()
         .and_then(|extension| extension.to_str())?;
+    if compressed
+        && !matches!(
+            extension.to_ascii_lowercase().as_str(),
+            "csv" | "tsv" | "json" | "jsonl" | "ndjson"
+        )
+    {
+        return None;
+    }
     match extension.to_ascii_lowercase().as_str() {
         "csv" => Some("csv"),
+        "tsv" => Some("tsv"),
         "jsonl" | "ndjson" => Some("jsonl"),
         "json" => Some("json"),
         "parquet" => Some("parquet"),
-        "arrow" | "arrow-ipc" | "feather" => Some("arrow-ipc"),
+        "arrow" | "arrow-ipc" | "ipc" | "feather" => Some("arrow-ipc"),
         "avro" => Some("avro"),
         "orc" => Some("orc"),
         "vortex" | "vtx" | "vortex-manifest" => Some("vortex"),
@@ -14800,6 +14849,7 @@ mod tests {
                 );
                 for format in [
                     "csv",
+                    "tsv",
                     "json",
                     "jsonl",
                     "ndjson",
@@ -14832,11 +14882,11 @@ mod tests {
                     assert_eq!(plan.status, CommandStatus::Success, "{plan:?}");
                     assert_eq!(
                         plan.route_id,
-                        match (format, output) {
-                            ("parquet", "collect") => "native_vortex_relational_collect",
-                            ("parquet", _) => "native_vortex_relational_write",
-                            _ => "local_file_prepare_once_first_query",
+                        match output {
+                            "collect" => "native_vortex_relational_collect",
+                            _ => "native_vortex_relational_write",
                         },
+                        "format={format} output={output} sql={sql}",
                     );
                     let prepared = prepared_local_workflow_native_request(&request).unwrap();
                     let prepared_plan = plan_public_workflow_route(&prepared.request);
@@ -14928,7 +14978,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_admits_equivalent_sql_and_dataframe_local_file_routes_through_vortex_middle() {
+    fn route_planner_admits_equivalent_sql_and_dataframe_direct_local_file_routes() {
         let sql = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -14975,13 +15025,13 @@ mod tests {
         if cfg!(feature = "vortex-local-primitives") {
             for plan in [&sql_plan, &dataframe_plan] {
                 assert_eq!(plan.status, CommandStatus::Success);
-                assert_eq!(plan.route_id, "local_file_prepare_once_first_query");
+                assert_eq!(plan.route_id, "native_vortex_relational_collect");
+                assert_eq!(plan.resolved_internal_command, "native-vortex-relational");
                 assert_eq!(
-                    plan.resolved_internal_command,
-                    "vortex-prepare->native-vortex"
+                    plan.vortex_normalization_point,
+                    "source_schemas_bound_before_native_demand;compatibility_conversion_is_an_admitted_source_boundary"
                 );
-                assert_eq!(plan.vortex_normalization_point, "VortexPreparedState");
-                assert_eq!(plan.execution_mode, "prepared_vortex");
+                assert_eq!(plan.execution_mode, "native_vortex");
                 assert!(plan.preparation_included);
                 assert!(plan.query_timing_starts_after_preparation);
             }

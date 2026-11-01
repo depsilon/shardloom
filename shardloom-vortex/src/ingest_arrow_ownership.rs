@@ -182,12 +182,16 @@ pub(crate) fn admit_batch_profiled(
     admit_batch_observed(batch, allocator, CopyObservation::default())
 }
 
-/// Actual ownership decisions without the ingest profiler's repeated-region map.
-/// The query's existing structural owner covers array wrappers; these counters
-/// are fixed-size and never retain an original buffer or allocate an index.
+/// Consume the query intake's validated physical descriptions without rebuilding
+/// them from arrays. Its structural owner covers these descriptors and wrappers.
+/// The original batch must be dropped first to permit unique-allocation proof;
+/// aliased regions still require copies. These fixed-size counters never retain
+/// original buffers or allocate the ingest profiler's repeated-region index.
 #[cfg(all(feature = "vortex-local-primitives", unix))]
-pub(crate) fn admit_batch_counted(
-    batch: RecordBatch,
+pub(crate) fn admit_batch_data_counted(
+    schema: arrow_schema::SchemaRef,
+    columns: Vec<arrow_data::ArrayData>,
+    rows: usize,
     allocator: &dyn HostAllocator,
     policy: ArrowOwnershipPolicy,
 ) -> Result<(RecordBatch, ArrowOwnershipCounts)> {
@@ -195,11 +199,29 @@ pub(crate) fn admit_batch_counted(
         counts: ArrowOwnershipCounts::default(),
         held: None,
     };
-    if policy == ArrowOwnershipPolicy::ValidatedCopy {
-        let retained = copy_batch_observed(batch, allocator, Some(&mut observation))?;
-        return Ok((retained, observation.counts));
-    }
-    admit_batch_observed(batch, allocator, observation)
+    let columns = columns
+        .into_iter()
+        .map(|data| {
+            match policy {
+                ArrowOwnershipPolicy::ValidatedCopy => {
+                    copy_array_data(data, allocator, Some(&mut observation))
+                }
+                ArrowOwnershipPolicy::ControlledParquet => {
+                    admit_array_data(data, allocator, &mut observation)
+                }
+            }
+            .map(arrow_array::make_array)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let retained = RecordBatch::try_new_with_options(
+        schema,
+        columns,
+        &arrow_array::RecordBatchOptions::new().with_row_count(Some(rows)),
+    )
+    .map_err(|error| {
+        ownership_error(&format!("Arrow retained batch validation failed: {error}"))
+    })?;
+    Ok((retained, observation.counts))
 }
 
 fn admit_batch_observed(
@@ -383,11 +405,18 @@ fn copy_batch_observed(
 fn copy_array(
     array: &ArrayRef,
     allocator: &dyn HostAllocator,
-    mut observation: Option<&mut CopyObservation>,
+    observation: Option<&mut CopyObservation>,
 ) -> Result<ArrayRef> {
-    let data = array.to_data();
+    copy_array_data(array.to_data(), allocator, observation).map(arrow_array::make_array)
+}
+
+fn copy_array_data(
+    data: arrow_data::ArrayData,
+    allocator: &dyn HostAllocator,
+    mut observation: Option<&mut CopyObservation>,
+) -> Result<arrow_data::ArrayData> {
     // Preserve the provider's Arrow buffer layout while replacing its owners.
-    let mut buffers = data.buffers().to_vec();
+    let (dtype, length, nulls, offset, mut buffers, children) = data.into_parts();
     for buffer in &mut buffers {
         // Pinned Arrow 59.3 exposes the custom owner's visible byte length as
         // capacity, so neither capacity nor pointer identity proves ownership.
@@ -406,38 +435,29 @@ fn copy_array(
             *buffer = buffer.slice_with_length(0, 0);
         }
     }
-    let nulls = data
-        .nulls()
+    let nulls = nulls
         .map(|nulls| -> Result<_> {
             // A BooleanArray round trip preserves independent validity bit
             // offsets, including slices whose value offset differs from it.
-            let bits: ArrayRef = Arc::new(BooleanArray::new(nulls.inner().clone(), None));
+            let bits: ArrayRef = Arc::new(BooleanArray::new(nulls.into_inner(), None));
             let retained = copy_array(&bits, allocator, observation.as_deref_mut())?;
             Ok(retained.as_boolean().values().clone().into())
         })
         .transpose()?;
-    let children = data
-        .child_data()
-        .iter()
-        .map(|child| {
-            copy_array(
-                &arrow_array::make_array(child.clone()),
-                allocator,
-                observation.as_deref_mut(),
-            )
-            .map(|child| child.to_data())
-        })
+    let children = children
+        .into_iter()
+        .map(|child| copy_array_data(child, allocator, observation.as_deref_mut()))
         .collect::<Result<Vec<_>>>()?;
-    let data = data
-        .into_builder()
+    arrow_data::ArrayData::builder(dtype)
+        .len(length)
+        .offset(offset)
         .buffers(buffers)
         .nulls(nulls)
         .child_data(children)
         .build()
         .map_err(|error| {
             ownership_error(&format!("Arrow retained array validation failed: {error}"))
-        })?;
-    Ok(arrow_array::make_array(data))
+        })
 }
 
 fn ownership_error(message: &str) -> ShardLoomError {

@@ -30,6 +30,11 @@ use std::{
 };
 
 mod chunks;
+mod complete;
+#[cfg(test)]
+mod complete_tests;
+mod generic;
+mod metadata_count;
 mod ranked;
 mod source;
 mod statistics;
@@ -52,7 +57,8 @@ impl LocalColumnarSource {
             ));
         }
         self.validate_generation_controlled(cancellation)?;
-        let fields = self.metadata().schema().fields();
+        let schema = self.schema();
+        let fields = schema.fields();
         let groups = self.row_groups_total;
         let count = fields
             .len()
@@ -167,17 +173,16 @@ impl PreparedColumnarSource {
     ) -> Result<ResidentMemorySource> {
         let schema = Arc::new(
             self.source
-                .metadata()
                 .schema()
                 .project(&self.projection)
                 .map_err(failed)?,
         );
         session.with_native_execution_context(cancellation, |context| {
-            ResidentMemorySource::from_arrow_in_context(
+            ResidentMemorySource::from_local_arrow_with_ownership(
                 session,
                 RecordBatch::new_empty(schema),
                 context,
-                true,
+                crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
             )
         })
     }
@@ -196,6 +201,7 @@ impl PreparedColumnarSource {
             active: None,
             rows: 0,
             ended: false,
+            other: self.source.other.as_ref().map(|_| generic::Reader::new()),
         })
     }
 }
@@ -204,6 +210,8 @@ impl PreparedColumnarSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnarReadReport {
     pub format: &'static str,
+    /// True only for the certified selected-chunk/statistics Parquet owner.
+    pub parquet_selected_chunks: bool,
     pub projected_columns: usize,
     pub available_columns: usize,
     pub physical_leaf_columns: usize,
@@ -219,6 +227,8 @@ pub struct ColumnarReadReport {
     /// Initial source-admission reads, before execution. Repeated executions of
     /// the same descriptor repeat this fact, not a claim of new metadata I/O.
     pub metadata_read_bytes: u64,
+    /// Explicit complete text schema-discovery work; never metadata-only I/O.
+    pub schema_discovery_read_bytes: u64,
     /// Positional execution reads, excluding separately reported binding reads.
     pub data_read_bytes: u64,
     pub data_read_requests: u64,
@@ -232,6 +242,7 @@ pub(crate) struct ColumnarReader {
     active: Option<Decoder>,
     rows: u64,
     ended: bool,
+    other: Option<generic::Reader>,
 }
 
 struct Decoder {
@@ -260,14 +271,18 @@ impl ColumnarReader {
         session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(ResidentMemorySource, u64)>> {
+        let private_parquet = self.prepared.source.other.is_none();
         self.next(context)?
             .map(|(batch, first_row)| {
-                ResidentMemorySource::from_arrow_with_ownership(
+                ResidentMemorySource::from_local_arrow_with_ownership(
                     session,
                     batch,
                     context,
-                    true,
-                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet,
+                    if private_parquet {
+                        crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet
+                    } else {
+                        crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy
+                    },
                 )
                 .map(|source| (source, first_row))
             })
@@ -275,6 +290,9 @@ impl ColumnarReader {
     }
 
     fn next(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<(RecordBatch, u64)>> {
+        if let Some(other) = &mut self.other {
+            return other.next(&self.prepared, &self.metrics, context);
+        }
         loop {
             context.check_cancelled()?;
             if let Some((index, _)) = &self.input {
@@ -374,6 +392,9 @@ impl ColumnarReader {
     }
 
     pub(crate) fn report(&self) -> Result<ColumnarReadReport> {
+        if let Some(other) = &self.other {
+            return other.report(&self.prepared, &self.metrics);
+        }
         if !self.ended || self.active.is_some() || self.input.is_some() {
             return Err(failed("source did not reach its declared end"));
         }
@@ -384,6 +405,7 @@ impl ColumnarReader {
         );
         Ok(ColumnarReadReport {
             format: "parquet",
+            parquet_selected_chunks: true,
             projected_columns: self.prepared.projection.len(),
             available_columns: metadata.schema().fields().len(),
             physical_leaf_columns: (0..metadata.parquet_schema().num_columns())
@@ -397,6 +419,7 @@ impl ColumnarReader {
             fingerprint_read_bytes: self.prepared.source.fingerprint_read_bytes,
             content_fingerprints: self.prepared.source.content_fingerprints.clone(),
             metadata_read_bytes: self.prepared.source.metadata_read_bytes,
+            schema_discovery_read_bytes: 0,
             data_read_bytes: self.metrics.bytes.load(Ordering::Relaxed),
             data_read_requests: self.metrics.requests.load(Ordering::Relaxed),
         })

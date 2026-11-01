@@ -65,7 +65,7 @@ impl<'a> Binder<'a> {
                 .dtype()
                 .as_struct_fields_opt()
                 .ok_or_else(|| failed("outer parameter must have a native struct schema"))?;
-            binder.charge_fields(fields.names().len())?;
+            binder.charge_names(fields.names().iter().map(AsRef::as_ref))?;
             binder.outer_fields = Some(
                 fields
                     .names()
@@ -214,7 +214,7 @@ impl<'a> Binder<'a> {
             ));
         }
         let node = self.bind(plan, 0)?;
-        self.charge_fields(node.fields.len())?;
+        self.charge_named_fields(&node.fields)?;
         let columns = node.fields.iter().map(|(name, _)| name.clone()).collect();
         let slot = self.resolved.values.len();
         self.resolved.push(Some(node))?;
@@ -295,7 +295,7 @@ impl<'a> Binder<'a> {
             .record_pivot_spill(result.spill_report())?;
         add(&execution.metrics.schema_discovery_stages, 1)?;
         super::validate_width(result.fields().len())?;
-        self.charge_fields(result.fields().len())?;
+        self.charge_named_fields(result.fields())?;
         for (name, dtype) in result.fields() {
             super::validate_name(name)?;
             super::validate_key(dtype)?;

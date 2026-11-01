@@ -91,7 +91,7 @@ impl Binder<'_> {
         self.charge(PREPARATION_BYTES)?;
         let (dtype, kind) = match &input.kind {
             ExpressionKind::Column(column) => {
-                validate_name(column.as_str())?;
+                self.charge_name(column.as_str())?;
                 (
                     field(fields, column.as_str())?.clone(),
                     Kind::Column(column.as_str().to_owned()),
@@ -239,7 +239,7 @@ impl Binder<'_> {
         if children.is_empty() || children.len() > 128 {
             return Err(failed("struct constructor requires 1..=128 fields"));
         }
-        self.charge_fields(children.len())?;
+        self.charge_names(children.iter().map(|(name, _)| name.as_str()))?;
         let mut values = Vec::new();
         let mut output_fields = Vec::new();
         for (name, value) in children {
@@ -272,6 +272,7 @@ impl Binder<'_> {
         depth: usize,
     ) -> Result<Expression> {
         let definition = builtins::scalar(name)
+            .or_else(|| builtins::primitive_scalar(name))
             .ok_or_else(|| failed(&format!("function '{name}' has no admitted native kernel")))?;
         if !definition.accepts_arity(args.len()) {
             return Err(failed(&format!(
@@ -361,6 +362,8 @@ impl Binder<'_> {
             "length" => F::Length,
             "url_domain" => F::Domain { regex: false },
             "regex_domain" => F::Domain { regex: true },
+            "case_search_adv_zero_referer_else_empty" => F::PrimitiveRefererCase,
+            "primitive_aggregate_having" => primitive_having_function(&args)?,
             "regexp_replace" => fixed_domain_replacement(&args)?,
             "starts_with" => F::StartsWith,
             "ends_with" => F::EndsWith,
@@ -444,6 +447,28 @@ impl Binder<'_> {
         let scalar = literal(value)?;
         Ok(Expression::new(dtype, Kind::Literal(scalar)))
     }
+}
+
+fn primitive_having_function(args: &[Expression]) -> Result<Function> {
+    use shardloom_core::ComparisonOp as C;
+    let op = match literal_text(&args[1], "primitive HAVING comparison")? {
+        Some("eq") => C::Eq,
+        Some("not_eq") => C::NotEq,
+        Some("lt") => C::Lt,
+        Some("lt_eq") => C::LtEq,
+        Some("gt") => C::Gt,
+        Some("gt_eq") => C::GtEq,
+        _ => {
+            return Err(failed(
+                "primitive HAVING comparison requires an admitted literal operator",
+            ));
+        }
+    };
+    let right = crate::local_primitives::aggregate_having_value_json(
+        literal_text(&args[2], "primitive HAVING value")?
+            .ok_or_else(|| failed("primitive HAVING requires a nonnull literal value"))?,
+    );
+    Ok(Function::PrimitiveHaving { op, right })
 }
 
 fn fixed_domain_replacement(args: &[Expression]) -> Result<Function> {
@@ -675,11 +700,49 @@ fn function_nullability(rule: ScalarNullRule, args: &[Expression]) -> Nullabilit
         ScalarNullRule::AlwaysNullable => true,
         ScalarNullRule::AllNullable => args.iter().all(|arg| arg.dtype.is_nullable()),
         ScalarNullRule::Branches => args[1..].iter().any(|arg| arg.dtype.is_nullable()),
+        ScalarNullRule::RequiredControlValues | ScalarNullRule::OrderedNull => false,
     };
     if nullable {
         Nullability::Nullable
     } else {
         Nullability::NonNullable
+    }
+}
+
+fn primitive_function_dtype(rule: ScalarTypeRule, args: &[Expression]) -> Result<DType> {
+    use ScalarTypeRule as T;
+    let first = &args[0].dtype;
+    match rule {
+        T::PrimitiveHaving => {
+            if !matches!(
+                first,
+                DType::Null | DType::Bool(_) | DType::Primitive(_, _) | DType::Utf8(_)
+            ) || args[1..]
+                .iter()
+                .any(|arg| !matches!(&arg.dtype, DType::Utf8(_)))
+            {
+                return Err(failed(
+                    "primitive HAVING requires a flat Boolean, numeric or text value and literal text parameters",
+                ));
+            }
+            Ok(DType::Bool(Nullability::NonNullable))
+        }
+        T::PrimitiveRefererCase => {
+            if !matches!(first, DType::Null | DType::Utf8(_))
+                || args[1..].iter().any(|arg| {
+                    !matches!(&arg.dtype, DType::Null)
+                        && !matches!(&arg.dtype, DType::Primitive(ptype, _) if ptype.is_int())
+                })
+            {
+                return Err(failed(
+                    "primitive CASE requires UTF8 and two integer controls",
+                ));
+            }
+            Ok(DType::Utf8(Nullability::NonNullable))
+        }
+        _ => Err(failed(
+            "scalar definition is not a primitive compatibility kernel",
+        )),
     }
 }
 
@@ -691,6 +754,7 @@ fn typed_function_dtype(
     use ScalarTypeRule as T;
     let first = &args[0].dtype;
     let dtype = match rule {
+        T::PrimitiveHaving | T::PrimitiveRefererCase => primitive_function_dtype(rule, args)?,
         T::FloatClassify => {
             if !matches!(
                 first,

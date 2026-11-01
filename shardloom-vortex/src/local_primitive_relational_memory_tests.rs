@@ -114,6 +114,67 @@ fn native_relational_plan_node_count_grows_under_shared_metadata_admission() {
 }
 
 #[test]
+fn native_relational_long_names_are_exact_and_admitted_before_plan_copying() {
+    let uri = DatasetUri::new("memory://long-plan-name").unwrap();
+    let alias = "長い列名".repeat(1024);
+    let plan =
+        VortexRelationalPlan::Project(Box::new(crate::relational_query::VortexRelationalProject {
+            input: memory_scan(uri.clone()),
+            expressions: vec![(
+                alias.clone(),
+                shardloom_core::Expression::column(
+                    shardloom_core::ExprId::new("long-name-input").unwrap(),
+                    ColumnRef::new("n").unwrap(),
+                ),
+            )],
+        }));
+    let prepared = prepare_relational_with_schema(policy(), |schemas| {
+        schemas.register_memory_source(uri.clone(), |session| {
+            ResidentMemorySource::from_int64_range(session, "n", -1, 1, 3)
+        })?;
+        Ok(plan.clone())
+    })
+    .unwrap();
+    let retained_bytes = prepared.snapshot().memory.reserved_bytes;
+    for _ in 0..2 {
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            result.execution.output_columns,
+            std::slice::from_ref(&alias)
+        );
+        assert_eq!(
+            json_rows(&result),
+            [-1, 0, 1].map(|value| serde_json::Value::Object(
+                [(alias.clone(), serde_json::json!(value))]
+                    .into_iter()
+                    .collect()
+            ))
+        );
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, retained_bytes);
+    }
+    drop(prepared);
+
+    let session = ResidentVortexSession::new(128 << 10, 1).unwrap();
+    let retained = session.memory().reserve(2048).unwrap();
+    let mut binder = super::super::bind::Binder::new(&session).unwrap();
+    binder
+        .register_memory_source(uri, |session| {
+            ResidentMemorySource::from_int64_range(session, "n", -1, 1, 3)
+        })
+        .unwrap();
+    let error = binder.bind(&plan, 0).err().unwrap().to_string();
+    assert!(error.contains("memory reservation denied"), "{error}");
+    assert!(session.snapshot().memory.denied_reservations > 0);
+    drop(binder);
+    assert_eq!(session.snapshot().memory.reserved_bytes, retained.bytes());
+    drop(retained);
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
 fn native_relational_memory_range_uses_shared_reductions_without_file_preparation() {
     const ROWS: usize = 1_000_017;
     let mut bounded = policy();
@@ -351,6 +412,7 @@ fn native_relational_memory_uses_all_shared_output_adapters() {
     .collect::<Vec<_>>();
     let written = prepared.write_many(&targets, false).unwrap();
     assert_eq!(written.len(), targets.len());
+    assert_eq!(prepared.snapshot().completed_executions, 1);
     for ((output, format), written) in targets.iter().zip(written) {
         let format = *format;
         assert_eq!(written.output.rows_written, 3);
@@ -376,6 +438,7 @@ fn native_relational_memory_uses_all_shared_output_adapters() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
+#[allow(clippy::too_many_lines)] // One wide-schema contract checks every destination and exact complete readback.
 fn native_relational_wide_memory_projection_collects_and_reopens_all_destinations() {
     use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
     const WIDTH: usize = 4097;
@@ -446,6 +509,24 @@ fn native_relational_wide_memory_projection_collects_and_reopens_all_destination
         let output = fixture.0.join(format!("wide-{index}"));
         let written = prepared.write(&output, format, false).unwrap();
         assert_eq!(written.output.rows_written, 3);
+        if format == Format::Parquet {
+            let metadata = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(
+                fs::File::open(&output).unwrap(),
+            )
+            .unwrap()
+            .metadata()
+            .clone();
+            for group in metadata.row_groups() {
+                for column in group.columns() {
+                    assert_eq!(column.compression(), parquet::basic::Compression::SNAPPY);
+                    assert!(!column.encodings().any(|encoding| matches!(
+                        encoding,
+                        parquet::basic::Encoding::PLAIN_DICTIONARY
+                            | parquet::basic::Encoding::RLE_DICTIONARY
+                    )));
+                }
+            }
+        }
         if format == Format::Csv {
             let csv = fs::read_to_string(&output).unwrap();
             let mut lines = csv.lines();

@@ -48,8 +48,12 @@ impl Binder<'_> {
             }
             VortexRelationalSubqueryKind::Exists | VortexRelationalSubqueryKind::Scalar => &[],
         };
-        self.charge_items(columns.len(), 8192)?;
-        self.charge_items(query.correlation.len(), 8192)?;
+        self.charge_names(
+            columns
+                .iter()
+                .chain(&query.correlation)
+                .flat_map(|key| [key.left.as_str(), key.right.as_str()]),
+        )?;
         self.charge(8192)?;
         let input = Box::new(self.bind(&query.input, depth + 1)?);
         let guard = query
@@ -72,7 +76,13 @@ impl Binder<'_> {
             .checked_add(1)
             .ok_or_else(|| failed("subquery width overflow"))?;
         validate_width(width)?;
-        self.charge_fields(width)?;
+        self.charge_names(
+            input
+                .fields
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .chain(std::iter::once(query.output_column.as_str())),
+        )?;
         let mut left_keys = Vec::new();
         let mut right_keys = Vec::new();
         for key in query.correlation.iter().chain(columns) {
@@ -130,7 +140,7 @@ impl Binder<'_> {
             return Ok(SubqueryRelation::Dynamic(self.take_deferred(reference)?));
         }
         let relation = if parameterized {
-            self.charge_fields(input_fields.len())?;
+            self.charge_named_fields(input_fields)?;
             let previous = self.outer_fields.replace(input_fields.to_vec());
             let previous_binding = std::mem::replace(&mut self.parameterized_binding, true);
             let relation = self.bind(&query.relation, depth + 1);

@@ -145,6 +145,7 @@ fn reopen(path: &std::path::Path, format: Format, dtype: &DType) -> Vec<Value> {
                 Format::ArrowIpc => crate::read_flat_arrow_ipc_source(path, 100),
                 Format::Parquet => crate::read_flat_parquet_source(path, 100),
                 Format::Avro => crate::read_flat_avro_source(path, 100),
+                Format::Orc => crate::read_flat_orc_source(path, 100),
                 _ => panic!("not an admitted nested destination"),
             }
             .unwrap();
@@ -215,7 +216,7 @@ fn native_nested_wide_schema_preserves_all_fields_values_and_typed_empty_writes(
     drop(constrained);
     let mut admitted = policy();
     admitted.resource_envelope.memory_budget_bytes = 64 << 20;
-    check_six_writers(&fixture, &expected, admitted);
+    check_seven_writers(&fixture, &expected, admitted);
     let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
     let path = fixture.0.join("wide-nested.csv");
     prepared.write(&path, Format::Csv, false).unwrap();
@@ -229,18 +230,18 @@ fn native_nested_wide_schema_preserves_all_fields_values_and_typed_empty_writes(
 }
 
 #[test]
-fn native_nested_six_writers_preserve_complete_values_and_typed_empty_results() {
+fn native_nested_seven_writers_preserve_complete_values_and_typed_empty_results() {
     let (fixture, expected) = complex_fixture();
-    check_six_writers(&fixture, &expected, policy());
+    check_seven_writers(&fixture, &expected, policy());
 }
 
 #[test]
-fn native_nested_six_writers_preserve_list_struct_and_struct_struct_payloads() {
+fn native_nested_seven_writers_preserve_list_struct_and_struct_struct_payloads() {
     let (fixture, expected) = struct_list_fixture();
-    check_six_writers(&fixture, &expected, policy());
+    check_seven_writers(&fixture, &expected, policy());
 }
 
-fn check_six_writers(
+fn check_seven_writers(
     fixture: &Fixture,
     expected: &[Value],
     execution_policy: crate::local_primitives::VortexLocalPrimitiveExecutionPolicy,
@@ -260,6 +261,7 @@ fn check_six_writers(
             Format::ArrowIpc,
             Format::Parquet,
             Format::Avro,
+            Format::Orc,
         ] {
             let path = fixture
                 .0
@@ -292,12 +294,6 @@ fn check_six_writers(
                 "{format:?} {count}"
             );
         }
-        let path = fixture.0.join(format!("denied-{count}.orc"));
-        let executions = prepared.snapshot().completed_executions;
-        let error = prepared.write(&path, Format::Orc, false).err().unwrap();
-        assert!(error.to_string().contains("nested"), "{error}");
-        assert!(!path.exists());
-        assert_eq!(prepared.snapshot().completed_executions, executions);
     }
 }
 

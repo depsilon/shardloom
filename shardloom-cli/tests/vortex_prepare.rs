@@ -1477,45 +1477,28 @@ fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry()
         );
         assert!(stdout.contains(&field("ingress_route", "vortex_ingest")));
         assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
-        let streaming = cfg!(feature = "universal-format-io");
-        if source_format == "json" {
-            assert!(stdout.contains(&field(
-                "source_read_buffer_carry_status",
-                "read_once_buffer_carried_to_text_parser"
-            )));
-            assert!(stdout.contains(&field(
-                "source_read_mmap_eligibility_status",
-                "not_used_owned_text_buffer_default"
-            )));
-        }
+        assert!(stdout.contains(&field(
+            "source_read_buffer_carry_status",
+            "incremental_schema_discovery_then_generation_checked_record_replay"
+        )));
+        assert!(stdout.contains(&field(
+            "source_read_mmap_eligibility_status",
+            "not_used_columnar_reader_owns_buffer_lifetime"
+        )));
         assert!(stdout.contains(&field(
             "source_state_materialization_layout",
-            if !streaming {
-                "scalar_row_map"
-            } else if source_format == "json" {
-                "whole_json_typed_columns_with_batched_writer"
+            if source_format == "json" {
+                "incremental_json_to_streaming_arrow_record_batch_source_state"
             } else {
-                "inferred_text_to_streaming_arrow_record_batch_source_state"
+                "incremental_text_to_streaming_arrow_record_batch_source_state"
             }
         )));
         assert!(stdout.contains(&field(
             "source_state_parse_normalization",
-            if !streaming {
-                "local_text_to_scalar_rows"
-            } else if source_format == "json" {
-                "json_adapter_to_whole_typed_columns"
-            } else {
-                "inferred_text_to_record_batch_stream"
-            }
+            "text_incremental_records_with_explicit_schema_replay"
         )));
-        assert!(stdout.contains(&field(
-            "source_state_columnar_preserved",
-            if streaming { "true" } else { "false" }
-        )));
-        assert!(stdout.contains(&field(
-            "source_state_record_batch_count",
-            if streaming { "1" } else { "0" }
-        )));
+        assert!(stdout.contains(&field("source_state_columnar_preserved", "true")));
+        assert!(stdout.contains(&field("source_state_record_batch_count", "1")));
         assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
         assert!(stdout.contains(&field("input_row_count", "2")));
         assert!(stdout.contains(&field(

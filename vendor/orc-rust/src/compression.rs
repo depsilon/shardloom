@@ -344,12 +344,16 @@ impl std::io::Read for Decompressor {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.is_first {
             self.is_first = false;
-            self.decompressor.advance().map_err(std::io::Error::other)?;
+            self.decompressor
+                .advance()
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
         }
         let current = self.decompressor.get();
         let current = if let Some(current) = current {
             if current.len() == self.offset {
-                self.decompressor.advance().map_err(std::io::Error::other)?;
+                self.decompressor
+                    .advance()
+                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
                 self.offset = 0;
                 let current = self.decompressor.get();
                 if let Some(current) = current {

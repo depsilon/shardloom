@@ -11,6 +11,12 @@ use shardloom_exec::compute_pool::CancellationToken;
 use std::sync::Arc;
 use vortex::arrow::ArrowSessionExt as _;
 
+#[derive(Clone, Copy)]
+enum Origin {
+    Caller,
+    LocalFile,
+}
+
 impl ResidentMemorySource {
     /// Copy a caller-owned columnar batch directly into admitted native buffers.
     /// No Python rows, JSON cells, intermediate file or query engine participates.
@@ -59,6 +65,28 @@ impl ResidentMemorySource {
         is_batch: bool,
         ownership: arrow_ownership::ArrowOwnershipPolicy,
     ) -> Result<Self> {
+        Self::from_arrow_admitted(session, batch, context, is_batch, ownership, Origin::Caller)
+    }
+
+    /// File adapters retain the existing ingest dictionary contract. This does
+    /// not enable the separate experimental public encoded-Arrow boundary.
+    pub(crate) fn from_local_arrow_with_ownership(
+        session: &ResidentVortexSession,
+        batch: RecordBatch,
+        context: &NativeExecutionContext<'_>,
+        ownership: arrow_ownership::ArrowOwnershipPolicy,
+    ) -> Result<Self> {
+        Self::from_arrow_admitted(session, batch, context, true, ownership, Origin::LocalFile)
+    }
+
+    fn from_arrow_admitted(
+        session: &ResidentVortexSession,
+        batch: RecordBatch,
+        context: &NativeExecutionContext<'_>,
+        is_batch: bool,
+        ownership: arrow_ownership::ArrowOwnershipPolicy,
+        origin: Origin,
+    ) -> Result<Self> {
         session.validate_execution_context(context)?;
         let schema = batch.schema();
         let mut metadata = crate::native_payload_schema::reserve_names(
@@ -75,9 +103,7 @@ impl ResidentMemorySource {
                 ));
             }
             metadata_bytes = metadata_bytes
-                .checked_add(crate::native_payload_schema::arrow_metadata_bytes(
-                    field.data_type(),
-                )?)
+                .checked_add(schema_metadata_bytes(field.data_type(), origin)?)
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
         // Controlled transfers may retain arbitrarily many backing buffers at a
@@ -92,22 +118,48 @@ impl ResidentMemorySource {
             }
         }
         metadata.resize(metadata_bytes)?;
+        // Keep the same validated physical descriptions for ownership admission.
+        // Per-field metadata credit covers this vector and its child descriptors.
+        let mut columns = Vec::new();
+        columns
+            .try_reserve_exact(batch.num_columns())
+            .map_err(native_error)?;
         for (field, column) in schema.fields().iter().zip(batch.columns()) {
             context.check_cancelled()?;
-            column.to_data().validate_full().map_err(native_error)?;
+            let data = column.to_data();
+            data.validate_full().map_err(native_error)?;
+            if matches!(origin, Origin::LocalFile)
+                && matches!(field.data_type(), arrow_schema::DataType::Dictionary(..))
+                && context.float_policy() == shardloom_core::FloatPolicy::Strict
+            {
+                crate::vortex_ingest::reject_dictionary_non_finite_float_values(
+                    field.name(),
+                    column.as_ref(),
+                )?;
+            }
             nested::validate_values_with_float_policy(
                 field.name(),
                 column.as_ref(),
                 context.float_policy(),
             )?;
+            columns.push(data);
         }
         let metadata = Arc::new(metadata);
         let allocator = crate::owned_buffers::with_shared_credit(
             session.native_allocator(),
             Arc::clone(&metadata),
         );
-        let (retained, counts) =
-            arrow_ownership::admit_batch_counted(batch, allocator.as_ref(), ownership)?;
+        let rows = batch.num_rows();
+        // Original arrays must release their buffer references before the
+        // controlled owner asks Arrow to prove a unique standard allocation.
+        drop(batch);
+        let (retained, counts) = arrow_ownership::admit_batch_data_counted(
+            Arc::clone(&schema),
+            columns,
+            rows,
+            allocator.as_ref(),
+            ownership,
+        )?;
         context.check_cancelled()?;
         let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context
@@ -137,6 +189,13 @@ impl ResidentMemorySource {
             is_batch,
             generated_range: None,
         })))
+    }
+}
+
+fn schema_metadata_bytes(dtype: &arrow_schema::DataType, origin: Origin) -> Result<u64> {
+    match origin {
+        Origin::Caller => crate::native_payload_schema::arrow_metadata_bytes(dtype),
+        Origin::LocalFile => crate::native_payload_schema::arrow_file_metadata_bytes(dtype),
     }
 }
 

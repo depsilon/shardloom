@@ -68,7 +68,7 @@ impl Binder<'_> {
             } => {
                 // The predicate still executes in the same place on every
                 // admitted row. Its hidden columns remain in the child shape.
-                self.charge_fields(child.fields.len())?;
+                self.charge_named_fields(&child.fields)?;
                 let mut columns: BTreeSet<String> = needed.into_iter().map(str::to_owned).collect();
                 predicate.visit_columns(&mut |name| {
                     columns.insert(name.to_owned());
@@ -85,7 +85,7 @@ impl Binder<'_> {
                 input: child,
                 expressions,
             } => {
-                self.charge_fields(input.fields.len())?;
+                self.charge_named_fields(&input.fields)?;
                 let mut retained: BTreeSet<String> =
                     needed.into_iter().map(str::to_owned).collect();
                 for ((name, _), expression) in input.fields.iter().zip(expressions.iter()) {
@@ -106,7 +106,7 @@ impl Binder<'_> {
                 self.narrow_scan_projection(child, expressions)?;
             }
             NodeKind::Window { input: child, spec } => {
-                self.charge_fields(input.fields.len())?;
+                self.charge_named_fields(&input.fields)?;
                 let needed: BTreeSet<_> = needed.into_iter().collect();
                 let columns = spec.columns.len();
                 let mut index = 0;
@@ -120,7 +120,7 @@ impl Binder<'_> {
                 self.narrow_source_demand(child, super::window::input_columns(spec))?;
             }
             NodeKind::Join { left, right, spec } => {
-                self.charge_fields(spec.fields.len())?;
+                self.charge_named_fields(&spec.fields)?;
                 let needed: BTreeSet<_> = needed.into_iter().collect();
                 // COUNT(*) still consumes actual matches. Preserve one declared
                 // output instead of introducing an empty native row record.

@@ -8056,7 +8056,11 @@ jobs:
                                 {"key": "data_read", "value": "true"},
                                 {"key": "output_row_count", "value": "2"},
                                 {"key": "public_workflow_native_vortex_plan_route_family", "value": "native_vortex_unified_plan"},
-                                {"key": "resident_source_opens", "value": "1"},
+                                {"key": "resident_source_opens", "value": "0"},
+                                {"key": "native_source_demand_sources", "value": "1"},
+                                {"key": "native_source_demand_formats", "value": "csv"},
+                                {"key": "native_source_demand_data_read_bytes", "value": "57"},
+                                {"key": "native_source_demand_data_read_requests", "value": "1"},
                                 {"key": "claim_gate_status", "value": "not_claim_grade"},
                             ])
                         assert value("--request") == "write_jsonl", args
@@ -8087,7 +8091,7 @@ jobs:
                             {"Primitive": ["i64", False]}, {"Utf8": False}, {"Primitive": ["i64", False]},
                         ]}, False]}
                         output_rows = [{"id": 1, "label": "alpha", "batch_id": 1}]
-                        generated_session_source_opens = 1
+                        generated_session_source_opens = 0
                         emit("run", [
                             {"key": "result_schema_json", "value": json.dumps(output_schema)},
                             {"key": "result_schema_format", "value": "vortex.dtype.serde.v1"},
@@ -8143,7 +8147,8 @@ jobs:
             self.assertIn("quickstart_local_file_route_status=passed", output)
             self.assertIn("quickstart_local_file_runtime_execution=true", output)
             self.assertIn("quickstart_local_file_native_plan_family=native_vortex_unified_plan", output)
-            self.assertIn("quickstart_local_file_source_opens=1", output)
+            self.assertIn("quickstart_local_file_source_opens=0", output)
+            self.assertIn("quickstart_local_file_direct_source_verified=true", output)
             self.assertIn("quickstart_local_file_output_row_count=2", output)
             self.assertIn("quickstart_local_file_fallback_attempted=false", output)
             self.assertIn("quickstart_local_file_external_engine_invoked=false", output)
@@ -8210,7 +8215,8 @@ jobs:
                     )
                     self.assertTrue(blockers)
             for old, new in (
-                ("quickstart_local_file_source_opens=1", "quickstart_local_file_source_opens=10"),
+                ("quickstart_local_file_source_opens=0", "quickstart_local_file_source_opens=10"),
+                ("quickstart_local_file_direct_source_verified=true", "quickstart_local_file_direct_source_verified=false"),
                 ("quickstart_generated_source_opens=0", "quickstart_generated_source_opens=01"),
                 ("quickstart_generated_result_verified=true", "quickstart_generated_result_verified=trueish"),
                 ("quickstart_generated_claim_gate_status=fixture_smoke_only", "quickstart_generated_claim_gate_status="),
@@ -8235,9 +8241,14 @@ jobs:
             for original, replacement in (
                 ('"public_workflow_native_vortex_plan_route_family"', '"missing_plan_family"'),
                 ('"native_vortex_unified_plan"', '"unadmitted_plan_family"'),
-                ('"resident_source_opens", "value": "1"', '"resident_source_opens", "value": "2"'),
-                ("generated_session_source_opens = 1", "generated_session_source_opens = 0"),
-                ("generated_session_source_opens = 1", "generated_session_source_opens = 2"),
+                ('"resident_source_opens", "value": "0"', '"resident_source_opens", "value": "1"'),
+                ('"native_source_demand_sources", "value": "1"', '"native_source_demand_sources", "value": "0"'),
+                ('"native_source_demand_formats", "value": "csv"', '"native_source_demand_formats", "value": "parquet"'),
+                ('"native_source_demand_data_read_bytes", "value": "57"', '"native_source_demand_data_read_bytes", "value": "0"'),
+                ('"native_source_demand_data_read_requests", "value": "1"', '"native_source_demand_data_read_requests", "value": "0"'),
+                ('"native_source_demand_sources"', '"missing_native_source_demand_sources"'),
+                ("generated_session_source_opens = 0", "generated_session_source_opens = 1"),
+                ("generated_session_source_opens = 0", "generated_session_source_opens = 2"),
             ):
                 with self.subTest(missing_or_invalid_evidence=original):
                     self.assertIn(original, original_cli)
@@ -8272,7 +8283,8 @@ jobs:
                             "quickstart_local_file_route_status=passed",
                             "quickstart_local_file_runtime_execution=true",
                             "quickstart_local_file_native_plan_family=native_vortex_unified_plan",
-                            "quickstart_local_file_source_opens=1",
+                            "quickstart_local_file_source_opens=0",
+                            "quickstart_local_file_direct_source_verified=true",
                             "quickstart_local_file_output_row_count=2",
                             "quickstart_local_file_fallback_attempted=false",
                             "quickstart_local_file_external_engine_invoked=false",

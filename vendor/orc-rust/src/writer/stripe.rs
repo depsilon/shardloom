@@ -26,7 +26,7 @@ use prost::Message;
 use snafu::ResultExt;
 
 use crate::compression::Compressor;
-use crate::error::{IoSnafu, Result};
+use crate::error::{IoSnafu, Result, UnexpectedSnafu};
 use crate::memory::EstimateMemory;
 use crate::proto;
 
@@ -36,6 +36,7 @@ use super::column::{
     Int32ColumnEncoder, Int64ColumnEncoder, LargeBinaryColumnEncoder, LargeStringColumnEncoder,
     StringColumnEncoder, TimestampColumnEncoder,
 };
+use super::rich_column::{DecimalColumnEncoder, ListColumnEncoder, StructColumnEncoder};
 use super::{ColumnEncoding, StreamType};
 
 #[derive(Copy, Clone, Eq, Debug, PartialEq)]
@@ -71,7 +72,7 @@ impl From<&StripeInformation> for proto::StripeInformation {
 /// entire stripe to the underlying writer.
 pub struct StripeWriter<W> {
     writer: W,
-    /// Flattened columns, in order of their column ID.
+    /// Top-level owners; each emits its descendants in schema preorder.
     columns: Vec<Box<dyn ColumnStripeEncoder>>,
     pub row_count: usize,
     compressor: Compressor,
@@ -92,21 +93,24 @@ impl<W: Write> StripeWriter<W> {
         schema: &SchemaRef,
         compressor: Compressor,
         timezone: Option<String>,
-    ) -> Self {
-        let columns = schema.fields().iter().map(create_encoder).collect();
-        Self {
+    ) -> Result<Self> {
+        let columns = schema
+            .fields()
+            .iter()
+            .map(create_encoder)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
             writer,
             columns,
             row_count: 0,
             compressor,
             timezone,
-        }
+        })
     }
 
     /// Attempt to encode entire [`RecordBatch`]. Relies on caller slicing the batch
     /// to required batch size.
     pub fn encode_batch(&mut self, batch: &RecordBatch) -> Result<()> {
-        // TODO: consider how to handle nested types (including parent nullability)
         for (array, encoder) in batch.columns().iter().zip(self.columns.iter_mut()) {
             encoder.encode_array(array)?;
         }
@@ -125,35 +129,30 @@ impl<W: Write> StripeWriter<W> {
         // (see arrow_writer::serialize_schema())
         // Direct encoding to represent root struct
         let mut column_encodings = vec![ColumnEncoding::Direct];
-        let child_column_encodings = self
-            .columns
-            .iter()
-            .map(|c| c.column_encoding())
-            .collect::<Vec<_>>();
-        column_encodings.extend(child_column_encodings);
-        let column_encodings = column_encodings.iter().map(From::from).collect();
-
         // Root type won't have any streams
         let mut written_streams = vec![];
         let mut data_length = 0;
-        for (index, c) in self.columns.iter_mut().enumerate() {
-            // Offset by 1 to account for root of 0
-            let column = index + 1;
-            let streams = c.finish();
-            // Flush the streams to the writer
-            for s in streams {
-                let (kind, bytes) = s.into_parts();
-                let bytes = self.compressor.compress(&bytes)?;
-                let length = bytes.len();
-                self.writer.write_all(&bytes).context(IoSnafu)?;
-                data_length += length as u64;
-                written_streams.push(WrittenStream {
-                    kind,
-                    column,
-                    length,
-                });
+        let mut column = 0;
+        for c in &mut self.columns {
+            for (encoding, streams) in c.finish_columns() {
+                column += 1;
+                column_encodings.push(encoding);
+                // Flush the streams to the writer
+                for s in streams {
+                    let (kind, bytes) = s.into_parts();
+                    let bytes = self.compressor.compress(&bytes)?;
+                    let length = bytes.len();
+                    self.writer.write_all(&bytes).context(IoSnafu)?;
+                    data_length += length as u64;
+                    written_streams.push(WrittenStream {
+                        kind,
+                        column,
+                        length,
+                    });
+                }
             }
         }
+        let column_encodings = column_encodings.iter().map(From::from).collect();
         let streams = written_streams.iter().map(From::from).collect();
         let stripe_footer = proto::StripeFooter {
             streams,
@@ -186,8 +185,8 @@ impl<W: Write> StripeWriter<W> {
     }
 }
 
-fn create_encoder(field: &FieldRef) -> Box<dyn ColumnStripeEncoder> {
-    match field.data_type() {
+fn create_encoder(field: &FieldRef) -> Result<Box<dyn ColumnStripeEncoder>> {
+    Ok(match field.data_type() {
         ArrowDataType::Float32 => Box::new(FloatColumnEncoder::new(ColumnEncoding::Direct)),
         ArrowDataType::Float64 => Box::new(DoubleColumnEncoder::new(ColumnEncoding::Direct)),
         ArrowDataType::Int8 => Box::new(ByteColumnEncoder::new(ColumnEncoding::Direct)),
@@ -222,9 +221,32 @@ fn create_encoder(field: &FieldRef) -> Box<dyn ColumnStripeEncoder> {
         ArrowDataType::Binary => Box::new(BinaryColumnEncoder::new()),
         ArrowDataType::LargeBinary => Box::new(LargeBinaryColumnEncoder::new()),
         ArrowDataType::Boolean => Box::new(BooleanColumnEncoder::new()),
-        // TODO: support more datatypes
-        _ => unimplemented!("unsupported datatype"),
-    }
+        ArrowDataType::Decimal128(precision, scale)
+            if (1..=38).contains(precision)
+                && *scale >= 0
+                && i16::from(*scale) <= i16::from(*precision) =>
+        {
+            Box::new(DecimalColumnEncoder::new(*precision, *scale))
+        }
+        ArrowDataType::Struct(fields) => Box::new(StructColumnEncoder::new(
+            fields
+                .iter()
+                .map(create_encoder)
+                .collect::<Result<Vec<_>>>()?,
+        )),
+        ArrowDataType::List(child) => {
+            Box::new(ListColumnEncoder::new(create_encoder(child)?, false))
+        }
+        ArrowDataType::LargeList(child) => {
+            Box::new(ListColumnEncoder::new(create_encoder(child)?, true))
+        }
+        _ => {
+            return UnexpectedSnafu {
+                msg: format!("unsupported ORC writer datatype: {}", field.data_type()),
+            }
+            .fail()
+        }
+    })
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

@@ -68,8 +68,10 @@ The policy ids are:
 | `atomic_rename_same_directory` | The policy label records same-directory commit behavior where the admitted writer supports it. |
 | `partial_write_cleanup_reported` | Cleanup status is exposed instead of hidden. |
 
-Fanout replays the shared query once per requested adapter; there is no answer cache. It
-stages all output files before publication, then publishes targets sequentially with create-if-absent
+An explicit fanout call executes the shared query once and replays its credited native result
+to each requested adapter. Separate calls still execute separately, with no answer cache
+across requests. It stages all output files
+before publication, then publishes targets sequentially with create-if-absent
 semantics. Local paths cannot be committed as one atomic group: if a later publication fails,
 already-published complete targets remain, and the failure reports which targets were published.
 Every existing target is denied, including when overwrite was requested. The writer cleans up
