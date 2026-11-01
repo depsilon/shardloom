@@ -957,15 +957,13 @@ pub fn plan_endopulse_adjustment(
 
     if input.memory_reservations_denied > 0 {
         signals.push("memory_reservation_denied");
-        next_target_task_bytes = next_target_task_bytes
-            .saturating_div(2)
-            .max(input.min_task_bytes);
+        next_target_task_bytes =
+            crate::adaptive_work::shrink_target(next_target_task_bytes, input.min_task_bytes);
     }
     if matches!(ledger.selected_action, ScarcityLedgerAction::HoldForMemory) {
         signals.push("memory_pressure");
-        next_target_task_bytes = next_target_task_bytes
-            .saturating_div(2)
-            .max(input.min_task_bytes);
+        next_target_task_bytes =
+            crate::adaptive_work::shrink_target(next_target_task_bytes, input.min_task_bytes);
     }
     if matches!(
         ledger.selected_action,
@@ -979,9 +977,10 @@ pub fn plan_endopulse_adjustment(
         ScarcityLedgerAction::CoalesceSmallTasks
     ) {
         signals.push("small_task_coalescing");
-        next_target_task_bytes = next_target_task_bytes
-            .saturating_mul(2)
-            .min(input.max_task_bytes.max(input.target_task_bytes));
+        next_target_task_bytes = crate::adaptive_work::grow_target(
+            next_target_task_bytes,
+            input.max_task_bytes.max(input.target_task_bytes),
+        );
     }
     if matches!(
         ledger.selected_action,

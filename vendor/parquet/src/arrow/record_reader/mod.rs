@@ -117,6 +117,13 @@ where
         }
     }
 
+    /// Set the next batch's preallocation hint without dropping owned state.
+    /// The caller changes this only between complete output batches; fragmented
+    /// reads within a batch retain the selected hint.
+    pub(crate) fn set_capacity_hint(&mut self, capacity: usize) {
+        self.capacity_hint = capacity;
+    }
+
     /// Set the current page reader.
     pub fn set_page_reader(&mut self, page_reader: Box<dyn PageReader>) -> Result<()> {
         let descr = &self.column_desc;

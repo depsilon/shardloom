@@ -278,7 +278,7 @@ jobs:
         with:
           key: native-cli-debug-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
       - name: Preserve ordinary debug native public-surface tests
-        run: cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces
+        run: cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --test capability_runtime_discovery --test capability_discovery_snapshots --features release-user-surfaces
       - name: Build and seal exact CLI configuration
         run: python scripts/ci_build_artifact.py build --product cli-debug --directory "$RUNNER_TEMP/ci-cli-debug"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

@@ -21,6 +21,8 @@ use arrow::datatypes::{ArrowTimestampType, TimeUnit};
 use bytes::Bytes;
 use snafu::ensure;
 
+use crate::reader::memory::decoded::{Memory, Values};
+
 use crate::{
     encoding::{PrimitiveValueDecoder, PrimitiveValueEncoder},
     error::{DecodeTimestampSnafu, EncodeTimestampSnafu, OutOfSpecSnafu, Result},
@@ -125,9 +127,15 @@ pub struct TimestampDecoder<T: ArrowTimestampType> {
     data: Box<dyn PrimitiveValueDecoder<i64> + Send>,
     secondary: Box<dyn PrimitiveValueDecoder<i64> + Send>,
     _marker: PhantomData<T>,
+    memory: Memory,
 }
 
 impl<T: ArrowTimestampType> TimestampDecoder<T> {
+    pub(crate) fn with_memory(mut self, memory: Memory) -> Self {
+        self.memory = memory;
+        self
+    }
+
     pub fn new(
         base_from_epoch: i64,
         data: Box<dyn PrimitiveValueDecoder<i64> + Send>,
@@ -138,6 +146,7 @@ impl<T: ArrowTimestampType> TimestampDecoder<T> {
             data,
             secondary,
             _marker: PhantomData,
+            memory: None,
         }
     }
 }
@@ -151,8 +160,8 @@ impl<T: ArrowTimestampType> PrimitiveValueDecoder<T::Native> for TimestampDecode
 
     fn decode(&mut self, out: &mut [T::Native]) -> Result<()> {
         // TODO: can probably optimize, reuse buffers?
-        let mut data = vec![0; out.len()];
-        let mut secondary = vec![0; out.len()];
+        let mut data = Values::<i64>::zeroed(out.len(), &self.memory)?;
+        let mut secondary = Values::<i64>::zeroed(out.len(), &self.memory)?;
         self.data.decode(&mut data)?;
         self.secondary.decode(&mut secondary)?;
         for (index, (&seconds_since_orc_base, &nanoseconds)) in
@@ -172,9 +181,15 @@ pub struct TimestampNanosecondAsDecimalDecoder {
     base_from_epoch: i64,
     data: Box<dyn PrimitiveValueDecoder<i64> + Send>,
     secondary: Box<dyn PrimitiveValueDecoder<i64> + Send>,
+    memory: Memory,
 }
 
 impl TimestampNanosecondAsDecimalDecoder {
+    pub(crate) fn with_memory(mut self, memory: Memory) -> Self {
+        self.memory = memory;
+        self
+    }
+
     pub fn new(
         base_from_epoch: i64,
         data: Box<dyn PrimitiveValueDecoder<i64> + Send>,
@@ -184,6 +199,7 @@ impl TimestampNanosecondAsDecimalDecoder {
             base_from_epoch,
             data,
             secondary,
+            memory: None,
         }
     }
 }
@@ -197,8 +213,8 @@ impl PrimitiveValueDecoder<i128> for TimestampNanosecondAsDecimalDecoder {
 
     fn decode(&mut self, out: &mut [i128]) -> Result<()> {
         // TODO: can probably optimize, reuse buffers?
-        let mut data = vec![0; out.len()];
-        let mut secondary = vec![0; out.len()];
+        let mut data = Values::<i64>::zeroed(out.len(), &self.memory)?;
+        let mut secondary = Values::<i64>::zeroed(out.len(), &self.memory)?;
         self.data.decode(&mut data)?;
         self.secondary.decode(&mut secondary)?;
         for (index, (&seconds_since_orc_base, &nanoseconds)) in

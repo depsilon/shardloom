@@ -143,10 +143,7 @@ fn frame_metadata_wire_scan_preserves_prost_unknown_and_repeated_field_semantics
         assert_eq!(storage.frames.len(), 2);
         assert_eq!(storage.frames.capacity(), 2);
         assert_eq!(storage.metadata.frames.capacity(), 2);
-        assert_eq!(
-            counts.lock().requests,
-            vec![capacity_bytes(2).unwrap()]
-        );
+        assert_eq!(counts.lock().requests, vec![capacity_bytes(2).unwrap()]);
         drop(storage);
         assert_eq!(counts.lock().live, 0);
     }
@@ -195,10 +192,7 @@ fn frame_metadata_rejects_buffer_count_before_reservation_and_refunds_nested_err
     }
     // Top-level frame count is valid, but the nested frame has an invalid tag.
     assert!(FrameStorage::deserialize(&[0x12, 1, 0], &buffers(1), &allocator).is_err());
-    assert_eq!(
-        counts.lock().requests,
-        vec![capacity_bytes(1).unwrap()]
-    );
+    assert_eq!(counts.lock().requests, vec![capacity_bytes(1).unwrap()]);
     assert_eq!(counts.lock().live, 0);
     // A valid parse still works after failure and releases the same credit.
     drop(FrameStorage::deserialize(&metadata, &buffers(2), &allocator).unwrap());
@@ -211,9 +205,6 @@ fn frame_metadata_reservation_precedes_prost_message_construction() {
     let (allocator, counts) = allocator(1);
     let error = FrameStorage::deserialize(&bytes, &buffers(4096), &allocator).unwrap_err();
     assert!(error.to_string().contains("denied metadata reservation"));
-    assert_eq!(
-        counts.lock().requests,
-        vec![capacity_bytes(4096).unwrap()]
-    );
+    assert_eq!(counts.lock().requests, vec![capacity_bytes(4096).unwrap()]);
     assert_eq!(counts.lock().peak, 0);
 }

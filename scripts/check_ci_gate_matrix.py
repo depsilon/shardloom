@@ -198,7 +198,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         lane_id="native_cli_debug",
         job_id="native-cli-build-debug",
         commands=(
-            "cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces",
+            "cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --test capability_runtime_discovery --test capability_discovery_snapshots --features release-user-surfaces",
             "python scripts/ci_build_artifact.py build --product cli-debug --directory \"$RUNNER_TEMP/ci-cli-debug\"",
         ),
         artifact_refs=(

@@ -38,7 +38,7 @@ pub struct StructArrayDecoder {
 
 impl StructArrayDecoder {
     pub fn new(column: &Column, fields: Fields, stripe: &Stripe) -> Result<Self> {
-        let present = PresentDecoder::from_stripe(stripe, column);
+        let present = PresentDecoder::from_stripe(stripe, column)?;
 
         let decoders = column
             .children()

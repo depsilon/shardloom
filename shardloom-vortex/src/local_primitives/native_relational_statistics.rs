@@ -117,7 +117,9 @@ impl Table {
             let secondary =
                 secondary.ok_or_else(|| failed("paired statistical input is absent"))?;
             if matches!(ordinals, GroupOrdinals::Scalar(_)) {
-                let mut partial = PairedMoments::default();
+                // Physical decode batches cannot introduce new reduction
+                // boundaries. Retain the same source-order state as grouping.
+                let state = &mut self.pairs.values[slot.index];
                 for row in 0..ordinals.len() {
                     if row.is_multiple_of(1024) {
                         context.check_cancelled()?;
@@ -125,13 +127,12 @@ impl Table {
                     if values.is_null(row)? || secondary.is_null(row)? {
                         continue;
                     }
-                    partial.observe_with_policy(
+                    state.observe_with_policy(
                         &values.raw_cell(row)?,
                         &secondary.raw_cell(row)?,
                         context.float_policy(),
                     )?;
                 }
-                self.pairs.values[slot.index].merge(partial)?;
             } else {
                 for (row, group) in ordinals.iter() {
                     if row.is_multiple_of(1024) {
@@ -150,14 +151,13 @@ impl Table {
             return Ok(());
         }
         if matches!(ordinals, GroupOrdinals::Scalar(_)) {
-            let mut partial = Moments::default();
+            let state = &mut self.values.values[slot.index];
             for row in 0..ordinals.len() {
                 if row.is_multiple_of(1024) {
                     context.check_cancelled()?;
                 }
-                partial.observe_with_policy(&values.raw_cell(row)?, context.float_policy())?;
+                state.observe_with_policy(&values.raw_cell(row)?, context.float_policy())?;
             }
-            self.values.values[slot.index].merge(partial)?;
         } else {
             for (row, group) in ordinals.iter() {
                 if row.is_multiple_of(1024) {

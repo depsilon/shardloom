@@ -17,7 +17,7 @@ GROUPS = {
                "vortex-datetime-parts"),
     "io": ("vortex-layout", "vortex-file", "vortex-io"),
     "buffer": ("vortex-buffer",),
-    "formats": ("orc-rust",),
+    "formats": ("orc-rust", "arrow-avro", "arrow-ipc"),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": []},
@@ -34,6 +34,11 @@ CONFIGURATIONS = {
     "vortex-buffer": {"features": None, "patches": []},
     "orc-rust": {"features": None, "patches": [], "no_default_features": True,
                  "clippy_tests": True, "clippy_conf_dir": "vendor/orc-rust"},
+    "arrow-avro": {"features": "deflate,snappy", "patches": [], "no_default_features": True,
+                   "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-avro",
+                   "arrow_test_data": "vendor/arrow-avro/test/arrow-testing/data"},
+    "arrow-ipc": {"features": "lz4,zstd", "patches": [],
+                  "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-ipc"},
 }
 
 
@@ -43,8 +48,12 @@ def configuration_arguments(crate: str) -> list[str]:
     for patch in config["patches"]:
         args += ["--config", f'patch.crates-io.{patch}.path="vendor/{patch}"']
     if config.get("no_default_features"):
-        return [*args, "--no-default-features"]
-    return [*args, "--features", config["features"]] if config["features"] else [*args, "--all-features"]
+        args.append("--no-default-features")
+    if config["features"]:
+        args += ["--features", config["features"]]
+    elif not config.get("no_default_features"):
+        args.append("--all-features")
+    return args
 
 
 def commands(crate: str) -> list[list[str]]:
@@ -72,8 +81,14 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
             # Vortex's aliases policy belongs only to its provider family.
             # Other codecs retain their own lint configuration, even if the
             # calling environment selected Vortex's configuration globally.
-            env["CLIPPY_CONF_DIR"] = str(root / CONFIGURATIONS[crate].get(
+            crate_env = dict(env)
+            crate_env["CLIPPY_CONF_DIR"] = str(root / CONFIGURATIONS[crate].get(
                 "clippy_conf_dir", "vendor/vortex-array"))
+            if fixture_path := CONFIGURATIONS[crate].get("arrow_test_data"):
+                fixture_root = root / fixture_path
+                if not fixture_root.is_dir():
+                    raise ValueError(f"missing committed provider test fixtures: {crate}")
+                crate_env["ARROW_TEST_DATA"] = str(fixture_root)
             frozen = root / ".github/provider-locks" / f"{crate}.lock"
             if frozen.is_symlink() or not frozen.is_file():
                 raise ValueError(f"missing reviewed provider lockfile: {crate}")
@@ -85,11 +100,13 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
                 log = output / f"{crate}-{command[1]}.log"
                 started = time.monotonic()
                 entry = {"crate": crate, "command": command, "lock_sha256": sha(frozen),
-                         "clippy_conf_dir": env["CLIPPY_CONF_DIR"]}
+                         "clippy_conf_dir": crate_env["CLIPPY_CONF_DIR"]}
+                if fixture_path:
+                    entry["arrow_test_data"] = crate_env["ARROW_TEST_DATA"]
                 report["commands"].append(entry)
                 print("Running " + " ".join(command), flush=True)
                 with log.open("xb") as stream:
-                    result = subprocess.run(command, cwd=root, env=env, stdout=stream,
+                    result = subprocess.run(command, cwd=root, env=crate_env, stdout=stream,
                                             stderr=subprocess.STDOUT, check=False)
                 entry.update(returncode=result.returncode, seconds=time.monotonic() - started,
                              log=log.name, log_sha256=sha(log))

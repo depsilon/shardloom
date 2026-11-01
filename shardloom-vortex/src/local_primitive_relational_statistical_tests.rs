@@ -7,6 +7,9 @@ use serde_json::{Value, json};
 #[path = "local_primitive_relational_statistical_window_tests.rs"]
 mod window_tests;
 
+#[path = "local_primitive_relational_statistical_partition_tests.rs"]
+mod partition_tests;
+
 fn moments() -> Vec<Measure> {
     ["var_pop", "var_samp", "stddev_pop", "stddev_samp"]
         .map(|name| measure(name, Some("number"), name))

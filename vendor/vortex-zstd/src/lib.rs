@@ -12,7 +12,8 @@
 //! [`ZstdBuffers`] stores the buffers of another encoding as independently compressed zstd
 //! buffers while preserving the inner encoding metadata.
 //!
-//! This crate exposes array encodings only. Compression scheme selection is wired through
+//! This crate exposes array encodings and a bounded frame-decode provider.
+//! Compression scheme selection is wired through
 //! `vortex-btrblocks` and file writing. To deserialize arrays manually, register the encoding in the
 //! array session:
 //!
@@ -24,6 +25,7 @@
 //! ```
 
 pub use array::*;
+pub use decoder_workspace::{DecoderWorkspace, decompress_frame_into};
 use vortex_array::dtype::proto::dtype as pb;
 use vortex_array::session::ArraySessionExt;
 use vortex_edition::EditionSessionExt;

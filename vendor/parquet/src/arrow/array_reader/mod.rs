@@ -94,6 +94,11 @@ pub trait ArrayReader: Send {
     /// Returns the arrow type of this array reader.
     fn get_data_type(&self) -> &ArrowType;
 
+    /// Set the preallocation hint for a subsequent output batch. Existing page,
+    /// dictionary, cache and variable-length state remains owned by the reader.
+    /// Synthetic readers without preallocated value storage need no change.
+    fn set_batch_size_hint(&mut self, _batch_size: usize) {}
+
     /// Reads at most `batch_size` records into an arrow array and return it.
     #[cfg(any(feature = "experimental", test))]
     fn next_batch(&mut self, batch_size: usize) -> Result<ArrayRef> {

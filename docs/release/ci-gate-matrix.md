@@ -131,7 +131,7 @@ and workflow markers verbatim for contract checking.
 
 ### native_cli_debug — native-cli-build-debug
 
-- Commands: `cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --features release-user-surfaces`; `python scripts/ci_build_artifact.py build --product cli-debug --directory "$RUNNER_TEMP/ci-cli-debug"`
+- Commands: `cargo test --locked -p shardloom-cli --lib --bin shardloom --test vortex_prepare --test public_memory_inputs --test public_workflow_route --test resident_worker --test capability_runtime_discovery --test capability_discovery_snapshots --features release-user-surfaces`; `python scripts/ci_build_artifact.py build --product cli-debug --directory "$RUNNER_TEMP/ci-cli-debug"`
 - Artifacts: `native-cli-debug-linux`; `${{ runner.temp }}/ci-cli-debug`
 - Release blockers: `ordinary debug native public-surface coverage`
 - Workflow markers: `Rust feature matrix (native_public_surface_tests)`; `ubuntu-24.04`

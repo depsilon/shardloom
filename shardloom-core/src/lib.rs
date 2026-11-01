@@ -103,7 +103,9 @@ pub use benchmark_suite::{
     BenchmarkScenarioCategory, BenchmarkSuiteCatalogReport, BenchmarkSuiteDatasetProfileKind,
     BenchmarkSuiteKind, plan_benchmark_suite_catalog,
 };
-pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use capabilities::{
+    Capability, CapabilityStatus, EngineCapabilities, RuntimeCapabilityAvailability,
+};
 pub use certification::{
     AdapterCertificationEntry, AdapterCertificationMatrix, AdapterMaturityLevel,
     BestChoiceScorecard, BestChoiceScorecardEntry, BestDefaultCertificationGateReport,

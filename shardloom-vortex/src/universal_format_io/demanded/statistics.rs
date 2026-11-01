@@ -9,16 +9,33 @@ pub(super) fn excluded(
     metadata: &ArrowReaderMetadata,
     group: usize,
     predicate: &PredicateExpr,
+    logical_schema: &arrow_schema::Schema,
+    partitions: &[(String, Option<String>)],
 ) -> bool {
     match predicate {
         PredicateExpr::AlwaysFalse => true,
         PredicateExpr::And(children) => children
             .iter()
-            .any(|child| excluded(metadata, group, child)),
+            .any(|child| excluded(metadata, group, child, logical_schema, partitions)),
         _ => {
             let Some(column) = predicate.column() else {
                 return false;
             };
+            let Ok(rows) = u64::try_from(metadata.metadata().row_group(group).num_rows()) else {
+                return false;
+            };
+            // These facts come from admitted schema/partition mapping, not from
+            // an absent statistics entry. Stored columns always use their own
+            // file's physical schema; ordinals can differ across union members.
+            if let Some(stats) = mapped_stats(
+                column.as_str(),
+                metadata.schema(),
+                logical_schema,
+                partitions,
+                rows,
+            ) {
+                return excluded_by_stats(predicate, &stats);
+            }
             let Ok(index) = metadata.schema().index_of(column.as_str()) else {
                 return false;
             };
@@ -48,31 +65,12 @@ pub(super) fn excluded(
                 return false;
             }
             let group = metadata.metadata().row_group(group);
-            let Ok(rows) = u64::try_from(group.num_rows()) else {
-                return false;
-            };
             let Some(statistics) = group.column(leaves[0]).statistics() else {
                 return false;
             };
             let mut stats = SegmentStats::with_row_count(rows);
             stats.null_count = statistics.null_count_opt();
             stats.exactness = StatisticsExactness::Exact;
-            // A comparison cannot select SQL-null rows even when an all-null
-            // chunk correctly has no min/max. Reuse the null-count proof rather
-            // than manufacturing bounds or treating absent bounds as zero.
-            if matches!(predicate, PredicateExpr::Compare { .. })
-                && matches!(
-                    prove_predicate_from_stats(
-                        &PredicateExpr::IsNotNull {
-                            column: column.clone()
-                        },
-                        &stats,
-                    ),
-                    PredicateProof::AlwaysFalse { .. }
-                )
-            {
-                return true;
-            }
             if !statistics.is_min_max_deprecated()
                 && statistics.min_is_exact()
                 && statistics.max_is_exact()
@@ -81,12 +79,56 @@ pub(super) fn excluded(
                 stats.min_value = min;
                 stats.max_value = max;
             }
-            matches!(
-                prove_predicate_from_stats(predicate, &stats),
-                PredicateProof::AlwaysFalse { .. }
-            )
+            excluded_by_stats(predicate, &stats)
         }
     }
+}
+
+pub(super) fn mapped_stats(
+    column: &str,
+    physical: &arrow_schema::Schema,
+    logical: &arrow_schema::Schema,
+    partitions: &[(String, Option<String>)],
+    rows: u64,
+) -> Option<SegmentStats> {
+    let mut stats = SegmentStats::with_row_count(rows);
+    stats.exactness = StatisticsExactness::Exact;
+    if let Some((_, value)) = partitions.iter().find(|(name, _)| name == column) {
+        stats.null_count = Some(if value.is_some() { 0 } else { rows });
+        stats.min_value = value.clone().map(StatValue::Utf8);
+        stats.max_value.clone_from(&stats.min_value);
+    } else if physical.index_of(column).is_err()
+        && logical
+            .field_with_name(column)
+            .is_ok_and(arrow_schema::Field::is_nullable)
+    {
+        stats.null_count = Some(rows);
+    } else {
+        return None;
+    }
+    Some(stats)
+}
+
+pub(super) fn excluded_by_stats(predicate: &PredicateExpr, stats: &SegmentStats) -> bool {
+    // SQL comparisons cannot select null rows, including typed-null missing
+    // fields and the admitted Hive null partition. No invented min/max is used.
+    if let PredicateExpr::Compare { column, .. } = predicate
+        && matches!(
+            prove_predicate_from_stats(
+                &PredicateExpr::IsNotNull {
+                    column: column.clone()
+                },
+                stats,
+            ),
+            PredicateProof::AlwaysFalse { .. }
+        )
+    {
+        return true;
+    }
+    matches!(
+        prove_predicate_from_stats(predicate, stats),
+        PredicateProof::AlwaysFalse { .. }
+    )
 }
 
 fn bounds(statistics: &Statistics, dtype: &DataType) -> (Option<StatValue>, Option<StatValue>) {

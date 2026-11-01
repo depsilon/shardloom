@@ -72,3 +72,40 @@ identities and every added package/version relative to the root lock. All added
 packages provide Apache-2.0, MIT or BSD-3-Clause terms in their Cargo manifests;
 existing upstream license texts are preserved. No query-engine dependency or
 runtime fallback is introduced.
+
+The November 1 controlled Deflate integration adds a direct `miniz_oxide` edge
+to the ORC lock at its existing pinned version. No package version changes.
+
+## November 1 Avro provider configuration
+
+`arrow-avro.lock` freezes the complete standalone Arrow Avro 59.3.1 library
+test graph with `--no-default-features --features deflate,snappy`, matching the
+admitted runtime codecs. The `formats` group runs all upstream and local library
+tests, then strict library/test Clippy. Its `ARROW_TEST_DATA` points at the
+committed, identity-verified fixtures under `vendor/arrow-avro/test/arrow-testing/data`;
+it does not inherit a machine-specific fixture path or Vortex lint aliases.
+
+The [Avro resolution review](arrow-avro-review.json) records all 57 package/version
+entries absent from the root graph, their registry checksums and exact manifest
+licenses. All provide permissive terms; the optional `libbz2-rs-sys` entry uses
+the attribution-and-change-notice bzip2 license. The optional XZ entry's bundled
+`COPYING` identifies liblzma as 0BSD and distinguishes the GPL/LGPL scripts and
+build helpers. Those optional Bzip2/XZ codecs are disabled in this CI recipe
+and the engine runtime. Their implementation is not copied into this repository.
+The standalone lock is a test input; it does not widen runtime features, update
+the engine's dependency graph or add a fallback engine.
+
+## November 1 IPC provider configuration
+
+`arrow-ipc.lock` fixes the complete Arrow IPC library tests at Arrow 59.3.1 with
+`--features lz4,zstd`. The `formats` group runs these tests and strict library/test
+Clippy with its own lint scope. These tests generate their fixtures locally.
+
+The [IPC resolution review](arrow-ipc-review.json) records the 23 registry
+package/version entries absent from the runtime lock, including exact archive,
+manifest and bundled-license hashes. Their declared terms are Apache-2.0, MIT,
+Unlicense or combinations of those permissive licenses. The resolution was
+seeded from the root lock to preserve its exact Arrow versions. This standalone
+development graph does not update the runtime's package versions. The runtime
+adds only a direct IPC edge to its already pinned `bytes` package for retained
+buffer ownership.

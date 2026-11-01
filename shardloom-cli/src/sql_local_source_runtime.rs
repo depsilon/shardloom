@@ -4,7 +4,11 @@
 //! admission. Compatibility readers normalize inputs into Vortex; they do not
 //! evaluate queries. Execution and output belong to `shardloom-vortex`.
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(all(
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    any(test, not(all(feature = "vortex-local-primitives", unix)))
+))]
 mod whole_json_typed;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -28,6 +32,15 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 use std::{
     collections::VecDeque,
     io::{BufRead, BufReader, Read},
@@ -35,11 +48,31 @@ use std::{
 };
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 use arrow_array::{RecordBatch, RecordBatchReader};
 
 use arrow_schema::DataType;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-use arrow_schema::{ArrowError, Field, Schema, SchemaRef, TimeUnit};
+use arrow_schema::TimeUnit;
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use arrow_schema::{ArrowError, Field, Schema, SchemaRef};
 use shardloom_core::{
     CommandStatus, ExecutionResources, ExpressionInputRow, LogicalDType, OutputFormat, ScalarValue,
     ShardLoomError, decimal128_dtype, parse_iso_date32, parse_iso_timestamp_micros,
@@ -88,6 +121,15 @@ impl LocalSourceReadPlan {
     }
 
     #[cfg(any(test, all(feature = "vortex-write", feature = "universal-format-io")))]
+    #[cfg(any(
+        test,
+        not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        ))
+    ))]
     fn required(columns: BTreeSet<String>, reason: &'static str) -> Self {
         Self {
             required_columns: Some(columns),
@@ -102,6 +144,12 @@ impl LocalSourceReadPlan {
         }
     }
 
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     fn materialized_columns(&self, header: &[String]) -> Vec<String> {
         header
             .iter()
@@ -132,6 +180,12 @@ impl LocalSourceReadPlan {
     }
 
     #[cfg(feature = "universal-format-io")]
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     fn required_columns_vec(&self) -> Option<Vec<String>> {
         self.required_columns
             .as_ref()
@@ -340,6 +394,15 @@ impl LocalSourceFormat {
         }
     }
 
+    #[cfg(any(
+        test,
+        not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        ))
+    ))]
     const fn row_label(self) -> &'static str {
         match self {
             Self::Csv => "CSV",
@@ -410,6 +473,12 @@ impl LocalSourceFormat {
         }
     }
 
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     const fn scalar_parse_normalization(self) -> &'static str {
         match self {
             Self::Csv | Self::Tsv | Self::Json | Self::JsonLines => "local_text_to_scalar_rows",
@@ -437,6 +506,7 @@ impl LocalSourceFormat {
     }
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
     const fn preserves_columnar_vortex_ingest_source_state(self) -> bool {
         matches!(
             self,
@@ -444,6 +514,15 @@ impl LocalSourceFormat {
         )
     }
 
+    #[cfg(any(
+        test,
+        not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        ))
+    ))]
     fn delimiter(self) -> Result<char, ShardLoomError> {
         match self {
             Self::Csv => Ok(','),
@@ -588,6 +667,12 @@ impl LocalSourceProjectionPushdownStatus {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct LocalSourceReadContent {
     header: Vec<String>,
     column_dtypes: Vec<Option<LogicalDType>>,
@@ -601,6 +686,12 @@ struct LocalSourceReadContent {
     columnar_source_preserved: bool,
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 impl LocalSourceReadContent {
     fn text(
         source_format: LocalSourceFormat,
@@ -649,6 +740,12 @@ impl LocalSourceReadContent {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct CsvSourceData {
     source_adapter: LocalInputAdapterSelection,
     source_format: LocalSourceFormat,
@@ -1120,6 +1217,15 @@ fn source_unit_split_row_ranges(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 struct SchemaDeclaredTextRecordBatchReader {
     schema: SchemaRef,
     header: Vec<String>,
@@ -1138,6 +1244,15 @@ struct SchemaDeclaredTextRecordBatchReader {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Clone)]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 struct TextRecordBatchReaderConfig {
     max_input_rows: Option<usize>,
     batch_size: usize,
@@ -1172,6 +1287,15 @@ impl BoundTextTemporalColumn {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 impl SchemaDeclaredTextRecordBatchReader {
     fn new(
         source_format: LocalSourceFormat,
@@ -1417,6 +1541,12 @@ impl SchemaDeclaredTextRecordBatchReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct SchemaDeclaredTextStreamContract {
     source_format: LocalSourceFormat,
     header: Vec<String>,
@@ -1427,6 +1557,12 @@ struct SchemaDeclaredTextStreamContract {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn text_stream_record_batch_size(max_input_rows: Option<usize>) -> usize {
     max_input_rows.map_or(
         shardloom_vortex::universal_format_io::PRODUCT_COLUMNAR_LARGE_STREAM_RECORD_BATCH_ROWS,
@@ -1435,6 +1571,12 @@ fn text_stream_record_batch_size(max_input_rows: Option<usize>) -> usize {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn text_stream_policy_token(
     source_format: LocalSourceFormat,
     schema_kind: &str,
@@ -1454,6 +1596,12 @@ fn text_stream_policy_token(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn schema_declared_text_stream_contract(
     source_path: &Path,
     source_format: LocalSourceFormat,
@@ -1558,6 +1706,12 @@ fn schema_declared_text_stream_contract(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn schema_hinted_inferred_text_stream_contract(
     source_path: &Path,
     source_format: LocalSourceFormat,
@@ -1594,6 +1748,12 @@ fn schema_hinted_inferred_text_stream_contract(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn apply_schema_hints_to_text_stream_contract(
     contract: &mut SchemaDeclaredTextStreamContract,
     source_schema_hints: &[(String, LogicalDType)],
@@ -1614,6 +1774,12 @@ fn apply_schema_hints_to_text_stream_contract(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn text_stream_contract_schema_hints(
     contract: &SchemaDeclaredTextStreamContract,
 ) -> Vec<(String, LogicalDType)> {
@@ -1627,6 +1793,12 @@ fn text_stream_contract_schema_hints(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 enum InferredTextColumnKind {
     Null,
     Boolean,
@@ -1638,6 +1810,12 @@ enum InferredTextColumnKind {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 impl InferredTextColumnKind {
     fn observe(self, value: &ScalarValue) -> Self {
         let candidate = match value {
@@ -1690,6 +1868,12 @@ impl InferredTextColumnKind {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn inferred_text_stream_contract(
     source_path: &Path,
     source_format: LocalSourceFormat,
@@ -1765,6 +1949,12 @@ fn inferred_text_stream_contract(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn infer_csv_text_stream_schema(
     source_path: &Path,
     delimiter: char,
@@ -1839,6 +2029,12 @@ fn infer_csv_text_stream_schema(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn infer_jsonl_text_stream_schema(
     source_path: &Path,
     max_input_rows: Option<usize>,
@@ -1901,6 +2097,12 @@ fn infer_jsonl_text_stream_schema(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn schema_declared_text_dtype_supported(dtype: &LogicalDType) -> bool {
     matches!(
         dtype,
@@ -1917,6 +2119,15 @@ fn schema_declared_text_dtype_supported(dtype: &LogicalDType) -> bool {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 impl Iterator for SchemaDeclaredTextRecordBatchReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
@@ -1928,6 +2139,15 @@ impl Iterator for SchemaDeclaredTextRecordBatchReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 impl RecordBatchReader for SchemaDeclaredTextRecordBatchReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
@@ -2341,6 +2561,12 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     Ok(values)
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn apply_vortex_ingest_schema_hints(
     source: &mut CsvSourceData,
     hints: &[(String, LogicalDType)],
@@ -2388,6 +2614,12 @@ fn apply_vortex_ingest_schema_hints(
     Ok(())
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn vortex_ingest_source_schema_digest(source: &CsvSourceData) -> String {
     if source.column_dtypes.iter().all(Option::is_none) {
         return fnv64_digest(&source.header.join(","));
@@ -3929,19 +4161,27 @@ fn run_vortex_ingest_prepare_once_with_adapter(
         feature = "universal-format-io",
         unix
     ))]
-    if dataset_prepare::is_collection(&request.source_path) {
-        return dataset_prepare::prepare(request, source_adapter, source_schema_hints);
-    }
-    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
-        if source_adapter
-            .source_format
-            .preserves_columnar_vortex_ingest_source_state()
-        {
-            return run_columnar_vortex_prepare(request, source_adapter, source_schema_hints);
-        }
+        dataset_prepare::prepare(request, source_adapter, source_schema_hints)
     }
-    run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
+    {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        {
+            if source_adapter
+                .source_format
+                .preserves_columnar_vortex_ingest_source_state()
+            {
+                return run_columnar_vortex_prepare(request, source_adapter, source_schema_hints);
+            }
+        }
+        run_scalar_vortex_prepare(request, source_adapter, source_schema_hints)
+    }
 }
 
 fn require_shared_vortex_preparation_owner() -> Result<(), ShardLoomError> {
@@ -4768,6 +5008,12 @@ fn vortex_report_writer_summary_row_count_verified(
         == "writer_summary_row_count_verified_layout_inventory_deferred"
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn run_scalar_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
@@ -4935,6 +5181,7 @@ fn run_scalar_rows_vortex_prepare(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn try_run_schema_declared_text_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
@@ -5178,6 +5425,7 @@ fn try_run_schema_declared_text_vortex_prepare(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn try_run_inferred_text_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
@@ -5435,6 +5683,7 @@ fn vortex_ingest_schema_digest_from_parts(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::needless_pass_by_value, clippy::too_many_lines)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn run_text_streaming_vortex_prepare(
     request: VortexIngestRequest,
     source: CsvSourceData,
@@ -5502,10 +5751,12 @@ fn run_text_streaming_vortex_prepare(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
-fn finish_text_streaming_vortex_prepare(
+fn finish_text_streaming_vortex_prepare<
+    S: Into<shardloom_vortex::universal_format_io::IngestColumnarStreamSource>,
+>(
     request: VortexIngestRequest,
     prewrite_source: VortexIngestSourceData,
-    columnar_source: shardloom_vortex::FlatLocalColumnarStreamSource,
+    columnar_source: S,
     source_schema_digest: String,
     prepare_start: Instant,
 ) -> Result<VortexIngestReport, ShardLoomError> {
@@ -5622,6 +5873,7 @@ fn finish_text_streaming_vortex_prepare(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn run_columnar_vortex_prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,
@@ -5798,6 +6050,7 @@ fn run_columnar_vortex_prepare(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn stream_columnar_vortex_ingest_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -5842,17 +6095,33 @@ fn stream_columnar_vortex_ingest_source(
         )?
         .into()
     };
-    let source = if columnar_stream_source_prefers_full_embedded_text_metadata(&source) {
+    let source = with_layout_advised_embedded_derived_columns_ingest_source(source);
+    source.with_prefetch(max_parallelism, cancellation)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn with_layout_advised_embedded_derived_columns_ingest_source(
+    source: shardloom_vortex::universal_format_io::IngestColumnarStreamSource,
+) -> shardloom_vortex::universal_format_io::IngestColumnarStreamSource {
+    if columnar_stream_source_prefers_full_embedded_text_metadata(&source) {
         source.with_embedded_derived_columns()
     } else if columnar_stream_source_prefers_lean_source_native_embedded_metadata(&source) {
         source.with_source_native_lean_runtime_embedded_derived_columns()
     } else {
         source.with_source_native_embedded_derived_columns()
-    };
-    source.with_prefetch(max_parallelism, cancellation)
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn with_layout_advised_embedded_derived_columns_columnar_stream_source(
     source: shardloom_vortex::FlatLocalColumnarStreamSource,
 ) -> shardloom_vortex::FlatLocalColumnarStreamSource {
@@ -5991,6 +6260,7 @@ fn is_source_native_extract_minute_arrow_dtype(data_type: &DataType) -> bool {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn stream_columnar_vortex_ingest_file_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -6029,6 +6299,15 @@ fn stream_columnar_vortex_ingest_file_source(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 struct PartitionedColumnarStreamReader {
     schema: SchemaRef,
     readers: VecDeque<Box<dyn RecordBatchReader + Send>>,
@@ -6041,6 +6320,15 @@ struct PartitionedColumnarStreamReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 impl Iterator for PartitionedColumnarStreamReader {
     type Item = std::result::Result<RecordBatch, ArrowError>;
 
@@ -6086,6 +6374,15 @@ impl Iterator for PartitionedColumnarStreamReader {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 impl RecordBatchReader for PartitionedColumnarStreamReader {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -6094,6 +6391,7 @@ impl RecordBatchReader for PartitionedColumnarStreamReader {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 fn stream_columnar_vortex_ingest_partition_source(
     source_format: LocalSourceFormat,
     path: &Path,
@@ -6255,6 +6553,12 @@ fn stream_columnar_vortex_ingest_partition_source(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_arguments)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn validate_columnar_stream_partition_schema(
     expected_header: &[String],
     expected_column_dtypes: &[Option<LogicalDType>],
@@ -6281,6 +6585,12 @@ fn validate_columnar_stream_partition_schema(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn checked_sum_optional_usize(
     left: Option<usize>,
     right: Option<usize>,
@@ -8742,6 +9052,15 @@ fn vortex_ingest_feature_blocked_capillary_fields(
     ]
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn ordered_source_rows(
     header: &[String],
     rows: &[ExpressionInputRow],
@@ -8779,6 +9098,12 @@ fn source_state_digest_for_source(
 }
 
 #[allow(clippy::too_many_lines)] // One exhaustive format dispatch keeps adapter semantics visible.
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_local_source_with_plan_and_adapter(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -8890,6 +9215,12 @@ fn read_local_source_with_plan_and_adapter(
     })
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_local_source_directory_with_plan_and_adapter(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -8988,6 +9319,12 @@ fn read_local_source_directory_with_plan_and_adapter(
     })
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn decode_local_text_source(
     path: &Path,
     source_format: LocalSourceFormat,
@@ -9002,6 +9339,12 @@ fn decode_local_text_source(
     })
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn prune_rows_to_read_plan(rows: &mut [ExpressionInputRow], read_plan: &LocalSourceReadPlan) {
     let Some(required_columns) = read_plan.required_columns.as_ref() else {
         return;
@@ -9012,6 +9355,12 @@ fn prune_rows_to_read_plan(rows: &mut [ExpressionInputRow], read_plan: &LocalSou
 }
 
 #[cfg(feature = "universal-format-io")]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_structured_columnar_source_content<ReadFull, ReadProjected>(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -9057,6 +9406,12 @@ where
 }
 
 #[cfg(feature = "universal-format-io")]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_parquet_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -9073,6 +9428,12 @@ fn read_parquet_source_content(
 }
 
 #[cfg(not(feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_parquet_source_content(
     _path: &Path,
     _read_plan: &LocalSourceReadPlan,
@@ -9084,6 +9445,12 @@ fn read_parquet_source_content(
 }
 
 #[cfg(feature = "universal-format-io")]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_arrow_ipc_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -9100,6 +9467,12 @@ fn read_arrow_ipc_source_content(
 }
 
 #[cfg(not(feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_arrow_ipc_source_content(
     _path: &Path,
     _read_plan: &LocalSourceReadPlan,
@@ -9111,6 +9484,12 @@ fn read_arrow_ipc_source_content(
 }
 
 #[cfg(feature = "universal-format-io")]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_avro_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -9127,6 +9506,12 @@ fn read_avro_source_content(
 }
 
 #[cfg(not(feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_avro_source_content(
     _path: &Path,
     _read_plan: &LocalSourceReadPlan,
@@ -9138,6 +9523,12 @@ fn read_avro_source_content(
 }
 
 #[cfg(feature = "universal-format-io")]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_orc_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
@@ -9154,6 +9545,12 @@ fn read_orc_source_content(
 }
 
 #[cfg(not(feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_orc_source_content(
     _path: &Path,
     _read_plan: &LocalSourceReadPlan,
@@ -9173,6 +9570,15 @@ fn parse_csv_source_content_with_plan(
     parse_csv_source_content_with_delimiter(content, read_plan, max_input_rows, ',')
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn parse_csv_source_content_with_delimiter(
     content: &str,
     read_plan: &LocalSourceReadPlan,
@@ -9229,6 +9635,12 @@ fn parse_csv_source_content_with_delimiter(
     Ok((header, rows))
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn parse_delimited_partition_files_with_plan(
     files: &[LocalSourcePartitionFile],
     read_plan: &LocalSourceReadPlan,
@@ -9261,6 +9673,12 @@ fn parse_delimited_partition_files_with_plan(
     Ok((header.unwrap_or_default(), rows))
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn parse_jsonl_partition_files_with_plan(
     files: &[LocalSourcePartitionFile],
     read_plan: &LocalSourceReadPlan,
@@ -9301,6 +9719,12 @@ fn parse_jsonl_partition_files_with_plan(
     Ok((header, rows))
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn parse_json_partition_files_with_plan(
     files: &[LocalSourcePartitionFile],
     read_plan: &LocalSourceReadPlan,
@@ -9319,6 +9743,12 @@ fn parse_json_partition_files_with_plan(
     Ok((header, rows))
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn append_partition_rows_with_header_union(
     header: &mut Vec<String>,
     rows: &mut Vec<ExpressionInputRow>,
@@ -9341,6 +9771,12 @@ fn append_partition_rows_with_header_union(
     }
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn enforce_partition_row_budget(
     row_count: usize,
     max_input_rows: Option<usize>,
@@ -9356,6 +9792,15 @@ fn enforce_partition_row_budget(
     Ok(())
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn enforce_local_source_row_budget(
     row_count: usize,
     max_input_rows: Option<usize>,
@@ -9371,6 +9816,15 @@ fn enforce_local_source_row_budget(
     Ok(())
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn parse_jsonl_source_content_with_plan(
     content: &str,
     read_plan: &LocalSourceReadPlan,
@@ -9412,6 +9866,15 @@ fn parse_json_source_content(
     )
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn parse_json_source_content_with_plan(
     content: &str,
     read_plan: &LocalSourceReadPlan,
@@ -9425,6 +9888,15 @@ fn parse_json_source_content_with_plan(
     materialize_flat_json_rows("JSON", raw_rows, read_plan, max_input_rows)
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn visit_json_source_rows_with_plan(
     content: &str,
     read_plan: &LocalSourceReadPlan,
@@ -9438,6 +9910,15 @@ fn visit_json_source_rows_with_plan(
     )
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn visit_json_source_rows_with_plan_controlled(
     content: &str,
     read_plan: &LocalSourceReadPlan,
@@ -9516,6 +9997,15 @@ fn visit_json_source_rows_with_plan_controlled(
     cancellation.check()
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn materialize_flat_json_rows(
     source_label: &str,
     raw_rows: Vec<Vec<(String, ScalarValue)>>,
@@ -9561,6 +10051,15 @@ fn materialize_flat_json_rows(
     Ok((header, rows))
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn ensure_flat_json_rows_present(
     source_label: &str,
     rows: &[ExpressionInputRow],
@@ -9573,6 +10072,15 @@ fn ensure_flat_json_rows_present(
     Ok(())
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn append_flat_json_fields_to_materialized_rows(
     header: &mut Vec<String>,
     rows: &mut Vec<ExpressionInputRow>,
@@ -9653,6 +10161,15 @@ fn visit_flat_json_object_with_plan_controlled(
     cancellation.check()
 }
 
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn parse_flat_json_object_at_with_plan(
     chars: &[char],
     index: usize,
@@ -10078,12 +10595,24 @@ fn normalize_local_vortex_ingest_target_path(value: &str) -> Result<PathBuf, Sha
 }
 
 #[derive(Debug)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct LocalSourcePartitionFile {
     path: PathBuf,
     bytes: Vec<u8>,
 }
 
 #[derive(Debug)]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct LocalSourcePartitionFiles {
     files: Vec<LocalSourcePartitionFile>,
     source_bytes: u64,
@@ -10095,6 +10624,12 @@ struct LocalSourcePartitionFiles {
 
 #[derive(Debug)]
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 struct LocalSourcePartitionScout {
     files: Vec<PathBuf>,
     evidence: ColumnarSourceScoutEvidence,
@@ -10103,12 +10638,42 @@ struct LocalSourcePartitionScout {
 #[derive(Debug)]
 struct LocalSourceByteRead {
     bytes: Vec<u8>,
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     source_metadata_scout_millis: u128,
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     source_byte_acquisition_millis: u128,
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     source_full_body_millis: u128,
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 impl LocalSourceByteRead {
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     fn total_read_millis(&self) -> u128 {
         self.source_metadata_scout_millis
             .saturating_add(self.source_byte_acquisition_millis)
@@ -10202,6 +10767,7 @@ fn read_local_source_bytes_with_budget_report(
     )
 }
 
+#[allow(clippy::too_many_lines)] // Conditional legacy timing fields share the same checked read loop.
 fn read_local_source_bytes_with_budget_report_controlled(
     path: &Path,
     source_label: &str,
@@ -10210,6 +10776,12 @@ fn read_local_source_bytes_with_budget_report_controlled(
 ) -> Result<LocalSourceByteRead, ShardLoomError> {
     cancellation.check()?;
     reject_remote_source_path(path)?;
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     let scout_start = Instant::now();
     let metadata = fs::metadata(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -10231,7 +10803,19 @@ fn read_local_source_bytes_with_budget_report_controlled(
             metadata.len()
         )));
     }
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     let source_metadata_scout_millis = scout_start.elapsed().as_millis();
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     let read_start = Instant::now();
     cancellation.check()?;
     let read_error = |error: std::io::Error| {
@@ -10267,6 +10851,12 @@ fn read_local_source_bytes_with_budget_report_controlled(
         }
         bytes.extend_from_slice(&buffer[..count]);
     }
+    #[cfg(not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    )))]
     let source_byte_acquisition_millis = read_start.elapsed().as_millis();
     let read_len = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
@@ -10282,13 +10872,40 @@ fn read_local_source_bytes_with_budget_report_controlled(
     }
     Ok(LocalSourceByteRead {
         bytes,
+        #[cfg(not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        )))]
         source_metadata_scout_millis,
+        #[cfg(not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        )))]
         source_byte_acquisition_millis,
+        #[cfg(not(all(
+            feature = "vortex-local-primitives",
+            feature = "vortex-write",
+            feature = "universal-format-io",
+            unix
+        )))]
         source_full_body_millis: source_byte_acquisition_millis,
     })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn fingerprint_local_source_file_with_budget_report(
     path: &Path,
     source_label: &str,
@@ -10393,6 +11010,15 @@ fn fingerprint_local_source_file_with_budget_report(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn local_source_metadata_fingerprint(
     path: &Path,
     source_label: &str,
@@ -10415,6 +11041,12 @@ fn local_source_metadata_fingerprint(
     ))
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn sorted_local_source_partition_entries(
     path: &Path,
     source_format: LocalSourceFormat,
@@ -10439,6 +11071,12 @@ fn sorted_local_source_partition_entries(
     Ok(entries)
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn read_local_source_partition_files_with_budget(
     path: &Path,
     source_format: LocalSourceFormat,
@@ -10540,6 +11178,12 @@ fn read_local_source_partition_files_with_budget(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn scout_local_source_partition_files_with_budget(
     path: &Path,
     source_format: LocalSourceFormat,
@@ -10647,6 +11291,12 @@ fn scout_local_source_partition_files_with_budget(
     })
 }
 
+#[cfg(not(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+)))]
 fn partition_file_matches_source_format(path: &Path, source_format: LocalSourceFormat) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
@@ -10814,6 +11464,15 @@ fn csv_decimal_exponent_integer(raw: &str) -> Option<i64> {
 
 // A CSV record may span physical lines. Quote parity treats escaped double
 // quotes as a balanced pair and preserves embedded LF/CRLF bytes verbatim.
+#[cfg(any(
+    test,
+    not(all(
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io",
+        unix
+    ))
+))]
 fn read_csv_record(
     reader: &mut impl std::io::BufRead,
     record: &mut String,

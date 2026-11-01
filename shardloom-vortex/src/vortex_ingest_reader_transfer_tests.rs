@@ -183,6 +183,71 @@ fn controlled_parquet_ingest_transfers_with_identical_complete_output() {
     }
 }
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[test]
+fn complete_owned_parquet_ingest_preserves_transfer_and_complete_output() {
+    use crate::universal_format_io::demanded::LocalColumnarSource;
+    for parallelism in [1, 4] {
+        let fixture = Fixture::new(&format!("complete-owned-p{parallelism}"));
+        let cancellation = CancellationToken::default();
+        let mut copies = None;
+        for controlled in [false, true] {
+            let memory = LiveMemoryPool::new(32 << 20).unwrap();
+            let source = LocalColumnarSource::admit_complete(
+                &fixture.source(),
+                "parquet",
+                false,
+                &memory,
+                &cancellation,
+            )
+            .unwrap();
+            let input = if controlled {
+                source
+                    .complete_ingest_stream_with_parallelism(
+                        None,
+                        parallelism,
+                        &memory,
+                        &cancellation,
+                    )
+                    .unwrap()
+            } else {
+                source
+                    .complete_stream(None, &memory, &cancellation)
+                    .unwrap()
+                    .into()
+            }
+            .with_prefetch(parallelism, &cancellation)
+            .unwrap();
+            drop(source);
+            let target = fixture.0.join(if controlled {
+                "owned.vortex"
+            } else {
+                "arrow.vortex"
+            });
+            let report = write_flat_columnar_vortex_prepared_state_streaming(
+                VortexPreparedStateColumnarStreamWriteRequest::new(
+                    &target,
+                    input,
+                    resources(parallelism),
+                )
+                .shared_native_memory_pool(memory.clone()),
+            )
+            .unwrap();
+            assert_eq!(report.row_count, 4096);
+            if controlled {
+                assert!(ownership(&report, "transferred_buffer_bytes") > 0);
+                assert!(ownership(&report, "copied_buffer_bytes") < copies.unwrap());
+            } else {
+                assert_eq!(ownership(&report, "transferred_buffer_bytes"), 0);
+                copies = Some(ownership(&report, "copied_buffer_bytes"));
+            }
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            assert_eq!(memory.snapshot().denied_reservations, 0);
+            check_complete_values(&target);
+        }
+    }
+}
+
 #[test]
 fn replacement_reader_with_parquet_metadata_cannot_claim_transfer() {
     let fixture = Fixture::new("replacement-reader");

@@ -50,6 +50,7 @@ pub struct NativeExecutionContext<'a> {
     admitted: Instant,
     gate: Gate<'a>,
     opened_sources: Mutex<OpenedSources>,
+    adaptive_work: Mutex<crate::native_work_sizing::Reports>,
 }
 
 #[derive(Default)]
@@ -95,11 +96,30 @@ impl RuntimeOwner {
             admitted,
             gate,
             opened_sources: Mutex::new(OpenedSources::default()),
+            adaptive_work: Mutex::default(),
         })
     }
 }
 
 impl NativeExecutionContext<'_> {
+    pub(crate) fn record_adaptive_work(
+        &self,
+        owner: crate::native_work_sizing::Owner,
+        shape: shardloom_exec::adaptive_work::WorkShape,
+    ) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .record(owner, shape);
+    }
+
+    pub(crate) fn append_adaptive_work_certificate(&self, proof: &mut String) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .append_certificate(proof);
+    }
+
     /// Immutable floating semantics of the admitted session, not a call override.
     #[must_use]
     pub fn float_policy(&self) -> shardloom_core::FloatPolicy {

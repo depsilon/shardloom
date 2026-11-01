@@ -59,6 +59,12 @@ impl StructArrayReader {
 }
 
 impl ArrayReader for StructArrayReader {
+    fn set_batch_size_hint(&mut self, batch_size: usize) {
+        for child in &mut self.children {
+            child.set_batch_size_hint(batch_size);
+        }
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

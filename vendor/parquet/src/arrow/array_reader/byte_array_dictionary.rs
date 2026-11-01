@@ -155,6 +155,10 @@ where
     K: FromBitpacked + Ord + ArrowNativeType,
     V: OffsetSizeTrait,
 {
+    fn set_batch_size_hint(&mut self, batch_size: usize) {
+        self.record_reader.set_capacity_hint(batch_size);
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

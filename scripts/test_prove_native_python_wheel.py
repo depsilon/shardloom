@@ -88,6 +88,31 @@ class WheelReuseTests(unittest.TestCase):
             run.assert_not_called()
         self.assertEqual(json.loads((self.root / "output/report.json").read_text())["status"], "failed")
 
+    def test_installed_proof_clears_inherited_source_runtime_overrides(self) -> None:
+        overrides = {
+            "SHARDLOOM_NATIVE_TEST_LIBRARY": "/unrelated/source/_native.abi3.so",
+            "SHARDLOOM_BIN": "/unrelated/source/shardloom",
+            "SHARDLOOM_SURFACE_TEST_BINARY": "/unrelated/source/surface-shardloom",
+            "SHARDLOOM_REPO_ROOT": "/unrelated/source",
+            "PYTHONPATH": "/unrelated/source/python/src",
+        }
+        observed = {}
+
+        def inspect_environment(command, **kwargs):
+            self.assertIn("venv", command)
+            observed.update({name: kwargs["env"].get(name) for name in overrides})
+            observed["SHARDLOOM_REQUIRE_NATIVE_PYTHON"] = kwargs["env"].get(
+                "SHARDLOOM_REQUIRE_NATIVE_PYTHON")
+            raise RuntimeError("stop before invoking environment creation")
+
+        with patch.dict(proof.os.environ, overrides), patch.object(
+                proof.subprocess, "run", side_effect=inspect_environment):
+            with self.assertRaisesRegex(RuntimeError, "stop before invoking environment creation"):
+                self.invoke(existing_wheel=self.wheel, build_report=self.report)
+        self.assertEqual(observed["SHARDLOOM_REQUIRE_NATIVE_PYTHON"], "1")
+        for name in overrides:
+            self.assertIsNone(observed[name], name)
+
     def test_build_only_reports_no_installation_and_never_creates_a_virtualenv(self) -> None:
         commands = []
 

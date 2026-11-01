@@ -10,10 +10,7 @@ impl PreparedColumnarSource {
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(u64, ColumnarReadReport)>> {
         context.check_cancelled()?;
-        if self.source.other.is_some()
-            || self.max_rows.is_some()
-            || self.row_groups.len() != self.source.row_groups_total
-        {
+        if self.max_rows.is_some() || self.row_groups.len() != self.source.row_groups_total {
             return Ok(None);
         }
         if !context.memory().owns(&self.metadata)
@@ -23,26 +20,51 @@ impl PreparedColumnarSource {
         }
         self.source
             .validate_generation_controlled(context.cancellation())?;
-        let rows = count_files(
-            self.source
-                .files
-                .iter()
-                .map(|file| file.metadata.metadata().as_ref()),
-            context.cancellation(),
-        )?;
+        let (rows, format) = if self.source.is_parquet() {
+            (
+                count_files(
+                    self.source
+                        .parquet_metadata()
+                        .map(|metadata| metadata.metadata().as_ref()),
+                    context.cancellation(),
+                )?,
+                "parquet",
+            )
+        } else if let Some(source) = &self.source.other
+            && source.format == "orc"
+        {
+            let mut rows = 0_u64;
+            for file in &source.files {
+                context.check_cancelled()?;
+                let metadata = file
+                    .orc
+                    .as_ref()
+                    .ok_or_else(|| failed("ORC metadata owner missing"))?;
+                let Some(count) = metadata.exact_number_of_rows().map_err(failed)? else {
+                    return Ok(None);
+                };
+                rows = rows.checked_add(count).ok_or_else(|| {
+                    failed("metadata count exceeds the unsigned 64-bit result domain")
+                })?;
+            }
+            (rows, "orc")
+        } else {
+            return Ok(None);
+        };
         self.source
             .validate_generation_controlled(context.cancellation())?;
         let report = ColumnarReadReport {
-            format: "parquet",
-            parquet_selected_chunks: true,
+            format,
+            parquet_selected_chunks: self.source.other.is_none(),
             projected_columns: 0,
-            available_columns: self.source.metadata().schema().fields().len(),
+            available_columns: self.source.schema().fields().len(),
             physical_leaf_columns: 0,
             row_groups_total: self.source.row_groups_total,
             row_groups_read: 0,
             rows_decoded: 0,
+            adaptive_decode: shardloom_exec::adaptive_work::AdaptiveWorkReport::default(),
             requested_prefix_rows: None,
-            files: self.source.files.len(),
+            files: self.source.collection.files.len(),
             fingerprint_read_bytes: self.source.fingerprint_read_bytes,
             content_fingerprints: self.source.content_fingerprints.clone(),
             metadata_read_bytes: self.source.metadata_read_bytes,
@@ -69,7 +91,10 @@ fn count_files<'a>(
     Ok(rows)
 }
 
-fn file_rows(metadata: &ParquetMetaData, cancellation: &CancellationToken) -> Result<u64> {
+pub(super) fn file_rows(
+    metadata: &ParquetMetaData,
+    cancellation: &CancellationToken,
+) -> Result<u64> {
     let declared = u64::try_from(metadata.file_metadata().num_rows())
         .map_err(|_| failed("metadata count requires a nonnegative file row count"))?;
     let mut rows = 0_u64;

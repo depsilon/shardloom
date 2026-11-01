@@ -349,28 +349,6 @@
       ]
     },
     {
-      "name": "arrow-avro",
-      "version": "59.3.1",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/apache/arrow-rs",
-      "crate_checksum_sha256": "9b052309b61700bb359f7f2bcb70697c447d6331780850c3c21408273cd36509",
-      "files": [
-        {
-          "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
-          "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
-          "bytes": 11577,
-          "crate_path": "LICENSE.txt"
-        },
-        {
-          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
-          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-          "bytes": 470,
-          "crate_path": "NOTICE.txt"
-        }
-      ]
-    },
-    {
       "name": "arrow-buffer",
       "version": "59.3.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -9233,6 +9211,592 @@
   ],
   "vendored_components": [
     {
+      "name": "arrow-avro",
+      "version": "59.3.1",
+      "path": "vendor/arrow-avro",
+      "license": "Apache-2.0",
+      "provenance": {
+        "added_files_sha256": {
+          "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "README.shardloom.md": "117cf65757bb2b2853bc0f9ac1e9b348a2ed48e5fa7f5c4419321a9d5652b1c7",
+          "src/compression_reserved.rs": "478354cd9c9eb6b7145a9818453f9eaf883ea282407dc534a7fca9fed64739f3",
+          "src/compression_reserved_tests.rs": "349ba3463ec5f062dff65a28e637d54dedad01cc09aba357614743c3dea4e910",
+          "src/reader/block_memory.rs": "fc5c5a5c390fea51b83dfa10db88cf74037bbede8a8522b913a27d4176412407",
+          "src/reader/decoder_memory.rs": "9dcc804ceecfbfaac2929a5bef1c9dfba3a6125b6bc30cf61e9a5c6fb0bdc38e",
+          "src/reader/header_memory_tests.rs": "aea4b6b4470f6f252d17b7ea2b34292a0a26607c1661d256398e58690f7a99bf",
+          "src/reader/record_admission.rs": "3cc7308d80da285cf7e6c3494b0f94f8e841bcb01e197295d6424279f4760a56",
+          "src/reader/record_buffers.rs": "0e357db7cfe21ce039bda47c11b5e8c3cb15d21ae889275f3d1e3012f75550cb",
+          "src/reader/record_memory_tests.rs": "41cd5b0c9285417440c80daa8ab0fb3d4b5a2e860a8bb5026a0c747bbd10d2ef",
+          "src/reader/record_semantics_tests.rs": "92fa76328a3a18da6c44a1fa1f55495232263e05b3a8aeebda9ca142489411cd",
+          "src/reader/schema_memory.rs": "ac5be8206ce9258d854f6538e5ea846515dd18f50e01a29abd1f82e00c821831",
+          "src/reader/schema_memory_tests.rs": "da104acfa45bbbeb1eae90f2588bacc193a5fdcd4293a2393fca21a2499bca1a",
+          "src/reader/structure_memory.rs": "81b06627c265ded97cc72319ec769720119e8281f7b5297a9b708fd59136a85d",
+          "src/reader/structure_memory_tests.rs": "f310e8365c9b67a70c5f91fce58b42fcd386cd34399fcfdaf17ef70033e93f90",
+          "test/arrow-testing/LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "test/arrow-testing/data/avro/README.md": "5eaeaf829f050e75c8cdc7e3ffc90ae6df8388daa5dba995f98a6460c1ecc642",
+          "test/arrow-testing/data/avro/alltypes_dictionary.avro": "6ef1046e2ecb682cb45ba2498067b0da9ad7e1093cb18b0f20d5e95264a2adab",
+          "test/arrow-testing/data/avro/alltypes_nulls_plain.avro": "e70c712109e4e8417c0a5df0337205f3188fe967b160f0ab97f8400aaddb7061",
+          "test/arrow-testing/data/avro/alltypes_plain.avro": "b8052a58c964507eab200de257c39081ccc751e1353daa6449fe21bade885a75",
+          "test/arrow-testing/data/avro/alltypes_plain.bzip2.avro": "a6dbcdc307daf9c58f4364d64a3531f9c1b7fff45ad23c4c53e6a7c3a1706099",
+          "test/arrow-testing/data/avro/alltypes_plain.snappy.avro": "2e728ad0a4500636e0ffdfe201fdca1bbd14121a77d0ff0d5ff5776c80d50c17",
+          "test/arrow-testing/data/avro/alltypes_plain.xz.avro": "99ee83ed82e5d023c2b648ed564aa90c98919c8cab3b1f743e4495b91694c2ba",
+          "test/arrow-testing/data/avro/alltypes_plain.zstandard.avro": "721e42d8182c7b0b2d02e5bdd3325f910d18d2ed5112fef3e7e62d75ddaac376",
+          "test/arrow-testing/data/avro/binary.avro": "1bd0539abe8cf143cf063a6df214315d8800d210a32c3e5668d3d4f2f480285c",
+          "test/arrow-testing/data/avro/datapage_v2.snappy.avro": "6f4470ed753e0819d8ec6d81796d55367e89a7e8981a2f24f11991e2513db0ba",
+          "test/arrow-testing/data/avro/dict-page-offset-zero.avro": "2feffebcff04b552d7b8f9d676d24d3fd5e055f6dbd8312ba4dcd445be481284",
+          "test/arrow-testing/data/avro/fixed_length_decimal.avro": "330d46c4459138b3c80270d545f81badf0ba6fdb343499820b9fc232ee3340c1",
+          "test/arrow-testing/data/avro/fixed_length_decimal_legacy.avro": "95d381a02a23c0632b759361e9f5ea040ecd9835174613a93c263840625b12a1",
+          "test/arrow-testing/data/avro/int32_decimal.avro": "8f1d81164a409dfa0ad583262302fd332b2e2a0d6467fc36d02fb942371dab24",
+          "test/arrow-testing/data/avro/int64_decimal.avro": "5293a2f7b317ad29ed2ae40d3cb87cb1f85dd8f9399cbbb0da66594c5693f333",
+          "test/arrow-testing/data/avro/list_columns.avro": "a4880f90275d468b8c42004ea6925082b981c2aa03a5620c3ef7d9b88f6cbeda",
+          "test/arrow-testing/data/avro/nested_lists.snappy.avro": "07e0fca7ff085c109308d2b49f5a85a818b9e9d22d6202371a654bd8c5c54359",
+          "test/arrow-testing/data/avro/nested_records.avro": "11b821dd88f801f590a3befa0b45e1b0060399ae541a7e889ec010f49cb25d59",
+          "test/arrow-testing/data/avro/nonnullable.impala.avro": "36e57e00a8c6cf0d1d8dd5d6d305e39f2a5d4b2cafa4b4d6ef3bd7747547e76c",
+          "test/arrow-testing/data/avro/nullable.impala.avro": "7dfb76f7033645d883c7cd3752b79fe3b96b47feee193145571bb7197c74e03c",
+          "test/arrow-testing/data/avro/nulls.snappy.avro": "56e7ab21d81e554ef30468ed14ac81b096ee80bd7b5e13bb040442b5cb6e7f50",
+          "test/arrow-testing/data/avro/repeated_no_annotation.avro": "8458398f321353d7440a2b3dc94136351b6f1162203565f88c1c302dae9985f4",
+          "test/arrow-testing/data/avro/simple_enum.avro": "4eb0d34e7e026bcddc42bb93edb56218b84df7afc58fb87cb4cd388619ff55f0",
+          "test/arrow-testing/data/avro/simple_fixed.avro": "e70260618e9cc3ac01a743411638f3c05118272a1c529fb761167a6b3bc590c5",
+          "test/arrow-testing/data/avro/single_nan.avro": "f130a5f60979a7fcf2f98df159f3feb048b2233b6803352594747cbb97db882c",
+          "test/data/README.md": "0fd6542e6830ce21929e204a99841928df073db19b81638b26a31f85795122c2",
+          "test/data/bad-varint-bug.avro.gz": "16842159a46d4c850a018afc5018805a3a0e160cd94142eb828810acd8821a68",
+          "test/data/comprehensive_e2e.avro": "1ac5b5a59b3036ef1ff06c158c043bca77cd17da997db9ae7221a4f95d37fa2a",
+          "test/data/duration_logical_types.avro": "0862e29aeb24f20969f307f0635c9dffd76cf7cd7610a242120dd737c1bfc470",
+          "test/data/duration_uuid.avro": "2d339377a7d592158dae89c41bedad2f475f1f677a160a58286848c47ac131d6",
+          "test/data/enum_reuse.avro": "21dc2b3b677b58d5d467eceb85f165134862cd4a4115e0e6d5ff85e0146e4e64",
+          "test/data/fixed256_decimal.avro": "830fb73484d10811e58c33579ceb35af0fd6c5cbda5c28c45f8ea9bee1497a06",
+          "test/data/fixed_length_decimal_legacy_32.avro": "494badc5a0053d01f6f74ce0d00d0f4d492252ca3db5ad32402269c58b0f8067",
+          "test/data/int128_decimal.avro": "068dd4495e544a3b148e5be96354bdf42ec4e14afe13fcd7142fe9a34e216c6e",
+          "test/data/int256_decimal.avro": "162a62c1c53a9942f5c0423556f964275331dc51dc5f04578be168bd6a1de7c8",
+          "test/data/named_types_complex.avro": "3ff27ce9c1da81e13fc846c507c5cc78d7cbb0dcc9cc83285437f42ccdbe6f32",
+          "test/data/nested_record_reuse.avro": "090746d0c94609387d7d29b0f0671cae47ea9c33145bf048bf559f83f04d23b2",
+          "test/data/skippable_types.avro": "dce328c1364748f3d4ed413e699b54f2cb355a1107d1e0994293afd0f95df62f",
+          "test/data/union_fields.avro": "a8d8b7b8fdd8ffcf40cdd9fa4da3f39c1910f8f4335c545283e4521222ae2ca5",
+          "test/data/zero_byte.avro": "c46fb1c64f35aba468d66b0c5cb99a5fc951e235f2daaf39e58956c10cf14fe2",
+          "test/upstream-arrow-rs/LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "test/upstream-arrow-rs/NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6"
+        },
+        "license": "Apache-2.0",
+        "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+        "license_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#LICENSE.txt",
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "117cf65757bb2b2853bc0f9ac1e9b348a2ed48e5fa7f5c4419321a9d5652b1c7"
+        },
+        "migration_status": "ocf_framing_adaptive_batches_and_owned_header_schema_record_block_storage",
+        "modified_files_sha256": {
+          "Cargo.toml": "b7817d3a0c02de4118e03ceff27a9a0d5579633da8013935d934551221c07fe7",
+          "src/compression.rs": "1ecb3561ef20a12e383156cf25f5887bb28af09306785040695d18b313543c6a",
+          "src/reader/block.rs": "c50f860d833b3fff00162961e9a9a7b044bd068d74f91547f0de135e6db90c1c",
+          "src/reader/header.rs": "fcbb14355396cb7e8d272db3535d55b8da0779a354610fba963244140acae7f6",
+          "src/reader/mod.rs": "5d66e837b347eb5c1c0b84b922e3718fa8d7bc21efd8086200ed1394fed911c9",
+          "src/reader/record.rs": "d5f61725a4eaf2280b8326c038fddeea75c509bf6159873f83a1f1e6c1d5caa3",
+          "src/reader/vlq.rs": "4fb11a0fba7491f84634ecb4914053279c0ba014a8d2cafef0c673fa96a32f64"
+        },
+        "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+        "notice_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#NOTICE.txt",
+        "omitted_files": {
+          "Cargo.lock": {
+            "original_sha256": "7513d8aefd8bcb82a205ef884e5cad12d878539e35c4da3278616cd53638776d",
+            "reason": "Repository-root Cargo.lock owns dependency resolution."
+          }
+        },
+        "original_files_sha256": {
+          "Cargo.lock": "7513d8aefd8bcb82a205ef884e5cad12d878539e35c4da3278616cd53638776d",
+          "Cargo.toml": "f1b5ac45170861492f32184f604315b2ea2706d5e48ec818929242da97051649",
+          "Cargo.toml.orig": "30702e2dd2769a2527de933b3f6699474c91b9c5bd377af15f9c49decb6d81fc",
+          "LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "README.md": "e6e04e47b931d906736746c702a2f244dc7daef5e2659a0792cd1b3df85e56a5",
+          "src/compression.rs": "c87eb6e5bae7815d703ce091805a05ead8f59eee5677d82824fa649b5b7c2c22",
+          "src/lib.rs": "9d5b22274abda3843242d60d6e955e5165db55f790b8bfc32d0b749dad32ee5f",
+          "benches/avro_reader.rs": "c641a4c02d96d44828d0ae361ce2f658c243ae174deedb6af8e06072784b5500",
+          "benches/avro_writer.rs": "7539aef69e63fddaf5bdd4d162ab45fb205da7e19ba4eceeb703fc239e33ded3",
+          "benches/decoder.rs": "efe0ae719e0d3a00550964f3cf38fa6c5b29b24bf14014dbe32334c35b0d493c",
+          "benches/encoder.rs": "8ae63ab3d0ea0fc11cefe5af75db25ec3441d7097f8a0808d3c51c7c6b365e8c",
+          "benches/project_record.rs": "b77f012bda166264979860f706ca66597445d98523636db758c128e4e8078d10",
+          "src/codec.rs": "4a906bf661fa555972e6f1bb9c62cde84d6130b8a4f23c24ae11875bf9224ec5",
+          "src/errors.rs": "b2188697f658c2b237f7a3d650c27e01db6d6dc2dcb48f80cfcce79a41942446",
+          "src/reader/async_reader/async_file_reader.rs": "a40794e7127f71a522c0211f5f6a47242d1354cdb9382b0ff1e5e184c67a809f",
+          "src/reader/async_reader/builder.rs": "6bfeb5d53c95855c62cc82b9988e8b8cef0724f4c299077c79342e11f2b1086f",
+          "src/reader/async_reader/mod.rs": "341a391f7ddb9ba19e2e66c58c780286df89896c5ff46ed1a1c54172c2859a80",
+          "src/reader/async_reader/spawn.rs": "55db4b5de64279d1369449e3ccd5cb6d017bbf857d5f1095e295656623eb7a43",
+          "src/reader/async_reader/store.rs": "33b5fed97a26757107f48775970646f34255fce41e0c301ade038fd58c777b66",
+          "src/reader/block.rs": "479e88254cb74bb03273b84e87368f0840ec8d176d1e1f1641cf3126559122c9",
+          "src/reader/cursor.rs": "bb98490dd8b68138299542c9dcdfbceb1b328b50f9cd311eb99f1924f60549c3",
+          "src/reader/header.rs": "6c88289778d5a06eac8118c19fbb94e4feb18385ec05f7e6e91608cebafda9b7",
+          "src/reader/mod.rs": "48be18de8d12988d46193cc36d6d424d278569b0cacd420570dda2e861dc0f24",
+          "src/reader/record.rs": "f938d632035c89ef01892d5500b5e44677f12e44d7892ddc2ff9ad16d82f9db1",
+          "src/reader/vlq.rs": "2e895cabb3ffdcd5ad191a32d00a39de09f775b6f717ad8a7ff3a2f6550dada4",
+          "src/schema.rs": "e38230376ebb4bc4dcd71711b54c105f4df3dbcfb1d60d435e2eabef4b33c2ba",
+          "src/writer/encoder.rs": "ad99adf33de8607e6291cce9ea1aa0c7b9ecfec0e12d021ab83305c29dcb4897",
+          "src/writer/format.rs": "d7f395d5adfbff6ec6a7b3218316975fc09edd54386d306e9c8d9d7c077740e1",
+          "src/writer/mod.rs": "2a914c5ee5638b26b1800abb0075e616237eac0928b24a299fb9e1afaa0ad4a3"
+        },
+        "provider": "arrow-avro",
+        "registry_archive_file_count": 30,
+        "registry_archive_sha256": "9b052309b61700bb359f7f2bcb70697c447d6331780850c3c21408273cd36509",
+        "registry_archive_uncompressed_bytes": 1657953,
+        "source_of_truth": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate",
+        "supplemental_test_files": {
+          "test/arrow-testing/LICENSE.txt": {
+            "bytes": 11358,
+            "git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "LICENSE.txt",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/LICENSE.txt"
+          },
+          "test/arrow-testing/data/avro/README.md": {
+            "bytes": 2273,
+            "git_blob_sha1": "c0479a906e1c347a9c79bfd680b107f7a07900fd",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "5eaeaf829f050e75c8cdc7e3ffc90ae6df8388daa5dba995f98a6460c1ecc642",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/README.md",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/README.md"
+          },
+          "test/arrow-testing/data/avro/alltypes_dictionary.avro": {
+            "bytes": 765,
+            "git_blob_sha1": "1fdd79e8a915c0f6d11e6ea1eb21faba6ffeaf16",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "6ef1046e2ecb682cb45ba2498067b0da9ad7e1093cb18b0f20d5e95264a2adab",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_dictionary.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_dictionary.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_nulls_plain.avro": {
+            "bytes": 603,
+            "git_blob_sha1": "0fa636c51c15ebb14ee0df6dd2012b40e1f212a6",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "e70c712109e4e8417c0a5df0337205f3188fe967b160f0ab97f8400aaddb7061",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_nulls_plain.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_nulls_plain.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_plain.avro": {
+            "bytes": 868,
+            "git_blob_sha1": "d60c628227a470bff6f83f357e2b7872fda881c2",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "b8052a58c964507eab200de257c39081ccc751e1353daa6449fe21bade885a75",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_plain.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_plain.bzip2.avro": {
+            "bytes": 864,
+            "git_blob_sha1": "21d9ce8efbe6f94a439b5dfc3701b607a93562d4",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "a6dbcdc307daf9c58f4364d64a3531f9c1b7fff45ad23c4c53e6a7c3a1706099",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_plain.bzip2.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.bzip2.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_plain.snappy.avro": {
+            "bytes": 837,
+            "git_blob_sha1": "28d64e79a27b3f5c5c88cc989d2d2403369e45a9",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "2e728ad0a4500636e0ffdfe201fdca1bbd14121a77d0ff0d5ff5776c80d50c17",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_plain.snappy.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.snappy.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_plain.xz.avro": {
+            "bytes": 843,
+            "git_blob_sha1": "0ac8c418e525c6d39621cddf64e2ab144f570b09",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "99ee83ed82e5d023c2b648ed564aa90c98919c8cab3b1f743e4495b91694c2ba",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_plain.xz.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.xz.avro"
+          },
+          "test/arrow-testing/data/avro/alltypes_plain.zstandard.avro": {
+            "bytes": 818,
+            "git_blob_sha1": "892b3ae5f43d016be224835d65d226af9f17195b",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "721e42d8182c7b0b2d02e5bdd3325f910d18d2ed5112fef3e7e62d75ddaac376",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/alltypes_plain.zstandard.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.zstandard.avro"
+          },
+          "test/arrow-testing/data/avro/binary.avro": {
+            "bytes": 236,
+            "git_blob_sha1": "48081f93b4ccc7d3bf46db9d277094bafcd55d46",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "1bd0539abe8cf143cf063a6df214315d8800d210a32c3e5668d3d4f2f480285c",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/binary.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/binary.avro"
+          },
+          "test/arrow-testing/data/avro/datapage_v2.snappy.avro": {
+            "bytes": 456,
+            "git_blob_sha1": "ccd590076c4cbf33520426db0aabd898442d852c",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "6f4470ed753e0819d8ec6d81796d55367e89a7e8981a2f24f11991e2513db0ba",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/datapage_v2.snappy.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/datapage_v2.snappy.avro"
+          },
+          "test/arrow-testing/data/avro/dict-page-offset-zero.avro": {
+            "bytes": 213,
+            "git_blob_sha1": "388541dfce691e5edc3fe928ab4a130166581664",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "2feffebcff04b552d7b8f9d676d24d3fd5e055f6dbd8312ba4dcd445be481284",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/dict-page-offset-zero.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/dict-page-offset-zero.avro"
+          },
+          "test/arrow-testing/data/avro/fixed_length_decimal.avro": {
+            "bytes": 436,
+            "git_blob_sha1": "1c9f195ab331cfe7f6ea4de8aa64dc0ae5cd8a4f",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "330d46c4459138b3c80270d545f81badf0ba6fdb343499820b9fc232ee3340c1",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/fixed_length_decimal.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal.avro"
+          },
+          "test/arrow-testing/data/avro/fixed_length_decimal_legacy.avro": {
+            "bytes": 433,
+            "git_blob_sha1": "e840d486ab5482c3a16e9e71032880e5ae34486d",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "95d381a02a23c0632b759361e9f5ea040ecd9835174613a93c263840625b12a1",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/fixed_length_decimal_legacy.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal_legacy.avro"
+          },
+          "test/arrow-testing/data/avro/int32_decimal.avro": {
+            "bytes": 392,
+            "git_blob_sha1": "0623a288a3fd160979f0ce07037ed6b8bf0c1328",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "8f1d81164a409dfa0ad583262302fd332b2e2a0d6467fc36d02fb942371dab24",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/int32_decimal.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int32_decimal.avro"
+          },
+          "test/arrow-testing/data/avro/int64_decimal.avro": {
+            "bytes": 431,
+            "git_blob_sha1": "182d9b7b1055930da22f2edf7ff2f1f98d4efd32",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "5293a2f7b317ad29ed2ae40d3cb87cb1f85dd8f9399cbbb0da66594c5693f333",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/int64_decimal.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int64_decimal.avro"
+          },
+          "test/arrow-testing/data/avro/list_columns.avro": {
+            "bytes": 373,
+            "git_blob_sha1": "0d2dd2354016f5dc1a636e5fcb3fdb9a0ec44e01",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "a4880f90275d468b8c42004ea6925082b981c2aa03a5620c3ef7d9b88f6cbeda",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/list_columns.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/list_columns.avro"
+          },
+          "test/arrow-testing/data/avro/nested_lists.snappy.avro": {
+            "bytes": 407,
+            "git_blob_sha1": "6cbff89610a7fce5f817edd668a06f5b5ac76a5b",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "07e0fca7ff085c109308d2b49f5a85a818b9e9d22d6202371a654bd8c5c54359",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/nested_lists.snappy.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_lists.snappy.avro"
+          },
+          "test/arrow-testing/data/avro/nested_records.avro": {
+            "bytes": 927,
+            "git_blob_sha1": "aecd58735dcb6083157d46951c753673449d9aca",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "11b821dd88f801f590a3befa0b45e1b0060399ae541a7e889ec010f49cb25d59",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/nested_records.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_records.avro"
+          },
+          "test/arrow-testing/data/avro/nonnullable.impala.avro": {
+            "bytes": 1570,
+            "git_blob_sha1": "7ff8f3b7ae18a6847a2ad1d1513dbd842000b621",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "36e57e00a8c6cf0d1d8dd5d6d305e39f2a5d4b2cafa4b4d6ef3bd7747547e76c",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/nonnullable.impala.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nonnullable.impala.avro"
+          },
+          "test/arrow-testing/data/avro/nullable.impala.avro": {
+            "bytes": 1812,
+            "git_blob_sha1": "28f118b6b800824dea8041ee61918f7f72d273db",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "7dfb76f7033645d883c7cd3752b79fe3b96b47feee193145571bb7197c74e03c",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/nullable.impala.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nullable.impala.avro"
+          },
+          "test/arrow-testing/data/avro/nulls.snappy.avro": {
+            "bytes": 330,
+            "git_blob_sha1": "8be5bec851706b8166bdf5c3bee911bfb3a0d72a",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "56e7ab21d81e554ef30468ed14ac81b096ee80bd7b5e13bb040442b5cb6e7f50",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/nulls.snappy.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nulls.snappy.avro"
+          },
+          "test/arrow-testing/data/avro/repeated_no_annotation.avro": {
+            "bytes": 627,
+            "git_blob_sha1": "44edb8e104a3b7b941c66315978bdf3145554e3d",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "8458398f321353d7440a2b3dc94136351b6f1162203565f88c1c302dae9985f4",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/repeated_no_annotation.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/repeated_no_annotation.avro"
+          },
+          "test/arrow-testing/data/avro/simple_enum.avro": {
+            "bytes": 411,
+            "git_blob_sha1": "dbf0a42baae462801fa883bf5586dea8814b3df2",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "4eb0d34e7e026bcddc42bb93edb56218b84df7afc58fb87cb4cd388619ff55f0",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/simple_enum.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_enum.avro"
+          },
+          "test/arrow-testing/data/avro/simple_fixed.avro": {
+            "bytes": 388,
+            "git_blob_sha1": "81283f110aba5367a9618b8e56d50d07b435d413",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "e70260618e9cc3ac01a743411638f3c05118272a1c529fb761167a6b3bc590c5",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/simple_fixed.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_fixed.avro"
+          },
+          "test/arrow-testing/data/avro/single_nan.avro": {
+            "bytes": 204,
+            "git_blob_sha1": "ccf93e54d93cde00cfb71f60a5158d3b9b53027b",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "f130a5f60979a7fcf2f98df159f3feb048b2233b6803352594747cbb97db882c",
+            "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+            "source_path": "data/avro/single_nan.avro",
+            "source_repository": "apache/arrow-testing",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/single_nan.avro"
+          },
+          "test/data/README.md": {
+            "bytes": 27720,
+            "git_blob_sha1": "226e0700fb94eb4f656ad85f23d0aa5fe9baf3c8",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "0fd6542e6830ce21929e204a99841928df073db19b81638b26a31f85795122c2",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/README.md",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/README.md"
+          },
+          "test/data/bad-varint-bug.avro.gz": {
+            "bytes": 254,
+            "git_blob_sha1": "7feef49fd713a6610209fb2eec3045b2467c33a5",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "16842159a46d4c850a018afc5018805a3a0e160cd94142eb828810acd8821a68",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/bad-varint-bug.avro.gz",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/bad-varint-bug.avro.gz"
+          },
+          "test/data/comprehensive_e2e.avro": {
+            "bytes": 7831,
+            "git_blob_sha1": "a3e55716c325d44dea1ff1fafb07c673776dff2d",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "1ac5b5a59b3036ef1ff06c158c043bca77cd17da997db9ae7221a4f95d37fa2a",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/comprehensive_e2e.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/comprehensive_e2e.avro"
+          },
+          "test/data/duration_logical_types.avro": {
+            "bytes": 556,
+            "git_blob_sha1": "4d514fa9ba5908fe6a05dfbdbb0f7ffc07eb01df",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "0862e29aeb24f20969f307f0635c9dffd76cf7cd7610a242120dd737c1bfc470",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/duration_logical_types.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_logical_types.avro"
+          },
+          "test/data/duration_uuid.avro": {
+            "bytes": 517,
+            "git_blob_sha1": "09dd67b7807a8751b1a7efeae88609b9a052c2ca",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "2d339377a7d592158dae89c41bedad2f475f1f677a160a58286848c47ac131d6",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/duration_uuid.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_uuid.avro"
+          },
+          "test/data/enum_reuse.avro": {
+            "bytes": 358,
+            "git_blob_sha1": "7891870df3c9de1d43e3d4f390c29cbb998dab2c",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "21dc2b3b677b58d5d467eceb85f165134862cd4a4115e0e6d5ff85e0146e4e64",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/enum_reuse.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/enum_reuse.avro"
+          },
+          "test/data/fixed256_decimal.avro": {
+            "bytes": 1043,
+            "git_blob_sha1": "d1fc97dd8c83442cdb51664cf90373d8a82b5bfb",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "830fb73484d10811e58c33579ceb35af0fd6c5cbda5c28c45f8ea9bee1497a06",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/fixed256_decimal.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed256_decimal.avro"
+          },
+          "test/data/fixed_length_decimal_legacy_32.avro": {
+            "bytes": 378,
+            "git_blob_sha1": "b746df9619b5c784c8bc4ef743af77111e051bb5",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "494badc5a0053d01f6f74ce0d00d0f4d492252ca3db5ad32402269c58b0f8067",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/fixed_length_decimal_legacy_32.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed_length_decimal_legacy_32.avro"
+          },
+          "test/data/int128_decimal.avro": {
+            "bytes": 306,
+            "git_blob_sha1": "bd54d20ba48744341f9436677310f61b84907540",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "068dd4495e544a3b148e5be96354bdf42ec4e14afe13fcd7142fe9a34e216c6e",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/int128_decimal.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int128_decimal.avro"
+          },
+          "test/data/int256_decimal.avro": {
+            "bytes": 380,
+            "git_blob_sha1": "62ad7ea4df08df2fdc8896321908f6006294315a",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "162a62c1c53a9942f5c0423556f964275331dc51dc5f04578be168bd6a1de7c8",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/int256_decimal.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int256_decimal.avro"
+          },
+          "test/data/named_types_complex.avro": {
+            "bytes": 962,
+            "git_blob_sha1": "eae439317e5be63b7c633e6db44f1991cb196719",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "3ff27ce9c1da81e13fc846c507c5cc78d7cbb0dcc9cc83285437f42ccdbe6f32",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/named_types_complex.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/named_types_complex.avro"
+          },
+          "test/data/nested_record_reuse.avro": {
+            "bytes": 366,
+            "git_blob_sha1": "5e2a9e0328bcd86fa9627631d4c5bf8e59a8d85b",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "090746d0c94609387d7d29b0f0671cae47ea9c33145bf048bf559f83f04d23b2",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/nested_record_reuse.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/nested_record_reuse.avro"
+          },
+          "test/data/skippable_types.avro": {
+            "bytes": 3234,
+            "git_blob_sha1": "b0518e0056b5ae3ecea7bb50e6a474fe676e9b82",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "dce328c1364748f3d4ed413e699b54f2cb355a1107d1e0994293afd0f95df62f",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/skippable_types.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/skippable_types.avro"
+          },
+          "test/data/union_fields.avro": {
+            "bytes": 3430,
+            "git_blob_sha1": "e0ffb82bd412704065788cf908268e81de4511fc",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "a8d8b7b8fdd8ffcf40cdd9fa4da3f39c1910f8f4335c545283e4521222ae2ca5",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/union_fields.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/union_fields.avro"
+          },
+          "test/data/zero_byte.avro": {
+            "bytes": 210,
+            "git_blob_sha1": "f7ffd29b6890122b76d3071d0034c5d360ede202",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "c46fb1c64f35aba468d66b0c5cb99a5fc951e235f2daaf39e58956c10cf14fe2",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "arrow-avro/test/data/zero_byte.avro",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/zero_byte.avro"
+          },
+          "test/upstream-arrow-rs/LICENSE.txt": {
+            "bytes": 11577,
+            "git_blob_sha1": "226975f24fa5eeeb08141ff7de2ed8bc19e818d6",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "LICENSE.txt",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/LICENSE.txt"
+          },
+          "test/upstream-arrow-rs/NOTICE.txt": {
+            "bytes": 470,
+            "git_blob_sha1": "3e997a0ebd6c04c46975bcac17edbff2023ed5c9",
+            "reason": "Original upstream Avro provider regression fixture or its preserved provenance/license text.",
+            "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+            "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+            "source_path": "NOTICE.txt",
+            "source_repository": "apache/arrow-rs",
+            "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/NOTICE.txt"
+          }
+        },
+        "version": "59.3.1",
+        "supplemental_test_sources": {
+          "arrow_rs_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+          "arrow_testing_notice": "No NOTICE file exists in the pinned repository root; its Apache-2.0 LICENSE.txt is preserved.",
+          "arrow_testing_submodule_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+          "original_record_source_matches_registry": true
+        }
+      },
+      "files": [
+        {
+          "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
+          "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "bytes": 11577,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#LICENSE.txt"
+        },
+        {
+          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
+          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "bytes": 470,
+          "crate_path": "NOTICE",
+          "upstream_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#NOTICE.txt"
+        }
+      ]
+    },
+    {
       "name": "arrow-ipc",
       "version": "59.3.1",
       "path": "vendor/arrow-ipc",
@@ -9241,18 +9805,33 @@
         "added_files_sha256": {
           "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
           "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-          "README.shardloom.md": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+          "README.shardloom.md": "cd7da09763e592d149335cf19614659c88e80a11db41ec4673ea7a9e1d1f3784",
+          "src/reader/array_structure.rs": "c03e89b8dfc153e2814c82cef6b3f2a233e8e38569d51e4fc88a08e670fc3d9a",
+          "src/reader/controlled_array_tests.rs": "3272c08848c0724960b4ed2f83abe9ec61f3ba0d84e091e97aa4a29b496ee2fd",
+          "src/reader/decoder_memory.rs": "03cc79853401e19a5cd899f9d4b72a6c14e9383b5d7309cd6103397247d7255b",
+          "src/reader/decoder_memory_tests.rs": "40d1f93634dee7d138012faf2e1e191f0e78ab757412adbb7bb738dc9169c976",
+          "src/reader/dictionary_delta.rs": "9b2b8bcf343101fb1d9dce19d52d1ae543517335a42582b2c8466792390cc6e6",
+          "src/reader/dictionary_delta_tests.rs": "53b018b8abc44573b156f4587accc8ac5a18a67b425ee19ee8c3b07224a26a48",
+          "src/reader/lz4_owned.rs": "8f01c81733adb41631fc2cffb7ccf86d6878900b527ae6f9ae6d01e71a27766c",
+          "src/reader/owned_file_decoder.rs": "fdc7aa2d4c417af6546c77b61bfb7a29ac6fe0d1159d5556a197608df804fbbb",
+          "src/reader/owned_file_decoder_tests.rs": "18df57647270bd2962e03e4371f15bb85bd7511f81b19c84d76b1fb1d68d3758",
+          "src/reader/owned_record_batch.rs": "3d5e1af0d55740324a46266cd39eeba9f749f7b60bd5721bef0c4f67d25059d2",
+          "src/reader/owned_record_batch_tests.rs": "67e90cf60f314a35ecfe87406c65ed806a1a197e937d63e5a611a02b11935dee",
+          "src/reader/schema_owned.rs": "29fed2d2b87bf6fd0849856ce8e666fe19181045aad5f061565173e73da811f9",
+          "src/reader/schema_owned_tests.rs": "415de7bbd6fe421b6e90e7d7194dbd8ae774695c63282f1d94c94f29baa4a3b5"
         },
         "license": "Apache-2.0",
         "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
         "license_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#LICENSE.txt",
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+          "sha256": "cd7da09763e592d149335cf19614659c88e80a11db41ec4673ea7a9e1d1f3784"
         },
-        "migration_status": "manifest_only_dependency_pin",
+        "migration_status": "controlled_decoder_payload_schema_and_framing_extension; native_message_dictionary_and_handoff_integration_pending",
         "modified_files_sha256": {
-          "Cargo.toml": "e498a06cea2d573f3c66725866baa406c08768efb493ce036098eacf29b7f031"
+          "Cargo.toml": "340b99f50362aea502f43071e562ab272a510370c40e3ce8495220265ba23d48",
+          "src/compression.rs": "ffe9dbd655070d4b9d2d6bca6a0c2f7448825816333ae4f623ee69d9979a1278",
+          "src/reader.rs": "d9dd1a5cfe282111354e9c4c77cc433e0e7be79088f33398d501cb2ee215b674"
         },
         "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
         "notice_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#NOTICE.txt",
@@ -9319,32 +9898,65 @@
       "provenance": {
         "added_files_sha256": {
           "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-          "README.shardloom.md": "adb5be8cd2ac37177c89b758c0e9d98ba9a7ee49df3122c9dee084f1f0332963",
+          "README.shardloom.md": "ca6eaef1da2109da64bb1ba88bbaa03ebc4b5f21c6fc0d8fa29c5bda25dd67d3",
           "src/writer/rich_column.rs": "9f27b3e53db3633e7c6c51482a31485e13d1d4a1fdc9abe261e78fafcc7aad4d",
           "src/writer/rich_tests.rs": "0a6e852adad03a25b19d88adaccf38ab70e7f954f44829b8daabcd5021e89252",
-          "src/writer/schema.rs": "b6258d122125eeafc64faf830312d65662463ef688dd0a243ae135bed36695ec"
+          "src/writer/schema.rs": "b6258d122125eeafc64faf830312d65662463ef688dd0a243ae135bed36695ec",
+          "src/array_decoder/decoder_memory.rs": "95602d817b0f36217b58a2027e74d5a614dc566658b6bb1420275842fa0ac416",
+          "src/array_decoder/list_ownership_tests.rs": "3030bd5dc940ca13540bff0c2cc62e7675172d18ff7a29bf38bb77ce4404a8c5",
+          "src/array_decoder/map_ownership_tests.rs": "174345840a65d5df50620a92e736b6cea55f93f9462946bf8dac9bae11ff8b40",
+          "src/array_decoder/ownership_tests.rs": "d742312995d6ad13297faabcdacbdfed066bf98eb68140e8249520e96ca4341a",
+          "src/array_decoder/string_ownership_tests.rs": "0e1165bcb7ef77eee56fe624fb4fabf7b46c4b03aeca0cd1606bc1ce91cbd12e",
+          "src/array_decoder/structural_memory.rs": "f6ca64fea95a86fb386be68e93a3046429f2c4c6260bec470ac30a31f6d09fa6",
+          "src/array_decoder/union_ownership_tests.rs": "b6fd88c12643002c78b5940c792f8de388b4d6a4d45941e48af421157a95ad8e",
+          "src/compression_tests.rs": "d79762c4f5a7b19e1851241917a11322445edab520ca6b5d396ba901a146a9c2",
+          "src/reader/decoded_values.rs": "8810b61c122b3c841d7c19db9b86cbc6414c1f440a9772de45f43f3081655228",
+          "src/reader/memory.rs": "473c3fe3b858778b624c57737a5927ef2b98543ffa59c9c861005823133080b9",
+          "src/reader/memory_tests.rs": "0645bdd1cebae0c8f72cb175808ce29a03b895e94d9ddb1aa0583b5dac33810c",
+          "src/reader/metadata_memory.rs": "b428e2e436ebcba5433da905cbb22b60a85710a27dcc378fde9455512c195497",
+          "src/reader/metadata_tests.rs": "ca75f3d830c1a425da01adf4dbffbdf8295d84e62f2ba77038ddde8ffa60eabd",
+          "src/reader/structure_memory.rs": "99e82996b17be05bb94edc1da21a7ffc39682b61400b32c4129e57156e4542b9",
+          "src/reader/structure_memory_tests.rs": "b7401cc36010fde8f5276a875474545c18012860e33bcfda21dde7267b9fa70d",
+          "src/stripe_footer.rs": "610832d5dbef42955e32cc61fe0b6187372a700ed7eac4621f0cd2d01beb4012",
+          "src/stripe_footer_tests.rs": "91451e4b8ed0a046688b0b3d7fb44a21467185984b007d136d4462fec4211c55"
         },
         "license": "Apache-2.0",
         "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
         "license_url": "https://raw.githubusercontent.com/datafusion-contrib/orc-rust/d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307/LICENSE",
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "adb5be8cd2ac37177c89b758c0e9d98ba9a7ee49df3122c9dee084f1f0332963"
+          "sha256": "ca6eaef1da2109da64bb1ba88bbaa03ebc4b5f21c6fc0d8fa29c5bda25dd67d3"
         },
-        "migration_status": "dependency_pin_compressed_errors_rich_writer_and_checked_temporal_codec",
+        "migration_status": "dependency_pin_rich_writer_checked_temporal_codec_held_metadata_adaptive_readers_owned_decode_buffers",
         "modified_files_sha256": {
-          "Cargo.toml": "a9fb8010ed971119ba99328cbd430f8559df293d32fc3e5ee6a9b8ed00bc7b1c",
-          "src/compression.rs": "510e1b06a82db4b896d48589aae2edd649dbc2a35feb70b725360cb53a7ba835",
-          "src/array_decoder/mod.rs": "d3c33d1059eeb2fb0a0f2db3fe55d007cf55773b2b4cd602eab60da7a7b6436d",
-          "src/array_decoder/timestamp.rs": "15ea37094b9f0cd6c3b19a312d12cea7ade2a73849153af3c9eaef78b11980f1",
-          "src/arrow_reader.rs": "be8ca8389b699eff0e22b147dc0e9dc25244120600863a5c4b939c6c7accbc58",
+          "Cargo.toml": "78b37ff6db0e9741007e81c0e26fb368520db1863dabeb36d164ffce4b0c7541",
+          "src/compression.rs": "d17a865ed09db30664bb70b4d31ae8a65aea4e0614407dd96ad2de3323b2cfc4",
+          "src/array_decoder/mod.rs": "9521336cb18813a779474327f53a298198390a811d0c7942484394c2b36674bd",
+          "src/array_decoder/timestamp.rs": "35dc0a27d0440091f12376ba225d2d8f685530f38ad1256d8e39da137fb86760",
+          "src/arrow_reader.rs": "151f2fec49d71c8844ac02488a91e324b595e44ea24acd109747a13dbb37b25f",
           "src/arrow_writer.rs": "0822c1b0601c0a4e1ce0ebba7f2bff5c274a71af7635f3c41dc44dd8642353a5",
-          "src/encoding/timestamp.rs": "ffe46b0efbe71010f514bcec384f26b3d1b892de0e46838cf67d05abb70d6052",
-          "src/reader/metadata.rs": "81fcd4c57fe9f2ac4b03ff20214b7364dc7e87596f1dc1114eff55b76806077e",
-          "src/schema.rs": "aa472d807026acf4a9db996989c116a5cecdd22f7efeffc1b20595e93db2463f",
+          "src/encoding/timestamp.rs": "6b18d1dd4ed994a2181a23cd76b25344750d6eb16f1f843bac5092a7b5fb646f",
+          "src/reader/metadata.rs": "b43e739219c6e503876c19d9294eb49ebe2b2e2a86a343447578a348f9bdcea7",
+          "src/schema.rs": "63ce110cea1300ef133945414e3d1e242246201e6da57e312b12a83acb5038e6",
           "src/writer/column.rs": "d3814ab75eed980e43a2217501a7e50944955315434f5b1ab0a6a2d353436fb8",
           "src/writer/mod.rs": "563cf977e1768258f0f7e6db74f8c744ed59aca6f859df5eaaa8a320b73dd31d",
-          "src/writer/stripe.rs": "0702e8d47af4d78365b73b08c739ce5f6ea393a4e5f94d9f6742a3b712f0c54f"
+          "src/writer/stripe.rs": "0702e8d47af4d78365b73b08c739ce5f6ea393a4e5f94d9f6742a3b712f0c54f",
+          "src/array_decoder/decimal.rs": "40c9143cc64fa544e5cc4793a1fda477f991d82d9fe6a92fc34e49c38e425fdb",
+          "src/array_decoder/list.rs": "d3e0fade9d762f72992aea25e6ff17e8f8c3fcdbb241e86301a42192e981ace8",
+          "src/array_decoder/map.rs": "0c50db7d13588ec6310b34f16a2213cffddc359de3449637c383137ee495532a",
+          "src/array_decoder/string.rs": "90f6ce9903a1a87ff13e20837738e1918563424123a1b3f2d669b1d49759e2ae",
+          "src/array_decoder/struct_decoder.rs": "e0b6b822d0eabad1ebc0c0af508e84318edb9e89c983dacc46ff082e0046f873",
+          "src/array_decoder/union.rs": "63db182a6c61edfb036b513d55e6cbf7ce85cb90d1fc1ca1aa8d15aaac0bf381",
+          "src/async_arrow_reader.rs": "b6e2d8f05d3de8c5efffdd6b3dddbddd42ee5eb207fe12b52139fdeec6671586",
+          "src/column.rs": "011e5856c64f1deaae9650f4b34d6f9bc8a874b60b05c68695f76a7bd83be303",
+          "src/encoding/byte.rs": "31dec9b4e1b9ac18807dcc4111f8a5b1b9fcf39316531145009fd4e74d52060a",
+          "src/encoding/integer/mod.rs": "e1de78bac2a71948616927911f4ac15912e1b73a8023cf401a9497de692c3261",
+          "src/encoding/integer/rle_v1.rs": "6701698610f81b755ef66261db6e136a994764aa2057999520669aca11d30c4d",
+          "src/encoding/integer/rle_v2/mod.rs": "1f378ade23cbfd75865c692fa14ff60e50bed2ec7e040de38f47768b55319825",
+          "src/reader/mod.rs": "85b06e52054c2cb565bc66960080d418d6d353c5203ef7405487aeb755290774",
+          "src/row_group_filter.rs": "27dab969de38b78f5e6a056c10242c4c74e6b6a555a69d03b23c3801feccbef4",
+          "src/statistics.rs": "981c0143a47897836e929ae3d6fe3250f023c1c60732b2bfbac82e658c1cbaaa",
+          "src/stripe.rs": "ea18afcc05570fdcb41051707f8e8b7881d436b73fb6b8395e7dd47bdfd18aff"
         },
         "notice_status": "No NOTICE exists at pinned upstream revision d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307 (prior recorded evidence).",
         "omitted_files": {
@@ -9442,7 +10054,7 @@
         "added_files_sha256": {
           "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
           "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-          "README.shardloom.md": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a",
+          "README.shardloom.md": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb",
           "src/file/metadata/memory_reservation.rs": "4ae4141063aba87d2f857357eb50b2ad379d1ace70ace32a80d201ebf571e3a1"
         },
         "license": "Apache-2.0",
@@ -9450,16 +10062,31 @@
         "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#LICENSE.txt",
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a"
+          "sha256": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb"
         },
-        "migration_status": "manifest_and_metadata_patches",
+        "migration_status": "manifest_metadata_and_explicit_batch_limit_patches",
         "modified_files_sha256": {
           "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d",
           "src/arrow/schema/primitive.rs": "3fe5a0931d35e11a2205c09401de05b76dc0d137146e5c9a21b1e0751b2607e6",
-          "src/arrow/arrow_reader/mod.rs": "cc695717a7ea4273a49691907066a6e7d8505c0e58eb8e8449fa52f0c2c69db7",
+          "src/arrow/arrow_reader/mod.rs": "882b910efb82e7a8a4139a7d999cc7d0708effe45e0fda3b94c4d55c990b33c6",
           "src/file/metadata/mod.rs": "35fab5421ee6480e2095425876618b7c87c66b5abe06ed5c6a07be862c1814c8",
           "src/file/metadata/options.rs": "abf5c8fcc8af05c051c493e4745c43745d47a7fef2ef2d256fab36a28e796a82",
-          "src/file/metadata/thrift/mod.rs": "6b27ca28f96d8afa0b17e0030145f59101c769bf18841a51dd368d1285f2ea5e"
+          "src/file/metadata/thrift/mod.rs": "6b27ca28f96d8afa0b17e0030145f59101c769bf18841a51dd368d1285f2ea5e",
+          "src/arrow/array_reader/byte_array.rs": "b5d70e8726b74da6aa4e0c986b7760a612e08f8931ccf9c0299a362e62e1368c",
+          "src/arrow/array_reader/byte_array_dictionary.rs": "4f99f55be181a760d0de9e96f72b524a6b46e10b1ae5e29d0742a2414e6cc932",
+          "src/arrow/array_reader/byte_view_array.rs": "48c14678158140a5bec663c54e4161a57ccb9e361a6f6eab363138221a9f8125",
+          "src/arrow/array_reader/cached_array_reader.rs": "2c018427ba1ba790d8505eb87b8894977c6db1ec45ebb20fa4c1db37ba5aa516",
+          "src/arrow/array_reader/fixed_len_byte_array.rs": "0008b0d03634f054ba70b34bbc111c917a09d400354698c912f8edae16aa24d8",
+          "src/arrow/array_reader/fixed_size_list_array.rs": "20cb993054b38a6a72e4eeb7f7f483b966f1c7f429efbe81eeebe7093afc38d1",
+          "src/arrow/array_reader/list_array.rs": "de33819eb8d3a17d896591d6ccc53c9395743c62ab505943cdb1644fdbec5b42",
+          "src/arrow/array_reader/list_view_array.rs": "87ecb94f3fdbb96852bb5ba06e473113e40ce88ca58d7f74d31da0c2b1b565c2",
+          "src/arrow/array_reader/map_array.rs": "71ebb05d71d9f306c567729ddc0014852ae34570a752dbb23e45273c46f255f6",
+          "src/arrow/array_reader/mod.rs": "fbf55fcd18e36632ebc7b6b0f1486453ff4ae80693c863d1892bd9248b759c04",
+          "src/arrow/array_reader/null_array.rs": "45f3edb110d12fe7d358fc65a5890c2820bd95ebcea73939b719bbb097dfb713",
+          "src/arrow/array_reader/primitive_array.rs": "e319bf342d32ef4d63a7d8e873b64b675b78b39c37fcff48e3c7e7945a3afd53",
+          "src/arrow/array_reader/struct_array.rs": "4492aa8453f4fbe025dc0e6855601e8a89be4dac28b682fdfd959eb4f719d17e",
+          "src/arrow/arrow_reader/read_plan.rs": "0b886f4f2536c6a2ad99b828ffb6368bf403dd5213939189af858aaf25e9a6b0",
+          "src/arrow/record_reader/mod.rs": "224346c5b816c68031c50aedeb291c6591a3988b0610ad48d277a3a4aee7433c"
         },
         "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
         "notice_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#NOTICE.txt",
@@ -11544,25 +12171,31 @@
           "Cargo.toml": "b5cf9c5d1c4488cd69f4a07ec2caeab1641d6fe169f1150e552ccc15ebe55397",
           "src/array.rs": "df40c9b9a92f975dac48612ce963d7a315cbfde298b5af57009f3fc518e8d0fd",
           "src/compute/cast.rs": "e7c24896b4fda8f07e86bf5586b0134e9875c429aa35a12a069298953979e917",
-          "src/lib.rs": "2ad9e68051554c4326aca60395198d236e978d512812f809f6b8917197655a2c",
+          "src/lib.rs": "9df1baaa21ea56baef92c19b8fdc1c3e53a525882e5674339f51f0237bddf4af",
           "src/test.rs": "fc1a76dbd5bc6d3f3240003ebf8b55e97ce2b5d96fc7fe0cd54c13177b0fbda5"
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "09dc4c8e933f47039c6b6635c39aa9e01b6fe834c82e3514421c344476e81778",
+          "README.shardloom.md": "0cb5a763e53876210622f05251b4bee9c7b135f1203d1d33883a365deeb2fb44",
           "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
           "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
-          "src/decoder_workspace.rs": "c34d518ed724b778663b959a21610b40d7d729009412c09a788ac9d0f9a2e48c",
+          "src/decoder_workspace.rs": "a40160fffc924e3759a4c08d2bfbe7d4248caa7e420bef17804a73e099145f3c",
           "src/metadata_resources.rs": "66de9be321a47b23ee8192b7e1de37b163e5600ea1dd2af560e7109404622ce1",
-          "src/metadata_resources_tests.rs": "96c52da21492ddc0e46345af48d01a1483580bf14b6af25fcff3727da475b81d",
+          "src/metadata_resources_tests.rs": "e90f5146121e76367b4a850e7db969c1634539143a59edca23d24273ab639c70",
           "src/selected.rs": "631aebf780aab0c585505e88d19d16a9c52b090b266bd05e5ed1d50874048c74",
           "src/dependency_regression_tests.rs": "f16e06ff3722e87c1d18180aa2792a94ffa9aca6d05d0a70991ebe12090d80a5"
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "09dc4c8e933f47039c6b6635c39aa9e01b6fe834c82e3514421c344476e81778"
+          "sha256": "0cb5a763e53876210622f05251b4bee9c7b135f1203d1d33883a365deeb2fb44"
         },
-        "supplemental_test_files": {}
+        "supplemental_test_files": {},
+        "omitted_files": {
+          "Cargo.lock": {
+            "original_sha256": "0c3aba0d916fea7d20a4a80f523acd921f60ddb1ad680262e05990ba7e89191f",
+            "reason": "Upstream lock is omitted as documented in README.shardloom.md. Repository-root Cargo.lock owns runtime resolution; standalone provider validation uses .github/provider-locks/vortex-zstd.lock."
+          }
+        }
       },
       "files": [
         {

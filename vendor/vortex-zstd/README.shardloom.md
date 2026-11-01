@@ -34,3 +34,14 @@ The finite allocation contracts do not cover process RSS, C call stacks,
 allocator bookkeeping or unrelated provider allocations. Upstream registration
 does not certify all optional encodings or broader external-reader behavior.
 Vortex remains native input/output; no external query engine is introduced.
+
+Item 23 reuses the existing one-shot static decoder for ORC translation through
+the safe `DecoderWorkspace` entry point. The caller supplies a bounded
+destination and the same session allocator. ORC retains one actual context
+buffer per reader/metadata operation, including across later compressed blocks,
+so live batch sizing observes its cost. The owner stores no raw pointer and
+each call reinitializes the existing borrowed static decoder. Native frame
+arrays and `decompress_frame_into` retain temporary-workspace lifetimes.
+Modern and skippable members, validation, legacy rejection,
+alignment checks and cleanup use the same implementation as native frame arrays.
+No new unsafe operation, dynamic context, stream window or query engine is added.

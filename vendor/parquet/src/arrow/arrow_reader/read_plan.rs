@@ -447,6 +447,10 @@ pub struct ReadPlan {
 }
 
 impl ReadPlan {
+    pub(super) fn set_batch_size(&mut self, batch_size: usize) {
+        self.batch_size = batch_size;
+    }
+
     /// Returns a mutable reference to the selection selectors, if any
     #[deprecated(since = "57.1.0", note = "Use `row_selection_cursor_mut` instead")]
     pub fn selection_mut(&mut self) -> Option<&mut VecDeque<RowSelector>> {

@@ -4,6 +4,7 @@
 //! one framed record during discovery and one credited output batch on replay.
 //! A schema-free document is scanned twice; the first pass is reported explicitly.
 
+use super::owned_batch::{BatchResult, OwnedBatch};
 use super::{Field, RecordBatch, ScalarValue, Schema, SchemaRef, TextRecordBatchBuilder};
 use crate::source_identity::SourceIdentity;
 use arrow_array::{ArrayRef, RecordBatchReader, make_array};
@@ -11,6 +12,7 @@ use arrow_buffer::{BooleanBuffer, Buffer, NullBuffer};
 use arrow_schema::{ArrowError, DataType};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::{
+    adaptive_work::{AdaptiveWorkReport, AdaptiveWorkSizer, WorkCost, WorkLimits, WorkShape},
     compute_pool::CancellationToken,
     live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
 };
@@ -89,6 +91,7 @@ pub struct TextSource {
     skip_first: bool,
     max_rows: Option<usize>,
     rows: usize,
+    largest_record_bytes: usize,
     discovery_bytes: u64,
     memory: LiveMemoryPool,
     type_policy: Option<TextTypePolicy>,
@@ -183,8 +186,10 @@ impl TextSource {
             });
         }
         let mut rows = 0_usize;
+        let mut largest_record_bytes = 0;
         while let Some(record) = reader.next_record()? {
             cancellation.check()?;
+            largest_record_bytes = largest_record_bytes.max(record.value().len());
             let _scratch = memory.reserve(record_charge(record.value().len(), 32)?)?;
             let raw = std::str::from_utf8(record.value()).map_err(failed)?;
             let decoded = resolve_record_fields(decoder(raw)?);
@@ -280,6 +285,7 @@ impl TextSource {
             skip_first,
             max_rows,
             rows,
+            largest_record_bytes,
             discovery_bytes: metrics.bytes.load(Ordering::Relaxed),
             memory: memory.clone(),
             type_policy,
@@ -342,14 +348,7 @@ impl TextSource {
             cancellation,
             metrics,
         )?;
-        Ok(TextReader {
-            source: Arc::clone(self),
-            schema,
-            frames,
-            batch_rows: batch_rows.clamp(1, 8192),
-            rows: 0,
-            ended: false,
-        })
+        TextReader::new(Arc::clone(self), schema, frames, batch_rows)
     }
 
     /// The demanded source supplies its already generation-checked, I/O-admitted
@@ -372,14 +371,7 @@ impl TextSource {
             &self.memory,
             cancellation,
         )?;
-        Ok(TextReader {
-            source: Arc::clone(self),
-            schema,
-            frames,
-            batch_rows: batch_rows.clamp(1, 8192),
-            rows: 0,
-            ended: false,
-        })
+        TextReader::new(Arc::clone(self), schema, frames, batch_rows)
     }
 }
 
@@ -415,36 +407,181 @@ pub struct TextReader {
     schema: SchemaRef,
     frames: Frames,
     batch_rows: usize,
+    sizing: AdaptiveWorkSizer,
+    cost: WorkCost,
+    downstream_cost: WorkCost,
+    record_workspace: u64,
     rows: usize,
     ended: bool,
 }
 
 impl TextReader {
-    fn read_batch(&mut self) -> Result<Option<RecordBatch>> {
+    fn new(
+        source: Arc<TextSource>,
+        schema: SchemaRef,
+        frames: Frames,
+        batch_rows: usize,
+    ) -> Result<Self> {
+        // Include initial column builders, copied names and one framed record.
+        // The largest discovered record guides safe continuation without making
+        // an undemanded large record a hard minimum for an earlier prefix.
+        let mut cost = super::work_sizing::schema_cost(&schema, 8192 + 4096, 2)?;
+        cost.bytes_per_unit = cost.bytes_per_unit.max(builder_row_bytes(&schema)?);
+        let record_workspace = record_charge(source.largest_record_bytes, 34)?;
+        Ok(Self {
+            source,
+            schema,
+            frames,
+            batch_rows: batch_rows.clamp(1, 8192),
+            sizing: AdaptiveWorkSizer::default(),
+            cost,
+            downstream_cost: WorkCost {
+                fixed_bytes: 0,
+                bytes_per_unit: 0,
+            },
+            record_workspace,
+            rows: 0,
+            ended: false,
+        })
+    }
+
+    /// Applied batch targets under this reader's existing memory owner. Targets
+    /// are capacities; EOF, byte limits or a complete-record boundary can yield
+    /// a shorter batch. This is estimated workspace, not process memory.
+    #[must_use]
+    pub fn adaptive_work_report(&self) -> AdaptiveWorkReport {
+        self.sizing.report()
+    }
+
+    /// The private shared-source adapter includes schema alignment and native
+    /// intake overlap in the next row target, under the same pool. It does not
+    /// acquire a second grant or change this reader's actual buffer ownership.
+    pub(crate) fn with_downstream_cost(mut self, cost: WorkCost) -> Self {
+        self.downstream_cost = cost;
+        self
+    }
+
+    pub(crate) fn limit_next_batch(&mut self, rows: usize) -> Result<()> {
+        if rows == 0 {
+            return Err(failed("text next-batch limit must be positive"));
+        }
+        self.batch_rows = self.batch_rows.min(rows);
+        Ok(())
+    }
+
+    fn batch_geometry(&self) -> Result<(WorkShape, usize, u64)> {
+        let snapshot = self.source.memory.snapshot();
+        let cost = WorkCost {
+            fixed_bytes: self
+                .cost
+                .fixed_bytes
+                .checked_add(self.downstream_cost.fixed_bytes)
+                .ok_or_else(|| failed("text downstream workspace overflow"))?,
+            bytes_per_unit: self
+                .cost
+                .bytes_per_unit
+                .checked_add(self.downstream_cost.bytes_per_unit)
+                .ok_or_else(|| failed("text downstream row capacity overflow"))?,
+        };
+        let selected = self.sizing.select(
+            "text_batch",
+            snapshot,
+            cost,
+            WorkLimits {
+                min_units: 1,
+                max_units: (self.source.rows - self.rows).min(self.batch_rows) as u64,
+                max_in_flight: 1,
+            },
+        )?;
+        let target_rows = usize::try_from(selected.units()).map_err(failed)?;
+        let builder_row_bytes = builder_row_bytes(&self.schema)?;
+        let capacity = usize::try_from(
+            snapshot
+                .limit_bytes
+                .saturating_sub(snapshot.reserved_bytes)
+                .saturating_sub(cost.fixed_bytes)
+                .saturating_sub(self.record_workspace)
+                / builder_row_bytes,
+        )
+        .unwrap_or(usize::MAX)
+        .clamp(1, target_rows.min(1024));
+        let initial = builder_row_bytes
+            .checked_mul(capacity as u64)
+            .and_then(|bytes| self.cost.fixed_bytes.checked_sub(4096)?.checked_add(bytes))
+            .ok_or_else(|| failed("text batch capacity overflow"))?;
+        Ok((selected, capacity, initial))
+    }
+
+    fn decode_row(&self, record: &[u8], names: &[String]) -> Result<Vec<ScalarValue>> {
+        let decoded = resolve_record_fields((self.source.decoder)(
+            std::str::from_utf8(record).map_err(failed)?,
+        )?);
+        let mut values = vec![ScalarValue::Null; names.len()];
+        for (name, value) in decoded {
+            if !self
+                .source
+                .schema
+                .fields()
+                .iter()
+                .any(|field| field.name() == &name)
+            {
+                return Err(failed("text replay introduced an undiscovered field"));
+            }
+            if let Some(index) = names.iter().position(|column| column == &name) {
+                values[index] = if let Some(policy) = self.source.type_policy {
+                    (policy.coerce)(value, self.schema.field(index).data_type(), &name)?
+                } else {
+                    value
+                };
+            }
+        }
+        Ok(values)
+    }
+
+    fn read_batch(&mut self) -> Result<Option<OwnedBatch>> {
         if self.ended {
             return Ok(None);
         }
         self.source.identity.validate()?;
+        self.frames.cancellation.check()?;
+        if self.rows == self.source.rows {
+            if self.frames.next_record()?.is_some() {
+                return Err(failed("text replay row count changed"));
+            }
+            self.source.identity.validate()?;
+            self.frames.cancellation.check()?;
+            self.ended = true;
+            return Ok(None);
+        }
+        let (selected, capacity, initial) = self.batch_geometry()?;
+        let target_rows = usize::try_from(selected.units()).map_err(failed)?;
+        let mut credit = self.source.memory.reserve(initial)?;
         let names = self
             .schema
             .fields()
             .iter()
             .map(|f| f.name().clone())
             .collect::<Vec<_>>();
-        let initial = (names.len() as u64)
-            .checked_mul(16_384)
-            .and_then(|n| n.checked_add(8192))
-            .ok_or_else(|| failed("text batch capacity overflow"))?;
-        let mut credit = self.source.memory.reserve(initial)?;
         let mut builder = TextRecordBatchBuilder::new(
             Arc::clone(&self.schema),
             &names,
-            self.batch_rows.min(1024),
+            capacity,
             "streaming text source",
         )?;
         let mut count = 0;
         let mut raw_bytes = 0_usize;
-        while count < self.batch_rows && (count == 0 || raw_bytes < 1 << 20) {
+        while count < target_rows && (count == 0 || raw_bytes < 1 << 20) {
+            // End at a record boundary while enough accounted headroom remains
+            // for a complete next record. No decoder, callback or input read is
+            // replayed after pressure. An irreducible record still fails at its
+            // ordinary authoritative reservation if it cannot fit on its own.
+            let current = self.source.memory.snapshot();
+            if count > 0
+                && current.limit_bytes.saturating_sub(current.reserved_bytes)
+                    < self.record_workspace
+            {
+                break;
+            }
             let Some(record) = self.frames.next_record()? else {
                 self.ended = true;
                 if self.rows != self.source.rows {
@@ -470,28 +607,7 @@ impl TextReader {
                     )
                     .ok_or_else(|| failed("text batch capacity overflow"))?,
             )?;
-            let decoded = resolve_record_fields((self.source.decoder)(
-                std::str::from_utf8(record.value()).map_err(failed)?,
-            )?);
-            let mut values = vec![ScalarValue::Null; names.len()];
-            for (name, value) in decoded {
-                if !self
-                    .source
-                    .schema
-                    .fields()
-                    .iter()
-                    .any(|field| field.name() == &name)
-                {
-                    return Err(failed("text replay introduced an undiscovered field"));
-                }
-                if let Some(index) = names.iter().position(|column| column == &name) {
-                    values[index] = if let Some(policy) = self.source.type_policy {
-                        (policy.coerce)(value, self.schema.field(index).data_type(), &name)?
-                    } else {
-                        value
-                    };
-                }
-            }
+            let values = self.decode_row(record.value(), &names)?;
             builder.append_row(&values)?;
             raw_bytes = raw_bytes
                 .checked_add(record.value().len())
@@ -511,13 +627,16 @@ impl TextReader {
             ));
         }
         credit.resize(actual)?;
-        credited_batch(batch, credit).map(Some)
+        let observed = (raw_bytes as u64)
+            .saturating_mul(32)
+            .saturating_add(actual.saturating_mul(2))
+            .div_ceil(count as u64);
+        let batch = credited_batch(batch, credit)?;
+        self.sizing.complete(selected, Some(observed));
+        Ok(Some(batch))
     }
-}
 
-impl Iterator for TextReader {
-    type Item = std::result::Result<RecordBatch, ArrowError>;
-    fn next(&mut self) -> Option<Self::Item> {
+    pub(crate) fn next_owned(&mut self) -> Option<BatchResult> {
         match self.read_batch() {
             Ok(batch) => batch.map(Ok),
             Err(error) => {
@@ -525,6 +644,21 @@ impl Iterator for TextReader {
                 Some(Err(ArrowError::ExternalError(Box::new(error))))
             }
         }
+    }
+}
+
+fn builder_row_bytes(schema: &arrow_schema::Schema) -> Result<u64> {
+    (schema.fields().len() as u64)
+        .checked_mul(16)
+        .map(|bytes| bytes.max(1))
+        .ok_or_else(|| failed("text batch capacity overflow"))
+}
+
+impl Iterator for TextReader {
+    type Item = std::result::Result<RecordBatch, ArrowError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_owned()
+            .map(|batch| batch.map(|batch| batch.into_parts().0))
     }
 }
 impl RecordBatchReader for TextReader {
@@ -883,14 +1017,21 @@ impl AsRef<[u8]> for CreditedBuffer {
 // Bytes::from_owner preserves the original aligned allocation safely. Each
 // Arrow buffer retains the shared lease even after the reader/source is dropped.
 #[allow(clippy::needless_pass_by_value)] // Consume the uncredited batch so no parallel buffer owner escapes this boundary.
-pub(crate) fn credited_batch(batch: RecordBatch, lease: MemoryLease) -> Result<RecordBatch> {
+pub(crate) fn credited_batch(batch: RecordBatch, lease: MemoryLease) -> Result<OwnedBatch> {
     let credit = Arc::new(lease);
+    let batch = OwnedBatch::with_owner(batch, credit.clone());
     let arrays = batch
         .columns()
         .iter()
         .map(|array| credited_array(array, &credit))
         .collect::<Result<Vec<_>>>()?;
-    RecordBatch::try_new(batch.schema(), arrays).map_err(failed)
+    let output = RecordBatch::try_new_with_options(
+        batch.schema(),
+        arrays,
+        &arrow_array::RecordBatchOptions::new().with_row_count(Some(batch.num_rows())),
+    )
+    .map_err(failed)?;
+    Ok(OwnedBatch::with_owner(output, credit))
 }
 fn credited_array(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Result<ArrayRef> {
     let data = array.to_data();

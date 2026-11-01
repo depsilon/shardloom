@@ -187,7 +187,11 @@ fn streaming_window_releases_input_and_retains_complete_output_after_plan_drop()
         assert_eq!(source.payload_batches, 4);
         assert_eq!(source.rows, 5);
         assert_eq!(source.window_rows_detached, 5);
-        assert_eq!(source.window_batches_detached, 2);
+        // Native work units may split a producer batch as the common sizer
+        // learns. The scan counts the two empty inputs, which produce no window
+        // payload; every nonempty scan result must still be detached once.
+        assert_eq!(source.window_batches_detached + 2, report.scan_batches);
+        assert!((2..=5).contains(&source.window_batches_detached));
         assert_eq!(source.max_retained_input_batches, 1);
         assert!(source.end_of_input_observed && source.output_ownership_detached);
         assert_eq!(report.ordered_window_stages, u64::from(spill));

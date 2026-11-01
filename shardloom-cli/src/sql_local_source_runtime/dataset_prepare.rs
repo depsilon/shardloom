@@ -4,8 +4,9 @@ use super::{
     ColumnarSourceScoutEvidence, Instant, LocalInputAdapterSelection, LocalSourceFormat,
     LocalSourceReadPlan, LogicalDType, Path, ShardLoomError, VortexIngestReport,
     VortexIngestRequest, VortexIngestSourceData, direct_text, finish_text_streaming_vortex_prepare,
-    fnv64_digest, public_preparation_source_binding, unsupported_sql_error,
-    vortex_ingest_schema_digest_from_parts,
+    fnv64_digest, public_preparation_source_binding, reject_remote_source_path,
+    unsupported_sql_error, vortex_ingest_schema_digest_from_parts,
+    with_layout_advised_embedded_derived_columns_ingest_source,
 };
 use shardloom_vortex::universal_format_io::demanded::LocalColumnarSource;
 
@@ -29,6 +30,8 @@ pub(super) fn prepare(
     hints: &[(String, LogicalDType)],
 ) -> Result<VortexIngestReport, ShardLoomError> {
     request.cancellation.check()?;
+    reject_remote_source_path(&request.source_path)?;
+    let collection = is_collection(&request.source_path);
     let started = Instant::now();
     let memory = request.native_memory_pool()?;
     let format = adapter.source_format;
@@ -40,8 +43,8 @@ pub(super) fn prepare(
             | LocalSourceFormat::JsonLines
     );
     if !text && !hints.is_empty() {
-        return Err(unsupported_sql_error(
-            "columnar sources use their embedded schema; text schema hints are not admitted",
+        return Err(ShardLoomError::InvalidOperation(
+            "vortex_ingest --schema applies to local text SourceState adapters; columnar Parquet/Arrow IPC/Avro/ORC sources use their embedded schema evidence; no fallback execution was attempted".into(),
         ));
     }
     let schema = (!hints.is_empty()).then(|| {
@@ -92,7 +95,9 @@ pub(super) fn prepare(
             "local dataset exceeds the configured source byte budget",
         ));
     }
-    let digest = if content {
+    let digest = if content && !collection {
+        source.content_fingerprints()[0].clone()
+    } else if content {
         fnv64_digest(&source.content_fingerprints().join(";"))
     } else {
         fnv64_digest(
@@ -105,10 +110,14 @@ pub(super) fn prepare(
     let scout = ColumnarSourceScoutEvidence {
         bytes,
         digest,
-        fingerprint_kind: format!(
-            "local_dataset_{}",
-            request.source_fingerprint_policy.fingerprint_kind()
-        ),
+        fingerprint_kind: if collection {
+            format!(
+                "local_dataset_{}",
+                request.source_fingerprint_policy.fingerprint_kind()
+            )
+        } else {
+            request.source_fingerprint_policy.fingerprint_kind().into()
+        },
         fingerprint_policy: request.source_fingerprint_policy.as_str().into(),
         identity_source: "held_local_dataset_file_generations_and_manifest".into(),
         content_fingerprint_requested: content,
@@ -117,17 +126,19 @@ pub(super) fn prepare(
         byte_acquisition_millis: 0,
         full_body_millis: 0,
     };
-    let mut stream = source.complete_stream(limits.input_rows, &memory, &request.cancellation)?;
-    stream.ingest_executor_requested_parallelism = request.resources.max_parallelism();
-    let stream =
-        shardloom_vortex::universal_format_io::with_embedded_derived_columns_columnar_stream_source(
-            stream,
-        );
-    let stream = shardloom_vortex::universal_format_io::with_capillary_prefetch_columnar_stream_source_controlled(
-        stream,
+    let stream = source.complete_ingest_stream_with_parallelism(
+        limits.input_rows,
         request.resources.max_parallelism(),
+        &memory,
         &request.cancellation,
     )?;
+    let stream = if text || collection {
+        stream.with_embedded_derived_columns()
+    } else {
+        with_layout_advised_embedded_derived_columns_ingest_source(stream)
+    };
+    let stream =
+        stream.with_prefetch(request.resources.max_parallelism(), &request.cancellation)?;
     let schema_digest = fnv64_digest(&vortex_ingest_schema_digest_from_parts(
         &stream.header,
         hints,
@@ -139,10 +150,21 @@ pub(super) fn prepare(
         read_start.elapsed().as_millis(),
         0,
     );
-    evidence.read_plan = LocalSourceReadPlan::full("complete_local_dataset_stream");
-    evidence.materialization_layout =
-        "complete_local_dataset_to_streaming_arrow_record_batch_source_state";
-    evidence.parse_normalization = "explicit_format_decode_and_union_by_name_alignment";
+    if collection {
+        evidence.read_plan = LocalSourceReadPlan::full("complete_local_dataset_stream");
+        evidence.materialization_layout =
+            "complete_local_dataset_to_streaming_arrow_record_batch_source_state";
+        evidence.parse_normalization = "explicit_format_decode_and_union_by_name_alignment";
+    } else if text {
+        evidence.read_plan = LocalSourceReadPlan::full("incremental_text_schema_replay");
+        evidence.materialization_layout = if format == LocalSourceFormat::Json {
+            "incremental_json_to_streaming_arrow_record_batch_source_state"
+        } else {
+            "incremental_text_to_streaming_arrow_record_batch_source_state"
+        };
+        evidence.parse_normalization = "text_incremental_records_with_explicit_schema_replay";
+    }
+    evidence.projection_pushdown_status = format.projection_pushdown_status(&evidence.read_plan);
     // The source owner keeps all generations and membership alive through the
     // full reader; the writer checks its embedded binding again before commit.
     source.validate_output_destination(&request.target_path)?;

@@ -968,7 +968,7 @@ fn shared_stream_poll_yields_without_driving_conversion_and_retains_teardown_own
     let mut input = StreamingColumnarVortexArrayIterator::with_runtime(
         first.dtype().clone(),
         first,
-        input.reader,
+        Box::new(LegacyReader(input.reader)),
         input.reader_projection_columns,
         shape,
         Arc::clone(&completed),
@@ -1121,7 +1121,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
         let mut iterator = StreamingColumnarVortexArrayIterator::with_runtime(
             first.dtype().clone(),
             first,
-            input.reader,
+            Box::new(LegacyReader(input.reader)),
             input.reader_projection_columns,
             shape,
             Arc::new(AtomicUsize::new(1)),

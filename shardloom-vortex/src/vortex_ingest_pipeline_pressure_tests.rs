@@ -330,7 +330,7 @@ fn write_observed(
     let mut iterator = StreamingColumnarVortexArrayIterator::with_runtime(
         first.dtype().clone(),
         first,
-        input.reader,
+        Box::new(LegacyReader(input.reader)),
         input.reader_projection_columns,
         shape,
         Arc::new(AtomicUsize::new(1)),

@@ -4,6 +4,7 @@ use super::{
     ArrayRef, DType, LocalSelection, LocalVortexScanPlan, MaterializedPredicateEvaluator, Metrics,
     NativeExecutionContext, PreparedVortexSource, Result, ScanSource, add, failed, vortex_error,
 };
+use crate::native_work_sizing::{Owner, Rows};
 use vortex::io::runtime::BlockingRuntime as _;
 
 const SCAN_ROWS: usize = 8192;
@@ -51,6 +52,7 @@ pub(super) fn run(
         ScanSource::File(index) => run_file(
             &files[*index],
             plan,
+            fields,
             context,
             metrics,
             match metrics.file_scan_batching.get() {
@@ -65,11 +67,14 @@ pub(super) fn run(
                 return Ok(());
             }
             add(&metrics.data_scans, 1)?;
-            for start in (0..projection.source_rows()).step_by(SCAN_ROWS) {
-                let end = start
-                    .saturating_add(SCAN_ROWS)
-                    .min(projection.source_rows());
+            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2)?;
+            let mut start = 0;
+            while start < projection.source_rows() {
+                let selected = sizing.select((projection.source_rows() - start) as u64, context)?;
+                let end = start + selected.rows;
                 accept(projection.execute_range(start..end, context)?)?;
+                sizing.complete(selected, None, context);
+                start = end;
             }
             Ok(())
         }
@@ -77,6 +82,7 @@ pub(super) fn run(
             let input = metrics.input.ok_or_else(|| {
                 super::batch_input::failed("streaming scan has no input provider")
             })?;
+            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2)?;
             input.run(*index, context, metrics, &mut |source| {
                 add(&metrics.scans_started, 1)?;
                 if source.is_empty() {
@@ -86,9 +92,13 @@ pub(super) fn run(
                 // Producer batches and native scan work units are different
                 // boundaries. Slice before projection/filter work so a large
                 // admitted columnar input does not expand scan scratch.
-                for start in (0..source.len()).step_by(SCAN_ROWS) {
-                    let end = start.saturating_add(SCAN_ROWS).min(source.len());
+                let mut start = 0;
+                while start < source.len() {
+                    let selected = sizing.select((source.len() - start) as u64, context)?;
+                    let end = start + selected.rows;
                     accept(projection.execute_batch_array(source, start..end, context)?)?;
+                    sizing.complete(selected, None, context);
+                    start = end;
                 }
                 Ok(())
             })
@@ -99,6 +109,7 @@ pub(super) fn run(
 fn run_file(
     source: &PreparedVortexSource,
     plan: &LocalVortexScanPlan,
+    fields: &[(String, DType)],
     context: &NativeExecutionContext<'_>,
     metrics: &Metrics<'_>,
     scan_rows: usize,
@@ -142,9 +153,12 @@ fn run_file(
         // Honor downstream batch demand before reading a wide source, rather
         // than allocating an 8192-row range and only then splitting the output.
         let scan = scan.prepare().map_err(vortex_error)?;
-        for start in (0..file.row_count()).step_by(scan_rows) {
+        let mut sizing = Rows::from_fields(Owner::Scan, fields, scan_rows, 2)?;
+        let mut start = 0;
+        while start < file.row_count() {
             context.check_cancelled()?;
-            let end = start.saturating_add(scan_rows as u64).min(file.row_count());
+            let selected = sizing.select(file.row_count() - start, context)?;
+            let end = start + selected.rows as u64;
             let mut tasks = scan.execute(Some(start..end)).map_err(vortex_error)?;
             if tasks.len() != 1 {
                 return Err(failed("native scan range changed its admitted task count"));
@@ -152,10 +166,11 @@ fn run_file(
             let task = tasks
                 .pop()
                 .ok_or_else(|| failed("native scan task is absent"))?;
-            let Some(array) = context.runtime().block_on(task).map_err(vortex_error)? else {
-                continue;
-            };
-            consume(array)?;
+            if let Some(array) = context.runtime().block_on(task).map_err(vortex_error)? {
+                consume(array)?;
+            }
+            sizing.complete(selected, None, context);
+            start = end;
         }
         Ok(())
     })

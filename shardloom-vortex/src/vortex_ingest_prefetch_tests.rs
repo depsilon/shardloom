@@ -284,7 +284,10 @@ fn float_stream_with_paused_prefetch() -> StreamingColumnarVortexArrayIterator {
     .unwrap();
     *futures::executor::block_on(prefetch.context.reader.lock()) =
         StreamingColumnarVortexArraySharedReader {
-            reader: Box::new(RecordBatchIterator::new(vec![Ok(bad)], schema)),
+            reader: Box::new(LegacyReader(Box::new(RecordBatchIterator::new(
+                vec![Ok(bad)],
+                schema,
+            )))),
             next_batch_index: 1,
             stopped: false,
         };

@@ -38,7 +38,7 @@ use super::{
 };
 
 const MIN_RUN_LENGTH: usize = 3;
-const MAX_RUN_LENGTH: usize = 127 + MIN_RUN_LENGTH;
+pub(super) const MAX_RUN_LENGTH: usize = 127 + MIN_RUN_LENGTH;
 const MAX_LITERAL_LENGTH: usize = 128;
 const DELAT_RANGE: RangeInclusive<i64> = -128..=127;
 

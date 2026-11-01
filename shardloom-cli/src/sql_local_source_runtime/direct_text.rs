@@ -61,6 +61,7 @@ pub(crate) fn admit(
     )
 }
 
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 pub(super) fn prepare_single(
     path: &Path,
     format: &str,

@@ -15,18 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{collections::HashMap, io::Read, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
-use prost::Message;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 
 use crate::{
     column::Column,
     compression::{Compression, Decompressor},
     error::{self, IoSnafu, Result},
-    proto::{self, stream::Kind, StripeFooter},
-    reader::{metadata::FileMetadata, ChunkReader},
+    proto::{self, stream::Kind},
+    reader::{
+        memory::{DecoderMemory, DecoderMemoryReservation},
+        metadata::FileMetadata,
+        ChunkReader,
+    },
     schema::RootDataType,
     statistics::ColumnStatistics,
 };
@@ -90,14 +93,9 @@ impl TryFrom<(&proto::StripeInformation, &proto::StripeStatistics)> for StripeMe
             .iter()
             .map(TryFrom::try_from)
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self {
-            column_statistics,
-            offset: info.offset(),
-            index_length: info.index_length(),
-            data_length: info.data_length(),
-            footer_length: info.footer_length(),
-            number_of_rows: info.number_of_rows(),
-        })
+        let mut result = Self::try_from(info)?;
+        result.column_statistics = column_statistics;
+        Ok(result)
     }
 }
 
@@ -107,11 +105,21 @@ impl TryFrom<&proto::StripeInformation> for StripeMetadata {
     fn try_from(value: &proto::StripeInformation) -> Result<Self> {
         Ok(Self {
             column_statistics: vec![],
-            offset: value.offset(),
-            index_length: value.index_length(),
-            data_length: value.data_length(),
-            footer_length: value.footer_length(),
-            number_of_rows: value.number_of_rows(),
+            offset: value.offset.context(error::OutOfSpecSnafu {
+                msg: "stripe offset missing",
+            })?,
+            index_length: value.index_length.context(error::OutOfSpecSnafu {
+                msg: "stripe index length missing",
+            })?,
+            data_length: value.data_length.context(error::OutOfSpecSnafu {
+                msg: "stripe data length missing",
+            })?,
+            footer_length: value.footer_length.context(error::OutOfSpecSnafu {
+                msg: "stripe footer length missing",
+            })?,
+            number_of_rows: value.number_of_rows.context(error::OutOfSpecSnafu {
+                msg: "stripe row count missing",
+            })?,
         })
     }
 }
@@ -131,19 +139,33 @@ impl Stripe {
         projected_data_type: &RootDataType,
         info: &StripeMetadata,
     ) -> Result<Self> {
+        Self::new_with_memory(reader, file_metadata, projected_data_type, info, None)
+    }
+
+    pub(crate) fn new_with_memory<R: ChunkReader>(
+        reader: &mut R,
+        file_metadata: &FileMetadata,
+        projected_data_type: &RootDataType,
+        info: &StripeMetadata,
+        memory: Option<Arc<dyn DecoderMemory>>,
+    ) -> Result<Self> {
         let footer = reader
             .get_bytes(info.footer_offset(), info.footer_length())
             .context(IoSnafu)?;
-        let footer = Arc::new(deserialize_stripe_footer(
+        let mut footer = footer::read(
             footer,
             file_metadata.compression(),
-        )?);
+            memory.as_ref(),
+            info,
+            file_metadata.root_data_type(),
+        )?;
+        let structure_credit = admit_structure(projected_data_type, &mut footer, memory.as_ref())?;
 
         let columns: Vec<Column> = projected_data_type
             .children()
             .iter()
             .map(|col| {
-                Column::new(
+                Column::new_with_footer(
                     col.name().to_string(),
                     col.data_type().clone(),
                     footer.clone(),
@@ -151,7 +173,7 @@ impl Stripe {
             })
             .collect();
 
-        let mut stream_map = HashMap::new();
+        let mut stream_map = stream_map_capacity(projected_data_type, &footer)?;
         let mut stream_offset = info.offset();
         for stream in &footer.streams {
             let length = stream.length();
@@ -175,6 +197,8 @@ impl Stripe {
             stream_map: StreamMap {
                 inner: stream_map,
                 compression: file_metadata.compression(),
+                memory,
+                _structure_credit: structure_credit,
             },
             number_of_rows: info.number_of_rows() as usize,
             tz,
@@ -189,20 +213,35 @@ impl Stripe {
         projected_data_type: &RootDataType,
         info: &StripeMetadata,
     ) -> Result<Self> {
+        Self::new_async_with_memory(reader, file_metadata, projected_data_type, info, None).await
+    }
+
+    #[cfg(feature = "async")]
+    pub(crate) async fn new_async_with_memory<R: crate::reader::AsyncChunkReader>(
+        reader: &mut R,
+        file_metadata: &FileMetadata,
+        projected_data_type: &RootDataType,
+        info: &StripeMetadata,
+        memory: Option<Arc<dyn DecoderMemory>>,
+    ) -> Result<Self> {
         let footer = reader
             .get_bytes(info.footer_offset(), info.footer_length())
             .await
             .context(IoSnafu)?;
-        let footer = Arc::new(deserialize_stripe_footer(
+        let mut footer = footer::read(
             footer,
             file_metadata.compression(),
-        )?);
+            memory.as_ref(),
+            info,
+            file_metadata.root_data_type(),
+        )?;
+        let structure_credit = admit_structure(projected_data_type, &mut footer, memory.as_ref())?;
 
         let columns: Vec<Column> = projected_data_type
             .children()
             .iter()
             .map(|col| {
-                Column::new(
+                Column::new_with_footer(
                     col.name().to_string(),
                     col.data_type().clone(),
                     footer.clone(),
@@ -210,7 +249,7 @@ impl Stripe {
             })
             .collect();
 
-        let mut stream_map = HashMap::new();
+        let mut stream_map = stream_map_capacity(projected_data_type, &footer)?;
         let mut stream_offset = info.offset();
         for stream in &footer.streams {
             let length = stream.length();
@@ -238,6 +277,8 @@ impl Stripe {
             stream_map: StreamMap {
                 inner: stream_map,
                 compression: file_metadata.compression(),
+                memory,
+                _structure_credit: structure_credit,
             },
             number_of_rows: info.number_of_rows() as usize,
             tz,
@@ -313,9 +354,71 @@ pub struct StreamMap {
     /// <(ColumnId, Kind), Bytes>
     inner: HashMap<(u32, Kind), Bytes>,
     compression: Option<Compression>,
+    memory: Option<Arc<dyn DecoderMemory>>,
+    _structure_credit: Option<Arc<dyn DecoderMemoryReservation>>,
+}
+
+fn admit_structure(
+    root: &RootDataType,
+    footer: &mut Arc<crate::column::ColumnFooter>,
+    memory: Option<&Arc<dyn DecoderMemory>>,
+) -> Result<Option<Arc<dyn DecoderMemoryReservation>>> {
+    let Some(memory) = memory else {
+        return Ok(None);
+    };
+    let credit: Arc<dyn DecoderMemoryReservation> = memory
+        .reserve(crate::reader::structure_memory::stripe(root, footer)?)
+        .context(IoSnafu)?
+        .into();
+    let held = Arc::get_mut(footer)
+        .ok_or_else(|| {
+            crate::reader::memory::invalid("stripe footer unexpectedly shared before admission")
+        })
+        .context(IoSnafu)?;
+    held.structure_credit = Some(Arc::clone(&credit));
+    Ok(Some(credit))
+}
+
+fn stream_map_capacity(
+    root: &RootDataType,
+    footer: &crate::proto::StripeFooter,
+) -> Result<HashMap<(u32, Kind), Bytes>> {
+    let entries = footer
+        .streams
+        .iter()
+        .filter(|stream| root.contains_column_index(stream.column() as usize))
+        .count();
+    let mut map = HashMap::new();
+    map.try_reserve(entries)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+        .context(IoSnafu)?;
+    Ok(map)
 }
 
 impl StreamMap {
+    pub(crate) fn memory(&self) -> Option<Arc<dyn DecoderMemory>> {
+        self.memory.clone()
+    }
+
+    pub(crate) fn get_checked(&self, column: &Column, kind: Kind) -> Result<Decompressor> {
+        Ok(self
+            .get_opt_checked(column, kind)?
+            .unwrap_or_else(Decompressor::empty))
+    }
+
+    pub(crate) fn get_opt_checked(
+        &self,
+        column: &Column,
+        kind: Kind,
+    ) -> Result<Option<Decompressor>> {
+        self.get_opt(column, kind)
+            .map(|mut reader| {
+                reader.prepare().context(error::IoSnafu)?;
+                Ok(reader)
+            })
+            .transpose()
+    }
+
     pub fn get(&self, column: &Column, kind: Kind) -> Decompressor {
         // There is edge case where if column has no data then the stream might be omitted entirely
         // (e.g. if there is only 1 null element, then it'll have present stream, but no data stream)
@@ -331,17 +434,14 @@ impl StreamMap {
         self.inner
             .get(&(column_id, kind))
             .cloned()
-            .map(|data| Decompressor::new(data, self.compression, vec![]))
+            .map(|data| match &self.memory {
+                Some(memory) => {
+                    Decompressor::new_with_memory(data, self.compression, Arc::clone(memory))
+                }
+                None => Decompressor::new(data, self.compression, vec![]),
+            })
     }
 }
 
-fn deserialize_stripe_footer(
-    bytes: Bytes,
-    compression: Option<Compression>,
-) -> Result<StripeFooter> {
-    let mut buffer = vec![];
-    Decompressor::new(bytes, compression, vec![])
-        .read_to_end(&mut buffer)
-        .context(error::IoSnafu)?;
-    StripeFooter::decode(buffer.as_slice()).context(error::DecodeProtoSnafu)
-}
+#[path = "stripe_footer.rs"]
+mod footer;

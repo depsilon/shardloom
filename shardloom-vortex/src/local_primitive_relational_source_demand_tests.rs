@@ -45,6 +45,15 @@ mod metadata_tests;
 #[path = "local_primitive_relational_source_demand_count_tests.rs"]
 mod count_tests;
 
+#[path = "local_primitive_relational_source_demand_mapped_tests.rs"]
+mod mapped_tests;
+
+#[path = "local_primitive_relational_source_demand_orc_tests.rs"]
+mod orc_tests;
+
+#[path = "local_primitive_relational_source_demand_adaptive_tests.rs"]
+mod adaptive_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {
