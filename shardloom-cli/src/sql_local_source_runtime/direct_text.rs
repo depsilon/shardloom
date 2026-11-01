@@ -15,7 +15,7 @@ use shardloom_exec::{
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 use shardloom_vortex::universal_format_io::demanded::LocalColumnarSource;
 use shardloom_vortex::universal_format_io::text_stream::{
-    TextFraming, TextRecordDecoder, TextSource, TextTypePolicy, read_header,
+    TextFraming, TextRecordDecoder, TextSource, TextTypePolicy, read_header, resolve_record_fields,
 };
 use std::{path::Path, sync::Arc};
 
@@ -227,10 +227,10 @@ fn decoder(delimiter: Option<char>, header: Vec<String>, hints: Arc<Hints>) -> T
             if !hints.values.is_empty() && record.trim() == "{}" {
                 return Ok(Vec::new());
             }
-            let fields = parse_flat_json_object_with_plan(
+            let fields = resolve_record_fields(parse_flat_json_object_with_plan(
                 record.trim_start_matches('\u{feff}'),
                 &LocalSourceReadPlan::full("native_demanded_text_record"),
-            )?;
+            )?);
             fields
                 .into_iter()
                 .map(|(name, value)| {

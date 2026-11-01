@@ -100,6 +100,78 @@ const FORMATS: [&str; 8] = [
 ];
 
 #[test]
+fn public_json_duplicate_fields_resolve_before_inferred_and_declared_coercion() {
+    let fixture = Fixture::new();
+    for format in ["jsonl", "ndjson", "json"] {
+        for declared in [false, true] {
+            let source = fixture.0.join(format!("duplicate.{format}"));
+            let records = [
+                r#"{"v":"discarded","a":1,"v":1.5}"#,
+                r#"{"a":2,"v":false,"v":2.5}"#,
+                r#"{"a":3,"v":[1,2],"v":3.5}"#,
+            ];
+            let content = if format == "json" {
+                format!("[{}]", records.join(","))
+            } else {
+                records.join("\n")
+            };
+            fs::write(&source, content).unwrap();
+            let mut request = Fixture::request(
+                &source,
+                format,
+                format!("SELECT a,v FROM '{}'", source.display()),
+            );
+            if declared {
+                request.source_schema = Some("a:int64,v:float64".into());
+            }
+            let prepared = Fixture::prepare(&request).unwrap();
+            let initial = prepared.snapshot().memory.reserved_bytes;
+            for _ in 0..2 {
+                let result = prepared
+                    .collect_jsonl(&CancellationToken::default())
+                    .unwrap();
+                let rows = result
+                    .result_jsonl
+                    .value()
+                    .lines()
+                    .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    rows,
+                    [
+                        serde_json::json!({"a":1,"v":1.5}),
+                        serde_json::json!({"a":2,"v":2.5}),
+                        serde_json::json!({"a":3,"v":3.5})
+                    ]
+                );
+                drop(result);
+                assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+            }
+            // Discarded values are still parsed: duplicate resolution does not
+            // admit malformed scalar or nested syntax.
+            for invalid in [
+                r#"{"a":1,"v":broken,"v":1.5}"#,
+                r#"{"a":1,"v":[broken],"v":1.5}"#,
+            ] {
+                fs::write(
+                    &source,
+                    if format == "json" {
+                        format!("[{invalid}]")
+                    } else {
+                        invalid.into()
+                    },
+                )
+                .unwrap();
+                assert!(
+                    Fixture::prepare(&request).is_err(),
+                    "{format}, declared={declared}, invalid={invalid}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn public_tsv_preserves_quoted_tabs_newlines_bom_and_empty_declared_schema() {
     let fixture = Fixture::new();
     let source = fixture.0.join("source.tsv");

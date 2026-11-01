@@ -187,24 +187,15 @@ impl TextSource {
             cancellation.check()?;
             let _scratch = memory.reserve(record_charge(record.value().len(), 32)?)?;
             let raw = std::str::from_utf8(record.value()).map_err(failed)?;
-            let decoded = decoder(raw)?;
+            let decoded = resolve_record_fields(decoder(raw)?);
             rows = rows
                 .checked_add(1)
                 .ok_or_else(|| failed("text row count overflow"))?;
             enforce_rows(rows, max_rows)?;
             // Resolve duplicate fields before observing types, preserving the
             // previous adapter's last-value-wins semantics and first-name order.
-            let mut unique = Vec::<(&str, &ScalarValue)>::new();
             for (name, value) in &decoded {
-                if let Some((_, previous)) =
-                    unique.iter_mut().find(|(key, _)| *key == name.as_str())
-                {
-                    *previous = value;
-                } else {
-                    unique.push((name, value));
-                }
-            }
-            for (name, value) in unique {
+                let name = name.as_str();
                 let index = if let Some(&index) = inferred.get(name) {
                     index
                 } else {
@@ -399,6 +390,26 @@ struct ObservedField {
     null: bool,
 }
 
+/// Resolve a completely parsed record before schema observation or coercion.
+/// Later duplicate values replace earlier values while first-name order stays
+/// stable. Parsing/validation of discarded syntax remains the decoder's duty.
+#[must_use]
+pub fn resolve_record_fields(mut fields: Vec<(String, ScalarValue)>) -> Vec<(String, ScalarValue)> {
+    let mut index = 0;
+    while index < fields.len() {
+        if let Some(previous) = fields[..index]
+            .iter()
+            .position(|(name, _)| name == &fields[index].0)
+        {
+            let (_, value) = fields.remove(index);
+            fields[previous].1 = value;
+        } else {
+            index += 1;
+        }
+    }
+    fields
+}
+
 pub struct TextReader {
     source: Arc<TextSource>,
     schema: SchemaRef,
@@ -459,8 +470,9 @@ impl TextReader {
                     )
                     .ok_or_else(|| failed("text batch capacity overflow"))?,
             )?;
-            let decoded =
-                (self.source.decoder)(std::str::from_utf8(record.value()).map_err(failed)?)?;
+            let decoded = resolve_record_fields((self.source.decoder)(
+                std::str::from_utf8(record.value()).map_err(failed)?,
+            )?);
             let mut values = vec![ScalarValue::Null; names.len()];
             for (name, value) in decoded {
                 if !self
