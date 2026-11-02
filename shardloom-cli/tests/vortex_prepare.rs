@@ -1397,8 +1397,16 @@ fn vortex_prepare_rejects_differential_overlay_with_mismatched_normalized_schema
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
 #[allow(clippy::too_many_lines)]
-fn vortex_prepare_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
+fn vortex_prepare_prepares_text_formats_through_adapter_registry() {
     let cases = [
+        (
+            "tsv",
+            "tsv",
+            "local_tsv_input_adapter",
+            "shardloom.local_input_adapter.tsv.v1",
+            ".tsv",
+            "id\tlabel\tamount\tactive\n1\talpha\t8\ttrue\n2\tbeta\t15\tfalse\n",
+        ),
         (
             "json",
             "json",
@@ -1796,7 +1804,7 @@ fn vortex_prepare_preserves_columnar_source_state_for_parquet() {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
-    let cases: [StructuredVortexIngestCase; 4] = [
+    let cases: [StructuredVortexIngestCase; 5] = [
         (
             "parquet",
             "parquet",
@@ -1814,6 +1822,15 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
             ".arrow,.ipc,.feather",
             "Arrow IPC",
             write_arrow_ipc_smoke_source,
+        ),
+        (
+            "ipc",
+            "arrow_ipc",
+            "local_arrow_ipc_input_adapter",
+            "shardloom.local_input_adapter.arrow_ipc.v1",
+            ".arrow,.ipc,.feather",
+            "Arrow IPC stream",
+            write_arrow_ipc_stream_smoke_source,
         ),
         (
             "avro",
@@ -1945,6 +1962,23 @@ fn vortex_prepare_preserves_columnar_source_state_for_all_structured_formats() {
         assert!(stdout.contains(&field("external_engine_invoked", "false")));
         assert!(target_path.exists());
 
+        #[cfg(all(unix, feature = "vortex-local-primitives"))]
+        {
+            assert!(stdout.contains("complete_local_dataset_incremental_record_batch_stream"));
+            assert_prepared_collect_values(
+                &target_path,
+                &format!(
+                    "SELECT id, label, amount, active FROM '{}' LIMIT 10",
+                    target_path.display()
+                ),
+                &serde_json::json!([
+                    {"id":1,"label":"alpha","amount":8,"active":true},
+                    {"id":2,"label":"beta","amount":15,"active":false},
+                    {"id":3,"label":"gamma","amount":0,"active":true},
+                    {"id":4,"label":"delta","amount":21,"active":true},
+                ]),
+            );
+        }
         fs::remove_file(source_path).expect("remove source");
         fs::remove_file(target_path).expect("remove target vortex");
     }
@@ -2006,8 +2040,27 @@ fn write_parquet_vortex_ingest_source(path: &std::path::Path) {
 
 #[cfg(feature = "universal-format-io")]
 fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
+    let batch = arrow_smoke_batch();
+    let file = File::create(path).expect("create arrow ipc source");
+    let mut writer =
+        arrow_ipc::writer::FileWriter::try_new(file, &batch.schema()).expect("arrow ipc writer");
+    writer.write(&batch).expect("write arrow ipc batch");
+    writer.finish().expect("finish arrow ipc writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_arrow_ipc_stream_smoke_source(path: &std::path::Path) {
+    let batch = arrow_smoke_batch();
+    let file = File::create(path).expect("create arrow ipc stream source");
+    let mut writer = arrow_ipc::writer::StreamWriter::try_new(file, &batch.schema())
+        .expect("arrow ipc stream writer");
+    writer.write(&batch).expect("write arrow ipc stream batch");
+    writer.finish().expect("finish arrow ipc stream writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn arrow_smoke_batch() -> arrow_array::RecordBatch {
     use arrow_array::{BooleanArray, Int64Array, RecordBatch, StringArray};
-    use arrow_ipc::writer::FileWriter;
     use arrow_schema::{DataType, Field, Schema};
 
     let schema = Arc::new(Schema::new(vec![
@@ -2016,7 +2069,7 @@ fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
         Field::new("amount", DataType::Int64, false),
         Field::new("active", DataType::Boolean, false),
     ]));
-    let batch = RecordBatch::try_new(
+    RecordBatch::try_new(
         Arc::clone(&schema),
         vec![
             Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
@@ -2025,11 +2078,7 @@ fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
             Arc::new(BooleanArray::from(vec![true, false, true, true])),
         ],
     )
-    .expect("record batch");
-    let file = File::create(path).expect("create arrow ipc source");
-    let mut writer = FileWriter::try_new(file, &schema).expect("arrow ipc writer");
-    writer.write(&batch).expect("write arrow ipc batch");
-    writer.finish().expect("finish arrow ipc writer");
+    .expect("record batch")
 }
 
 #[cfg(feature = "universal-format-io")]

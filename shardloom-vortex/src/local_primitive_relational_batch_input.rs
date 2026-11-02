@@ -576,7 +576,15 @@ impl<'p, 'i> Execution<'p, 'i> {
         })
     }
 
-    fn record_input(&self, source: &ResidentMemorySource) -> Result<()> {
+    fn record_input(
+        &self,
+        source: &ResidentMemorySource,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason,
+            NativeIoObservedWork,
+        };
         let rows = source.row_count();
         let bytes = source.input_logical_bytes() as u64;
         let mut report = self.report.borrow_mut();
@@ -607,6 +615,33 @@ impl<'p, 'i> Execution<'p, 'i> {
         report.max_retained_input_batches = 1;
         report.max_retained_input_logical_bytes =
             report.max_retained_input_logical_bytes.max(bytes);
+        let transferred = source.intake_columnar_buffer_bytes_transferred();
+        let copied = source.intake_columnar_buffer_bytes_copied();
+        // A mixed batch may transfer some private allocations and copy others.
+        // Report both actual boundary outcomes without treating absent transfer
+        // observations for native-array producers as a decline.
+        if transferred > 0 {
+            context.record_capability_decision(
+                NativeIoCapability::RepresentationRetention,
+                NativeIoDecisionOutcome::Executed,
+                NativeIoDecisionReason::OwnedRepresentation,
+                NativeIoObservedWork {
+                    transferred_buffer_bytes: Some(transferred),
+                    ..NativeIoObservedWork::default()
+                },
+            )?;
+        }
+        if copied > 0 {
+            context.record_capability_decision(
+                NativeIoCapability::RepresentationRetention,
+                NativeIoDecisionOutcome::Declined,
+                NativeIoDecisionReason::RequiredRepresentationCopy,
+                NativeIoObservedWork {
+                    copied_buffer_bytes: Some(copied),
+                    ..NativeIoObservedWork::default()
+                },
+            )?;
+        }
         Ok(())
     }
 
@@ -857,11 +892,12 @@ impl Execution<'_, '_> {
             };
             self.validate_input(declaration, &source, transport_bounds)?;
             let released = source.batch_release_witness()?;
-            self.record_input(&source)?;
+            self.record_input(&source, context)?;
             let array = source.batch_array(context)?;
             if let Some(recorder) = &mut recorder {
                 let mut copied = replay::CopyStats::default();
                 recorder.build(array, &mut copied, context)?;
+                record_replay_capture(&copied, context)?;
                 let mut report = self.report.borrow_mut();
                 checked_add(&mut report.replay_batches_detached, copied.batches)?;
                 checked_add(&mut report.replay_rows_detached, copied.rows)?;
@@ -906,6 +942,28 @@ impl Execution<'_, '_> {
             );
         }
     }
+}
+
+fn record_replay_capture(
+    copied: &replay::CopyStats,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    use shardloom_core::native_io_decisions::{
+        NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+    };
+    if copied.buffer_bytes > 0 {
+        context.record_capability_decision(
+            NativeIoCapability::RepresentationRetention,
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::RequiredRepresentationCopy,
+            NativeIoObservedWork {
+                input_rows: Some(copied.rows),
+                copied_buffer_bytes: Some(copied.buffer_bytes),
+                ..NativeIoObservedWork::default()
+            },
+        )?;
+    }
+    Ok(())
 }
 
 fn verify_released(

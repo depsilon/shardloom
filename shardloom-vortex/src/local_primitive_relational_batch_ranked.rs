@@ -116,7 +116,7 @@ impl Execution<'_, '_> {
                 return Err(failed("ranked input changed its native memory owner"));
             }
             let released = batch.batch_release_witness()?;
-            self.record_input(&batch)?;
+            self.record_input(&batch, context)?;
             let result = consume(batch.batch_array(context)?, first);
             drop(batch);
             result?;

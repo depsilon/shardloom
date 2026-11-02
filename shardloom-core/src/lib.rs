@@ -41,6 +41,7 @@ pub mod live_engine;
 pub mod manifest;
 pub mod materialization_policy;
 pub mod native_io;
+pub mod native_io_decisions;
 pub mod observability;
 pub mod operational_contracts;
 pub mod operator;
@@ -103,7 +104,9 @@ pub use benchmark_suite::{
     BenchmarkScenarioCategory, BenchmarkSuiteCatalogReport, BenchmarkSuiteDatasetProfileKind,
     BenchmarkSuiteKind, plan_benchmark_suite_catalog,
 };
-pub use capabilities::{Capability, CapabilityStatus, EngineCapabilities};
+pub use capabilities::{
+    Capability, CapabilityStatus, EngineCapabilities, RuntimeCapabilityAvailability,
+};
 pub use certification::{
     AdapterCertificationEntry, AdapterCertificationMatrix, AdapterMaturityLevel,
     BestChoiceScorecard, BestChoiceScorecardEntry, BestDefaultCertificationGateReport,

@@ -101,6 +101,7 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
     env = dict(os.environ, PYTHONNOUSERSITE="1", PYTHONDONTWRITEBYTECODE="1",
                PIP_DISABLE_PIP_VERSION_CHECK="1", SHARDLOOM_REQUIRE_NATIVE_PYTHON="1")
     for key in ("PYTHONPATH", "PYTHONHOME", "SHARDLOOM_NATIVE_TEST_LIBRARY", "SHARDLOOM_BIN",
+                "SHARDLOOM_SURFACE_TEST_BINARY",
                 "SHARDLOOM_REPO_ROOT", "SHARDLOOM_PROFILE_ORDER", "SHARDLOOM_WHEEL_PLAT_NAME"):
         env.pop(key, None)
     for key in list(env):

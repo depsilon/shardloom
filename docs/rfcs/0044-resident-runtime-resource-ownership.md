@@ -151,6 +151,25 @@ whole-engine regression gates. No speed or support claim follows from the design
 
 ### Pinned Zstd compression and training admission
 
+The November 1 item-23 implementation reuses the same static one-shot decoder
+for controlled ORC translation, including compressed metadata. A safe slice
+entry point supplies a caller-bounded output and the existing session allocator.
+ORC retains one actual context buffer per reader/metadata operation so later
+blocks cannot conceal that indivisible workspace from batch sizing. The safe
+`DecoderWorkspace` owns only a writable buffer, never a raw pointer; each
+one-shot call zeroes and initializes fresh static state under an exclusive
+borrow. A mutex serializes this operation-local owner. Native Vortex frame
+arrays retain their existing temporary-workspace lifetime. Controlled ORC
+stream preparation also admits the actual bounded output buffer and context
+when a stored first block has a later compressed block. A header-only inspection
+does not consume data or advance validation errors; all-stored streams need no
+codec context. The declared output capacity is conservative, not a proof of the
+smallest possible workspace. Payload credits do not retain the context owner.
+This does not widen the unsafe boundary, enable streaming/dynamic dictionaries,
+or turn ORC into an execution provider. Native query evaluation and certificates
+retain their existing owner. Required proof covers shared-budget denial,
+complete members, legacy/truncation rejection, retained outputs and cleanup.
+
 `NATIVE-COMPRESSION-RESOURCES` extends PERF-03/06 allocation coverage to the
 existing Vortex `ZstdData` compression entry points. The
 [compression contract](../architecture/native-compression-resources-2026-10-15.md)

@@ -1,0 +1,33 @@
+{
+  "schema_version": "shardloom.dynamic_runtime_baseline_summary.v1",
+  "date": "2026-11-02",
+  "status": "complete_validated_timing_baseline",
+  "baseline": "dynamic_runtime",
+  "source_revision": "a6ef7b9b11ce9115fc312793d23d7d70d7670cf0",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1643",
+  "queries": 347,
+  "executions_per_query": 1,
+  "complete_reference_rows": 12565,
+  "engine_execution_seconds": 12.144043291,
+  "timing_rule": "Sum of engine_execution_seconds for one execution of each original case.",
+  "purpose": "Establish the new dynamic runtime baseline; no performance tuning or retention contest.",
+  "resource_policy": { "memory_ceiling_bytes": 2147483648, "parallelism_ceiling": 2, "adaptive_work_sizing": true },
+  "old_runtime_executions": 0,
+  "resource_sweep": false,
+  "full43_executed": false,
+  "comparison_engine_invoked": false,
+  "runtime": {
+    "shardloom_sha256": "8d2a28dce92c696a1b2c9584f686297eabd9d138c0b782c371a37ba6f6e950db",
+    "native_library_sha256": "33e596eac7fb9fd1f401f0a9a684302d9328ccbb63bcd33ee660614ea08592e4",
+    "manifest_sha256": "0df8180dd835342bc120cc4f75ed5d0f4f213b546a268fa5cf5c4763a0f3e9b7"
+  },
+  "retained_local_evidence": {
+    "root": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-adaptive-baseline-r1",
+    "baseline_json_sha256": "48f10162020de21bfce6f925844790c9ffc8702057f9ec6841ca232ce658e438",
+    "inputs_json_sha256": "b1883ff88c018946afbdd62bb5810c05723106c03a90fb7b4501c0690094d39e",
+    "observations_json_sha256": "dcff7f116df15ef317b18fdf8a0805cbd56a1acd4af99bdb331047caf9122e2e",
+    "guard_receipt": "io525-dynamic-baseline-original347.json",
+    "result_validation_receipt": "io526-dynamic-baseline-result-validation.json"
+  },
+  "limits": "Single observation; full workspace/package/hosted acceptance and complete item23 ownership/decision evidence remain open. This compact summary is not the pending portable semantic replay packet."
+}

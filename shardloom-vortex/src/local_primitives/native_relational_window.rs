@@ -199,9 +199,9 @@ impl<'a> Window<'a> {
         }
         // build() validates the full ordering-key prefix. The original loop
         // above validates this group's NULL policy before any comparisons.
-        native_relational_order::sort_with_order_check(
+        native_relational_order::sort_with_order_evidence(
             &mut ordinals.values,
-            context.cancellation(),
+            context,
             comparison_domains_prevalidated,
             |left, right| {
                 let partition = self.compare_partition(group, left, right)?;

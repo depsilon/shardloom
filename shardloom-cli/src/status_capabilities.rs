@@ -8,7 +8,7 @@ use std::{process::ExitCode, vec::IntoIter};
 
 use shardloom_core::{
     ArchitectureRuntimeClaimGateReport, CapabilityCertificationReport,
-    CapabilityCertificationStatus, CommandStatus, EngineCapabilities, EngineCapabilityMatrixReport,
+    CapabilityCertificationStatus, CommandStatus, EngineCapabilityMatrixReport,
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
     GeneratedSourceEvidenceAlignmentReport, LiveHybridFabricFreshnessGateReport,
     MaterializationPolicyReport, OpenLineageFacetMappingReport,
@@ -46,6 +46,9 @@ use crate::{
         append_sandbox_governance_readiness_gate_fields,
     },
 };
+
+#[path = "status_runtime_capabilities.rs"]
+mod runtime_capabilities;
 
 const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,",
@@ -3593,7 +3596,23 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         emit_capability_certification(scope, format, &report);
         return ExitCode::SUCCESS;
     }
-    let capabilities = EngineCapabilities::current();
+    let capabilities = runtime_capabilities::current();
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("native_input".to_string(), "vortex".to_string()),
+        ("native_output".to_string(), "vortex".to_string()),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("side_effect_free".to_string(), "true".to_string()),
+        ("filesystem_probe".to_string(), "false".to_string()),
+        ("network_probe".to_string(), "false".to_string()),
+        ("parser_executed".to_string(), "false".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+    ];
+    runtime_capabilities::append_fields(&mut fields);
     emit(
         "capabilities",
         format,
@@ -3601,14 +3620,7 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         "engine capabilities".to_string(),
         capabilities.to_human_text(),
         vec![],
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("native_input".to_string(), "vortex".to_string()),
-            ("native_output".to_string(), "vortex".to_string()),
-        ],
+        fields,
     );
     ExitCode::SUCCESS
 }
@@ -7023,6 +7035,20 @@ pub(crate) enum CapabilityDiscoveryScope {
 }
 
 impl CapabilityDiscoveryScope {
+    const fn includes_runtime_availability(self) -> bool {
+        matches!(
+            self,
+            Self::Engine
+                | Self::Sql
+                | Self::DataFrame
+                | Self::Python
+                | Self::Adapters
+                | Self::UniversalAdapters
+                | Self::Certification
+                | Self::Compatibility
+        )
+    }
+
     pub(crate) fn parse(value: Option<&str>) -> Result<Self, ShardLoomError> {
         match value {
             None => Ok(Self::Engine),
@@ -7209,6 +7235,9 @@ pub(crate) fn certification_fields(
                 &plan_best_default_certification_gate(),
             );
         }
+    }
+    if scope.includes_runtime_availability() {
+        runtime_capabilities::append_fields(&mut fields);
     }
     fields
 }
@@ -11230,7 +11259,7 @@ fn certification_text(
     report: &CapabilityCertificationReport,
     scope: CapabilityDiscoveryScope,
 ) -> String {
-    match scope {
+    let text = match scope {
         CapabilityDiscoveryScope::Engine => unreachable!("engine scope uses EngineCapabilities"),
         CapabilityDiscoveryScope::Sql => sql_certification_text(report, scope),
         CapabilityDiscoveryScope::Functions => function_certification_text(report, scope),
@@ -11265,6 +11294,11 @@ fn certification_text(
             unreachable!("cross-CG parity scopes use dedicated parity reports")
         }
         CapabilityDiscoveryScope::Compatibility => universal_compatibility_text(report, scope),
+    };
+    if scope.includes_runtime_availability() {
+        runtime_capabilities::with_text(&text)
+    } else {
+        text
     }
 }
 
@@ -11397,7 +11431,7 @@ fn certification_summary_header(
     scope: CapabilityDiscoveryScope,
 ) -> String {
     format!(
-        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\nstatus: planned/report-only",
+        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\ncertification status: planned/report-only",
         scope.as_str(),
         report.schema_version,
         report.fallback_attempted()
@@ -11787,6 +11821,9 @@ fn world_class_surface_fields(
     ) {
         append_unstructured_adapter_capability_matrix_fields(&mut fields);
     }
+    if scope.includes_runtime_availability() {
+        runtime_capabilities::append_fields(&mut fields);
+    }
     fields
 }
 
@@ -11798,15 +11835,20 @@ fn world_class_surface_text(
         .world_class_dimension()
         .expect("world-class surface scope has dimension");
     let dimension_status = report.status_for(kind).as_str();
-    format!(
-        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\ndimension: {}\ndimension_status: {}\nsurface_components: {}\nstatus: planned/report-only",
+    let text = format!(
+        "capability discovery: {}\nschema_version: {}\nfallback execution: disabled\nfallback_attempted: {}\nside effects: none\ncertification dimension: {}\ndimension_status: {}\nsurface_components: {}\ncertification status: planned/report-only",
         scope.as_str(),
         report.schema_version,
         report.fallback_attempted,
         kind.as_str(),
         dimension_status,
         world_class_surface_components(scope)
-    )
+    );
+    if scope.includes_runtime_availability() {
+        runtime_capabilities::with_text(&text)
+    } else {
+        text
+    }
 }
 
 pub(crate) fn emit_world_class_surface_capability(

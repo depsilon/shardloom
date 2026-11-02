@@ -21,18 +21,28 @@ use crate::{error, proto};
 /// or for a specific stripe.
 #[derive(Debug, Clone)]
 pub struct ColumnStatistics {
-    number_of_values: u64,
+    number_of_values: Option<u64>,
     /// Use aid in 'IS NULL' predicates
-    has_null: bool,
+    has_null: Option<bool>,
     type_statistics: Option<TypeStatistics>,
 }
 
 impl ColumnStatistics {
     pub fn number_of_values(&self) -> u64 {
-        self.number_of_values
+        self.number_of_values.unwrap_or_default()
     }
 
     pub fn has_null(&self) -> bool {
+        self.has_null.unwrap_or_default()
+    }
+
+    /// Present non-null count; absence must not prove an empty column.
+    pub fn number_of_values_opt(&self) -> Option<u64> {
+        self.number_of_values
+    }
+
+    /// Present null-presence fact; absence must not prove a null-free column.
+    pub fn has_null_opt(&self) -> Option<bool> {
         self.has_null
     }
 
@@ -105,43 +115,76 @@ impl TryFrom<&proto::ColumnStatistics> for ColumnStatistics {
     type Error = error::OrcError;
 
     fn try_from(value: &proto::ColumnStatistics) -> Result<Self, Self::Error> {
-        let type_statistics = if value.number_of_values() == 0 {
+        let alternatives = [
+            value.int_statistics.is_some(),
+            value.double_statistics.is_some(),
+            value.string_statistics.is_some(),
+            value.bucket_statistics.is_some(),
+            value.decimal_statistics.is_some(),
+            value.date_statistics.is_some(),
+            value.binary_statistics.is_some(),
+            value.timestamp_statistics.is_some(),
+            value.collection_statistics.is_some(),
+        ]
+        .into_iter()
+        .filter(|present| *present)
+        .count();
+        let type_statistics = if value.number_of_values == Some(0) || alternatives != 1 {
             None
         } else if let Some(stats) = &value.int_statistics {
-            Some(TypeStatistics::Integer {
-                min: stats.minimum(),
-                max: stats.maximum(),
-                sum: stats.sum,
-            })
+            stats
+                .minimum
+                .zip(stats.maximum)
+                .filter(|(min, max)| min <= max)
+                .map(|(min, max)| TypeStatistics::Integer {
+                    min,
+                    max,
+                    sum: stats.sum,
+                })
         } else if let Some(stats) = &value.double_statistics {
-            Some(TypeStatistics::Double {
-                min: stats.minimum(),
-                max: stats.maximum(),
-                sum: stats.sum,
-            })
+            stats
+                .minimum
+                .zip(stats.maximum)
+                .filter(|(min, max)| min <= max)
+                .map(|(min, max)| TypeStatistics::Double {
+                    min,
+                    max,
+                    sum: stats.sum,
+                })
         } else if let Some(stats) = &value.string_statistics {
-            let (lower_bound, is_exact_min) = stats
+            let lower_bound = stats
                 .minimum
                 .as_deref()
                 .map(|s| (s, true))
-                .unwrap_or_else(|| (stats.lower_bound(), false));
-            let (upper_bound, is_exact_max) = stats
+                .or_else(|| stats.lower_bound.as_deref().map(|s| (s, false)));
+            let upper_bound = stats
                 .maximum
                 .as_deref()
                 .map(|s| (s, true))
-                .unwrap_or_else(|| (stats.upper_bound(), false));
-            Some(TypeStatistics::String {
-                lower_bound: lower_bound.to_owned(),
-                upper_bound: upper_bound.to_owned(),
-                sum: stats.sum(),
-                is_exact_min,
-                is_exact_max,
-            })
+                .or_else(|| stats.upper_bound.as_deref().map(|s| (s, false)));
+            lower_bound
+                .zip(upper_bound)
+                .filter(|((min, _), (max, _))| min <= max)
+                .map(
+                    |((lower_bound, is_exact_min), (upper_bound, is_exact_max))| {
+                        TypeStatistics::String {
+                            lower_bound: lower_bound.to_owned(),
+                            upper_bound: upper_bound.to_owned(),
+                            sum: stats.sum(),
+                            is_exact_min,
+                            is_exact_max,
+                        }
+                    },
+                )
         } else if let Some(stats) = &value.bucket_statistics {
-            // TODO: false count?
-            Some(TypeStatistics::Bucket {
-                true_count: stats.count[0], // TODO: safety check this
-            })
+            match (stats.count.as_slice(), value.number_of_values) {
+                ([true_count], Some(total)) if *true_count <= total => {
+                    Some(TypeStatistics::Bucket {
+                        true_count: *true_count,
+                    })
+                }
+                _ => None,
+            }
         } else if let Some(stats) = &value.decimal_statistics {
             Some(TypeStatistics::Decimal {
                 min: stats.minimum().to_owned(),
@@ -173,9 +216,99 @@ impl TryFrom<&proto::ColumnStatistics> for ColumnStatistics {
                 })
         };
         Ok(Self {
-            number_of_values: value.number_of_values(),
-            has_null: value.has_null(),
+            number_of_values: value.number_of_values,
+            has_null: value.has_null,
             type_statistics,
         })
+    }
+}
+
+#[cfg(test)]
+mod presence_tests {
+    use super::*;
+
+    #[test]
+    fn missing_facts_and_incomplete_or_inverted_integer_extrema_remain_unknown() {
+        let raw = proto::ColumnStatistics::default();
+        let stats = ColumnStatistics::try_from(&raw).unwrap();
+        assert_eq!(stats.number_of_values_opt(), None);
+        assert_eq!(stats.has_null_opt(), None);
+        for (min, max) in [(None, Some(4)), (Some(0), None), (Some(5), Some(4))] {
+            let raw = proto::ColumnStatistics {
+                number_of_values: Some(2),
+                int_statistics: Some(proto::IntegerStatistics {
+                    minimum: min,
+                    maximum: max,
+                    sum: None,
+                }),
+                ..Default::default()
+            };
+            assert!(ColumnStatistics::try_from(&raw)
+                .unwrap()
+                .type_statistics()
+                .is_none());
+        }
+        let raw = proto::ColumnStatistics {
+            number_of_values: Some(0),
+            has_null: Some(true),
+            ..Default::default()
+        };
+        let stats = ColumnStatistics::try_from(&raw).unwrap();
+        assert_eq!(stats.number_of_values_opt(), Some(0));
+        assert_eq!(stats.has_null_opt(), Some(true));
+    }
+
+    #[test]
+    fn malformed_boolean_buckets_and_conflicting_variants_do_not_supply_bounds() {
+        for counts in [vec![], vec![3], vec![1, 1]] {
+            let raw = proto::ColumnStatistics {
+                number_of_values: Some(2),
+                bucket_statistics: Some(proto::BucketStatistics { count: counts }),
+                ..Default::default()
+            };
+            assert!(ColumnStatistics::try_from(&raw)
+                .unwrap()
+                .type_statistics()
+                .is_none());
+        }
+        let raw = proto::ColumnStatistics {
+            number_of_values: Some(2),
+            int_statistics: Some(proto::IntegerStatistics {
+                minimum: Some(0),
+                maximum: Some(1),
+                sum: None,
+            }),
+            bucket_statistics: Some(proto::BucketStatistics { count: vec![1] }),
+            ..Default::default()
+        };
+        assert!(ColumnStatistics::try_from(&raw)
+            .unwrap()
+            .type_statistics()
+            .is_none());
+    }
+
+    #[test]
+    fn missing_string_bound_is_unknown_and_conservative_bounds_retain_exactness() {
+        let mut raw = proto::ColumnStatistics {
+            number_of_values: Some(2),
+            string_statistics: Some(proto::StringStatistics {
+                minimum: Some("a".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        assert!(ColumnStatistics::try_from(&raw)
+            .unwrap()
+            .type_statistics()
+            .is_none());
+        raw.string_statistics.as_mut().unwrap().upper_bound = Some("z".into());
+        assert!(matches!(
+            ColumnStatistics::try_from(&raw).unwrap().type_statistics(),
+            Some(TypeStatistics::String {
+                is_exact_min: true,
+                is_exact_max: false,
+                ..
+            })
+        ));
     }
 }

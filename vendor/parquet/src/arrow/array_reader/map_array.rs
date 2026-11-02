@@ -84,6 +84,10 @@ impl MapArrayReader {
 }
 
 impl ArrayReader for MapArrayReader {
+    fn set_batch_size_hint(&mut self, batch_size: usize) {
+        self.reader.set_batch_size_hint(batch_size);
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

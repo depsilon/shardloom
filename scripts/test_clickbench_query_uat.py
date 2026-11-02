@@ -90,6 +90,10 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "execution_backend", "value": "native_vortex"},
                     {"key": "execution_mode", "value": "native"},
                     {"key": "native_source_demand_files", "value": "1"},
+                    {"key": "native_source_demand_sources", "value": "1"},
+                    {"key": "native_source_demand_parquet_sources", "value": "1"},
+                    {"key": "native_source_demand_formats", "value": "parquet"},
+                    {"key": "native_source_demand_prepared_input_bytes_written", "value": "0"},
                     {"key": "native_source_demand_projected_columns", "value": "2"},
                     {"key": "native_input_end_observed", "value": "true"},
                     {"key": "native_input_output_ownership_detached", "value": "true"},
@@ -108,9 +112,9 @@ class ClickBenchUatTests(unittest.TestCase):
                     {"key": "native_query_timing_boundary", "value": TIMING_BOUNDARY},
                 ],
             }
-            envelope["fields"].extend(
-                {"key": key, "value": value} for key, value in (source_evidence or {}).items()
-            )
+            overrides = source_evidence or {}
+            envelope["fields"] = [field for field in envelope["fields"] if field["key"] not in overrides]
+            envelope["fields"].extend({"key": key, "value": value} for key, value in overrides.items())
             if not engine_timing:
                 envelope["fields"] = [field for field in envelope["fields"]
                                       if not field["key"].startswith(("native_query_", "native_result_serialization_"))]
@@ -232,6 +236,10 @@ class ClickBenchUatTests(unittest.TestCase):
             "execution_backend": "native_vortex",
             "execution_mode": "native",
             "native_source_demand_files": "1",
+            "native_source_demand_sources": "1",
+            "native_source_demand_parquet_sources": "1",
+            "native_source_demand_formats": "parquet",
+            "native_source_demand_prepared_input_bytes_written": "0",
             "native_source_demand_projected_columns": "2",
             "native_input_end_observed": "true",
             "native_input_output_ownership_detached": "true",
@@ -270,7 +278,8 @@ class ClickBenchUatTests(unittest.TestCase):
                 result, summary = self._run_mocked_single(
                     Path(directory), pinned_queries=True, query_ids="28,29", paired=paired)
                 self.assertEqual(result, 0)
-                submitted, receipt = native_query_statements(original, summary["queries_sha256"])
+                submitted, receipt = native_query_statements(
+                    original, summary["queries_sha256"], input_format="vortex" if paired else "parquet")
                 self.assertEqual(summary["query_dialect"], receipt)
                 self.assertIn("clickbench_native_sql.py",
                               {Path(path).name for path in summary["harness_sha256"]})
@@ -290,6 +299,10 @@ class ClickBenchUatTests(unittest.TestCase):
                             "execution_backend": "native_vortex",
                             "execution_mode": "native",
                             "native_source_demand_files": "1",
+                            "native_source_demand_sources": "1",
+                            "native_source_demand_parquet_sources": "1",
+                            "native_source_demand_formats": "parquet",
+                            "native_source_demand_prepared_input_bytes_written": "0",
                             "native_source_demand_projected_columns": "2",
                             "native_input_end_observed": "true",
                             "native_input_output_ownership_detached": "true",
@@ -647,8 +660,9 @@ class ClickBenchUatTests(unittest.TestCase):
         self.assertTrue(summary["complete"])
         self.assertTrue(summary["full_result_validation"])
         self.assertEqual(summary["repeats"], 1)
-        self.assertEqual(summary["input_format"], "vortex")
-        self.assertTrue(all(row["command"][row["command"].index("--input-format") + 1] == "vortex"
+        self.assertEqual(summary["input_format"], "parquet")
+        self.assertEqual(summary["input_execution_contract"], "direct_original_parquet_no_preparation")
+        self.assertTrue(all(row["command"][row["command"].index("--input-format") + 1] == "parquet"
                             for row in summary["records"]))
         self.assertEqual(summary["runs_completed"], 43)
         self.assertEqual(summary["runs_passed"], 43)
@@ -689,6 +703,38 @@ class ClickBenchUatTests(unittest.TestCase):
                             and row["execution_report"]["native_input_end_observed"] == "true"
                             and row["execution_report"]["native_input_output_ownership_detached"] == "true"
                             for row in summary["records"]))
+
+    def test_parquet_requires_direct_read_no_preparation_and_completed_ownership(self):
+        invalid = [
+            ("native_source_demand_sources", "0"),
+            ("native_source_demand_sources", None),
+            ("native_source_demand_sources", True),
+            ("native_source_demand_sources", str(1 << 64)),
+            ("native_source_demand_parquet_sources", "0"),
+            ("native_source_demand_formats", "vortex"),
+            ("native_source_demand_files", "0"),
+            ("native_source_demand_prepared_input_bytes_written", "1"),
+            ("native_source_demand_prepared_input_bytes_written", None),
+            ("native_input_end_observed", "false"),
+            ("native_input_output_ownership_detached", "false"),
+        ]
+        for key, value in invalid:
+            with self.subTest(key=key, value=value), tempfile.TemporaryDirectory() as directory:
+                result, summary = self._run_mocked_single(
+                    Path(directory), source_evidence={key: value})
+                self.assertEqual(result, 1)
+                self.assertFalse(summary["complete"])
+                self.assertFalse(summary["full_result_validation"])
+                self.assertFalse(summary["records"][0]["passed"])
+
+    def test_explicit_vortex_input_keeps_its_existing_execution_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, summary = self._run_mocked_single(
+                Path(directory), input_format="vortex",
+                source_evidence={"native_source_demand_sources": "0"})
+        self.assertEqual(result, 0)
+        self.assertEqual(summary["input_format"], "vortex")
+        self.assertEqual(summary["input_execution_contract"], "existing_native_vortex_input")
 
     def test_unsupported_input_format_is_rejected_before_any_query_execution(self):
         commands = []

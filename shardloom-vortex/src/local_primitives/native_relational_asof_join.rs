@@ -58,9 +58,9 @@ impl<'a> Join<'a> {
     ) -> Result<()> {
         let keys = self.spec.right_keys.len();
         // build() validated all keys before retaining each immutable batch.
-        native_relational_order::sort_with_order_check(
+        native_relational_order::sort_with_order_evidence(
             &mut self.ordered.values,
-            context.cancellation(),
+            context,
             self.right.has_uniform_order_domain(keys, context)?,
             |a, b| {
                 let (left, left_row) = self.right.locate_batch(a)?;

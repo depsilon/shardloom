@@ -1,0 +1,450 @@
+{
+  "schema_version": "shardloom.adaptive_prepared_full43_summary.v1",
+  "date": "2026-11-02",
+  "status": "complete_validated_single_observation",
+  "pull_request": "https://github.com/depsilon/shardloom/pull/1643",
+  "source_revision": "f0bf6d46e0f589511dcbcfb77491fc227f9c8399",
+  "input_source": {
+    "path": "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+    "bytes": 14779976446,
+    "sha256": "a390f6cb782f6aaef278c72fc1dd86c4f30bc843ebab3c159e9bd4d45ddb079f",
+    "generation": {
+      "st_dev": 16777233,
+      "st_ino": 84833233,
+      "st_size": 14779976446,
+      "st_mtime_ns": 1788461344802365000,
+      "st_ctime_ns": 1788612069108841500
+    }
+  },
+  "native_output": {
+    "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2/vortex/hits.vortex",
+    "bytes": 15732915012,
+    "sha256": "895730ba5db4121680b34657e535b75fe3e0b58c750c5e7ebc8742a3eb3b31c7",
+    "generation": {
+      "st_dev": 16777233,
+      "st_ino": 152504066,
+      "st_size": 15732915012,
+      "st_mtime_ns": 1793616357621092400,
+      "st_ctime_ns": 1793616357624349700
+    }
+  },
+  "input_rows": 99997497,
+  "native_columns": 112,
+  "runtime": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-ingest-r2/shardloom",
+      "bytes": 81863728,
+      "sha256": "5c00b6beeae9a816c25fd25892eb2f44f6f4f09d254549b8872fad783d596068"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-ingest-r2/_native.abi3.so",
+      "bytes": 82245984,
+      "sha256": "9a68f5089778abe0a15f2f5ca7a82172cf92845056ea7d590a6bd930633177fe"
+    }
+  ],
+  "host": {
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "physical_memory_bytes": 17179869184
+  },
+  "resources": {
+    "memory_ceiling_bytes": 25769803776,
+    "parallelism_ceiling": 12,
+    "adaptive_work_sizing": true
+  },
+  "ingest": {
+    "successful_executions": 1,
+    "prior_failed_executions": 1,
+    "prior_failure": "Native output write completed but prepared-binding reopen rejected excessive layout metadata: Too many tables. Failed timing is excluded; original diagnostic evidence is retained separately.",
+    "engine_spans_milliseconds": {
+      "prepare_once_millis": "36945",
+      "prepared_olap_publication_millis": "6695"
+    },
+    "engine_execution_seconds": 43.64,
+    "clock_precision": "Each existing sequential span truncates to integer milliseconds.",
+    "prepared_state_published": true,
+    "full_value_scope": "Native ingest validates every source row. Full43 independently verifies its complete query outputs; no new all-cell independent readback is claimed."
+  },
+  "full43": {
+    "queries": 43,
+    "executions_per_query": 1,
+    "complete_reference_rows": 381,
+    "engine_execution_seconds": 40.592222712,
+    "independent_complete_results_verified": true,
+    "per_query": [
+      {
+        "query": 1,
+        "rows": 1,
+        "engine_execution_seconds": 0.000049708,
+        "result_sha256": "4fe6d6ebbe9da1a279f5ffb19347efdeea3c64fce8fe8b6f718dc99fece2819a"
+      },
+      {
+        "query": 2,
+        "rows": 1,
+        "engine_execution_seconds": 0.041041041,
+        "result_sha256": "9f91834eb58bb92dffebd2199516319dbf27c212ae21a498d0221586e6f9c7f4"
+      },
+      {
+        "query": 3,
+        "rows": 1,
+        "engine_execution_seconds": 1.30828025,
+        "result_sha256": "075bd8c4ead02b5ae6422d5c1892f26c4b1dbb530e9eb3b549a0ed0f0ed599ab"
+      },
+      {
+        "query": 4,
+        "rows": 1,
+        "engine_execution_seconds": 0.500244626,
+        "result_sha256": "7ba963657f2f81eeb74a0f8a8349f933605b738673996db06ef450b2b5699a26"
+      },
+      {
+        "query": 5,
+        "rows": 1,
+        "engine_execution_seconds": 1.20459275,
+        "result_sha256": "24d2db813dba5887df827b69b065647af4b9105f82b9d70c2eefeb791f639d5e"
+      },
+      {
+        "query": 6,
+        "rows": 1,
+        "engine_execution_seconds": 0.982684208,
+        "result_sha256": "1bd261b96999db6bdf76e62a42adca78d9bdb8a9a5e3723e5074afc9ffbadc16"
+      },
+      {
+        "query": 7,
+        "rows": 1,
+        "engine_execution_seconds": 0.000458958,
+        "result_sha256": "65fe750674f358e2bc32088a9dd2f3f335d29afadfca28b7ceaf219c857cb025"
+      },
+      {
+        "query": 8,
+        "rows": 18,
+        "engine_execution_seconds": 0.047208917,
+        "result_sha256": "92197dc013de3b65509d77636b1fc387a9a8174f2fe98985b08602dd40c24477"
+      },
+      {
+        "query": 9,
+        "rows": 10,
+        "engine_execution_seconds": 1.090072792,
+        "result_sha256": "f9d287819e68b4bbfcef19fe6e0dbff694b9185713925549dcfa6d55853a29cb"
+      },
+      {
+        "query": 10,
+        "rows": 10,
+        "engine_execution_seconds": 1.232158125,
+        "result_sha256": "4da6d75f4d14c63292b575a1d8445226f7f39bd46365d9f9482b67b266f6d38a"
+      },
+      {
+        "query": 11,
+        "rows": 10,
+        "engine_execution_seconds": 0.580626833,
+        "result_sha256": "83302aeb625959e979601738343f2b964b405d740d4bf737852ae35926b19238"
+      },
+      {
+        "query": 12,
+        "rows": 10,
+        "engine_execution_seconds": 1.186418625,
+        "result_sha256": "7b7539ab99e276212c59b59c6b720254d09343b8fe91bcc4e52b3c395cf55d55"
+      },
+      {
+        "query": 13,
+        "rows": 10,
+        "engine_execution_seconds": 0.421557834,
+        "result_sha256": "37eb8ec8acebbf148aa7b038dca1cc4c48fd330b05a32ce22186710e0b33921e"
+      },
+      {
+        "query": 14,
+        "rows": 10,
+        "engine_execution_seconds": 1.245617209,
+        "result_sha256": "2b9c858c93917d0eb01d84b5d3ac7b0c6e8073ff4cb75b98c92fcc2d00461d09"
+      },
+      {
+        "query": 15,
+        "rows": 10,
+        "engine_execution_seconds": 1.394346667,
+        "result_sha256": "c4426fd4a99852e5485d66c2adea08f14b381a28648a76939dd63ae43de63c84"
+      },
+      {
+        "query": 16,
+        "rows": 10,
+        "engine_execution_seconds": 1.420938917,
+        "result_sha256": "6db678c2701679bd8eaf25efd849239df893d17a4cf37fcaa9e8da4b83b3ab7b"
+      },
+      {
+        "query": 17,
+        "rows": 10,
+        "engine_execution_seconds": 1.999807542,
+        "result_sha256": "4977586d44b851e93c75d0eb023e5e190541fa885c3d836ab5b83816d0c80044"
+      },
+      {
+        "query": 18,
+        "rows": 10,
+        "engine_execution_seconds": 0.188522874,
+        "result_sha256": "53c06b484e7b404863d7bbb257aa9649a705eafe45e299743354d148cf791ae3"
+      },
+      {
+        "query": 19,
+        "rows": 10,
+        "engine_execution_seconds": 3.424419459,
+        "result_sha256": "0031f3a12adffabb09a17dfbf53dc40cc3ab4c5aab2d3fb631d9b7484c213d19"
+      },
+      {
+        "query": 20,
+        "rows": 4,
+        "engine_execution_seconds": 0.058640625,
+        "result_sha256": "f91a104af7aa0f8fe334b6811dee66a69058aff58b5627781a297f33500c34c8"
+      },
+      {
+        "query": 21,
+        "rows": 1,
+        "engine_execution_seconds": 0.85802925,
+        "result_sha256": "ae93ad49e28c3a2eb9e9f2f8b467c305d4e3dd0ee9de72e689a1f7812c99670c"
+      },
+      {
+        "query": 22,
+        "rows": 10,
+        "engine_execution_seconds": 0.873017251,
+        "result_sha256": "8d3348162918e6d1d901eddd03f15333a0d1b3aa10feb39c11db3df5d1e94221"
+      },
+      {
+        "query": 23,
+        "rows": 10,
+        "engine_execution_seconds": 2.189385626,
+        "result_sha256": "ac39db3ee9955345eb662eeafd4fd248f55c3a7cb094738be7e52edc783f90bd"
+      },
+      {
+        "query": 24,
+        "rows": 10,
+        "engine_execution_seconds": 0.892800416,
+        "result_sha256": "1c6942c5f6216f044ef65db820a4cc1fc5d36e5976927db186378bd1e3f3664e"
+      },
+      {
+        "query": 25,
+        "rows": 10,
+        "engine_execution_seconds": 0.206335041,
+        "result_sha256": "d363ad19d845653c51d8825dc96b10ab0561292f4a5ef62e32c0a335dbbb5097"
+      },
+      {
+        "query": 26,
+        "rows": 10,
+        "engine_execution_seconds": 1.123351541,
+        "result_sha256": "f0b4a139997364c938e45d2418fa0956d23ffc603f82fb4032a9b232483fec7e"
+      },
+      {
+        "query": 27,
+        "rows": 10,
+        "engine_execution_seconds": 1.165336459,
+        "result_sha256": "75fdd3cfad1f51e445f845f770f65ea672ee7600d8a99ded20236fbbf340e193"
+      },
+      {
+        "query": 28,
+        "rows": 25,
+        "engine_execution_seconds": 2.005135498,
+        "result_sha256": "1eb1fcfc9bbeb406351d92c1eee401f07c8f1a4049b8c1260de2a6f1e786ea54"
+      },
+      {
+        "query": 29,
+        "rows": 25,
+        "engine_execution_seconds": 2.961446875,
+        "result_sha256": "32cc51dc7faf299617811680b15e14b586d9dcafc3eec100eb9b51f8c061aeb2"
+      },
+      {
+        "query": 30,
+        "rows": 1,
+        "engine_execution_seconds": 0.623129668,
+        "result_sha256": "3bc17651768c7d8a9ee6b669c362a9af7a77b15b354f23fee932b3c11bede622"
+      },
+      {
+        "query": 31,
+        "rows": 10,
+        "engine_execution_seconds": 0.694848333,
+        "result_sha256": "62276ee900cfdec0b66d0fb2f0e2158f5a9f26df4e79aa562f76f254b24bc854"
+      },
+      {
+        "query": 32,
+        "rows": 10,
+        "engine_execution_seconds": 0.799724083,
+        "result_sha256": "59c752fe54ed1235b30b6a3b2a5891cc931666d48a37f21e041334b4de11547e"
+      },
+      {
+        "query": 33,
+        "rows": 10,
+        "engine_execution_seconds": 1.305172084,
+        "result_sha256": "82e0180c3bdb058e847f6d7087d955008b35ef582f294586e099edaa5fa09fe9"
+      },
+      {
+        "query": 34,
+        "rows": 10,
+        "engine_execution_seconds": 2.895045209,
+        "result_sha256": "9d5c8934bca6b951fe8221fe42529dd6af942fb5d645960e9ac6c642c716a67e"
+      },
+      {
+        "query": 35,
+        "rows": 10,
+        "engine_execution_seconds": 2.401470792,
+        "result_sha256": "6a4eabcfc836569153743c299e1cdcf33fac3ef17312ee40f3d5f825725fd8c8"
+      },
+      {
+        "query": 36,
+        "rows": 10,
+        "engine_execution_seconds": 0.259926416,
+        "result_sha256": "df235318373682cb9013069c4f4caa1b20518e8e1f0a3084a0c812653551c4e4"
+      },
+      {
+        "query": 37,
+        "rows": 10,
+        "engine_execution_seconds": 0.158804667,
+        "result_sha256": "d762df7c38e11e3afbbd539c908801e7d35076bf321aab41602a4322bb8f3195"
+      },
+      {
+        "query": 38,
+        "rows": 10,
+        "engine_execution_seconds": 0.099294918,
+        "result_sha256": "e4c326d8f7f223bd3d50921d99775c88ef3d15c2cb03503b94f95be199e6512e"
+      },
+      {
+        "query": 39,
+        "rows": 10,
+        "engine_execution_seconds": 0.059988332,
+        "result_sha256": "e1b2c3bc5766d69b105234197033eb773e33b2d44f6503f6fedaa8e5cb33818e"
+      },
+      {
+        "query": 40,
+        "rows": 10,
+        "engine_execution_seconds": 0.555699334,
+        "result_sha256": "ef6b551999c1de74df42dec189c57c9d1703cecc72442baa83556afe2921e225"
+      },
+      {
+        "query": 41,
+        "rows": 10,
+        "engine_execution_seconds": 0.052272625,
+        "result_sha256": "8ab15f47ed9863c1c25f312a77928426f138314b44a7f2043003e36ef03b1d95"
+      },
+      {
+        "query": 42,
+        "rows": 10,
+        "engine_execution_seconds": 0.033288293,
+        "result_sha256": "edcf2e06194b07cd32c2eee2d07ed788759ee3a98ffd0067b95b3247bfda666e"
+      },
+      {
+        "query": 43,
+        "rows": 10,
+        "engine_execution_seconds": 0.051032041,
+        "result_sha256": "f416a99a812b94cfa8d70d67978cd18d92d56cfad1b6add305062339c7d915f5"
+      }
+    ]
+  },
+  "combined_engine_execution_seconds": 84.23222271200001,
+  "prior_direct_parquet_observation": {
+    "engine_execution_seconds": 528.630235292,
+    "same_runtime": false,
+    "comparison": "Two single observations with different input boundaries; the prepared run includes bulk-ingest and CI admission repairs plus fresh native preparation/publication. Not an identical-build causal comparison or repeatability claim.",
+    "evidence": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/full43-dynamic-r1-acceptance.json",
+      "bytes": 289473,
+      "sha256": "9c4c1c72c40d9496140d7e2a611ff33d662a9002468b890505d1862527644d67"
+    }
+  },
+  "verification": {
+    "no_fallback": true,
+    "prepared_runtime_consistent": true,
+    "source_runtime_and_sidecars_unchanged": true,
+    "native_sidecars": [],
+    "byte_identical_to_prior_all_value_validated_output": false
+  },
+  "protocol": {
+    "ingest_command": [
+      "bash",
+      "scripts/run_clickbench_ingest_uat.sh",
+      "--uat-root",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2",
+      "--binary",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-ingest-r2/shardloom",
+      "--source",
+      "/Users/dylan/LocalData/shardloom/clickbench-100m-uat/sources/hits.parquet",
+      "--input-format",
+      "parquet",
+      "--target",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2/vortex/hits.vortex",
+      "--memory-gb",
+      "24",
+      "--max-parallelism",
+      "12",
+      "--max-artifact-gb",
+      "24"
+    ],
+    "query_command": [
+      "python3",
+      "-B",
+      "scripts/run_clickbench_query_uat.py",
+      "--binary",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-ingest-r2/shardloom",
+      "--input",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2/vortex/hits.vortex",
+      "--input-format",
+      "vortex",
+      "--uat-root",
+      "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/full43-vortex-dynamic-r2",
+      "--reference-packet",
+      "/Users/dylan/LocalData/shardloom/native-prerequisites-20261022/independent-full43-948/reference.json",
+      "--build-commit",
+      "f0bf6d46e0f589511dcbcfb77491fc227f9c8399",
+      "--memory-gb",
+      "24",
+      "--max-parallelism",
+      "12",
+      "--timeout",
+      "120",
+      "--repeats",
+      "1",
+      "--compress-logs"
+    ],
+    "timing_rule": "Sequential prepare_once_millis plus prepared_olap_publication_millis, then 43 engine_execution_seconds. Failed attempt and overlapping diagnostic clocks excluded.",
+    "isolation": "All other task jobs idle during ingestion and queries; full hashes/inventories before or after only.",
+    "cache_context": "Original source prehashed before ingestion and fresh Vortex output before queries; no cache manipulation.",
+    "old_runtime_reruns": 0,
+    "runtime_change": "Complete native Parquet preparation restores its product batch ceiling. CI repairs bound spill overlap to actual run extents and physical/gather alignment, and reuse the admitted compatibility-validation root dtype. Ordinary query ceilings, provider selection and resource grants remain unchanged. Corrected runtime identity is explicit."
+  },
+  "retained_local_evidence": {
+    "freeze": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/prepared-dynamic-r2-freeze.json",
+      "bytes": 912844,
+      "sha256": "bbf67c39722350be4efeeab86f70efe423123e5d2a5825aebea5efc1216cba36"
+    },
+    "ingest_acceptance": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2-acceptance.json",
+      "bytes": 2184,
+      "sha256": "03fde411e68a292591927a1f94f5f2ae35a64c5ccc1af547415bf86561179d62"
+    },
+    "full43_acceptance": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/full43-vortex-dynamic-r2-acceptance.json",
+      "bytes": 10179,
+      "sha256": "d2e1362457c9f3f83651195de65b326d6069d82eac2fc9f92ae92afcff29a119"
+    },
+    "ingest_driver": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io551-corrected-native-ingest.json",
+      "bytes": 3865,
+      "sha256": "a0565a2414ef84c86c253f9ed0e205e3fc315534e1ae0c620ad7af53795a8d84"
+    },
+    "ingest_summary": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/ingest-dynamic-r2/logs/ingest_cli_uat_gated_20261102T104519Z/prepare_summary.json",
+      "bytes": 1957,
+      "sha256": "359aa0bd5354133cfeffbf95f9152ae7ca6f28dd1c11e62bfe186b0d5447945c"
+    },
+    "query_driver": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io552-corrected-vortex-full43.json",
+      "bytes": 3927,
+      "sha256": "4841ccbe40dbde262ca8a82b5a32cc7d3db01087b5ebc5ceb9601ecdae77dad8"
+    },
+    "query_summary": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/full43-vortex-dynamic-r2/logs/full43_20261102T105924347923Z/summary.json",
+      "bytes": 1822930,
+      "sha256": "e46b4b61836ee58e1a73175e8d3b1b00a3383da65a97060793c801df3c949511"
+    },
+    "verifier": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/prepared_dynamic_r2.py",
+      "bytes": 20191,
+      "sha256": "53d43054d612168cde266676ab2ffad47434a2958155b4cdd3f45872ef64823b"
+    }
+  },
+  "limits": "One accepted observation. No new independent all-cell readback, matched-build causal comparison or repeatability claim. This compact record binds retained local evidence; it is not the pending portable semantic replay packet and does not close broader item 18/23 acceptance."
+}

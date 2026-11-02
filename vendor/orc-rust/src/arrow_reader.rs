@@ -24,15 +24,17 @@ use arrow::error::ArrowError;
 use arrow::record_batch::{RecordBatch, RecordBatchReader};
 
 use crate::array_decoder::NaiveStripeDecoder;
-use crate::error::Result;
+use crate::error::{self, Result};
 use crate::predicate::Predicate;
 use crate::projection::ProjectionMask;
+use crate::reader::memory::DecoderMemory;
 use crate::reader::metadata::{read_metadata, FileMetadata};
 use crate::reader::ChunkReader;
 use crate::row_group_filter::evaluate_predicate;
 use crate::row_selection::RowSelection;
 use crate::schema::{ArrowSchemaOptions, RootDataType, TimestampPrecision};
-use crate::stripe::{Stripe, StripeMetadata};
+use crate::stripe::Stripe;
+use snafu::ResultExt;
 
 const DEFAULT_BATCH_SIZE: usize = 8192;
 
@@ -46,6 +48,7 @@ pub struct ArrowReaderBuilder<R> {
     pub(crate) row_selection: Option<RowSelection>,
     pub(crate) timestamp_precision: Option<TimestampPrecision>,
     pub(crate) predicate: Option<Predicate>,
+    pub(crate) decoder_memory: Option<Arc<dyn DecoderMemory>>,
 }
 
 impl<R> ArrowReaderBuilder<R> {
@@ -60,6 +63,7 @@ impl<R> ArrowReaderBuilder<R> {
             row_selection: None,
             timestamp_precision: None,
             predicate: None,
+            decoder_memory: None,
         }
     }
 
@@ -67,8 +71,28 @@ impl<R> ArrowReaderBuilder<R> {
         &self.file_metadata
     }
 
+    /// Reuse parsed metadata while the caller retains the same file generation.
+    /// This constructor performs no reads and does not validate source identity.
+    pub fn new_with_metadata(reader: R, file_metadata: Arc<FileMetadata>) -> Self {
+        Self::new(reader, file_metadata)
+    }
+
+    /// Share metadata without cloning the stripe/statistics inventory.
+    pub fn shared_file_metadata(&self) -> Arc<FileMetadata> {
+        Arc::clone(&self.file_metadata)
+    }
+
     pub fn with_batch_size(mut self, batch_size: usize) -> Self {
         self.batch_size = batch_size;
+        self
+    }
+
+    /// Attach the caller's shared decoder-buffer budget. Input Bytes keep their
+    /// own credits. This covers decompressed stream payloads and replacement
+    /// overlap; it does not by itself account for dictionaries, Arrow arrays,
+    /// parsed metadata or codec-private workspace.
+    pub fn with_decoder_memory(mut self, memory: Arc<dyn DecoderMemory>) -> Self {
+        self.decoder_memory = Some(memory);
         self
     }
 
@@ -180,6 +204,9 @@ impl<R> ArrowReaderBuilder<R> {
     /// Unless [`with_schema`](Self::with_schema) was called, this is computed dynamically
     /// based on the current projection and the underlying file format.
     pub fn schema(&self) -> SchemaRef {
+        if let Some(schema) = &self.schema_ref {
+            return Arc::clone(schema);
+        }
         let projected_data_type = self
             .file_metadata
             .root_data_type()
@@ -208,6 +235,37 @@ impl<R: ChunkReader> ArrowReaderBuilder<R> {
     }
 
     pub fn build(self) -> ArrowReader<R> {
+        self.build_with_credit(None)
+    }
+
+    /// Build with schema/control structures admitted before construction.
+    /// Payloads and codec workspaces keep their separate lifetime-bound credits.
+    /// Controlled row-index predicates are not admitted by this entry point.
+    pub fn try_build(self) -> Result<ArrowReader<R>> {
+        let credit = if let Some(memory) = &self.decoder_memory {
+            if self.predicate.is_some() {
+                return error::OutOfSpecSnafu {
+                    msg: "controlled ORC row-index predicates have no admitted metadata workspace",
+                }
+                .fail();
+            }
+            let bytes = crate::reader::structure_memory::reader(
+                &self.file_metadata,
+                &self.projection,
+                self.row_selection.as_ref(),
+                std::mem::size_of::<ArrowReader<R>>(),
+            )?;
+            Some(memory.reserve(bytes).context(error::IoSnafu)?)
+        } else {
+            None
+        };
+        Ok(self.build_with_credit(credit))
+    }
+
+    fn build_with_credit(
+        self,
+        credit: Option<Box<dyn crate::reader::memory::DecoderMemoryReservation>>,
+    ) -> ArrowReader<R> {
         let schema_ref = self.schema();
         let projected_data_type = self
             .file_metadata
@@ -220,6 +278,7 @@ impl<R: ChunkReader> ArrowReaderBuilder<R> {
             projected_data_type,
             stripe_index: 0,
             file_byte_range: self.file_byte_range,
+            decoder_memory: self.decoder_memory,
         };
         ArrowReader {
             cursor,
@@ -229,6 +288,8 @@ impl<R: ChunkReader> ArrowReaderBuilder<R> {
             row_selection: self.row_selection,
             predicate: self.predicate,
             projected_data_type: projected_data_type_clone,
+            failed: false,
+            _structure_credit: credit,
         }
     }
 }
@@ -236,21 +297,61 @@ impl<R: ChunkReader> ArrowReaderBuilder<R> {
 pub struct ArrowReader<R> {
     cursor: Cursor<R>,
     schema_ref: SchemaRef,
-    current_stripe: Option<Box<dyn Iterator<Item = Result<RecordBatch>> + Send>>,
+    current_stripe: Option<Box<NaiveStripeDecoder>>,
     batch_size: usize,
     row_selection: Option<RowSelection>,
     predicate: Option<Predicate>,
     projected_data_type: RootDataType,
+    failed: bool,
+    _structure_credit: Option<Box<dyn crate::reader::memory::DecoderMemoryReservation>>,
 }
 
 impl<R> ArrowReader<R> {
     pub fn total_row_count(&self) -> u64 {
         self.cursor.file_metadata.number_of_rows()
     }
+
+    /// Set the positive row limit for subsequent output batches, including the
+    /// active stripe. This preserves row-selection position and already held
+    /// stripe streams/dictionaries; it neither reloads input nor bounds their
+    /// storage or the size of an individual value.
+    pub fn set_batch_size(&mut self, batch_size: usize) -> std::result::Result<(), ArrowError> {
+        if batch_size == 0 {
+            return Err(ArrowError::InvalidArgumentError(
+                "ORC batch size must be positive".into(),
+            ));
+        }
+        self.batch_size = batch_size;
+        if let Some(stripe) = &mut self.current_stripe {
+            stripe.set_batch_size(batch_size);
+        }
+        Ok(())
+    }
 }
 
 impl<R: ChunkReader> ArrowReader<R> {
-    fn try_advance_stripe(&mut self) -> Result<Option<RecordBatch>, ArrowError> {
+    /// Load the next stripe and prepare each selected stream's first block
+    /// before choosing output row geometry. This does not consume output rows.
+    /// Already prepared stripes retain their exact selection/read position.
+    pub fn prepare_next_stripe(&mut self) -> Result<bool, ArrowError> {
+        if self.failed {
+            return Err(ArrowError::ParseError(
+                "ORC reader previously failed".into(),
+            ));
+        }
+        if self.current_stripe.is_some() {
+            return Ok(true);
+        }
+        match self.load_next_stripe() {
+            Ok(ready) => Ok(ready),
+            Err(error) => {
+                self.failed = true;
+                Err(error)
+            }
+        }
+    }
+
+    fn load_next_stripe(&mut self) -> Result<bool, ArrowError> {
         let stripe = self.cursor.next().transpose()?;
         match stripe {
             Some(stripe) => {
@@ -317,9 +418,9 @@ impl<R: ChunkReader> ArrowReader<R> {
                     final_selection,
                 )?;
                 self.current_stripe = Some(Box::new(decoder));
-                self.next().transpose()
+                Ok(true)
             }
-            None => Ok(None),
+            None => Ok(false),
         }
     }
 }
@@ -334,17 +435,29 @@ impl<R: ChunkReader> Iterator for ArrowReader<R> {
     type Item = Result<RecordBatch, ArrowError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.current_stripe.as_mut() {
-            Some(stripe) => {
-                match stripe
-                    .next()
-                    .map(|batch| batch.map_err(|err| ArrowError::ExternalError(Box::new(err))))
-                {
-                    Some(rb) => Some(rb),
-                    None => self.try_advance_stripe().transpose(),
-                }
+        if self.failed {
+            return None;
+        }
+        loop {
+            match self.prepare_next_stripe() {
+                Ok(false) => return None,
+                Err(error) => return Some(Err(error)),
+                Ok(true) => (),
             }
-            None => self.try_advance_stripe().transpose(),
+            let result = self
+                .current_stripe
+                .as_mut()
+                .expect("prepared stripe")
+                .next();
+            match result {
+                Some(Ok(batch)) => return Some(Ok(batch)),
+                Some(Err(error)) => {
+                    self.failed = true;
+                    self.current_stripe = None;
+                    return Some(Err(error.into()));
+                }
+                None => self.current_stripe = None,
+            }
         }
     }
 }
@@ -355,23 +468,32 @@ pub(crate) struct Cursor<R> {
     pub projected_data_type: RootDataType,
     pub stripe_index: usize,
     pub file_byte_range: Option<Range<usize>>,
+    pub decoder_memory: Option<Arc<dyn DecoderMemory>>,
 }
 
-impl<R: ChunkReader> Cursor<R> {
-    fn get_stripe_metadatas(&self) -> Vec<StripeMetadata> {
-        if let Some(range) = self.file_byte_range.clone() {
-            self.file_metadata
-                .stripe_metadatas()
-                .iter()
-                .filter(|info| {
-                    let offset = info.offset() as usize;
-                    range.contains(&offset)
-                })
-                .map(|info| info.to_owned())
-                .collect::<Vec<_>>()
-        } else {
-            self.file_metadata.stripe_metadatas().to_vec()
+impl<R> Cursor<R> {
+    /// Metadata parsing validates physical stripe order. Seek once to a range's
+    /// first stripe and stop at its end, without walking excluded inventories
+    /// whenever a caller constructs a reader for one selected stripe.
+    pub(crate) fn next_stripe_index(&mut self) -> Option<usize> {
+        let stripes = self.file_metadata.stripe_metadatas();
+        if let Some(range) = &self.file_byte_range {
+            if self.stripe_index == 0 {
+                self.stripe_index =
+                    stripes.partition_point(|stripe| stripe.offset() < range.start as u64);
+            }
+            if stripes
+                .get(self.stripe_index)
+                .map_or(true, |stripe| stripe.offset() >= range.end as u64)
+            {
+                self.stripe_index = stripes.len();
+                return None;
+            }
         }
+        stripes.get(self.stripe_index)?;
+        let index = self.stripe_index;
+        self.stripe_index += 1;
+        Some(index)
     }
 }
 
@@ -379,17 +501,14 @@ impl<R: ChunkReader> Iterator for Cursor<R> {
     type Item = Result<Stripe>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.get_stripe_metadatas()
-            .get(self.stripe_index)
-            .map(|info| {
-                let stripe = Stripe::new(
-                    &mut self.reader,
-                    &self.file_metadata,
-                    &self.projected_data_type.clone(),
-                    info,
-                );
-                self.stripe_index += 1;
-                stripe
-            })
+        let index = self.next_stripe_index()?;
+        let info = &self.file_metadata.stripe_metadatas()[index];
+        Some(Stripe::new_with_memory(
+            &mut self.reader,
+            &self.file_metadata,
+            &self.projected_data_type,
+            info,
+            self.decoder_memory.clone(),
+        ))
     }
 }

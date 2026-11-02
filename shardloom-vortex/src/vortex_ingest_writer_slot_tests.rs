@@ -97,7 +97,17 @@ fn fixture_with_reader(
     first_empty: bool,
     reader: Box<dyn arrow_array::RecordBatchReader + Send>,
 ) -> Fixture {
-    let memory = NativeIngestMemory::new(MEMORY_BYTES).unwrap();
+    fixture_with_runtime(window, owned, first_empty, reader, None)
+}
+
+fn fixture_with_runtime(
+    window: usize,
+    owned: bool,
+    first_empty: bool,
+    reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    runtime: Option<crate::ingest_runtime::IngestRuntime>,
+) -> Fixture {
+    let memory = NativeIngestMemory::with_runtime(MEMORY_BYTES, runtime.as_ref()).unwrap();
     let dropped = Arc::new(AtomicUsize::new(0));
     let mut lease = memory.reserve_input(1).unwrap();
     let first = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
@@ -108,13 +118,13 @@ fn fixture_with_reader(
     )
     .unwrap();
     drop(lease);
-    let stream = StreamingColumnarVortexArrayIterator::new(
+    let stream = StreamingColumnarVortexArrayIterator::with_runtime(
         first.dtype().clone(),
         first,
-        Box::new(ObservedReader {
+        Box::new(LegacyReader(Box::new(ObservedReader {
             inner: reader,
             dropped: Arc::clone(&dropped),
-        }),
+        }))),
         vec!["slot_id".into()],
         shape(),
         Arc::new(AtomicUsize::new(1)),
@@ -124,6 +134,9 @@ fn fixture_with_reader(
         usize::from(window > 0),
         TASK_BYTES * u64::try_from(window.max(1)).unwrap(),
         owned.then(|| memory.clone()),
+        runtime,
+        CancellationToken::default(),
+        FloatPolicy::Strict,
     )
     .unwrap();
     Fixture {
@@ -319,7 +332,7 @@ fn settle_window(stream: &mut StreamingColumnarVortexArrayIterator) {
 }
 
 #[test]
-fn entry_refill_denial_is_terminal_and_releases_the_shared_slot() {
+fn entry_refill_drains_admitted_results_before_terminal_minimum_denial() {
     for window in [1, 3] {
         let Fixture {
             mut stream,
@@ -337,20 +350,169 @@ fn entry_refill_denial_is_terminal_and_releases_the_shared_slot() {
         drop(first);
         let available = MEMORY_BYTES - memory.pool.snapshot().reserved_bytes;
         let pressure = memory.pool.reserve(available).unwrap();
+        // Additional read-ahead is optional while already admitted results can
+        // progress. Keep every original output credit until its consumer drops.
+        for index in 2..=window {
+            let ready = stream.next().unwrap().unwrap();
+            assert_values(&ready, index, false, &memory);
+        }
         let error = stream.next().unwrap().unwrap_err();
         assert!(error.to_string().contains("memory reservation denied"));
+        assert!(error.to_string().contains("ingest_conversion_prefetch"));
         assert!(stream.prefetch.is_none());
         assert!(stream.next().is_none());
         assert!(owner.upgrade().is_none());
         assert_eq!(dropped.load(Ordering::SeqCst), 1);
-        assert_eq!(memory.pool.snapshot().denied_reservations, 1);
+        // Advisory refusal does not spend a failed allocator reservation.
+        assert_eq!(memory.pool.snapshot().denied_reservations, 0);
         drop((lookahead, pressure, grant, stream));
         assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
     }
 }
 
+#[test]
+fn adaptive_prefetch_narrows_new_tasks_then_regrows_with_shared_ownership_and_complete_values() {
+    for shared in [false, true] {
+        let runtime = shared.then(|| crate::ingest_runtime::IngestRuntime::new(3).unwrap());
+        let window = runtime
+            .as_ref()
+            .map_or(3, crate::ingest_runtime::IngestRuntime::parallelism);
+        let Fixture {
+            mut stream,
+            memory,
+            dropped,
+        } = fixture_with_runtime(
+            window,
+            true,
+            false,
+            Box::new(RecordBatchIterator::new(
+                (1..BATCHES).map(|index| Ok(batch(index, false))),
+                batch(0, false).schema(),
+            )),
+            runtime,
+        );
+        let grant = stream.share_input_slot_with_writer(&decision(2));
+        assert!(grant.is_some());
+        settle_window(&mut stream);
+        let stages = stream.stream_timing.stages.clone();
+        let held = stream.next().unwrap().unwrap();
+        assert_values(&held, 0, false, &memory);
+        let available = MEMORY_BYTES - memory.pool.snapshot().reserved_bytes;
+        let mut pressure = memory.pool.reserve(available - 512).unwrap();
+        for index in 1..=window {
+            let ready = stream.next().unwrap().unwrap();
+            assert_values(&ready, index, false, &memory);
+            assert!(producer_slots(&stream) <= window);
+        }
+        assert_eq!(producer_slots(&stream), 0);
+        // Permit exactly one complete task plus its admitted copy overlap.
+        pressure
+            .resize(pressure.bytes() - TASK_BYTES - TASK_BYTES / 2)
+            .unwrap();
+        let ready = stream.next().unwrap().unwrap();
+        assert_values(&ready, window + 1, false, &memory);
+        drop((ready, pressure));
+        for index in window + 2..BATCHES {
+            let ready = stream.next().unwrap().unwrap();
+            assert_values(&ready, index, false, &memory);
+            assert!(producer_slots(&stream) <= window);
+            let prefetch = stream.prefetch.as_ref().unwrap();
+            assert_eq!(prefetch.task_bytes, TASK_BYTES);
+        }
+        assert!(stream.next().is_none());
+        let report = stages.snapshot();
+        let fields: BTreeMap<_, _> = report.evidence_fields().into_iter().collect();
+        assert_eq!(
+            fields["vortex_ingest_conversion_prefetch_minimum_tasks"],
+            "1"
+        );
+        assert!(
+            fields["vortex_ingest_conversion_prefetch_deferred_windows"]
+                .parse::<u64>()
+                .unwrap()
+                > 0
+        );
+        let maximum = fields["vortex_ingest_conversion_prefetch_maximum_tasks"]
+            .parse::<usize>()
+            .unwrap();
+        assert!(maximum <= window);
+        if window > 1 {
+            assert!(maximum > 1, "shared={shared}, report={fields:?}");
+            assert!(
+                fields["vortex_ingest_conversion_prefetch_grown_windows"]
+                    .parse::<u64>()
+                    .unwrap()
+                    > 0
+            );
+        }
+        // The ordinary final writer report copies these exact production facts.
+        let published = VortexIngestStageReport::default().with_stream(&report);
+        let published: BTreeMap<_, _> = published.evidence_fields().into_iter().collect();
+        for (name, value) in fields
+            .iter()
+            .filter(|(name, _)| name.contains("conversion_prefetch"))
+        {
+            assert_eq!(published.get(name), Some(value));
+        }
+        drop((stream, grant));
+        assert_eq!(dropped.load(Ordering::SeqCst), 1);
+        assert!(memory.pool.snapshot().reserved_bytes > 0);
+        assert_eq!(memory.pool.snapshot().denied_reservations, 0);
+        drop(held);
+        assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn adaptive_prefetch_initial_deferral_keeps_first_output_and_declines_writer_lookahead() {
+    let memory = NativeIngestMemory::new(MEMORY_BYTES).unwrap();
+    let mut lease = memory.reserve_input(1).unwrap();
+    let first = record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
+        &batch(0, false),
+        &shape(),
+        &IngestStageTimings::default(),
+        Some((&memory, &mut lease)),
+    )
+    .unwrap();
+    drop(lease);
+    let available = MEMORY_BYTES - memory.pool.snapshot().reserved_bytes;
+    let pressure = memory.pool.reserve(available).unwrap();
+    let mut stream = StreamingColumnarVortexArrayIterator::new(
+        first.dtype().clone(),
+        first,
+        Box::new(RecordBatchIterator::new(
+            (1..BATCHES).map(|index| Ok(batch(index, false))),
+            batch(0, false).schema(),
+        )),
+        vec!["slot_id".into()],
+        shape(),
+        Arc::new(AtomicUsize::new(1)),
+        VortexStreamingIngestTiming::default(),
+        1,
+        1,
+        1,
+        TASK_BYTES,
+        Some(memory.clone()),
+    )
+    .unwrap();
+    assert_eq!(producer_slots(&stream), 0);
+    assert!(stream.share_input_slot_with_writer(&decision(2)).is_none());
+    let held = stream.next().unwrap().unwrap();
+    assert_values(&held, 0, false, &memory);
+    drop((held, pressure));
+    for index in 1..BATCHES {
+        let output = stream.next().unwrap().unwrap();
+        assert_values(&output, index, false, &memory);
+    }
+    assert!(stream.next().is_none());
+    drop(stream);
+    assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+    assert_eq!(memory.pool.snapshot().denied_reservations, 0);
+}
+
 struct GatedReader {
     schema: SchemaRef,
+    reads_before_gate: usize,
     entered: Option<mpsc::Sender<()>>,
     release: mpsc::Receiver<()>,
     released: Arc<AtomicUsize>,
@@ -361,7 +523,9 @@ impl Iterator for GatedReader {
     type Item = std::result::Result<RecordBatch, arrow_schema::ArrowError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(entered) = self.entered.take() {
+        if self.reads_before_gate > 0 {
+            self.reads_before_gate -= 1;
+        } else if let Some(entered) = self.entered.take() {
             entered.send(()).unwrap();
             self.release
                 .recv_timeout(Duration::from_secs(5))
@@ -394,6 +558,7 @@ fn cancellation_drains_blocked_conversion_and_releases_native_input() {
             false,
             Box::new(GatedReader {
                 schema: batch(0, false).schema(),
+                reads_before_gate: 0,
                 entered: Some(entered),
                 release: waiting,
                 released: Arc::clone(&released),
@@ -421,6 +586,78 @@ fn cancellation_drains_blocked_conversion_and_releases_native_input() {
         drop((first, grant));
         assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
     }
+}
+
+#[test]
+fn adaptive_prefetch_wakes_do_not_readmit_work_for_the_same_blocked_output() {
+    let runtime = crate::ingest_runtime::IngestRuntime::new(3).unwrap();
+    let window = runtime.parallelism();
+    let (entered, blocked) = mpsc::channel();
+    let (release, waiting) = mpsc::channel();
+    let released = Arc::new(AtomicUsize::new(0));
+    let Fixture {
+        mut stream,
+        memory,
+        dropped,
+    } = fixture_with_runtime(
+        window,
+        true,
+        false,
+        Box::new(GatedReader {
+            schema: batch(0, false).schema(),
+            reads_before_gate: window,
+            entered: Some(entered),
+            release: waiting,
+            released: Arc::clone(&released),
+            batches: (1..BATCHES).map(|index| batch(index, false)).collect(),
+        }),
+        Some(runtime),
+    );
+    let grant = stream.share_input_slot_with_writer(&decision(2)).unwrap();
+    settle_window(&mut stream);
+    let first = stream.next().unwrap().unwrap();
+    let mut pressure = memory
+        .pool
+        .reserve(MEMORY_BYTES - memory.pool.snapshot().reserved_bytes - 512)
+        .unwrap();
+    for index in 1..=window {
+        let ready = stream.next().unwrap().unwrap();
+        assert_values(&ready, index, false, &memory);
+    }
+    assert_eq!(producer_slots(&stream), 0);
+    pressure
+        .resize(pressure.bytes() - TASK_BYTES - TASK_BYTES / 2)
+        .unwrap();
+    let mut cx = std::task::Context::from_waker(futures::task::noop_waker_ref());
+    let initial = stream
+        .prefetch
+        .as_mut()
+        .unwrap()
+        .poll_next_array(window + 1, &mut cx);
+    let initial_slots = producer_slots(&stream);
+    drop(pressure);
+    let wake = stream
+        .prefetch
+        .as_mut()
+        .unwrap()
+        .poll_next_array(window + 1, &mut cx);
+    let wake_slots = producer_slots(&stream);
+    release.send(()).unwrap();
+    assert!(initial.is_pending());
+    assert!(wake.is_pending());
+    assert_eq!(initial_slots, 1);
+    assert_eq!(wake_slots, initial_slots);
+    for index in window + 1..BATCHES {
+        let ready = stream.next().unwrap().unwrap();
+        assert_values(&ready, index, false, &memory);
+    }
+    assert!(stream.next().is_none());
+    blocked.recv_timeout(Duration::from_secs(5)).unwrap();
+    drop((stream, first, grant));
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+    assert_eq!(dropped.load(Ordering::SeqCst), 1);
+    assert_eq!(memory.pool.snapshot().denied_reservations, 0);
+    assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
 }
 
 #[test]

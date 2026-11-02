@@ -113,6 +113,7 @@ impl Accumulator {
             Policy {
                 workspace: policy.workspace.clone(),
                 quota_bytes: policy.quota_bytes,
+                quota_owner: policy.quota_owner.clone(),
                 memory_bytes: policy.memory_bytes,
                 max_key_bytes: MAX_KEY_BYTES,
                 cancellation: Arc::clone(&policy.cancellation),

@@ -29,12 +29,16 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
+mod batch_work;
 mod chunks;
 mod complete;
 #[cfg(test)]
 mod complete_tests;
+mod decisions;
 mod generic;
+mod ipc;
 mod metadata_count;
+mod orc;
 mod ranked;
 mod source;
 mod statistics;
@@ -95,27 +99,58 @@ impl LocalColumnarSource {
         if projection.is_empty() {
             return Err(failed("native input requires a row-bearing source column"));
         }
+        let row_groups =
+            self.prepare_row_groups(demand.max_rows, &demand.predicates, cancellation)?;
+        let region_selection = decisions::RegionSelection::demand(self, demand, row_groups.len())?;
+        cancellation.check()?;
+        Ok(Arc::new(PreparedColumnarSource {
+            source: Arc::clone(self),
+            projection,
+            row_groups,
+            max_rows: demand.max_rows,
+            metadata: credit,
+            region_selection,
+        }))
+    }
+
+    /// Ordered physical regions are independent of per-file logical alignment.
+    /// Every consumer must exclude a region before the shared source can omit it.
+    fn prepare_row_groups(
+        &self,
+        max_rows: Option<u64>,
+        predicates: &[Option<PredicateExpr>],
+        cancellation: &CancellationToken,
+    ) -> Result<Vec<SourceGroup>> {
+        if let Some(source) = &self.other
+            && source.format == "orc"
+        {
+            return orc::prepare_groups(self, max_rows, predicates, cancellation);
+        }
         let mut row_groups = Vec::new();
         let mut source_rows = 0_u64;
-        'files: for (file_index, file) in self.files.iter().enumerate() {
+        let schema = self.schema();
+        'files: for (file_index, metadata) in self.parquet_metadata().enumerate() {
             cancellation.check()?;
-            for index in 0..file.metadata.metadata().num_row_groups() {
-                if demand.max_rows.is_some_and(|limit| source_rows >= limit) {
+            let partitions = &self.collection.files[file_index].partitions;
+            for index in 0..metadata.metadata().num_row_groups() {
+                cancellation.check()?;
+                if max_rows.is_some_and(|limit| source_rows >= limit) {
                     break 'files;
                 }
                 let first_row = source_rows;
-                let rows = u64::try_from(file.metadata.metadata().row_group(index).num_rows())
+                let rows = u64::try_from(metadata.metadata().row_group(index).num_rows())
                     .map_err(failed)?;
                 source_rows = source_rows
                     .checked_add(rows)
                     .ok_or_else(|| failed("source row count overflow"))?;
-                if demand.predicates.is_empty()
-                    || demand.predicates.iter().any(|predicate| {
+                if predicates.is_empty()
+                    || predicates.iter().any(|predicate| {
                         predicate.as_ref().is_none_or(|predicate| {
-                            !statistics::excluded(&file.metadata, index, predicate)
+                            !statistics::excluded(metadata, index, predicate, &schema, partitions)
                         })
                     })
                 {
+                    row_groups.try_reserve(1).map_err(failed)?;
                     row_groups.push(SourceGroup {
                         file: file_index,
                         index,
@@ -126,13 +161,7 @@ impl LocalColumnarSource {
             }
         }
         cancellation.check()?;
-        Ok(Arc::new(PreparedColumnarSource {
-            source: Arc::clone(self),
-            projection,
-            row_groups,
-            max_rows: demand.max_rows,
-            metadata: credit,
-        }))
+        Ok(row_groups)
     }
 }
 
@@ -153,6 +182,7 @@ pub(crate) struct PreparedColumnarSource {
     row_groups: Vec<SourceGroup>,
     max_rows: Option<u64>,
     metadata: MemoryLease,
+    region_selection: Option<decisions::RegionSelection>,
 }
 
 /// Positions include excluded groups and preceding files in the held inventory.
@@ -202,6 +232,8 @@ impl PreparedColumnarSource {
             rows: 0,
             ended: false,
             other: self.source.other.as_ref().map(|_| generic::Reader::new()),
+            sizing: batch_work::Sizing::default(),
+            decisions_recorded: false,
         })
     }
 }
@@ -232,6 +264,9 @@ pub struct ColumnarReadReport {
     /// Positional execution reads, excluding separately reported binding reads.
     pub data_read_bytes: u64,
     pub data_read_requests: u64,
+    /// Completed provider row targets, independent of decoded row counts and
+    /// retained page/stripe workspaces. No completion is recorded for EOF.
+    pub adaptive_decode: shardloom_exec::adaptive_work::AdaptiveWorkReport,
 }
 
 pub(crate) struct ColumnarReader {
@@ -243,6 +278,8 @@ pub(crate) struct ColumnarReader {
     rows: u64,
     ended: bool,
     other: Option<generic::Reader>,
+    sizing: batch_work::Sizing,
+    decisions_recorded: bool,
 }
 
 struct Decoder {
@@ -251,6 +288,52 @@ struct Decoder {
     first_row: u64,
     expected_rows: u64,
     emitted_rows: u64,
+    cost: shardloom_exec::adaptive_work::WorkCost,
+}
+
+impl Decoder {
+    fn next(
+        &mut self,
+        sizing: &mut batch_work::Sizing,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(RecordBatch, u64)>> {
+        let selected = sizing.select(
+            context.memory(),
+            self.cost,
+            self.expected_rows - self.emitted_rows,
+            batch_work::MAX_ROWS,
+        )?;
+        if let Some(selected) = selected {
+            self.reader
+                .set_batch_size(usize::try_from(selected.units()).map_err(failed)?)
+                .map_err(failed)?;
+        }
+        let Some(batch) = self.reader.next() else {
+            if self.emitted_rows != self.expected_rows {
+                return Err(failed(
+                    "decoder did not complete its admitted source extent",
+                ));
+            }
+            return Ok(None);
+        };
+        let batch = batch.map_err(failed)?;
+        let first_row = self
+            .first_row
+            .checked_add(self.emitted_rows)
+            .ok_or_else(|| failed("source position overflow"))?;
+        self.emitted_rows = self
+            .emitted_rows
+            .checked_add(batch.num_rows() as u64)
+            .filter(|rows| *rows <= self.expected_rows)
+            .ok_or_else(|| failed("decoder exceeded its admitted source extent"))?;
+        context.check_cancelled()?;
+        if let Some(selected) = selected.filter(|_| batch.num_rows() > 0) {
+            sizing.complete(selected, &batch);
+            context
+                .record_adaptive_work(crate::native_work_sizing::Owner::ColumnarDecode, selected);
+        }
+        Ok(Some((batch, first_row)))
+    }
 }
 
 impl ColumnarReader {
@@ -274,7 +357,8 @@ impl ColumnarReader {
         let private_parquet = self.prepared.source.other.is_none();
         self.next(context)?
             .map(|(batch, first_row)| {
-                ResidentMemorySource::from_local_arrow_with_ownership(
+                let (batch, owner) = batch.into_parts();
+                let result = ResidentMemorySource::from_local_arrow_with_ownership(
                     session,
                     batch,
                     context,
@@ -284,12 +368,31 @@ impl ColumnarReader {
                         crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy
                     },
                 )
-                .map(|source| (source, first_row))
+                .map(|source| (source, first_row));
+                drop(owner);
+                result
             })
             .transpose()
     }
 
-    fn next(&mut self, context: &NativeExecutionContext<'_>) -> Result<Option<(RecordBatch, u64)>> {
+    fn next(
+        &mut self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {
+        let next = self.next_unrecorded(context)?;
+        if next.is_none() && !self.decisions_recorded {
+            if let Some(selection) = self.prepared.region_selection {
+                selection.complete(context)?;
+            }
+            self.decisions_recorded = true;
+        }
+        Ok(next)
+    }
+
+    fn next_unrecorded(
+        &mut self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {
         if let Some(other) = &mut self.other {
             return other.next(&self.prepared, &self.metrics, context);
         }
@@ -299,28 +402,12 @@ impl ColumnarReader {
                 self.prepared.source.files[*index].identity.validate()?;
             }
             if let Some(active) = &mut self.active {
-                if let Some(batch) = active.reader.next() {
-                    let batch = batch.map_err(failed)?;
-                    let first_row = active
-                        .first_row
-                        .checked_add(active.emitted_rows)
-                        .ok_or_else(|| failed("source position overflow"))?;
-                    active.emitted_rows = active
-                        .emitted_rows
-                        .checked_add(batch.num_rows() as u64)
-                        .filter(|rows| *rows <= active.expected_rows)
-                        .ok_or_else(|| failed("decoder exceeded its admitted source extent"))?;
+                if let Some((batch, first_row)) = active.next(&mut self.sizing, context)? {
                     self.rows = self
                         .rows
                         .checked_add(batch.num_rows() as u64)
                         .ok_or_else(|| failed("source row count overflow"))?;
-                    context.check_cancelled()?;
-                    return Ok(Some((batch, first_row)));
-                }
-                if active.emitted_rows != active.expected_rows {
-                    return Err(failed(
-                        "decoder did not complete its admitted source extent",
-                    ));
+                    return Ok(Some((batch.into(), first_row)));
                 }
                 self.active.take();
             }
@@ -356,23 +443,19 @@ impl ColumnarReader {
             // Admission is based on declared uncompressed selected chunks. It
             // precedes decoder construction but does not intercept allocations
             // inside the upstream decoder and is not an RSS bound.
-            let workspace = group
-                .columns()
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| mask.leaf_included(*i))
-                .try_fold(8192_u64, |sum, (_, column)| {
-                    let size = u64::try_from(column.uncompressed_size()).map_err(failed)?;
-                    sum.checked_add(size)
-                        .ok_or_else(|| failed("decoder workspace overflow"))
-                })?;
+            let workspace = batch_work::parquet_workspace(group, &mask)?;
             let credit = context.memory().reserve(workspace)?;
             let chunks = chunks::SelectedChunks::read(input, group, &mask, context.memory())?;
+            let schema = metadata
+                .schema()
+                .project(&self.prepared.projection)
+                .map_err(failed)?;
+            let cost = batch_work::cost(&schema, &schema, &[])?;
             let mut builder =
                 ParquetRecordBatchReaderBuilder::new_with_metadata(chunks, metadata.clone())
                     .with_projection(mask)
                     .with_row_groups(vec![group_index])
-                    .with_batch_size(8192);
+                    .with_batch_size(batch_work::MAX_ROWS);
             if let Some(limit) = self.prepared.max_rows {
                 builder = builder
                     .with_limit(usize::try_from(limit.saturating_sub(self.rows)).map_err(failed)?);
@@ -386,6 +469,7 @@ impl ColumnarReader {
                     source_group.rows.min(limit.saturating_sub(self.rows))
                 }),
                 emitted_rows: 0,
+                cost,
             });
             self.next_group += 1;
         }
@@ -422,6 +506,7 @@ impl ColumnarReader {
             schema_discovery_read_bytes: 0,
             data_read_bytes: self.metrics.bytes.load(Ordering::Relaxed),
             data_read_requests: self.metrics.requests.load(Ordering::Relaxed),
+            adaptive_decode: self.sizing.report(),
         })
     }
 }

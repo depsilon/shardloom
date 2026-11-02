@@ -1,10 +1,41 @@
 //! Explicit union-by-name schema alignment. No value casts or schema guessing.
 
 use super::{Result, failed};
+use crate::universal_format_io::owned_batch::OwnedBatch;
 use arrow_array::{ArrayRef, RecordBatch, StringArray, new_null_array};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
-use shardloom_exec::live_memory::LiveMemoryPool;
+use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::sync::Arc;
+
+#[cfg(test)]
+#[path = "generic_schema_tests.rs"]
+mod tests;
+
+/// Arrow projection shares fields but creates a field-reference table and
+/// clones schema metadata. Admit those structures before calling the provider.
+/// Complete projections can reuse the already admitted source schema.
+pub(super) fn project(
+    source: &SchemaRef,
+    indices: &[usize],
+    memory: &LiveMemoryPool,
+) -> Result<(SchemaRef, Option<Arc<MemoryLease>>)> {
+    if indices.len() == source.fields().len() && indices.iter().copied().eq(0..indices.len()) {
+        return Ok((Arc::clone(source), None));
+    }
+    let capacity = add(
+        add(8192, mul(indices.len() as u64, 32)?)?,
+        mul(source.metadata().capacity() as u64, 128)?,
+    )?;
+    let capacity = source
+        .metadata()
+        .iter()
+        .try_fold(capacity, |sum, (key, value)| {
+            add(sum, mul(add(key.len() as u64, value.len() as u64)?, 2)?)
+        })?;
+    let credit = memory.reserve(capacity)?;
+    let projected = Arc::new(source.project(indices).map_err(failed)?);
+    Ok((projected, Some(Arc::new(credit))))
+}
 
 pub(super) fn with_partitions(
     schema: &SchemaRef,
@@ -108,14 +139,44 @@ pub(super) fn local_projection(
 }
 
 pub(super) fn align(
-    batch: RecordBatch,
+    input: OwnedBatch,
     target: SchemaRef,
     partitions: &[(String, Option<String>)],
     memory: &LiveMemoryPool,
-) -> Result<RecordBatch> {
+    credited_input: bool,
+) -> Result<OwnedBatch> {
+    align_with_handoff(input, target, partitions, memory, credited_input, false)
+}
+
+/// The sealed native Parquet ingest reader retains the payload lease with its
+/// batch, leaving standard buffer allocations eligible for the existing unique
+/// allocation/alignment proof. Ordinary Arrow export still uses buffer owners.
+pub(super) fn align_owned_parquet(
+    input: OwnedBatch,
+    target: SchemaRef,
+    partitions: &[(String, Option<String>)],
+    memory: &LiveMemoryPool,
+) -> Result<OwnedBatch> {
+    align_with_handoff(input, target, partitions, memory, false, true)
+}
+
+fn align_with_handoff(
+    input: OwnedBatch,
+    target: SchemaRef,
+    partitions: &[(String, Option<String>)],
+    memory: &LiveMemoryPool,
+    credited_input: bool,
+    retain_standard_allocations: bool,
+) -> Result<OwnedBatch> {
+    let batch = &*input;
     let rows = batch.num_rows();
     let source_schema = batch.schema();
-    let mut capacity = batch.get_array_memory_size() as u64;
+    let mut capacity = if credited_input {
+        0
+    } else {
+        batch.get_array_memory_size() as u64
+    };
+    let mut credited_buffers = 0_u64;
     for field in target.fields() {
         capacity = add(capacity, 4096)?;
         if let Some((_, value)) = partitions.iter().find(|(name, _)| name == field.name()) {
@@ -131,26 +192,30 @@ pub(super) fn align(
         .try_reserve_exact(target.fields().len())
         .map_err(failed)?;
     for field in target.fields() {
-        let column =
-            if let Some((_, value)) = partitions.iter().find(|(name, _)| name == field.name()) {
-                Arc::new(StringArray::from_iter(std::iter::repeat_n(
-                    value.as_deref(),
-                    rows,
-                ))) as ArrayRef
-            } else if let Ok(index) = source_schema.index_of(field.name()) {
-                let column = batch.column(index);
-                if column.data_type() != field.data_type() {
-                    return Err(failed(
-                        "decoded field type changed after source schema admission",
-                    ));
-                }
-                Arc::clone(column)
-            } else {
-                if !field.is_nullable() {
-                    return Err(failed("missing source field was not admitted as nullable"));
-                }
-                new_null_array(field.data_type(), rows)
-            };
+        let column = if let Some((_, value)) =
+            partitions.iter().find(|(name, _)| name == field.name())
+        {
+            Arc::new(StringArray::from_iter(std::iter::repeat_n(
+                value.as_deref(),
+                rows,
+            ))) as ArrayRef
+        } else if let Ok(index) = source_schema.index_of(field.name()) {
+            let column = batch.column(index);
+            if column.data_type() != field.data_type() {
+                return Err(failed(
+                    "decoded field type changed after source schema admission",
+                ));
+            }
+            if credited_input {
+                credited_buffers = add(credited_buffers, column.get_buffer_memory_size() as u64)?;
+            }
+            Arc::clone(column)
+        } else {
+            if !field.is_nullable() {
+                return Err(failed("missing source field was not admitted as nullable"));
+            }
+            new_null_array(field.data_type(), rows)
+        };
         columns.push(column);
     }
     let output = RecordBatch::try_new_with_options(
@@ -159,11 +224,25 @@ pub(super) fn align(
         &arrow_array::RecordBatchOptions::new().with_row_count(Some(rows)),
     )
     .map_err(failed)?;
+    // Retain the delivered allocations after construction scratch is released.
+    // Owned native ingestion carries the lease independently of buffer wrappers;
+    // ordinary Arrow delivery attaches it to buffers that may escape the batch.
+    let retained = (output.get_array_memory_size() as u64)
+        .checked_sub(credited_buffers)
+        .ok_or_else(|| failed("credited source buffers exceed aligned output ownership"))?;
+    credit.resize(retained)?;
+    let output = if retain_standard_allocations {
+        OwnedBatch::with_owner(output, Arc::new(credit))
+    } else {
+        crate::universal_format_io::text_stream::credited_batch(output, credit)?
+    };
+    let (batch, input_owner) = input.into_parts();
     drop(batch);
-    // Retain only the delivered buffers' complete reservation after scratch is
-    // released. Clones/slices carry this lease through the existing buffer owner.
-    credit.resize(output.get_array_memory_size() as u64)?;
-    crate::universal_format_io::text_stream::credited_batch(output, credit)
+    Ok(if let Some(owner) = input_owner {
+        output.retain(owner)
+    } else {
+        output
+    })
 }
 
 fn null_capacity(dtype: &DataType, rows: u64) -> Result<u64> {

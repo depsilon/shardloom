@@ -1,5 +1,6 @@
 #![allow(clippy::must_use_candidate)]
 
+use shardloom_core::native_io_decisions::NativeIoCapabilityDecisions;
 use std::fmt::Write as _;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/admitted_context_tests.rs"]
@@ -724,6 +725,8 @@ fn state_budget_next_action_for_pressure(pressure_class: &str) -> &'static str {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VortexLocalPrimitiveEmbeddedLayoutReport {
+    /// Actual footer/count/pruning owner outcomes; inspection leaves this empty.
+    pub capability_decisions: shardloom_core::native_io_decisions::NativeIoCapabilityDecisions,
     pub schema_version: String,
     pub status: String,
     pub footer_row_count: u64,
@@ -1078,6 +1081,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     #[must_use]
     pub fn not_available() -> Self {
         Self {
+            capability_decisions: NativeIoCapabilityDecisions::default(),
             schema_version: Self::SCHEMA_VERSION.to_string(),
             status: "not_available".to_string(),
             footer_row_count: 0,
@@ -1118,7 +1122,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
         // unrelated schema fields or realize layout nodes to render evidence.
         // Explicit layout inspection remains available through inspect_file_layouts.
         let footer = file.footer();
-        Self {
+        let mut report = Self {
             status: "footer_row_count_available".into(),
             footer_row_count: file.row_count(),
             footer_segment_count: u64::try_from(footer.segment_map().len()).unwrap_or(u64::MAX),
@@ -1136,7 +1140,26 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             operator_selection_metadata_status: "exact_footer_row_count_only".into(),
             late_materialization_status: "no_input_materialization_for_footer_count".into(),
             ..Self::not_available()
-        }
+        };
+        report.mark_footer_count();
+        report
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn mark_footer_count(&mut self) {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoCapabilityDecisions, NativeIoDecisionOutcome,
+            NativeIoDecisionReason, NativeIoObservedWork,
+        };
+        self.capability_decisions = NativeIoCapabilityDecisions::single(
+            NativeIoCapability::MetadataCount,
+            NativeIoDecisionOutcome::Executed,
+            NativeIoDecisionReason::ExactHeldMetadata,
+            NativeIoObservedWork {
+                input_rows: Some(self.footer_row_count),
+                ..NativeIoObservedWork::default()
+            },
+        );
     }
 
     #[cfg(feature = "vortex-local-primitives")]
@@ -1178,6 +1201,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
         Self {
             schema_version: Self::SCHEMA_VERSION.to_string(),
             status: "footer_inventory_available".to_string(),
+            capability_decisions: NativeIoCapabilityDecisions::default(),
             footer_row_count: file.row_count(),
             footer_segment_count: segment_count,
             footer_statistics_available,
@@ -1265,6 +1289,7 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     #[cfg(feature = "vortex-local-primitives")]
     fn partitioned() -> Self {
         Self {
+            capability_decisions: NativeIoCapabilityDecisions::default(),
             schema_version: Self::SCHEMA_VERSION.to_string(),
             status: "partitioned_footer_inventory_available".to_string(),
             footer_row_count: 0,
@@ -1319,7 +1344,29 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
     }
 
     #[cfg(feature = "vortex-local-primitives")]
-    fn mark_pruning_consulted(&mut self, pruned_entire_input: bool) {
+    fn mark_pruning_consulted(&mut self, pruned_entire_input: bool) -> Result<()> {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason,
+            NativeIoObservedWork,
+        };
+        self.capability_decisions.record(
+            NativeIoCapability::RegionExclusion,
+            if pruned_entire_input {
+                NativeIoDecisionOutcome::Executed
+            } else {
+                NativeIoDecisionOutcome::Declined
+            },
+            if pruned_entire_input {
+                NativeIoDecisionReason::ExclusionProved
+            } else {
+                NativeIoDecisionReason::ExclusionNotProved
+            },
+            NativeIoObservedWork {
+                regions: Some(1),
+                excluded_regions: Some(u64::from(pruned_entire_input)),
+                ..NativeIoObservedWork::default()
+            },
+        )?;
         self.metadata_first_pruning_consulted = true;
         self.metadata_pruned_entire_input = pruned_entire_input;
         if pruned_entire_input {
@@ -1334,11 +1381,14 @@ impl VortexLocalPrimitiveEmbeddedLayoutReport {
             self.planner_consumption_status =
                 "metadata_first_pruning_consulted_no_stats".to_string();
         }
+        Ok(())
     }
 
     #[cfg(feature = "vortex-local-primitives")]
     #[allow(clippy::too_many_lines)]
     fn merge_partition(&mut self, child: &Self) -> Result<()> {
+        self.capability_decisions
+            .merge(&child.capability_decisions)?;
         let metadata_row_count_consumed = self
             .planner_consumption_status
             .contains("metadata_row_count")
@@ -3249,6 +3299,7 @@ pub fn local_primitive_native_io_certificate(
         local_primitive_native_io_side_effect_report(report, &diagnostics),
         diagnostics,
     )?;
+    certificate.capability_decisions = report.embedded_layout.capability_decisions;
     certificate.fallback_attempted = certificate
         .diagnostics
         .iter()
@@ -15506,7 +15557,7 @@ fn read_local_vortex_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -15772,7 +15823,7 @@ fn read_local_vortex_partitioned_scan(
         );
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-            partition_layout.mark_pruning_consulted(metadata_pruned);
+            partition_layout.mark_pruning_consulted(metadata_pruned)?;
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
                 control_plane_micros = control_plane_micros
@@ -17262,12 +17313,13 @@ fn partitioned_count_all_metadata_report(
                     .to_string(),
             )
         })?;
-        let child_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
+        let mut child_layout = VortexLocalPrimitiveEmbeddedLayoutReport::from_file(
             &file,
             VortexQueryPrimitiveKind::CountAll,
             false,
             false,
         );
+        child_layout.mark_footer_count();
         embedded_layout.merge_partition(&child_layout)?;
     }
     Ok(VortexLocalPrimitiveExecutionReport {
@@ -19109,7 +19161,7 @@ fn read_local_vortex_distinct_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -19286,7 +19338,7 @@ fn read_local_vortex_drop_duplicate_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -19760,7 +19812,7 @@ fn read_local_vortex_sample_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -19991,7 +20043,7 @@ fn read_local_vortex_expression_project_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -20199,7 +20251,7 @@ fn read_local_vortex_melt_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -20391,7 +20443,7 @@ fn read_local_vortex_pivot_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -20589,7 +20641,7 @@ fn read_local_vortex_explode_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -20784,7 +20836,7 @@ fn read_local_vortex_rolling_window_scan(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();
@@ -21339,7 +21391,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
     if let Some(filter) = plan.filter.as_ref()
         && let Some(metadata_pruned) = file.can_prune(filter).map_err(vortex_error)?
     {
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
     }
     let aggregate_has_grouping =
         !aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty();
@@ -23018,7 +23070,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         );
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-            partition_layout.mark_pruning_consulted(metadata_pruned);
+            partition_layout.mark_pruning_consulted(metadata_pruned)?;
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
                 continue;
@@ -23680,7 +23732,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     );
     if let Some(filter) = plan.filter.as_ref() {
         let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
     }
 
     let source_row_id_projection_status = if source_row_id_projection_applied {
@@ -24603,7 +24655,7 @@ fn read_local_vortex_sort_rows_partitioned_scan(
         );
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
-            partition_layout.mark_pruning_consulted(metadata_pruned);
+            partition_layout.mark_pruning_consulted(metadata_pruned)?;
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
                 continue;
@@ -50656,6 +50708,7 @@ mod tests {
 
     #[test]
     fn count_all_answers_from_vortex_metadata_without_scan() {
+        use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
         let path = unique_vortex_path("count-all");
         write_primitive_fixture(&path).expect("fixture");
         let uri = DatasetUri::new(path.display().to_string()).expect("uri");
@@ -50687,6 +50740,16 @@ mod tests {
             certificate.is_certified(),
             "metadata-only count should certify as native Vortex metadata I/O without a scan"
         );
+        let row = certificate
+            .capability_decisions
+            .get(NativeIoCapability::MetadataCount)
+            .unwrap();
+        assert_eq!(
+            (row.considered, row.admitted, row.executed, row.declined),
+            (1, 1, 1, 0)
+        );
+        assert_eq!(row.observed.input_rows, Some(3));
+        assert!(row.has_admission_reason(NativeIoDecisionReason::ExactHeldMetadata));
     }
 
     #[test]
@@ -60491,6 +60554,7 @@ mod tests {
 
     #[test]
     fn partitioned_local_primitive_counts_sources_without_fallback() {
+        use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
         let left_path = unique_vortex_path("partitioned-count-left");
         let right_path = unique_vortex_path("partitioned-count-right");
         write_struct_fixture(&left_path).expect("left fixture");
@@ -60532,6 +60596,16 @@ mod tests {
             certificate.is_certified(),
             "partitioned metadata count should certify as native Vortex metadata I/O without a scan"
         );
+        let row = certificate
+            .capability_decisions
+            .get(NativeIoCapability::MetadataCount)
+            .unwrap();
+        assert_eq!(
+            (row.considered, row.admitted, row.executed, row.declined),
+            (2, 2, 2, 0)
+        );
+        assert_eq!(row.observed.input_rows, Some(10));
+        assert!(row.has_admission_reason(NativeIoDecisionReason::ExactHeldMetadata));
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("partitioned_vortex_sources=2"));
         assert!(summary.contains("partitioned_execution_strategy=sequential_capillary_parts"));

@@ -26,11 +26,30 @@ fn aggregate(input: VortexRelationalPlan, measures: Vec<Measure>) -> VortexRelat
     }))
 }
 
-fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
+pub(super) fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
     aggregate(input, vec![measure("count", None, "rows")])
 }
 
-fn assert_metadata(result: &CollectedVortexRelational, rows: u64) {
+pub(super) fn assert_metadata(result: &CollectedVortexRelational, rows: u64) {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
+    let decision = result
+        .execution
+        .native_io_certificate
+        .capability_decisions
+        .get(NativeIoCapability::MetadataCount)
+        .expect("metadata execution decision");
+    assert_eq!(
+        (
+            decision.considered,
+            decision.admitted,
+            decision.declined,
+            decision.executed
+        ),
+        (1, 1, 0, 1)
+    );
+    assert!(decision.has_admission_reason(NativeIoDecisionReason::ExactHeldMetadata));
+    assert_eq!(decision.observed.input_rows, Some(rows));
+    assert_eq!(decision.observed.output_rows, Some(1));
     let report = result.execution.input.as_ref().unwrap();
     assert_eq!(
         (report.metadata_count_sources, report.metadata_count_rows),

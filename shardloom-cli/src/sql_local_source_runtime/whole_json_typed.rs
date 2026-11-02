@@ -1,11 +1,14 @@
 //! Incremental text preparation with explicit complete schema-discovery replay.
 
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 use super::{
     Arc, Instant, LocalInputAdapterSelection, LocalSourceFormat, LocalSourceReadPlan,
     ShardLoomError, VortexIngestReport, VortexIngestRequest, VortexIngestSourceData,
     fingerprint_local_source_file_with_budget_report, finish_text_streaming_vortex_prepare,
     fnv64_digest, text_stream_record_batch_size,
 };
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+use super::{Arc, LocalSourceReadPlan, ShardLoomError};
 #[cfg(test)]
 use super::{
     CancellationToken, RecordBatch, parse_flat_json_object_with_plan, unsupported_sql_error,
@@ -27,6 +30,7 @@ pub(super) fn decoder() -> TextRecordDecoder {
 }
 
 #[allow(clippy::too_many_lines)]
+#[cfg(not(all(feature = "vortex-local-primitives", unix)))]
 pub(super) fn prepare(
     request: VortexIngestRequest,
     source_adapter: LocalInputAdapterSelection,

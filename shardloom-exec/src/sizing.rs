@@ -748,10 +748,11 @@ impl DynamicSizingFeedbackReport {
             status = DynamicSizingFeedbackStatus::Unsupported;
             mode = DynamicSizingFeedbackMode::Unsupported;
         } else if reduce_count > 0 {
-            recommended_policy.target_task_bytes = std::cmp::max(
-                current_target.saturating_div(2),
-                input.current_policy.min_task_bytes,
-            );
+            recommended_policy.target_task_bytes =
+                ByteSize::from_bytes(crate::adaptive_work::shrink_target(
+                    current_target.as_bytes(),
+                    input.current_policy.min_task_bytes.as_bytes(),
+                ));
             status = if increase_count > 0 {
                 DynamicSizingFeedbackStatus::MixedSignals
             } else {
@@ -759,10 +760,11 @@ impl DynamicSizingFeedbackReport {
             };
             mode = DynamicSizingFeedbackMode::TargetAdjustment;
         } else if increase_count > 0 {
-            recommended_policy.target_task_bytes = std::cmp::min(
-                current_target.saturating_mul(2),
-                input.current_policy.max_task_bytes,
-            );
+            recommended_policy.target_task_bytes =
+                ByteSize::from_bytes(crate::adaptive_work::grow_target(
+                    current_target.as_bytes(),
+                    input.current_policy.max_task_bytes.as_bytes(),
+                ));
             status = DynamicSizingFeedbackStatus::TargetIncreased;
             mode = DynamicSizingFeedbackMode::TargetAdjustment;
         }

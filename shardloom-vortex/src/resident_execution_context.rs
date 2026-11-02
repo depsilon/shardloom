@@ -50,6 +50,8 @@ pub struct NativeExecutionContext<'a> {
     admitted: Instant,
     gate: Gate<'a>,
     opened_sources: Mutex<OpenedSources>,
+    adaptive_work: Mutex<crate::native_work_sizing::Reports>,
+    capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
 }
 
 #[derive(Default)]
@@ -95,11 +97,85 @@ impl RuntimeOwner {
             admitted,
             gate,
             opened_sources: Mutex::new(OpenedSources::default()),
+            adaptive_work: Mutex::default(),
+            capability_decisions: Mutex::default(),
         })
     }
 }
 
 impl NativeExecutionContext<'_> {
+    /// Aggregate at owner boundaries only. No input values or per-row trace survive.
+    pub(crate) fn record_capability_decision(
+        &self,
+        capability: shardloom_core::native_io_decisions::NativeIoCapability,
+        outcome: shardloom_core::native_io_decisions::NativeIoDecisionOutcome,
+        reason: shardloom_core::native_io_decisions::NativeIoDecisionReason,
+        observed: shardloom_core::native_io_decisions::NativeIoObservedWork,
+    ) -> Result<()> {
+        self.record_capability_decisions(capability, 1, outcome, reason, observed)
+    }
+
+    pub(crate) fn record_capability_decisions(
+        &self,
+        capability: shardloom_core::native_io_decisions::NativeIoCapability,
+        count: u64,
+        outcome: shardloom_core::native_io_decisions::NativeIoDecisionOutcome,
+        reason: shardloom_core::native_io_decisions::NativeIoDecisionReason,
+        observed: shardloom_core::native_io_decisions::NativeIoObservedWork,
+    ) -> Result<()> {
+        self.capability_decisions
+            .lock()
+            .map_err(|_| resident_error("native capability decision evidence poisoned"))?
+            .record_many(capability, count, outcome, reason, observed)
+    }
+
+    pub(crate) fn capability_decisions(
+        &self,
+    ) -> Result<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions> {
+        self.capability_decisions
+            .lock()
+            .map(|decisions| *decisions)
+            .map_err(|_| resident_error("native capability decision evidence poisoned"))
+    }
+
+    pub(crate) fn append_capability_decisions(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        certificate
+            .capability_decisions
+            .merge(&self.capability_decisions()?)
+    }
+
+    pub(crate) fn record_adaptive_work(
+        &self,
+        owner: crate::native_work_sizing::Owner,
+        shape: shardloom_exec::adaptive_work::WorkShape,
+    ) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .record(owner, shape);
+    }
+
+    pub(crate) fn append_adaptive_work_certificate(&self, proof: &mut String) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .append_certificate(proof);
+    }
+
+    pub(crate) fn record_adaptive_work_decline(
+        &self,
+        owner: crate::native_work_sizing::Owner,
+        denial: shardloom_exec::adaptive_work::WorkDenial,
+    ) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .record_decline(owner, denial);
+    }
+
     /// Immutable floating semantics of the admitted session, not a call override.
     #[must_use]
     pub fn float_policy(&self) -> shardloom_core::FloatPolicy {

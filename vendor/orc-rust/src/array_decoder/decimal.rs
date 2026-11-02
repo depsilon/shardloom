@@ -24,43 +24,53 @@ use arrow::datatypes::Decimal128Type;
 use snafu::ResultExt;
 
 use crate::encoding::decimal::UnboundedVarintStreamDecoder;
-use crate::encoding::integer::get_signed_int_decoder;
 use crate::encoding::PrimitiveValueDecoder;
 use crate::error::ArrowSnafu;
 use crate::proto::stream::Kind;
+use crate::reader::memory::decoded::{Memory, Values};
 use crate::stripe::Stripe;
 use crate::{column::Column, error::Result};
 
 use super::{ArrayBatchDecoder, PresentDecoder, PrimitiveArrayDecoder};
+
+pub(super) fn structure_bytes() -> usize {
+    std::mem::size_of::<DecimalScaleRepairDecoder>()
+}
 
 pub fn new_decimal_decoder(
     column: &Column,
     stripe: &Stripe,
     precision: u32,
     fixed_scale: u32,
-) -> Box<dyn ArrayBatchDecoder> {
-    let varint_iter = stripe.stream_map().get(column, Kind::Data);
+) -> Result<Box<dyn ArrayBatchDecoder>> {
+    let varint_iter = stripe.stream_map().get_checked(column, Kind::Data)?;
     let varint_iter = Box::new(UnboundedVarintStreamDecoder::new(varint_iter));
 
     // Scale is specified on a per varint basis (in addition to being encoded in the type)
-    let scale_iter = stripe.stream_map().get(column, Kind::Secondary);
-    let scale_iter = get_signed_int_decoder::<i32>(scale_iter, column.rle_version());
+    let scale_iter = stripe.stream_map().get_checked(column, Kind::Secondary)?;
+    let scale_iter = super::decoder_memory::signed::<i32>(
+        scale_iter,
+        column.rle_version(),
+        stripe.stream_map().memory(),
+    )?;
 
-    let present = PresentDecoder::from_stripe(stripe, column);
+    let present = PresentDecoder::from_stripe(stripe, column)?;
 
     let iter = DecimalScaleRepairDecoder {
         varint_iter,
         scale_iter,
         fixed_scale,
+        memory: stripe.stream_map().memory(),
     };
     let iter = Box::new(iter);
 
-    Box::new(DecimalArrayDecoder::new(
+    Ok(Box::new(DecimalArrayDecoder::new(
         precision as u8,
         fixed_scale as i8,
         iter,
         present,
-    ))
+        stripe.stream_map().memory(),
+    )))
 }
 
 /// Wrapper around PrimitiveArrayDecoder to allow specifying the precision and scale
@@ -77,8 +87,9 @@ impl DecimalArrayDecoder {
         scale: i8,
         iter: Box<dyn PrimitiveValueDecoder<i128> + Send>,
         present: Option<PresentDecoder>,
+        memory: Memory,
     ) -> Self {
-        let inner = PrimitiveArrayDecoder::<Decimal128Type>::new(iter, present);
+        let inner = PrimitiveArrayDecoder::<Decimal128Type>::new(iter, present, memory);
         Self {
             precision,
             scale,
@@ -113,6 +124,7 @@ struct DecimalScaleRepairDecoder {
     varint_iter: Box<dyn PrimitiveValueDecoder<i128> + Send>,
     scale_iter: Box<dyn PrimitiveValueDecoder<i32> + Send>,
     fixed_scale: u32,
+    memory: Memory,
 }
 
 impl PrimitiveValueDecoder<i128> for DecimalScaleRepairDecoder {
@@ -124,12 +136,11 @@ impl PrimitiveValueDecoder<i128> for DecimalScaleRepairDecoder {
 
     fn decode(&mut self, out: &mut [i128]) -> Result<()> {
         // TODO: can probably optimize, reuse buffers?
-        let mut varint = vec![0; out.len()];
-        let mut scale = vec![0; out.len()];
-        self.varint_iter.decode(&mut varint)?;
+        let mut scale = Values::<i32>::zeroed(out.len(), &self.memory)?;
+        self.varint_iter.decode(out)?;
         self.scale_iter.decode(&mut scale)?;
-        for (index, (&varint, &scale)) in varint.iter().zip(scale.iter()).enumerate() {
-            out[index] = fix_i128_scale(varint, self.fixed_scale, scale);
+        for (varint, &scale) in out.iter_mut().zip(scale.iter()) {
+            *varint = fix_i128_scale(*varint, self.fixed_scale, scale);
         }
         Ok(())
     }

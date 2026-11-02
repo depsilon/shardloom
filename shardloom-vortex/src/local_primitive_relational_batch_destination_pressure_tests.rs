@@ -5,6 +5,9 @@ const GRANT: u64 = 16 << 20;
 const ROWS: usize = 8193;
 const BATCH: usize = 251;
 
+#[path = "local_primitive_produced_fanout_tests.rs"]
+mod produced_tests;
+
 fn text(row: usize) -> String {
     format!("{row:08}{}", "p".repeat(2040))
 }
@@ -97,6 +100,7 @@ fn completion_input_fanout_pressure_denies_resident_and_replays_native_runs_unde
             assert_eq!(result.execution.runtime.completed_executions, 1);
             assert!(result.execution.runtime.memory.peak_reserved_bytes <= GRANT);
             let replay = result.replay.as_ref().unwrap();
+            assert_replay_decisions(replay);
             assert!(replay.spilled);
             assert_eq!(replay.rows_detached, ROWS as u64);
             assert!(replay.buffer_bytes_copied > GRANT);

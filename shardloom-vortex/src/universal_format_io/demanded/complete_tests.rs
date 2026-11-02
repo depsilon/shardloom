@@ -84,6 +84,136 @@ fn read_all(source: &Arc<LocalColumnarSource>, pool: &LiveMemoryPool) -> Vec<Rec
         .collect()
 }
 
+#[cfg(feature = "vortex-write")]
+#[test]
+fn complete_owned_source_keeps_schema_and_source_owners_after_queued_reader_drop() {
+    let fixture = Fixture::new();
+    let columns = vec!["id".to_string(), "value".to_string()];
+    for format in ["parquet", "arrow-ipc", "avro", "orc"] {
+        let path = fixture.0.join(format!("owned-{format}"));
+        Fixture::write(&path, format, &columns, &int_rows(3, 9));
+        for parallelism in [1, 4] {
+            let memory = LiveMemoryPool::new(16 << 20).unwrap();
+            let token = CancellationToken::default();
+            let source =
+                LocalColumnarSource::admit_complete(&path, format, false, &memory, &token).unwrap();
+            let weak = Arc::downgrade(&source);
+            let ingest = source
+                .complete_ingest_stream_with_parallelism(None, parallelism, &memory, &token)
+                .unwrap()
+                .with_prefetch(parallelism, &token)
+                .unwrap();
+            drop(source);
+            let (metadata, _, mut reader) = ingest.into_parts();
+            let first = reader.next().unwrap().unwrap();
+            drop(reader);
+            drop(metadata);
+            assert!(
+                weak.upgrade().is_some(),
+                "{format}: source owner lost at handoff"
+            );
+            assert_eq!(first.num_rows(), 2);
+            assert_eq!(
+                first
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Int64Array>()
+                    .unwrap()
+                    .values()
+                    .as_ref(),
+                &[3, 9]
+            );
+            assert_eq!(text(first.column(1).as_ref(), 0).as_deref(), Some("v3"));
+            assert_eq!(text(first.column(1).as_ref(), 1).as_deref(), Some("v9"));
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(first);
+            assert!(weak.upgrade().is_none());
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn complete_parquet_arrow_export_retains_payload_credit_after_source_and_batch_drop() {
+    let fixture = Fixture::new();
+    let path = fixture.0.join("export.parquet");
+    Fixture::write(
+        &path,
+        "parquet",
+        &["id".into(), "value".into()],
+        &int_rows(3, 9),
+    );
+    let memory = LiveMemoryPool::new(2 << 20).unwrap();
+    let token = CancellationToken::default();
+    let source =
+        LocalColumnarSource::admit_complete(&path, "parquet", false, &memory, &token).unwrap();
+    let mut stream = source.complete_stream(None, &memory, &token).unwrap();
+    let batch = stream.reader.next().unwrap().unwrap();
+    let values = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .values()
+        .clone();
+    drop(batch);
+    drop(stream);
+    drop(source);
+    assert_eq!(values.as_ref(), &[3, 9]);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(values);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn complete_single_parquet_preserves_preparation_dictionary_and_derived_recipe() {
+    use arrow_array::{DictionaryArray, types::Int32Type};
+    let fixture = Fixture::new();
+    let path = fixture.0.join("dictionary.parquet");
+    let urls = ["https://example.com/a", "https://example.com/b"];
+    let rows = urls
+        .iter()
+        .map(|url| vec![("URL".into(), ScalarValue::Utf8((*url).into()))])
+        .collect::<Vec<_>>();
+    Fixture::write(&path, "parquet", &["URL".into()], &rows);
+    let memory = LiveMemoryPool::new(8 << 20).unwrap();
+    let token = CancellationToken::default();
+    let source =
+        LocalColumnarSource::admit_complete(&path, "parquet", false, &memory, &token).unwrap();
+    let stream = source
+        .complete_ingest_stream(None, &memory, &token)
+        .unwrap()
+        .with_source_native_embedded_derived_columns();
+    assert_eq!(stream.row_count_hint, Some(2));
+    assert!(stream.source_dictionary_preservation_status.contains(
+        "parquet_arrow_reader_requested_dictionary_preservation_for_string_derived_columns"
+    ));
+    assert!(
+        stream
+            .source_dictionary_preservation_status
+            .contains("embedded_derived_column_mode=source_native_dictionary_or_typed_time_only")
+    );
+    assert!(stream.header.len() > 1);
+    let (metadata, _, mut reader) = stream.into_parts();
+    let batch = reader.next().unwrap().unwrap();
+    assert!(reader.next().is_none());
+    let dictionary = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<DictionaryArray<Int32Type>>()
+        .unwrap();
+    for (row, expected) in urls.iter().enumerate() {
+        let index = usize::try_from(dictionary.keys().value(row)).unwrap();
+        assert_eq!(
+            text(dictionary.values().as_ref(), index).as_deref(),
+            Some(*expected)
+        );
+    }
+    drop((batch, reader, metadata, source));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 fn text(array: &dyn Array, row: usize) -> Option<String> {
     if array.is_null(row) {
         return None;
@@ -343,13 +473,12 @@ fn complete_stream_rejects_truncation_owner_and_cancellation_and_releases_credit
             .is_err()
     );
 
-    let mut truncated = source
-        .complete_stream(Some(1), &pool, &CancellationToken::default())
-        .unwrap()
-        .reader;
-    assert!(truncated.next().unwrap().is_err());
-    assert!(truncated.next().is_none());
-    drop(truncated);
+    assert!(
+        source
+            .complete_stream(Some(1), &pool, &CancellationToken::default())
+            .is_err(),
+        "known complete cardinality must reject truncation before decoding"
+    );
 
     let cancellation = CancellationToken::default();
     let mut cancelled = source

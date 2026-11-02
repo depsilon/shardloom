@@ -59,6 +59,23 @@ impl LocalColumnarSource {
         &self.files[0].metadata
     }
 
+    /// Physical metadata remains a capability of the held source even when its
+    /// logical schema requires name alignment or virtual partition columns.
+    pub(super) fn parquet_metadata(&self) -> impl Iterator<Item = &ArrowReaderMetadata> {
+        self.files.iter().map(|file| &file.metadata).chain(
+            self.other
+                .iter()
+                .flat_map(|source| source.files.iter())
+                .filter_map(|file| file.parquet.as_ref()),
+        )
+    }
+
+    pub(super) fn is_parquet(&self) -> bool {
+        self.other
+            .as_ref()
+            .is_none_or(|source| source.format == "parquet")
+    }
+
     pub(crate) fn validate_generation(&self) -> Result<()> {
         self.validate_generation_controlled(&CancellationToken::default())
     }

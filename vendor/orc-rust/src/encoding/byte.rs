@@ -205,6 +205,9 @@ pub struct ByteRleDecoder<R> {
     index: usize,
 }
 
+// The retained run and a temporary discarded literal can coexist during skip.
+pub(crate) const DECODER_BUFFER_BYTES: usize = MAX_REPEAT_LENGTH + MAX_LITERAL_LENGTH;
+
 impl<R: Read> ByteRleDecoder<R> {
     pub fn new(reader: R) -> Self {
         Self {

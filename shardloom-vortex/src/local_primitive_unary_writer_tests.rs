@@ -1,6 +1,9 @@
 use super::*;
 use runtime::VortexLocalPrimitiveRowExportFormat as Format;
 
+#[path = "local_primitive_fanout_family_tests.rs"]
+mod fanout_family_tests;
+
 fn read_binary(path: &std::path::Path, format: Format, columns: &[&str]) -> Vec<serde_json::Value> {
     if format == Format::Vortex {
         let (dtype, rows) = native_rows(path);

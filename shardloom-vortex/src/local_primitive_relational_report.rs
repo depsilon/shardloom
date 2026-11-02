@@ -162,7 +162,7 @@ pub(super) fn certificate(
         input.columnar_files, input.columnar_fingerprint_read_bytes,
         input.columnar_content_fingerprints.join(","),
     );
-        format!("{proof};source_formats={};complete_text_schema_discovery_read_bytes={};binary_projection_uses_provider_decode;ipc_may_read_full_batch_bodies;avro_and_text_parse_record_streams;non_parquet_statistics_and_row_group_pruning_not_claimed;parquet_union_or_virtual_partition_sources_use_conservative_provider_projection_without_statistics_pruning", input.columnar_source_formats.join(","), input.columnar_schema_discovery_read_bytes)
+        format!("{proof};source_formats={};complete_text_schema_discovery_read_bytes={};binary_projection_uses_provider_decode;ipc_may_read_full_batch_bodies;avro_and_text_parse_record_streams;parquet_and_orc_held_metadata_can_exclude_regions_before_payload_reads;other_format_statistics_pruning_not_claimed;union_or_virtual_partition_sources_preserve_admitted_exact_count_and_mapped_exclusion;orc_prefix_selection_is_decode_only_within_selected_stripes", input.columnar_source_formats.join(","), input.columnar_schema_discovery_read_bytes)
     });
     let ranked_proof = input.filter(|input| input.ranked_sources > 0).map_or_else(String::new, |input| format!(
         "ranked_sources={} ranked_rank_columns={} ranked_rank_rows={} ranked_payload_rows={} ranked_rank_group_visits={} ranked_payload_group_visits={} ranked_rank_read_bytes={} ranked_payload_read_bytes={} ranked_selected_rows={};same_held_generation;complete_rank_dependencies_before_complete_decoded_winning_group_payload;unselected_payload_groups_unread;zero_prefix_completes_rank_only;rank_failure_precedes_payload_failure;distinct_sources_metadata_groups_once;phase_visits_reads_and_decoded_rows_include_rereads;whole_selected_group_chunks_then_native_gather;strict_worst_case_compressed_byte_saving;optional_source_capability_not_format_dispatch",
@@ -213,7 +213,7 @@ pub(super) fn certificate(
                 )
             },
             statistics_availability: if columnar > 0 {
-                format!("held_parquet_row_group_metadata_sources={parquet_sources};exact_type_compatible_facts_only;missing_ambiguous_or_unsupported_statistics_retain_regions;non_parquet_source_statistics_not_admitted;batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}")
+                format!("held_parquet_row_group_metadata_sources={parquet_sources};held_orc_stripe_metadata_admitted_when_present;exact_type_compatible_facts_only;missing_ambiguous_or_unsupported_statistics_retain_regions;orc_temporal_decimal_floating_and_inexact_string_bounds_not_admitted;other_format_source_statistics_not_admitted;batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}")
             } else if batch_sources > 0 {
                 format!(
                     "completion_aware_native_batch_sources={batch_sources};batch_global_statistics_unavailable;held_native_file_metadata_sources={file_sources};immutable_native_array_sources={memory_sources}"
@@ -360,7 +360,7 @@ pub(super) fn certificate(
     if metadata_counts > 0 {
         use std::fmt::Write as _;
         let rows = input.map_or(0, |input| input.metadata_count_rows);
-        write!(proof, " metadata_count_sources={metadata_counts} metadata_count_rows={rows};exact_nonnegative_file_and_row_group_counts;checked_u64_accumulation;complete_held_source_inventory;unfiltered_scalar_count_all;metadata_validation_only_no_page_or_value_validation;no_payload_reader;metadata_and_fingerprint_admission_reads_separate;held_generation_checked_through_final_consumer")
+        write!(proof, " metadata_count_sources={metadata_counts} metadata_count_rows={rows};exact_nonnegative_file_and_row_group_counts;orc_requires_present_file_and_stripe_counts_with_checked_agreement;checked_u64_accumulation;complete_held_source_inventory;unfiltered_scalar_count_all;metadata_validation_only_no_page_or_value_validation;no_payload_reader;metadata_and_fingerprint_admission_reads_separate;held_generation_checked_through_final_consumer")
             .expect("String writes cannot fail");
         certificate
             .source_capability_report

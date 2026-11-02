@@ -24,8 +24,18 @@ impl WrittenVortexRelational {
     /// execution's effects as well as the terminal adapter's work.
     #[must_use]
     pub fn into_output_report(mut self) -> VortexLocalPrimitiveRowExportReport {
-        let source = &self.execution.native_io_certificate.side_effects;
-        let output = &mut self.output.evidence.side_effects;
+        self.execution.annotate_output(&mut self.output);
+        self.output
+    }
+}
+
+impl ExecutedVortexRelational {
+    pub(in crate::local_primitives) fn annotate_output(
+        &self,
+        report: &mut VortexLocalPrimitiveRowExportReport,
+    ) {
+        let source = &self.native_io_certificate.side_effects;
+        let output = &mut report.evidence.side_effects;
         output.data_read |= source.data_read;
         output.data_decoded |= source.data_decoded;
         output.data_materialized |= source.data_materialized;
@@ -37,8 +47,7 @@ impl WrittenVortexRelational {
         output.external_effects_executed |= source.external_effects_executed;
         output.fallback_attempted |= source.fallback_attempted;
         output.fallback_execution_allowed |= source.fallback_execution_allowed;
-        self.output.evidence.upstream_scan_called |= source.data_read;
-        self.output
+        report.evidence.upstream_scan_called |= source.data_read;
     }
 }
 

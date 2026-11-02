@@ -42,6 +42,10 @@ use shardloom_exec::{
     live_memory::{Budgeted, MemoryLease},
 };
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+use crate::universal_format_io::owned_batch::LegacyReader;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use crate::universal_format_io::owned_batch::{OwnedBatch, OwnedBatchReader};
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
     Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Float32Array,
@@ -10612,7 +10616,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     float_policy: FloatPolicy,
 ) -> Result<VortexPreparedStateWriteReport> {
     cancellation.check()?;
-    let (source, input_ownership) = request.source.into().into_parts();
+    let (source, input_ownership, mut reader) = request.source.into().into_parts();
     let request = VortexPreparedStateColumnarStreamWriteRequest {
         resources: request.resources,
         target_path: request.target_path,
@@ -10737,7 +10741,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
         cancellation.check()?;
         identity.validate()?;
     }
-    let mut reader = request.source.reader;
     let array_build_start = Instant::now();
     let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
         embedded_derived_build_micros,
@@ -10748,7 +10751,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     cancellation.check()?;
     let first_batch =
         next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
-            .unwrap_or_else(|| RecordBatch::new_empty(reader.schema()));
+            .unwrap_or_else(|| OwnedBatch::from(RecordBatch::new_empty(reader.schema())));
     cancellation.check()?;
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
     if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
@@ -11267,7 +11270,7 @@ fn duration_micros_u64(elapsed: std::time::Duration) -> u64 {
 struct StreamingColumnarVortexArrayIterator {
     dtype: vortex::array::dtype::DType,
     first_array: Option<vortex::array::ArrayRef>,
-    reader: Option<Box<dyn arrow_array::RecordBatchReader + Send>>,
+    reader: Option<Box<dyn OwnedBatchReader>>,
     prefetch: Option<StreamingColumnarVortexPrefetch>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
@@ -11306,7 +11309,9 @@ impl StreamingColumnarVortexArrayIterator {
         Self::with_runtime(
             dtype,
             first_array,
-            reader,
+            Box::new(crate::universal_format_io::owned_batch::LegacyReader(
+                reader,
+            )),
             reader_projection_columns,
             source_shape,
             batch_count,
@@ -11326,7 +11331,7 @@ impl StreamingColumnarVortexArrayIterator {
     fn with_runtime(
         dtype: vortex::array::dtype::DType,
         first_array: vortex::array::ArrayRef,
-        reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+        reader: Box<dyn OwnedBatchReader>,
         reader_projection_columns: Vec<String>,
         source_shape: FlatColumnarSourceShape,
         batch_count: Arc<AtomicUsize>,
@@ -11404,11 +11409,14 @@ impl StreamingColumnarVortexArrayIterator {
                 ),
                 window,
                 task_bytes,
+                sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer::default(),
+                window_produced: true,
+                last_refill_index: None,
                 exhausted: false,
                 refill_after_handoff: true,
                 handoff_wait_started: None,
             };
-            prefetch.fill_window()?;
+            prefetch.fill_window(true)?;
             (None, Some(prefetch))
         } else {
             (Some(reader), None)
@@ -11443,7 +11451,9 @@ impl StreamingColumnarVortexArrayIterator {
             return None;
         }
         let prefetch = self.prefetch.as_mut()?;
-        if !prefetch.refill_after_handoff {
+        if !prefetch.refill_after_handoff
+            || (prefetch.tasks.is_empty() && prefetch.pending.is_empty())
+        {
             return None;
         }
         // Keep W slots and the original per-task credit. A yielded lookahead
@@ -11612,11 +11622,14 @@ type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
 struct StreamingColumnarVortexPrefetch {
     pool: shared_conversion::ConversionExecutor,
     context: Arc<StreamingColumnarVortexArrayWorker>,
-    tasks: std::collections::VecDeque<shared_conversion::ConversionTask>,
+    tasks: std::collections::VecDeque<shared_conversion::QueuedConversion>,
     pending: BTreeMap<usize, Budgeted<vortex::array::ArrayRef>>,
     cancellation: CancellationToken,
     window: usize,
     task_bytes: u64,
+    sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer,
+    window_produced: bool,
+    last_refill_index: Option<usize>,
     exhausted: bool,
     refill_after_handoff: bool,
     handoff_wait_started: Option<Instant>,
@@ -11624,29 +11637,75 @@ struct StreamingColumnarVortexPrefetch {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexPrefetch {
-    fn fill_window(&mut self) -> Result<()> {
-        while !self.exhausted
-            && self.tasks.len() + self.pending.len() < self.window
-            && self.context.failure.get().is_none()
+    fn fill_window(&mut self, output_ready: bool) -> Result<()> {
+        use shardloom_exec::adaptive_work::{WorkCost, WorkDecision, WorkLimits};
+
+        let retained = self.tasks.len() + self.pending.len();
+        if self.exhausted || retained >= self.window || self.context.failure.get().is_some() {
+            return Ok(());
+        }
+        self.cancellation.check()?;
+        // Native copied buffers coexist with the complete task lease until
+        // conversion commits their ownership. convert_batch enforces this
+        // half-lease copy ceiling; held source/output owners are already charged.
+        let bytes_per_task = self
+            .task_bytes
+            .checked_add(if self.context.native_memory.is_some() {
+                self.task_bytes / 2
+            } else {
+                0
+            })
+            .ok_or_else(|| ShardLoomError::InvalidOperation(
+                "native conversion prefetch workspace size overflow; no fallback execution was attempted".into(),
+            ))?;
+        let decision = self.sizing.decide(
+            "ingest_conversion_prefetch",
+            self.pool.memory().snapshot(),
+            WorkCost {
+                fixed_bytes: 0,
+                bytes_per_unit: bytes_per_task,
+            },
+            WorkLimits {
+                min_units: 1,
+                max_units: (self.window - retained) as u64,
+                max_in_flight: 1,
+            },
+        )?;
+        if let WorkDecision::Declined(denial) = decision
+            && (output_ready || retained != 0)
         {
+            // Existing work or the ready handoff can make progress. No read,
+            // conversion or callback is retried, and no live credit is refunded.
+            self.context
+                .stream_timing
+                .stages
+                .defer_conversion_prefetch(denial);
+            return Ok(());
+        }
+        let shape = decision.require_selected("ingest_conversion_prefetch")?;
+        for _ in 0..shape.units() {
             let context = Arc::clone(&self.context);
             let lease = match self.pool.memory().reserve(self.task_bytes) {
                 Ok(lease) => lease,
-                Err(_) if self.context.failure.get().is_some() => break,
+                Err(_) if self.context.failure.get().is_some() => return Ok(()),
                 Err(error) => return Err(error),
             };
             let task = self
                 .pool
                 .submit_read(context, lease, self.cancellation.clone());
             match task {
-                Ok(task) => self.tasks.push_back(task),
+                Ok(task) => self.tasks.push_back(task.into()),
                 // A source failure can cancel submission while the initial
                 // window is still filling. Deliver it from next_array, not
                 // nondeterministically from iterator construction.
-                Err(_) if self.context.failure.get().is_some() => break,
+                Err(_) if self.context.failure.get().is_some() => return Ok(()),
                 Err(error) => return Err(error),
             }
         }
+        self.tasks
+            .back_mut()
+            .expect("positive selected window submitted every task")
+            .completion = Some(shape);
         Ok(())
     }
 
@@ -11678,8 +11737,14 @@ impl StreamingColumnarVortexPrefetch {
         if let Err(error) = self.cancellation.check() {
             return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
         }
-        if let Err(error) = self.fill_window() {
-            return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
+        // Waking the same blocked output request is not another admission
+        // boundary. Repeated polls must not fill the queue with new waves before
+        // any selected work completes and updates the shared sizing feedback.
+        if self.last_refill_index != Some(expected) {
+            self.last_refill_index = Some(expected);
+            if let Err(error) = self.fill_window(false) {
+                return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
+            }
         }
         if let Some(error) = self.context.failure.get() {
             return Poll::Ready(Some(Err(error.clone())));
@@ -11690,7 +11755,7 @@ impl StreamingColumnarVortexPrefetch {
                 // The Vortex writer now owns the array and its referenced buffers.
                 drop(lease);
                 if self.refill_after_handoff
-                    && let Err(error) = self.fill_window()
+                    && let Err(error) = self.fill_window(true)
                 {
                     return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
                 }
@@ -11708,17 +11773,17 @@ impl StreamingColumnarVortexPrefetch {
                 )))));
             };
             let wait_started = *self.handoff_wait_started.get_or_insert_with(Instant::now);
-            let result = match task {
+            let (result, completion) = match &mut task.task {
                 shared_conversion::ConversionTask::Shared(task) => {
                     let result = futures::ready!(task.poll_join(cx));
-                    self.tasks.pop_front();
-                    result.and_then(std::convert::identity)
+                    let task = self.tasks.pop_front().expect("front task checked above");
+                    (result.and_then(std::convert::identity), task.completion)
                 }
-                shared_conversion::ConversionTask::Dedicated(_) => self
-                    .tasks
-                    .pop_front()
-                    .expect("front task checked above")
-                    .join(),
+                shared_conversion::ConversionTask::Dedicated(_) => {
+                    let task = self.tasks.pop_front().expect("front task checked above");
+                    let completion = task.completion;
+                    (task.join(), completion)
+                }
             };
             self.handoff_wait_started = None;
             self.context.stream_timing.stages.record(
@@ -11731,6 +11796,18 @@ impl StreamingColumnarVortexPrefetch {
             match result {
                 Ok(result) => {
                     let (result, lease) = result.into_parts();
+                    self.window_produced &= result.is_some();
+                    if let Some(shape) = completion {
+                        if self.window_produced {
+                            self.sizing.complete(shape, None);
+                            self.context
+                                .stream_timing
+                                .stages
+                                .complete_conversion_prefetch(shape);
+                        }
+                        // EOF polls do not certify completed conversion work.
+                        self.window_produced = true;
+                    }
                     match result {
                         Some((index, array)) => {
                             self.pending.insert(index, Budgeted::new(array, lease));
@@ -11759,7 +11836,7 @@ impl Drop for StreamingColumnarVortexPrefetch {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexArraySharedReader {
-    reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    reader: Box<dyn OwnedBatchReader>,
     next_batch_index: usize,
     stopped: bool,
 }
@@ -11826,7 +11903,7 @@ impl StreamingColumnarVortexArrayWorker {
     fn read_batch(
         &self,
         reader: &mut StreamingColumnarVortexArraySharedReader,
-    ) -> Result<Option<(usize, RecordBatch)>> {
+    ) -> Result<Option<(usize, OwnedBatch)>> {
         if reader.stopped {
             return Ok(None);
         }
@@ -11854,7 +11931,7 @@ impl StreamingColumnarVortexArrayWorker {
     fn convert_batch(
         &self,
         index: usize,
-        batch: RecordBatch,
+        batch: OwnedBatch,
         lease: &mut MemoryLease,
     ) -> Result<PrefetchedVortexArray> {
         // Copy charges also bound admitted controlled-reader transfers, which
@@ -11934,6 +12011,10 @@ mod prefetch_tests;
 #[path = "vortex_ingest_owned_tests.rs"]
 mod owned_ingest_tests;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_owned_handoff_tests.rs"]
+mod owned_handoff_tests;
+
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 #[path = "vortex_ingest_reader_transfer_tests.rs"]
 mod reader_transfer_tests;
@@ -11948,9 +12029,9 @@ mod writer_slot_tests;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn next_streaming_record_batch(
-    reader: &mut dyn arrow_array::RecordBatchReader,
+    reader: &mut dyn OwnedBatchReader,
     context: &str,
-) -> Result<Option<RecordBatch>> {
+) -> Result<Option<OwnedBatch>> {
     reader
         .next()
         .transpose()
@@ -12118,14 +12199,17 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
-    batch: RecordBatch,
+    batch: impl Into<OwnedBatch>,
     source_shape: &FlatColumnarSourceShape,
     timing: &IngestStageTimings,
     native_memory: Option<(&NativeIngestMemory, &mut MemoryLease)>,
 ) -> Result<vortex::array::ArrayRef> {
+    let input = batch.into();
+    let batch = &*input;
     let rows = usize_to_u64(batch.num_rows())?;
     let started = Instant::now();
-    let projected = project_record_batch_for_vortex(&batch, source_shape);
+    let projected = project_record_batch_for_vortex(batch, source_shape);
+    let (batch, owner) = input.into_parts();
     drop(batch);
     timing.record(Stage::Projection, started.elapsed(), rows, 0, 0);
     let (projected, identity) = projected?;
@@ -12158,8 +12242,8 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             .from_arrow_record_batch(retained, &schema)
             .map_err(vortex_error);
         // Admitted copied/transferred input buffers and later allocator buffers
-        // hold their own credits. Other source owners remain excluded;
-        // release the conversion admission headroom, not buffer credits.
+        // hold their own credits. The owned source handoff also remains live
+        // through this call. Release conversion headroom, not either owner.
         lease.resize(0)?;
         result
     } else {
@@ -12172,6 +12256,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
         input_bytes,
         result.as_ref().map_or(0, vortex::array::ArrayRef::nbytes),
     );
+    drop(owner);
     result
 }
 

@@ -10,30 +10,34 @@ use vortex::io::runtime::BlockingRuntime as _;
 
 use crate::ingest_runtime::{IngestRuntime, IngestTask};
 
-type Batch = std::result::Result<RecordBatch, ArrowError>;
+type Batch<B = RecordBatch> = std::result::Result<B, ArrowError>;
 pub(crate) type ReaderFactory =
     Box<dyn FnOnce() -> std::result::Result<Box<dyn RecordBatchReader + Send>, ArrowError> + Send>;
+pub(crate) type SourceFactory<B> = Box<
+    dyn FnOnce() -> std::result::Result<Box<dyn Iterator<Item = Batch<B>> + Send>, ArrowError>
+        + Send,
+>;
 
-struct SourceTask {
-    receiver: mpsc::Receiver<Batch>,
+struct SourceTask<B> {
+    receiver: mpsc::Receiver<Batch<B>>,
     completion: IngestTask<()>,
 }
 
 /// Each source task retains at most two queued batches and one active batch.
 /// The ordered task window includes later tasks blocked behind an early task.
-pub(crate) struct IngestSourceReader {
+pub(crate) type IngestSourceReader = SourceReader<RecordBatch>;
+
+pub(crate) struct SourceReader<B: Send + 'static> {
     schema: SchemaRef,
     runtime: IngestRuntime,
-    factories: VecDeque<ReaderFactory>,
-    tasks: VecDeque<SourceTask>,
+    factories: VecDeque<SourceFactory<B>>,
+    tasks: VecDeque<SourceTask<B>>,
     window: usize,
     cancellation: CancellationToken,
     finished: bool,
 }
 
-impl IngestSourceReader {
-    pub(crate) const QUEUED_BATCHES: usize = 2;
-
+impl SourceReader<RecordBatch> {
     #[cfg(test)]
     pub(crate) fn new(
         schema: SchemaRef,
@@ -57,6 +61,29 @@ impl IngestSourceReader {
         window: usize,
         cancellation: &CancellationToken,
     ) -> Self {
+        let factories = factories
+            .into_iter()
+            .map(|factory| {
+                Box::new(move || {
+                    factory()
+                        .map(|reader| reader as Box<dyn Iterator<Item = Batch<RecordBatch>> + Send>)
+                }) as SourceFactory<RecordBatch>
+            })
+            .collect();
+        Self::from_factories(schema, runtime, factories, window, cancellation)
+    }
+}
+
+impl<B: Send + 'static> SourceReader<B> {
+    pub(crate) const QUEUED_BATCHES: usize = 2;
+
+    pub(crate) fn from_factories(
+        schema: SchemaRef,
+        runtime: IngestRuntime,
+        factories: Vec<SourceFactory<B>>,
+        window: usize,
+        cancellation: &CancellationToken,
+    ) -> Self {
         let window = window.max(1).min(runtime.parallelism());
         let mut reader = Self {
             schema,
@@ -72,6 +99,10 @@ impl IngestSourceReader {
         };
         reader.fill_window();
         reader
+    }
+
+    pub(crate) fn source_schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
     }
 
     fn fill_window(&mut self) {
@@ -141,8 +172,8 @@ impl IngestSourceReader {
     }
 }
 
-impl Iterator for IngestSourceReader {
-    type Item = Batch;
+impl<B: Send + 'static> Iterator for SourceReader<B> {
+    type Item = Batch<B>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.finished {
@@ -180,13 +211,13 @@ impl Iterator for IngestSourceReader {
     }
 }
 
-impl RecordBatchReader for IngestSourceReader {
+impl RecordBatchReader for SourceReader<RecordBatch> {
     fn schema(&self) -> SchemaRef {
-        Arc::clone(&self.schema)
+        self.source_schema()
     }
 }
 
-impl Drop for IngestSourceReader {
+impl<B: Send + 'static> Drop for SourceReader<B> {
     fn drop(&mut self) {
         self.close_and_drain();
     }

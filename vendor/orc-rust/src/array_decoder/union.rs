@@ -17,20 +17,24 @@
 
 use std::sync::Arc;
 
-use arrow::array::{ArrayRef, BooleanBufferBuilder, UnionArray};
-use arrow::buffer::{Buffer, NullBuffer};
+use arrow::array::{ArrayRef, UnionArray};
+use arrow::buffer::NullBuffer;
 use arrow::datatypes::UnionFields;
 use snafu::ResultExt;
 
 use crate::column::Column;
-use crate::encoding::byte::ByteRleDecoder;
 use crate::encoding::PrimitiveValueDecoder;
 use crate::error::ArrowSnafu;
 use crate::error::Result;
 use crate::proto::stream::Kind;
+use crate::reader::memory::decoded::{bitmap, Memory, Values};
 use crate::stripe::Stripe;
 
 use super::{array_decoder_factory, derive_present_vec, ArrayBatchDecoder, PresentDecoder};
+
+#[cfg(test)]
+#[path = "union_ownership_tests.rs"]
+mod ownership_tests;
 
 /// Decode ORC Union column into batches of Arrow Sparse UnionArrays.
 pub struct UnionArrayDecoder {
@@ -40,14 +44,15 @@ pub struct UnionArrayDecoder {
     variants: Vec<Box<dyn ArrayBatchDecoder>>,
     tags: Box<dyn PrimitiveValueDecoder<i8> + Send>,
     present: Option<PresentDecoder>,
+    memory: Memory,
 }
 
 impl UnionArrayDecoder {
     pub fn new(column: &Column, fields: UnionFields, stripe: &Stripe) -> Result<Self> {
-        let present = PresentDecoder::from_stripe(stripe, column);
+        let present = PresentDecoder::from_stripe(stripe, column)?;
 
-        let tags = stripe.stream_map().get(column, Kind::Data);
-        let tags = Box::new(ByteRleDecoder::new(tags));
+        let tags = stripe.stream_map().get_checked(column, Kind::Data)?;
+        let tags = super::decoder_memory::byte(tags, stripe.stream_map().memory())?;
 
         let variants = column
             .children()
@@ -61,6 +66,7 @@ impl UnionArrayDecoder {
             variants,
             tags,
             present,
+            memory: stripe.stream_map().memory(),
         })
     }
 }
@@ -73,7 +79,7 @@ impl ArrayBatchDecoder for UnionArrayDecoder {
     ) -> Result<ArrayRef> {
         let present =
             derive_present_vec(&mut self.present, parent_present, batch_size).transpose()?;
-        let mut tags = vec![0; batch_size];
+        let mut tags = Values::<i8>::zeroed(batch_size, &self.memory)?;
         match &present {
             Some(present) => {
                 // Since UnionArrays don't have nullability, we rely on child arrays.
@@ -85,50 +91,34 @@ impl ArrayBatchDecoder for UnionArrayDecoder {
             }
         }
 
-        // Calculate nullability for children
-        let mut children_nullability = (0..self.variants.len())
-            .map(|index| {
-                let mut child_present = BooleanBufferBuilder::new(batch_size);
-                child_present.append_n(batch_size, false);
-                for idx in tags
-                    .iter()
-                    .enumerate()
-                    // Where the parent expects the value of the child, we set to non-null.
-                    // Otherwise for the sparse spots, we leave as null in children.
-                    .filter_map(|(idx, &tag)| (tag as usize == index).then_some(idx))
-                {
-                    child_present.set_bit(idx, true);
-                }
-                child_present
-            })
-            .collect::<Vec<_>>();
-        // If parent says a slot is null, we need to ensure the first child (0-index) also
-        // encodes this information, since as mentioned before, Arrow UnionArrays don't store
-        // nullability and rely on their children. We default to first child to encode this
-        // information so need to enforce that here.
-        if let Some(present) = &present {
-            let first_child = &mut children_nullability[0];
-            for idx in present
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, parent_present)| (!parent_present).then_some(idx))
-            {
-                first_child.set_bit(idx, false);
-            }
+        for &tag in tags.iter() {
+            validate_tag(tag, self.variants.len())?;
         }
-
-        let child_arrays = self
-            .variants
-            .iter_mut()
-            .zip(children_nullability)
-            .map(|(decoder, mut present)| {
-                let present = NullBuffer::from(present.finish());
-                decoder.next_batch(batch_size, Some(&present))
-            })
-            .collect::<Result<Vec<_>>>()?;
-
-        // Currently default to decoding as Sparse UnionArray so no value offsets
-        let type_ids = Buffer::from_vec(tags.clone()).into();
+        let mut child_arrays = Vec::with_capacity(self.variants.len());
+        for (index, decoder) in self.variants.iter_mut().enumerate() {
+            let child_present = NullBuffer::new(bitmap(batch_size, &self.memory, |row| {
+                tags[row] as usize == index
+                    && present
+                        .as_ref()
+                        .map_or(true, |present| present.is_valid(row))
+            })?);
+            child_arrays.push(decoder.next_batch(batch_size, Some(&child_present))?);
+        }
+        // ORC tags are child ordinals; Arrow permits other declared type IDs.
+        for tag in tags.iter_mut() {
+            *tag = self
+                .fields
+                .iter()
+                .nth(*tag as usize)
+                .ok_or_else(|| {
+                    crate::error::OutOfSpecSnafu {
+                        msg: "union field is missing",
+                    }
+                    .build()
+                })?
+                .0;
+        }
+        let type_ids = tags.into_buffer().into();
         let array = UnionArray::try_new(self.fields.clone(), type_ids, None, child_arrays)
             .context(ArrowSnafu)?;
         let array = Arc::new(array);
@@ -136,28 +126,34 @@ impl ArrayBatchDecoder for UnionArrayDecoder {
     }
 
     fn skip_values(&mut self, n: usize, parent_present: Option<&NullBuffer>) -> Result<()> {
-        use super::derive_present_vec;
-
-        // Derive the combined present buffer like in next_batch
-        let present = derive_present_vec(&mut self.present, parent_present, n).transpose()?;
-
-        // Determine how many non-null values we need to skip from tags stream
-        let non_null_count = if let Some(present) = &present {
-            present.len() - present.null_count()
-        } else {
-            n
-        };
-
-        // Skip tags (only non-null values have tags)
-        self.tags.skip(non_null_count)?;
-
-        // Skip values in all variant decoders
-        // For sparse union, each variant stores n values regardless of which variant is active
-        // Pass the present buffer to children
-        for decoder in &mut self.variants {
-            decoder.skip_values(n, present.as_ref())?;
+        let mut remaining =
+            super::skip_present_and_get_non_null_count(&mut self.present, parent_present, n)?;
+        let mut counts = Values::<usize>::zeroed(self.variants.len(), &self.memory)?;
+        let mut tags = [0i8; 1024];
+        while remaining != 0 {
+            let take = remaining.min(tags.len());
+            self.tags.decode(&mut tags[..take])?;
+            for &tag in &tags[..take] {
+                counts[validate_tag(tag, self.variants.len())?] += 1;
+            }
+            remaining -= take;
+        }
+        for (decoder, &count) in self.variants.iter_mut().zip(counts.iter()) {
+            decoder.skip_values(count, None)?;
         }
 
         Ok(())
     }
+}
+
+fn validate_tag(tag: i8, variants: usize) -> Result<usize> {
+    usize::try_from(tag)
+        .ok()
+        .filter(|&tag| tag < variants)
+        .ok_or_else(|| {
+            crate::error::OutOfSpecSnafu {
+                msg: "union tag is out of range",
+            }
+            .build()
+        })
 }

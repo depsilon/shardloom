@@ -194,9 +194,12 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         self.assertEqual(result.report["external_engine_invoked"], "false")
         return self.pa.RecordBatchReader.from_stream(result).read_all()
 
-    def all_surfaces(self, frame, relation, statement, report_checks=None, *, file_binding=None):
+    def all_surfaces(self, frame, relation, statement, report_checks=None, *, file_binding=None,
+                     execution_session=None, resources=(128 << 20, 2)):
         """Execute complete declarations through five real public entry points."""
         import shardloom as sl
+        session = self.session if execution_session is None else execution_session
+        memory, lanes = resources
 
         def check(get_field):
             for name, expected_value in (report_checks or {}).items():
@@ -208,17 +211,17 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         check(result.envelope.field)
         tables = [result.to_arrow()]
         files = [] if file_binding is None else [(str(file_binding[0]), file_binding[1], None)]
-        for plan in (self.session.plan(relation, files=files), self.session.sql(statement, files=files)):
+        for plan in (session.plan(relation, files=files), session.sql(statement, files=files)):
             result = plan.collect()
             check(result.report.get)
             tables.append(self.table(result))
         arguments = ["sql", "--sql", statement, "--request", "collect", "--bounded", "true",
-                     "--memory-bytes", str(128 << 20), "--max-parallelism", "2"]
+                     "--memory-bytes", str(memory), "--max-parallelism", str(lanes)]
         query_input = {}
         if file_binding is not None:
             query_input = {"input": str(file_binding[0]), "input_format": file_binding[1]}
             arguments.extend(["--input", query_input["input"], "--input-format", query_input["input_format"]])
-        result = self.session.workflow(arguments).collect()
+        result = session.workflow(arguments).collect()
         check(result.report.get)
         tables.append(self.table(result))
         # Native front doors above must not launch a process. The fifth entry
@@ -227,7 +230,7 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         with patch("subprocess.Popen", self.real_popen):
             cli = sl.ShardLoomClient(binary=os.environ.get("SHARDLOOM_SURFACE_TEST_BINARY"),
                                     transport="subprocess", use_persistent_worker=False,
-                                    memory_bytes=128 << 20, max_parallelism=2, timeout=30)
+                                    memory_bytes=memory, max_parallelism=lanes, timeout=30)
             try:
                 result = sl.sql(statement, client=cli, **query_input).collect(check=True)
                 self.assertFalse(result.envelope.fallback.attempted)
@@ -2361,6 +2364,27 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         else:
             from native_metadata_count_cases import check_declines
         check_declines(self)
+
+    def test_parquet_union_hive_count_and_pruning_survive_all_five_surfaces(self):
+        if __package__:
+            from .native_metadata_count_cases import check_mapped_sources
+        else:
+            from native_metadata_count_cases import check_mapped_sources
+        check_mapped_sources(self)
+
+    def test_orc_decisions_preserve_complete_results_on_all_five_surfaces_and_two_grants(self):
+        if __package__:
+            from .native_metadata_count_cases import check_orc_decisions
+        else:
+            from native_metadata_count_cases import check_orc_decisions
+        check_orc_decisions(self)
+
+    def test_adaptive_file_and_output_matrix_preserves_all_five_surfaces_and_two_grants(self):
+        if __package__:
+            from .native_adaptive_resource_cases import check_matrix
+        else:
+            from native_adaptive_resource_cases import check_matrix
+        check_matrix(self)
 
     def test_json_lines_aliases_and_compression_use_shared_direct_reads(self):
         import gzip

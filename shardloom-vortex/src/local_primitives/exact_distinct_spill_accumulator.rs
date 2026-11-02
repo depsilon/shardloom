@@ -101,6 +101,7 @@ impl SpillAccumulator {
             Policy {
                 workspace: policy.workspace.clone(),
                 quota_bytes: policy.quota_bytes,
+                quota_owner: policy.quota_owner.clone(),
                 memory_bytes: policy.memory_bytes,
                 cancellation: Arc::clone(&policy.cancellation),
                 parent_cancellation: None,

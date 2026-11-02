@@ -84,6 +84,35 @@ fn parquet_query_transfer_counts_actual_buffers_and_preserves_all_rows() {
                     + input.intake_columnar_buffer_bytes_transferred,
                 referenced
             );
+            {
+                use shardloom_core::native_io_decisions::NativeIoCapability;
+                let decision = result
+                    .execution
+                    .native_io_certificate
+                    .capability_decisions
+                    .get(NativeIoCapability::RepresentationRetention);
+                if referenced == 0 {
+                    assert!(decision.is_none());
+                } else {
+                    let decision = decision.unwrap();
+                    assert_eq!(
+                        decision.observed.copied_buffer_bytes.unwrap_or(0),
+                        input.intake_columnar_buffer_bytes_copied
+                    );
+                    assert_eq!(
+                        decision.observed.transferred_buffer_bytes.unwrap_or(0),
+                        input.intake_columnar_buffer_bytes_transferred
+                    );
+                    assert_eq!(
+                        decision.executed > 0,
+                        input.intake_columnar_buffer_bytes_transferred > 0
+                    );
+                    assert_eq!(
+                        decision.declined > 0,
+                        input.intake_columnar_buffer_bytes_copied > 0
+                    );
+                }
+            }
             if rows >= 128 && group_rows >= 128 {
                 assert!(
                     input.intake_columnar_buffer_bytes_transferred > 0,

@@ -935,6 +935,20 @@ pub fn local_encoded_count_native_io_certificate(
         local_encoded_count_side_effect_report(encoded_read, local_execution, &diagnostics),
         diagnostics,
     )?;
+    if safe {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoCapabilityDecisions, NativeIoDecisionOutcome,
+            NativeIoDecisionReason, NativeIoObservedWork,
+        };
+        // This explicitly approved encoded-read route counts scan array lengths.
+        // It is distinct from the native primitive's exact held-footer shortcut.
+        certificate.capability_decisions = NativeIoCapabilityDecisions::single(
+            NativeIoCapability::MetadataCount,
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::EncodedLengthScanRequired,
+            NativeIoObservedWork::default(),
+        );
+    }
     certificate.fallback_attempted = certificate
         .diagnostics
         .iter()
@@ -1655,6 +1669,9 @@ mod tests {
 
     #[test]
     fn local_encoded_count_native_io_certificate_covers_direct_count_path() {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionReason, NativeIoObservedWork,
+        };
         let approval = approved_encoded_count_path_for_uri(uri());
         let encoded = local_scan_count_result_report(&approval, 42);
         let local = execute_vortex_count_all_from_approved_local_scan_result(&approval, &encoded)
@@ -1692,6 +1709,16 @@ mod tests {
         assert!(!certificate.side_effects.spill_io_performed);
         assert!(!certificate.side_effects.fallback_attempted);
         assert!(!certificate.side_effects.fallback_execution_allowed);
+        let row = certificate
+            .capability_decisions
+            .get(NativeIoCapability::MetadataCount)
+            .unwrap();
+        assert_eq!(
+            (row.considered, row.admitted, row.executed, row.declined),
+            (1, 0, 0, 1)
+        );
+        assert_eq!(row.observed, NativeIoObservedWork::default());
+        assert!(row.has_decline_reason(NativeIoDecisionReason::EncodedLengthScanRequired));
     }
 
     #[test]

@@ -25,3 +25,14 @@ construction. Input bytes have separate ownership. This is reservation accountin
 not an allocator or process-RSS limit; all parsing/statistics semantics are
 unchanged when no callback is configured. The implementation is original and
 does not add a dependency or query-engine integration.
+
+The November 1 adaptive-execution integration adds an explicit positive
+next-batch row limit capped by the reader's original configured maximum. It
+updates the retained read plan and propagates preallocation hints through
+composite and leaf readers. Fragmented reads within one batch keep that hint;
+page, dictionary and cache ownership and row-selection position are unchanged.
+Changing the limit does not release already retained state or bound individual
+variable-length values. The ordinary iterator keeps its existing behavior when
+this optional control is unused. Engine-level controls exercise changing limits,
+real primitive buffer sizes, selection masks/selectors, nested nulls and empty
+inputs; complete integration acceptance is separate from this API.

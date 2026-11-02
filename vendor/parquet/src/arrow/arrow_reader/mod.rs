@@ -1412,6 +1412,7 @@ pub struct ParquetRecordBatchReader {
     array_reader: Box<dyn ArrayReader>,
     schema: SchemaRef,
     read_plan: ReadPlan,
+    batch_size_limit: usize,
 }
 
 /// Accumulates filter masks for decoded chunks in one logical output batch.
@@ -1681,6 +1682,7 @@ impl ParquetRecordBatchReader {
         Ok(Self {
             array_reader,
             schema: Arc::new(Schema::new(levels.fields.clone())),
+            batch_size_limit: read_plan.batch_size(),
             read_plan,
         })
     }
@@ -1697,8 +1699,26 @@ impl ParquetRecordBatchReader {
         Self {
             array_reader,
             schema: Arc::new(schema),
+            batch_size_limit: read_plan.batch_size(),
             read_plan,
         }
+    }
+
+    /// Change the row limit and preallocation hints for subsequent batches,
+    /// capped by the original builder limit. Row-selection position and held
+    /// page/dictionary/cache state are preserved. This does not bound individual
+    /// values or release retained provider state. Empty readers remain empty.
+    ///
+    /// # Errors
+    /// Rejects zero without changing the reader or consuming input.
+    pub fn set_batch_size(&mut self, batch_size: usize) -> Result<()> {
+        if batch_size == 0 {
+            return Err(general_err!("Parquet batch size must be positive"));
+        }
+        let batch_size = batch_size.min(self.batch_size_limit);
+        self.read_plan.set_batch_size(batch_size);
+        self.array_reader.set_batch_size_hint(batch_size);
+        Ok(())
     }
 
     #[inline(always)]

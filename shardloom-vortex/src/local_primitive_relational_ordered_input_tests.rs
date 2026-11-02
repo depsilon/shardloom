@@ -145,6 +145,24 @@ fn reference(owner: &str, input: &[i64]) -> Vec<Value> {
     }
 }
 
+fn assert_order_decisions(
+    decisions: &shardloom_core::native_io_decisions::NativeIoCapabilityDecisions,
+    shuffled: bool,
+) {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
+    let decision = decisions.get(NativeIoCapability::ExistingOrder).unwrap();
+    assert!(decision.considered > 0);
+    assert_eq!(decision.considered, decision.admitted + decision.declined);
+    if shuffled {
+        assert!(decision.declined > 0);
+        assert!(decision.has_decline_reason(NativeIoDecisionReason::ObservedDisorder));
+    } else {
+        assert_eq!(decision.executed, decision.considered);
+        assert!(decision.has_admission_reason(NativeIoDecisionReason::ValidatedExistingOrder));
+    }
+    assert!(decision.observed.input_rows.unwrap() >= 33);
+}
+
 #[test]
 fn ordered_input_all_five_owners_activate_or_return_to_heap_with_complete_results() {
     for shuffled in [false, true] {
@@ -176,6 +194,10 @@ fn ordered_input_all_five_owners_activate_or_return_to_heap_with_complete_result
                 let result = prepared
                     .collect_jsonl(&CancellationToken::default())
                     .unwrap();
+                assert_order_decisions(
+                    &result.execution.native_io_certificate.capability_decisions,
+                    shuffled,
+                );
                 #[cfg(debug_assertions)]
                 {
                     let counts = observation.finish();

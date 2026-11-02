@@ -2,18 +2,33 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+    "README.shardloom.md": "cd7da09763e592d149335cf19614659c88e80a11db41ec4673ea7a9e1d1f3784",
+    "src/reader/array_structure.rs": "c03e89b8dfc153e2814c82cef6b3f2a233e8e38569d51e4fc88a08e670fc3d9a",
+    "src/reader/controlled_array_tests.rs": "3272c08848c0724960b4ed2f83abe9ec61f3ba0d84e091e97aa4a29b496ee2fd",
+    "src/reader/decoder_memory.rs": "03cc79853401e19a5cd899f9d4b72a6c14e9383b5d7309cd6103397247d7255b",
+    "src/reader/decoder_memory_tests.rs": "40d1f93634dee7d138012faf2e1e191f0e78ab757412adbb7bb738dc9169c976",
+    "src/reader/dictionary_delta.rs": "9b2b8bcf343101fb1d9dce19d52d1ae543517335a42582b2c8466792390cc6e6",
+    "src/reader/dictionary_delta_tests.rs": "53b018b8abc44573b156f4587accc8ac5a18a67b425ee19ee8c3b07224a26a48",
+    "src/reader/lz4_owned.rs": "8f01c81733adb41631fc2cffb7ccf86d6878900b527ae6f9ae6d01e71a27766c",
+    "src/reader/owned_file_decoder.rs": "fdc7aa2d4c417af6546c77b61bfb7a29ac6fe0d1159d5556a197608df804fbbb",
+    "src/reader/owned_file_decoder_tests.rs": "18df57647270bd2962e03e4371f15bb85bd7511f81b19c84d76b1fb1d68d3758",
+    "src/reader/owned_record_batch.rs": "3d5e1af0d55740324a46266cd39eeba9f749f7b60bd5721bef0c4f67d25059d2",
+    "src/reader/owned_record_batch_tests.rs": "67e90cf60f314a35ecfe87406c65ed806a1a197e937d63e5a611a02b11935dee",
+    "src/reader/schema_owned.rs": "29fed2d2b87bf6fd0849856ce8e666fe19181045aad5f061565173e73da811f9",
+    "src/reader/schema_owned_tests.rs": "415de7bbd6fe421b6e90e7d7194dbd8ae774695c63282f1d94c94f29baa4a3b5"
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
   "license_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "4e916d3c3f9ef0d93b9b28262d89ae0fa02791c66687dd8ea75952a978455ce3"
+    "sha256": "cd7da09763e592d149335cf19614659c88e80a11db41ec4673ea7a9e1d1f3784"
   },
-  "migration_status": "manifest_only_dependency_pin",
+  "migration_status": "controlled_decoder_payload_schema_and_framing_extension; native_message_dictionary_and_handoff_integration_pending",
   "modified_files_sha256": {
-    "Cargo.toml": "e498a06cea2d573f3c66725866baa406c08768efb493ce036098eacf29b7f031"
+    "Cargo.toml": "340b99f50362aea502f43071e562ab272a510370c40e3ce8495220265ba23d48",
+    "src/compression.rs": "ffe9dbd655070d4b9d2d6bca6a0c2f7448825816333ae4f623ee69d9979a1278",
+    "src/reader.rs": "d9dd1a5cfe282111354e9c4c77cc433e0e7be79088f33398d501cb2ee215b674"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/arrow-ipc/arrow-ipc-59.3.1.crate#NOTICE.txt",

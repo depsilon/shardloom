@@ -47,6 +47,7 @@ pub struct VortexIngestStageReport {
     ownership_counts: ArrowOwnershipCounts,
     text_active_nanos: u64,
     identity_projection_batches: u64,
+    conversion_prefetch: shardloom_exec::adaptive_work::AdaptiveWorkReport,
 }
 
 impl VortexIngestStageReport {
@@ -88,6 +89,34 @@ impl VortexIngestStageReport {
                 fields.push((format!("vortex_ingest_{name}_{suffix}"), value.to_string()));
             }
         }
+        let work = self.conversion_prefetch;
+        if work.completed_windows != 0 || work.declined_windows != 0 {
+            fields.push((
+                "vortex_ingest_conversion_prefetch_scope".into(),
+                "completed_non_eof_task_admission_windows;task_credits_and_admitted_copy_overlap;retained_sources_and_outputs_share_pool;queue_ceiling_unchanged;not_provider_allocator_or_rss_bound".into(),
+            ));
+            for (suffix, value) in [
+                ("completed_windows", work.completed_windows),
+                ("deferred_windows", work.declined_windows),
+                ("headroom_limited_windows", work.headroom_limited_windows),
+                ("shrunk_windows", work.shrunk_windows),
+                ("grown_windows", work.grown_windows),
+                ("minimum_tasks", work.minimum_units),
+                ("maximum_tasks", work.maximum_units),
+                ("minimum_headroom_bytes", work.minimum_headroom_bytes),
+                ("ceiling_bytes", work.ceiling_bytes),
+                ("peak_estimated_bytes", work.peak_estimated_bytes_per_lane),
+                (
+                    "maximum_deferred_required_bytes",
+                    work.maximum_declined_required_bytes,
+                ),
+            ] {
+                fields.push((
+                    format!("vortex_ingest_conversion_prefetch_{suffix}"),
+                    value.to_string(),
+                ));
+            }
+        }
         fields
     }
 
@@ -97,6 +126,7 @@ impl VortexIngestStageReport {
         self.spans[Stage::ArrowOwnership as usize] = stream.spans[Stage::ArrowOwnership as usize];
         self.ownership_counts = stream.ownership_counts;
         self.identity_projection_batches = stream.identity_projection_batches;
+        self.conversion_prefetch = stream.conversion_prefetch;
         self
     }
 }
@@ -195,9 +225,32 @@ mod measured {
         active: Arc<Mutex<ActiveState>>,
         identities: Arc<AtomicU64>,
         ownership_counts: Arc<Mutex<ArrowOwnershipCounts>>,
+        conversion_prefetch: Arc<Mutex<shardloom_exec::adaptive_work::AdaptiveWorkReport>>,
     }
 
     impl IngestStageTimings {
+        #[cfg(feature = "universal-format-io")]
+        pub(crate) fn complete_conversion_prefetch(
+            &self,
+            shape: shardloom_exec::adaptive_work::WorkShape,
+        ) {
+            self.conversion_prefetch
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .record(shape);
+        }
+
+        #[cfg(feature = "universal-format-io")]
+        pub(crate) fn defer_conversion_prefetch(
+            &self,
+            denial: shardloom_exec::adaptive_work::WorkDenial,
+        ) {
+            self.conversion_prefetch
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .record_decline(denial);
+        }
+
         pub(crate) fn record(
             &self,
             stage: Stage,
@@ -287,6 +340,10 @@ mod measured {
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .nanos,
                 identity_projection_batches: self.identities.load(Ordering::Relaxed),
+                conversion_prefetch: *self
+                    .conversion_prefetch
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
             }
         }
     }

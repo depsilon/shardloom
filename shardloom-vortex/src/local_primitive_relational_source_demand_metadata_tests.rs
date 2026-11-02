@@ -253,6 +253,16 @@ fn parquet_metadata_admission_keeps_complete_values_and_pruning_with_small_grant
             if predicate.is_some() {
                 let report = output.execution.input.as_ref().unwrap();
                 assert!(report.columnar_row_groups_read < report.columnar_row_groups_total);
+                super::decisions_tests::assert_regions(
+                    &output,
+                    257,
+                    256,
+                    shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved,
+                );
+            } else {
+                assert!(output.execution.native_io_certificate.capability_decisions.get(
+                    shardloom_core::native_io_decisions::NativeIoCapability::RegionExclusion
+                ).is_none());
             }
             drop(output);
             assert_eq!(memory.snapshot().reserved_bytes, baseline);

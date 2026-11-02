@@ -129,6 +129,8 @@ pub mod application_batch;
 mod native_spill_session;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_temporal;
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+mod native_work_sizing;
 pub mod output_payload;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 pub mod owned_array_source;
@@ -142,6 +144,8 @@ pub mod prepared_source_binding;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+mod query_spill_quota;
 pub mod query_trace;
 pub mod read_planning;
 pub mod relational_query;

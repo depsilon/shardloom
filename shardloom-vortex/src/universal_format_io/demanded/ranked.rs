@@ -7,7 +7,8 @@ impl PreparedColumnarSource {
     /// Allocation-free structural admission. Cost and generation checks still
     /// belong to `prepare_ranking`, before the once-only producer is started.
     pub(crate) fn can_rank_columns(&self, includes: impl Fn(&str) -> bool) -> bool {
-        self.max_rows.is_none()
+        self.source.other.is_none()
+            && self.max_rows.is_none()
             && self.row_groups.len() > 1
             && self
                 .projection
@@ -22,7 +23,11 @@ impl PreparedColumnarSource {
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<Arc<Self>>> {
         context.check_cancelled()?;
-        if self.max_rows.is_some() || self.row_groups.len() <= 1 || columns.is_empty() {
+        if self.source.other.is_some()
+            || self.max_rows.is_some()
+            || self.row_groups.len() <= 1
+            || columns.is_empty()
+        {
             return Ok(None);
         }
         let fields = self.source.metadata().schema().fields();
@@ -97,6 +102,7 @@ impl PreparedColumnarSource {
             row_groups: self.row_groups.clone(),
             max_rows: None,
             metadata: credit,
+            region_selection: self.region_selection,
         })))
     }
 
@@ -137,12 +143,17 @@ impl PreparedColumnarSource {
             }
             previous = Some(position);
         }
+        let region_selection = Some(super::decisions::RegionSelection::selected(
+            self.row_groups.len(),
+            groups.len(),
+        )?);
         Ok(Arc::new(Self {
             source: Arc::clone(&self.source),
             projection: self.projection.clone(),
             row_groups: groups,
             max_rows: None,
             metadata: credit,
+            region_selection,
         }))
     }
 }

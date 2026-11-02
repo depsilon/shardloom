@@ -65,6 +65,17 @@ use shardloom_vortex::{execute_vortex_local_primitive_with_policy, run_vortex_lo
 #[path = "vortex_aggregate_spill_policy.rs"]
 mod aggregate_spill_policy;
 
+#[path = "native_decision_evidence.rs"]
+mod decision_evidence;
+
+#[cfg(feature = "vortex-write")]
+pub(crate) fn append_native_output_decisions(
+    fields: &mut Vec<(String, String)>,
+    decisions: &shardloom_core::native_io_decisions::NativeIoCapabilityDecisions,
+) {
+    decision_evidence::append(fields, "native_vortex_result_export_replay", decisions);
+}
+
 const VORTEX_PRIMITIVE_SCAN_PUSHDOWN_SCHEMA_VERSION: &str =
     "shardloom.vortex_primitive.scan_pushdown_contract.v1";
 
@@ -5553,6 +5564,11 @@ fn append_vortex_count_local_native_io_certificate_fields(
     append_vortex_count_local_native_io_pushdown_fields(fields, certificate);
     append_vortex_count_local_native_io_sink_fields(fields, certificate);
     append_vortex_count_local_native_io_side_effect_fields(fields, certificate);
+    decision_evidence::append(
+        fields,
+        "local_count_native_io",
+        &certificate.capability_decisions,
+    );
 }
 
 fn append_vortex_count_local_native_io_identity_fields(
@@ -5755,6 +5771,11 @@ pub(crate) fn append_vortex_local_primitive_native_io_certificate_fields(
     append_vortex_local_primitive_native_io_pushdown_fields(fields, certificate);
     append_vortex_local_primitive_native_io_sink_fields(fields, certificate);
     append_vortex_local_primitive_native_io_side_effect_fields(fields, certificate);
+    decision_evidence::append(
+        fields,
+        "local_primitive_native_io",
+        &certificate.capability_decisions,
+    );
 }
 
 fn append_vortex_local_primitive_native_io_identity_fields(

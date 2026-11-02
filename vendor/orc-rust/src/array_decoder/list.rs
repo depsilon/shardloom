@@ -18,42 +18,52 @@
 use std::sync::Arc;
 
 use arrow::array::{ArrayRef, ListArray};
-use arrow::buffer::{NullBuffer, OffsetBuffer};
+use arrow::buffer::NullBuffer;
 use arrow::datatypes::{Field, FieldRef};
 use snafu::ResultExt;
 
 use crate::array_decoder::derive_present_vec;
 use crate::column::Column;
-use crate::encoding::integer::get_unsigned_int_decoder;
 use crate::encoding::PrimitiveValueDecoder;
 use crate::proto::stream::Kind;
 
 use crate::error::{ArrowSnafu, Result};
+use crate::reader::memory::decoded::{offsets, total_length, Memory, Values};
 use crate::stripe::Stripe;
 
 use super::{array_decoder_factory, ArrayBatchDecoder, PresentDecoder};
+
+#[cfg(test)]
+#[path = "list_ownership_tests.rs"]
+mod ownership_tests;
 
 pub struct ListArrayDecoder {
     inner: Box<dyn ArrayBatchDecoder>,
     present: Option<PresentDecoder>,
     lengths: Box<dyn PrimitiveValueDecoder<i64> + Send>,
+    memory: Memory,
     field: FieldRef,
 }
 
 impl ListArrayDecoder {
     pub fn new(column: &Column, field: Arc<Field>, stripe: &Stripe) -> Result<Self> {
-        let present = PresentDecoder::from_stripe(stripe, column);
+        let present = PresentDecoder::from_stripe(stripe, column)?;
 
         let child = &column.children()[0];
         let inner = array_decoder_factory(child, field.data_type(), stripe)?;
 
-        let reader = stripe.stream_map().get(column, Kind::Length);
-        let lengths = get_unsigned_int_decoder(reader, column.rle_version());
+        let reader = stripe.stream_map().get_checked(column, Kind::Length)?;
+        let lengths = super::decoder_memory::unsigned(
+            reader,
+            column.rle_version(),
+            stripe.stream_map().memory(),
+        )?;
 
         Ok(Self {
             inner,
             present,
             lengths,
+            memory: stripe.stream_map().memory(),
             field,
         })
     }
@@ -68,16 +78,17 @@ impl ArrayBatchDecoder for ListArrayDecoder {
         let present =
             derive_present_vec(&mut self.present, parent_present, batch_size).transpose()?;
 
-        let mut lengths = vec![0; batch_size];
+        let mut lengths = Values::<i64>::zeroed(batch_size, &self.memory)?;
         if let Some(present) = &present {
             self.lengths.decode_spaced(&mut lengths, present)?;
         } else {
             self.lengths.decode(&mut lengths)?;
         }
-        let total_length: i64 = lengths.iter().sum();
+        let total_length = total_length(&lengths, i32::MAX as usize)?;
+        let offsets = offsets::<i32>(&lengths, &self.memory)?;
+        drop(lengths);
         // Fetch child array as one Array with total_length elements
-        let child_array = self.inner.next_batch(total_length as usize, None)?;
-        let offsets = OffsetBuffer::from_lengths(lengths.into_iter().map(|l| l as usize));
+        let child_array = self.inner.next_batch(total_length, None)?;
         let null_buffer = present;
 
         let array = ListArray::try_new(self.field.clone(), offsets, child_array, null_buffer)
@@ -93,12 +104,10 @@ impl ArrayBatchDecoder for ListArrayDecoder {
             skip_present_and_get_non_null_count(&mut self.present, parent_present, n)?;
 
         // Decode lengths to determine how many child values to skip
-        let mut lengths = vec![0; non_null_count];
-        self.lengths.decode(&mut lengths)?;
-        let total_length: i64 = lengths.iter().sum();
+        let total_length = super::skip_lengths(self.lengths.as_mut(), non_null_count)?;
 
         // Skip the child values (children don't have parent_present from list)
-        self.inner.skip_values(total_length as usize, None)?;
+        self.inner.skip_values(total_length, None)?;
 
         Ok(())
     }

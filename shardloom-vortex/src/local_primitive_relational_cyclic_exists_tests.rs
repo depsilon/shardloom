@@ -346,7 +346,10 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
                 successes += 1;
             }
             Err(error) => {
-                assert!(error.to_string().contains("memory reservation denied"));
+                assert!(
+                    error.to_string().contains("memory reservation denied"),
+                    "{error}"
+                );
                 if counts.executions == 1 && counts.last_rows > 0 {
                     partial_denials += 1;
                 }
