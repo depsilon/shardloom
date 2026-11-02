@@ -26,6 +26,7 @@ pub struct VortexRelationalOutputReplay {
     /// The native run owner used by replay, including its other operator runs.
     pub spill: Option<crate::relational_query::VortexRelationalSpillReport>,
     /// Peak live run bytes across the producer and replay's shared quota scope.
+    /// Overlapping executions using the same spill declaration also contribute.
     pub shared_spill_peak_disk_bytes: Option<u64>,
 }
 

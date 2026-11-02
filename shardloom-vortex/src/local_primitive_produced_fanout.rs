@@ -190,13 +190,11 @@ pub fn write_produced_many_controlled<T>(
                 })?;
                 drop(replay);
                 if let Some(spill) = &metrics.spill {
+                    // Verify this execution's owned store before publication.
+                    // Other calls using a cloned declaration may still own live
+                    // runs or pending writes under the same shared quota.
                     report.spill = Some(spill.finish()?);
                     let quota = spill.shared_quota_snapshot()?;
-                    if quota.live_bytes != 0 || quota.pending_bytes != 0 {
-                        return Err(failed(
-                            "native producer retained spill runs after complete fanout",
-                        ));
-                    }
                     report.shared_spill_peak_disk_bytes = Some(quota.peak_live_bytes);
                 }
                 Ok((staged, report))

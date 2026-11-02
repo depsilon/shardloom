@@ -329,19 +329,38 @@ DISTINCT clean their original run stores before their first output callback.
 Memory owners can still overlap replay. Preserve that lifecycle, and bind cloned
 primitive spill declarations plus replay to one run-byte quota scope so a future
 or custom overlapping producer cannot multiply its disk grant. The quota scope
-is execution-local, created without filesystem probing; renewed cancellation
-starts a fresh declaration scope. Existing declarations may change their public
-quota before execution, but changing an active scope's ceiling must fail.
+belongs to active owners of one declaration, including overlapping executions
+using clones in separate resident sessions. Creation performs no filesystem
+probing; after all owners release the quota, a later call starts a fresh scope.
+Renewed cancellation also starts a fresh declaration scope. Existing declarations
+may change their public quota before execution, but changing an active scope's
+ceiling must fail.
 
 Charge each store's marker allowance and every in-progress write before writing,
 retain actual partial-file charges on failure, and refund committed bytes only
 after owned unlink. Namespace/source identity, cancellation and cleanup remain
 the existing run store's responsibility. Reports must distinguish replay's runs
-and cleanup from the shared producer/replay quota peak. Test concurrent store
+and cleanup from the shared quota peak, which includes overlapping executions
+using that declaration. Successful publication requires this execution's own
+stores to clean up; another owner's live runs or pending writes do not represent
+a leak in this execution. Test concurrent store
 overlap, short/failed writes, denial, identity-preserving cleanup, complete results
 larger than resident retention, exactly-once production and no partial publish.
 This extends ShardLoom admission around the pinned Vortex native writer; it adds
 no storage format, provider, execution fallback or new quota permission.
+
+The November 2 review identifies an incorrect quota-wide emptiness check after
+successful per-store cleanup. A cloned declaration can legitimately retain
+another session's native run and admitted pending write. Remove that extra check
+while retaining `State::finish()` and `QueryRunStore::cleanup()` before publication;
+shared quota admission and peak reporting remain unchanged. The new regression
+fails on the old code and passes after the correction for both resident and
+spilled replay, with complete Vortex/Parquet values, exactly-once production,
+unchanged other-session file bytes/reservations and final owner refunds. All 21
+runnable fanout controls pass, including owned-cleanup failure, cancellation and
+no-publication checks; the existing opt-in benchmark remains ignored. Standard
+default/native workspace gates remain part of PR acceptance. This lifecycle
+repair does not rerun or relabel the earlier timing observations.
 
 The implementation now shares one producer and replay owner across all nine
 primitive routes. Focused controls verify complete JSONL, Vortex and Parquet
