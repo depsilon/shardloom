@@ -91,6 +91,15 @@ intact and cannot receive a complete Full43 total.
 
 ## Isolated Full43 procedure
 
+**November 2 explicit resumption:** the maintainer requests one isolated Full43
+pass on the newly integrated dynamic runtime, reading the original `hits.parquet`
+directly without preparation. This authorizes that new observation before the
+remaining item 18/23 acceptance work, superseding the hold for this run. It does
+not authorize fixed-runtime comparisons, resource sweeps or repeated tuning runs.
+The standard single-suite runner now defaults to Parquet and verifies completed
+direct-source evidence with zero prepared-input bytes. Preserve the earlier
+observations and the procedure below.
+
 **October 30 execution hold:** the maintainer defers all further Full43 runs
 until item 18's universal I/O work and its
 [cross-surface and format acceptance gate](../architecture/native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
