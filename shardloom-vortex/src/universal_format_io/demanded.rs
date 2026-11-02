@@ -42,6 +42,8 @@ mod orc;
 mod ranked;
 mod source;
 mod statistics;
+#[cfg(test)]
+mod table_tests;
 pub use source::LocalColumnarSource;
 
 impl LocalColumnarSource {
@@ -127,6 +129,10 @@ impl LocalColumnarSource {
             return orc::prepare_groups(self, max_rows, predicates, cancellation);
         }
         let mut row_groups = Vec::new();
+        let table = self
+            .other
+            .as_ref()
+            .is_some_and(|source| source.table.is_some());
         let mut source_rows = 0_u64;
         let schema = self.schema();
         'files: for (file_index, metadata) in self.parquet_metadata().enumerate() {
@@ -134,7 +140,7 @@ impl LocalColumnarSource {
             let partitions = &self.collection.files[file_index].partitions;
             for index in 0..metadata.metadata().num_row_groups() {
                 cancellation.check()?;
-                if max_rows.is_some_and(|limit| source_rows >= limit) {
+                if !table && max_rows.is_some_and(|limit| source_rows >= limit) {
                     break 'files;
                 }
                 let first_row = source_rows;
@@ -143,7 +149,8 @@ impl LocalColumnarSource {
                 source_rows = source_rows
                     .checked_add(rows)
                     .ok_or_else(|| failed("source row count overflow"))?;
-                if predicates.is_empty()
+                if table
+                    || predicates.is_empty()
                     || predicates.iter().any(|predicate| {
                         predicate.as_ref().is_none_or(|predicate| {
                             !statistics::excluded(metadata, index, predicate, &schema, partitions)
@@ -238,10 +245,13 @@ impl PreparedColumnarSource {
     }
 }
 
+pub use crate::local_primitives::prepared_relational::TableSnapshotReadReport;
+
 /// Execution reads plus the retained source's initial metadata-admission work.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnarReadReport {
     pub format: &'static str,
+    pub table_snapshot: Option<TableSnapshotReadReport>,
     /// True only for the certified selected-chunk/statistics Parquet owner.
     pub parquet_selected_chunks: bool,
     pub projected_columns: usize,
@@ -489,6 +499,7 @@ impl ColumnarReader {
         );
         Ok(ColumnarReadReport {
             format: "parquet",
+            table_snapshot: None,
             parquet_selected_chunks: true,
             projected_columns: self.prepared.projection.len(),
             available_columns: metadata.schema().fields().len(),

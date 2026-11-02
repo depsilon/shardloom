@@ -541,6 +541,14 @@ impl Sources {
                     .then_some(request.source_schema.as_deref())
                     .flatten()
             });
+        if matches!(format, "iceberg" | "delta" | "hudi") {
+            if schema.is_some() || request.execution_policy == "prepare_once" {
+                return Err(failed(
+                    "local tables use authoritative snapshot schemas and direct read-only queries; schema hints and prepare_once are not admitted",
+                ));
+            }
+            return self.prepare_table(source, format, request, memory);
+        }
         if matches!(format, "parquet" | "arrow-ipc" | "avro" | "orc") && schema.is_some() {
             return Err(failed(
                 "columnar sources use their embedded schema evidence; source schema hints apply only to local text adapters",
@@ -615,6 +623,41 @@ impl Sources {
         );
         self.normalized += 1;
         DatasetUri::new(preparation.target_path.to_string_lossy().into_owned())
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn prepare_table(
+        &mut self,
+        source: &str,
+        format: &str,
+        request: &PublicWorkflowRouteRequest,
+        memory: Option<&shardloom_exec::live_memory::LiveMemoryPool>,
+    ) -> Result<DatasetUri, ShardLoomError> {
+        let selection = request
+            .source_bindings
+            .get(source)
+            .and_then(|binding| binding.table_snapshot.as_ref())
+            .map(crate::public_workflow_route::PublicTableSnapshot::to_selection)
+            .unwrap_or_default();
+        let memory =
+            memory.ok_or_else(|| failed("table source metadata requires the native owner"))?;
+        let fingerprint =
+            super::super::sql_local_source_runtime::source_content_fingerprint_requested(
+                request.source_fingerprint_policy.as_deref(),
+            )?;
+        let descriptor =
+            shardloom_vortex::universal_format_io::demanded::LocalColumnarSource::admit_table(
+                Path::new(source),
+                format,
+                &selection,
+                fingerprint,
+                memory,
+                &self.cancellation,
+            )?;
+        let uri = DatasetUri::new(source)?;
+        self.local.push((uri.clone(), descriptor));
+        self.normalized += 1;
+        Ok(uri)
     }
 
     #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io")))]
@@ -1106,6 +1149,7 @@ mod tests {
             PublicSourceBinding {
                 input_format: "vortex".into(),
                 source_schema: None,
+                table_snapshot: None,
                 memory_input: None,
             },
         );
@@ -1138,6 +1182,7 @@ mod tests {
             PublicSourceBinding {
                 input_format: "csv".into(),
                 source_schema: Some("cargo_id:utf8".into()),
+                table_snapshot: None,
                 memory_input: None,
             },
         );

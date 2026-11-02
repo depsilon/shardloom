@@ -17,6 +17,42 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Local Iceberg, Delta and Hudi table readers — local acceptance`
+  — the [reader profiles and acceptance](native-local-table-readers-2026-11-02.md)
+  resolve explicit local snapshots through the shared native source, resource and
+  adaptive owners. Iceberg v1/v2 field identity and applicable position/equality
+  deletes, Delta JSON/classic checkpoint replay and column mapping, and Hudi
+  v8/v9 Copy-on-Write completed timeline visibility have finite tested contracts.
+  All 275 complete queries across five interfaces, nine output/readback checks,
+  retained-owner and refusal controls pass. Final verification passes 3,311 default
+  and 6,857 enabled Rust tests, strict Clippy/formatting, 98 Python regressions,
+  three declaration tests and 299 installed-wheel tests without skips. The enabled
+  Rust suite retains 36 existing opt-in ignores. The
+  [original portable record](../benchmarks/evidence/native-local-table-readers-2026-11-02/acceptance.json)
+  and [review supplement](../benchmarks/evidence/native-local-table-reader-review-2026-11-02/acceptance.json)
+  preserve source/runtime identities and original failures. The supplement covers
+  Iceberg identity partition/delete semantics, narrow Delta checkpoint values and
+  primitives-only feature independence. Hosted checks/review
+  remain pending. Catalogs, remote execution, table writes and unsupported
+  format/type states remain explicit exclusions. The five pre-refresh
+  investigations and combined documentation/site closeout remain next; this adds
+  no performance claim, competitive-gate closure or package publication.
+
+- [x] `Adaptive native execution and typed decision acceptance — merged`
+  — the [eleven-owner acceptance matrix](native-adaptive-acceptance-2026-11-02.md)
+  connects applied sizing and typed admission/decline evidence across the declared
+  native source, operator, spill, output and queue boundaries. All 298 focused
+  controls, 3,311 default and 6,833 enabled workspace tests, 292 installed-wheel
+  tests and the 260-operation public format/grant matrix pass within their
+  documented physical and semantic limits. PR #1644 merges as `d3e943ad`
+  after all 58 hosted checks pass and exact-head review finds no issues.
+  The [closeout](../benchmarks/evidence/native-adaptive-decisions-closeout-2026-11-02/closeout.json)
+  binds hosted evidence and retirement of superseded generated payloads while
+  retaining accepted binaries, the installed-tested wheel, inputs and observations.
+  Item 23's combined documentation/site closeout remains scheduled after the
+  local table readers and requested investigations. No allocator/RSS guarantee,
+  new benchmark, competitive-gate closure or package publication follows.
+
 - [x] `Typed ordering rejection and maintainer queue pruning`
   — the [complete experiment](../benchmarks/native-typed-ordering-2026-10-31.md)
   passes correctness for 347 queries/12,565 rows and 48 workflows/557,420 rows,

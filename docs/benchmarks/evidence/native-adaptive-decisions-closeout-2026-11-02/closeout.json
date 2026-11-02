@@ -1,0 +1,25 @@
+{
+  "status": "accepted_and_merged",
+  "pr": 1644,
+  "head": "563279a54e398897584eb2b132d7d0bb017f44a2",
+  "merge_commit": "d3e943add236baf3200fa07d299437cc3dd71314",
+  "hosted_checks": 58,
+  "all_hosted_checks_success": true,
+  "review_findings": 0,
+  "files": {
+    "hosted.json": {
+      "bytes": 18387,
+      "sha256": "08c727f0f20a1541ed1d461f32e365005a2543cea0401e815ceb4dbf9bc1ef10"
+    },
+    "cleanup.json": {
+      "bytes": 3082,
+      "sha256": "00791f189f20fa1d8c26c5c2d9e523f6888085e2b619cd2df7a2567e28e32fa6"
+    },
+    "retirement-plan.json.xz": {
+      "bytes": 1064280,
+      "sha256": "b3cba159f2e1fc85e5d6e5c5ec04a8080fed6109f29e183eecd9c869ae9da577"
+    }
+  },
+  "new_queries": false,
+  "inputs_and_observations_retained": true
+}

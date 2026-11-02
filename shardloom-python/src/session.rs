@@ -18,6 +18,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+type TableSourceDeclaration = (String, String, Option<i64>, Option<u64>, Option<String>);
+
 struct Lifecycle {
     closed: bool,
     cancellation: CancellationToken,
@@ -262,12 +264,13 @@ impl NativeSession {
 
     /// Construct a native SQL declaration without inspecting any source.
     #[allow(clippy::needless_pass_by_value)] // PyO3 sequences own their borrowed Python plan guards.
-    #[pyo3(signature = (statement, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), relations=Vec::new(), parameters=Vec::new(), spill=None))]
+    #[pyo3(signature = (statement, *, files=Vec::new(), tables=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), relations=Vec::new(), parameters=Vec::new(), spill=None))]
     #[allow(clippy::too_many_arguments)] // Explicit bindings at the Python boundary.
     fn sql(
         &self,
         statement: String,
         files: Vec<(String, String, Option<String>)>,
+        tables: Vec<TableSourceDeclaration>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
         batches: Vec<super::batch_input::BatchArgument>,
         ranges: Vec<(String, String, i64, i64, usize)>,
@@ -301,7 +304,7 @@ impl NativeSession {
             .input_indices()
             .map(|index| &*relations[index].1)
             .collect();
-        let bindings = source_bindings(files, sources, ranges);
+        let bindings = source_bindings(files, tables, sources, ranges);
         declaration
             .validate_named_sources(
                 bindings
@@ -327,12 +330,13 @@ impl NativeSession {
 
     /// Bind a typed native relation without rendering or parsing SQL text.
     #[allow(clippy::needless_pass_by_value)] // PyO3 sequences own their borrowed Python plan guards.
-    #[pyo3(signature = (relation, *, files=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), inputs=Vec::new(), spill=None))]
+    #[pyo3(signature = (relation, *, files=Vec::new(), tables=Vec::new(), sources=Vec::new(), batches=Vec::new(), ranges=Vec::new(), inputs=Vec::new(), spill=None))]
     #[allow(clippy::too_many_arguments)] // Explicit bindings at the Python boundary.
     fn plan(
         &self,
         relation: &super::relation::NativeRelation,
         files: Vec<(String, String, Option<String>)>,
+        tables: Vec<TableSourceDeclaration>,
         sources: Vec<(String, PyRef<'_, NativeSource>)>,
         batches: Vec<super::batch_input::BatchArgument>,
         ranges: Vec<(String, String, i64, i64, usize)>,
@@ -346,7 +350,7 @@ impl NativeSession {
         NativePlan::relation(
             Arc::clone(&self.owner),
             Arc::clone(&relation.declaration),
-            source_bindings(files, sources, ranges),
+            source_bindings(files, tables, sources, ranges),
             batches.into_iter().map(Into::into).collect(),
             inputs.iter().map(|input| &**input).collect(),
             spill,
@@ -619,6 +623,7 @@ impl NativeSession {
 
 fn source_bindings(
     files: Vec<(String, String, Option<String>)>,
+    tables: Vec<TableSourceDeclaration>,
     sources: Vec<(String, PyRef<'_, NativeSource>)>,
     ranges: Vec<(String, String, i64, i64, usize)>,
 ) -> Vec<SqlSourceBinding> {
@@ -628,6 +633,23 @@ fn source_bindings(
             reference,
             source: SqlSource::File { format, schema },
         })
+        .chain(
+            tables
+                .into_iter()
+                .map(
+                    |(reference, format, snapshot_id, version, instant)| SqlSourceBinding {
+                        reference,
+                        source: SqlSource::Table {
+                            format,
+                            selection: shardloom_core::input::LocalTableSelection {
+                                snapshot_id,
+                                version,
+                                instant,
+                            },
+                        },
+                    },
+                ),
+        )
         .chain(
             sources
                 .into_iter()

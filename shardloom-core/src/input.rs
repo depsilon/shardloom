@@ -1148,3 +1148,40 @@ mod tests {
         assert!(input_source_to_dataset_ref(&src2).expect("ok").is_none());
     }
 }
+/// Optional immutable state selector for an explicit local table source.
+/// The format owns the identifier domain; an omitted selector binds current
+/// state once at action-time admission, never at declaration time.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LocalTableSelection {
+    pub snapshot_id: Option<i64>,
+    pub version: Option<u64>,
+    pub instant: Option<String>,
+}
+
+impl LocalTableSelection {
+    /// Validate the declaration without accessing a path or catalog.
+    /// # Errors
+    /// Rejects cross-format selectors and malformed Hudi instant identifiers.
+    pub fn validate_for(&self, format: &str) -> crate::Result<()> {
+        let valid = match format {
+            "iceberg" => self.version.is_none() && self.instant.is_none(),
+            "delta" => self.snapshot_id.is_none() && self.instant.is_none(),
+            "hudi" => {
+                self.snapshot_id.is_none()
+                    && self.version.is_none()
+                    && self.instant.as_ref().is_none_or(|value| {
+                        !value.is_empty()
+                            && value.len() <= 32
+                            && value.bytes().all(|byte| byte.is_ascii_digit())
+                    })
+            }
+            _ => false,
+        };
+        if !valid {
+            return Err(crate::ShardLoomError::InvalidOperation(format!(
+                "local table selection: {format} requires snapshot_id (Iceberg), version (Delta), or instant (Hudi) from its own identifier domain; no fallback execution was attempted"
+            )));
+        }
+        Ok(())
+    }
+}

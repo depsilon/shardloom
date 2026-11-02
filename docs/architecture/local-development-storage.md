@@ -29,6 +29,15 @@ a compact cleanup result. Do not create another full archive of the files being
 retired. This policy supersedes the older local-residency and backup-retention
 statements below; their measurements remain historical results.
 
+The [November 2 adaptive-decision closeout](../benchmarks/evidence/native-adaptive-decisions-closeout-2026-11-02/closeout.json)
+retires 32,458 generated regular files and nine environment links after
+PR #1644 passes all 58 hosted checks and merges. Five superseded CLI/library
+pairs, old wheels and completed package/install environments are removed with
+repeated identity and closed-handle checks. The accepted runtime and wheel,
+current inputs, compact reports and all original observations remain. The
+compressed retirement inventory contains identities only; no payload backup,
+query rerun, source-worktree deletion or storage-limit increase occurs.
+
 The [October 31 reduced performance-batch retirement](../benchmarks/evidence/native-performance-batch-retirement-2026-10-31/cleanup.json)
 removes 58,542 completed generated regular files and 15 environment links after
 complete portable acceptance, 28 corruption controls and isolated source-only

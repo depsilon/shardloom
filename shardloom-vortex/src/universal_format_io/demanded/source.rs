@@ -73,7 +73,7 @@ impl LocalColumnarSource {
     pub(super) fn is_parquet(&self) -> bool {
         self.other
             .as_ref()
-            .is_none_or(|source| source.format == "parquet")
+            .is_none_or(|source| source.format == "parquet" && source.table.is_none())
     }
 
     pub(crate) fn validate_generation(&self) -> Result<()> {
@@ -96,6 +96,9 @@ impl LocalColumnarSource {
                 identity.validate()?;
             }
             self.collection.validate(cancellation)?;
+            if let Some(table) = self.other.as_ref().and_then(|source| source.table.as_ref()) {
+                table.validate(cancellation)?;
+            }
             cancellation.check()
         })();
         if result.is_err() && !cancellation.is_cancelled() {
@@ -108,6 +111,9 @@ impl LocalColumnarSource {
         use std::os::unix::fs::MetadataExt as _;
         self.validate_generation()?;
         self.collection.validate_destination(path)?;
+        if let Some(table) = self.other.as_ref().and_then(|source| source.table.as_ref()) {
+            table.validate_destination(path)?;
+        }
         match std::fs::metadata(path) {
             Ok(target)
                 if self.inventory().any(|(_, identity)| {

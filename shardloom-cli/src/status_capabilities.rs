@@ -3596,7 +3596,6 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         emit_capability_certification(scope, format, &report);
         return ExitCode::SUCCESS;
     }
-    let capabilities = runtime_capabilities::current();
     let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
@@ -3618,7 +3617,7 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         format,
         CommandStatus::Success,
         "engine capabilities".to_string(),
-        capabilities.to_human_text(),
+        runtime_capabilities::to_human_text(),
         vec![],
         fields,
     );

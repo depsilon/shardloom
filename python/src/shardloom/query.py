@@ -47,7 +47,7 @@ from .execution_resources import (
     optional_resources, resolve_resources,
 )
 
-SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc", "iceberg", "delta", "hudi")
 _NATIVE_UNARY_PRIMITIVES = frozenset({
     "distinct", "drop_duplicates", "duplicate_mask", "tail", "sample",
     "expression_project", "melt", "explode", "pivot", "rolling_window",
@@ -105,6 +105,7 @@ class WorkflowSource:
     relation: SqlRelation | None = None
     _session: object | None = field(default=None, repr=False, compare=False)
     _native_plan: NativePlanState = field(default_factory=NativePlanState, init=False, repr=False, compare=False)
+    table_snapshot: tuple[tuple[str, object], ...] = ()
 
     @property
     def schema_map(self) -> dict[str, str]:
@@ -8123,6 +8124,9 @@ def read(
     *,
     input_format: str | None = None,
     schema: Mapping[str, object] | None = None,
+    snapshot_id: int | None = None,
+    version: int | None = None,
+    instant: str | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     **client_config: object,
@@ -8131,10 +8135,44 @@ def read(
 
     Omit ``input_format`` to infer the adapter from a file extension. Use
     ``input_format="jsonl"`` for JSON Lines collections whose path does not
-    declare record framing. Source declaration does not read data.
+    declare record framing. Local table sources require an explicit format:
+    ``iceberg`` binds a metadata JSON file with optional ``snapshot_id``;
+    ``delta`` binds a table root with optional ``version``; ``hudi`` binds a
+    table root with optional completed write ``instant``. Without a selector,
+    query admission freezes the current table state. Source declaration does
+    not read data.
     """
 
     source_kind = _source_kind_from_path(uri) if input_format is None else input_format
+    source_kind = source_kind.strip().lower().replace("_", "-")
+    if source_kind in {"iceberg", "delta", "hudi"}:
+        selectors = {"snapshot_id": snapshot_id, "version": version, "instant": instant}
+        expected = {"iceberg": "snapshot_id", "delta": "version", "hudi": "instant"}[source_kind]
+        if schema is not None:
+            raise ValueError("table sources use their authoritative schema; schema= is unsupported")
+        if any(value is not None and name != expected for name, value in selectors.items()):
+            raise ValueError(f"{source_kind} sources accept only {expected}= as a snapshot selector")
+        selected = selectors[expected]
+        if expected == "snapshot_id" and selected is not None:
+            if isinstance(selected, bool) or not isinstance(selected, int):
+                raise TypeError("snapshot_id must be an integer")
+            if selected < -(1 << 63) or selected >= (1 << 63):
+                raise ValueError("snapshot_id must fit in a signed 64-bit integer")
+        if expected == "version" and selected is not None:
+            if isinstance(selected, bool) or not isinstance(selected, int):
+                raise TypeError("version must be an integer")
+            if selected < 0 or selected >= (1 << 64):
+                raise ValueError("version must fit in an unsigned 64-bit integer")
+        if expected == "instant" and selected is not None:
+            if not isinstance(selected, str):
+                raise TypeError("instant must be a string")
+            if not selected or len(selected) > 32 or not selected.isascii() or not selected.isdigit():
+                raise ValueError("instant must contain 1 to 32 ASCII digits")
+        table_snapshot = () if selected is None else ((expected, selected),)
+    else:
+        if any(value is not None for value in (snapshot_id, version, instant)):
+            raise ValueError("snapshot selectors require input_format='iceberg', 'delta', or 'hudi'")
+        table_snapshot = ()
     if source_kind == "vortex":
         return read_vortex(
             uri,
@@ -8149,6 +8187,7 @@ def read(
         schema=schema,
         client=client,
         engine_mode=engine_mode,
+        table_snapshot=table_snapshot,
         **client_config,
     )
 
@@ -9280,6 +9319,7 @@ def _read_source(
     schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
+    table_snapshot: tuple[tuple[str, object], ...] = (),
     **client_config: object,
 ) -> LazyFrame:
     resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
@@ -9295,6 +9335,7 @@ def _read_source(
             source_format=normalized,
             uri=str(uri),
             schema=_normalize_schema(schema),
+            table_snapshot=table_snapshot,
         ),
         client=resolved_client,
         engine_mode=_normalize_engine_mode(engine_mode),
@@ -12700,6 +12741,8 @@ def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, di
         if source._bound_frame is not None:
             continue
         binding: dict[str, object] = {"input_format": _public_workflow_input_format(source)}
+        if source.source_format in {"iceberg", "delta", "hudi"}:
+            binding["table_snapshot"] = dict(source.table_snapshot)
         if source.native_input is not None:
             binding["native_input"] = source.native_input
         elif source.memory_input:
@@ -12759,7 +12802,7 @@ def _is_local_orc_source_ref(value: str) -> bool:
 def _is_declared_local_source(source: WorkflowSource) -> bool:
     uri = source.uri.strip().lower()
     return (
-        source.source_format in {"csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc"}
+        source.source_format in {"csv", "tsv", "json", "jsonl", "parquet", "arrow-ipc", "avro", "orc", "iceberg", "delta", "hudi"}
         and "://" not in uri
         and not uri.startswith(("s3:", "gs:", "abfs:", "abfss:"))
     )

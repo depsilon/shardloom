@@ -9298,14 +9298,21 @@ def _source_bindings_command_arg(
         if not isinstance(binding, Mapping):
             raise TypeError("each source binding must be a mapping")
         keys = set(binding)
-        if keys - {"input_format", "source_schema", "memory_input"} or "input_format" not in keys:
+        if keys - {"input_format", "source_schema", "memory_input", "table_snapshot"} or "input_format" not in keys:
             raise ValueError(
-                "each source binding requires input_format and optional source_schema or memory_input"
+                "each source binding requires input_format and optional source_schema, memory_input or table_snapshot"
             )
         input_format = binding["input_format"]
         if not isinstance(input_format, str) or not input_format.strip():
             raise ValueError("source binding input_format must be a non-empty string")
         entry: dict[str, object] = {"input_format": input_format}
+        if "table_snapshot" in binding:
+            selection = binding["table_snapshot"]
+            if input_format not in {"iceberg", "delta", "hudi"} or not isinstance(selection, Mapping):
+                raise ValueError("table_snapshot requires an Iceberg, Delta or Hudi selection mapping")
+            if set(selection) - {"snapshot_id", "version", "instant"}:
+                raise ValueError("unknown table snapshot selector")
+            entry["table_snapshot"] = dict(selection)
         schema_arg = _schema_command_arg(binding.get("source_schema"))
         if schema_arg is not None:
             entry["source_schema"] = schema_arg

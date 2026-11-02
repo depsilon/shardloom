@@ -23,6 +23,7 @@ pub(crate) struct DatasetFile {
 
 enum Membership {
     Single,
+    Selected(PathBuf),
     Directory(PathBuf),
     Glob {
         root: PathBuf,
@@ -42,6 +43,35 @@ pub(crate) struct LocalDataset {
 }
 
 impl LocalDataset {
+    /// A table protocol, rather than directory enumeration, selected these
+    /// files. The table source retains and validates its metadata dependencies.
+    pub(crate) fn selected<'a>(
+        root: &Path,
+        paths: impl Iterator<Item = &'a Path>,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        let mut credit = memory.reserve(8192 + path_bytes(root)?)?;
+        let mut files = Vec::new();
+        for path in paths {
+            cancellation.check()?;
+            grow(&mut credit, path_bytes(path)? + 512)?;
+            files.try_reserve(1).map_err(failed)?;
+            files.push(DatasetFile {
+                path: path.to_owned(),
+                partitions: Vec::new(),
+            });
+        }
+        Ok(Self {
+            files,
+            union_by_name: false,
+            membership: Membership::Selected(root.to_owned()),
+            format: "parquet".into(),
+            memory: memory.clone(),
+            credit,
+        })
+    }
+
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn is_single_file(&self) -> bool {
         matches!(self.membership, Membership::Single)
@@ -131,7 +161,7 @@ impl LocalDataset {
                     cancellation,
                     &mut push,
                 )?,
-                Membership::Manifest(_) => unreachable!(),
+                Membership::Manifest(_) | Membership::Selected(_) => unreachable!(),
             }
             dataset.credit.absorb(&mut path_credit)?;
             dataset.files = paths
@@ -292,7 +322,7 @@ impl LocalDataset {
             Ok(())
         };
         match &self.membership {
-            Membership::Single => return Ok(()),
+            Membership::Single | Membership::Selected(_) => return Ok(()),
             Membership::Manifest(identity) => {
                 identity.validate()?;
                 let base = identity
@@ -349,6 +379,15 @@ impl LocalDataset {
         let path = std::path::absolute(path).map_err(failed)?;
         let conflict = match &self.membership {
             Membership::Single => false,
+            Membership::Selected(root) => {
+                let mut ancestor = path.as_path();
+                while !ancestor.try_exists().map_err(failed)? {
+                    ancestor = ancestor
+                        .parent()
+                        .ok_or_else(|| failed("output has no existing ancestor"))?;
+                }
+                path.starts_with(root) || ancestor.canonicalize().map_err(failed)?.starts_with(root)
+            }
             Membership::Manifest(identity) => {
                 path == identity.path()
                     || path.canonicalize().ok()

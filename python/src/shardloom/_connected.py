@@ -170,7 +170,7 @@ def _input_arguments(backend, sources, *, relations=()):
 
     # Validate conflicting declarations before constructing native handles.
     _workflow_source_bindings(sources)
-    files, owners, batches, ranges = [], [], [], []
+    files, tables, owners, batches, ranges = [], [], [], [], []
     relations = list(relations)
     seen = set()
     for source in sources:
@@ -194,8 +194,14 @@ def _input_arguments(backend, sources, *, relations=()):
             else:
                 raise ValueError("native object input requires an owned native source")
         else:
-            files.append((source.uri, _public_workflow_input_format(source), _schema_command_arg(source.schema or None)))
-    return dict(files=files, sources=owners, batches=batches, ranges=ranges, relations=relations)
+            format_name = _public_workflow_input_format(source)
+            if format_name in {"iceberg", "delta", "hudi"}:
+                selection = dict(source.table_snapshot)
+                tables.append((source.uri, format_name, selection.get("snapshot_id"),
+                               selection.get("version"), selection.get("instant")))
+            else:
+                files.append((source.uri, format_name, _schema_command_arg(source.schema or None)))
+    return dict(files=files, tables=tables, sources=owners, batches=batches, ranges=ranges, relations=relations)
 
 
 def _dependencies(frame):
@@ -212,12 +218,15 @@ def native_declaration(backend, frame, spill=None):
     from ._relational_sql import _render_stages
     from .query import _quote_sql_local_source_path
 
-    key = (id(backend), spill)
     pending = [(frame, False)]
     active = set()
     while pending:
         current, ready = pending.pop()
         state = current._native_plan
+        key = (id(backend), spill, tuple(
+            (source.uri, source.source_format, source.table_snapshot)
+            for source in current._declared_sources()
+        ))
         with state.lock:
             cached = state.key == key and state.plan is not None
         if cached:

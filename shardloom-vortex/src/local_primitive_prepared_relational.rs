@@ -55,7 +55,9 @@ mod replay;
 mod request_plan;
 #[path = "local_primitive_relational_retained.rs"]
 mod retained;
-pub use batch_input::{ExecutedVortexBatchInput, VortexRelationalBatchInput};
+pub use batch_input::{
+    ExecutedVortexBatchInput, TableSnapshotReadReport, VortexRelationalBatchInput,
+};
 pub(super) use bind::{
     arithmetic_dtype as scalar_arithmetic_dtype, literal_dtype as scalar_literal_dtype,
 };
