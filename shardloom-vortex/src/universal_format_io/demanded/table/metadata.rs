@@ -403,9 +403,10 @@ fn record(batch: &RecordBatch, row: usize) -> Result<Value> {
 fn value(array: &dyn Array, row: usize) -> Result<Value> {
     use arrow_array::{
         BinaryArray, BinaryViewArray, BooleanArray, Date32Array, Decimal128Array,
-        FixedSizeBinaryArray, Float32Array, Float64Array, Int32Array, Int64Array, LargeBinaryArray,
-        LargeListArray, LargeStringArray, ListArray, MapArray, StringArray, StringViewArray,
-        StructArray, Time64MicrosecondArray, TimestampMicrosecondArray, UInt32Array, UInt64Array,
+        FixedSizeBinaryArray, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array,
+        Int64Array, LargeBinaryArray, LargeListArray, LargeStringArray, ListArray, MapArray,
+        StringArray, StringViewArray, StructArray, Time64MicrosecondArray,
+        TimestampMicrosecondArray, UInt32Array, UInt64Array,
     };
     if array.is_null(row) {
         return Ok(Value::Null);
@@ -418,6 +419,8 @@ fn value(array: &dyn Array, row: usize) -> Result<Value> {
         };
     }
     scalar!(BooleanArray);
+    scalar!(Int8Array);
+    scalar!(Int16Array);
     scalar!(Int32Array);
     scalar!(Int64Array);
     scalar!(UInt32Array);

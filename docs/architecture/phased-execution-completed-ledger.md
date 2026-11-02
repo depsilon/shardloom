@@ -23,13 +23,16 @@ phase plan first.
   adaptive owners. Iceberg v1/v2 field identity and applicable position/equality
   deletes, Delta JSON/classic checkpoint replay and column mapping, and Hudi
   v8/v9 Copy-on-Write completed timeline visibility have finite tested contracts.
-  All 260 complete queries across five interfaces, nine output/readback checks,
+  All 275 complete queries across five interfaces, nine output/readback checks,
   retained-owner and refusal controls pass. Final verification passes 3,311 default
-  and 6,852 enabled Rust tests, strict Clippy/formatting, 98 Python regressions,
-  three declaration tests and 298 installed-wheel tests without skips. The enabled
+  and 6,857 enabled Rust tests, strict Clippy/formatting, 98 Python regressions,
+  three declaration tests and 299 installed-wheel tests without skips. The enabled
   Rust suite retains 36 existing opt-in ignores. The
-  [portable record](../benchmarks/evidence/native-local-table-readers-2026-11-02/acceptance.json)
-  preserves source/runtime identities and original failures. Hosted checks/review
+  [original portable record](../benchmarks/evidence/native-local-table-readers-2026-11-02/acceptance.json)
+  and [review supplement](../benchmarks/evidence/native-local-table-reader-review-2026-11-02/acceptance.json)
+  preserve source/runtime identities and original failures. The supplement covers
+  Iceberg identity partition/delete semantics, narrow Delta checkpoint values and
+  primitives-only feature independence. Hosted checks/review
   remain pending. Catalogs, remote execution, table writes and unsupported
   format/type states remain explicit exclusions. The five pre-refresh
   investigations and combined documentation/site closeout remain next; this adds

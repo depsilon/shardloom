@@ -23,6 +23,8 @@ mod iceberg;
 mod mapping;
 #[path = "table/metadata.rs"]
 mod metadata;
+#[path = "table/partition.rs"]
+mod partition;
 #[path = "table/schema.rs"]
 mod schema;
 
@@ -47,6 +49,7 @@ struct DataFile {
     path: PathBuf,
     location: String,
     partitions: BTreeMap<String, ScalarValue>,
+    identity_partitions: BTreeMap<i32, partition::IdentityValue>,
     records: Option<u64>,
     bytes: Option<u64>,
     sequence: u64,
@@ -60,6 +63,7 @@ impl DataFile {
             path,
             location,
             partitions: BTreeMap::new(),
+            identity_partitions: BTreeMap::new(),
             records: None,
             bytes: None,
             sequence: 0,

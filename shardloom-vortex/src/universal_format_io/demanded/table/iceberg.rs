@@ -1,7 +1,8 @@
 //! Iceberg v1/v2 metadata, manifest inheritance and live-file selection.
 
 use super::{
-    ColumnMapping, DataFile, Metadata, Result, Snapshot, deletes, failed, metadata, schema,
+    ColumnMapping, DataFile, Metadata, Result, Snapshot, deletes, failed, metadata, partition,
+    schema,
 };
 use serde_json::Value;
 use shardloom_core::input::LocalTableSelection;
@@ -331,6 +332,8 @@ pub(super) fn read(
             file.sequence = sequence;
             file.spec_id = spec;
             file.partition_key = serde_json::to_string(partitions).map_err(failed)?;
+            file.identity_partitions =
+                partition::identities(&mut snapshot, spec_fields, &shape, partitions)?;
             file.records = Some(metadata::unsigned(data, "record_count")?);
             file.bytes = Some(metadata::unsigned(data, "file_size_in_bytes")?);
             if content == 0 {

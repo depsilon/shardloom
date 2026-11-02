@@ -80,6 +80,14 @@ fn scan(
                         json!(values.value(row))
                     } else if let Some(values) = column.as_any().downcast_ref::<Int32Array>() {
                         json!(values.value(row))
+                    } else if let Some(values) =
+                        column.as_any().downcast_ref::<arrow_array::Int8Array>()
+                    {
+                        json!(values.value(row))
+                    } else if let Some(values) =
+                        column.as_any().downcast_ref::<arrow_array::Int16Array>()
+                    {
+                        json!(values.value(row))
                     } else if let Some(values) = column.as_any().downcast_ref::<StringArray>() {
                         json!(values.value(row))
                     } else {

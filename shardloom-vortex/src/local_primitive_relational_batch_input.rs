@@ -153,6 +153,16 @@ impl Provider<'_> {
     }
 }
 
+/// Selected local table state, independently of its physical file decoder.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct TableSnapshotReadReport {
+    pub format: &'static str,
+    /// Iceberg format version, Delta minimum reader version, or Hudi table version.
+    pub protocol_version: u32,
+    pub snapshot: String,
+    pub location: String,
+}
+
 /// Successful completion evidence for finite native batch sources.
 /// Logical bytes describe input values/offsets/validity/names, not capacity or RSS.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,7 +173,7 @@ pub struct ExecutedVortexBatchInput {
     pub columnar_sources: u64,
     pub columnar_parquet_sources: u64,
     pub columnar_source_formats: Vec<String>,
-    pub table_snapshots: Vec<crate::universal_format_io::demanded::TableSnapshotReadReport>,
+    pub table_snapshots: Vec<TableSnapshotReadReport>,
     pub columnar_schema_discovery_read_bytes: u64,
     pub columnar_files: u64,
     pub columnar_projected_columns: u64,

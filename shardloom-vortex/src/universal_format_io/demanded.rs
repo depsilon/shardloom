@@ -245,15 +245,7 @@ impl PreparedColumnarSource {
     }
 }
 
-/// Selected local table state, independently of its physical file decoder.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-pub struct TableSnapshotReadReport {
-    pub format: &'static str,
-    /// Iceberg format version, Delta minimum reader version, or Hudi table version.
-    pub protocol_version: u32,
-    pub snapshot: String,
-    pub location: String,
-}
+pub use crate::local_primitives::prepared_relational::TableSnapshotReadReport;
 
 /// Execution reads plus the retained source's initial metadata-admission work.
 #[derive(Debug, Clone, PartialEq, Eq)]

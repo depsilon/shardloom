@@ -1,6 +1,8 @@
 //! Per-file logical identity and visibility before native batch admission.
 
-use super::{ColumnMapping, Result, ScalarValue, Snapshot, deletes, failed, schema};
+use super::{
+    ColumnMapping, DataFile, Result, ScalarValue, Snapshot, TableField, deletes, failed, schema,
+};
 use crate::universal_format_io::owned_batch::OwnedBatch;
 use arrow_array::{Array, ArrayRef, RecordBatch};
 use arrow_schema::{DataType, SchemaRef};
@@ -12,10 +14,80 @@ use shardloom_exec::{
 use std::sync::Arc;
 
 pub(crate) struct FileMapping {
-    outputs: Vec<Option<String>>,
-    equalities: Vec<(usize, Vec<Option<String>>)>,
+    outputs: Vec<Column>,
+    equalities: Vec<(usize, Vec<Column>)>,
     positions: Vec<usize>,
     _credit: MemoryLease,
+}
+
+pub(super) enum Column {
+    Physical(String),
+    Constant(ScalarValue),
+}
+
+impl Column {
+    fn name(&self) -> Option<&str> {
+        match self {
+            Self::Physical(name) => Some(name),
+            Self::Constant(_) => None,
+        }
+    }
+}
+
+fn resolve(
+    snapshot: &Snapshot,
+    file: &DataFile,
+    physical: &SchemaRef,
+    field: &TableField,
+    required: bool,
+) -> Result<Column> {
+    if let Some(value) = file.partitions.get(field.field.name()) {
+        return Ok(Column::Constant(value.clone()));
+    }
+    let index = match snapshot.mapping {
+        ColumnMapping::FieldId => deletes::find_id(
+            physical.as_ref(),
+            field
+                .id
+                .ok_or_else(|| failed("logical field ID is absent"))?,
+        )?,
+        ColumnMapping::Name => physical.index_of(field.field.name()).ok(),
+        ColumnMapping::PhysicalName => physical.index_of(&field.physical_name).ok(),
+    };
+    if let Some(index) = index {
+        let column = physical.field(index);
+        if !schema::compatible(
+            column.data_type(),
+            field.field.data_type(),
+            snapshot.format == "iceberg",
+        ) {
+            return Err(failed(format!(
+                "table field '{}' has incompatible physical type {:?} for {:?}",
+                field.field.name(),
+                column.data_type(),
+                field.field.data_type(),
+            )));
+        }
+        return Ok(Column::Physical(column.name().clone()));
+    }
+    // Iceberg projection consults identity partitions only when the field ID
+    // is physically absent. Names never establish identity across renames.
+    if let Some(value) = field.id.and_then(|id| file.identity_partitions.get(&id)) {
+        let value = value.scalar(field.field.data_type())?;
+        if required && value.is_null() {
+            return Err(failed(
+                "Iceberg identity partition violates a required field",
+            ));
+        }
+        return Ok(Column::Constant(value));
+    }
+    if required {
+        return Err(failed(format!(
+            "non-null table field '{}' is absent from a selected data file",
+            field.field.name(),
+        )));
+    }
+    Ok(Column::Constant(ScalarValue::Null))
 }
 
 impl FileMapping {
@@ -46,6 +118,12 @@ impl FileMapping {
             .map(|field| field.name().len())
             .max()
             .unwrap_or(0) as u64;
+        let names = file
+            .identity_partitions
+            .values()
+            .map(super::partition::IdentityValue::bytes)
+            .chain(file.partitions.values().map(super::metadata::scalar_bytes))
+            .fold(names, u64::max);
         let mut entries = snapshot.fields.len() as u64;
         for delete in &snapshot.deletes {
             if delete.applies(file) {
@@ -67,49 +145,18 @@ impl FileMapping {
         let credit = snapshot.metadata.memory.reserve(capacity)?;
         let mut outputs = Vec::new();
         for field in &snapshot.fields {
-            if file.partitions.contains_key(field.field.name())
-                || field.field.data_type() == &DataType::Null
-            {
-                outputs.push(None);
+            if field.field.data_type() == &DataType::Null {
+                outputs.push(Column::Constant(ScalarValue::Null));
                 continue;
             }
-            let index = match snapshot.mapping {
-                ColumnMapping::FieldId => deletes::find_id(
-                    physical.as_ref(),
-                    field
-                        .id
-                        .ok_or_else(|| failed("logical field ID is absent"))?,
-                )?,
-                ColumnMapping::Name => physical.index_of(field.field.name()).ok(),
-                ColumnMapping::PhysicalName => physical.index_of(&field.physical_name).ok(),
-            };
-            let name = if let Some(index) = index {
-                let column = physical.field(index);
-                if !schema::compatible(
-                    column.data_type(),
-                    field.field.data_type(),
-                    snapshot.format == "iceberg",
-                ) {
-                    return Err(failed(format!(
-                        "table field '{}' has incompatible physical type {:?} for {:?}",
-                        field.field.name(),
-                        column.data_type(),
-                        field.field.data_type()
-                    )));
-                }
-                Some(column.name().clone())
-            } else {
-                if !field.field.is_nullable()
-                    || snapshot.required_physical.contains(field.field.name())
-                {
-                    return Err(failed(format!(
-                        "non-null table field '{}' is absent from a selected data file",
-                        field.field.name()
-                    )));
-                }
-                None
-            };
-            outputs.push(name);
+            outputs.push(resolve(
+                snapshot,
+                file,
+                physical,
+                field,
+                !field.field.is_nullable()
+                    || snapshot.required_physical.contains(field.field.name()),
+            )?);
         }
         let mut equalities = Vec::new();
         let mut positions = Vec::new();
@@ -123,26 +170,7 @@ impl FileMapping {
                 deletes::Content::Equality { fields, .. } => {
                     let mut columns = Vec::new();
                     for field in fields {
-                        let column = deletes::find_id(
-                            physical.as_ref(),
-                            field.id.expect("equality field ID"),
-                        )?;
-                        let column = column
-                            .map(|index| {
-                                let column = physical.field(index);
-                                if !schema::compatible(
-                                    column.data_type(),
-                                    field.field.data_type(),
-                                    true,
-                                ) {
-                                    return Err(failed(
-                                        "data and equality-delete field types are incompatible",
-                                    ));
-                                }
-                                Ok(column.name().clone())
-                            })
-                            .transpose()?;
-                        columns.push(column);
+                        columns.push(resolve(snapshot, file, physical, field, false)?);
                     }
                     equalities.push((delete_index, columns));
                 }
@@ -164,11 +192,11 @@ impl FileMapping {
         let mut needed = std::collections::BTreeSet::new();
         for name in requested
             .iter()
-            .filter_map(|&i| self.outputs[i].as_ref())
+            .filter_map(|&i| self.outputs[i].name())
             .chain(
                 self.equalities
                     .iter()
-                    .flat_map(|(_, names)| names.iter().flatten()),
+                    .flat_map(|(_, columns)| columns.iter().filter_map(Column::name)),
             )
         {
             needed.insert(physical.index_of(name).map_err(failed)?);
@@ -193,8 +221,17 @@ impl FileMapping {
             .checked_mul(2)
             .and_then(|n| n.checked_add(32))
             .ok_or_else(|| failed("table batch cost overflow"))?;
-        for value in snapshot.files[file_index].partitions.values() {
-            let width = super::metadata::scalar_bytes(value);
+        let file = &snapshot.files[file_index];
+        for width in file
+            .partitions
+            .values()
+            .map(super::metadata::scalar_bytes)
+            .chain(
+                file.identity_partitions
+                    .values()
+                    .map(super::partition::IdentityValue::bytes),
+            )
+        {
             cost.bytes_per_unit = cost
                 .bytes_per_unit
                 .checked_add(
@@ -221,10 +258,18 @@ impl FileMapping {
     ) -> Result<OwnedBatch> {
         let file = &snapshot.files[file_index];
         let rows = input.num_rows();
-        let extra = file.partitions.values().try_fold(32_u64, |sum, value| {
-            sum.checked_add(super::metadata::scalar_bytes(value) * 4)
-                .ok_or_else(|| failed("partition capacity overflow"))
-        })?;
+        let extra = self
+            .outputs
+            .iter()
+            .chain(self.equalities.iter().flat_map(|(_, columns)| columns))
+            .filter_map(|column| match column {
+                Column::Constant(value) => Some(value),
+                Column::Physical(_) => None,
+            })
+            .try_fold(32_u64, |sum, value| {
+                sum.checked_add(super::metadata::scalar_bytes(value) * 4)
+                    .ok_or_else(|| failed("partition capacity overflow"))
+            })?;
         let capacity = (input.get_array_memory_size() as u64)
             .checked_mul(4)
             .and_then(|n| {
@@ -268,15 +313,14 @@ impl FileMapping {
         columns.try_reserve_exact(requested.len()).map_err(failed)?;
         for &index in requested {
             let field = &snapshot.fields[index].field;
-            let column = if let Some(value) = file.partitions.get(field.name()) {
-                constant(field.data_type(), value, rows)?
-            } else if let Some(name) = &self.outputs[index] {
-                let column = input
-                    .column_by_name(name)
-                    .ok_or_else(|| failed("projected table field was not decoded"))?;
-                widen(column, field.data_type())?
-            } else {
-                arrow_array::new_null_array(field.data_type(), rows)
+            let column = match &self.outputs[index] {
+                Column::Constant(value) => constant(field.data_type(), value, rows)?,
+                Column::Physical(name) => {
+                    let column = input
+                        .column_by_name(name)
+                        .ok_or_else(|| failed("projected table field was not decoded"))?;
+                    widen(column, field.data_type())?
+                }
             };
             let column = if selected.len() == rows {
                 column

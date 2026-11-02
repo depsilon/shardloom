@@ -37,6 +37,15 @@ fn object(columns: Vec<(&str, ArrayRef)>, valid: Vec<bool>) -> ArrayRef {
 }
 
 fn checkpoint(fixture: &Fixture, name: &str, actions: &[Value]) -> std::path::PathBuf {
+    checkpoint_with_parsed(fixture, name, actions, false)
+}
+
+fn checkpoint_with_parsed(
+    fixture: &Fixture,
+    name: &str,
+    actions: &[Value],
+    parsed: bool,
+) -> std::path::PathBuf {
     let valid = |kind: &str| {
         actions
             .iter()
@@ -94,14 +103,34 @@ fn checkpoint(fixture: &Fixture, name: &str, actions: &[Value]) -> std::path::Pa
         ],
         valid("metaData"),
     );
-    let add = object(
-        vec![
-            ("path", strings(actions, &["add", "path"])),
-            ("size", longs(actions, &["add", "size"])),
-            ("partitionValues", Arc::new(values.finish())),
-        ],
-        valid("add"),
-    );
+    let mut add_columns = vec![
+        ("path", strings(actions, &["add", "path"])),
+        ("size", longs(actions, &["add", "size"])),
+        ("partitionValues", Arc::new(values.finish())),
+    ];
+    if parsed {
+        let narrow = || {
+            object(
+                vec![
+                    (
+                        "tiny",
+                        Arc::new(arrow_array::Int8Array::from(vec![-7; actions.len()])),
+                    ),
+                    (
+                        "small",
+                        Arc::new(arrow_array::Int16Array::from(vec![32_000; actions.len()])),
+                    ),
+                ],
+                valid("add"),
+            )
+        };
+        add_columns.push(("partitionValues_parsed", narrow()));
+        add_columns.push((
+            "stats_parsed",
+            object(vec![("minValues", narrow())], valid("add")),
+        ));
+    }
+    let add = object(add_columns, valid("add"));
     let remove = object(
         vec![("path", strings(actions, &["remove", "path"]))],
         valid("remove"),
@@ -113,6 +142,47 @@ fn checkpoint(fixture: &Fixture, name: &str, actions: &[Value]) -> std::path::Pa
         .map(|(name, array)| Field::new(name, array.data_type().clone(), true))
         .collect();
     fixture.parquet(name, fields, columns)
+}
+
+#[test]
+fn delta_checkpoint_accepts_narrow_integer_parsed_partition_and_stat_fields() {
+    let fixture = Fixture::new();
+    let data = ints(&fixture, "data.parquet", "id", &[2, 4], None);
+    let actions = vec![
+        json!({"protocol":{"minReaderVersion":1,"minWriterVersion":2}}),
+        delta_metadata(
+            &json!([
+                delta_field("id", "long", false, None),
+                delta_field("tiny", "byte", false, None),
+                delta_field("small", "short", false, None)
+            ]),
+            &["tiny", "small"],
+            "none",
+        ),
+        delta_add(&data, "data.parquet", &json!({"tiny":"-7","small":"32000"})),
+    ];
+    checkpoint_with_parsed(
+        &fixture,
+        "_delta_log/00000000000000000005.checkpoint.parquet",
+        &actions,
+        true,
+    );
+    let memory = pool();
+    let source = admit(
+        &fixture.0,
+        "delta",
+        &LocalTableSelection::default(),
+        &memory,
+    );
+    assert_eq!(
+        scan(&source, &memory, &["id", "tiny", "small"], None).0,
+        vec![
+            json!({"id":2,"tiny":-7,"small":32000}),
+            json!({"id":4,"tiny":-7,"small":32000})
+        ]
+    );
+    drop(source);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

@@ -15,6 +15,7 @@ from unittest.mock import patch
 if __package__:
     from .test_native_binding import _load_native
     from .native_table_type_fixtures import make_typed_table
+    from .native_table_identity_fixtures import make_identity_partition_table
     from .native_table_fixtures import (
         Fixture, delta_add, delta_field, delta_metadata, id_field, iceberg_entry,
         iceberg_list, iceberg_manifest, iceberg_schema, uri,
@@ -22,6 +23,7 @@ if __package__:
 else:
     from test_native_binding import _load_native
     from native_table_type_fixtures import make_typed_table
+    from native_table_identity_fixtures import make_identity_partition_table
     from native_table_fixtures import (
         Fixture, delta_add, delta_field, delta_metadata, id_field, iceberg_entry,
         iceberg_list, iceberg_manifest, iceberg_schema, uri,
@@ -319,6 +321,60 @@ class NativeTableBindingTests(unittest.TestCase):
                     self.assertEqual(actual.to_pylist(), expected)
                     self.assertEqual(actual.schema.field("small").type, self.pa.int8())
                     self.assertEqual(actual.schema.field("amount").type, self.pa.decimal128(6, 3))
+
+    def test_iceberg_identity_partition_columns_and_deletes_cross_all_surfaces(self):
+        import shardloom as sl
+
+        with tempfile.TemporaryDirectory(prefix="shardloom-iceberg-identity-partition-") as directory:
+            path, selection, snapshot = make_identity_partition_table(Path(directory), self.pa)
+            memory = 16 << 20
+            with self.owners(memory) as (client, session):
+                frame = sl.read(path, input_format="iceberg", client=client)
+                scan = self.native.Relation.scan(str(path))
+                col = self.native.Expression.column
+                lit = self.native.Expression.literal
+
+                shapes = [
+                    (
+                        frame.select("id").sort("id"),
+                        scan.project([("id", col("id"))]).sort([("id", False, "last")]),
+                        f"SELECT id FROM '{path}' ORDER BY id",
+                        [{"id": 2}, {"id": 3}, {"id": 4}],
+                    ),
+                    (
+                        frame.filter("label = 'alpha'").select("id", "label").sort("id"),
+                        scan.filter(col("label") == lit("alpha"))
+                        .project([("id", col("id")), ("label", col("label"))])
+                        .sort([("id", False, "last")]),
+                        f"SELECT id,label FROM '{path}' WHERE label = 'alpha' ORDER BY id",
+                        [{"id": 2, "label": "alpha"}],
+                    ),
+                    (
+                        frame.group_by("label").agg("COUNT(*) AS total").sort("label", nulls="last"),
+                        scan.aggregate(["label"], [("count", None, "total")])
+                        .sort([("label", False, "last")]),
+                        f"SELECT label,COUNT(*) AS total FROM '{path}' GROUP BY label ORDER BY label NULLS LAST",
+                        [
+                            {"label": "", "total": 1},
+                            {"label": "alpha", "total": 1},
+                            {"label": None, "total": 1},
+                        ],
+                    ),
+                ]
+                for dataframe, relation, statement, expected in shapes:
+                    with self.subTest(statement=statement):
+                        for actual in self.all_surfaces(
+                            dataframe,
+                            relation,
+                            statement,
+                            path,
+                            "iceberg",
+                            selection,
+                            snapshot,
+                            session,
+                            memory,
+                        ):
+                            self.assertEqual(actual.to_pylist(), expected)
 
     def test_table_results_keep_native_ownership_and_persist_complete_values(self):
         import pyarrow.parquet as parquet

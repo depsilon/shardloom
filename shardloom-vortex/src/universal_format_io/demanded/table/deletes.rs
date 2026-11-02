@@ -271,16 +271,19 @@ fn key_json(value: &Value, dtype: &DataType, key: &mut Vec<u8>) -> Result<()> {
 
 pub(super) fn key_batch(
     batch: &RecordBatch,
-    columns: &[Option<String>],
+    columns: &[super::mapping::Column],
     row: usize,
     key: &mut Vec<u8>,
 ) -> Result<()> {
     key.clear();
-    for name in columns {
+    for column in columns {
         key.try_reserve(17).map_err(failed)?;
-        let Some(name) = name else {
-            key.push(0);
-            continue;
+        let name = match column {
+            super::mapping::Column::Constant(value) => {
+                key_scalar(value, key)?;
+                continue;
+            }
+            super::mapping::Column::Physical(name) => name,
         };
         let column = batch
             .column_by_name(name)
@@ -291,6 +294,28 @@ pub(super) fn key_batch(
         }
         key.push(1);
         key_array(column.as_ref(), row, key)?;
+    }
+    Ok(())
+}
+
+fn key_scalar(value: &shardloom_core::ScalarValue, key: &mut Vec<u8>) -> Result<()> {
+    use shardloom_core::ScalarValue;
+    if value.is_null() {
+        key.push(0);
+        return Ok(());
+    }
+    key.push(1);
+    match value {
+        ScalarValue::Boolean(value) => key.push(u8::from(*value)),
+        ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => {
+            key.extend_from_slice(&value.to_le_bytes());
+        }
+        ScalarValue::Date32(value) => key.extend_from_slice(&i64::from(*value).to_le_bytes()),
+        ScalarValue::Temporal(value) => key.extend_from_slice(&value.value().to_le_bytes()),
+        ScalarValue::Decimal128 { value, .. } => key.extend_from_slice(&value.to_le_bytes()),
+        ScalarValue::Utf8(value) => bytes_key(value.as_bytes(), key)?,
+        ScalarValue::Binary(value) => bytes_key(value, key)?,
+        _ => return Err(failed("unsupported constant equality-delete key type")),
     }
     Ok(())
 }

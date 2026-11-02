@@ -11,6 +11,222 @@ fn metadata(fixture: &Fixture, logical: &Value, specs: &Value, list: &Path) -> s
 }
 
 #[test]
+fn iceberg_identity_partitions_use_field_ids_and_physical_precedence() {
+    let fixture = Fixture::new();
+    let logical = iceberg_schema(
+        &json!([
+            {"id":1,"name":"id","required":true,"type":"long"},
+            {"id":2,"name":"label","required":false,"type":"string"},
+            {"id":3,"name":"legacy_label","required":false,"type":"string"}
+        ]),
+        0,
+    );
+    let spec =
+        json!([{"name":"legacy_label","transform":"identity","source-id":2,"field-id":1000}]);
+    let partition = json!({"type":"record","name":"r102","fields":[
+        {"name":"legacy_label","type":["null","string"],"field-id":1000,"default":null}
+    ]});
+    let mut entries = Vec::new();
+    for (id, value, physical_id) in [
+        (1, json!("alpha"), None),
+        (2, Value::Null, None),
+        (3, json!(""), None),
+        (4, json!("metadata"), Some(2)),
+        (5, json!("renamed"), Some(3)),
+    ] {
+        let mut fields = vec![id_field("id", DataType::Int64, false, 1)];
+        let mut columns: Vec<arrow_array::ArrayRef> = vec![Arc::new(Int64Array::from(vec![id]))];
+        if let Some(physical_id) = physical_id {
+            fields.push(id_field("old_name", DataType::Utf8, true, physical_id));
+            columns.push(Arc::new(StringArray::from(vec!["physical"])));
+        }
+        let data = fixture.parquet(&format!("{id}.parquet"), fields, columns);
+        let mut entry = iceberg_entry(&data, 1, 0, Some(1), &Value::Null);
+        entry["data_file"]["partition"] = json!({"legacy_label":value});
+        entries.push(entry);
+    }
+    let manifest = iceberg_manifest_partition(
+        &fixture,
+        "data.avro",
+        &logical,
+        "data",
+        &entries,
+        1,
+        spec.as_array().unwrap(),
+        &partition,
+    );
+    let list = iceberg_list_specs(&fixture, "list.avro", &[(&manifest, 0, 1, 1)]);
+    let path = metadata(
+        &fixture,
+        &logical,
+        &json!([{"spec-id":1,"fields":spec}]),
+        &list,
+    );
+    let memory = pool();
+    let source = admit(&path, "iceberg", &LocalTableSelection::default(), &memory);
+    assert_eq!(
+        scan(&source, &memory, &["id", "label", "legacy_label"], None).0,
+        vec![
+            json!({"id":1,"label":"alpha","legacy_label":null}),
+            json!({"id":2,"label":null,"legacy_label":null}),
+            json!({"id":3,"label":"","legacy_label":null}),
+            json!({"id":4,"label":"physical","legacy_label":null}),
+            json!({"id":5,"label":"renamed","legacy_label":"physical"}),
+        ]
+    );
+    drop(source);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn iceberg_identity_partition_keys_apply_hidden_equality_deletes_before_limits() {
+    let fixture = Fixture::new();
+    let logical = iceberg_schema(
+        &json!([
+            {"id":1,"name":"id","required":true,"type":"long"},
+            {"id":2,"name":"label","required":false,"type":"string"}
+        ]),
+        0,
+    );
+    let data = fixture.parquet(
+        "data.parquet",
+        vec![id_field("id", DataType::Int64, false, 1)],
+        vec![Arc::new(Int64Array::from(vec![1, 2, 3]))],
+    );
+    let delete = fixture.parquet(
+        "delete.parquet",
+        vec![
+            id_field("id", DataType::Int64, false, 1),
+            id_field("old_label", DataType::Utf8, true, 2),
+        ],
+        vec![
+            Arc::new(Int64Array::from(vec![1, 3])),
+            Arc::new(StringArray::from(vec!["alpha", "other"])),
+        ],
+    );
+    let spec =
+        json!([{"name":"partition_label","transform":"identity","source-id":2,"field-id":1000}]);
+    let partition = json!({"type":"record","name":"r102","fields":[
+        {"name":"partition_label","type":["null","string"],"field-id":1000,"default":null}
+    ]});
+    let mut entry = iceberg_entry(&data, 3, 0, Some(1), &Value::Null);
+    entry["data_file"]["partition"] = json!({"partition_label":"alpha"});
+    let manifest = iceberg_manifest_partition(
+        &fixture,
+        "data.avro",
+        &logical,
+        "data",
+        &[entry],
+        1,
+        spec.as_array().unwrap(),
+        &partition,
+    );
+    let deletes = iceberg_manifest(
+        &fixture,
+        "deletes.avro",
+        &logical,
+        "deletes",
+        &[iceberg_entry(&delete, 2, 2, Some(2), &json!([1, 2]))],
+    );
+    let list = iceberg_list_specs(
+        &fixture,
+        "list.avro",
+        &[(&manifest, 0, 1, 1), (&deletes, 1, 2, 0)],
+    );
+    let path = metadata(
+        &fixture,
+        &logical,
+        &json!([{"spec-id":0,"fields":[]},{"spec-id":1,"fields":spec}]),
+        &list,
+    );
+    let memory = pool();
+    let source = admit(&path, "iceberg", &LocalTableSelection::default(), &memory);
+    assert_eq!(
+        scan(&source, &memory, &["id"], None).0,
+        vec![json!({"id":2}), json!({"id":3})]
+    );
+    assert_eq!(
+        scan(&source, &memory, &["id"], Some(1)).0,
+        vec![json!({"id":2})]
+    );
+    drop(source);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn iceberg_required_identity_partition_widens_and_rejects_invalid_states() {
+    for case in ["widen", "null", "type", "transform", "duplicate"] {
+        let fixture = Fixture::new();
+        let logical = iceberg_schema(
+            &json!([
+                {"id":1,"name":"id","required":true,"type":"long"},
+                {"id":2,"name":"part","required":true,"type":"long"}
+            ]),
+            0,
+        );
+        let data = fixture.parquet(
+            "data.parquet",
+            vec![id_field("id", DataType::Int64, false, 1)],
+            vec![Arc::new(Int64Array::from(vec![1]))],
+        );
+        let mut spec = json!([{"name":"old_part","transform":if case == "transform" { "bucket[8]" } else { "identity" },
+            "source-id":2,"field-id":1000}]);
+        let mut wire = json!([{"name":"old_part","type":["null",if case == "type" { "string" } else { "int" }],
+            "field-id":1000,"default":null}]);
+        let mut value = json!({"old_part":match case {
+            "null" => Value::Null, "type" => json!("wrong"), _ => json!(7)
+        }});
+        if case == "duplicate" {
+            spec.as_array_mut()
+                .unwrap()
+                .push(json!({"name":"other","transform":"identity","source-id":2,"field-id":1001}));
+            wire.as_array_mut()
+                .unwrap()
+                .push(json!({"name":"other","type":["null","int"],"field-id":1001,"default":null}));
+            value["other"] = json!(7);
+        }
+        let mut entry = iceberg_entry(&data, 1, 0, Some(1), &Value::Null);
+        entry["data_file"]["partition"] = value;
+        let manifest = iceberg_manifest_partition(
+            &fixture,
+            "data.avro",
+            &logical,
+            "data",
+            &[entry],
+            1,
+            spec.as_array().unwrap(),
+            &json!({"type":"record","name":"r102","fields":wire}),
+        );
+        let list = iceberg_list_specs(&fixture, "list.avro", &[(&manifest, 0, 1, 1)]);
+        let path = metadata(
+            &fixture,
+            &logical,
+            &json!([{"spec-id":1,"fields":spec}]),
+            &list,
+        );
+        let memory = pool();
+        let source = LocalColumnarSource::admit_table(
+            &path,
+            "iceberg",
+            &LocalTableSelection::default(),
+            false,
+            &memory,
+            &CancellationToken::default(),
+        );
+        if case == "widen" {
+            let source = source.unwrap();
+            assert_eq!(
+                scan(&source, &memory, &["id", "part"], None).0,
+                vec![json!({"id":1,"part":7})]
+            );
+        } else {
+            assert!(source.is_err(), "{case} must be refused before rows");
+        }
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
 fn iceberg_empty_v1_and_v2_snapshots_retain_schema_and_release_ownership() {
     for version in [1, 2] {
         let fixture = Fixture::new();

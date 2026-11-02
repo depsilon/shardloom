@@ -136,28 +136,32 @@ Report selected format/version/snapshot and physical decoder separately in sourc
 
 ## Local acceptance and remaining work
 
-The [portable acceptance record](../benchmarks/evidence/native-local-table-readers-2026-11-02/acceptance.json)
-binds the final runtime and source identities, every original failed attempt and the complete
-verification archive. Independent fixtures use official wire schemas and complete expected
-results. Local verification passes:
+The [original portable acceptance record](../benchmarks/evidence/native-local-table-readers-2026-11-02/acceptance.json)
+and [review-correction supplement](../benchmarks/evidence/native-local-table-reader-review-2026-11-02/acceptance.json)
+bind the corresponding runtime and source identities, every original failed attempt and complete
+verification archives. The supplement fixes missing Iceberg identity-partition columns and their
+equality-delete keys, Delta checkpoint byte/short values, and primitives-only feature compilation.
+Independent fixtures use official wire schemas and complete expected results. Final local
+verification passes:
 
-- 19 focused table/schema controls covering mapping, delete applicability, checkpoints,
+- 24 focused table/schema controls covering mapping, delete applicability, checkpoints,
   Hudi visibility/schema ordering, empty snapshots, malformed state, generation mutation,
   cancellation, insufficient grants and ownership release.
 - Default and enabled strict workspace Clippy, formatting, 3,311 default workspace tests and
-  6,852 enabled workspace tests. The enabled suite retains 36 existing opt-in ignores.
+  6,857 enabled workspace tests. The enabled suite retains 36 existing opt-in ignores.
 - 98 Python API/binding/query-builder/dataset regressions, three declaration tests and generated
   public-API reference consistency. Declarations and unsupported schema inspection remain
   side-effect-free.
-- 260 complete queries across CLI SQL, embedded workflow, Python SQL, DataFrame and typed native
+- 275 complete queries across CLI SQL, embedded workflow, Python SQL, DataFrame and typed native
   execution. The base matrix covers all three formats at 16 MiB and 128 MiB grants, including
   multi-file grouping/join/order, delete-key hiding, rename/name reuse, nullable additions,
   historical selections and mixed table/file joins. Additional cases cover primitive logical
-  values and Delta partition constants.
+  values, Delta partition constants and Iceberg identity partitions with hidden compound
+  equality-delete keys, nulls and empty strings.
 - Nine output writes with independent readback, three retained-result lifetimes, six output-alias
   refusals, 15 unsupported-state refusals, nine conflicting-snapshot refusals and nine
   pre-access schema-inspection refusals.
-- All 298 installed-wheel integration tests without failures, errors or skips on macOS ARM64,
+- All 299 installed-wheel integration tests without failures, errors or skips on macOS ARM64,
   with installed CLI/library identity, load and removal proof. Hosted Linux acceptance remains
   pending.
 
