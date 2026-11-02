@@ -155,6 +155,7 @@ fn public_primitive_fanout_preserves_explicit_spill_permission_and_complete_resu
                     "{surface}/aggregate={aggregate}/spill={spill}: {report}"
                 );
                 assert_unique(&report);
+                assert_replay_decisions(&report);
                 for (key, value) in [
                     ("native_vortex_result_export_execution_count", "1"),
                     (
@@ -230,6 +231,29 @@ fn public_primitive_fanout_preserves_explicit_spill_permission_and_complete_resu
                 fixture.assert_cleanup();
             }
         }
+    }
+}
+
+fn assert_replay_decisions(report: &Value) {
+    for (key, value) in [
+        (
+            "native_vortex_result_export_replay_decision_native_replay_considered",
+            "3",
+        ),
+        (
+            "native_vortex_result_export_replay_decision_native_replay_executed",
+            "3",
+        ),
+        (
+            "native_vortex_result_export_replay_decision_native_replay_observed_output_rows",
+            "6",
+        ),
+        (
+            "native_vortex_result_export_replay_decision_native_replay_admission_reasons",
+            "resident_retention",
+        ),
+    ] {
+        assert_eq!(complete_result::field_value(report, key), value, "{key}");
     }
 }
 

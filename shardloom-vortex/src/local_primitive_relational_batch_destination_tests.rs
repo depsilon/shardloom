@@ -5,6 +5,51 @@ use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
 #[path = "local_primitive_relational_batch_destination_pressure_tests.rs"]
 mod pressure_tests;
 
+fn assert_replay_decisions(
+    replay: &crate::local_primitives::prepared_relational::VortexRelationalOutputReplay,
+) {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
+    let row = replay
+        .capability_decisions
+        .get(NativeIoCapability::NativeReplay)
+        .unwrap();
+    assert_eq!(
+        (row.considered, row.admitted, row.executed, row.declined),
+        (
+            replay.replays as u64,
+            replay.replays as u64,
+            replay.replays as u64,
+            0
+        )
+    );
+    assert_eq!(
+        row.observed.output_rows,
+        Some(replay.rows_detached * replay.replays as u64)
+    );
+    assert_eq!(row.observed.spill_runs, None);
+    assert!(row.has_admission_reason(if replay.spilled {
+        NativeIoDecisionReason::AdmittedNativeSpill
+    } else {
+        NativeIoDecisionReason::ResidentRetention
+    }));
+    let copies = replay
+        .capability_decisions
+        .get(NativeIoCapability::RepresentationRetention);
+    if replay.buffer_bytes_copied > 0 {
+        let copies = copies.unwrap();
+        assert_eq!(
+            (copies.considered, copies.declined, copies.executed),
+            (1, 1, 0)
+        );
+        assert_eq!(
+            copies.observed.copied_buffer_bytes,
+            Some(replay.buffer_bytes_copied)
+        );
+    } else {
+        assert!(copies.is_none());
+    }
+}
+
 #[test]
 #[allow(clippy::too_many_lines)] // All adapters share the same completion and exact-value matrix.
 fn completion_input_all_writers_preserve_values_and_require_source_end() {
@@ -166,6 +211,16 @@ fn completion_input_fanout_executes_once_for_all_writers_and_typed_empty_output(
                 .fallback_attempted
         );
         let replay = written.replay.as_ref().unwrap();
+        assert_replay_decisions(replay);
+        assert!(
+            written
+                .execution
+                .native_io_certificate
+                .capability_decisions
+                .get(shardloom_core::native_io_decisions::NativeIoCapability::NativeReplay)
+                .is_none(),
+            "output deliveries are separate from source replay"
+        );
         assert!(!replay.spilled);
         assert_eq!(replay.rows_detached, written.execution.output_rows);
         assert_eq!(replay.batches_detached, if empty { 0 } else { 3 });

@@ -102,6 +102,7 @@ impl PreparedColumnarSource {
             row_groups: self.row_groups.clone(),
             max_rows: None,
             metadata: credit,
+            region_selection: self.region_selection,
         })))
     }
 
@@ -142,12 +143,17 @@ impl PreparedColumnarSource {
             }
             previous = Some(position);
         }
+        let region_selection = Some(super::decisions::RegionSelection::selected(
+            self.row_groups.len(),
+            groups.len(),
+        )?);
         Ok(Arc::new(Self {
             source: Arc::clone(&self.source),
             projection: self.projection.clone(),
             row_groups: groups,
             max_rows: None,
             metadata: credit,
+            region_selection,
         }))
     }
 }

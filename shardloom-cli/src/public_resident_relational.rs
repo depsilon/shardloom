@@ -411,6 +411,12 @@ pub(super) fn append_output_replay_fields(
         &shardloom_vortex::local_primitives::prepared_relational::VortexRelationalOutputReplay,
     >,
 ) {
+    if let Some(replay) = replay {
+        crate::vortex_primitive_execution::append_native_output_decisions(
+            fields,
+            &replay.capability_decisions,
+        );
+    }
     fields.extend([
         (
             "native_vortex_result_export_replay_performed".into(),

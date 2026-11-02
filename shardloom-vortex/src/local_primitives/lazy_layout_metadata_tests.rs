@@ -1,6 +1,7 @@
 use super::{
     DEFERRED_LAYOUT_INVENTORY, VortexLocalPrimitiveEmbeddedLayoutReport, VortexQueryPrimitiveKind,
 };
+use shardloom_core::native_io_decisions::NativeIoCapabilityDecisions;
 use std::sync::{
     Arc, OnceLock,
     atomic::{AtomicUsize, Ordering},
@@ -129,6 +130,10 @@ fn query_metadata_does_not_realize_unrelated_layouts_and_explicit_inspection_is_
         assert!(!report.metadata_first_pruning_available);
         assert!(!report.metadata_first_pruning_consulted);
         assert!(!report.metadata_pruned_entire_input);
+        assert_eq!(
+            report.capability_decisions,
+            NativeIoCapabilityDecisions::default()
+        );
     }
     let inspected =
         VortexLocalPrimitiveEmbeddedLayoutReport::inspect_file_layouts(&file, 5).unwrap();
@@ -147,6 +152,10 @@ fn query_metadata_does_not_realize_unrelated_layouts_and_explicit_inspection_is_
         "explicit_layout_inspection_no_query_executed"
     );
     assert!(!inspected.metadata_first_pruning_consulted);
+    assert_eq!(
+        inspected.capability_decisions,
+        NativeIoCapabilityDecisions::default()
+    );
     // The actual provider cache remains reusable; inspection performs no rebuild.
     let second = VortexLocalPrimitiveEmbeddedLayoutReport::inspect_file_layouts(&file, 5).unwrap();
     assert_eq!(

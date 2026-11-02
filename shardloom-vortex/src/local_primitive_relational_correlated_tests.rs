@@ -165,6 +165,7 @@ fn prepare_pure(plan: &VortexRelationalPlan, empty_outer: bool) -> PreparedVorte
 
 #[test]
 fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guards() {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
     for kind in [Kind::Exists, membership("amount", "amount")] {
         for inactive in [false, true] {
             let mut relation = filtered_source(memory_scan("inner"));
@@ -195,6 +196,18 @@ fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guard
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap();
+            let decision = result
+                .execution
+                .native_io_certificate
+                .capability_decisions
+                .get(NativeIoCapability::CorrelatedMembership)
+                .unwrap();
+            assert_eq!(
+                (decision.considered, decision.admitted, decision.declined),
+                (1, 1, 0)
+            );
+            assert_eq!(decision.executed, u64::from(!inactive));
+            assert!(decision.has_admission_reason(NativeIoDecisionReason::PureEqualityCorrelation));
             let expected = if inactive {
                 vec![matches!(kind, Kind::Exists).then_some(false); 5]
             } else if matches!(kind, Kind::Exists) {
@@ -242,6 +255,13 @@ fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guard
         .unwrap();
     assert_eq!(result.execution.scan_rows_delivered, 0);
     assert_eq!(json_rows(&result), [] as [serde_json::Value; 0]);
+    let decision = result
+        .execution
+        .native_io_certificate
+        .capability_decisions
+        .get(NativeIoCapability::CorrelatedMembership)
+        .unwrap();
+    assert_eq!((decision.admitted, decision.executed), (1, 0));
 }
 
 #[test]
@@ -315,6 +335,7 @@ fn pure_correlation_cross_filter_aliases_preserve_complete_projection() {
 
 #[test]
 fn pure_correlation_does_not_reorder_opaque_file_value_validation() {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
     let (left, right) = fixtures();
     let mut relation = filtered_inner(&right);
     let VortexRelationalPlan::Join(join) = &mut relation else {
@@ -335,6 +356,17 @@ fn pure_correlation_does_not_reorder_opaque_file_value_validation() {
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
     assert_eq!(result.execution.scan_rows_delivered, 30);
+    let decision = result
+        .execution
+        .native_io_certificate
+        .capability_decisions
+        .get(NativeIoCapability::CorrelatedMembership)
+        .unwrap();
+    assert_eq!(
+        (decision.considered, decision.declined, decision.executed),
+        (1, 1, 0)
+    );
+    assert!(decision.has_decline_reason(NativeIoDecisionReason::RequiredParameterExecution));
     assert_eq!(
         json_rows(&result)
             .iter()

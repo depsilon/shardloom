@@ -41,6 +41,7 @@ pub mod live_engine;
 pub mod manifest;
 pub mod materialization_policy;
 pub mod native_io;
+pub mod native_io_decisions;
 pub mod observability;
 pub mod operational_contracts;
 pub mod operator;

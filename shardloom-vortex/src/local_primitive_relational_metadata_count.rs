@@ -4,6 +4,9 @@ use super::{
     Metrics, NativeExecutionContext, Node, NodeKind, PipelineKind, Result, ScanSource,
     native_relational_expression,
 };
+use shardloom_core::native_io_decisions::{
+    NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+};
 
 pub(super) fn source_count(
     mut node: &Node,
@@ -11,6 +14,12 @@ pub(super) fn source_count(
     context: &NativeExecutionContext<'_>,
 ) -> Result<Option<u64>> {
     let Some(input) = metrics.input else {
+        context.record_capability_decision(
+            NativeIoCapability::MetadataCount,
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::SourceCapabilityUnavailable,
+            NativeIoObservedWork::default(),
+        )?;
         return Ok(None);
     };
     loop {
@@ -33,7 +42,13 @@ pub(super) fn source_count(
                 && plan.residual_predicate.is_none()
                 && plan.embedded_derived_column_rewrites.is_empty()
                 && plan.source_order_limit.is_none() => return input.metadata_count(*index, context),
-            _ => return Ok(None),
+            _ => {
+                context.record_capability_decision(
+                    NativeIoCapability::MetadataCount, NativeIoDecisionOutcome::Declined,
+                    NativeIoDecisionReason::RequiredValueEvaluation, NativeIoObservedWork::default(),
+                )?;
+                return Ok(None);
+            }
         }
     }
 }

@@ -12,6 +12,7 @@ use crate::{
     },
     resident_session::{PreparedVortexSource, ResidentVortexSession},
 };
+use shardloom_core::native_io_decisions::NativeIoCapabilityDecisions;
 use std::{cell::OnceCell, path::PathBuf};
 
 /// The original producer report and each terminal adapter's completed output.
@@ -156,7 +157,9 @@ pub fn write_produced_many_controlled<T>(
                     replays: targets.len(),
                     spill: None,
                     shared_spill_peak_disk_bytes: None,
+                    capability_decisions: NativeIoCapabilityDecisions::default(),
                 };
+                report.record_capture()?;
                 let (writers, _metadata) = writers.into_parts();
                 let mut writers = writers.into_iter();
                 let staged = output_fanout::stage(targets, overwrite, validate, |path, _| {
@@ -186,6 +189,7 @@ pub fn write_produced_many_controlled<T>(
                             "native output adapter did not consume its complete result",
                         ));
                     }
+                    report.record_delivery()?;
                     Ok(output)
                 })?;
                 drop(replay);

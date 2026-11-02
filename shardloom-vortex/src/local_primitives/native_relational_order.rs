@@ -8,6 +8,54 @@ use std::cmp::Ordering;
 #[path = "native_relational_order_check_tests.rs"]
 mod order_check_tests;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExistingOrder {
+    Preserved,
+    UnprovenDomain,
+    Disordered,
+}
+
+/// Record the result only after the original comparison/ordering path completes.
+pub(super) fn sort_with_order_evidence<T: Copy>(
+    rows: &mut [T],
+    context: &crate::resident_session::NativeExecutionContext<'_>,
+    comparisons_prevalidated: bool,
+    compare: impl FnMut(T, T) -> Result<Ordering>,
+) -> Result<()> {
+    use shardloom_core::native_io_decisions::{
+        NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+    };
+    let outcome = sort_with_order_check(
+        rows,
+        context.cancellation(),
+        comparisons_prevalidated,
+        compare,
+    )?;
+    let (outcome, reason) = match outcome {
+        ExistingOrder::Preserved => (
+            NativeIoDecisionOutcome::Executed,
+            NativeIoDecisionReason::ValidatedExistingOrder,
+        ),
+        ExistingOrder::UnprovenDomain => (
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::UnprovenComparisonDomain,
+        ),
+        ExistingOrder::Disordered => (
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::ObservedDisorder,
+        ),
+    };
+    context.record_capability_decision(
+        NativeIoCapability::ExistingOrder,
+        outcome,
+        reason,
+        NativeIoObservedWork {
+            input_rows: Some(rows.len() as u64),
+            ..NativeIoObservedWork::default()
+        },
+    )
+}
+
 /// Check unchanged ordinals only after the caller has validated every compared
 /// value and established an infallible comparison domain. An unproven domain
 /// goes straight to the original heap, preserving its comparison/error order.
@@ -16,9 +64,10 @@ pub(super) fn sort_with_order_check<T: Copy>(
     cancellation: &CancellationToken,
     comparisons_prevalidated: bool,
     mut compare: impl FnMut(T, T) -> Result<Ordering>,
-) -> Result<()> {
+) -> Result<ExistingOrder> {
     if !comparisons_prevalidated {
-        return sort(rows, cancellation, compare);
+        sort(rows, cancellation, compare)?;
+        return Ok(ExistingOrder::UnprovenDomain);
     }
     cancellation.check()?;
     #[cfg(all(test, debug_assertions))]
@@ -30,7 +79,8 @@ pub(super) fn sort_with_order_check<T: Copy>(
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| counts.order_check_comparisons += 1);
         if compare(pair[0], pair[1])?.is_gt() {
-            return sort(rows, cancellation, compare);
+            sort(rows, cancellation, compare)?;
+            return Ok(ExistingOrder::Disordered);
         }
     }
     cancellation.check()?;
@@ -39,7 +89,7 @@ pub(super) fn sort_with_order_check<T: Copy>(
         counts.ordered_input_sorts += 1;
         counts.ordered_input_rows += rows.len() as u64;
     });
-    Ok(())
+    Ok(ExistingOrder::Preserved)
 }
 
 /// Heap ordering is unstable; callers include source ordinals as the final key

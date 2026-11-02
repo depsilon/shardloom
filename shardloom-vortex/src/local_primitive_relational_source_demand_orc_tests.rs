@@ -98,6 +98,12 @@ fn orc_source_demand_missing_stats_retain_stripes_and_exact_stats_skip_before_op
                 if statistics { 1 } else { 4 },
                 if statistics { 4 } else { 16 },
             );
+            super::decisions_tests::assert_regions(
+                &result,
+                4,
+                if statistics { 3 } else { 0 },
+                shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved,
+            );
             drop(result);
             assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
         }
@@ -137,6 +143,12 @@ fn orc_source_demand_shared_consumers_union_stripes_and_prefix_has_exact_end() {
         .unwrap();
     assert_eq!(json_rows(&result), [json!({"n":1}), json!({"n":14})]);
     assert_work(&result, 2, 8);
+    super::decisions_tests::assert_regions(
+        &result,
+        4,
+        2,
+        shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved,
+    );
     let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
         input: scan(&fixture.path, None),
         offset: 3,
@@ -148,6 +160,14 @@ fn orc_source_demand_shared_consumers_union_stripes_and_prefix_has_exact_end() {
         .unwrap();
     assert_eq!(json_rows(&result), [3, 4, 5].map(|n| json!({"n":n})));
     assert_work(&result, 2, 6);
+    assert!(
+        result
+            .execution
+            .native_io_certificate
+            .capability_decisions
+            .get(shardloom_core::native_io_decisions::NativeIoCapability::RegionExclusion)
+            .is_none()
+    );
 }
 
 #[test]

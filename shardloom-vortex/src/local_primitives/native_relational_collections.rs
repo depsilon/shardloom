@@ -216,9 +216,9 @@ impl Table {
             rows.values
                 .extend_from_slice(&state.groups.values[group].values);
             if !self.ordered && !spec.order.is_empty() {
-                native_relational_order::sort_with_order_check(
+                native_relational_order::sort_with_order_evidence(
                     &mut rows.values,
-                    context.cancellation(),
+                    context,
                     comparisons_prevalidated,
                     |left, right| {
                         let (a, arow) = state.batches.locate_batch(left)?;

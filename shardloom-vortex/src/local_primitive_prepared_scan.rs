@@ -231,7 +231,7 @@ fn execute_after_pruning(
         projection_pushdown_applied,
     );
     if let Some(metadata_pruned) = metadata_pruned {
-        embedded_layout.mark_pruning_consulted(metadata_pruned);
+        embedded_layout.mark_pruning_consulted(metadata_pruned)?;
         if metadata_pruned {
             let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
             let reader_splits = Vec::new();

@@ -138,9 +138,9 @@ impl<'a> Sort<'a> {
         } else {
             // build() validated every key and the explicit NULL policy before
             // retaining these immutable batches.
-            native_relational_order::sort_with_order_check(
+            native_relational_order::sort_with_order_evidence(
                 &mut ordinals.values,
-                context.cancellation(),
+                context,
                 self.table
                     .has_uniform_order_domain(self.spec.keys.len(), context)?,
                 |left, right| self.compare_rows(left, right),

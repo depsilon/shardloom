@@ -34,6 +34,7 @@ mod chunks;
 mod complete;
 #[cfg(test)]
 mod complete_tests;
+mod decisions;
 mod generic;
 mod ipc;
 mod metadata_count;
@@ -100,6 +101,7 @@ impl LocalColumnarSource {
         }
         let row_groups =
             self.prepare_row_groups(demand.max_rows, &demand.predicates, cancellation)?;
+        let region_selection = decisions::RegionSelection::demand(self, demand, row_groups.len())?;
         cancellation.check()?;
         Ok(Arc::new(PreparedColumnarSource {
             source: Arc::clone(self),
@@ -107,6 +109,7 @@ impl LocalColumnarSource {
             row_groups,
             max_rows: demand.max_rows,
             metadata: credit,
+            region_selection,
         }))
     }
 
@@ -179,6 +182,7 @@ pub(crate) struct PreparedColumnarSource {
     row_groups: Vec<SourceGroup>,
     max_rows: Option<u64>,
     metadata: MemoryLease,
+    region_selection: Option<decisions::RegionSelection>,
 }
 
 /// Positions include excluded groups and preceding files in the held inventory.
@@ -229,6 +233,7 @@ impl PreparedColumnarSource {
             ended: false,
             other: self.source.other.as_ref().map(|_| generic::Reader::new()),
             sizing: batch_work::Sizing::default(),
+            decisions_recorded: false,
         })
     }
 }
@@ -274,6 +279,7 @@ pub(crate) struct ColumnarReader {
     ended: bool,
     other: Option<generic::Reader>,
     sizing: batch_work::Sizing,
+    decisions_recorded: bool,
 }
 
 struct Decoder {
@@ -370,6 +376,20 @@ impl ColumnarReader {
     }
 
     fn next(
+        &mut self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {
+        let next = self.next_unrecorded(context)?;
+        if next.is_none() && !self.decisions_recorded {
+            if let Some(selection) = self.prepared.region_selection {
+                selection.complete(context)?;
+            }
+            self.decisions_recorded = true;
+        }
+        Ok(next)
+    }
+
+    fn next_unrecorded(
         &mut self,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {

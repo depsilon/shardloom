@@ -889,7 +889,7 @@ impl PreparedVortexUnary {
             .transpose()?
             .unwrap_or(false);
         if filter.is_some() {
-            embedded.mark_pruning_consulted(pruned);
+            embedded.mark_pruning_consulted(pruned)?;
         }
         let mut evidence = EvidenceOwners::new(context, self.bound.columns.len())?;
         let mut splits = ReservedVec::new(context.memory())?;

@@ -98,6 +98,20 @@ fn streaming_replay_self_join_all_kinds_empty_null_ties_and_final_output_ownersh
                 assert_eq!(input.replay_rows, input.rows);
                 assert_eq!(input.replay_rows_detached, input.rows);
                 assert_eq!(input.replay_spilled_sources, 0);
+                {
+                    use shardloom_core::native_io_decisions::NativeIoCapability;
+                    let decision = report
+                        .native_io_certificate
+                        .capability_decisions
+                        .get(NativeIoCapability::NativeReplay)
+                        .unwrap();
+                    assert_eq!(
+                        (decision.considered, decision.admitted, decision.executed),
+                        (1, 1, 1)
+                    );
+                    assert_eq!(decision.observed.output_rows, Some(input.replay_rows));
+                    assert_eq!(decision.observed.spill_runs, None);
+                }
                 assert!(input.end_of_input_observed && input.output_ownership_detached);
                 assert!(report.native_io_certificate.is_certified());
                 assert!(!report.native_io_certificate.side_effects.fallback_attempted);

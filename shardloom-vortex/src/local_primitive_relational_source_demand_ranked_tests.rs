@@ -346,6 +346,23 @@ fn ranked_demand_predicate_metadata_exclusions_preserve_absolute_positions() {
         input.ranked_rank_groups < 57 && input.ranked_payload_groups < input.ranked_rank_groups
     );
     assert_eq!(input.columnar_row_groups_read, input.ranked_rank_groups);
+    {
+        use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
+        let row = result
+            .execution
+            .native_io_certificate
+            .capability_decisions
+            .get(NativeIoCapability::RegionExclusion)
+            .unwrap();
+        assert_eq!(row.considered, 57 + input.ranked_rank_groups);
+        assert_eq!(row.executed, 57 - input.ranked_payload_groups);
+        assert_eq!(
+            row.declined,
+            input.ranked_rank_groups + input.ranked_payload_groups
+        );
+        assert!(row.has_admission_reason(NativeIoDecisionReason::ExclusionProved));
+        assert!(row.has_admission_reason(NativeIoDecisionReason::ValidatedRowSelection));
+    }
 }
 
 #[test]

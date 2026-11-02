@@ -51,6 +51,15 @@ class NativeOrderedInputTests(unittest.TestCase):
         self.assertEqual(fields["fallback_attempted"], "false")
         self.assertEqual(fields["external_engine_invoked"], "false")
         self.assertTrue(report["source_session_released_before_export"])
+        prefix = "local_primitive_native_io_decision_"
+        self.assertEqual(fields[prefix + "schema_version"], "shardloom.native_io_decisions.v1")
+        if label.startswith(("sort_ascending_", "sort_shuffled_")) and len(wanted.rows) > 1:
+            key = prefix + "existing_order_"
+            self.assertGreater(int(fields[key + "considered"]), 0)
+            ordered = label.startswith("sort_ascending_")
+            self.assertGreater(int(fields[key + ("executed" if ordered else "declined")]), 0)
+            reason = "validated_existing_order" if ordered else "observed_disorder"
+            self.assertIn(reason, fields[key + ("admission_reasons" if ordered else "decline_reasons")].split(","))
 
     def write_sources(self, root, sources, extension):
         import pyarrow.parquet as parquet
