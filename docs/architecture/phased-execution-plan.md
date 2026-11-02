@@ -472,10 +472,23 @@ before the 1.1.0 milestone. After item 19, execute the separately versioned
 [expanded analytical testing and benchmarking campaign](native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19)
 using the existing harness, before item 21 Foundry work. With the October 31
 adaptive-execution addition, the resulting order is
-**20 → 18 → 23 → 1.1.0 milestone → 19 → expanded coverage/benchmark acceptance → 21 →
+**20 → 18 → 23 → 1.1.0 milestone → source/preparation strategy investigation → 19 → expanded coverage/benchmark acceptance → 21 →
 1.2.0 milestone → 22 → 1.3.0 milestone**. The frozen 347 cases and their timing
 history stay unchanged. Targeted correctness and acceptance for current work are
 not deferred; publication still requires separate authorization.
+
+**November 2 post-version investigation:** the maintainer schedules the
+[source/preparation strategy investigation](native-source-strategy-investigation-2026-11-02.md)
+immediately after the 1.1.0 version bump and before item 19. Clarify explicit
+source investment independently of provider and output selection; use a small
+matched direct/general-prepared/specialized-prepared/fresh-preparation comparison
+to identify the next shared improvement. Preserve provider eligibility, generation
+and resource contracts; enabling spill is not a valid control for forcing a
+general provider. Automatic preparation requires a later cost/permission decision.
+The original 347 history and the larger post-item-19 coverage campaign remain
+separate. This scheduling request does not defer current correctness/acceptance
+or the already authorized ingest-plus-Vortex Full43 run, and does not authorize
+publication.
 
 **October 30 Full43 deferral:** do not execute another Full43 pass until item 18's
 universal I/O work and format/interface acceptance are complete. This replaces
