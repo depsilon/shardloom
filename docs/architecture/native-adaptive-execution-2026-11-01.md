@@ -7,19 +7,36 @@ semantics and recovery. The phase plan remains the active queue.
 
 The November 1 maintainer decision starts this work before item 18's combined
 portable-evidence, documentation and website closeout. Item 18's completed
-runtime observations remain immutable. Finish integration and correctness,
-then compare matched engine time with the current runtime. Investigate and
-iterate on a slowdown; retain each original result. The separate item 18
-performance exception is not blanket acceptance of item 23 regressions.
+runtime observations remain immutable. The original sequence placed a matched
+timing check after integration. The November 2 instruction supersedes that timing
+intent: execute the new dynamic runtime once to establish its next baseline,
+without rerunning the fixed runtime, sweeping resources or treating this wiring
+work as a tuning experiment. Correctness and resource acceptance remain required.
 
 The maintainer subsequently authorized merging the verified existing I/O PR
 separately. [PR #1640](https://github.com/depsilon/shardloom/pull/1640) merged at
 `b767bc971a6a16fa49fb9b74a3d4c6eb9aa20aaf` after all 58 hosted checks passed and
 both review findings were fixed. That merge does not close item 23, the broader
 local read-only format additions, or the combined portable-evidence/docs/website
-work. The next matched engine-time checkpoint follows adaptive integration and
-correctness, before implementing the new table-format readers. Full43 stays on
-hold; no new timing result is claimed.
+work. The new dynamic baseline below precedes the remaining integration checks
+and new table-format readers. Full43 stays on hold.
+
+## Dynamic runtime timing baseline
+
+The November 2 single pass completes all 347 original queries once and verifies
+all 12,565 result rows against their independent references. Engine time is
+**12.144043291 seconds**. This is the new dynamic-runtime timing baseline,
+not a performance-retention contest. No old-runtime query, resource sweep,
+competitor execution or Full43 run was performed. The existing outer memory/CPU
+ceilings remain enforced while the new runtime selects work dynamically.
+
+The [compact observation record](../benchmarks/evidence/native-adaptive-runtime-baseline-2026-11-02.json)
+binds the source, runtime and retained complete result evidence. Builds, subagents
+and other local task work were idle during query execution. Full input/runtime
+hashes and broad inventories occurred outside execution. Complete workspace,
+installed-package and hosted acceptance remain pending for
+[PR #1643](https://github.com/depsilon/shardloom/pull/1643); this observation does
+not complete item 23 or establish engine-wide ownership coverage.
 
 ## Source and preparation milestone
 
