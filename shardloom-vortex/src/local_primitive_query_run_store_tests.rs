@@ -500,6 +500,99 @@ fn overlapping_output_quota_counts_partial_files_and_a_failed_store_cannot_resum
 }
 
 #[test]
+fn independent_namespaces_charge_live_runs_and_failed_outputs_to_the_same_quota() {
+    let workspace = Workspace::new();
+    let memory = LiveMemoryPool::new(8 << 20).unwrap();
+    let runtime = local_vortex_runtime(
+        VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+    );
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let work = Arc::new(memory.reserve(1 << 20).unwrap());
+    let values = [1, 2, 3, 4];
+    let mut probe = store(&workspace, &memory);
+    let run = probe
+        .write_arrays(&spec(4), arrays(&values), &runtime, &session, &work)
+        .unwrap();
+    let quota_bytes = 2 * MARKER_BYTE_RESERVATION + 2 * run.bytes - 1;
+    probe.cleanup().unwrap();
+    drop((run, probe));
+
+    let owner = crate::query_spill_quota::Owner::default();
+    let quota = owner.bind(quota_bytes).unwrap();
+    let sort = crate::VortexSortSpillPolicy::new(&workspace.0, quota_bytes, 4 << 20).unwrap();
+    let mut first = QueryRunStore::new(
+        QueryRunStorePolicy::numeric_sort(&sort).with_quota_owner(owner.clone()),
+        memory.clone(),
+        memory.reserve(128 << 10).unwrap(),
+    )
+    .unwrap();
+    let distinct_policy = QueryRunStorePolicy::exact_integer_distinct(
+        workspace.0.clone(),
+        quota_bytes,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .with_quota_owner(owner.clone());
+    let mut second = QueryRunStore::new(
+        distinct_policy.clone(),
+        memory.clone(),
+        memory.reserve(128 << 10).unwrap(),
+    )
+    .unwrap();
+    let first_run = first
+        .write_arrays(&spec(4), arrays(&values), &runtime, &session, &work)
+        .unwrap();
+    let error = second
+        .write_arrays(&spec(4), arrays(&values), &runtime, &session, &work)
+        .unwrap_err();
+    assert!(error.to_string().contains("quota"));
+    assert!(first_run.path.exists());
+    let observed = first.snapshot().live_disk_bytes + second.snapshot().live_disk_bytes;
+    assert_eq!(quota.snapshot().unwrap().live_bytes, observed);
+    assert!(observed <= quota_bytes);
+    assert_eq!(quota.snapshot().unwrap().pending_bytes, 0);
+    assert_eq!(
+        observed,
+        2 * MARKER_BYTE_RESERVATION
+            + first
+                .owned
+                .iter()
+                .chain(&second.owned)
+                .map(|path| fs::metadata(path).unwrap().len())
+                .sum::<u64>()
+    );
+    let directories = fs::read_dir(&workspace.0).unwrap().count();
+    let mut changed = distinct_policy.clone();
+    changed.quota_bytes += 1;
+    assert!(
+        QueryRunStore::new(changed, memory.clone(), memory.reserve(128 << 10).unwrap()).is_err()
+    );
+    assert_eq!(fs::read_dir(&workspace.0).unwrap().count(), directories);
+
+    first.cleanup().unwrap();
+    assert_eq!(
+        quota.snapshot().unwrap().live_bytes,
+        second.snapshot().live_disk_bytes
+    );
+    let mut third = QueryRunStore::new(
+        distinct_policy,
+        memory.clone(),
+        memory.reserve(128 << 10).unwrap(),
+    )
+    .unwrap();
+    let replacement = third
+        .write_arrays(&spec(4), arrays(&values), &runtime, &session, &work)
+        .unwrap();
+    assert!(quota.snapshot().unwrap().peak_live_bytes <= quota_bytes);
+    third.cleanup().unwrap();
+    second.cleanup().unwrap();
+    assert_eq!(quota.snapshot().unwrap().live_bytes, 0);
+    assert_eq!(quota.snapshot().unwrap().pending_bytes, 0);
+    drop((first_run, replacement, first, second, third, work));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    workspace.assert_empty();
+}
+
+#[test]
 fn changed_and_truncated_run_bytes_are_rejected_before_native_open() {
     use std::io::{Seek as _, SeekFrom};
     let runtime = local_vortex_runtime(

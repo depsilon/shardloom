@@ -547,12 +547,8 @@ impl Reader {
                     self.rows = add(self.rows, rows as u64)?;
                     // Retained Arrow buffers receive credits before native
                     // handoff; upstream decode temporaries are not an RSS bound.
-                    let target = Arc::new(
-                        source
-                            .schema
-                            .project(&prepared.projection)
-                            .map_err(failed)?,
-                    );
+                    let (target, projection_credit) =
+                        schema::project(&source.schema, &prepared.projection, memory)?;
                     let partitions =
                         &prepared.source.collection.files[self.next_file - 1].partitions;
                     let batch = if self.owned_parquet_handoff {
@@ -564,6 +560,11 @@ impl Reader {
                         schema::align_owned_parquet(batch, target, partitions, memory)?
                     } else {
                         schema::align(batch, target, partitions, memory, credited_input)?
+                    };
+                    let batch = if let Some(credit) = projection_credit {
+                        batch.retain(credit)
+                    } else {
+                        batch
                     };
                     source.files[self.next_file - 1].identity.validate()?;
                     cancellation.check()?;

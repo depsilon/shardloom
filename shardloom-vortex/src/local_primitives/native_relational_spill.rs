@@ -34,6 +34,13 @@ const READER_WORK_BYTES: u64 = 2 * 64 * 1024;
 mod stored;
 pub(super) use stored::{Replay, StoredBlock, StoredOrder};
 
+#[path = "native_relational_spill_sizing.rs"]
+mod sizing;
+
+#[cfg(test)]
+#[path = "native_relational_spill_sizing_tests.rs"]
+mod sizing_tests;
+
 #[path = "native_relational_replacement_store.rs"]
 pub(super) mod replacement;
 
@@ -51,6 +58,8 @@ thread_local! {
 /// The caller's resident pool owns all credits; no child execution grant exists.
 pub(super) struct State {
     policy: VortexRelationalSpillPolicy,
+    quota_owner: crate::query_spill_quota::Owner,
+    quota: Arc<crate::query_spill_quota::Quota>,
     store: RefCell<Option<QueryRunStore>>,
     merge_passes: Cell<u64>,
     open_runs: Cell<usize>,
@@ -64,14 +73,25 @@ impl State {
         policy: &VortexRelationalSpillPolicy,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
+        Self::with_quota_owner(policy, context, crate::query_spill_quota::Owner::default())
+    }
+
+    pub(super) fn with_quota_owner(
+        policy: &VortexRelationalSpillPolicy,
+        context: &NativeExecutionContext<'_>,
+        quota_owner: crate::query_spill_quota::Owner,
+    ) -> Result<Self> {
         let metadata = context.memory().reserve(
             (policy.workspace.as_os_str().len() as u64)
                 .checked_mul(2)
                 .and_then(|bytes| bytes.checked_add(1024))
                 .ok_or_else(|| failed("spill configuration capacity overflow"))?,
         )?;
+        let quota = quota_owner.bind(policy.quota_bytes)?;
         Ok(Self {
             policy: policy.clone(),
+            quota_owner,
+            quota,
             store: RefCell::new(None),
             merge_passes: Cell::new(0),
             open_runs: Cell::new(0),
@@ -91,7 +111,8 @@ impl State {
         if store.is_none() {
             let scratch = context.memory().reserve(128 * 1024)?;
             *store = Some(QueryRunStore::new(
-                QueryRunStorePolicy::relational_order(&self.policy, context.cancellation().clone()),
+                QueryRunStorePolicy::relational_order(&self.policy, context.cancellation().clone())
+                    .with_quota_owner(self.quota_owner.clone()),
                 context.memory().clone(),
                 scratch,
             )?);
@@ -101,6 +122,22 @@ impl State {
                 .as_mut()
                 .ok_or_else(|| failed("spill store was not admitted"))?,
         )
+    }
+
+    /// Additional directory/run path structures and first-use store scratch.
+    /// Actual path capacities and footer leases are still admitted by the store.
+    fn run_workspace_cost(&self) -> Result<u64> {
+        (self.policy.workspace.as_os_str().len() as u64)
+            .checked_mul(16)
+            .and_then(|bytes| bytes.checked_add(8192))
+            .and_then(|bytes| {
+                bytes.checked_add(if self.store.borrow().is_none() {
+                    128 * 1024
+                } else {
+                    0
+                })
+            })
+            .ok_or_else(|| failed("spill path workspace estimate overflow"))
     }
 
     fn open<'a>(
@@ -160,6 +197,10 @@ impl State {
             owned_cleanup_completed: true,
         })
     }
+
+    pub(super) fn shared_quota_snapshot(&self) -> Result<crate::query_spill_quota::Snapshot> {
+        self.quota.snapshot()
+    }
 }
 
 struct Reader<'a> {
@@ -189,6 +230,7 @@ impl Drop for Reader<'_> {
 struct Run {
     native: NativeQueryRun,
     level: u32,
+    maximum_block_bytes: u64,
 }
 
 pub(super) struct Ordering<'p, 's> {
@@ -200,6 +242,8 @@ pub(super) struct Ordering<'p, 's> {
     work: Option<Arc<MemoryLease>>,
     retained_bytes: u64,
     buffer_bytes: u64,
+    write_sizing: sizing::RunWork,
+    merge_sizing: sizing::RunWork,
 }
 
 impl<'p, 's> Ordering<'p, 's> {
@@ -209,15 +253,18 @@ impl<'p, 's> Ordering<'p, 's> {
         batch_rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
+        let block_rows = batch_rows.clamp(1, BLOCK_ROWS);
         Ok(Self {
             spec,
             state,
             sort: Sort::new(spec, context.memory())?,
             runs: ReservedVec::new(context.memory())?,
-            block_rows: batch_rows.clamp(1, BLOCK_ROWS),
+            block_rows,
             work: None,
             retained_bytes: 0,
             buffer_bytes: state.policy.buffer_bytes,
+            write_sizing: sizing::RunWork::new(spec, block_rows)?,
+            merge_sizing: sizing::RunWork::new(spec, block_rows)?,
         })
     }
 
@@ -315,12 +362,32 @@ impl<'p, 's> Ordering<'p, 's> {
         }
         let work = self.work(context)?;
         let rows = self.sort.ordered_rows(context)?;
-        let spec = run_spec(self.spec, rows.values.len() as u64, self.block_rows)?;
         self.runs.reserve_one()?;
-        let blocks = rows.values.chunks(self.block_rows).map(|rows| {
+        let shape = self.write_sizing.select(
+            self.spec,
+            rows.values.len() as u64,
+            self.state.run_workspace_cost()?,
+            context,
+        )?;
+        let block_rows = usize::try_from(shape.units())
+            .map_err(|_| failed("spill write block size overflow"))?;
+        let slice_credit = self.write_sizing.slice_credit(context)?;
+        let spec = run_spec(self.spec, rows.values.len() as u64, block_rows)?;
+        let input = rows.values.chunks(self.block_rows).map(|rows| {
             context.check_cancelled()?;
             self.sort.gather_rows(rows, context)
         });
+        let payload_bytes_per_row = Cell::new(0);
+        let maximum_block_bytes = Cell::new(0);
+        let blocks = sizing::Blocks::new(
+            input,
+            block_rows,
+            self.block_rows,
+            &payload_bytes_per_row,
+            &maximum_block_bytes,
+            slice_credit,
+            context,
+        );
         let native = self.state.with_store(context, |store| {
             store.write_arrays(
                 &spec,
@@ -330,10 +397,16 @@ impl<'p, 's> Ordering<'p, 's> {
                 &work,
             )
         })?;
+        self.write_sizing
+            .complete(shape, payload_bytes_per_row.get(), context);
         self.state
             .max_block_rows
-            .set(self.state.max_block_rows.get().max(self.block_rows));
-        self.runs.values.push(Run { native, level: 0 });
+            .set(self.state.max_block_rows.get().max(block_rows));
+        self.runs.values.push(Run {
+            native,
+            level: 0,
+            maximum_block_bytes: maximum_block_bytes.get(),
+        });
         drop(rows);
         self.sort = Sort::new(self.spec, context.memory())?;
         self.retained_bytes = 0;
@@ -375,8 +448,37 @@ impl<'p, 's> Ordering<'p, 's> {
             self.state.open(&right.native, self.spec, context, &work)?,
             context,
         )?;
-        let spec = run_spec(self.spec, rows, self.block_rows)?;
-        let blocks = std::iter::from_fn(|| merger.next(self.block_rows, context).transpose());
+        // Current heads are already held. The fixed gather window can retain
+        // several additional blocks when an input used smaller physical frames.
+        let workspace = self.state.run_workspace_cost()?;
+        let overlap = sizing::merge_reader_overlap(
+            self.block_rows,
+            left.native.block_rows,
+            left.maximum_block_bytes,
+            right.native.block_rows,
+            right.maximum_block_bytes,
+        )?
+        .checked_add(workspace)
+        .ok_or_else(|| failed("spill merge overlap estimate overflow"))?;
+        let shape = self
+            .merge_sizing
+            .select(self.spec, rows, overlap, context)?;
+        let block_rows = usize::try_from(shape.units())
+            .map_err(|_| failed("spill merge block size overflow"))?;
+        let slice_credit = self.merge_sizing.slice_credit(context)?;
+        let spec = run_spec(self.spec, rows, block_rows)?;
+        let input = std::iter::from_fn(|| merger.next(self.block_rows, context).transpose());
+        let payload_bytes_per_row = Cell::new(0);
+        let maximum_block_bytes = Cell::new(0);
+        let blocks = sizing::Blocks::new(
+            input,
+            block_rows,
+            self.block_rows,
+            &payload_bytes_per_row,
+            &maximum_block_bytes,
+            slice_credit,
+            context,
+        );
         let native = self.state.with_store(context, |store| {
             store.write_arrays(
                 &spec,
@@ -392,7 +494,16 @@ impl<'p, 's> Ordering<'p, 's> {
             store.remove(&left.native)?;
             store.remove(&right.native)
         })?;
-        self.runs.values.push(Run { native, level });
+        self.merge_sizing
+            .complete(shape, payload_bytes_per_row.get(), context);
+        self.state
+            .max_block_rows
+            .set(self.state.max_block_rows.get().max(block_rows));
+        self.runs.values.push(Run {
+            native,
+            level,
+            maximum_block_bytes: maximum_block_bytes.get(),
+        });
         self.state.merge_passes.set(
             self.state
                 .merge_passes
@@ -416,7 +527,7 @@ impl<'p, 's> Ordering<'p, 's> {
         let work = self.work(context)?;
         let mut reader = self.state.open(&run, self.spec, context, &work)?;
         let mut rows = ReservedVec::new(context.memory())?;
-        rows.reserve(self.block_rows)?;
+        rows.reserve(run.block_rows)?;
         while let Some(block) = reader.next_block(context.runtime())? {
             context.check_cancelled()?;
             rows.values.clear();
@@ -455,18 +566,20 @@ fn dtype(spec: &Spec) -> DType {
 }
 
 fn run_spec(spec: &Spec, rows: u64, block_rows: usize) -> Result<QueryRunSpec> {
-    let metadata_bytes = rows
-        .div_ceil(block_rows as u64)
-        .checked_mul(spec.fields.len() as u64 + 1)
-        .and_then(|blocks| blocks.checked_mul(1024))
-        .and_then(|bytes| bytes.checked_add(64 * 1024))
-        .ok_or_else(|| failed("relational run metadata capacity overflow"))?;
     Ok(QueryRunSpec {
         dtype: dtype(spec),
         rows,
         block_rows,
-        metadata_bytes,
+        metadata_bytes: run_metadata_bytes(spec, rows, block_rows as u64)?,
     })
+}
+
+fn run_metadata_bytes(spec: &Spec, rows: u64, block_rows: u64) -> Result<u64> {
+    rows.div_ceil(block_rows)
+        .checked_mul(spec.fields.len() as u64 + 1)
+        .and_then(|blocks| blocks.checked_mul(1024))
+        .and_then(|bytes| bytes.checked_add(64 * 1024))
+        .ok_or_else(|| failed("relational run metadata capacity overflow"))
 }
 
 struct HeldBlock {

@@ -11409,11 +11409,14 @@ impl StreamingColumnarVortexArrayIterator {
                 ),
                 window,
                 task_bytes,
+                sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer::default(),
+                window_produced: true,
+                last_refill_index: None,
                 exhausted: false,
                 refill_after_handoff: true,
                 handoff_wait_started: None,
             };
-            prefetch.fill_window()?;
+            prefetch.fill_window(true)?;
             (None, Some(prefetch))
         } else {
             (Some(reader), None)
@@ -11448,7 +11451,9 @@ impl StreamingColumnarVortexArrayIterator {
             return None;
         }
         let prefetch = self.prefetch.as_mut()?;
-        if !prefetch.refill_after_handoff {
+        if !prefetch.refill_after_handoff
+            || (prefetch.tasks.is_empty() && prefetch.pending.is_empty())
+        {
             return None;
         }
         // Keep W slots and the original per-task credit. A yielded lookahead
@@ -11617,11 +11622,14 @@ type PrefetchedVortexArray = Option<(usize, vortex::array::ArrayRef)>;
 struct StreamingColumnarVortexPrefetch {
     pool: shared_conversion::ConversionExecutor,
     context: Arc<StreamingColumnarVortexArrayWorker>,
-    tasks: std::collections::VecDeque<shared_conversion::ConversionTask>,
+    tasks: std::collections::VecDeque<shared_conversion::QueuedConversion>,
     pending: BTreeMap<usize, Budgeted<vortex::array::ArrayRef>>,
     cancellation: CancellationToken,
     window: usize,
     task_bytes: u64,
+    sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer,
+    window_produced: bool,
+    last_refill_index: Option<usize>,
     exhausted: bool,
     refill_after_handoff: bool,
     handoff_wait_started: Option<Instant>,
@@ -11629,29 +11637,75 @@ struct StreamingColumnarVortexPrefetch {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 impl StreamingColumnarVortexPrefetch {
-    fn fill_window(&mut self) -> Result<()> {
-        while !self.exhausted
-            && self.tasks.len() + self.pending.len() < self.window
-            && self.context.failure.get().is_none()
+    fn fill_window(&mut self, output_ready: bool) -> Result<()> {
+        use shardloom_exec::adaptive_work::{WorkCost, WorkDecision, WorkLimits};
+
+        let retained = self.tasks.len() + self.pending.len();
+        if self.exhausted || retained >= self.window || self.context.failure.get().is_some() {
+            return Ok(());
+        }
+        self.cancellation.check()?;
+        // Native copied buffers coexist with the complete task lease until
+        // conversion commits their ownership. convert_batch enforces this
+        // half-lease copy ceiling; held source/output owners are already charged.
+        let bytes_per_task = self
+            .task_bytes
+            .checked_add(if self.context.native_memory.is_some() {
+                self.task_bytes / 2
+            } else {
+                0
+            })
+            .ok_or_else(|| ShardLoomError::InvalidOperation(
+                "native conversion prefetch workspace size overflow; no fallback execution was attempted".into(),
+            ))?;
+        let decision = self.sizing.decide(
+            "ingest_conversion_prefetch",
+            self.pool.memory().snapshot(),
+            WorkCost {
+                fixed_bytes: 0,
+                bytes_per_unit: bytes_per_task,
+            },
+            WorkLimits {
+                min_units: 1,
+                max_units: (self.window - retained) as u64,
+                max_in_flight: 1,
+            },
+        )?;
+        if let WorkDecision::Declined(denial) = decision
+            && (output_ready || retained != 0)
         {
+            // Existing work or the ready handoff can make progress. No read,
+            // conversion or callback is retried, and no live credit is refunded.
+            self.context
+                .stream_timing
+                .stages
+                .defer_conversion_prefetch(denial);
+            return Ok(());
+        }
+        let shape = decision.require_selected("ingest_conversion_prefetch")?;
+        for _ in 0..shape.units() {
             let context = Arc::clone(&self.context);
             let lease = match self.pool.memory().reserve(self.task_bytes) {
                 Ok(lease) => lease,
-                Err(_) if self.context.failure.get().is_some() => break,
+                Err(_) if self.context.failure.get().is_some() => return Ok(()),
                 Err(error) => return Err(error),
             };
             let task = self
                 .pool
                 .submit_read(context, lease, self.cancellation.clone());
             match task {
-                Ok(task) => self.tasks.push_back(task),
+                Ok(task) => self.tasks.push_back(task.into()),
                 // A source failure can cancel submission while the initial
                 // window is still filling. Deliver it from next_array, not
                 // nondeterministically from iterator construction.
-                Err(_) if self.context.failure.get().is_some() => break,
+                Err(_) if self.context.failure.get().is_some() => return Ok(()),
                 Err(error) => return Err(error),
             }
         }
+        self.tasks
+            .back_mut()
+            .expect("positive selected window submitted every task")
+            .completion = Some(shape);
         Ok(())
     }
 
@@ -11683,8 +11737,14 @@ impl StreamingColumnarVortexPrefetch {
         if let Err(error) = self.cancellation.check() {
             return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
         }
-        if let Err(error) = self.fill_window() {
-            return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
+        // Waking the same blocked output request is not another admission
+        // boundary. Repeated polls must not fill the queue with new waves before
+        // any selected work completes and updates the shared sizing feedback.
+        if self.last_refill_index != Some(expected) {
+            self.last_refill_index = Some(expected);
+            if let Err(error) = self.fill_window(false) {
+                return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
+            }
         }
         if let Some(error) = self.context.failure.get() {
             return Poll::Ready(Some(Err(error.clone())));
@@ -11695,7 +11755,7 @@ impl StreamingColumnarVortexPrefetch {
                 // The Vortex writer now owns the array and its referenced buffers.
                 drop(lease);
                 if self.refill_after_handoff
-                    && let Err(error) = self.fill_window()
+                    && let Err(error) = self.fill_window(true)
                 {
                     return Poll::Ready(Some(Err(self.context.primary_failure_or(error))));
                 }
@@ -11713,17 +11773,17 @@ impl StreamingColumnarVortexPrefetch {
                 )))));
             };
             let wait_started = *self.handoff_wait_started.get_or_insert_with(Instant::now);
-            let result = match task {
+            let (result, completion) = match &mut task.task {
                 shared_conversion::ConversionTask::Shared(task) => {
                     let result = futures::ready!(task.poll_join(cx));
-                    self.tasks.pop_front();
-                    result.and_then(std::convert::identity)
+                    let task = self.tasks.pop_front().expect("front task checked above");
+                    (result.and_then(std::convert::identity), task.completion)
                 }
-                shared_conversion::ConversionTask::Dedicated(_) => self
-                    .tasks
-                    .pop_front()
-                    .expect("front task checked above")
-                    .join(),
+                shared_conversion::ConversionTask::Dedicated(_) => {
+                    let task = self.tasks.pop_front().expect("front task checked above");
+                    let completion = task.completion;
+                    (task.join(), completion)
+                }
             };
             self.handoff_wait_started = None;
             self.context.stream_timing.stages.record(
@@ -11736,6 +11796,18 @@ impl StreamingColumnarVortexPrefetch {
             match result {
                 Ok(result) => {
                     let (result, lease) = result.into_parts();
+                    self.window_produced &= result.is_some();
+                    if let Some(shape) = completion {
+                        if self.window_produced {
+                            self.sizing.complete(shape, None);
+                            self.context
+                                .stream_timing
+                                .stages
+                                .complete_conversion_prefetch(shape);
+                        }
+                        // EOF polls do not certify completed conversion work.
+                        self.window_produced = true;
+                    }
                     match result {
                         Some((index, array)) => {
                             self.pending.insert(index, Budgeted::new(array, lease));

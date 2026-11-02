@@ -14,11 +14,15 @@ use std::{
 use arrow_schema::{ArrowError, SchemaRef};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 
 use super::owned_batch::{BatchResult, LegacyReader, OwnedBatch, OwnedBatchReader, SchemaReader};
 use super::{EmbeddedDerivedColumnMode, FlatLocalColumnarStreamSource};
 use crate::ingest_source::{SourceFactory, SourceReader};
 use crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy;
+
+#[path = "derived_resources.rs"]
+mod derived_resources;
 
 /// A local ingest source whose reader cannot be replaced after admission.
 /// Existing flat/custom sources retain validated-copy admission. Only the
@@ -28,6 +32,7 @@ pub struct IngestColumnarStreamSource {
     source: FlatLocalColumnarStreamSource,
     ownership: ArrowOwnershipPolicy,
     reader: Option<Box<dyn OwnedBatchReader>>,
+    memory: Option<LiveMemoryPool>,
 }
 
 impl IngestColumnarStreamSource {
@@ -54,18 +59,21 @@ impl IngestColumnarStreamSource {
             source,
             ownership: ArrowOwnershipPolicy::ControlledParquet,
             reader: None,
+            memory: None,
         })
     }
 
     pub(crate) fn from_owned(
         mut source: FlatLocalColumnarStreamSource,
         reader: Box<dyn OwnedBatchReader>,
+        memory: &LiveMemoryPool,
     ) -> Self {
         source.reader = Box::new(SchemaReader(reader.schema()));
         Self {
             source,
             ownership: ArrowOwnershipPolicy::ValidatedCopy,
             reader: Some(reader),
+            memory: Some(memory.clone()),
         }
     }
 
@@ -76,8 +84,9 @@ impl IngestColumnarStreamSource {
     pub(super) fn from_owned_parquet(
         source: FlatLocalColumnarStreamSource,
         reader: Box<dyn OwnedBatchReader>,
+        memory: &LiveMemoryPool,
     ) -> Self {
-        let mut source = Self::from_owned(source, reader);
+        let mut source = Self::from_owned(source, reader, memory);
         source.ownership = ArrowOwnershipPolicy::ControlledParquet;
         source
     }
@@ -102,18 +111,48 @@ impl IngestColumnarStreamSource {
 
     fn with_derived_columns(mut self, mode: EmbeddedDerivedColumnMode) -> Self {
         if let Some(reader) = self.reader.take() {
+            // Source methods remain fluent. A denied schema reservation becomes
+            // a terminal reader error before source demand or derived allocation.
+            let metadata = match self
+                .memory
+                .as_ref()
+                .map(|memory| derived_resources::reserve_metadata(&self.source, mode, memory))
+                .transpose()
+            {
+                Ok(metadata) => metadata.flatten().map(Arc::new),
+                Err(error) => {
+                    self.reader = Some(Box::new(FailedReader {
+                        schema: reader.schema(),
+                        error: Some(error),
+                    }));
+                    return self;
+                }
+            };
             self.reader = Some(
                 if let Some((schema, specs)) =
                     super::prepare_embedded_derived_columns(&mut self.source, mode)
                 {
-                    self.source.reader = Box::new(SchemaReader(Arc::clone(&schema)));
+                    self.source.reader = retain_metadata_reader(
+                        Box::new(SchemaReader(Arc::clone(&schema))),
+                        metadata.as_ref(),
+                    );
                     Box::new(DerivedReader {
                         schema,
-                        reader,
+                        reader: Some(reader),
                         specs,
                         timing: Arc::clone(&self.source.embedded_derived_build_micros),
+                        memory: self.memory.clone(),
+                        metadata,
                     })
                 } else {
+                    if let Some(metadata) = &metadata {
+                        let schema = self.source.reader.schema();
+                        let facade = std::mem::replace(
+                            &mut self.source.reader,
+                            Box::new(SchemaReader(schema)),
+                        );
+                        self.source.reader = retain_metadata_reader(facade, Some(metadata));
+                    }
                     reader
                 },
             );
@@ -212,6 +251,7 @@ impl From<FlatLocalColumnarStreamSource> for IngestColumnarStreamSource {
             source,
             ownership: ArrowOwnershipPolicy::ValidatedCopy,
             reader: None,
+            memory: None,
         }
     }
 }
@@ -258,35 +298,98 @@ impl OwnedBatchReader for ControlledReader {
 
 struct DerivedReader {
     schema: SchemaRef,
-    reader: Box<dyn OwnedBatchReader>,
+    reader: Option<Box<dyn OwnedBatchReader>>,
     specs: Vec<super::EmbeddedDerivedColumnSpec>,
     timing: Arc<AtomicU64>,
+    memory: Option<LiveMemoryPool>,
+    metadata: Option<Arc<MemoryLease>>,
 }
 
 impl Iterator for DerivedReader {
     type Item = BatchResult;
     fn next(&mut self) -> Option<Self::Item> {
-        self.reader.next().map(|batch| {
-            batch.and_then(|batch| {
-                let start = Instant::now();
-                let result = batch.map(|batch| {
-                    super::append_embedded_derived_columns_to_batch(
-                        batch,
-                        &self.schema,
-                        &self.specs,
-                    )
-                });
-                self.timing.fetch_add(
-                    super::duration_micros_u64(start.elapsed()),
-                    Ordering::Relaxed,
-                );
-                result.map_err(|error| ArrowError::ExternalError(Box::new(error)))
-            })
-        })
+        let Some(batch) = self.reader.as_mut()?.next() else {
+            self.reader.take();
+            return None;
+        };
+        let result = batch.and_then(|batch| {
+            let start = Instant::now();
+            let result = derived_resources::append(
+                batch,
+                &self.schema,
+                &self.specs,
+                self.memory.as_ref(),
+                self.metadata.as_ref(),
+            );
+            self.timing.fetch_add(
+                super::duration_micros_u64(start.elapsed()),
+                Ordering::Relaxed,
+            );
+            result.map_err(|error| ArrowError::ExternalError(Box::new(error)))
+        });
+        if result.is_err() {
+            self.reader.take();
+        }
+        Some(result)
     }
 }
 
 impl OwnedBatchReader for DerivedReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+struct FailedReader {
+    schema: SchemaRef,
+    error: Option<ShardLoomError>,
+}
+
+// The public metadata value returned by into_parts can outlive the executing
+// reader. Keep its derived schema/name/status capacity until that value drops.
+struct AdmittedSchemaReader {
+    facade: Box<dyn arrow_array::RecordBatchReader + Send>,
+    _credit: Arc<MemoryLease>,
+}
+
+fn retain_metadata_reader(
+    facade: Box<dyn arrow_array::RecordBatchReader + Send>,
+    credit: Option<&Arc<MemoryLease>>,
+) -> Box<dyn arrow_array::RecordBatchReader + Send> {
+    match credit {
+        Some(credit) => Box::new(AdmittedSchemaReader {
+            facade,
+            _credit: Arc::clone(credit),
+        }),
+        None => facade,
+    }
+}
+
+impl Iterator for AdmittedSchemaReader {
+    type Item = std::result::Result<arrow_array::RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.facade.next()
+    }
+}
+
+impl arrow_array::RecordBatchReader for AdmittedSchemaReader {
+    fn schema(&self) -> SchemaRef {
+        self.facade.schema()
+    }
+}
+
+impl Iterator for FailedReader {
+    type Item = BatchResult;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.error
+            .take()
+            .map(|error| Err(ArrowError::ExternalError(Box::new(error))))
+    }
+}
+
+impl OwnedBatchReader for FailedReader {
     fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
     }

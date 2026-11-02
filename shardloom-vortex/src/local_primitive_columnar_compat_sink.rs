@@ -41,6 +41,8 @@ use vortex::{
 use crate::native_arrow_conversion as nested;
 #[path = "local_primitive_columnar_compat_batches.rs"]
 mod batches;
+#[path = "local_primitive_columnar_compat_sizing.rs"]
+mod sizing;
 #[cfg(test)]
 use vortex::array::arrays::VarBinViewArray;
 
@@ -359,6 +361,7 @@ struct Writer<'a> {
     // This is neither a provider allocation count nor process RSS.
     buffered_input_bytes: u64,
     target_bytes: u64,
+    sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer,
 }
 impl<'a> Writer<'a> {
     fn new(
@@ -412,6 +415,7 @@ impl<'a> Writer<'a> {
             codec,
             buffered_input_bytes: 0,
             target_bytes,
+            sizing: shardloom_exec::adaptive_work::AdaptiveWorkSizer::default(),
         })
     }
     fn units(&self, batches: u64) -> Result<usize> {

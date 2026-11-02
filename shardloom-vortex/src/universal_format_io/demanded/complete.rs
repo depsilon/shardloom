@@ -131,6 +131,7 @@ impl LocalColumnarSource {
                 crate::universal_format_io::IngestColumnarStreamSource::from_owned(
                     source,
                     Box::new(reader),
+                    memory,
                 ),
             )
         }

@@ -61,11 +61,40 @@ impl WorkShape {
     }
 }
 
+/// A minimum-workspace refusal is data, so an optional native optimization can
+/// decline before allocating without parsing an error or retrying execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorkDenial {
+    pub required_additional_bytes: u64,
+    pub headroom_bytes: u64,
+    pub reserved_bytes: u64,
+    pub ceiling_bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkDecision {
+    Selected(WorkShape),
+    Declined(WorkDenial),
+}
+
+impl WorkDecision {
+    /// Require a selected geometry after an owner has handled any permitted
+    /// flush or optional decline. Conversion does not reserve or complete work.
+    ///
+    /// # Errors
+    /// Reports the shared memory-preflight diagnostic for a declined minimum.
+    pub fn require_selected(self, owner: &str) -> Result<WorkShape> {
+        require_selected(owner, self)
+    }
+}
+
 /// Bounded evidence of completed work. Zero windows means no applied decision.
 /// Estimates are deliberately separate from `LiveMemoryPool` reservation peaks.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct AdaptiveWorkReport {
     pub completed_windows: u64,
+    pub declined_windows: u64,
+    pub maximum_declined_required_bytes: u64,
     pub headroom_limited_windows: u64,
     pub shrunk_windows: u64,
     pub grown_windows: u64,
@@ -93,7 +122,7 @@ impl AdaptiveWorkReport {
         } else {
             self.minimum_units.min(shape.units)
         };
-        self.minimum_headroom_bytes = if self.completed_windows == 0 {
+        self.minimum_headroom_bytes = if self.completed_windows == 0 && self.declined_windows == 0 {
             shape.headroom_bytes
         } else {
             self.minimum_headroom_bytes.min(shape.headroom_bytes)
@@ -110,6 +139,21 @@ impl AdaptiveWorkReport {
         self.peak_estimated_bytes_per_lane = self
             .peak_estimated_bytes_per_lane
             .max(shape.estimated_bytes_per_lane);
+    }
+
+    /// Record an executed decision to skip optional work. This does not count
+    /// as a completed window, change feedback or establish a reservation.
+    pub fn record_decline(&mut self, denial: WorkDenial) {
+        self.minimum_headroom_bytes = if self.completed_windows == 0 && self.declined_windows == 0 {
+            denial.headroom_bytes
+        } else {
+            self.minimum_headroom_bytes.min(denial.headroom_bytes)
+        };
+        self.declined_windows = self.declined_windows.saturating_add(1);
+        self.maximum_declined_required_bytes = self
+            .maximum_declined_required_bytes
+            .max(denial.required_additional_bytes);
+        self.ceiling_bytes = denial.ceiling_bytes;
     }
 }
 
@@ -138,6 +182,121 @@ impl AdaptiveWorkSizer {
         cost: WorkCost,
         limits: WorkLimits,
     ) -> Result<WorkShape> {
+        require_selected(owner, self.decide(owner, memory, cost, limits)?)
+    }
+
+    /// Select among a finite, strictly increasing set of legal geometries.
+    /// Each candidate supplies its own additional workspace cost. This handles
+    /// physical framing and costs such as run metadata that grow when blocks
+    /// shrink, without teaching the shared policy about a storage format.
+    ///
+    /// The iterator must be allocation/effect free and bounded by the owner's
+    /// admitted geometry. Feedback still limits the preferred target. If smaller
+    /// candidates cannot fit their metadata, the smallest feasible candidate is
+    /// the physical minimum, just as `min_units` constrains linear selection.
+    ///
+    /// # Errors
+    /// Rejects invalid/unordered candidates, overflow and a set in which no
+    /// candidate fits current accounted headroom. This does not reserve memory.
+    pub fn select_candidates(
+        &self,
+        owner: &str,
+        memory: LiveMemorySnapshot,
+        limits: WorkLimits,
+        candidates: impl IntoIterator<Item = Result<(u64, WorkCost)>>,
+    ) -> Result<WorkShape> {
+        require_selected(
+            owner,
+            self.decide_candidates(owner, memory, limits, candidates)?,
+        )
+    }
+
+    /// Typed preview of [`Self::select_candidates`], with no progress credit.
+    ///
+    /// # Errors
+    /// Rejects invalid/unordered candidates and checked capacity overflow.
+    pub fn decide_candidates(
+        &self,
+        owner: &str,
+        memory: LiveMemorySnapshot,
+        limits: WorkLimits,
+        candidates: impl IntoIterator<Item = Result<(u64, WorkCost)>>,
+    ) -> Result<WorkDecision> {
+        if limits.min_units == 0 || limits.max_units < limits.min_units || limits.max_in_flight == 0
+        {
+            return Err(failed(owner, "invalid work geometry"));
+        }
+        let headroom = memory.limit_bytes.saturating_sub(memory.reserved_bytes);
+        let target = self
+            .target_units
+            .unwrap_or(limits.max_units)
+            .clamp(limits.min_units, limits.max_units);
+        let mut previous = 0;
+        let mut minimum_required = u64::MAX;
+        let mut first = None;
+        let mut selected = None;
+        let mut available_units = 0;
+        for candidate in candidates {
+            let (units, cost) = candidate?;
+            if units < limits.min_units
+                || units > limits.max_units
+                || units <= previous
+                || cost.bytes_per_unit == 0
+            {
+                return Err(failed(owner, "invalid or unordered work candidate"));
+            }
+            previous = units;
+            let bytes = units
+                .checked_mul(cost.bytes_per_unit.max(self.observed_bytes_per_unit))
+                .and_then(|bytes| bytes.checked_add(cost.fixed_bytes))
+                .ok_or_else(|| failed(owner, "candidate workspace size overflow"))?;
+            minimum_required = minimum_required.min(bytes);
+            if bytes <= headroom {
+                available_units = units;
+                first.get_or_insert((units, bytes));
+                if units <= target {
+                    selected = Some((units, bytes));
+                }
+            }
+        }
+        if previous == 0 {
+            return Err(failed(owner, "work candidates are empty"));
+        }
+        let Some((units, estimated_bytes_per_lane)) = selected.or(first) else {
+            return Ok(WorkDecision::Declined(WorkDenial {
+                required_additional_bytes: minimum_required,
+                headroom_bytes: headroom,
+                reserved_bytes: memory.reserved_bytes,
+                ceiling_bytes: memory.limit_bytes,
+            }));
+        };
+        Ok(WorkDecision::Selected(WorkShape {
+            units,
+            in_flight: usize::try_from(headroom / estimated_bytes_per_lane)
+                .unwrap_or(usize::MAX)
+                .min(limits.max_in_flight),
+            estimated_bytes_per_lane,
+            available_units,
+            headroom_bytes: headroom,
+            ceiling_bytes: memory.limit_bytes,
+            previous_units: self.previous_units,
+            max_units: limits.max_units,
+        }))
+    }
+
+    /// Preview the same selection with a typed headroom refusal. The owner may
+    /// skip optional work only when its existing execution contract allows it.
+    /// Inspecting this decision does not advance feedback or execution evidence.
+    ///
+    /// # Errors
+    /// Rejects invalid geometry and arithmetic overflow.
+    pub fn decide(
+        &self,
+        owner: &str,
+        memory: LiveMemorySnapshot,
+        cost: WorkCost,
+        limits: WorkLimits,
+    ) -> Result<WorkDecision> {
         if limits.min_units == 0
             || limits.max_units < limits.min_units
             || limits.max_in_flight == 0
@@ -153,13 +312,12 @@ impl AdaptiveWorkSizer {
             .ok_or_else(|| failed(owner, "minimum workspace size overflow"))?;
         let headroom = memory.limit_bytes.saturating_sub(memory.reserved_bytes);
         if minimum > headroom {
-            return Err(failed(
-                owner,
-                &format!(
-                    "memory reservation denied at adaptive preflight: minimum workspace does not fit: required_additional_bytes={minimum}, accounted_headroom_bytes={headroom}, reserved_bytes={}, ceiling_bytes={}; release retained owners or use an admitted spill/smaller source workspace",
-                    memory.reserved_bytes, memory.limit_bytes,
-                ),
-            ));
+            return Ok(WorkDecision::Declined(WorkDenial {
+                required_additional_bytes: minimum,
+                headroom_bytes: headroom,
+                reserved_bytes: memory.reserved_bytes,
+                ceiling_bytes: memory.limit_bytes,
+            }));
         }
         let available_units = ((headroom - cost.fixed_bytes) / unit_bytes).min(limits.max_units);
         let units = self
@@ -172,7 +330,7 @@ impl AdaptiveWorkSizer {
         let in_flight = usize::try_from(headroom / estimated_bytes_per_lane)
             .unwrap_or(usize::MAX)
             .min(limits.max_in_flight);
-        Ok(WorkShape {
+        Ok(WorkDecision::Selected(WorkShape {
             units,
             in_flight,
             estimated_bytes_per_lane,
@@ -181,7 +339,7 @@ impl AdaptiveWorkSizer {
             ceiling_bytes: memory.limit_bytes,
             previous_units: self.previous_units,
             max_units: limits.max_units,
-        })
+        }))
     }
 
     /// Record one actually completed window and its observed additional unit
@@ -226,6 +384,22 @@ impl AdaptiveWorkSizer {
     #[must_use]
     pub const fn report(&self) -> AdaptiveWorkReport {
         self.report
+    }
+}
+
+fn require_selected(owner: &str, decision: WorkDecision) -> Result<WorkShape> {
+    match decision {
+        WorkDecision::Selected(shape) => Ok(shape),
+        WorkDecision::Declined(denial) => Err(failed(
+            owner,
+            &format!(
+                "memory reservation denied at adaptive preflight: minimum workspace does not fit: required_additional_bytes={}, accounted_headroom_bytes={}, reserved_bytes={}, ceiling_bytes={}; release retained owners or use an admitted spill/smaller source workspace",
+                denial.required_additional_bytes,
+                denial.headroom_bytes,
+                denial.reserved_bytes,
+                denial.ceiling_bytes,
+            ),
+        )),
     }
 }
 

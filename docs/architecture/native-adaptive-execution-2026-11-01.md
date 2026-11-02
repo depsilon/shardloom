@@ -122,6 +122,207 @@ order, stable ties, multiplicity, source generations, exactly-once callbacks,
 output lifetime and all publication/cleanup barriers. Semantically observable
 application batch boundaries are fixed unless their contract admits variation.
 
+## Conversion and derived-column continuation
+
+The runtime continuation extends existing admission owners through derived
+columns, relational output compaction and native spill work. Complete-source
+ingestion now carries its existing pool into derived schema and batch construction.
+Named schema/spec/vector, dictionary map, builder and replacement capacities
+are reserved before construction; retained output capacity stays with the owned
+batch through queues and conversion. A metadata facade also retains derived
+schema/name/status credits when it outlives the executing reader. Projected
+schema structures are admitted before Arrow projection; a complete identity
+projection reuses the already admitted source schema. The controlled-Parquet
+per-buffer transfer proof remains authoritative. A fluent source builder keeps
+its public signature and propagates admission failure through its reader before
+returning any data. Caller-supplied compatibility readers retain their separate
+input-allocation boundary; they do not acquire a new provider guarantee.
+
+Derived evaluation retains its complete input-batch validation and dictionary
+domain order. A post-read slice is not proof of smaller derived work, and a
+dictionary domain cannot be made smaller by slicing its keys. Admit this named
+workspace explicitly before changing that continuation contract. Source sizing
+and actual reservations remain distinct. These changes are implementation work,
+not complete conversion, allocator, RSS or engine-wide acceptance.
+
+The conversion continuation passes 178 focused reader, derived-column, schema,
+ownership and transfer checks, plus strict native Vortex all-target lint. Controls
+cover pre-demand schema denial, terminal batch denial, empty/null/large string
+layouts, unreferenced dictionary domains, shared sliced keys, metadata and batches
+outliving readers, queue cancellation, source changes and complete Parquet transfer.
+The first compilation failure used an unavailable Arrow string-view method; the
+corrected implementation uses the pinned provider's length iterator. No new
+benchmark result follows from these checks.
+
+### Completed-record output compaction
+
+The existing completed-record buffer now consults the shared sizing policy before
+coalescing records and before constructing actual index/gather windows. Caller
+row limits and the existing byte/chunk ceilings remain upper bounds. Costs use
+current headroom, observed payload widths, new schema/slot/offset structures and
+replacement/index overlap. Already retained input owners remain charged in the
+same pool. Credits for the pending reference table and newly constructed chunk
+structures outlive their payloads through success and failure paths.
+
+Compaction is optional for these independently owned completed records. A typed
+`WorkDecision::Declined` allows forwarding them in order before allocating a
+replacement when the minimum workspace does not fit. Invalid geometry and
+overflow remain errors; mandatory work still uses the original deterministic
+memory-denial diagnostic. A preview neither reserves memory nor advances feedback.
+Certificates count actual completed compactions separately from executed decisions
+to decline compaction, including the limiting headroom and required additional
+capacity. The existing native provider and downstream validation policy remain
+authoritative; this is not execution fallback or a new allocator/RSS guarantee.
+
+Eight shared-policy controls pass, including typed refusal without completed-work
+credit or feedback changes. All three focused output controls and both adaptive
+scan controls pass, including retained-output shrink/regrowth, optional refusal,
+consumer failure and cancellation. Strict native Exec/Vortex all-target lint
+passes for this output continuation. Operator acceptance and integration into the remaining
+sort, spill, writer, fanout and queue owners remain in progress. Spill block framing
+must stay consistent within each run; its adaptive continuation is the creation
+of a new run, with subsequent readers bound to that run's actual block geometry.
+
+### Native spill framing and merge continuation
+
+Each newly written or merged ordering run now selects its physical block rows
+from current shared-pool headroom. The shared policy accepts a finite ordered
+set of candidate costs because smaller blocks increase retained footer/layout
+metadata. Its existing completion and growth feedback remain authoritative;
+an advisory choice still neither reserves memory nor counts as applied work.
+All ten shared-policy controls pass, including nonmonotonic metadata costs,
+typed refusal, stale admission and completion-driven regrowth.
+
+The original gather and payload-validation windows remain unchanged. A physical
+block may combine portions of two completed windows; the adapter uses Vortex
+chunked arrays and native recursive canonicalization for that bounded join.
+The existing sequential native flat writer drains each leaf. Costing includes
+both retained windows, new block work, fixed-list expansion/child coordinates,
+schema/slice structures, run metadata, and future reader-block overlap during
+merge. Actual shared-pool reservations, disk quota and source-generation checks
+remain authoritative. Stored positional access and detached replay use the
+completed run's recorded geometry, including after a final merge.
+
+All five focused spill controls pass: pressured 17-row physical blocks across
+32-row validation windows, complete nested values and stable ties through mixed
+run geometries, positional reads/replay and retained block lifetime, refusal
+before run creation, preserved first payload error, consumer refusal and merge
+cancellation with cleanup. The first runtime attempt passed two controls and
+failed three when fixed-list child-index scratch exceeded the starting estimate.
+That observation remains a failure; the corrected estimate accounts for the
+existing expansion and coordinate reservations before choosing a run size.
+Current strict native Exec/Vortex all-target lint passes. The broader relational,
+spill and query-run regression batch passes all 306 tests, with no failures or
+ignored tests, including join/aggregate/window composition, recovery and all
+eight existing output writers. This is owner-level integration evidence, not
+the remaining complete engine acceptance.
+
+This is actual physical run adaptation, not smaller gather/validation work.
+An irreducible gather window can still deny before writing, and variable-list
+cardinality/provider transients are not bounded by schema estimates. Resident
+sort output, other operator state, writer/queue/fanout integration and complete
+engine acceptance remained open at that checkpoint. No new timing or performance
+claim follows.
+
+### Writer, sort-output and conversion-queue continuation
+
+The native writer now uses the same completed-record buffer and preserves its
+existing 128-row/256-KiB compaction threshold. Its optional copy statistics count
+actual native bytes and scalars without changing raw float payloads. Parquet,
+IPC, Avro and ORC writers share a persistent sizing owner at the existing
+conversion boundary. Complete original input validation still precedes slicing;
+physical footer/codec minima remain explicit. Retained writer high-water credits
+survive through close because the providers can retain capacities after flush.
+Pre-write narrowing is finite and effect-free; a consumed write is never retried.
+
+The writer continuation passes the native fragmentation controls and all three
+new four-format pressure, minimum-denial, cancellation, consumer-failure and
+no-publication controls. Earlier failures remain recorded: one changed the native
+fragmentation threshold and was repaired; another test incorrectly required an
+initial four-row window although observed costs lawfully selected one before
+regrowth. Strict native Exec/Vortex lint passed before the later queue change.
+
+Resident sort adapts actual output gathers only when its owner has already
+validated input payloads. Costs include retained source/order owners, payload and
+schema replacement, ordinal/offset arrays, touched segments and nested gather
+scratch. Unvalidated sort preserves the original field-major validation window
+and first-error order. Twenty focused sort controls pass, including full nested
+values and stable ties under pressure, regrowth, retained output, minimum denial,
+consumer refusal, cancellation and unchanged competing payload errors.
+
+The conversion queue selects actual newly admitted tasks under its existing CPU
+and queue ceiling. Each opaque source batch keeps its original complete task
+credit; native copy overlap is included separately. Existing tasks/results stay
+owned. If the smallest new task does not fit, admitted work or a ready handoff
+may progress; an empty queue with no ready output fails deterministically. An
+initial deferral declines writer lookahead so the retained first array can still
+progress serially. Only a fully completed non-EOF admission wave advances growth
+feedback and ordinary ingest evidence. A repeated poll of the same pending output
+is not another refill boundary.
+
+The current queue/sort/source regression selection passes 70 tests with no
+failures or ignored tests. The first attempt passed 68 and exposed repeated-wakeup
+admission that distorted regrowth; the corrected runtime passed that original
+control. A subsequent new blocked-reader test timed out because its fixture did
+not drive the shared runtime. That fixture is corrected and the final 70-test
+observation is separate from both failures. These task-window reports count work
+admissions, not rows, allocator coverage, RSS or timing. Complete workspace,
+public-interface and installed-runtime acceptance remains open.
+
+### Primitive fanout spill contract
+
+Continue using the existing native result recorder, native ordering runs and
+per-format writers. One producer executes once, all complete destinations stage
+before publication, and replay uses the same resident memory grant. Explicit
+sort/aggregate spill permission may admit output replay without silently enabling
+spill for other requests. Do not re-lower specialized aggregate or tie semantics.
+
+The source audit verifies that numeric sort, weighted UTF8 COUNT and exact integer
+DISTINCT clean their original run stores before their first output callback.
+Memory owners can still overlap replay. Preserve that lifecycle, and bind cloned
+primitive spill declarations plus replay to one run-byte quota scope so a future
+or custom overlapping producer cannot multiply its disk grant. The quota scope
+is execution-local, created without filesystem probing; renewed cancellation
+starts a fresh declaration scope. Existing declarations may change their public
+quota before execution, but changing an active scope's ceiling must fail.
+
+Charge each store's marker allowance and every in-progress write before writing,
+retain actual partial-file charges on failure, and refund committed bytes only
+after owned unlink. Namespace/source identity, cancellation and cleanup remain
+the existing run store's responsibility. Reports must distinguish replay's runs
+and cleanup from the shared producer/replay quota peak. Test concurrent store
+overlap, short/failed writes, denial, identity-preserving cleanup, complete results
+larger than resident retention, exactly-once production and no partial publish.
+This extends ShardLoom admission around the pinned Vortex native writer; it adds
+no storage format, provider, execution fallback or new quota permission.
+
+The implementation now shares one producer and replay owner across all nine
+primitive routes. Focused controls verify complete JSONL, Vortex and Parquet
+results, empty outputs, unchanged source reads when adding a destination, shared
+quota denial and refunds, cancellation, and reusable prepared owners. The final
+physical-spill/fanout selection passes 10 tests and the additional spill/run-store
+selection passes 107, with none ignored. A calendar cancellation regression
+exposed retained text backing and insufficient merge-overlap costing; compact
+physical windows and geometry-aware overlap accounting repair it without raising
+the grant. The failed observations remain part of the evidence.
+
+All eight public fanout tests pass, including CLI and DataFrame sort/aggregate
+paths with explicit spill permission, three complete destinations and rejection
+before publication. The legacy command now retains the full replay report,
+including actual spill and shared-quota evidence, through its existing result
+envelope. Existing vector-returning native APIs retain their signatures. Strict
+native Exec/Vortex/CLI all-target lint and the release CLI/Python build pass.
+Complete workspace, installed-package and hosted acceptance remain pending.
+
+The November 2 maintainer instruction moves a single new-runtime timing
+observation ahead of remaining integration checks and requests this runtime
+batch as a PR now. This establishes the dynamic runtime's next timing baseline;
+it is not a tuning experiment or a request to re-execute the fixed runtime or
+sweep resource limits. Preserve the original 347 cases and engine clock, all
+earlier observations and the Full43 hold. Complete result verification is required
+before reporting a total. Typed capability-decision evidence and the broader
+ownership audit remain open; this checkpoint does not close item 23.
+
 ## Source-grounded owner map
 
 This map is grounded at `27137227`; rows identify actual execution owners.

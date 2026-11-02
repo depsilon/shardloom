@@ -84,6 +84,7 @@ pub(super) fn ingest(
     let owner = Arc::clone(&reader.prepared.source);
     let cancellation = reader.cancellation.clone();
     let schema = Arc::clone(&reader.schema);
+    let memory = reader.memory.clone();
     let output: Box<dyn OwnedBatchReader> = if let Some(tasks) = tasks {
         ordered_tasks(&mut source, &reader, tasks, requested, &mut credit)?
     } else {
@@ -101,6 +102,7 @@ pub(super) fn ingest(
             cancellation,
             _credit: credit,
         }),
+        &memory,
     ))
 }
 

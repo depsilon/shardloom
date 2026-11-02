@@ -4,7 +4,7 @@
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::adaptive_work::{
-    AdaptiveWorkReport, AdaptiveWorkSizer, WorkCost, WorkLimits, WorkShape,
+    AdaptiveWorkReport, AdaptiveWorkSizer, WorkCost, WorkDenial, WorkLimits, WorkShape,
 };
 use vortex::array::dtype::DType;
 
@@ -13,6 +13,12 @@ pub(crate) enum Owner {
     Scan,
     Replay,
     ColumnarDecode,
+    Output,
+    SortOutput,
+    #[cfg(feature = "vortex-write")]
+    Spill,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    CompatibilityWriter,
 }
 
 impl Owner {
@@ -21,6 +27,12 @@ impl Owner {
             Self::Scan => 0,
             Self::Replay => 1,
             Self::ColumnarDecode => 2,
+            Self::Output => 3,
+            Self::SortOutput => 6,
+            #[cfg(feature = "vortex-write")]
+            Self::Spill => 4,
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            Self::CompatibilityWriter => 5,
         }
     }
 
@@ -29,23 +41,43 @@ impl Owner {
             Self::Scan => "native_scan",
             Self::Replay => "native_replay",
             Self::ColumnarDecode => "columnar_decode",
+            Self::Output => "native_output",
+            Self::SortOutput => "native_sort_output",
+            #[cfg(feature = "vortex-write")]
+            Self::Spill => "native_spill",
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            Self::CompatibilityWriter => "compatibility_writer",
         }
     }
 }
 
 #[derive(Default, Clone, Copy)]
-pub(crate) struct Reports([AdaptiveWorkReport; 3]);
+pub(crate) struct Reports([AdaptiveWorkReport; 7]);
 
 impl Reports {
     pub(crate) fn record(&mut self, owner: Owner, shape: WorkShape) {
         self.0[owner.index()].record(shape);
     }
 
+    pub(crate) fn record_decline(&mut self, owner: Owner, denial: WorkDenial) {
+        self.0[owner.index()].record_decline(denial);
+    }
+
     pub(crate) fn append_certificate(&self, proof: &mut String) {
         use std::fmt::Write as _;
-        for owner in [Owner::Scan, Owner::Replay, Owner::ColumnarDecode] {
+        for owner in [
+            Owner::Scan,
+            Owner::Replay,
+            Owner::ColumnarDecode,
+            Owner::Output,
+            Owner::SortOutput,
+            #[cfg(feature = "vortex-write")]
+            Owner::Spill,
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            Owner::CompatibilityWriter,
+        ] {
             let report = self.0[owner.index()];
-            if report.completed_windows == 0 {
+            if report.completed_windows == 0 && report.declined_windows == 0 {
                 continue;
             }
             let name = owner.name();
@@ -55,6 +87,12 @@ impl Reports {
                 report.grown_windows, report.minimum_units, report.maximum_units,
                 report.minimum_headroom_bytes, report.ceiling_bytes, report.peak_estimated_bytes_per_lane,
             ).expect("String writes cannot fail");
+            if report.declined_windows != 0 {
+                write!(proof,
+                    " adaptive_{name}_declined_windows={} adaptive_{name}_decline_reason=insufficient_headroom adaptive_{name}_maximum_declined_required_bytes={}",
+                    report.declined_windows, report.maximum_declined_required_bytes,
+                ).expect("String writes cannot fail");
+            }
         }
     }
 }
@@ -79,17 +117,13 @@ impl Rows {
         maximum: usize,
         copies: u64,
     ) -> Result<Self> {
-        let metadata = fields.iter().try_fold(
-            crate::native_payload_schema::names_bytes(fields.len(), |i| fields[i].0.as_str())?,
-            |sum, (_, dtype)| {
-                sum.checked_add(crate::native_payload_schema::metadata_bytes(dtype)?)
-                    .ok_or_else(overflow)
-            },
-        )?;
-        let row_bytes = fields.iter().try_fold(0_u64, |sum, (_, dtype)| {
-            sum.checked_add(row_bytes(dtype, 0)?).ok_or_else(overflow)
-        })?;
-        Self::with_cost(owner, metadata, row_bytes, maximum, copies)
+        Ok(Self {
+            owner,
+            sizing: AdaptiveWorkSizer::default(),
+            cost: fields_cost(fields, copies)?,
+            maximum,
+            copies,
+        })
     }
 
     /// A schema-derived starting estimate. Variable values and provider decode
@@ -111,17 +145,10 @@ impl Rows {
         maximum: usize,
         copies: u64,
     ) -> Result<Self> {
-        let cost = WorkCost {
-            fixed_bytes: metadata.checked_mul(copies).ok_or_else(overflow)?,
-            bytes_per_unit: row_bytes
-                .checked_mul(copies)
-                .and_then(|bytes| bytes.checked_add(16))
-                .ok_or_else(overflow)?,
-        };
         Ok(Self {
             owner,
             sizing: AdaptiveWorkSizer::default(),
-            cost,
+            cost: cost(metadata, row_bytes, copies)?,
             maximum,
             copies,
         })
@@ -167,6 +194,32 @@ impl Rows {
         context.record_adaptive_work(self.owner, selected.shape);
         self.sizing.complete(selected.shape, observed);
     }
+}
+
+/// Schema and physical starting costs without constructing a temporary dtype.
+/// Owners add their own simultaneous scratch, framing and retained structures.
+pub(crate) fn fields_cost(fields: &[(String, DType)], copies: u64) -> Result<WorkCost> {
+    let metadata = fields.iter().try_fold(
+        crate::native_payload_schema::names_bytes(fields.len(), |i| fields[i].0.as_str())?,
+        |sum, (_, dtype)| {
+            sum.checked_add(crate::native_payload_schema::metadata_bytes(dtype)?)
+                .ok_or_else(overflow)
+        },
+    )?;
+    let row_bytes = fields.iter().try_fold(0_u64, |sum, (_, dtype)| {
+        sum.checked_add(row_bytes(dtype, 0)?).ok_or_else(overflow)
+    })?;
+    cost(metadata, row_bytes, copies)
+}
+
+fn cost(metadata: u64, row_bytes: u64, copies: u64) -> Result<WorkCost> {
+    Ok(WorkCost {
+        fixed_bytes: metadata.checked_mul(copies).ok_or_else(overflow)?,
+        bytes_per_unit: row_bytes
+            .checked_mul(copies)
+            .and_then(|bytes| bytes.checked_add(16))
+            .ok_or_else(overflow)?,
+    })
 }
 
 /// Initial physical value/validity estimate. This never reads values or validates

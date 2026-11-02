@@ -4,12 +4,38 @@ use super::{Result, failed};
 use crate::universal_format_io::owned_batch::OwnedBatch;
 use arrow_array::{ArrayRef, RecordBatch, StringArray, new_null_array};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
-use shardloom_exec::live_memory::LiveMemoryPool;
+use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::sync::Arc;
 
 #[cfg(test)]
 #[path = "generic_schema_tests.rs"]
 mod tests;
+
+/// Arrow projection shares fields but creates a field-reference table and
+/// clones schema metadata. Admit those structures before calling the provider.
+/// Complete projections can reuse the already admitted source schema.
+pub(super) fn project(
+    source: &SchemaRef,
+    indices: &[usize],
+    memory: &LiveMemoryPool,
+) -> Result<(SchemaRef, Option<Arc<MemoryLease>>)> {
+    if indices.len() == source.fields().len() && indices.iter().copied().eq(0..indices.len()) {
+        return Ok((Arc::clone(source), None));
+    }
+    let capacity = add(
+        add(8192, mul(indices.len() as u64, 32)?)?,
+        mul(source.metadata().capacity() as u64, 128)?,
+    )?;
+    let capacity = source
+        .metadata()
+        .iter()
+        .try_fold(capacity, |sum, (key, value)| {
+            add(sum, mul(add(key.len() as u64, value.len() as u64)?, 2)?)
+        })?;
+    let credit = memory.reserve(capacity)?;
+    let projected = Arc::new(source.project(indices).map_err(failed)?);
+    Ok((projected, Some(Arc::new(credit))))
+}
 
 pub(super) fn with_partitions(
     schema: &SchemaRef,

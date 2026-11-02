@@ -73,6 +73,15 @@ mod report_uniqueness;
     feature = "vortex-write",
     feature = "universal-format-io"
 ))]
+#[path = "support/public_primitive_fanout.rs"]
+mod primitive_fanout;
+
+#[cfg(all(
+    unix,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io"
+))]
 #[test]
 #[allow(clippy::too_many_lines)]
 fn public_native_array_sink_reopens_full_nullable_projection_and_filter_values() {

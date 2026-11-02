@@ -23,9 +23,9 @@ pub struct WrittenNativeProducedFanout<T> {
 
 /// Consume a native producer exactly once and replay its completed result to
 /// several writers. Capture and delivery use the producer's existing memory
-/// owner; this does not silently enable disk spill or cache results across calls.
-/// Large results require sufficient memory or the ordinary relational fanout's
-/// explicitly admitted native spill policy.
+/// owner. An explicit primitive sort/aggregate spill declaration admits replay
+/// under that same live run-byte quota; no other request gains spill permission.
+/// Results are not cached across calls.
 /// # Errors
 /// Rejects unsafe destinations, changed sources, mismatched owners/schemas,
 /// resource denial, cancellation, incomplete producers and adapter failures.
@@ -43,6 +43,17 @@ pub fn write_produced_many_controlled<T>(
     ) -> Result<T>,
 ) -> Result<WrittenNativeProducedFanout<T>> {
     super::validate_session_policy(policy, session)?;
+    let admission = replay_spill(request)?;
+    let cancellation = admission.as_ref().map_or_else(
+        || cancellation.clone(),
+        |admission| {
+            CancellationToken::from_shared_flag_with_parent(
+                std::sync::Arc::clone(&admission.cancellation),
+                cancellation,
+            )
+        },
+    );
+    let cancellation = &cancellation;
     let validate = |path: &std::path::Path| {
         cancellation.check()?;
         for source in sources {
@@ -59,7 +70,18 @@ pub fn write_produced_many_controlled<T>(
     }
     let dtype = OnceCell::<DType>::new();
     let schema = OnceCell::<replay::Schema>::new();
-    let metrics = Metrics::default();
+    let mut metrics = Metrics::default();
+    if let Some(admission) = admission {
+        metrics.spill = Some(
+            session.with_native_execution_context(cancellation, |context| {
+                crate::local_primitives::native_relational_spill::State::with_quota_owner(
+                    &admission.policy,
+                    context,
+                    admission.owner,
+                )
+            })?,
+        );
+    }
     let mut recorder = None;
     let mut copied = replay::CopyStats::default();
     let execution = produce(&mut |array, context| {
@@ -126,12 +148,14 @@ pub fn write_produced_many_controlled<T>(
                         cancellation,
                     )?)?;
                 }
-                let report = super::VortexRelationalOutputReplay {
+                let mut report = super::VortexRelationalOutputReplay {
                     batches_detached: copied.batches,
                     rows_detached: copied.rows,
                     buffer_bytes_copied: copied.buffer_bytes,
                     spilled: replay.is_spilled(),
                     replays: targets.len(),
+                    spill: None,
+                    shared_spill_peak_disk_bytes: None,
                 };
                 let (writers, _metadata) = writers.into_parts();
                 let mut writers = writers.into_iter();
@@ -165,16 +189,81 @@ pub fn write_produced_many_controlled<T>(
                     Ok(output)
                 })?;
                 drop(replay);
+                if let Some(spill) = &metrics.spill {
+                    report.spill = Some(spill.finish()?);
+                    let quota = spill.shared_quota_snapshot()?;
+                    if quota.live_bytes != 0 || quota.pending_bytes != 0 {
+                        return Err(failed(
+                            "native producer retained spill runs after complete fanout",
+                        ));
+                    }
+                    report.shared_spill_peak_disk_bytes = Some(quota.peak_live_bytes);
+                }
                 Ok((staged, report))
             })
         })?;
     let mut outputs = staged.publish(validate)?;
     for (output, (path, _)) in outputs.iter_mut().zip(targets) {
         output.output_path = path.display().to_string();
+        output.evidence.side_effects.spill_io_performed |= replay_report.spilled;
     }
     Ok(WrittenNativeProducedFanout {
         execution,
         outputs,
         replay: replay_report,
     })
+}
+
+struct ReplaySpill {
+    policy: crate::relational_query::VortexRelationalSpillPolicy,
+    owner: crate::query_spill_quota::Owner,
+    cancellation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+fn replay_spill(request: &VortexQueryPrimitiveRequest) -> Result<Option<ReplaySpill>> {
+    use crate::VortexQueryPrimitiveKind as Kind;
+    let config = match request.kind {
+        Kind::SortRows => request
+            .sort_rows
+            .as_ref()
+            .and_then(|request| request.spill.as_ref())
+            .map(|spill| {
+                (
+                    &spill.workspace,
+                    spill.quota_bytes,
+                    spill.memory_bytes,
+                    &spill.quota_owner,
+                    &spill.cancellation,
+                )
+            }),
+        Kind::SimpleAggregate => request
+            .simple_aggregate
+            .as_ref()
+            .and_then(|request| request.spill.as_ref())
+            .map(|spill| {
+                (
+                    &spill.workspace,
+                    spill.quota_bytes,
+                    spill.memory_bytes,
+                    &spill.quota_owner,
+                    &spill.cancellation,
+                )
+            }),
+        _ => None,
+    };
+    config.map(|(workspace, quota_bytes, buffer_bytes, owner, cancellation)| {
+        // Keep the original primitive policy's quota (including a quota too
+        // small for an actual run) until the common store admits physical I/O.
+        // This does not invent a larger quota for a small resident result.
+        if !workspace.is_absolute() || quota_bytes == 0 || buffer_bytes < 1024 * 1024 {
+            return Err(failed("native replay spill requires the original absolute workspace, positive quota and at least 1 MiB buffer"));
+        }
+        Ok(ReplaySpill {
+            policy: crate::relational_query::VortexRelationalSpillPolicy {
+                workspace: workspace.clone(), quota_bytes, buffer_bytes,
+            },
+            owner: owner.clone(),
+            cancellation: std::sync::Arc::clone(cancellation),
+        })
+    }).transpose()
 }
