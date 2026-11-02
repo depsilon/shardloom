@@ -163,6 +163,7 @@ pub struct ExecutedVortexBatchInput {
     pub columnar_sources: u64,
     pub columnar_parquet_sources: u64,
     pub columnar_source_formats: Vec<String>,
+    pub table_snapshots: Vec<crate::universal_format_io::demanded::TableSnapshotReadReport>,
     pub columnar_schema_discovery_read_bytes: u64,
     pub columnar_files: u64,
     pub columnar_projected_columns: u64,
@@ -283,6 +284,7 @@ impl Default for ExecutedVortexBatchInput {
             columnar_sources: 0,
             columnar_parquet_sources: 0,
             columnar_source_formats: Vec::new(),
+            table_snapshots: Vec::new(),
             columnar_schema_discovery_read_bytes: 0,
             columnar_files: 0,
             columnar_projected_columns: 0,
@@ -697,6 +699,13 @@ impl<'p, 'i> Execution<'p, 'i> {
     ) -> Result<()> {
         let mut report = self.report.borrow_mut();
         checked_add(&mut report.columnar_sources, 1)?;
+        if let Some(snapshot) = observed.table_snapshot {
+            report
+                .table_snapshots
+                .try_reserve(1)
+                .map_err(|error| failed(&error.to_string()))?;
+            report.table_snapshots.push(snapshot);
+        }
         if observed.parquet_selected_chunks {
             checked_add(&mut report.columnar_parquet_sources, 1)?;
         }

@@ -306,8 +306,39 @@ class NativeBackend:
 
         inputs = request.get("input_batches") or {}
         validate_inputs(bindings, inputs)
-        files, sources, declarations, batches = [], [], [], []
+        files, tables, sources, declarations, batches = [], [], [], [], []
         for reference, binding in bindings.items():
+            table_format = binding.get("input_format")
+            selection = binding.get("table_snapshot")
+            if selection is not None:
+                if table_format not in {"iceberg", "delta", "hudi"}:
+                    raise ValueError("table_snapshot requires an Iceberg, Delta, or Hudi source")
+                if not isinstance(selection, Mapping):
+                    raise TypeError("table_snapshot must be a mapping")
+                unknown = set(selection) - {"snapshot_id", "version", "instant"}
+                if unknown:
+                    raise ValueError("table_snapshot contains unknown selectors")
+                expected = {"iceberg": "snapshot_id", "delta": "version", "hudi": "instant"}[table_format]
+                if any(value is not None and name != expected for name, value in selection.items()):
+                    raise ValueError(f"{table_format} sources accept only {expected}")
+                selected = selection.get(expected)
+                if selected is not None:
+                    if expected == "instant":
+                        if not isinstance(selected, str):
+                            raise TypeError("instant must be a string")
+                        if not selected or len(selected) > 32 or not selected.isascii() or not selected.isdigit():
+                            raise ValueError("instant must contain 1 to 32 ASCII digits")
+                    else:
+                        if isinstance(selected, bool) or not isinstance(selected, int):
+                            raise TypeError(f"{expected} must be an integer")
+                        minimum, maximum = (-(1 << 63), (1 << 63) - 1) if expected == "snapshot_id" else (0, (1 << 64) - 1)
+                        if not minimum <= selected <= maximum:
+                            raise ValueError(f"{expected} exceeds its identifier domain")
+            if binding.get("input_format") in {"iceberg", "delta", "hudi"} and (
+                binding.get("source_schema") is not None or binding.get("memory_input") is not None
+                or binding.get("native_input") is not None
+            ):
+                raise ValueError("table sources cannot declare source_schema or memory_input")
             owner = binding.get("native_input")
             if owner is not None:
                 sources.append((reference, owner))
@@ -326,12 +357,20 @@ class NativeBackend:
                     raise ValueError("native object input requires a native owner")
             else:
                 from .client import _schema_command_arg
-                schema = _schema_command_arg(binding.get("source_schema"))
                 format_name = binding.get("input_format")
                 if not isinstance(format_name, str):
                     raise ValueError(f"source {reference!r} requires input_format")
-                files.append((reference, format_name, schema))
-                declarations.append((reference, format_name, schema))
+                if format_name in {"iceberg", "delta", "hudi"}:
+                    if binding.get("source_schema") is not None:
+                        raise ValueError("table sources cannot declare source_schema")
+                    selection = dict(binding.get("table_snapshot") or {})
+                    tables.append((reference, format_name, selection.get("snapshot_id"),
+                                   selection.get("version"), selection.get("instant")))
+                    declarations.append((reference, format_name, tuple(sorted(selection.items()))))
+                else:
+                    schema = _schema_command_arg(binding.get("source_schema"))
+                    files.append((reference, format_name, schema))
+                    declarations.append((reference, format_name, schema))
         state = request.get("_native_plan") or NativePlanState()
         with self._plans_lock:
             self._plans.add(state)
@@ -352,7 +391,7 @@ class NativeBackend:
                     )
                     sources.append((reference, owner))
             plan = self.session.sql(
-                statement, files=files, sources=sources, batches=batches, spill=spill,
+                statement, files=files, tables=tables, sources=sources, batches=batches, spill=spill,
             )
             state.key, state.plan = key, plan
             return plan
