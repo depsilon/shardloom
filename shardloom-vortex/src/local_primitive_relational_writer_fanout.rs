@@ -7,6 +7,7 @@ use super::{
     VortexLocalPrimitiveRowExportReport, failed, vortex_error,
 };
 use crate::local_primitives::{completed_result, output_fanout};
+use shardloom_core::native_io_decisions::NativeIoCapabilityDecisions;
 use std::{cell::RefCell, path::PathBuf};
 
 // Replay merging overlaps the producing operator's final reader. Bound both
@@ -28,6 +29,51 @@ pub struct VortexRelationalOutputReplay {
     /// Peak live run bytes across the producer and replay's shared quota scope.
     /// Overlapping executions using the same spill declaration also contribute.
     pub shared_spill_peak_disk_bytes: Option<u64>,
+    /// Completed output retention and deliveries, separate from source replay
+    /// and representation intake in the execution certificate.
+    pub capability_decisions: NativeIoCapabilityDecisions,
+}
+
+impl VortexRelationalOutputReplay {
+    pub(crate) fn record_capture(&mut self) -> Result<()> {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason,
+            NativeIoObservedWork,
+        };
+        if self.buffer_bytes_copied > 0 {
+            self.capability_decisions.record(
+                NativeIoCapability::RepresentationRetention,
+                NativeIoDecisionOutcome::Declined,
+                NativeIoDecisionReason::RequiredRepresentationCopy,
+                NativeIoObservedWork {
+                    input_rows: Some(self.rows_detached),
+                    copied_buffer_bytes: Some(self.buffer_bytes_copied),
+                    ..NativeIoObservedWork::default()
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn record_delivery(&mut self) -> Result<()> {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason,
+            NativeIoObservedWork,
+        };
+        self.capability_decisions.record(
+            NativeIoCapability::NativeReplay,
+            NativeIoDecisionOutcome::Executed,
+            if self.spilled {
+                NativeIoDecisionReason::AdmittedNativeSpill
+            } else {
+                NativeIoDecisionReason::ResidentRetention
+            },
+            NativeIoObservedWork {
+                output_rows: Some(self.rows_detached),
+                ..NativeIoObservedWork::default()
+            },
+        )
+    }
 }
 
 /// One completed execution and every independently certified output adapter.
@@ -126,13 +172,15 @@ impl PreparedVortexRelational {
                             let replay = recorder.try_borrow_mut().map_err(|_| failed("output replay is active"))?
                                 .take().ok_or_else(|| failed("output replay is absent"))?.finish(context)?;
                             let copied = copied.borrow();
-                            let report = VortexRelationalOutputReplay {
+                            let mut report = VortexRelationalOutputReplay {
                                 batches_detached: copied.batches,
                                 rows_detached: copied.rows,
                                 buffer_bytes_copied: copied.buffer_bytes,
                                 spilled: replay.is_spilled(), replays: targets.len(),
                                 spill: None, shared_spill_peak_disk_bytes: None,
+                                capability_decisions: NativeIoCapabilityDecisions::default(),
                             };
+                            report.record_capture()?;
                             let (writers, _writer_metadata) = writers.into_parts();
                             let mut writers = writers.into_iter();
                             let staged = output_fanout::stage(
@@ -155,6 +203,7 @@ impl PreparedVortexRelational {
                                     if !invoked || output.rows_written != report.rows_detached {
                                         return Err(failed("output adapter did not consume the complete replay"));
                                     }
+                                    report.record_delivery()?;
                                     Ok(output)
                                 },
                             )?;

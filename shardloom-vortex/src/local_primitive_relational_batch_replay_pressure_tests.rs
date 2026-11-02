@@ -1,6 +1,7 @@
 //! Repeated wide input exceeds one grant; only explicit native replay spill wins.
 
 use super::*;
+use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
 use std::cell::Cell;
 
 #[path = "local_primitive_relational_batch_replay_fault_tests.rs"]
@@ -135,6 +136,31 @@ fn execute(prepared: &PreparedVortexRelational) -> Result<ExecutedVortexRelation
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     assert!(result.native_io_certificate.is_certified());
     assert!(!result.native_io_certificate.side_effects.fallback_attempted);
+    let row = result
+        .native_io_certificate
+        .capability_decisions
+        .get(NativeIoCapability::NativeReplay)
+        .unwrap();
+    assert_eq!((row.considered, row.executed, row.declined), (1, 1, 0));
+    assert_eq!(row.observed.output_rows, Some(ROWS as u64));
+    assert_eq!(row.observed.spill_runs, None);
+    let copies = result
+        .native_io_certificate
+        .capability_decisions
+        .get(NativeIoCapability::RepresentationRetention)
+        .unwrap();
+    assert_eq!(
+        copies.observed.copied_buffer_bytes,
+        Some(input.replay_buffer_bytes_copied + input.intake_columnar_buffer_bytes_copied)
+    );
+    assert!(copies.has_decline_reason(NativeIoDecisionReason::RequiredRepresentationCopy));
+    assert!(
+        row.has_admission_reason(if input.replay_spilled_sources > 0 {
+            NativeIoDecisionReason::AdmittedNativeSpill
+        } else {
+            NativeIoDecisionReason::ResidentRetention
+        })
+    );
     Ok(result)
 }
 

@@ -5,6 +5,14 @@ or performance claim is established by this document. RFC 0044 remains the
 resource ownership authority; RFCs 0013/0014/0016/0017 govern streaming, memory,
 semantics and recovery. The phase plan remains the active queue.
 
+Latest acceptance: the [November 2 owner and public-interface matrix](native-adaptive-acceptance-2026-11-02.md)
+passes local default/native workspace, release-runtime and installed-package
+checks. It binds the eleven owner families to their executable controls and
+necessary physical or semantic limits. Hosted checks and review remain pending.
+Earlier pending statements below record their original checkpoints; the matrix
+is the current local acceptance status. Combined documentation/site closeout and
+the ordered follow-up queue remain separate.
+
 The November 1 maintainer decision starts this work before item 18's combined
 portable-evidence, documentation and website closeout. Item 18's completed
 runtime observations remain immutable. The original sequence placed a matched
@@ -36,10 +44,13 @@ The [compact observation record](../benchmarks/evidence/native-adaptive-runtime-
 binds the source, runtime and retained complete result evidence. Builds, subagents
 and other local task work were idle during query execution. Full input/runtime
 hashes and broad inventories occurred outside execution. Complete workspace
-validation subsequently passed on the corrected source described below;
-installed-package and hosted acceptance remain pending for
-[PR #1643](https://github.com/depsilon/shardloom/pull/1643); this observation does
-not complete item 23 or establish engine-wide ownership coverage.
+validation subsequently passed on the corrected source described below.
+[PR #1643](https://github.com/depsilon/shardloom/pull/1643) merged as
+`fe8947ba5de6ce2d295102115032875a76999436` after all 58 hosted checks passed,
+including installed packages, the Python evidence aggregate and release-readiness
+reports. The shared-spill ownership finding is fixed and regression-tested.
+This integration does not complete item 23 or establish engine-wide ownership
+coverage.
 
 ### Explicit fresh-ingest and Vortex Full43 observation
 
@@ -112,12 +123,14 @@ Provider versions remain unchanged. IPC messages remain indivisible, and the
 controlled ORC LZO route explicitly rejects its unbounded provider API. Named
 capacity/ownership coverage does not establish a complete allocator or RSS bound.
 
-This milestone does not close item 23. Remaining conversion allocations, stateful
-operators, spill/merge work, writer/output buffers, primitive fanout, worker/queue
-integration and typed applied/declined decisions retain their active obligations.
-Complete cross-format/interface acceptance and the matched engine checkpoint
-still precede broader local table readers and the combined evidence/docs/site
-closeout. No new timing observation, version bump or publication is included.
+This source milestone does not close item 23. The subsequent runtime continuation
+below implements conversion, operator, spill, writer, fanout and queue work;
+the typed decision continuation records its scoped production owners. The
+[current acceptance matrix](native-adaptive-acceptance-2026-11-02.md) completes
+local cross-format/interface and ownership verification within its declared
+limits. Hosted integration still precedes broader local table readers and the
+combined evidence/docs/site closeout. No version bump or publication is included
+in this milestone.
 
 ## Resource and progress contract
 
@@ -378,7 +391,9 @@ before publication. The legacy command now retains the full replay report,
 including actual spill and shared-quota evidence, through its existing result
 envelope. Existing vector-returning native APIs retain their signatures. Strict
 native Exec/Vortex/CLI all-target lint and the release CLI/Python build pass.
-Complete workspace, installed-package and hosted acceptance remain pending.
+Subsequent final default/native workspace and hosted acceptance passed in
+PR #1643, including its installed-package lanes. The broader ownership and
+cross-format/interface matrix retains its separate acceptance scope.
 
 The November 2 maintainer instruction moves a single new-runtime timing
 observation ahead of remaining integration checks and requests this runtime
@@ -386,8 +401,9 @@ batch as a PR now. This establishes the dynamic runtime's next timing baseline;
 it is not a tuning experiment or a request to re-execute the fixed runtime or
 sweep resource limits. Preserve the original 347 cases and engine clock, all
 earlier observations and the Full43 hold. Complete result verification is required
-before reporting a total. Typed capability-decision evidence and the broader
-ownership audit remain open; this checkpoint does not close item 23.
+before reporting a total. The completed baseline and later scoped typed
+capability-decision wiring are recorded separately. Their broader ownership
+audit remains open; this checkpoint does not close item 23.
 
 ## Source-grounded owner map
 
@@ -509,8 +525,8 @@ and writes/callbacks remain single execution. The original wide-schema and
 large-key grants and complete-result assertions remain in force. The successful
 native workspace pass includes all six original failures, both bulk-ingest
 regressions and the adaptive ownership/pressure controls. Fresh large-input
-ingestion and Full43 now pass as recorded above. Updated hosted acceptance
-remains pending; these results do not close the broader item 18/23 acceptance audit.
+ingestion and Full43 now pass as recorded above. The final PR #1643 hosted checks
+also pass; these results do not close the broader item 18/23 acceptance audit.
 
 The next hosted run passes the original native failures and exposes a stale
 trusted runner checksum in the historical independent matrix replay. The
@@ -872,8 +888,10 @@ transform it with equivalent proof, or report why it no longer applies. Correct
 result values alone do not prove that a source optimization, replay policy or
 resource owner survived an adapter or public interface.
 
-The end-to-end audit remains open; implementation progress is recorded below.
-Shared-source improvements extend item 18;
+The end-to-end audit's declared owner and interface matrix passes the
+[local acceptance gate](native-adaptive-acceptance-2026-11-02.md); hosted
+integration and the combined documentation closeout remain open. The following
+sections preserve the implementation sequence. Shared-source improvements extend item 18;
 they are distinct from item 23's adaptive geometry. This ordering does not
 reopen rejected experiments or authorize unsupported execution families.
 
@@ -966,6 +984,87 @@ reopen rejected experiments or authorize unsupported execution families.
    A test-only counter or a boolean decline is insufficient release evidence.
    Do not add per-row tracing or invent avoided-work quantities.
 
+### Typed decision continuation contract
+
+The decision-evidence continuation extends `NativeIoCertificate` with a bounded summary
+for metadata count, region exclusion, existing order, correlated membership,
+native replay/spill and representation retention. A completed operation records
+the decisions made at its actual owners. Considered, admitted, declined and
+executed counts remain separate; absence means unobserved, not declined.
+Admission without completed work must never increment execution. Reasons use a
+finite vocabulary for semantic, source/ownership and resource restrictions.
+Observed row, region and buffer counts are optional: an unavailable observation
+is not zero and does not imply avoided reads, decode, allocations or RSS.
+
+The summary has fixed storage, independent of rows, fragments and operator
+invocations. It retains no trace, source names or values. Existing proof text
+and detailed owner reports remain compatible. Public serializers consume the
+same typed certificate; no interface reconstructs decisions by parsing text.
+Completion, cancellation, source validation, shared grants and publication keep
+their existing order. This is evidence of instrumented boundaries, not a claim
+that the whole item-18/item-23 matrix is complete.
+
+The completed owner wiring has the following scope. Counters count decisions at
+the stated boundary, not queries or unique source objects. Reasons are bounded
+sets, not per-reason frequencies. Optional work fields sum observations only;
+an observed subset does not establish complete accounting for uninstrumented
+owners.
+
+| Capability | Actual owner and outcomes | Observed work and boundary |
+| --- | --- | --- |
+| Metadata count | Shared relational source-count admission and native primitive footer count; required value evaluation, shared-source use and unavailable source facts decline. The explicitly approved legacy encoded-array length scan reports `encoded_length_scan_required`. | Held input rows; a shared scalar result where known. Native primitive partition counts merge one outcome per held file. Metadata inspection alone records no execution. |
+| Region exclusion | Whole-file native pruning and completed demanded Parquet/ORC region reads; retained regions record missing proof or shared-consumer restrictions. Unsupported adapters record unavailable capability. | Physical regions considered/excluded per completed read phase. Ranking records its original predicate domain and the later validated winning-row selection separately. Repeated EOF records nothing new; incomplete/cancelled readers publish no completion. No inferred byte savings. |
+| Existing order | Existing comparison checks in native sort, window, as-of, ordered collection and ordered selector owners. Proven order executes; observed disorder or an unproven comparison domain declines. | Input rows supplied to that owner. Original comparisons, stable ties, validation and errors remain unchanged. |
+| Correlated membership | Existing pure-equality rewrite admission and actual inner initialization. Lazy empty/guarded inputs can be admitted without execution; required parameter execution declines. | No fabricated inner-row or avoided-evaluation count. Existing detailed subquery reports retain their own work scope. |
+| Native replay | Successfully completed source replay and completed output-writer deliveries; actual resident retention and actual admitted spill have different reasons. | Delivered rows per replay. Output replay has a separate typed summary in `VortexRelationalOutputReplay`; it is not duplicated in the source execution certificate. A shared spill owner's other runs are not attributed to replay. |
+| Representation retention | Actual source-intake buffer transfer/copy, source replay capture and output capture. Required detachment copies decline direct representation retention. | Existing observed buffer-byte counters, with output capture in the output summary. A batch lifetime envelope is not allocation-transfer proof; unknown native-input transfer observations stay absent. |
+
+All five public interfaces use the shared serializer. Query evidence uses
+`local_primitive_native_io_decision_*`; completed output retention/delivery uses
+`native_vortex_result_export_replay_decision_*`. The latter is absent for direct
+single-output streaming. These are disjoint scopes, so output fanout cannot
+inflate source replay totals. Existing detailed fields remain available and
+must not be added again to the corresponding typed summary.
+
+Control coverage includes bulk aggregation/atomic overflow, zero versus unknown,
+metadata-only versus encoded-read counts, inspection without execution, repeated
+EOF and repeated executions, Parquet mapped/Hive/shared demands, ORC stripe
+facts, unavailable IPC/Avro pruning, ranking phases, existing-order consumers,
+lazy correlated membership, and resident/spilled source/output replay. Public
+controls assert typed count/pruning fields across five interfaces, ORC at two
+resource grants, ordering across Parquet/IPC/Vortex, and completed fanout fields.
+The [final runtime/package acceptance](native-adaptive-acceptance-2026-11-02.md)
+passes 298 focused controls, 3,311 default workspace tests, 6,833 enabled native
+workspace tests and 292 installed-wheel tests. The public resource matrix adds
+180 complete collections and 80 complete writes/readbacks across the five
+interfaces and two grants. These checks remain separate from the immutable
+partial performance checkpoint below and do not claim complete allocator/RSS
+coverage. The native suite retains its 36 documented platform/manual exclusions;
+the default and installed-package suites have none.
+
+Vortex-first provider check: `wrap_vortex_concept`. The existing Vortex 0.90
+array/scan/statistics providers, source generations and ShardLoom native
+operators already own execution. Their ShardLoom admission and completion
+decisions belong in the existing native I/O certificate. This adds no provider,
+kernel, source format, representation conversion or external executor.
+`fallback_attempted=false` and `external_engine_invoked=false` remain required.
+Acceptance covers positive and justified-decline paths, empty/lazy work,
+retained/replayed sources, serialization parity and bounded aggregation, then
+the required default/native workspace and public-interface gates. No timing
+gain or benchmark rerun is asserted by this continuation.
+
+The maintainer separately requested a checkpoint observation of the partial
+implementation on November 2. The
+[validated 347-case checkpoint](../benchmarks/evidence/native-adaptive-decisions-checkpoint-2026-11-02.json)
+records one execution per original case, all 12,565 complete reference rows,
+and 12.121946081 engine seconds versus the saved 12.144043291. All reports carry
+the new typed schema. Ten tiny metadata-count/ordered-input checks pass across
+all five public interfaces. Parquet/ORC exclusion and complete owner coverage
+were still pending in that frozen patch. The baseline predates later runtime
+fixes, so the comparison does not isolate evidence overhead or establish
+repeatability. Full43 and the baseline were not rerun. This immutable checkpoint
+remains separate from subsequent wiring and final acceptance.
+
 For each implemented extension, vary single-file/collection/union/Hive
 representation, aliases/plain projections, all five interfaces, single/fanout
 outputs and ample/admitted-pressure resources where applicable. Assert full
@@ -990,7 +1089,10 @@ failures and preserve existing fast-path controls.
 
 Run focused owners, pinned-provider checks when touched, default/native workspace
 gates and installed/public interfaces before complete resource/correctness
-acceptance. Then freeze matched complete-workflow timing checks against the
-current accepted runtime. Preserve the Full43 hold and isolated single-pass
-procedure; this contract starts no benchmark run. Documentation, website,
+acceptance. The November 2 timing direction above supersedes the original
+matched-comparison step: preserve the completed authorized single-pass baseline
+and partial-decision checkpoint with their build and coverage limits. Final
+decision wiring does not require repeating either observation. Preserve the
+Full43 hold and isolated single-pass procedure; this contract starts no benchmark
+run. Documentation, website,
 portable evidence, expert review, hosted checks and merge remain required.

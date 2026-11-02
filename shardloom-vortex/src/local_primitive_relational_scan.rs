@@ -5,6 +5,9 @@ use super::{
     NativeExecutionContext, PreparedVortexSource, Result, ScanSource, add, failed, vortex_error,
 };
 use crate::native_work_sizing::{Owner, Rows};
+use shardloom_core::native_io_decisions::{
+    NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+};
 use vortex::io::runtime::BlockingRuntime as _;
 
 const SCAN_ROWS: usize = 8192;
@@ -117,15 +120,30 @@ fn run_file(
 ) -> Result<()> {
     source.with_admitted_native_execution(context, |file, context| {
         add(&metrics.scans_started, 1)?;
-        if plan
-            .filter
-            .as_ref()
-            .map(|filter| file.can_prune(filter).map_err(vortex_error))
-            .transpose()?
-            .unwrap_or(false)
-        {
-            add(&metrics.scans_pruned, 1)?;
-            return Ok(());
+        if let Some(filter) = &plan.filter {
+            let excluded = file.can_prune(filter).map_err(vortex_error)?;
+            context.record_capability_decision(
+                NativeIoCapability::RegionExclusion,
+                if excluded {
+                    NativeIoDecisionOutcome::Executed
+                } else {
+                    NativeIoDecisionOutcome::Declined
+                },
+                if excluded {
+                    NativeIoDecisionReason::ExclusionProved
+                } else {
+                    NativeIoDecisionReason::ExclusionNotProved
+                },
+                NativeIoObservedWork {
+                    regions: Some(1),
+                    excluded_regions: Some(u64::from(excluded)),
+                    ..NativeIoObservedWork::default()
+                },
+            )?;
+            if excluded {
+                add(&metrics.scans_pruned, 1)?;
+                return Ok(());
+            }
         }
         if file.row_count() == 0 {
             return Ok(());

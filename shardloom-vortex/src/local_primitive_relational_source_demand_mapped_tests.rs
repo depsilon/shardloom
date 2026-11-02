@@ -219,6 +219,12 @@ fn parquet_mapped_pruning_resolves_reordered_and_typed_null_fields_per_file() {
             .unwrap();
         assert_eq!(json_rows(&result), expected);
         assert_work(&result, groups, decoded);
+        super::decisions_tests::assert_regions(
+            &result,
+            8,
+            8 - groups,
+            shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved,
+        );
         drop(result);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
@@ -247,6 +253,12 @@ fn parquet_mapped_hive_constants_exclude_payload_before_open_without_statistics(
                     &result,
                     if expected.is_empty() { 0 } else { 4 },
                     expected.len() as u64,
+                );
+                super::decisions_tests::assert_regions(
+                    &result,
+                    12,
+                    if expected.is_empty() { 12 } else { 8 },
+                    shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved,
                 );
             }
             let prepared = prepare(
@@ -303,6 +315,16 @@ fn parquet_mapped_shared_demand_keeps_regions_needed_by_every_consumer() {
             if unfiltered { 12 } else { 8 },
             if unfiltered { 48 } else { 32 },
         );
+        super::decisions_tests::assert_regions(
+            &result,
+            12,
+            if unfiltered { 0 } else { 4 },
+            if unfiltered {
+                shardloom_core::native_io_decisions::NativeIoDecisionReason::SharedSourceUsage
+            } else {
+                shardloom_core::native_io_decisions::NativeIoDecisionReason::ExclusionNotProved
+            },
+        );
         assert_eq!(
             result
                 .execution
@@ -334,6 +356,14 @@ fn parquet_mapped_prefix_keeps_file_order_and_exact_declared_end() {
         [114, 115, 0, 1, 2].map(|n| json!({"n":n}))
     );
     assert_work(&result, 5, 19);
+    assert!(
+        result
+            .execution
+            .native_io_certificate
+            .capability_decisions
+            .get(shardloom_core::native_io_decisions::NativeIoCapability::RegionExclusion)
+            .is_none()
+    );
     assert_eq!(
         result
             .execution

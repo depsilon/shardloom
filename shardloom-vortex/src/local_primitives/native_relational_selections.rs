@@ -75,9 +75,9 @@ impl<'a> Groups<'a> {
         }
         // Both group indexes and source ordinals are already in bounds; this
         // comparator has no fallible value lookup or user-type dispatch.
-        native_relational_order::sort_with_order_check(
+        native_relational_order::sort_with_order_evidence(
             &mut rows.values,
-            context.cancellation(),
+            context,
             true,
             |left, right| {
                 Ok(groups

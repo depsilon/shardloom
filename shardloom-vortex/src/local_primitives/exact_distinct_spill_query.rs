@@ -144,7 +144,7 @@ pub(in super::super) fn execute_with_output(
         projection_pushdown_applied,
     );
     if let Some(filter) = plan.filter.as_ref() {
-        embedded_layout.mark_pruning_consulted(file.can_prune(filter).map_err(vortex_error)?);
+        embedded_layout.mark_pruning_consulted(file.can_prune(filter).map_err(vortex_error)?)?;
     }
     let mut states = GroupedAggregateStates::new_with_resource_envelope(
         aggregate,

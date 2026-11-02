@@ -92,12 +92,31 @@ fn resident_count_scan_preserves_exact_count_pruning_and_native_certificate() {
         let report =
             super::super::count_where_report(&fixture.path(), &request, &scan, &predicate).unwrap();
         assert_eq!(report.rows_selected, Some(expected as u64));
-        assert!(
-            local_primitive_native_io_certificate(&request, &report)
-                .unwrap()
-                .is_certified()
-        );
+        let certificate = local_primitive_native_io_certificate(&request, &report).unwrap();
+        assert!(certificate.is_certified());
+        assert_pruning_decision(&certificate, pruned);
         assert!(!report.fallback_execution_allowed);
+    }
+}
+
+fn assert_pruning_decision(
+    certificate: &shardloom_core::native_io::NativeIoCertificate,
+    pruned: bool,
+) {
+    use shardloom_core::native_io_decisions::{NativeIoCapability, NativeIoDecisionReason};
+    let row = certificate
+        .capability_decisions
+        .get(NativeIoCapability::RegionExclusion)
+        .unwrap();
+    assert_eq!(row.considered, 1);
+    assert_eq!(row.executed, u64::from(pruned));
+    assert_eq!(row.declined, u64::from(!pruned));
+    assert_eq!(row.observed.regions, Some(1));
+    assert_eq!(row.observed.excluded_regions, Some(u64::from(pruned)));
+    if pruned {
+        assert!(row.has_admission_reason(NativeIoDecisionReason::ExclusionProved));
+    } else {
+        assert!(row.has_decline_reason(NativeIoDecisionReason::ExclusionNotProved));
     }
 }
 

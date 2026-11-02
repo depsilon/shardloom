@@ -54,6 +54,9 @@ mod orc_tests;
 #[path = "local_primitive_relational_source_demand_adaptive_tests.rs"]
 mod adaptive_tests;
 
+#[path = "local_primitive_relational_source_demand_decisions_tests.rs"]
+mod decisions_tests;
+
 struct ParquetFixture(PathBuf);
 
 impl ParquetFixture {

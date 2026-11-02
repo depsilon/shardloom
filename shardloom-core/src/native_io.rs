@@ -549,6 +549,8 @@ pub struct NativeIoCertificate {
     pub path_id: String,
     pub source_capability_report: NativeIoSourceCapabilityReport,
     pub source_pushdown_report: NativeIoSourcePushdownReport,
+    /// Actual instrumented owner decisions; absent capabilities are unobserved.
+    pub capability_decisions: crate::native_io_decisions::NativeIoCapabilityDecisions,
     pub representation_transitions: Vec<NativeIoRepresentationTransition>,
     pub sink_requirement_report: NativeIoSinkRequirementReport,
     pub adapter_fidelity_report: NativeIoAdapterFidelityReport,
@@ -594,6 +596,8 @@ impl NativeIoCertificate {
             path_id,
             source_capability_report,
             source_pushdown_report,
+            capability_decisions: crate::native_io_decisions::NativeIoCapabilityDecisions::default(
+            ),
             representation_transitions,
             sink_requirement_report,
             adapter_fidelity_report,

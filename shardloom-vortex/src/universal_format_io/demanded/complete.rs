@@ -180,6 +180,7 @@ impl LocalColumnarSource {
             row_groups: self.prepare_row_groups(None, &[], cancellation)?,
             max_rows: None,
             metadata,
+            region_selection: None,
         });
         let owned_parquet = native_ingest && format.format == "parquet";
         let stream_plan = complete_stream_plan(format, row_count_hint, owned_parquet);

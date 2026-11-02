@@ -76,7 +76,9 @@ fn ordered_input_decline_preserves_exact_original_comparison_and_error_trace() {
         assert_eq!(actual_trace, original_trace);
         assert_eq!(actual, original);
         assert_eq!(
-            actual_result.map_err(|error| error.to_string()),
+            actual_result
+                .map(|decision| assert_eq!(decision, ExistingOrder::UnprovenDomain))
+                .map_err(|error| error.to_string()),
             original_result.map_err(|error| error.to_string())
         );
     }

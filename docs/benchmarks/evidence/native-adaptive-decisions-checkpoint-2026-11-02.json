@@ -1,0 +1,51 @@
+{
+  "schema_version": "shardloom.native_decision_checkpoint_summary.v1",
+  "date": "2026-11-02",
+  "status": "complete_validated_partial_decision_checkpoint",
+  "source_revision": "70faa31021e3f6cc624e956d84be23ef7bc679b0",
+  "source_scope": "Uncommitted partial decision-evidence overlay on the recorded revision; all 3367 Rust/Python/TOML/lock source files and added files are hash-bound in the retained runtime manifest.",
+  "queries": 347,
+  "executions_per_query": 1,
+  "complete_reference_rows": 12565,
+  "baseline_engine_execution_seconds": 12.144043291,
+  "engine_execution_seconds": 12.121946081,
+  "change_engine_seconds": -0.022097209999998313,
+  "change_fraction": -0.0018195924924259144,
+  "timing_rule": "Sum of engine_execution_seconds for one execution of each original case.",
+  "resource_policy": { "memory_ceiling_bytes": 2147483648, "parallelism_ceiling": 2, "adaptive_work_sizing": true },
+  "old_runtime_executions": 0,
+  "full43_executed": false,
+  "comparison_engine_invoked": false,
+  "decision_totals": {
+    "metadata_count": { "queries": 17, "considered": 17, "admitted": 1, "declined": 16, "executed": 1 },
+    "region_exclusion": { "queries": 0, "considered": 0, "admitted": 0, "declined": 0, "executed": 0 },
+    "existing_order": { "queries": 254, "considered": 259, "admitted": 64, "declined": 195, "executed": 64 },
+    "correlated_membership": { "queries": 0, "considered": 0, "admitted": 0, "declined": 0, "executed": 0 },
+    "native_replay": { "queries": 4, "considered": 4, "admitted": 4, "declined": 0, "executed": 4 },
+    "representation_retention": { "queries": 343, "considered": 41505, "admitted": 40247, "declined": 1258, "executed": 40247 }
+  },
+  "coverage": "All 347 public reports contain the bounded typed schema. Totals count recorded owner boundaries, not unique rows or allocations. Zero query coverage means unobserved. Parquet/ORC region selection is not wired in this frozen patch; the corpus reports no correlated-membership decisions.",
+  "validation": {
+    "complete_result_comparisons": 347,
+    "complete_rows": 12565,
+    "focused_native_tests": 37,
+    "core_and_serializer_tests": 4,
+    "native_core_vortex_cli_strict_clippy": "passed",
+    "public_smoke": { "cases": 10, "surfaces": 5, "scope": "Metadata count and existing ordering on a tiny Parquet fixture; not the full installed/public matrix." },
+    "required_workspace_and_installed_acceptance": "Pending for the new decision-evidence patch at this checkpoint."
+  },
+  "retained_local_evidence": {
+    "root": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-adaptive-decisions-r1",
+    "runtime_manifest": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-decisions-r1/manifest.json",
+    "runtime_manifest_sha256": "4638fea912ba85b4af010ce095fa229c7848a40e2a616fd656df7bf83a6c3b84",
+    "guard_receipt": "io575-decision-original347.json",
+    "validation_receipt": "io576-decision-original347-verification.json",
+    "inputs_json_sha256": "223ac46cfc799661400ba1bc1a16ae8abdd58410dee39b20cc0511df8515a571",
+    "protocol_json_sha256": "c7b8f727f75ee5626aac506145dbf733045ec46585bb3f4cf159ccb42fbad208",
+    "native_observations_json_sha256": "e75632ed6f592c51b27b96a9f79f722c5a48ec1209e6e4c8eabd1f306b6265c3",
+    "complete_result_validation_json_sha256": "f94d56ba013a3f17d5f0ecba8e157384f06e93004ebe0bc54c71a4a0f0e3235e",
+    "decision_evidence_json_sha256": "80754e6d5ea61ee60ccc78d93428808e71e2969dcc9d4d6c6c5bb5cbc5564ada",
+    "performance_json_sha256": "19c9508fa0db8c15d860e045a3bcfc0735ca016d6682583e49ce1445ef3e20fe"
+  },
+  "limits": "Single complete-runtime observation against the saved earlier build; incomplete owner coverage; no isolated instrumentation-overhead or repeatability claim. This checkpoint is not a ship/drop gate or the final instrumentation runtime. The saved baseline predates subsequent runtime fixes."
+}

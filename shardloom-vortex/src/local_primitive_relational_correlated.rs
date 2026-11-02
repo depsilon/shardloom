@@ -5,6 +5,9 @@ use super::{
     ArrayRef, Metrics, NativeExecutionContext, Node, NodeKind, PreparedVortexRelational, Result,
     SubqueryRelation, VortexRelationalPreparation, bind, failed, native_relational_subquery,
 };
+use shardloom_core::native_io_decisions::{
+    NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+};
 
 impl PreparedVortexRelational {
     pub(super) fn run_subquery(
@@ -30,6 +33,12 @@ impl PreparedVortexRelational {
             return self
                 .run_uncorrelated_subquery(node, context, metrics, batch_rows, parameter, consume);
         }
+        context.record_capability_decision(
+            NativeIoCapability::CorrelatedMembership,
+            NativeIoDecisionOutcome::Declined,
+            NativeIoDecisionReason::RequiredParameterExecution,
+            NativeIoObservedWork::default(),
+        )?;
         self.run(
             input,
             context,
@@ -113,11 +122,11 @@ impl PreparedVortexRelational {
             return Err(failed("uncorrelated subquery requires a bound relation"));
         };
         let mut subquery = native_relational_subquery::Ready::empty(spec, context)?;
+        let mut initialized = false;
         if *initialize_on_demand
             || spec.guard.is_some()
             || matches!(spec.kind, native_relational_subquery::Kind::Scalar { .. })
         {
-            let mut initialized = false;
             self.run(
                 input,
                 context,
@@ -138,6 +147,7 @@ impl PreparedVortexRelational {
         } else {
             subquery =
                 self.complete_subquery(spec, relation, context, metrics, batch_rows, parameter)?;
+            initialized = true;
             self.run(
                 input,
                 context,
@@ -147,7 +157,23 @@ impl PreparedVortexRelational {
                 &mut |array| subquery.consume(array, context, consume),
             )?;
         }
-        metrics.record_subquery(&subquery.finish(context)?)
+        metrics.record_subquery(&subquery.finish(context)?)?;
+        // This flag preserves the original parameterized declaration. In this
+        // nonparameterized branch it means the pure-equality rewrite was admitted.
+        // An empty or guarded outer input may never initialize its inner owner.
+        if *initialize_on_demand {
+            context.record_capability_decision(
+                NativeIoCapability::CorrelatedMembership,
+                if initialized {
+                    NativeIoDecisionOutcome::Executed
+                } else {
+                    NativeIoDecisionOutcome::Admitted
+                },
+                NativeIoDecisionReason::PureEqualityCorrelation,
+                NativeIoObservedWork::default(),
+            )?;
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)] // One bound inner node and its existing execution context.

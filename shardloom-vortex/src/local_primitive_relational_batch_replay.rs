@@ -259,7 +259,9 @@ impl Completed {
             return Err(failed("invalid output replay batch bound"));
         }
         let mut submitted = 0_u64;
-        self.run(dtype, metrics, context, &mut |array| {
+        // Output fanout records completion only after the writer also verifies
+        // its complete row count. Keep it out of the source replay certificate.
+        self.read(dtype, metrics, context, &mut |array| {
             for start in (0..array.len()).step_by(batch_rows) {
                 let end = start.saturating_add(batch_rows).min(array.len());
                 let batch = array.slice(start..end).map_err(vortex_error)?;
@@ -294,13 +296,45 @@ impl Completed {
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        use shardloom_core::native_io_decisions::{
+            NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason,
+            NativeIoObservedWork,
+        };
+        let rows = self.read(dtype, metrics, context, consume)?;
+        context.record_capability_decision(
+            NativeIoCapability::NativeReplay,
+            NativeIoDecisionOutcome::Executed,
+            if self.is_spilled() {
+                NativeIoDecisionReason::AdmittedNativeSpill
+            } else {
+                NativeIoDecisionReason::ResidentRetention
+            },
+            NativeIoObservedWork {
+                output_rows: Some(rows),
+                ..NativeIoObservedWork::default()
+            },
+        )
+    }
+
+    fn read(
+        &self,
+        dtype: &DType,
+        metrics: &Metrics<'_>,
+        context: &NativeExecutionContext<'_>,
+        consume: &mut dyn FnMut(&ArrayRef) -> Result<()>,
+    ) -> Result<u64> {
         #[cfg(not(feature = "vortex-write"))]
         let _ = (dtype, metrics);
+        let mut rows = 0_u64;
+        let mut counted = |array: &ArrayRef| {
+            consume(array)?;
+            checked_add(&mut rows, array.len() as u64)
+        };
         match self {
             Self::Resident(arrays) => {
                 for array in &arrays.values {
                     context.check_cancelled()?;
-                    consume(array)?;
+                    counted(array)?;
                 }
             }
             #[cfg(feature = "vortex-write")]
@@ -310,9 +344,10 @@ impl Completed {
                     .spill
                     .as_ref()
                     .ok_or_else(|| failed("native replay store is absent"))?;
-                stored.for_each(state, &schema.spec, context, consume)?;
+                stored.for_each(state, &schema.spec, context, &mut counted)?;
             }
         }
-        context.check_cancelled()
+        context.check_cancelled()?;
+        Ok(rows)
     }
 }

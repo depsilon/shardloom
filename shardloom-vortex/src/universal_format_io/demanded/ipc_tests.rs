@@ -351,6 +351,7 @@ fn native_owned_ipc_prefix_reports_full_physical_decode_and_zero_prefix_does_no_
             )
             .unwrap();
             let prepared = super::super::PreparedColumnarSource {
+                region_selection: None,
                 source,
                 projection: vec![0],
                 row_groups: vec![],

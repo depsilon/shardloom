@@ -77,6 +77,7 @@ fn produced_fanout_pressure_preserves_one_producer_values_and_the_original_spill
             assert!(result.replay.buffer_bytes_copied > GRANT);
             assert!(result.replay.spilled);
             assert_eq!(result.replay.replays, targets.len());
+            assert_replay_decisions(&result.replay);
             let report = result.replay.spill.as_ref().unwrap();
             assert!(report.runs_written > 3 && report.merge_passes > 0);
             assert!(report.owned_cleanup_completed);
@@ -278,6 +279,7 @@ fn produced_fanout_cleanup_preserves_other_sessions_live_runs_and_pending_writes
         assert_eq!(result.execution, rows);
         assert_eq!(result.replay.rows_detached, rows as u64);
         assert_eq!(result.replay.spilled, spilled);
+        assert_replay_decisions(&result.replay);
         assert!(
             result
                 .replay
