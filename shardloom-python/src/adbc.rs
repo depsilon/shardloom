@@ -72,7 +72,10 @@ fn invalid(message: &str) -> Error {
 
 #[allow(clippy::needless_pass_by_value)] // Result::map_err consumes its error.
 fn python_error(error: PyErr) -> Error {
-    Python::attach(|py| {
+    // Consume the exception inside the attached scope. Its traceback can own
+    // Arrow readers; deferring that decref until another native callback can
+    // reenter a reader's Python cleanup while PyArrow has released the GIL.
+    Python::attach(move |py| {
         let code = error
             .value(py)
             .getattr("diagnostic")
