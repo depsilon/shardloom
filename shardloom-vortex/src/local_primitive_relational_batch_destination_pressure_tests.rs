@@ -5,6 +5,9 @@ const GRANT: u64 = 16 << 20;
 const ROWS: usize = 8193;
 const BATCH: usize = 251;
 
+#[path = "local_primitive_produced_fanout_tests.rs"]
+mod produced_tests;
+
 fn text(row: usize) -> String {
     format!("{row:08}{}", "p".repeat(2040))
 }

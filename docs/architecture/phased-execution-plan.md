@@ -472,10 +472,23 @@ before the 1.1.0 milestone. After item 19, execute the separately versioned
 [expanded analytical testing and benchmarking campaign](native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19)
 using the existing harness, before item 21 Foundry work. With the October 31
 adaptive-execution addition, the resulting order is
-**20 → 18 → 23 → 1.1.0 milestone → 19 → expanded coverage/benchmark acceptance → 21 →
+**20 → 18 → 23 → 1.1.0 milestone → source/preparation strategy investigation → 19 → expanded coverage/benchmark acceptance → 21 →
 1.2.0 milestone → 22 → 1.3.0 milestone**. The frozen 347 cases and their timing
 history stay unchanged. Targeted correctness and acceptance for current work are
 not deferred; publication still requires separate authorization.
+
+**November 2 post-version investigation:** the maintainer schedules the
+[source/preparation strategy investigation](native-source-strategy-investigation-2026-11-02.md)
+immediately after the 1.1.0 version bump and before item 19. Clarify explicit
+source investment independently of provider and output selection; use a small
+matched direct/general-prepared/specialized-prepared/fresh-preparation comparison
+to identify the next shared improvement. Preserve provider eligibility, generation
+and resource contracts; enabling spill is not a valid control for forcing a
+general provider. Automatic preparation requires a later cost/permission decision.
+The original 347 history and the larger post-item-19 coverage campaign remain
+separate. This scheduling request does not defer current correctness/acceptance
+or the already authorized ingest-plus-Vortex Full43 run, and does not authorize
+publication.
 
 **October 30 Full43 deferral:** do not execute another Full43 pass until item 18's
 universal I/O work and format/interface acceptance are complete. This replaces
@@ -590,7 +603,7 @@ implementation projects, completed capabilities or a PR forecast.
 
 - [ ] **Item 23 — apply shared adaptive execution within user-set ceilings.**
   - Source: October 31 maintainer request; the [batch memory investigation](native-performance-batch-2026-10-31.md#dynamic-execution-within-a-user-set-ceiling); [dynamic work shaping](dynamic-work-shaping.md) and [PulseWeave runtime control](pulseweave-runtime-control.md); RFCs 0013, 0014, 0016, 0017 and 0044. This extends the existing RFC 0044 implementation program and PERF-03/PERF-06/PERF-07/PERF-11 owners. CG-8, CG-14, CG-15, CG-20 and CG-21 supply relevant proof obligations; CG-1 through CG-23 retain their independent gates.
-  - Sequence and scope: explicitly requested, `required_for_v1` under the plan's existing scope vocabulary, scheduled before the 1.1.0 milestone. The November 1 maintainer decision starts item 23 now, after item 18's runtime checks, ahead of the combined evidence/documentation/website closeout. Cover all currently supported native execution paths and every applicable source/operator/sink owner. Finish functional integration and correctness first, then run matched engine-time checks against the current baseline; investigate and iterate on any slowdown before acceptance. No engine-time gain is required merely to wire a missing supported path. Unsupported formats, remote systems and live/distributed engines do not become implicit new requirements.
+  - Sequence and scope: explicitly requested, `required_for_v1` under the plan's existing scope vocabulary, scheduled before the 1.1.0 milestone. The November 1 maintainer decision starts item 23 now, after item 18's runtime checks, ahead of the combined evidence/documentation/website closeout. Cover all currently supported native execution paths and every applicable source/operator/sink owner. The November 2 clarification requests the new dynamic runtime's timing baseline before remaining integration checks and a PR now: one new-runtime execution per original case, without fixed-runtime reruns, resource sweeps or a tuning/strict-gain contest. The [validated baseline](native-adaptive-execution-2026-11-01.md#dynamic-runtime-timing-baseline) is 12.144043291 engine seconds across all 347 cases; [PR #1643](https://github.com/depsilon/shardloom/pull/1643) carries the runtime continuation. Correctness, resource, interface and hosted acceptance remain required. No engine-time gain is required merely to wire a missing supported path. Unsupported formats, remote systems and live/distributed engines do not become implicit new requirements.
   - Intake state: `AdaptiveSizer` and `plan_dynamic_sizing_feedback` provide planning decisions; `DynamicSizingFeedbackMode::executes_feedback()` remains false. PulseWeave has scoped prepared/local and cold-preparation integration, while live shared memory admission, streaming and native spill already exist. At intake, the ordinary demanded Parquet reader did not consume a shared runtime sizing policy, and relational spill/replay combined bounded constants with separate admissions. A whole-footer reservation blocked the October 31 workload before downstream adaptation could act. This is the starting inventory; neither all-dynamic nor all-report-only accurately describes the engine.
   - Source/preparation milestone: the [locally verified boundary](native-adaptive-execution-2026-11-01.md#source-and-preparation-milestone) applies shared sizing to native scan/replay and admitted text/Parquet/ORC/Avro continuations, retains named provider and batch owners through ordinary-file/collection preparation, preserves shared Parquet source tasks and mapped source facts, and adds feature-bound runtime discovery. Default, native/public, reduced-feature, provider and installed-wheel checks are recorded with their original failures and scope. Remaining conversion/operator/spill/writer/fanout/queue and typed-decision integration, complete cross-surface acceptance and the matched engine checkpoint remain open. IPC physical-message limits and controlled ORC LZO rejection are explicit; no engine-wide memory or performance acceptance follows from this source milestone.
   - Intake decision: accept the missing shared runtime wiring as a global follow-through item, reusing existing owners. Classify fixture sizes, semantic/type admission, format constants, cancellation cadence and proof bounds separately from tunable execution geometry. Do not remove a safety bound merely because it is a constant, or revive previously rejected mechanisms unchanged.

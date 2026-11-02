@@ -35,6 +35,7 @@ const MAX_RUNS: usize = 64;
 pub(super) struct Policy {
     pub workspace: PathBuf,
     pub quota_bytes: u64,
+    pub quota_owner: crate::query_spill_quota::Owner,
     pub memory_bytes: u64,
     pub cancellation: Arc<AtomicBool>,
     pub parent_cancellation: Option<shardloom_exec::compute_pool::CancellationToken>,
@@ -180,7 +181,8 @@ impl ExactDistinctSpill {
                     self.policy.workspace.clone(),
                     self.policy.quota_bytes,
                     Arc::clone(&self.policy.cancellation),
-                ),
+                )
+                .with_quota_owner(self.policy.quota_owner.clone()),
                 self.memory.clone(),
                 scratch,
             )?);

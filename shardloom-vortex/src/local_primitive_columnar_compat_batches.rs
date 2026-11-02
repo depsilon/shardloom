@@ -103,7 +103,7 @@ impl PreparedCompatibilityExport {
             .ok_or_else(|| error("writer overhead admission overflow"))
     }
 
-    fn footer_metadata(&self, units: usize) -> Result<u64> {
+    pub(super) fn footer_metadata(&self, units: usize) -> Result<u64> {
         let base = CompatibilityLimits::metadata_for_batches(self.schema_fields, units)?;
         // Names and nested paths are resource-admitted, not capped at 256 bytes.
         // Retained file-unit descriptors can repeat those paths.
@@ -130,6 +130,9 @@ impl PreparedCompatibilityExport {
         rows: &mut u64,
         after_batch: &mut impl FnMut(u64) -> Result<()>,
     ) -> Result<()> {
+        if array.is_empty() {
+            return Ok(());
+        }
         let mut limits = self.limits.clone();
         if limits.streaming {
             // First measure the native expansion. Arrow allocation is admitted
@@ -142,32 +145,72 @@ impl PreparedCompatibilityExport {
                 .fields()
                 .any(|dtype| super::super::native_payload::is_nested(&dtype))
         });
-        let overhead = self.writer_overhead()?;
+        // Preserve the original field-major validation window before changing
+        // physical conversion geometry. Its metadata and native arrays remain
+        // owned until every selected part has completed its writer operation.
+        let _validation_metadata = execution
+            .memory()
+            .reserve(sizing::canonical_metadata(&self.plan.dtype)?)?;
+        let (validated, validated_bytes) =
+            admitted_canonical(array, &self.plan.dtype, ctx, &limits)?;
+        let window = sizing::ConversionWindow::new(self, initial, array.len())?;
+        let mut width = validated_bytes.div_ceil(array.len() as u64).max(1);
         let mut start = 0;
-        let mut next_rows = array.len().min(self.limits.batch_rows);
         while start < array.len() {
             self.limits.check()?;
             execution.check_cancelled()?;
-            let mut count = next_rows.min(array.len() - start);
+            let maximum = self.limits.batch_rows.min(array.len() - start);
+            let mut selected = if self.limits.streaming {
+                Some(window.select(writer, work, owner.bytes(), maximum, width, execution)?)
+            } else {
+                None
+            };
+            let mut count = selected.map_or(Ok(maximum), |shape| {
+                usize::try_from(shape.units()).map_err(vortex_error)
+            })?;
             loop {
                 self.limits.check()?;
-                let subset = array.slice(start..start + count).map_err(vortex_error)?;
-                // List views may otherwise retain a complete producer child
-                // domain even for a one-row slice. Compact only selected native
-                // values, with their original logical types and validity.
-                let subset = if nested_values && count != array.len() {
-                    super::super::native_payload::detach_with_policy(
-                        &subset,
-                        super::super::native_payload::CopyPolicy::PreserveUnobserved,
-                        execution,
-                    )?
+                let (canonical, expanded, subset_metadata) = if count == array.len() {
+                    (validated.clone(), validated_bytes, None)
                 } else {
-                    subset
+                    let metadata = crate::native_payload_schema::reserve_schema(
+                        &self.plan.dtype,
+                        execution.memory(),
+                    )?;
+                    let subset = validated
+                        .slice(start..start + count)
+                        .map_err(vortex_error)?;
+                    // List views can retain the entire producer child domain.
+                    // Compact selected values before Arrow conversion, without
+                    // changing logical types, validity or lazy value policy.
+                    let subset = if nested_values {
+                        super::super::native_payload::detach_with_policy(
+                            &subset,
+                            super::super::native_payload::CopyPolicy::PreserveUnobserved,
+                            execution,
+                        )?
+                    } else {
+                        subset
+                    };
+                    let (canonical, expanded) =
+                        admitted_canonical(&subset, &self.plan.dtype, ctx, &limits)?;
+                    (canonical, expanded, Some(metadata))
                 };
-                let (canonical, expanded) =
-                    admitted_canonical(&subset, &self.plan.columns, ctx, &limits)?;
                 if self.limits.streaming && expanded > self.limits.arrow_batch_bytes && count > 1 {
-                    count = count.div_ceil(2);
+                    width = width.max(expanded.div_ceil(count as u64));
+                    // The measured pre-write failure narrows the next finite
+                    // candidate set. No write or callback has occurred.
+                    drop((canonical, subset_metadata));
+                    let shape = window.select(
+                        writer,
+                        work,
+                        owner.bytes(),
+                        count.div_ceil(2),
+                        width,
+                        execution,
+                    )?;
+                    count = usize::try_from(shape.units()).map_err(vortex_error)?;
+                    selected = Some(shape);
                     add(&mut work.conversion_splits, 1)?;
                     continue;
                 }
@@ -197,31 +240,34 @@ impl PreparedCompatibilityExport {
                     *metadata =
                         self.footer_metadata(writer.pending_units(work.arrow_batches, count)?)?;
                 }
-                let required = |buffered: u64, metadata: u64| {
-                    buffered
-                        .checked_add(conversion_bytes)
-                        .and_then(|n| n.checked_mul(8))
-                        .and_then(|n| n.checked_add(metadata))
-                        .and_then(|n| n.checked_add(overhead))
-                        .map(|n| n.max(initial))
-                        .ok_or_else(|| error("writer admission overflow"))
-                };
                 let snapshot = execution.memory().snapshot();
                 let capacity = snapshot
                     .limit_bytes
                     .saturating_sub(snapshot.reserved_bytes)
                     .saturating_add(owner.bytes());
-                let mut admitted = required(writer.buffered_input_bytes, *metadata)?;
+                let mut admitted =
+                    window.required(writer.buffered_input_bytes, conversion_bytes, *metadata)?;
                 if admitted > capacity && writer.buffered_input_bytes > 0 {
                     writer.flush(work, true)?;
                     if self.limits.streaming {
                         *metadata =
                             self.footer_metadata(writer.pending_units(work.arrow_batches, count)?)?;
                     }
-                    admitted = required(0, *metadata)?;
+                    admitted = window.required(0, conversion_bytes, *metadata)?;
                 }
                 if self.limits.streaming && admitted > capacity && count > 1 {
-                    count = count.div_ceil(2);
+                    width = width.max(conversion_bytes.div_ceil(count as u64));
+                    drop((canonical, view_target, subset_metadata));
+                    let shape = window.select(
+                        writer,
+                        work,
+                        owner.bytes(),
+                        count.div_ceil(2),
+                        width,
+                        execution,
+                    )?;
+                    count = usize::try_from(shape.units()).map_err(vortex_error)?;
+                    selected = Some(shape);
                     add(&mut work.conversion_splits, 1)?;
                     continue;
                 }
@@ -267,11 +313,18 @@ impl PreparedCompatibilityExport {
                     add(&mut work.large_value_batches, 1)?;
                 }
                 writer.write(&batch, conversion_bytes, work)?;
+                if let Some(shape) = selected {
+                    writer.sizing.complete(shape, None);
+                    execution.record_adaptive_work(
+                        crate::native_work_sizing::Owner::CompatibilityWriter,
+                        shape,
+                    );
+                }
                 add(&mut work.arrow_batches, 1)?;
                 add(rows, usize_to_u64(count)?)?;
                 after_batch(*rows)?;
                 start += count;
-                next_rows = count;
+                width = width.max(conversion_bytes.div_ceil(count as u64));
                 break;
             }
         }

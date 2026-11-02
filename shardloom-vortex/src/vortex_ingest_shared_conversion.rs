@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::ingest_runtime::{IngestRuntime, IngestTask};
+use shardloom_exec::adaptive_work::WorkShape;
 use vortex::io::runtime::BlockingRuntime as _;
 
 pub(super) enum ConversionExecutor {
@@ -15,6 +16,28 @@ pub(super) enum ConversionExecutor {
 pub(super) enum ConversionTask {
     Dedicated(ComputeTask<PrefetchedVortexArray>),
     Shared(IngestTask<Result<Budgeted<PrefetchedVortexArray>>>),
+}
+
+/// Only the last submitted task carries its admission window's completion.
+/// Ordered joins prove all earlier tasks in that window finished successfully.
+pub(super) struct QueuedConversion {
+    pub(super) task: ConversionTask,
+    pub(super) completion: Option<WorkShape>,
+}
+
+impl From<ConversionTask> for QueuedConversion {
+    fn from(task: ConversionTask) -> Self {
+        Self {
+            task,
+            completion: None,
+        }
+    }
+}
+
+impl QueuedConversion {
+    pub(super) fn join(self) -> Result<Budgeted<PrefetchedVortexArray>> {
+        self.task.join()
+    }
 }
 
 impl ConversionTask {

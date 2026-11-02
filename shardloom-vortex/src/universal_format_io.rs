@@ -1685,12 +1685,50 @@ fn embedded_derived_column_specs(
     schema: &Schema,
     mode: EmbeddedDerivedColumnMode,
 ) -> Vec<EmbeddedDerivedColumnSpec> {
-    let existing = schema
+    let mut specs = Vec::new();
+    visit_embedded_derived_columns(schema, mode, |source_index, field, kind| {
+        let source_column = field.name();
+        let (output_column, output_data_type) = match kind {
+            EmbeddedDerivedColumnKind::Utf8Length => (
+                shardloom_utf8_length_derived_column(source_column),
+                embedded_utf8_length_data_type(field.data_type()),
+            ),
+            EmbeddedDerivedColumnKind::UrlDomain => (
+                shardloom_url_domain_derived_column(source_column),
+                embedded_url_domain_data_type(field.data_type()),
+            ),
+            EmbeddedDerivedColumnKind::ExtractMinute => (
+                shardloom_extract_minute_derived_column(source_column),
+                DataType::UInt8,
+            ),
+            EmbeddedDerivedColumnKind::DateTruncMinute => (
+                shardloom_date_trunc_minute_derived_column(source_column),
+                DataType::Int64,
+            ),
+        };
+        specs.push(EmbeddedDerivedColumnSpec {
+            source_index,
+            source_column: source_column.clone(),
+            output_column,
+            kind,
+            output_data_type,
+        });
+    });
+    specs
+}
+
+// Allocation-free planning lets the admitted owner reserve before creating
+// specs, output names, cloned fields or lookup structures. Preserve field/kind
+// order and the existing escaped-name collision behavior.
+fn visit_embedded_derived_columns(
+    schema: &Schema,
+    mode: EmbeddedDerivedColumnMode,
+    mut visit: impl FnMut(usize, &Field, EmbeddedDerivedColumnKind),
+) {
+    let has_existing_derived = schema
         .fields()
         .iter()
-        .map(|field| field.name().as_str())
-        .collect::<BTreeSet<_>>();
-    let mut specs = Vec::new();
+        .any(|field| is_shardloom_hidden_derived_column(field.name()));
     for (source_index, field) in schema.fields().iter().enumerate() {
         let source_column = field.name();
         if is_shardloom_hidden_derived_column(source_column) {
@@ -1702,64 +1740,61 @@ fn embedded_derived_column_specs(
             matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
                 && is_utf8_arrow_dtype(field.data_type());
         let is_source_native_utf8_dictionary = is_dictionary_utf8_arrow_dtype(field.data_type());
-        if is_full_utf8_source || is_lean_runtime_utf8_source || is_source_native_utf8_dictionary {
-            let length_column = shardloom_utf8_length_derived_column(source_column);
-            if should_embed_utf8_length_column_for_mode(source_column, mode)
-                && !existing.contains(length_column.as_str())
+        let utf8 =
+            is_full_utf8_source || is_lean_runtime_utf8_source || is_source_native_utf8_dictionary;
+        let minute =
+            should_embed_extract_minute_column_for_mode(source_column, field.data_type(), mode)
+                && is_extract_minute_arrow_dtype(field.data_type())
+                && (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
+                    || matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
+                    || is_source_native_extract_minute_arrow_dtype(field.data_type()));
+        let trunc =
+            should_embed_date_trunc_minute_column_for_mode(source_column, field.data_type(), mode)
+                && is_date_trunc_minute_arrow_dtype(field.data_type());
+        for (kind, enabled, prefix) in [
+            (
+                EmbeddedDerivedColumnKind::Utf8Length,
+                utf8 && should_embed_utf8_length_column_for_mode(source_column, mode),
+                "__shardloom_derived_utf8_len_",
+            ),
+            (
+                EmbeddedDerivedColumnKind::UrlDomain,
+                utf8 && should_embed_url_domain_column_for_mode(source_column, mode),
+                "__shardloom_derived_url_domain_",
+            ),
+            (
+                EmbeddedDerivedColumnKind::ExtractMinute,
+                minute,
+                "__shardloom_derived_extract_minute_",
+            ),
+            (
+                EmbeddedDerivedColumnKind::DateTruncMinute,
+                trunc,
+                "__shardloom_derived_date_trunc_minute_",
+            ),
+        ] {
+            if enabled
+                && (!has_existing_derived
+                    || !schema.fields().iter().any(|existing| {
+                        existing.name().strip_prefix(prefix).is_some_and(|token| {
+                            if source_column.is_empty() {
+                                token == "column"
+                            } else {
+                                token.chars().eq(source_column.chars().map(|ch| {
+                                    if ch.is_ascii_alphanumeric() || ch == '_' {
+                                        ch
+                                    } else {
+                                        '_'
+                                    }
+                                }))
+                            }
+                        })
+                    }))
             {
-                specs.push(EmbeddedDerivedColumnSpec {
-                    source_index,
-                    source_column: source_column.clone(),
-                    output_column: length_column,
-                    kind: EmbeddedDerivedColumnKind::Utf8Length,
-                    output_data_type: embedded_utf8_length_data_type(field.data_type()),
-                });
+                visit(source_index, field, kind);
             }
-            if should_embed_url_domain_column_for_mode(source_column, mode) {
-                let domain_column = shardloom_url_domain_derived_column(source_column);
-                if !existing.contains(domain_column.as_str()) {
-                    let output_data_type = embedded_url_domain_data_type(field.data_type());
-                    specs.push(EmbeddedDerivedColumnSpec {
-                        source_index,
-                        source_column: source_column.clone(),
-                        output_column: domain_column,
-                        kind: EmbeddedDerivedColumnKind::UrlDomain,
-                        output_data_type,
-                    });
-                }
-            }
-        }
-        let minute_column = shardloom_extract_minute_derived_column(source_column);
-        if should_embed_extract_minute_column_for_mode(source_column, field.data_type(), mode)
-            && is_extract_minute_arrow_dtype(field.data_type())
-            && (matches!(mode, EmbeddedDerivedColumnMode::FullAdapter)
-                || matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime)
-                || is_source_native_extract_minute_arrow_dtype(field.data_type()))
-            && !existing.contains(minute_column.as_str())
-        {
-            specs.push(EmbeddedDerivedColumnSpec {
-                source_index,
-                source_column: source_column.clone(),
-                output_column: minute_column,
-                kind: EmbeddedDerivedColumnKind::ExtractMinute,
-                output_data_type: DataType::UInt8,
-            });
-        }
-        let date_trunc_minute_column = shardloom_date_trunc_minute_derived_column(source_column);
-        if should_embed_date_trunc_minute_column_for_mode(source_column, field.data_type(), mode)
-            && is_date_trunc_minute_arrow_dtype(field.data_type())
-            && !existing.contains(date_trunc_minute_column.as_str())
-        {
-            specs.push(EmbeddedDerivedColumnSpec {
-                source_index,
-                source_column: source_column.clone(),
-                output_column: date_trunc_minute_column,
-                kind: EmbeddedDerivedColumnKind::DateTruncMinute,
-                output_data_type: DataType::Int64,
-            });
         }
     }
-    specs
 }
 
 fn append_embedded_derived_columns_to_batch(
@@ -2585,20 +2620,30 @@ fn is_date_trunc_minute_arrow_dtype(data_type: &DataType) -> bool {
 }
 
 fn is_url_like_column_name(column: &str) -> bool {
-    let lower = column.to_ascii_lowercase();
-    lower.contains("url") || lower.contains("referer") || lower.contains("uri")
+    ["url", "referer", "uri"]
+        .iter()
+        .any(|part| contains_ascii_case_insensitive(column, part))
+}
+
+fn contains_ascii_case_insensitive(column: &str, part: &str) -> bool {
+    column
+        .as_bytes()
+        .windows(part.len())
+        .any(|window| window.eq_ignore_ascii_case(part.as_bytes()))
 }
 
 fn should_embed_extract_minute_column(column: &str, data_type: &DataType) -> bool {
-    let lower = column.to_ascii_lowercase();
-    let known_clean_event_time = lower == "eventtime" || lower == "event_time";
+    let known_clean_event_time =
+        column.eq_ignore_ascii_case("eventtime") || column.eq_ignore_ascii_case("event_time");
     if is_utf8_arrow_dtype(data_type) {
         return known_clean_event_time;
     }
     known_clean_event_time
-        || lower.ends_with("_time")
-        || lower.ends_with("time")
-        || lower.contains("timestamp")
+        || column
+            .as_bytes()
+            .get(column.len().saturating_sub(4)..)
+            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(b"time"))
+        || contains_ascii_case_insensitive(column, "timestamp")
 }
 
 fn should_embed_extract_minute_column_for_mode(
@@ -2607,8 +2652,8 @@ fn should_embed_extract_minute_column_for_mode(
     mode: EmbeddedDerivedColumnMode,
 ) -> bool {
     if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        let lower = column.to_ascii_lowercase();
-        return lower == "eventtime" || lower == "event_time";
+        return column.eq_ignore_ascii_case("eventtime")
+            || column.eq_ignore_ascii_case("event_time");
     }
     should_embed_extract_minute_column(column, data_type)
 }
@@ -2625,29 +2670,32 @@ fn should_embed_date_trunc_minute_column_for_mode(
 }
 
 fn should_embed_utf8_length_column(column: &str) -> bool {
-    let lower = column.to_ascii_lowercase();
     is_url_like_column_name(column)
-        || lower.contains("search")
-        || lower.contains("phrase")
-        || lower.contains("title")
+        || ["search", "phrase", "title"]
+            .iter()
+            .any(|part| contains_ascii_case_insensitive(column, part))
 }
 
 fn should_embed_utf8_length_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
     if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        let lower = column.to_ascii_lowercase();
-        return lower == "url"
-            || lower == "referer"
-            || lower == "referrer"
-            || lower == "searchphrase"
-            || lower == "search_phrase";
+        return [
+            "url",
+            "referer",
+            "referrer",
+            "searchphrase",
+            "search_phrase",
+        ]
+        .iter()
+        .any(|name| column.eq_ignore_ascii_case(name));
     }
     should_embed_utf8_length_column(column)
 }
 
 fn should_embed_url_domain_column_for_mode(column: &str, mode: EmbeddedDerivedColumnMode) -> bool {
     if matches!(mode, EmbeddedDerivedColumnMode::SourceNativeLeanRuntime) {
-        let lower = column.to_ascii_lowercase();
-        return lower == "url" || lower == "referer" || lower == "referrer";
+        return ["url", "referer", "referrer"]
+            .iter()
+            .any(|name| column.eq_ignore_ascii_case(name));
     }
     is_url_like_column_name(column)
 }

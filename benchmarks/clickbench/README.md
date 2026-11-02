@@ -61,13 +61,34 @@ claim gates.
 
 ## Guarded Full-Scale Runs
 
-Use `scripts/run_clickbench_ingest_uat.sh` and
-`scripts/run_clickbench_query_uat.py` for new large local experiments. Read
-`docs/architecture/local-development-storage.md` first. The query runner checks
-complete returned values, not only command success, and times through process
-exit. Retained-output comparison is regression evidence, not an independent
-correctness oracle. Its explicit baseline-only Q20 descriptor allowance must not
-be enabled for a candidate that claims complete returned values.
+Use `scripts/run_clickbench_query_uat.py` for an authorized full-scale query pass.
+It defaults to reading the original `hits.parquet` directly through the shared
+native engine. No ingest or preparation command is required. Existing native
+files remain available through explicit `--input-format vortex`.
+
+```bash
+python3 scripts/run_clickbench_query_uat.py \
+  --binary /local/runtime/shardloom \
+  --input /local/sources/hits.parquet \
+  --uat-root /local/evidence/clickbench \
+  --reference-packet /local/reference.json \
+  --build-commit COMMIT --compress-logs
+```
+
+Read `docs/architecture/local-development-storage.md` and the isolated Full43
+procedure before running. The default is one execution of each of the 43 queries.
+The runner requires complete values, native/no-fallback evidence, direct Parquet
+source completion, independently owned results and zero prepared-input bytes.
+Use the frozen independent reference packet for correctness evidence. The pinned
+SQL dialect records explicit output names, integer epoch types and tie ordering;
+custom query files retain their supplied SQL.
+
+Routine results report the sum of engine execution time. The engine applies its
+normal adaptive sizing within the declared memory and parallelism ceilings.
+Source/runtime hashes and broad inventories run outside query execution; storage,
+deadline, concurrency and process-cleanup guards remain active. Historical native
+reference packets provide regression evidence only. Explicit ingestion remains a
+separate workflow through `scripts/run_clickbench_ingest_uat.sh`.
 
 The September 5 overhaul implementation and paired-run evidence are tracked in
 `docs/architecture/performance-overhaul-implementation-2026-09-05.md`.

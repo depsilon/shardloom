@@ -1,5 +1,8 @@
 //! Actual task ordering, shared-owner lifetime and failure controls.
 
+#[path = "complete_parquet_batch_tests.rs"]
+mod batch_tests;
+
 use super::*;
 use crate::universal_format_io::demanded::LocalColumnarSource;
 use arrow_array::{Int64Array, RecordBatch};

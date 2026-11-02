@@ -813,8 +813,7 @@ impl NativeSinkPlan {
                 };
                 delivery?;
                 batches.flush(execution, &mut submit)?;
-                adapter_copied_bytes = batches.copied_bytes;
-                adapter_scalars = batches.scalar_values;
+                (adapter_copied_bytes, adapter_scalars) = batches.copy_counts();
                 drop(batches);
                 #[cfg(test)]
                 let started = overlap_timing::clock();

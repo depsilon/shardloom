@@ -75,7 +75,7 @@ impl LocalColumnarSource {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
     ) -> Result<FlatLocalColumnarStreamSource> {
-        let (mut source, reader) = self.complete_source(max_rows, memory, cancellation)?;
+        let (mut source, reader) = self.complete_source(max_rows, memory, cancellation, false)?;
         // Explicit public Arrow export; native ingest uses the owned path below.
         source.reader = Box::new(ArrowReader(Box::new(reader)));
         Ok(source)
@@ -116,21 +116,19 @@ impl LocalColumnarSource {
         if requested_max_parallelism == 0 {
             return Err(failed("max_parallelism must be positive"));
         }
-        let (source, mut reader) = self.complete_source(max_rows, memory, cancellation)?;
+        let (source, reader) = self.complete_source(max_rows, memory, cancellation, true)?;
         if self
             .other
             .as_ref()
             .is_some_and(|source| source.format == "parquet")
         {
-            // Keep standard allocations visible to the native admission proof.
-            // This producer and its full-source schema cannot be caller-replaced.
-            reader.reader = Some(generic::Reader::for_owned_parquet());
             parquet::ingest(source, reader, requested_max_parallelism)
         } else {
             Ok(
                 crate::universal_format_io::IngestColumnarStreamSource::from_owned(
                     source,
                     Box::new(reader),
+                    memory,
                 ),
             )
         }
@@ -141,6 +139,7 @@ impl LocalColumnarSource {
         max_rows: Option<usize>,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
+        native_ingest: bool,
     ) -> Result<(FlatLocalColumnarStreamSource, CompleteReader)> {
         cancellation.check()?;
         if !memory.owns(&self.metadata_credit) || self.other.is_none() {
@@ -182,9 +181,17 @@ impl LocalColumnarSource {
             max_rows: None,
             metadata,
         });
+        let owned_parquet = native_ingest && format.format == "parquet";
+        let stream_plan = complete_stream_plan(format, row_count_hint, owned_parquet);
+        let batch_rows = stream_plan.stream_batch_size;
         let reader = CompleteReader {
             prepared,
-            reader: Some(generic::Reader::new()),
+            reader: Some(if owned_parquet {
+                // The sealed producer retains each returned batch's owners.
+                generic::Reader::for_owned_parquet(batch_rows)
+            } else {
+                generic::Reader::new()
+            }),
             schema: Arc::clone(&schema),
             metrics: Arc::new(LocalReadMetrics::default()),
             memory: memory.clone(),
@@ -198,19 +205,7 @@ impl LocalColumnarSource {
             header.clone(),
             header,
             row_count_hint,
-            &FlatColumnarStreamSourcePlan::product_batches(
-                8192,
-                None,
-                "complete_local_dataset_batches_unknown_before_read",
-                format
-                    .preparation_dictionary_status
-                    .unwrap_or(match format.format {
-                        "csv" | "tsv" | "json" | "jsonl" => {
-                            "text_typed_builders_no_source_dictionary"
-                        }
-                        _ => "provider_dictionary_layout_preserved_when_admitted",
-                    }),
-            ),
+            &stream_plan,
             Box::new(SchemaReader(Arc::clone(&schema))),
         );
         source.source_identities = self
@@ -225,7 +220,7 @@ impl LocalColumnarSource {
             .as_ref()
             .map_or(0, |source| source.schema_discovery_read_bytes);
         let shared_policy = format!(
-            "complete_local_dataset_incremental_record_batch_stream_batch_size_8192;schema_discovery_read_bytes={discovery};no_partial_source_reuse"
+            "complete_local_dataset_incremental_record_batch_stream_batch_size_{batch_rows};schema_discovery_read_bytes={discovery};no_partial_source_reuse"
         );
         source.source_stream_policy = if matches!(format.format, "csv" | "tsv" | "json" | "jsonl") {
             source.source_stream_unit_hint_kind = "width_bounded_text_record_batches".into();
@@ -243,6 +238,33 @@ impl LocalColumnarSource {
         source.ingest_executor_kind = "sequential_generation_held_local_dataset".into();
         Ok((source, reader))
     }
+}
+
+fn complete_stream_plan(
+    source: &generic::Source,
+    row_count_hint: Option<usize>,
+    owned_parquet: bool,
+) -> FlatColumnarStreamSourcePlan {
+    // A native bulk writer retains one layout subtree per source batch.
+    // Reuse its established product ceiling; the shared decoder still selects
+    // actual batches from current headroom and observed costs. Ordinary queries
+    // and public Arrow export retain their existing small ceiling.
+    FlatColumnarStreamSourcePlan::product_batches(
+        if owned_parquet {
+            row_count_hint
+                .unwrap_or(crate::universal_format_io::PRODUCT_COLUMNAR_STREAM_RECORD_BATCH_ROWS)
+        } else {
+            super::batch_work::MAX_ROWS
+        },
+        None,
+        "complete_local_dataset_batches_unknown_before_read",
+        source
+            .preparation_dictionary_status
+            .unwrap_or(match source.format {
+                "csv" | "tsv" | "json" | "jsonl" => "text_typed_builders_no_source_dictionary",
+                _ => "provider_dictionary_layout_preserved_when_admitted",
+            }),
+    )
 }
 
 struct CompleteReader {

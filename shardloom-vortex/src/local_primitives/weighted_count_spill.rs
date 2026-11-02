@@ -84,6 +84,7 @@ impl KeyOrder {
 pub(super) struct Policy {
     pub workspace: PathBuf,
     pub quota_bytes: u64,
+    pub quota_owner: crate::query_spill_quota::Owner,
     pub memory_bytes: u64,
     pub max_key_bytes: usize,
     pub cancellation: Arc<AtomicBool>,
@@ -344,7 +345,8 @@ impl WeightedCountSpill {
                 self.policy.workspace.clone(),
                 self.policy.quota_bytes,
                 Arc::clone(&self.policy.cancellation),
-            );
+            )
+            .with_quota_owner(self.policy.quota_owner.clone());
             self.store = Some(QueryRunStore::new(
                 policy,
                 self.memory.clone(),

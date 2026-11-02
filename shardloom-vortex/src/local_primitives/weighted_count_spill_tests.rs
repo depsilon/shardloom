@@ -41,6 +41,7 @@ impl Workspace {
         Policy {
             workspace: self.0.clone(),
             quota_bytes: 64 << 20,
+            quota_owner: crate::query_spill_quota::Owner::default(),
             memory_bytes: 8 << 20,
             max_key_bytes: 64,
             cancellation: Arc::new(AtomicBool::new(false)),

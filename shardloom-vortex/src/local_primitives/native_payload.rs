@@ -27,6 +27,10 @@ use vortex::array::{
 mod storage;
 pub(super) use storage::decimal_key;
 
+#[path = "native_payload_sizing.rs"]
+mod sizing;
+pub(super) use sizing::gather_scratch_per_row;
+
 #[path = "native_payload_validation.rs"]
 mod validation;
 pub(super) use validation::validate_record;
@@ -117,7 +121,7 @@ pub(super) fn detach_with_policy(
 /// Count actual adapter leaf-value construction, including repeated sizing
 /// passes and null/default leaves. Indices, offsets, validity and provider
 /// internals are excluded; raw floating buffer copies construct no scalars.
-#[cfg(all(feature = "vortex-write", unix))]
+#[cfg(all(test, feature = "vortex-write"))]
 pub(super) fn detach_with_scalar_count(
     array: &ArrayRef,
     policy: CopyPolicy,
@@ -127,12 +131,22 @@ pub(super) fn detach_with_scalar_count(
         super::native_relational_batch::index_array(array.len(), false, context, |row| {
             Ok(Some(row))
         })?;
-    let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+    take_record_with_scalar_count(array, &indices, array.dtype(), policy, context)
+}
+
+pub(super) fn take_record_with_scalar_count(
+    array: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    policy: CopyPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<(ArrayRef, u64)> {
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
     let scalars = Cell::new(0);
     let output = take_admitted(
         array,
-        &indices,
-        array.dtype(),
+        indices,
+        dtype,
         CopyState {
             policy,
             scalars: Some(&scalars),

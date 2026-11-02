@@ -11,6 +11,9 @@ pub(super) use streaming::StreamingPrefix;
 #[path = "native_relational_sort_numeric.rs"]
 mod numeric;
 
+#[path = "native_relational_sort_output.rs"]
+mod output;
+
 use super::{
     native_capacity::ReservedVec,
     native_payload::CopyPolicy,
@@ -199,6 +202,9 @@ impl<'a> Sort<'a> {
         input_payloads_validated: bool,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        if batch_rows == 0 {
+            return Err(failed("sort output batch rows must be positive"));
+        }
         let requested = requested.filter(|_| {
             self.spec.copy_policy == CopyPolicy::ValidateValues
                 && (input_payloads_validated
@@ -218,6 +224,15 @@ impl<'a> Sort<'a> {
         let mut remaining = requested
             .unwrap_or(self.table.rows())
             .min(self.table.rows());
+        if input_payloads_validated {
+            return output::finish(
+                self,
+                &ordinals.values[..remaining],
+                batch_rows,
+                context,
+                consume,
+            );
+        }
         let mut rows = ReservedVec::new(context.memory())?;
         rows.reserve(batch_rows.min(ordinals.values.len()))?;
         for part in ordinals.values.chunks(batch_rows) {

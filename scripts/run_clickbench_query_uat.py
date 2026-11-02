@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Guarded public-CLI ClickBench runs with complete result regression checks.
+"""Guarded direct-Parquet ClickBench runs with complete result checks.
 
 This harness does not call an external engine. A retained-output comparison is
 regression evidence, not an independent correctness oracle or an official rank.
@@ -35,7 +35,7 @@ from query_timing_report import query_phase_timings, timing_totals, write_timing
 
 _EXECUTION_REPORT_PREFIXES = (
     "local_primitive_", "native_source_demand_", "native_source_ranked_",
-    "native_input_ordering_", "resident_", "relational_",
+    "native_source_metadata_count_", "native_input_", "resident_", "relational_",
 )
 _EXECUTION_REPORT_EXACT_KEYS = {
     "fallback_attempted",
@@ -56,6 +56,30 @@ def execution_report(fields: dict) -> dict:
         for key, value in fields.items()
         if key.startswith(_EXECUTION_REPORT_PREFIXES) or key in _EXECUTION_REPORT_EXACT_KEYS
     }
+
+
+def validate_input_execution(fields: dict, input_format: str) -> None:
+    """Require completed direct-source evidence for the ordinary Parquet run."""
+    if input_format != "parquet":
+        return
+
+    def number(key):
+        value = fields.get(key)
+        if (type(value) not in (int, str) or re.fullmatch(r"[0-9]+", str(value)) is None
+                or int(value) > (1 << 64) - 1):
+            raise ValueError("invalid direct-Parquet execution counter: " + key)
+        return int(value)
+
+    sources = number("native_source_demand_sources")
+    if (sources == 0 or number("native_source_demand_parquet_sources") != sources
+            or number("native_source_demand_files") < sources
+            or fields.get("native_source_demand_formats") != "parquet"):
+        raise ValueError("direct-Parquet source execution was not established")
+    if number("native_source_demand_prepared_input_bytes_written") != 0:
+        raise ValueError("direct-Parquet execution wrote prepared input")
+    for key in ("native_input_end_observed", "native_input_output_ownership_detached"):
+        if fields.get(key) is not True and fields.get(key) != "true":
+            raise ValueError("direct-Parquet source lifecycle incomplete: " + key)
 
 
 def extract_reference_result(envelope: dict):
@@ -345,7 +369,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--input-format", choices=("vortex", "parquet"), default="vortex")
+    parser.add_argument("--input-format", choices=("parquet", "vortex"), default="parquet",
+                        help="source format (default: parquet, read directly without ingestion)")
     parser.add_argument("--uat-root", required=True, type=Path)
     parser.add_argument("--queries", type=Path, default=Path(__file__).resolve().parents[1] / "benchmarks/clickbench/queries.sql")
     reference_group = parser.add_mutually_exclusive_group(required=True)
@@ -446,6 +471,8 @@ def main() -> int:
             "build_commit": args.build_commit, "binary_sha256": file_sha256(args.binary),
             "queries_sha256": queries_sha256, "source": str(source),
             "input_format": args.input_format,
+            "input_execution_contract": ("direct_original_parquet_no_preparation"
+                                         if args.input_format == "parquet" else "existing_native_vortex_input"),
             "query_dialect": query_dialect,
             "source_bytes": identity.st_size, "platform": platform.platform(),
             "source_generation": {"device": identity.st_dev, "inode": identity.st_ino,
@@ -497,6 +524,7 @@ def main() -> int:
                     envelope = strict_json(prefix.with_suffix(".stdout.json").read_text())
                     fields = report_fields(envelope)
                     result["execution_report"] = execution_report(fields)
+                    validate_input_execution(fields, args.input_format)
                     result.update(query_phase_timings(fields, result["seconds"],
                                                      allow_missing=args.allow_missing_engine_timing))
                     actual = extract_result(envelope)

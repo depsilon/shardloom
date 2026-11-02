@@ -11,6 +11,15 @@ use vortex::array::dtype::DType;
 #[path = "local_primitive_structured_plan.rs"]
 mod structured;
 
+#[cfg(feature = "vortex-write")]
+pub(super) fn annotate_projection_output(
+    request: &VortexQueryPrimitiveRequest,
+    source_rows: u64,
+    report: &mut super::VortexLocalPrimitiveRowExportReport,
+) -> Result<()> {
+    structured::annotate_report(request, source_rows, report)
+}
+
 /// Lower the structured primitive over an already declared native input. Its
 /// predicate and projection belong to that input; the source-order limit applies
 /// once to the complete input, including when it contains several file scans.

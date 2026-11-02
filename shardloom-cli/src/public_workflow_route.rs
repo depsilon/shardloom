@@ -650,7 +650,7 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
                 );
             }
         };
-    let reports = match execute_native_vortex_primitive_row_export_reports(
+    let written = match execute_native_vortex_primitive_row_export_reports(
         request, &targets, &execution, admission,
     ) {
         Ok(reports) => reports,
@@ -663,7 +663,16 @@ fn execute_native_vortex_primitive_row_export_run_with_extra(
             );
         }
     };
-    emit_native_vortex_primitive_row_export(request, plan, format, extra_fields, &targets, &reports)
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    resident_relational::append_output_replay_fields(&mut extra_fields, written.replay.as_ref());
+    emit_native_vortex_primitive_row_export(
+        request,
+        plan,
+        format,
+        extra_fields,
+        &targets,
+        &written.reports,
+    )
 }
 
 fn emit_native_vortex_primitive_row_export(
@@ -719,6 +728,14 @@ struct NativeVortexPrimitiveRowExportExecution {
     policy: shardloom_vortex::VortexLocalPrimitiveExecutionPolicy,
 }
 
+struct NativeVortexPrimitiveRowExports {
+    reports: Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>,
+    #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+    replay: Option<
+        shardloom_vortex::local_primitives::prepared_relational::VortexRelationalOutputReplay,
+    >,
+}
+
 fn native_vortex_primitive_row_export_execution(
     request: &PublicWorkflowRouteRequest,
     input_uri: String,
@@ -738,7 +755,7 @@ fn execute_native_vortex_primitive_row_export_reports(
     targets: &[NativeVortexPrimitiveRowExportTarget],
     execution: &NativeVortexPrimitiveRowExportExecution,
     admission: &CommandAdmission<'_>,
-) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
+) -> Result<NativeVortexPrimitiveRowExports, ShardLoomError> {
     admission.check()?;
     if targets.len() > 1 {
         return execute_native_vortex_primitive_row_export_reports_staged(
@@ -769,7 +786,12 @@ fn execute_native_vortex_primitive_row_export_reports(
                 execution.policy,
             )
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()
+        .map(|reports| NativeVortexPrimitiveRowExports {
+            reports,
+            #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
+            replay: None,
+        })
 }
 
 fn execute_native_vortex_primitive_row_export_reports_staged(
@@ -777,10 +799,10 @@ fn execute_native_vortex_primitive_row_export_reports_staged(
     targets: &[NativeVortexPrimitiveRowExportTarget],
     execution: &NativeVortexPrimitiveRowExportExecution,
     admission: &CommandAdmission<'_>,
-) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
+) -> Result<NativeVortexPrimitiveRowExports, ShardLoomError> {
     #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
     {
-        shardloom_vortex::local_primitives::output_fanout::write_primitive_in_session(
+        shardloom_vortex::local_primitives::output_fanout::write_primitive_with_replay_in_session(
             &execution.primitive_request,
             &targets
                 .iter()
@@ -791,6 +813,10 @@ fn execute_native_vortex_primitive_row_export_reports_staged(
             admission.native_session()?,
             &admission.cancellation(),
         )
+        .map(|written| NativeVortexPrimitiveRowExports {
+            reports: written.outputs,
+            replay: written.replay,
+        })
     }
     #[cfg(not(all(feature = "vortex-local-primitives", feature = "vortex-write", unix)))]
     {
@@ -2344,8 +2370,12 @@ fn append_native_vortex_primitive_row_export_target_fields(
         fields,
         targets,
         reports,
-        targets.len(),
-        "native_query_replayed_once_per_output_adapter",
+        1,
+        if targets.len() > 1 {
+            "native_query_once_with_credited_result_replay"
+        } else {
+            "native_query_once_direct_output"
+        },
     );
 }
 

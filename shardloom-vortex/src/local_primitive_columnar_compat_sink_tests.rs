@@ -23,6 +23,9 @@ use vortex::{
     session::VortexSession,
 };
 
+#[path = "local_primitive_columnar_compat_adaptive_tests.rs"]
+mod adaptive_tests;
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {

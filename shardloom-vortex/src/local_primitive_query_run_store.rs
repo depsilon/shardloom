@@ -153,6 +153,7 @@ pub(super) struct QueryRunStorePolicy {
     quota_bytes: u64,
     cancellation: CancellationToken,
     namespace: RunNamespace,
+    quota_owner: crate::query_spill_quota::Owner,
 }
 
 impl QueryRunStorePolicy {
@@ -166,6 +167,7 @@ impl QueryRunStorePolicy {
             quota_bytes: policy.quota_bytes,
             cancellation,
             namespace: RunNamespace::RelationalOrder,
+            quota_owner: crate::query_spill_quota::Owner::default(),
         }
     }
 
@@ -180,6 +182,7 @@ impl QueryRunStorePolicy {
             quota_bytes,
             cancellation: CancellationToken::from_shared_flag(cancellation),
             namespace: RunNamespace::WeightedUtf8Count,
+            quota_owner: crate::query_spill_quota::Owner::default(),
         }
     }
 
@@ -189,6 +192,7 @@ impl QueryRunStorePolicy {
             quota_bytes: policy.quota_bytes,
             cancellation: CancellationToken::from_shared_flag(Arc::clone(&policy.cancellation)),
             namespace: RunNamespace::NumericSort,
+            quota_owner: policy.quota_owner.clone(),
         }
     }
 
@@ -203,7 +207,13 @@ impl QueryRunStorePolicy {
             quota_bytes,
             cancellation: CancellationToken::from_shared_flag(cancellation),
             namespace: RunNamespace::ExactIntegerDistinct,
+            quota_owner: crate::query_spill_quota::Owner::default(),
         }
+    }
+
+    pub(super) fn with_quota_owner(mut self, owner: crate::query_spill_quota::Owner) -> Self {
+        self.quota_owner = owner;
+        self
     }
 
     fn check_cancelled(&self) -> Result<()> {
@@ -247,6 +257,7 @@ pub(super) struct QueryRunStoreSnapshot {
 
 pub(super) struct QueryRunStore {
     policy: QueryRunStorePolicy,
+    quota: Arc<crate::query_spill_quota::Quota>,
     directory: PathBuf,
     // Independent directory descriptor: never clone it, since clones share a lock.
     // The lock survives cleanup and is released only after Drop has finished.
@@ -266,6 +277,7 @@ pub(super) struct QueryRunStore {
 
 struct OwnedRunIdentity {
     identity: (u64, u64),
+    bytes: u64,
     _metadata: Arc<MemoryLease>,
 }
 
@@ -339,9 +351,17 @@ impl QueryRunStore {
             builder.mode(0o700);
             builder
         };
-        builder.create(&directory).map_err(io_error)?;
+        let quota = policy.quota_owner.bind(policy.quota_bytes)?;
+        quota
+            .reserve(MARKER_BYTE_RESERVATION)?
+            .commit(MARKER_BYTE_RESERVATION)?;
+        if let Err(error) = builder.create(&directory) {
+            quota.removed(MARKER_BYTE_RESERVATION)?;
+            return Err(io_error(error));
+        }
         let mut store = Self {
             policy,
+            quota,
             directory,
             directory_owner: None,
             owned: Vec::with_capacity(MAX_LIVE_RUNS + 1),
@@ -444,6 +464,7 @@ impl QueryRunStore {
             path.clone(),
             OwnedRunIdentity {
                 identity: file_identity(&path)?,
+                bytes: 0,
                 _metadata: Arc::clone(&metadata),
             },
         );
@@ -455,6 +476,7 @@ impl QueryRunStore {
             .ok_or_else(|| spill_error("sort spill quota exhausted"))?;
         let mut writer = QuotaWriter {
             file,
+            quota: Arc::clone(&self.quota),
             remaining: available,
             written: 0,
             digest: Sha256::new(),
@@ -471,6 +493,10 @@ impl QueryRunStore {
             .snapshot
             .peak_disk_bytes
             .max(self.snapshot.live_disk_bytes);
+        self.identities
+            .get_mut(&path)
+            .expect("created run retains its identity until owned removal")
+            .bytes = writer.written;
         result?;
         writer.flush().map_err(io_error)?;
         let run = NativeQueryRun {
@@ -604,6 +630,7 @@ impl QueryRunStore {
         self.check_owned(run)?;
         validate_run_bytes(run)?;
         fs::remove_file(&run.path).map_err(io_error)?;
+        self.quota.removed(run.bytes)?;
         self.owned.retain(|path| path != &run.path);
         self.identities.remove(&run.path);
         self.snapshot.live_disk_bytes -= run.bytes;
@@ -682,7 +709,12 @@ impl QueryRunStore {
                 return Err(spill_error("owned sort run file identity changed"));
             }
             fs::remove_file(path).map_err(io_error)?;
-            self.identities.remove(path);
+            let owned = self
+                .identities
+                .remove(path)
+                .ok_or_else(|| spill_error("owned run accounting is absent"))?;
+            self.quota.removed(owned.bytes)?;
+            self.snapshot.live_disk_bytes -= owned.bytes;
             self.owned.pop();
         }
         self.identities.clear();
@@ -691,6 +723,7 @@ impl QueryRunStore {
             self.marker_identity = None;
         }
         fs::remove_dir(&self.directory).map_err(io_error)?;
+        self.quota.removed(self.snapshot.live_disk_bytes)?;
         self.snapshot.live_disk_bytes = 0;
         self.failed = true;
         Ok(())
@@ -707,6 +740,7 @@ impl Drop for QueryRunStore {
 
 struct QuotaWriter {
     file: File,
+    quota: Arc<crate::query_spill_quota::Quota>,
     remaining: u64,
     written: u64,
     digest: Sha256,
@@ -718,7 +752,14 @@ impl Write for QuotaWriter {
                 "native sort spill byte quota exhausted",
             ));
         }
+        let pending = self
+            .quota
+            .reserve(u64::try_from(bytes.len()).unwrap_or(u64::MAX))
+            .map_err(std::io::Error::other)?;
         let count = self.file.write(bytes)?;
+        pending
+            .commit(count as u64)
+            .map_err(std::io::Error::other)?;
         self.digest.update(&bytes[..count]);
         self.remaining -= count as u64;
         self.written += count as u64;

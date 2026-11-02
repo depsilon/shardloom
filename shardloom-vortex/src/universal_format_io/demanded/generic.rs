@@ -403,9 +403,10 @@ impl Reader {
 
     /// Only the sealed complete-ingest Parquet constructor selects this path.
     /// Its batch envelope retains input credits through the native conversion.
-    pub(super) fn for_owned_parquet() -> Self {
+    pub(super) fn for_owned_parquet(batch_rows: usize) -> Self {
         Self {
             owned_parquet_handoff: true,
+            batch_rows,
             ..Self::new()
         }
     }
@@ -420,8 +421,7 @@ impl Reader {
         Self {
             next_group: groups.start,
             group_end: groups.end,
-            batch_rows,
-            ..Self::for_owned_parquet()
+            ..Self::for_owned_parquet(batch_rows)
         }
     }
 
@@ -512,8 +512,7 @@ impl Reader {
                         let remaining = prepared
                             .max_rows
                             .map_or(remaining, |limit| remaining.min(limit - self.rows));
-                        self.sizing
-                            .select(memory, cost, remaining.min(self.batch_rows as u64))
+                        self.sizing.select(memory, cost, remaining, self.batch_rows)
                     })
                     .transpose()?
                     .flatten();
@@ -547,12 +546,8 @@ impl Reader {
                     self.rows = add(self.rows, rows as u64)?;
                     // Retained Arrow buffers receive credits before native
                     // handoff; upstream decode temporaries are not an RSS bound.
-                    let target = Arc::new(
-                        source
-                            .schema
-                            .project(&prepared.projection)
-                            .map_err(failed)?,
-                    );
+                    let (target, projection_credit) =
+                        schema::project(&source.schema, &prepared.projection, memory)?;
                     let partitions =
                         &prepared.source.collection.files[self.next_file - 1].partitions;
                     let batch = if self.owned_parquet_handoff {
@@ -564,6 +559,11 @@ impl Reader {
                         schema::align_owned_parquet(batch, target, partitions, memory)?
                     } else {
                         schema::align(batch, target, partitions, memory, credited_input)?
+                    };
+                    let batch = if let Some(credit) = projection_credit {
+                        batch.retain(credit)
+                    } else {
+                        batch
                     };
                     source.files[self.next_file - 1].identity.validate()?;
                     cancellation.check()?;
@@ -650,7 +650,7 @@ impl Reader {
                         .checked_add(1)
                         .ok_or_else(|| failed("read group count overflow"))?;
                     let mut builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(input, metadata.clone())
-                        .with_row_groups(vec![region.index]).with_projection(mask).with_batch_size(8192);
+                        .with_row_groups(vec![region.index]).with_projection(mask).with_batch_size(self.batch_rows);
                     if let Some(limit) = prepared.max_rows {
                         region.rows = region.rows.min(limit.saturating_sub(self.rows));
                         builder = builder.with_limit(usize::try_from(region.rows).map_err(failed)?);

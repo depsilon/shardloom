@@ -436,7 +436,43 @@ pub(super) fn append_output_replay_fields(
             "native_vortex_result_export_replay_count".into(),
             replay.map_or(0, |r| r.replays).to_string(),
         ),
+        (
+            "native_vortex_result_export_replay_spill_admitted".into(),
+            replay.is_some_and(|r| r.spill.is_some()).to_string(),
+        ),
     ]);
+    if let Some(replay) = replay
+        && let Some(spill) = &replay.spill
+    {
+        fields.extend([
+            (
+                "native_vortex_result_export_replay_spill_quota_bytes".into(),
+                spill.quota_bytes.to_string(),
+            ),
+            (
+                "native_vortex_result_export_replay_spill_owner_peak_disk_bytes".into(),
+                spill.peak_disk_bytes.to_string(),
+            ),
+            (
+                "native_vortex_result_export_replay_spill_owner_runs_written".into(),
+                spill.runs_written.to_string(),
+            ),
+            (
+                "native_vortex_result_export_replay_spill_owner_runs_validated".into(),
+                spill.runs_validated.to_string(),
+            ),
+            (
+                "native_vortex_result_export_replay_spill_owned_cleanup_completed".into(),
+                spill.owned_cleanup_completed.to_string(),
+            ),
+        ]);
+        if let Some(peak) = replay.shared_spill_peak_disk_bytes {
+            fields.push((
+                "native_vortex_result_export_replay_shared_spill_peak_disk_bytes".into(),
+                peak.to_string(),
+            ));
+        }
+    }
 }
 
 fn append_spill(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {

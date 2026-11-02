@@ -117,6 +117,7 @@ fn source(
             count: 12,
             fail_at,
         }),
+        memory,
     )
 }
 
@@ -208,7 +209,10 @@ fn derived_columns_preserve_values_and_owners_on_both_sides_of_the_queue() {
             assert_eq!(count, 12);
             drop(reader);
             drop(metadata);
-            assert_eq!(memory.snapshot().reserved_bytes, CREDIT);
+            assert!(
+                memory.snapshot().reserved_bytes > CREDIT,
+                "derived schema and payload credits must outlive the reader"
+            );
             drop(first);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }

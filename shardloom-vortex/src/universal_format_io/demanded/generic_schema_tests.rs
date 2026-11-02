@@ -1,6 +1,48 @@
 use super::*;
 use arrow_array::{Array, Int64Array};
 
+#[test]
+fn columnar_identity_projection_reuses_the_admitted_schema_without_new_capacity() {
+    let memory = LiveMemoryPool::new(1).unwrap();
+    let held = memory.reserve(1).unwrap();
+    let schema = Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, true)]));
+    let (projected, credit) = project(&schema, &[0], &memory).unwrap();
+    assert!(Arc::ptr_eq(&schema, &projected));
+    assert!(credit.is_none());
+    drop((held, projected));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn columnar_projection_admits_metadata_copies_and_preserves_field_order_and_sharing() {
+    let schema = Arc::new(Schema::new_with_metadata(
+        vec![
+            Field::new("a", DataType::Int64, false),
+            Field::new("b", DataType::Utf8, true),
+        ],
+        [("large".into(), "x".repeat(64 << 10))].into(),
+    ));
+    let denied = LiveMemoryPool::new(32 << 10).unwrap();
+    let error = project(&schema, &[1, 0], &denied).unwrap_err();
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
+    assert_eq!(denied.snapshot().reserved_bytes, 0);
+
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let (projected, credit) = project(&schema, &[1, 0, 1], &memory).unwrap();
+    assert_eq!(projected.metadata(), schema.metadata());
+    assert!(Arc::ptr_eq(&projected.fields()[0], &schema.fields()[1]));
+    assert!(Arc::ptr_eq(&projected.fields()[1], &schema.fields()[0]));
+    assert!(Arc::ptr_eq(&projected.fields()[2], &schema.fields()[1]));
+    assert!(memory.snapshot().reserved_bytes > 64 << 10);
+    drop((projected, credit));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert!(project(&schema, &[2], &memory).is_err());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 fn owned_input(memory: &LiveMemoryPool) -> OwnedBatch {
     let batch = RecordBatch::try_new(
         Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, false)])),

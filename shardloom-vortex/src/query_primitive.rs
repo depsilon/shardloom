@@ -1005,6 +1005,8 @@ pub struct VortexSortSpillPolicy {
     pub quota_bytes: u64,
     pub memory_bytes: u64,
     pub(crate) cancellation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+    pub(crate) quota_owner: crate::query_spill_quota::Owner,
 }
 
 impl PartialEq for VortexSortSpillPolicy {
@@ -1038,6 +1040,8 @@ impl VortexSortSpillPolicy {
             quota_bytes,
             memory_bytes,
             cancellation: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+            quota_owner: crate::query_spill_quota::Owner::default(),
         })
     }
 
@@ -1165,6 +1169,8 @@ pub struct VortexAggregateSpillPolicy {
     pub quota_bytes: u64,
     pub memory_bytes: u64,
     pub(crate) cancellation: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+    pub(crate) quota_owner: crate::query_spill_quota::Owner,
 }
 
 impl PartialEq for VortexAggregateSpillPolicy {
@@ -1195,6 +1201,8 @@ impl VortexAggregateSpillPolicy {
             quota_bytes,
             memory_bytes,
             cancellation: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+            quota_owner: crate::query_spill_quota::Owner::default(),
         })
     }
 

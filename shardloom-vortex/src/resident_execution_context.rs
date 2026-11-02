@@ -120,6 +120,17 @@ impl NativeExecutionContext<'_> {
             .append_certificate(proof);
     }
 
+    pub(crate) fn record_adaptive_work_decline(
+        &self,
+        owner: crate::native_work_sizing::Owner,
+        denial: shardloom_exec::adaptive_work::WorkDenial,
+    ) {
+        self.adaptive_work
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .record_decline(owner, denial);
+    }
+
     /// Immutable floating semantics of the admitted session, not a call override.
     #[must_use]
     pub fn float_policy(&self) -> shardloom_core::FloatPolicy {

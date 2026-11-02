@@ -144,6 +144,8 @@ pub mod prepared_source_binding;
 pub mod projection_readiness;
 pub mod query_primitive;
 pub mod query_primitives;
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+mod query_spill_quota;
 pub mod query_trace;
 pub mod read_planning;
 pub mod relational_query;

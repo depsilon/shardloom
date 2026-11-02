@@ -99,7 +99,7 @@ impl<'s> Ordering<'_, 's> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<StoredOrder<'s>> {
         context.check_cancelled()?;
-        let (source, rows) = if self.runs.values.is_empty() {
+        let (source, rows, block_rows) = if self.runs.values.is_empty() {
             // This result is bounded by the admitted resident sort threshold.
             // Charge its parent metadata before gathering; old and new payload
             // owners overlap in the same pool until the sorter is dropped.
@@ -110,20 +110,25 @@ impl<'s> Ordering<'_, 's> {
             let rows = self.sort.ordered_rows(context)?;
             let array = self.sort.gather_rows(&rows.values, context)?;
             let length = array.len() as u64;
-            (Source::Resident { array, metadata }, length)
+            (
+                Source::Resident { array, metadata },
+                length,
+                self.block_rows,
+            )
         } else {
             let native = self.complete_run(context)?;
             let rows = native.rows;
+            let block_rows = native.block_rows;
             let work = self.work(context)?;
             let reader = self.state.open(&native, self.spec, context, &work)?;
-            (Source::Run { native, reader }, rows)
+            (Source::Run { native, reader }, rows, block_rows)
         };
         context.check_cancelled()?;
         Ok(StoredOrder {
             source,
             state: self.state,
             rows,
-            block_rows: self.block_rows,
+            block_rows,
         })
     }
 }

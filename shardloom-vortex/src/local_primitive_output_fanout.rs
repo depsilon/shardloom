@@ -15,6 +15,15 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[path = "local_primitive_output_fanout_producer.rs"]
+mod producer;
+
+/// Every committed primitive output and the single native replay, when needed.
+pub struct WrittenVortexPrimitiveFanout {
+    pub outputs: Vec<super::VortexLocalPrimitiveRowExportReport>,
+    pub replay: Option<super::prepared_relational::VortexRelationalOutputReplay>,
+}
+
 /// Coordinate native primitive outputs with one retained source and resource grant.
 /// # Errors
 /// Rejects source/destination aliasing and propagates admission, execution and
@@ -34,6 +43,7 @@ pub fn write_primitive(
         &source,
         &CancellationToken::default(),
     )
+    .map(|written| written.outputs)
 }
 
 /// Coordinate primitive outputs with a caller-owned resident session and its
@@ -50,6 +60,31 @@ pub fn write_primitive_in_session(
     session: &ResidentVortexSession,
     cancellation: &CancellationToken,
 ) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
+    write_primitive_with_replay_in_session(
+        request,
+        targets,
+        overwrite,
+        policy,
+        session,
+        cancellation,
+    )
+    .map(|written| written.outputs)
+}
+
+/// Coordinate the same primitive action while retaining its completed replay
+/// evidence, including explicit spill permission and shared run-byte ownership.
+/// A single destination streams directly and reports no replay.
+/// # Errors
+/// Preserves source, resource, cancellation and publication failures from the
+/// ordinary session-owned primitive writer.
+pub fn write_primitive_with_replay_in_session(
+    request: &super::VortexQueryPrimitiveRequest,
+    targets: &[(PathBuf, Format)],
+    overwrite: bool,
+    policy: super::VortexLocalPrimitiveExecutionPolicy,
+    session: &ResidentVortexSession,
+    cancellation: &CancellationToken,
+) -> Result<WrittenVortexPrimitiveFanout> {
     cancellation.check()?;
     let source = super::prepared_dispatch::prepare_source_in_session(
         request,
@@ -60,14 +95,18 @@ pub fn write_primitive_in_session(
     write_primitive_with_source(request, targets, overwrite, policy, &source, cancellation)
 }
 
-fn write_primitive_with_source(
+pub(super) fn write_primitive_with_source(
     request: &super::VortexQueryPrimitiveRequest,
     targets: &[(PathBuf, Format)],
     overwrite: bool,
     policy: super::VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
     cancellation: &CancellationToken,
-) -> Result<Vec<super::VortexLocalPrimitiveRowExportReport>> {
+) -> Result<WrittenVortexPrimitiveFanout> {
+    preflight_targets(targets, overwrite)?;
+    if targets.len() > 1 {
+        return producer::write(request, targets, overwrite, policy, source, cancellation);
+    }
     let mut reports = write(
         targets,
         overwrite,
@@ -98,7 +137,10 @@ fn write_primitive_with_source(
     for (report, (path, _)) in reports.iter_mut().zip(targets) {
         report.output_path = path.display().to_string();
     }
-    Ok(reports)
+    Ok(WrittenVortexPrimitiveFanout {
+        outputs: reports,
+        replay: None,
+    })
 }
 
 /// Write a bounded set of outputs using the supplied existing native adapter.

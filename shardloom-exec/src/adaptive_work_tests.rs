@@ -30,6 +30,56 @@ fn limits(max_units: u64, max_in_flight: usize) -> WorkLimits {
 }
 
 #[test]
+fn optional_headroom_decline_is_typed_and_does_not_complete_or_advance_feedback() {
+    let pool = LiveMemoryPool::new(1000).unwrap();
+    let held = pool.reserve(950).unwrap();
+    let sizing = AdaptiveWorkSizer::default();
+    let cost = WorkCost {
+        fixed_bytes: 100,
+        bytes_per_unit: 10,
+    };
+    let decision = sizing
+        .decide("optional", pool.snapshot(), cost, limits(20, 1))
+        .unwrap();
+    let WorkDecision::Declined(denial) = decision else {
+        panic!("minimum should not fit")
+    };
+    assert_eq!(
+        denial,
+        WorkDenial {
+            required_additional_bytes: 110,
+            headroom_bytes: 50,
+            reserved_bytes: 950,
+            ceiling_bytes: 1000
+        }
+    );
+    assert_eq!(pool.snapshot().reserved_bytes, 950);
+    assert_eq!(sizing.report(), AdaptiveWorkReport::default());
+    let mut report = AdaptiveWorkReport::default();
+    report.record_decline(denial);
+    assert_eq!(report.declined_windows, 1);
+    assert_eq!(report.completed_windows, 0);
+    assert_eq!(report.maximum_declined_required_bytes, 110);
+    drop(held);
+    let WorkDecision::Selected(shape) = sizing
+        .decide("optional", pool.snapshot(), cost, limits(20, 1))
+        .unwrap()
+    else {
+        panic!("restored headroom should fit")
+    };
+    assert_eq!(shape.units(), 20);
+    report.record(shape);
+    assert_eq!(report.minimum_headroom_bytes, 50);
+    assert_eq!(report.completed_windows, 1);
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+    assert!(
+        sizing
+            .decide("optional", pool.snapshot(), cost, limits(0, 1))
+            .is_err()
+    );
+}
+
+#[test]
 fn retained_owners_wide_values_and_lane_overlap_limit_actual_reservations() {
     for ceiling in [257, 1024, 65_536] {
         let pool = LiveMemoryPool::new(ceiling).unwrap();
@@ -219,4 +269,81 @@ fn invalid_limits_fail_and_extreme_valid_arithmetic_stays_bounded() {
     assert_eq!(shape.in_flight(), 1);
     assert_eq!(grow_target(u64::MAX, u64::MAX), u64::MAX);
     assert_eq!(shrink_target(1, 1), 1);
+}
+
+#[test]
+fn physical_candidates_preserve_metadata_cost_and_shared_growth_feedback() {
+    let pool = LiveMemoryPool::new(1000).unwrap();
+    let mut sizing = AdaptiveWorkSizer::default();
+    let candidates = || {
+        [1, 2, 4, 8].into_iter().map(|units| {
+            Ok((
+                units,
+                WorkCost {
+                    fixed_bytes: 80 / units,
+                    bytes_per_unit: 20,
+                },
+            ))
+        })
+    };
+    // One row needs 100 bytes, two need 80, four need 100, eight need 170.
+    // Shrinking to the smallest row count is therefore not a valid policy.
+    let held = pool.reserve(920).unwrap();
+    let shape = sizing
+        .select_candidates("run", pool.snapshot(), limits(8, 1), candidates())
+        .unwrap();
+    assert_eq!(shape.units(), 2);
+    assert_eq!(shape.estimated_bytes_per_lane(), 80);
+    assert_eq!(sizing.report().completed_windows, 0);
+    sizing.complete(shape, None);
+    drop(held);
+    for expected in [2, 2, 4, 4, 8] {
+        let shape = sizing
+            .select_candidates("run", pool.snapshot(), limits(8, 1), candidates())
+            .unwrap();
+        assert_eq!(shape.units(), expected);
+        sizing.complete(shape, None);
+    }
+    let snapshot = pool.snapshot();
+    let too_much = pool.reserve(921).unwrap();
+    let WorkDecision::Declined(denial) = sizing
+        .decide_candidates("run", pool.snapshot(), limits(8, 1), candidates())
+        .unwrap()
+    else {
+        panic!("no physical candidate fits")
+    };
+    assert_eq!(denial.required_additional_bytes, 80);
+    assert_eq!(denial.headroom_bytes, 79);
+    drop(too_much);
+    assert_eq!(pool.snapshot().reserved_bytes, snapshot.reserved_bytes);
+    assert_eq!(sizing.report().completed_windows, 6);
+}
+
+#[test]
+fn physical_candidates_reject_invalid_geometry_and_stale_admission() {
+    let pool = LiveMemoryPool::new(100).unwrap();
+    let sizing = AdaptiveWorkSizer::default();
+    let cost = WorkCost {
+        fixed_bytes: 0,
+        bytes_per_unit: 10,
+    };
+    for units in [vec![], vec![0], vec![2, 1], vec![1, 1], vec![11]] {
+        assert!(
+            sizing
+                .select_candidates(
+                    "run",
+                    pool.snapshot(),
+                    limits(10, 1),
+                    units.into_iter().map(|units| Ok((units, cost)))
+                )
+                .is_err()
+        );
+    }
+    let shape = sizing
+        .select_candidates("run", pool.snapshot(), limits(10, 1), [Ok((10, cost))])
+        .unwrap();
+    let held = pool.reserve(1).unwrap();
+    assert!(pool.reserve(shape.estimated_bytes_per_lane()).is_err());
+    assert_eq!(sizing.report(), AdaptiveWorkReport::default());
+    drop(held);
 }

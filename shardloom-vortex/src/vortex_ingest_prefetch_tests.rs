@@ -223,7 +223,7 @@ fn completed_out_of_order_arrays_remain_charged_until_ordered_handoff() {
             .unwrap();
         prefetch
             .tasks
-            .push_back(shared_conversion::ConversionTask::Dedicated(task));
+            .push_back(shared_conversion::ConversionTask::Dedicated(task).into());
     }
     assert_eq!(memory.snapshot().reserved_bytes, 131_072);
     let first = prefetch.next_array(1).unwrap().unwrap();
@@ -322,7 +322,7 @@ fn primary_validation_error_survives_fifo_cancellation_and_initial_refill() {
             .unwrap();
         prefetch
             .tasks
-            .push_back(shared_conversion::ConversionTask::Dedicated(earlier));
+            .push_back(shared_conversion::ConversionTask::Dedicated(earlier).into());
         entered.recv_timeout(Duration::from_secs(5)).unwrap();
         let context = Arc::clone(&prefetch.context);
         let later = prefetch
@@ -348,7 +348,7 @@ fn primary_validation_error_survives_fifo_cancellation_and_initial_refill() {
         if refill {
             // Same fill method used during construction: an already-originated
             // source failure must defer to next_array rather than escape here.
-            prefetch.fill_window().unwrap();
+            prefetch.fill_window(true).unwrap();
             assert_eq!(prefetch.tasks.len(), 1);
         }
         assert!(stream.next().unwrap().is_ok());
