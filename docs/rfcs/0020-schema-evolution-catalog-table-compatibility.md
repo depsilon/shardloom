@@ -39,6 +39,41 @@ transitions must fail with stable diagnostics rather than silently coercing to l
 
 ## Detailed design
 
+### Executable local read-only table sources (November 2, 2026)
+
+The item 18 extension admits ordinary queries over explicitly selected local table state.
+The implementation contract and acceptance matrix live in
+[the local table-reader plan](../architecture/native-local-table-readers-2026-11-02.md).
+This section authorizes that implementation, not a support claim before acceptance.
+
+Source declarations remain inert. At action time, the existing native operation owner resolves
+an Iceberg metadata file, a Delta table directory, or a Hudi table directory into one held
+snapshot. A selector is format-specific: `snapshot_id` for Iceberg, `version` for Delta, and
+`instant` for Hudi. Omission chooses current/latest during admission, then freezes that choice;
+execution never mixes newly discovered state into a retained source. The selected identity,
+protocol, schema, visible files, auxiliary metadata and delete inputs belong to the same
+generation/resource owner as the query.
+
+The table layer supplies visibility and logical field mapping to the existing compatibility
+decoder. It does not execute relational operators. Iceberg field IDs and Delta mapping modes
+must govern renames; name similarity is not a substitute for identity. Missing columns,
+partition constants and allowed widening follow the selected format/version contract. Every
+applicable supported delete is applied before native query evaluation, including count and
+prefix consumers. Unsupported required features fail before any result rows are returned.
+
+Physical footer counts, row-group statistics, page prefixes and ranked rereads are optional
+capabilities. They require a proof that mapping and visibility preserve their meaning. Until
+that proof exists for a table profile, the shared native pipeline reads the admitted columns
+and applies table visibility. This is explicit ShardLoom execution, not external-engine fallback.
+
+The first acceptance matrix must distinguish table versions, checkpoint/timeline layouts,
+data-file formats, field types/evolution and delete/read modes. It must exercise global
+multi-file operations, empty snapshots, renamed and missing fields, partition evolution,
+deletes, retained-source mutation, cancellation and resource refusal across all five public
+interfaces. Metadata smokes and raw directory scans do not satisfy these gates. Remote
+catalogs, credentials, object stores, table services, new-format writes and commits remain
+outside this read-only contract.
+
 ### Compatibility levels
 
 - NativeExact: full Vortex-native type/metadata fidelity.

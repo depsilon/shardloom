@@ -2,8 +2,8 @@
 
 # Native adaptive ownership and interface acceptance
 
-Status: local runtime, ownership and public-interface acceptance passed;
-hosted checks and review remain pending. This matrix joins the existing
+Status: local runtime, ownership, public-interface and hosted acceptance passed;
+PR #1644 is merged with no review findings. This matrix joins the existing
 owner controls to the shared public routes; it does not introduce another
 execution policy. The [runtime contract](native-adaptive-execution-2026-11-01.md)
 and [phase plan](phased-execution-plan.md#engine-wide-adaptive-execution) remain
@@ -95,9 +95,21 @@ wheel to the exact local checks. Its
 [verified archive](../benchmarks/evidence/native-adaptive-decisions-acceptance-2026-11-02/verification.tar.xz)
 retains 27 original receipts and logs, source overlays and blobs, the original
 failed attempts, package reports and the partial benchmark checkpoint. All 167
-archive members pass complete byte-for-byte readback. Hosted checks and review
-are the remaining integration gate; no new Full43, fixed-runtime repeat or
-timing claim is part of these final checks.
+archive members pass complete byte-for-byte readback. No new Full43,
+fixed-runtime repeat or timing claim is part of these final checks.
+
+## Hosted integration and retention
+
+[PR #1644](https://github.com/depsilon/shardloom/pull/1644) is merged as
+`d3e943add236baf3200fa07d299437cc3dd71314`. All 58 hosted checks pass on
+`563279a54e398897584eb2b132d7d0bb017f44a2`; review completes on that same
+head with no findings or unresolved threads. The
+[closeout record](../benchmarks/evidence/native-adaptive-decisions-closeout-2026-11-02/closeout.json)
+retains exact hosted evidence and the generated-payload retirement receipt.
+Repeated identity and closed-handle checks retire five superseded runtime
+pairs, old wheels and completed package environments. The accepted runtime and
+installed-tested wheel, source inputs and all observations remain. No query
+rerun, payload backup or storage-limit increase accompanies closeout.
 
 Broader local table readers, the requested preparation/query investigations and
 the combined documentation/site/portable-evidence closeout retain their phase

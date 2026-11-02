@@ -55,6 +55,7 @@ impl PreparedColumnarSource {
             .validate_generation_controlled(context.cancellation())?;
         let report = ColumnarReadReport {
             format,
+            table_snapshot: None,
             parquet_selected_chunks: self.source.other.is_none(),
             projected_columns: 0,
             available_columns: self.source.schema().fields().len(),

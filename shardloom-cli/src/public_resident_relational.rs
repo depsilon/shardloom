@@ -930,6 +930,19 @@ pub(super) fn append_execution(
         fields.push((key, value));
     }
     append_batch_input(fields, result);
+    append_table_snapshots(fields, result);
+}
+
+fn append_table_snapshots(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
+    if let Some(input) = &result.input {
+        let key = "native_source_table_snapshots";
+        fields.retain(|(existing, _)| existing != key);
+        fields.push((
+            key.into(),
+            serde_json::to_string(&input.table_snapshots)
+                .expect("table snapshot evidence is serializable"),
+        ));
+    }
 }
 
 fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {

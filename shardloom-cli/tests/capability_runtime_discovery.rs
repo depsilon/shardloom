@@ -90,6 +90,7 @@ fn default_and_scoped_runtime_discovery_share_feature_bound_facts() {
         runtime["runtime_capability_compatibility_output_delta_compatible_status"],
         "planned"
     );
+    assert_table_status(&runtime);
 
     for scope in [
         None,
@@ -133,8 +134,33 @@ fn default_and_scoped_runtime_discovery_share_feature_bound_facts() {
     }
 }
 
+fn assert_table_status(runtime: &BTreeMap<&str, &str>) {
+    let tables = if cfg!(all(
+        unix,
+        feature = "vortex-local-primitives",
+        feature = "vortex-write",
+        feature = "universal-format-io"
+    )) {
+        "partially_supported"
+    } else {
+        "disabled"
+    };
+    for name in ["iceberg", "delta", "hudi"] {
+        let prefix = format!("runtime_capability_local_table_input_{name}");
+        assert_eq!(runtime[format!("{prefix}_status").as_str()], tables);
+        let scope = runtime[format!("{prefix}_scope").as_str()];
+        assert!(scope.contains("local read-only Parquet data"));
+        assert!(scope.contains("no catalogs, remote reads, table writes or prepare_once"));
+    }
+}
+
 fn assert_human_status(report: &serde_json::Value, runtime: &BTreeMap<&str, &str>) {
     let text = report["human_text"].as_str().unwrap();
+    for name in ["iceberg", "delta", "hudi"] {
+        let status =
+            runtime[format!("runtime_capability_local_table_input_{name}_status").as_str()];
+        assert!(text.contains(&format!("{name} ({status})")), "{text}");
+    }
     for (label, field) in [
         ("sql", "frontend_sql"),
         ("dataframe_api", "frontend_dataframe_api"),

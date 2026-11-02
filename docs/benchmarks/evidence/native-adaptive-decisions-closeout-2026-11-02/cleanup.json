@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "retired_roots": [
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r1/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r2/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r3/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r4/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r5/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r6/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r7/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-r7/venv",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-adaptive-source-r1/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-adaptive-source-r1/venv",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-adaptive-decisions-r1/package",
+    "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-adaptive-decisions-r1/venv"
+  ],
+  "retired_files": 32458,
+  "retired_links": 9,
+  "retired_logical_bytes": 2541881197,
+  "plan_sha256": "b3cba159f2e1fc85e5d6e5c5ec04a8080fed6109f29e183eecd9c869ae9da577",
+  "retained_runtime_and_wheel": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-decisions-r2/shardloom",
+      "stat": {
+        "st_dev": 16777233,
+        "st_ino": 153180952,
+        "st_mode": 33261,
+        "st_size": 81899312,
+        "st_mtime_ns": 1793632449595228069,
+        "st_ctime_ns": 1793632584433116221
+      },
+      "sha256": "24b46e2c2f37493674228343e89335324ea1f332219046969f514bfc37f6dea5"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-adaptive-decisions-r2/_native.abi3.so",
+      "stat": {
+        "st_dev": 16777233,
+        "st_ino": 153180953,
+        "st_mode": 33261,
+        "st_size": 82283776,
+        "st_mtime_ns": 1793632294479430134,
+        "st_ctime_ns": 1793632584525839164
+      },
+      "sha256": "4173f04e0316a5dc137491cdb75464e5a53ae238826758a867a8186722af2dd4"
+    },
+    {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-adaptive-decisions-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "stat": {
+        "st_dev": 16777233,
+        "st_ino": 153182776,
+        "st_mode": 33188,
+        "st_size": 54860591,
+        "st_mtime_ns": 1793632729246897655,
+        "st_ctime_ns": 1793632729247044780
+      },
+      "sha256": "04b38adcd5980a97237b52f6f3754da16e67ac6dde6451d0e1f3ee0563158a3b"
+    }
+  ],
+  "repeated_identity_checks": true,
+  "closed_handles": true,
+  "original_reports_unchanged": true,
+  "no_input_or_observation_retirement": true,
+  "no_queries": true,
+  "no_payload_archive": true
+}

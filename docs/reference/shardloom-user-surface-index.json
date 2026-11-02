@@ -1404,7 +1404,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "a4f4035ccc450982e0b030f3196ebf47bb08a3a580cd7d37ca0dcbf885bdef2e",
+    "source_identity": "d3a4015f31b5d9b9ee5c66ea9bc28a6893eeeb55a5e3b7898867030bd1b58320",
     "source_inputs": {
       "Cargo.lock": "22642c290e1df3bb766267041ec27ff92a11c27717b5009c4a71f7bda72bfd06",
       "Cargo.toml": "15107e0987d6a2a9a5ff2d65ee800707fc281d4cf701ffd8a802318d3f1ae3bd",
@@ -1417,7 +1417,7 @@
       "python/src/shardloom/_version.py": "5df4c1f17c93358192c0f7323f349a49f44d8842ac825a5dc879fa70b0dc3e82",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
-      "python/src/shardloom/client.py": "6b5663dd22e5f0842409db8694106d66b92c31172528d402f1ea8259321b7286",
+      "python/src/shardloom/client.py": "a2d90c758d341693f4031c711f297a1fd084d7e1fb55b93645c1d202d4feda4b",
       "python/src/shardloom/context.py": "be57d5cac608e4ccf4a0cff88b4a1193b20c17aac60a1cfedbcaab35020d6cba",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
@@ -1425,7 +1425,7 @@
       "python/src/shardloom/functions.py": "4e5fb6a5d114f54de0ecccca209b04c8aa64a783dbedd6fc9acd4b36e2f0145f",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
-      "python/src/shardloom/query.py": "8e9078128b05faa5f3a770aaa286d0f92fe867fbeae4c4e40e39a6946400b748",
+      "python/src/shardloom/query.py": "ad411f91c82556064f372162c0cc19beb3be7fe2c8c71141a6f37588e46fc161",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
@@ -3024,7 +3024,7 @@
         "audience": "testing",
         "kind": "class",
         "source": "python/src/shardloom/query.py",
-        "signature": "(source_format: 'str', uri: 'str', schema: 'tuple[tuple[str, str], ...]' = (), memory_input: 'tuple[tuple[str, object], ...]' = (), batch_input: 'object | None' = None, native_input: 'object | None' = None, _bound_frame: \"'LazyFrame | None'\" = None, relation: 'SqlRelation | None' = None, _session: 'object | None' = None) -> None",
+        "signature": "(source_format: 'str', uri: 'str', schema: 'tuple[tuple[str, str], ...]' = (), memory_input: 'tuple[tuple[str, object], ...]' = (), batch_input: 'object | None' = None, native_input: 'object | None' = None, _bound_frame: \"'LazyFrame | None'\" = None, relation: 'SqlRelation | None' = None, _session: 'object | None' = None, table_snapshot: 'tuple[tuple[str, object], ...]' = ()) -> None",
         "summary": "A declared workflow source that is not read during construction."
       },
       {
@@ -3429,7 +3429,7 @@
         "audience": "application",
         "kind": "function",
         "source": "python/src/shardloom/query.py",
-        "signature": "(uri: 'str | os.PathLike[str]', *, input_format: 'str | None' = None, schema: 'Mapping[str, object] | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
+        "signature": "(uri: 'str | os.PathLike[str]', *, input_format: 'str | None' = None, schema: 'Mapping[str, object] | None' = None, snapshot_id: 'int | None' = None, version: 'int | None' = None, instant: 'str | None' = None, client: 'ShardLoomClient | None' = None, engine_mode: 'str' = 'auto', **client_config: 'object') -> 'LazyFrame'",
         "summary": "Declare a lazy local source, with an explicit format for folders or manifests."
       },
       {

@@ -2,6 +2,7 @@
 //! and native executor. This module does not emit stdout or start a worker process.
 
 use super::{PublicSourceBinding, PublicWorkflowRouteRequest, resident_relational};
+use shardloom_core::input::LocalTableSelection;
 use shardloom_core::{DatasetUri, ExecutionResources, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_vortex::{
@@ -45,6 +46,10 @@ pub enum SqlSource {
     File {
         format: String,
         schema: Option<String>,
+    },
+    Table {
+        format: String,
+        selection: LocalTableSelection,
     },
     Memory(ResidentMemorySource),
     /// Inert generated input; its compact native owner is admitted at action time.
@@ -422,13 +427,44 @@ fn sql_request(
     request.bounded = true;
     request.spill = spill.map(super::spill::Options::parse).transpose()?;
     for binding in bindings {
-        let (format, schema) = match &binding.source {
+        let (format, schema, table_snapshot) = match &binding.source {
             SqlSource::File { format, schema } => {
-                (super::normalize_input_format(format)?, schema.clone())
+                let format = super::normalize_input_format(format)?;
+                if matches!(format.as_str(), "iceberg" | "delta" | "hudi") {
+                    if schema.is_some() {
+                        return Err(failed("table sources cannot declare source_schema"));
+                    }
+                    let selection = LocalTableSelection::default();
+                    selection.validate_for(&format)?;
+                    (
+                        format,
+                        None,
+                        Some(
+                            crate::public_workflow_route::PublicTableSnapshot::from_selection(
+                                &selection,
+                            ),
+                        ),
+                    )
+                } else {
+                    (format, schema.clone(), None)
+                }
             }
-            SqlSource::Memory(_) | SqlSource::Range { .. } => ("memory".into(), None),
+            SqlSource::Table { format, selection } => {
+                let format = super::normalize_input_format(format)?;
+                selection.validate_for(&format)?;
+                (
+                    format,
+                    None,
+                    Some(
+                        crate::public_workflow_route::PublicTableSnapshot::from_selection(
+                            selection,
+                        ),
+                    ),
+                )
+            }
+            SqlSource::Memory(_) | SqlSource::Range { .. } => ("memory".into(), None, None),
             #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-            SqlSource::ColumnarStream(_) => ("memory".into(), None),
+            SqlSource::ColumnarStream(_) => ("memory".into(), None, None),
         };
         if request
             .source_bindings
@@ -438,6 +474,7 @@ fn sql_request(
                     input_format: format,
                     source_schema: schema,
                     memory_input: None,
+                    table_snapshot,
                 },
             )
             .is_some()

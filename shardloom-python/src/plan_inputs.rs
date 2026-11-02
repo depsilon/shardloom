@@ -64,6 +64,16 @@ impl InputOwners {
                                 schema: sb,
                             },
                         ) => a == b && sa == sb,
+                        (
+                            SqlSource::Table {
+                                format: a,
+                                selection: sa,
+                            },
+                            SqlSource::Table {
+                                format: b,
+                                selection: sb,
+                            },
+                        ) => a == b && sa == sb,
                         (SqlSource::Memory(a), SqlSource::Memory(b)) => a.same_snapshot(b),
                         (
                             SqlSource::Range {

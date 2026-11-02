@@ -2171,6 +2171,7 @@ fn append_runtime_availability_keys(keys: &mut Vec<String>) {
             ][..],
         ),
         ("frontend", &["cli", "sql", "dataframe_api"][..]),
+        ("local_table_input", &["iceberg", "delta", "hudi"][..]),
     ] {
         for name in names {
             keys.push(format!("runtime_capability_{group}_{name}_status"));

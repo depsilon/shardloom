@@ -33,6 +33,8 @@ pub(super) mod decoder;
 #[path = "generic_schema.rs"]
 mod schema;
 use decoder::Decoder;
+#[path = "table.rs"]
+mod table;
 
 type TextFactory<'a> =
     dyn Fn(&Path, &LiveMemoryPool, &CancellationToken) -> Result<Arc<TextSource>> + 'a;
@@ -43,10 +45,14 @@ pub(super) struct Source {
     pub(super) files: Vec<File>,
     pub(super) schema_discovery_read_bytes: u64,
     pub(super) preparation_dictionary_status: Option<&'static str>,
+    pub(super) table: Option<Arc<table::Snapshot>>,
 }
 
 impl Source {
     pub(super) fn row_count_hint(&self, cancellation: &CancellationToken) -> Result<Option<usize>> {
+        if self.table.is_some() {
+            return Ok(None);
+        }
         let mut rows = 0_u64;
         for file in &self.files {
             cancellation.check()?;
@@ -77,9 +83,36 @@ pub(super) struct File {
     pub(super) orc: Option<Arc<orc_rust::reader::metadata::FileMetadata>>,
     // Drop the physical schema before its retained provider structure credit.
     avro_schema_credit: Option<Arc<dyn arrow_avro::reader::DecoderMemoryReservation>>,
+    table: Option<table::FileMapping>,
 }
 
 impl LocalColumnarSource {
+    /// Bind a local table snapshot through its format-specific visibility rules.
+    /// Declaration remains inert; this method is called under action admission.
+    /// # Errors
+    /// Rejects unsupported table states, changed inputs and insufficient grants.
+    pub fn admit_table(
+        path: &Path,
+        format: &str,
+        selection: &shardloom_core::input::LocalTableSelection,
+        fingerprint: bool,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+    ) -> Result<Arc<Self>> {
+        let snapshot = table::Snapshot::admit(path, format, selection, memory, cancellation)?;
+        let collection =
+            LocalDataset::selected(&snapshot.root, snapshot.paths(), memory, cancellation)?;
+        admit_collection_with_table(
+            collection,
+            "parquet",
+            fingerprint,
+            memory,
+            cancellation,
+            None,
+            Some(snapshot),
+        )
+    }
+
     /// Admit text through the existing adapter's schema/coercion provider.
     /// File generations and directory membership use the same source owner as
     /// binary formats. The factory must use the supplied pool and cancellation.
@@ -145,10 +178,31 @@ pub(super) fn admit_collection(
     cancellation: &CancellationToken,
     text_factory: Option<&TextFactory<'_>>,
 ) -> Result<Arc<LocalColumnarSource>> {
+    admit_collection_with_table(
+        collection,
+        format,
+        fingerprint,
+        memory,
+        cancellation,
+        text_factory,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+fn admit_collection_with_table(
+    collection: LocalDataset,
+    format: &'static str,
+    fingerprint: bool,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+    text_factory: Option<&TextFactory<'_>>,
+    table: Option<Arc<table::Snapshot>>,
+) -> Result<Arc<LocalColumnarSource>> {
     let mut credit = memory.reserve(8192)?;
     let mut files = Vec::new();
-    let mut schema: Option<SchemaRef> = None;
-    let mut metadata_read_bytes = 0_u64;
+    let mut schema: Option<SchemaRef> = table.as_ref().map(|table| Arc::clone(&table.schema));
+    let mut metadata_read_bytes = table.as_ref().map_or(0, |table| table.metadata_bytes());
     let mut schema_discovery_read_bytes = 0_u64;
     let mut fingerprint_read_bytes = 0_u64;
     let mut content_fingerprints = Vec::new();
@@ -171,6 +225,7 @@ pub(super) fn admit_collection(
             parquet: None,
             orc: None,
             avro_schema_credit: None,
+            table: None,
         };
         let discovered = if let Some(factory) = text_factory {
             let text = factory(&file.path, memory, cancellation)?;
@@ -255,12 +310,32 @@ pub(super) fn admit_collection(
                 .ok_or_else(|| failed("schema capacity overflow"))?,
         )?)?;
         file.schema = Arc::clone(&discovered);
-        let discovered = schema::with_partitions(&discovered, &collected.partitions)?;
-        schema = Some(schema::merge(
-            schema.as_ref(),
-            &discovered,
-            collection.union_by_name,
-        )?);
+        if let Some(table) = &table {
+            credit.resize(add(
+                credit.bytes(),
+                bytes
+                    .checked_mul(4)
+                    .ok_or_else(|| failed("table mapping capacity overflow"))?,
+            )?)?;
+            let metadata = file
+                .parquet
+                .as_ref()
+                .ok_or_else(|| failed("table file requires Parquet metadata"))?;
+            let rows = super::metadata_count::file_rows(metadata.metadata(), cancellation)?;
+            file.table = Some(table::FileMapping::admit(
+                table,
+                files.len(),
+                &discovered,
+                rows,
+            )?);
+        } else {
+            let discovered = schema::with_partitions(&discovered, &collected.partitions)?;
+            schema = Some(schema::merge(
+                schema.as_ref(),
+                &discovered,
+                collection.union_by_name,
+            )?);
+        }
         metadata_read_bytes = add(
             metadata_read_bytes,
             input.metrics().bytes.load(Ordering::Relaxed),
@@ -283,6 +358,7 @@ pub(super) fn admit_collection(
             files,
             schema_discovery_read_bytes,
             preparation_dictionary_status: None,
+            table,
         }),
         metadata_read_bytes,
         metadata_credit: credit,
@@ -373,6 +449,7 @@ pub(super) struct Reader {
     batch_rows: usize,
     active_region: Option<super::SourceGroup>,
     region_rows: u64,
+    file_row_offset: u64,
     row_groups_read: usize,
     rows: u64,
     decoded_rows: u64,
@@ -393,6 +470,7 @@ impl Reader {
             batch_rows: super::batch_work::MAX_ROWS,
             active_region: None,
             region_rows: 0,
+            file_row_offset: 0,
             row_groups_read: 0,
             rows: 0,
             decoded_rows: 0,
@@ -523,9 +601,14 @@ impl Reader {
                     let batch = batch.map_err(decoder::source_error)?;
                     let actual_rows = batch.num_rows();
                     self.decoded_rows = add(self.decoded_rows, actual_rows as u64)?;
-                    let rows = prepared.max_rows.map_or(actual_rows, |limit| {
-                        actual_rows.min(usize::try_from(limit - self.rows).unwrap_or(usize::MAX))
-                    });
+                    let rows = if source.table.is_some() {
+                        actual_rows
+                    } else {
+                        prepared.max_rows.map_or(actual_rows, |limit| {
+                            actual_rows
+                                .min(usize::try_from(limit - self.rows).unwrap_or(usize::MAX))
+                        })
+                    };
                     let batch = if rows == actual_rows {
                         batch
                     } else {
@@ -533,9 +616,14 @@ impl Reader {
                             Ok::<_, shardloom_core::ShardLoomError>(batch.slice(0, rows))
                         })?
                     };
-                    let first = self.active_region.map_or(Ok(self.rows), |region| {
-                        add(region.first_row, self.region_rows)
-                    })?;
+                    let physical_first = add(self.file_row_offset, self.region_rows)?;
+                    let first = if source.table.is_some() {
+                        self.rows
+                    } else {
+                        self.active_region.map_or(Ok(self.rows), |region| {
+                            add(region.first_row, self.region_rows)
+                        })?
+                    };
                     self.region_rows = add(self.region_rows, rows as u64)?;
                     if self
                         .active_region
@@ -543,14 +631,28 @@ impl Reader {
                     {
                         return Err(failed("decoder exceeded its admitted source extent"));
                     }
-                    self.rows = add(self.rows, rows as u64)?;
                     // Retained Arrow buffers receive credits before native
                     // handoff; upstream decode temporaries are not an RSS bound.
                     let (target, projection_credit) =
                         schema::project(&source.schema, &prepared.projection, memory)?;
                     let partitions =
                         &prepared.source.collection.files[self.next_file - 1].partitions;
-                    let batch = if self.owned_parquet_handoff {
+                    let batch = if let Some(table) = &source.table {
+                        let mapping = source.files[self.next_file - 1]
+                            .table
+                            .as_ref()
+                            .ok_or_else(|| failed("table field mapping is absent"))?;
+                        mapping.apply(
+                            table,
+                            self.next_file - 1,
+                            batch,
+                            target,
+                            &prepared.projection,
+                            physical_first,
+                            memory,
+                            cancellation,
+                        )?
+                    } else if self.owned_parquet_handoff {
                         if source.format != "parquet" {
                             return Err(failed(
                                 "owned Parquet handoff requires its physical provider",
@@ -560,6 +662,21 @@ impl Reader {
                     } else {
                         schema::align(batch, target, partitions, memory, credited_input)?
                     };
+                    let batch = if source.table.is_some() {
+                        if let Some(limit) = prepared.max_rows {
+                            let rows = batch
+                                .num_rows()
+                                .min(usize::try_from(limit - self.rows).unwrap_or(usize::MAX));
+                            batch.map(|batch| {
+                                Ok::<_, shardloom_core::ShardLoomError>(batch.slice(0, rows))
+                            })?
+                        } else {
+                            batch
+                        }
+                    } else {
+                        batch
+                    };
+                    self.rows = add(self.rows, batch.num_rows() as u64)?;
                     let batch = if let Some(credit) = projection_credit {
                         batch.retain(credit)
                     } else {
@@ -567,9 +684,12 @@ impl Reader {
                     };
                     source.files[self.next_file - 1].identity.validate()?;
                     cancellation.check()?;
-                    if let Some(selected) = selected.filter(|_| batch.num_rows() > 0) {
+                    if let Some(selected) = selected.filter(|_| actual_rows > 0) {
                         self.sizing.complete(selected, &batch);
                         record(selected);
+                    }
+                    if batch.num_rows() == 0 {
+                        continue;
                     }
                     return Ok(Some((batch.retain(prepared.source.clone()), first)));
                 }
@@ -613,8 +733,23 @@ impl Reader {
                 return Ok(None);
             };
             self.next_file = file_index + 1;
-            let projection =
-                schema::local_projection(&file.schema, &source.schema, &prepared.projection);
+            let projection = if let Some(table) = &file.table {
+                table.projection(&file.schema, &prepared.projection)?
+            } else {
+                schema::local_projection(&file.schema, &source.schema, &prepared.projection)
+            };
+            self.file_row_offset =
+                if let (Some(metadata), Some(region)) = (&file.parquet, self.active_region) {
+                    (0..region.index).try_fold(0_u64, |sum, index| {
+                        add(
+                            sum,
+                            u64::try_from(metadata.metadata().row_group(index).num_rows())
+                                .map_err(failed)?,
+                        )
+                    })?
+                } else {
+                    0
+                };
             let input = open(Arc::clone(&file.identity))?;
             self.cost = if matches!(source.format, "parquet" | "orc" | "avro") {
                 let physical = file.schema.project(&projection).map_err(failed)?;
@@ -622,11 +757,18 @@ impl Reader {
                     .schema
                     .project(&prepared.projection)
                     .map_err(failed)?;
-                Some(super::batch_work::cost(
+                let cost = super::batch_work::cost(
                     &physical,
                     &logical,
                     &prepared.source.collection.files[file_index].partitions,
-                )?)
+                )?;
+                Some(
+                    if let (Some(_), Some(table)) = (&file.table, &source.table) {
+                        table::FileMapping::cost(table, file_index, cost)?
+                    } else {
+                        cost
+                    },
+                )
             } else {
                 None
             };
@@ -651,7 +793,7 @@ impl Reader {
                         .ok_or_else(|| failed("read group count overflow"))?;
                     let mut builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(input, metadata.clone())
                         .with_row_groups(vec![region.index]).with_projection(mask).with_batch_size(self.batch_rows);
-                    if let Some(limit) = prepared.max_rows {
+                    if let Some(limit) = prepared.max_rows.filter(|_| source.table.is_none()) {
                         region.rows = region.rows.min(limit.saturating_sub(self.rows));
                         builder = builder.with_limit(usize::try_from(region.rows).map_err(failed)?);
                     }
@@ -760,21 +902,35 @@ impl Reader {
             .other
             .as_ref()
             .ok_or_else(|| failed("generic source owner missing"))?;
-        Ok(ColumnarReadReport {
-            format: source.format,
-            projected_columns: prepared.projection.len(),
-            available_columns: source.schema.fields().len(),
-            physical_leaf_columns: source
-                .files
-                .iter()
-                .map(|file| {
-                    schema::local_projection(&file.schema, &source.schema, &prepared.projection)
+        let physical_leaf_columns = source.files.iter().try_fold(0, |maximum, file| {
+            let projection = if let Some(mapping) = &file.table {
+                mapping.projection(&file.schema, &prepared.projection)?
+            } else {
+                schema::local_projection(&file.schema, &source.schema, &prepared.projection)
+            };
+            Ok::<_, shardloom_core::ShardLoomError>(
+                maximum.max(
+                    projection
                         .iter()
                         .map(|&index| schema::physical_leaves(file.schema.field(index).data_type()))
-                        .sum()
-                })
-                .max()
-                .unwrap_or(0),
+                        .sum(),
+                ),
+            )
+        })?;
+        Ok(ColumnarReadReport {
+            format: source.format,
+            table_snapshot: source
+                .table
+                .as_ref()
+                .map(|table| super::TableSnapshotReadReport {
+                    format: table.format,
+                    protocol_version: table.version,
+                    snapshot: table.id.clone(),
+                    location: table.root.to_string_lossy().into_owned(),
+                }),
+            projected_columns: prepared.projection.len(),
+            available_columns: source.schema.fields().len(),
+            physical_leaf_columns,
             row_groups_total: prepared.source.row_groups_total,
             row_groups_read: self.row_groups_read,
             rows_decoded: self.decoded_rows,

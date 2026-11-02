@@ -93,6 +93,35 @@ struct PublicSourceBinding {
     input_format: String,
     source_schema: Option<String>,
     memory_input: Option<crate::native_memory_input::MemoryInput>,
+    #[serde(default)]
+    table_snapshot: Option<PublicTableSnapshot>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct PublicTableSnapshot {
+    pub(super) snapshot_id: Option<i64>,
+    pub(super) version: Option<u64>,
+    pub(super) instant: Option<String>,
+}
+
+impl PublicTableSnapshot {
+    pub(super) fn to_selection(&self) -> shardloom_core::input::LocalTableSelection {
+        shardloom_core::input::LocalTableSelection {
+            snapshot_id: self.snapshot_id,
+            version: self.version,
+            instant: self.instant.clone(),
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn from_selection(selection: &shardloom_core::input::LocalTableSelection) -> Self {
+        Self {
+            snapshot_id: selection.snapshot_id,
+            version: selection.version,
+            instant: selection.instant.clone(),
+        }
+    }
 }
 
 fn parse_public_source_bindings(
@@ -123,6 +152,26 @@ fn parse_public_source_bindings(
             return Err(invalid("source URI must contain 1..=16384 bytes"));
         }
         binding.input_format = normalize_input_format(&binding.input_format)?;
+        if let Some(snapshot) = &binding.table_snapshot {
+            if !matches!(binding.input_format.as_str(), "iceberg" | "delta" | "hudi") {
+                return Err(invalid(
+                    "table_snapshot requires an Iceberg, Delta, or Hudi source",
+                ));
+            }
+            snapshot
+                .to_selection()
+                .validate_for(&binding.input_format)?;
+        } else if matches!(binding.input_format.as_str(), "iceberg" | "delta" | "hudi") {
+            shardloom_core::input::LocalTableSelection::default()
+                .validate_for(&binding.input_format)?;
+        }
+        if matches!(binding.input_format.as_str(), "iceberg" | "delta" | "hudi")
+            && (binding.source_schema.is_some() || binding.memory_input.is_some())
+        {
+            return Err(invalid(
+                "table sources cannot declare source_schema or memory_input",
+            ));
+        }
         if binding.input_format == "memory" {
             if !uri.starts_with("memory://") || binding.source_schema.is_some() {
                 return Err(invalid(
@@ -5108,6 +5157,7 @@ fn prepared_local_workflow_native_request(
                     input_format: "vortex".into(),
                     source_schema: None,
                     memory_input: None,
+                    table_snapshot: None,
                 },
             );
         }
@@ -12932,7 +12982,7 @@ fn normalize_input_format(value: &str) -> Result<String, ShardLoomError> {
     let normalized = value.trim().to_ascii_lowercase().replace('_', "-");
     match normalized.as_str() {
         "csv" | "tsv" | "json" | "jsonl" | "ndjson" | "parquet" | "arrow-ipc" | "avro" | "orc"
-        | "vortex" | "memory" => Ok(normalized),
+        | "vortex" | "memory" | "iceberg" | "delta" | "hudi" => Ok(normalized),
         _ => Err(ShardLoomError::InvalidOperation(format!(
             "unsupported route input format: {value}"
         ))),
@@ -14956,6 +15006,7 @@ mod tests {
                         input_format: format.into(),
                         source_schema: None,
                         memory_input: None,
+                        table_snapshot: None,
                     },
                 );
                 request.infer_defaults();

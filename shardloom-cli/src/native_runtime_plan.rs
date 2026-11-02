@@ -678,6 +678,7 @@ impl NativeRelationDeclaration {
                 .iter()
                 .find(|binding| binding.reference == reference);
             let supported = match binding.map(|binding| &binding.source) {
+                Some(super::SqlSource::Table { .. }) => false,
                 Some(super::SqlSource::File { format, .. }) => {
                     matches!(format.as_str(), "vortex" | "parquet" | "arrow-ipc")
                 }
