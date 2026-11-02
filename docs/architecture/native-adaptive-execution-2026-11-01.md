@@ -19,24 +19,54 @@ separately. [PR #1640](https://github.com/depsilon/shardloom/pull/1640) merged a
 both review findings were fixed. That merge does not close item 23, the broader
 local read-only format additions, or the combined portable-evidence/docs/website
 work. The new dynamic baseline below precedes the remaining integration checks
-and new table-format readers. Full43 stays on hold.
+and new table-format readers. Subsequent explicit Full43 authorizations and their
+completed observations are recorded below; they do not authorize routine repeats.
 
 ## Dynamic runtime timing baseline
 
 The November 2 single pass completes all 347 original queries once and verifies
 all 12,565 result rows against their independent references. Engine time is
 **12.144043291 seconds**. This is the new dynamic-runtime timing baseline,
-not a performance-retention contest. No old-runtime query, resource sweep,
-competitor execution or Full43 run was performed. The existing outer memory/CPU
-ceilings remain enforced while the new runtime selects work dynamically.
+not a performance-retention contest. That 347-query observation included no
+old-runtime query, resource sweep, competitor execution or Full43 run. The
+existing outer memory/CPU ceilings remain enforced while the new runtime selects
+work dynamically.
 
 The [compact observation record](../benchmarks/evidence/native-adaptive-runtime-baseline-2026-11-02.json)
 binds the source, runtime and retained complete result evidence. Builds, subagents
 and other local task work were idle during query execution. Full input/runtime
-hashes and broad inventories occurred outside execution. Complete workspace,
+hashes and broad inventories occurred outside execution. Complete workspace
+validation subsequently passed on the corrected source described below;
 installed-package and hosted acceptance remain pending for
 [PR #1643](https://github.com/depsilon/shardloom/pull/1643); this observation does
 not complete item 23 or establish engine-wide ownership coverage.
+
+### Explicit fresh-ingest and Vortex Full43 observation
+
+The subsequently requested fresh native preparation and single Vortex Full43 pass
+complete on corrected source `f0bf6d46e0f589511dcbcfb77491fc227f9c8399`. Native
+ingestion takes **36.945 engine seconds**, prepared-state publication **6.695
+seconds**, and one execution of each of the 43 queries **40.592222712 seconds**.
+The combined engine total is **84.232222712 seconds**. Preparation validates
+99,997,497 source rows and publishes 112 native columns; all 381 complete query
+result rows match the independent references. No new independent all-cell
+readback of the native file is claimed.
+
+The earlier direct-Parquet Full43 observation is **528.630235292 engine seconds**.
+It uses the preceding runtime, while this prepared observation includes the
+bulk-ingest and CI admission corrections below. These are separate single
+observations with different input boundaries and builds, not a matched-build
+causal comparison or repeatability claim. The failed first ingestion remains
+recorded and excluded from the accepted total.
+
+Both fresh preparation and queries use the existing 24 GiB memory ceiling and
+12-lane ceiling, with dynamic work sizing. Other task jobs are idle during
+execution; full hashes and broad inventories occur outside it. Standard storage,
+deadline, result-validation, identity and cleanup guards pass. The
+[compact observation record](../benchmarks/evidence/native-adaptive-prepared-full43-2026-11-02.json)
+binds runtime/source/input identities, exact commands, complete-result digests
+and all 43 engine clocks to retained local evidence. Broader item 18/23 acceptance
+and the portable evidence packet remain open.
 
 ## Source and preparation milestone
 
@@ -417,8 +447,8 @@ Two new actual-reader controls reproduce the old 8,192-versus-65,536 mismatch.
 They cover complete nullable Unicode values and ordering, sequential/parallel
 source continuations, retained-owner release, unchanged public Arrow export,
 and shrinking/regrowth with held outputs. The corrected source-focused selection
-passes 179 tests, including both new controls. The fresh ingest/Full43 retry
-remains pending; the failed attempt is preserved separately.
+passes 179 tests, including both new controls. The corrected fresh ingest/Full43
+observation above passes; the failed attempt is preserved separately.
 
 ### November 2 CI admission corrections
 
@@ -460,8 +490,21 @@ and writes/callbacks remain single execution. The original wide-schema and
 large-key grants and complete-result assertions remain in force. The successful
 native workspace pass includes all six original failures, both bulk-ingest
 regressions and the adaptive ownership/pressure controls. Fresh large-input
-ingestion, Full43 and updated hosted checks remain pending; this local result
-does not close the broader item 18/23 acceptance audit.
+ingestion and Full43 now pass as recorded above. Updated hosted acceptance
+remains pending; these results do not close the broader item 18/23 acceptance audit.
+
+The next hosted run passes the original native failures and exposes a stale
+trusted runner checksum in the historical independent matrix replay. The
+direct-Parquet runner update changed file bytes while leaving the imported
+`equivalent()` function's AST unchanged. Refresh only that maintained binding:
+the original packets, expected results, verifier, corruption controls and
+historical reports remain byte-identical. Both replay wrappers pass, including
+18 correctness and 22 matrix corruption controls, 704 complete result pairs,
+368 schema statements and 48 terminal-order statements. The complete Python
+core shard succeeds with 1,061 tests run, including 41 skips. The
+[maintenance record](../benchmarks/evidence/native-independent-full43-2026-10-22/matrix-maintenance-2026-11-02.json)
+preserves the original failure and exact before/after identities. No engine
+execution or weakening of replay checks is part of this repair.
 
 The pinned Parquet 59.3.1, Arrow Avro 59.3.1 and ORC 0.9 reader builders accept a
 batch size; their ordinary iterator APIs retain it for the constructed reader.

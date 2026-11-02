@@ -1,0 +1,101 @@
+{
+  "schema_version": "shardloom.evidence_replay_maintenance.v1",
+  "date": "2026-11-02",
+  "status": "validated_replay_source_binding_refresh",
+  "source_revision": "f0bf6d46e0f589511dcbcfb77491fc227f9c8399",
+  "ci_failure": {
+    "run_id": 41430359839,
+    "job_id": 125227091937,
+    "test": "python.tests.test_independent_full43_evidence.IndependentFull43EvidenceTests.test_corrected_runtime_workload_matrix_and_corruption_controls",
+    "message": "trusted replay source changed"
+  },
+  "cause": "Direct-Parquet default-input and lifecycle changes in 448653dd changed the runner file identity. Historical matrix replay imports only equivalent(), whose AST is unchanged.",
+  "manifest_before": {
+    "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/matrix-manifest.json",
+    "bytes": 3740,
+    "sha256": "c91002bcb529e8c70f587fa5286dfb29ff3e9fd5bb79f35d384152771a052275"
+  },
+  "manifest_after": {
+    "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/matrix-manifest.json",
+    "bytes": 3740,
+    "sha256": "13ed38fbfbf17d41a99de37db2a348ce56ae61260b1f83c974e4aeb498597658"
+  },
+  "trusted_binding_before": {
+    "repository_path": "scripts/run_clickbench_query_uat.py",
+    "bytes": 28713,
+    "sha256": "4f1ddaa9d402de9a66561cf83519a4e4a99c8cbf7b06e3b0202311fe601b2781"
+  },
+  "trusted_binding_after": {
+    "repository_path": "scripts/run_clickbench_query_uat.py",
+    "bytes": 30336,
+    "sha256": "43cf7d9f3bca1dc1a27296c7b46db63a938527bb051c3f50edd0b95f85dbce6e"
+  },
+  "equivalent_function_ast_sha256": "e4a088a69587613f06637e1bff4e3b845d6ab7851ad0b7143c302db6ae9d1255",
+  "equivalent_function_ast_unchanged": true,
+  "unchanged_historical_evidence": [
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/matrix-records.json.xz",
+      "bytes": 4071672,
+      "sha256": "b91533b41e046dcfb4e7c4f50bd79f922161b8a81b58bbece4e9eb0ac5e965b4"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/records.json.xz",
+      "bytes": 3075208,
+      "sha256": "506e5555e20f77567dcc394e9b5f357e75a7d00a06a69a635e0c33563a33592a"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/verify_matrix_packet_951.py",
+      "bytes": 23558,
+      "sha256": "b8709c3ed9c49675f156e5f6004a2e3aac8b20410f134c98036f2b570a18ec38"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/test_matrix_packet_951.py",
+      "bytes": 14804,
+      "sha256": "8ea30c2185cfa8f69eb8877c8eaf3a8b56bf8b0d890a59ad73374b3b2a4f526c"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/matrix-validation.json",
+      "bytes": 32146,
+      "sha256": "8fac8eea57d31a2731972e5864f32c15667f5d23b03c056225c10de97a3d484a"
+    },
+    {
+      "repository_path": "docs/benchmarks/evidence/native-independent-full43-2026-10-22/matrix-replay.json",
+      "bytes": 616,
+      "sha256": "0ec7443f7eca34eeef25a26447f45a8b134a9b1537f0754bb92bdae97ce69656"
+    }
+  ],
+  "validation": {
+    "wrapper_tests": 2,
+    "correctness_corruption_controls": 18,
+    "matrix_corruption_controls": 22,
+    "complete_result_pairs": 704,
+    "logical_schema_statements": 368,
+    "terminal_order_statements": 48,
+    "core_shard_tests": 1061,
+    "core_shard_skipped": 41,
+    "runtime_executed": false,
+    "receipts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io553-python-core-evidence-reproduction.json",
+        "bytes": 3069,
+        "sha256": "d87eba37741e42926ad92fe818244d51d1a7ec9bbbb0a9def43046bbd3cd7592"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io554-historical-full43-evidence-controls.json",
+        "bytes": 3391,
+        "sha256": "773a2f3f8d888d32474f9650630a4f5c12754d7909fc9f6efe044b2fa71f9507"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io555-python-core-shard.json",
+        "bytes": 3871,
+        "sha256": "c990d7d3872897040bde41545afdab86f8a36b15fcd270317849ef72f6c603ee"
+      }
+    ],
+    "core_shard_result": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io555-python-core-shard/core.json",
+      "bytes": 6098,
+      "sha256": "c48f0581245f4c1cd230961e2d3235cca693d7a343b6811917cda2fde8c3e080"
+    }
+  },
+  "scope": "Only the maintained trusted runner binding is refreshed. Original packets, observations, expected values, historical replay reports, replay verifier and corruption controls remain byte-identical."
+}

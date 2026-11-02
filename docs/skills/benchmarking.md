@@ -100,6 +100,16 @@ The standard single-suite runner now defaults to Parquet and verifies completed
 direct-source evidence with zero prepared-input bytes. Preserve the earlier
 observations and the procedure below.
 
+The maintainer subsequently requests fresh native ingestion followed by one
+isolated Vortex Full43 pass, and authorizes the corrected retry after the first
+ingestion fails. That specific observation includes native preparation and
+prepared-state publication in its separate ingest engine total. Preserve the
+failed attempt, exact runtime identities and complete query results. The
+[accepted record](../benchmarks/evidence/native-adaptive-prepared-full43-2026-11-02.json)
+uses a corrected runtime, so its comparison with the preceding direct-Parquet
+observation is not an identical-build causal comparison. This exception does
+not change the ordinary direct-Parquet default or authorize additional repeats.
+
 **October 30 execution hold:** the maintainer defers all further Full43 runs
 until item 18's universal I/O work and its
 [cross-surface and format acceptance gate](../architecture/native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)
