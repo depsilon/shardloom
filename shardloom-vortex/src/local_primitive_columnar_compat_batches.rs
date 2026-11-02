@@ -148,10 +148,11 @@ impl PreparedCompatibilityExport {
         // Preserve the original field-major validation window before changing
         // physical conversion geometry. Its metadata and native arrays remain
         // owned until every selected part has completed its writer operation.
-        let _validation_metadata =
-            crate::native_payload_schema::reserve_schema(&self.plan.dtype, execution.memory())?;
+        let _validation_metadata = execution
+            .memory()
+            .reserve(sizing::canonical_metadata(&self.plan.dtype)?)?;
         let (validated, validated_bytes) =
-            admitted_canonical(array, &self.plan.columns, ctx, &limits)?;
+            admitted_canonical(array, &self.plan.dtype, ctx, &limits)?;
         let window = sizing::ConversionWindow::new(self, initial, array.len())?;
         let mut width = validated_bytes.div_ceil(array.len() as u64).max(1);
         let mut start = 0;
@@ -192,7 +193,7 @@ impl PreparedCompatibilityExport {
                         subset
                     };
                     let (canonical, expanded) =
-                        admitted_canonical(&subset, &self.plan.columns, ctx, &limits)?;
+                        admitted_canonical(&subset, &self.plan.dtype, ctx, &limits)?;
                     (canonical, expanded, Some(metadata))
                 };
                 if self.limits.streaming && expanded > self.limits.arrow_batch_bytes && count > 1 {

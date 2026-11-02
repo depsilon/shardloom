@@ -32,7 +32,7 @@ use vortex::{
     array::{
         ArrayRef, ExecutionCtx, IntoArray as _, VortexSessionExecute as _,
         arrays::StructArray,
-        dtype::{DType, FieldNames, Nullability},
+        dtype::{DType, Nullability},
         validity::Validity,
     },
     arrow::{ArrowExportOptions, ArrowSessionExt as _, CompactBuffers},
@@ -44,7 +44,7 @@ mod batches;
 #[path = "local_primitive_columnar_compat_sizing.rs"]
 mod sizing;
 #[cfg(test)]
-use vortex::array::arrays::VarBinViewArray;
+use vortex::array::{arrays::VarBinViewArray, dtype::FieldNames};
 
 #[derive(Clone)]
 pub(super) struct CompatibilityLimits {
@@ -289,7 +289,7 @@ fn add(total: &mut u64, value: u64) -> Result<()> {
 /// included conservatively in the byte bound; no scalar/string value is created.
 fn admitted_canonical(
     array: &ArrayRef,
-    names: &[String],
+    dtype: &DType,
     ctx: &mut ExecutionCtx,
     limits: &CompatibilityLimits,
 ) -> Result<(ArrayRef, u64)> {
@@ -297,22 +297,25 @@ fn admitted_canonical(
         return Err(error("native scan exceeded batch row admission"));
     }
     let mut expanded = 0_u64;
-    let mut children = Vec::with_capacity(names.len());
+    let fields = dtype
+        .as_struct_fields_opt()
+        .ok_or_else(|| error("canonical output requires a struct"))?;
+    let mut children = Vec::with_capacity(fields.nfields());
     let check = || limits.check();
     let conversion = nested::ConversionLimits {
         string_bytes: limits.string_bytes,
         arrow_batch_bytes: limits.arrow_batch_bytes,
         check: &check,
     };
-    for name in names {
+    for name in fields.names().iter() {
         limits.check()?;
-        let child = logical_field_from_native_array(array, name)?;
+        let child = logical_field_from_native_array(array, name.as_ref())?;
         let canonical = nested::canonical(&child, ctx, &conversion, &mut expanded)?;
         children.push(canonical);
     }
-    let packed = StructArray::try_new(
-        FieldNames::from(names.iter().map(String::as_str).collect::<Vec<_>>()),
+    let packed = StructArray::try_new_with_dtype(
         children,
+        fields.clone(),
         array.len(),
         Validity::NonNullable,
     )

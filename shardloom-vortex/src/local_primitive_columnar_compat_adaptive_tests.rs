@@ -117,6 +117,37 @@ fn verify(path: &Path, format: VortexLocalPrimitiveRowExportFormat) {
 }
 
 #[test]
+fn adaptive_compatibility_canonicalization_shares_the_admitted_root_dtype() {
+    let prepared = prepared(VortexLocalPrimitiveRowExportFormat::ArrowIpc);
+    let memory = prepared.plan.session.memory().clone();
+    let baseline = memory.snapshot().reserved_bytes;
+    prepared
+        .plan
+        .session
+        .with_native_execution_context(&CancellationToken::default(), |execution| {
+            let input = native_payload::detach(&array(), execution)?;
+            let credit = memory.reserve(sizing::canonical_metadata(&prepared.plan.dtype)?)?;
+            let mut context = execution.native_session().create_execution_ctx();
+            let (canonical, _) =
+                admitted_canonical(&input, &prepared.plan.dtype, &mut context, &prepared.limits)?;
+            assert_eq!(canonical.len(), ROWS);
+            assert_eq!(canonical.dtype(), input.dtype());
+            // Equal values alone would miss reconstruction of the wide name/type
+            // tree. Vortex's checked constructor must retain the prepared owner.
+            assert!(std::ptr::eq(
+                canonical.dtype().as_struct_fields().names(),
+                prepared.plan.dtype.as_struct_fields().names(),
+            ));
+            drop((canonical, credit, input));
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 #[allow(clippy::too_many_lines)] // Exercise real writers, pressure feedback, complete values and final credit release together.
 fn adaptive_compatibility_writers_use_prepaid_workspace_and_regrow_after_pressure() {
     for format in formats() {
@@ -152,7 +183,7 @@ fn adaptive_compatibility_writers_use_prepaid_workspace_and_regrow_after_pressur
                 let mut context = execution.native_session().create_execution_ctx();
                 let (measured, bytes) = admitted_canonical(
                     &array,
-                    &prepared.plan.columns,
+                    &prepared.plan.dtype,
                     &mut context,
                     &prepared.limits,
                 )?;
@@ -160,7 +191,7 @@ fn adaptive_compatibility_writers_use_prepaid_workspace_and_regrow_after_pressur
                 let window = sizing::ConversionWindow::new(&prepared, initial, ROWS)?;
                 let cost =
                     window.cost(&writer, 0, owner.bytes(), 4, bytes.div_ceil(ROWS as u64))?;
-                let keep = crate::native_payload_schema::schema_bytes(&prepared.plan.dtype)?
+                let keep = sizing::canonical_metadata(&prepared.plan.dtype)?
                     + cost.fixed_bytes
                     + 4 * cost.bytes_per_unit;
                 assert!(keep < initial);
@@ -228,8 +259,7 @@ fn adaptive_compatibility_minimum_denial_never_writes_a_batch_or_publishes() {
                     calls += 1;
                     let array = native_payload::detach(&array(), context)?;
                     let snapshot = memory.snapshot();
-                    let keep =
-                        crate::native_payload_schema::schema_bytes(&prepared.plan.dtype)? + 1;
+                    let keep = sizing::canonical_metadata(&prepared.plan.dtype)? + 1;
                     let _pressure =
                         memory.reserve(snapshot.limit_bytes - snapshot.reserved_bytes - keep)?;
                     consume(array)?;

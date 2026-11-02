@@ -295,6 +295,7 @@ impl Decoder {
             context.memory(),
             self.cost,
             self.expected_rows - self.emitted_rows,
+            batch_work::MAX_ROWS,
         )?;
         if let Some(selected) = selected {
             self.reader

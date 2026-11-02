@@ -385,6 +385,84 @@ Owned batches retain credits through handoff; existing single-file dictionary,
 derived-column and physical-extent evidence remains part of preparation.
 Public-route and broader regression acceptance of this continuation is pending.
 
+### November 2 bulk-preparation geometry correction
+
+The explicitly requested fresh 99,997,497-row Parquet ingestion completed its
+native file write but failed at prepared-binding reopen with the provider's
+`Too many tables` error. The failed artifact contains 12,218 nonempty root
+children, 3,433,259 layout tables and 170,905,496 layout bytes; its 112-field
+schema includes the existing derived fields. Both the task planner and per-batch
+decoder had inherited the ordinary query ceiling of 8,192 rows. The retained
+bounded writer creates one subtree per batch, multiplying file metadata.
+
+Restore the existing product-ingest ceiling for the sealed, complete Parquet
+producer: 65,536 rows for ordinary bulk sources and 262,144 at the existing
+10-million-row threshold, with smaller/empty extents bounded by the same policy.
+The common task and decoder sizing still narrows actual work for shared headroom,
+queue overlap, provider workspace and observed row costs. Ordinary query readers,
+public Arrow export and other providers retain their existing limits. The input
+generation, native transfer proof, derived recipe, writer layout, reader verifier
+and memory/CPU ceilings are unchanged. This is a preparation correctness repair,
+not a query-specific strategy or an automatic preparation policy.
+
+Vortex-first decision: use the existing Vortex 0.90 bounded native writer and
+layout verifier, and the already admitted Parquet decoder continuation. Change
+the ShardLoom consumer's work ceiling instead of adding a layout/provider or
+relaxing verifier limits. Very fragmented physical sources or pressure-limited
+outputs still require the existing explicit admission and reopen checks; this
+correction does not claim arbitrary file sizes or layouts fit those limits.
+No external engine or fallback is introduced.
+
+Two new actual-reader controls reproduce the old 8,192-versus-65,536 mismatch.
+They cover complete nullable Unicode values and ordering, sequential/parallel
+source continuations, retained-owner release, unchanged public Arrow export,
+and shrinking/regrowth with held outputs. The corrected source-focused selection
+passes 179 tests, including both new controls. The fresh ingest/Full43 retry
+remains pending; the failed attempt is preserved separately.
+
+### November 2 CI admission corrections
+
+PR 1643's native partitions 0, 2 and 3 report six failures, reproduced by the
+local workspace pass. The aggregate native gate consequently fails. Preserve
+those observations and the stopped local pass; they are not flaky-check waivers.
+
+The spill merge forecast previously multiplied the full gather ceiling by a
+physical block's size even when the two runs contained only a few rows. Bound
+the forecast by each run's actual block count, include partial heads and future
+replacement overlap, and exclude the payload bytes of the two already held
+heads. The gather/validation order and physical writer, actual reservations,
+spill permission and memory ceilings remain unchanged.
+
+The original 4 MiB correlated-membership regression also exposed an invented
+second gathered payload when physical blocks divide the fixed validation
+window. Such blocks drain one window before requesting the next; crossing
+blocks retain the existing two-window forecast. Keep writer/queued block
+overlap, gather scratch, metadata and reader overlap in both estimates. The
+original pressure grant, failure controls and complete-result checks remain
+unchanged. The aligned-window correction passes all six original CI failures.
+Its focused run also identifies a test that expected the older, more expensive
+17-row choice beneath a 32-row validation window; the corrected estimate admits
+32 rows. Set that positional-read/replay fixture's validation window to 34 rows
+so pressure still selects 17, preserving all values, block boundaries, ownership
+and cleanup assertions. The separate crossing-window payload test retains its
+17/32 geometry. Preserve both intermediate 17-of-18 focused observations and
+the diagnostic failure. Complete workspace/all-target tests now pass with both
+default features and `release-user-surfaces`, as do both strict Clippy selections
+and the workspace formatting check. Local checks use the existing `ci-native`
+profile to keep compiler artifacts bounded; hosted CI retains its normal matrix.
+
+Compatibility validation now reuses the prepared Vortex `StructFields` through
+the checked `StructArray::try_new_with_dtype` constructor. Account fresh child
+vectors, facades and nested metadata without allocating or charging a duplicate
+root name/type tree. Partial conversion still owns its separately constructed
+schema and compacted payload. Complete field-major validation precedes conversion,
+and writes/callbacks remain single execution. The original wide-schema and
+large-key grants and complete-result assertions remain in force. The successful
+native workspace pass includes all six original failures, both bulk-ingest
+regressions and the adaptive ownership/pressure controls. Fresh large-input
+ingestion, Full43 and updated hosted checks remain pending; this local result
+does not close the broader item 18/23 acceptance audit.
+
 The pinned Parquet 59.3.1, Arrow Avro 59.3.1 and ORC 0.9 reader builders accept a
 batch size; their ordinary iterator APIs retain it for the constructed reader.
 IPC framing is supplied by the file. Do not claim changing a post-read slice

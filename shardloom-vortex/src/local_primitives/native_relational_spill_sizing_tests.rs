@@ -207,11 +207,20 @@ fn adaptive_spill_records_physical_geometry_for_positional_reads_and_replay() {
     let held = session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let state = State::new(&policy, context)?;
-            let mut order = Ordering::new(&spec, &state, WINDOW, context)?;
+            // A 17-row physical frame divides this validation window. Under
+            // pressure it is cheaper than the full window, while still proving
+            // that positional reads and replay honor a non-power-of-two frame.
+            let mut order = Ordering::new(&spec, &state, 34, context)?;
             order.build(native_payload::detach(&array, context)?, context)?;
             let pressure = pressure_for_block(&mut order, 64, 17, context)?;
             order.flush(context)?;
             assert_eq!(order.runs.values[0].native.block_rows, 17);
+            let run = &order.runs.values[0];
+            // Two runs of this geometry contain only four blocks each. A
+            // larger gather ceiling cannot invent additional physical blocks;
+            // both current heads are already held by the memory owner.
+            let overlap = sizing::merge_reader_overlap(128, run, run, 2 * run.maximum_block_bytes)?;
+            assert_eq!(overlap, 6 * run.maximum_block_bytes);
             drop(pressure);
             let stored = order.retain(context)?;
             assert!(stored.is_spilled());

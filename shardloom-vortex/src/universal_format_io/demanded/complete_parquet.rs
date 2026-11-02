@@ -48,8 +48,9 @@ pub(super) fn ingest(
             Ok((start, end))
         })
         .collect::<Result<Vec<_>>>()?;
-    let tasks = (requested > 1 && groups.len() > 1)
-        .then(|| io::parquet_row_group_read_tasks(groups.len(), Some(&rows), 8192));
+    let tasks = (requested > 1 && groups.len() > 1).then(|| {
+        io::parquet_row_group_read_tasks(groups.len(), Some(&rows), source.source_stream_batch_size)
+    });
     source.source_stream_unit_count_hint = Some(tasks.as_ref().map_or(groups.len(), Vec::len));
     source.source_stream_unit_row_ranges = tasks.as_ref().map_or_else(
         || Some(ranges.clone()),
@@ -125,7 +126,11 @@ fn ordered_tasks(
         .ok_or_else(|| failed("complete Parquet task capacity overflow"))?;
     credit.resize(task_bytes)?;
     let runtime = io::IngestRuntime::new(requested)?;
-    let (window, batch_rows) = task_shape(reader, runtime.parallelism().min(task_count))?;
+    let (window, batch_rows) = task_shape(
+        reader,
+        runtime.parallelism().min(task_count),
+        source.source_stream_batch_size,
+    )?;
     let mut factories = Vec::with_capacity(task_count);
     for task in tasks {
         reader.cancellation.check()?;
@@ -194,7 +199,11 @@ fn annotation_name_bytes(reader: &CompleteReader) -> Result<u64> {
         })
 }
 
-fn task_shape(reader: &CompleteReader, parallelism: usize) -> Result<(usize, usize)> {
+fn task_shape(
+    reader: &CompleteReader,
+    parallelism: usize,
+    batch_row_ceiling: usize,
+) -> Result<(usize, usize)> {
     let source = reader
         .prepared
         .source
@@ -235,7 +244,7 @@ fn task_shape(reader: &CompleteReader, parallelism: usize) -> Result<(usize, usi
         max_rows = max_rows.max(group.rows);
     }
     if max_rows == 0 {
-        return Ok((1, 8192));
+        return Ok((1, batch_row_ceiling));
     }
     let retained = (SourceReader::<OwnedBatch>::QUEUED_BATCHES + 1) as u64;
     let cost = WorkCost {
@@ -255,7 +264,7 @@ fn task_shape(reader: &CompleteReader, parallelism: usize) -> Result<(usize, usi
         cost,
         WorkLimits {
             min_units: 1,
-            max_units: max_rows.min(8192),
+            max_units: max_rows.min(batch_row_ceiling as u64),
             max_in_flight: parallelism,
         },
     )?;

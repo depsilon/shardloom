@@ -21,6 +21,7 @@ impl Sizing {
         memory: &LiveMemoryPool,
         cost: WorkCost,
         remaining: u64,
+        maximum_rows: usize,
     ) -> Result<Option<WorkShape>> {
         // A known empty extent still follows the provider's EOF/validation
         // path. It does not need or certify an invented positive work unit.
@@ -34,7 +35,7 @@ impl Sizing {
                 cost,
                 WorkLimits {
                     min_units: 1,
-                    max_units: remaining.min(MAX_ROWS as u64),
+                    max_units: remaining.min(maximum_rows as u64),
                     max_in_flight: 1,
                 },
             )

@@ -7,6 +7,24 @@ use shardloom_exec::live_memory::LiveMemorySnapshot;
 
 const OWNER: &str = "compatibility_writer";
 
+/// The prepared root dtype is shared through Vortex's `StructFields` owner.
+/// Charge fresh child vectors/facades and nested canonical metadata, without
+/// charging another root name/type tree that this conversion never constructs.
+pub(super) fn canonical_metadata(dtype: &vortex::array::dtype::DType) -> Result<u64> {
+    let fields = dtype
+        .as_struct_fields_opt()
+        .ok_or_else(|| error("canonical output requires a struct"))?;
+    let slots = usize_to_u64(fields.nfields())?
+        .checked_mul(4 * std::mem::size_of::<vortex::array::ArrayRef>() as u64)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(|| error("canonical metadata size overflow"))?;
+    fields.fields().try_fold(slots, |bytes, child| {
+        bytes
+            .checked_add(crate::native_payload_schema::metadata_bytes(&child)?)
+            .ok_or_else(|| error("canonical metadata size overflow"))
+    })
+}
+
 pub(super) struct ConversionWindow<'a> {
     export: &'a PreparedCompatibilityExport,
     initial: u64,

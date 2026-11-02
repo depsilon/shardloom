@@ -67,14 +67,18 @@ impl RunWork {
     ) -> Result<WorkCost> {
         let gather_rows = rows.min(self.validation_rows as u64);
         let metadata_bytes = run_metadata_bytes(spec, rows, block_rows)?;
-        // Two gathered payload windows can overlap when a physical block spans
-        // their boundary. Only the newer window's selection scratch is active.
-        // Include nested coordinates, provider fixed-list expansion, table and
-        // schema/slice structures as well as the writer's current block.
-        // Already held input/work leases remain in the pool snapshot.
-        let fixed_bytes = self
-            .cost
-            .bytes_per_unit
+        // A physical block crossing a gather boundary retains two windows.
+        // A divisor of the validation window drains that window before asking
+        // for another, so only one gathered payload is additional. The cost's
+        // two-copy row estimate still covers writer/queued block overlap below.
+        // Keep per-row framing, newer-window scratch and all schema structures;
+        // already held input/work leases remain in the pool snapshot.
+        let gather_bytes_per_row = if (self.validation_rows as u64).is_multiple_of(block_rows) {
+            self.cost.bytes_per_unit.div_ceil(2).saturating_add(8)
+        } else {
+            self.cost.bytes_per_unit
+        };
+        let fixed_bytes = gather_bytes_per_row
             .checked_add(self.gather_scratch_per_row)
             .and_then(|bytes| bytes.checked_add(128))
             .and_then(|bytes| bytes.checked_mul(gather_rows))
@@ -243,28 +247,42 @@ impl<I: Iterator<Item = Result<ArrayRef>>> Blocks<'_, I> {
 }
 
 /// A fixed gather window can cross several smaller physical input blocks.
-/// Charge the largest joint overlap across its possible left/right selections;
-/// the two current heads are already held in the shared pool snapshot. Rounding
-/// also covers a replacement head loaded before the next merge comparison.
+/// Charge the largest joint overlap across its possible left/right selections.
+/// Bound it by actual run extents and subtract only the two payloads already
+/// held in the shared pool. A short run cannot supply an invented full window.
 pub(super) fn merge_reader_overlap(
     rows: usize,
-    left_rows: usize,
-    left_bytes: u64,
-    right_rows: usize,
-    right_bytes: u64,
+    left: &super::Run,
+    right: &super::Run,
+    held_payload_bytes: u64,
 ) -> Result<u64> {
-    if left_rows == 0 || right_rows == 0 {
+    if left.native.block_rows == 0 || right.native.block_rows == 0 {
         return Err(failed("spill merge input block rows must be positive"));
     }
-    (0..=rows).try_fold(0, |peak, selected| {
-        let left = (selected.div_ceil(left_rows) as u64)
-            .checked_mul(left_bytes)
+    let total = left
+        .native
+        .rows
+        .checked_add(right.native.rows)
+        .ok_or_else(capacity_error)?;
+    let rows = rows.min(usize::try_from(total).unwrap_or(usize::MAX));
+    let retained = |selected: usize, run: &super::Run| {
+        // A partly consumed head plus every replacement needed by this gather.
+        // Include an unselected head, but never more blocks than the file owns.
+        let blocks = (selected as u64)
+            .div_ceil(run.native.block_rows as u64)
+            .saturating_add(1)
+            .min(run.native.rows.div_ceil(run.native.block_rows as u64));
+        blocks
+            .checked_mul(run.maximum_block_bytes)
+            .ok_or_else(capacity_error)
+    };
+    let peak = (0..=rows).try_fold(0, |peak, selected| {
+        let bytes = retained(selected, left)?
+            .checked_add(retained(rows - selected, right)?)
             .ok_or_else(capacity_error)?;
-        let right = ((rows - selected).div_ceil(right_rows) as u64)
-            .checked_mul(right_bytes)
-            .ok_or_else(capacity_error)?;
-        Ok(peak.max(left.checked_add(right).ok_or_else(capacity_error)?))
-    })
+        Ok::<_, shardloom_core::ShardLoomError>(peak.max(bytes))
+    })?;
+    Ok(peak.saturating_sub(held_payload_bytes))
 }
 
 impl<I: Iterator<Item = Result<ArrayRef>>> Iterator for Blocks<'_, I> {

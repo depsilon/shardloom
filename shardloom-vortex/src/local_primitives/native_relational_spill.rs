@@ -453,10 +453,9 @@ impl<'p, 's> Ordering<'p, 's> {
         let workspace = self.state.run_workspace_cost()?;
         let overlap = sizing::merge_reader_overlap(
             self.block_rows,
-            left.native.block_rows,
-            left.maximum_block_bytes,
-            right.native.block_rows,
-            right.maximum_block_bytes,
+            &left,
+            &right,
+            merger.held_payload_bytes()?,
         )?
         .checked_add(workspace)
         .ok_or_else(|| failed("spill merge overlap estimate overflow"))?;
@@ -639,6 +638,19 @@ struct Merge<'a> {
 }
 
 impl<'a> Merge<'a> {
+    fn held_payload_bytes(&self) -> Result<u64> {
+        self.cursors.iter().try_fold(0_u64, |bytes, cursor| {
+            bytes
+                .checked_add(
+                    cursor
+                        .block
+                        .as_ref()
+                        .map_or(0, |block| block.batch.array.nbytes()),
+                )
+                .ok_or_else(|| failed("spill merge held payload size overflow"))
+        })
+    }
+
     fn new(
         spec: &'a Spec,
         left: Reader<'a>,
