@@ -18,17 +18,15 @@
 // Modified from https://github.com/DataEngineeringLabs/orc-format/blob/416490db0214fc51d53289253c0ee91f7fc9bc17/src/read/decompress/mod.rs
 //! Related code for handling compression and decompression of ORC files.
 
-use std::{
-    borrow::Cow,
-    io::{Read, Write},
-};
+use std::{borrow::Cow, io::Write, sync::Arc};
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use fallible_streaming_iterator::FallibleStreamingIterator;
 use snafu::ResultExt;
 
 use crate::error::{self, OrcError, Result};
 use crate::proto::{self, CompressionKind};
+use crate::reader::memory::{invalid, DecoderBuffer, DecoderMemory};
 
 // Spec states default is 256K
 const DEFAULT_COMPRESSION_BLOCK_SIZE: u64 = 256 * 1024;
@@ -63,7 +61,8 @@ impl Compression {
         compression_block_size: Option<u64>,
     ) -> Option<Self> {
         let max_decompressed_block_size =
-            compression_block_size.unwrap_or(DEFAULT_COMPRESSION_BLOCK_SIZE) as usize;
+            usize::try_from(compression_block_size.unwrap_or(DEFAULT_COMPRESSION_BLOCK_SIZE))
+                .unwrap_or(usize::MAX);
         match kind {
             CompressionKind::None => None,
             CompressionKind::Zlib => Some(Self {
@@ -153,7 +152,16 @@ impl CompressionHeader {
 }
 
 trait DecompressorVariant: Send {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()>;
+    fn prepare_workspace(&self, _scratch: &DecoderBuffer) -> Result<()> {
+        Ok(())
+    }
+
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()>;
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -165,61 +173,124 @@ struct Snappy;
 #[derive(Debug, Clone, Copy)]
 struct Lzo;
 #[derive(Debug, Clone, Copy)]
-struct Lz4 {
-    max_decompressed_block_size: usize,
-}
+struct Lz4;
 
 impl DecompressorVariant for Zlib {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()> {
-        let mut gz = flate2::read::DeflateDecoder::new(compressed_bytes);
-        scratch.clear();
-        gz.read_to_end(scratch).context(error::IoSnafu)?;
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()> {
+        use miniz_oxide::inflate::{core, TINFLStatus};
+
+        // Raw Deflate has a bounded stack decoder and uses the complete,
+        // credited output as its history; no hidden heap/window is needed.
+        scratch.resize(maximum, maximum).context(error::IoSnafu)?;
+        let mut state = core::DecompressorOxide::new();
+        let (status, consumed, written) = core::decompress(
+            &mut state,
+            compressed_bytes,
+            &mut scratch.bytes,
+            0,
+            core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+        );
+        if status != TINFLStatus::Done || consumed != compressed_bytes.len() {
+            return Err(invalid("invalid, truncated or oversized ORC Deflate block"))
+                .context(error::IoSnafu);
+        }
+        scratch.bytes.truncate(written);
         Ok(())
     }
 }
 
 impl DecompressorVariant for Zstd {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()> {
-        let mut reader =
-            zstd::Decoder::new(compressed_bytes).context(error::BuildZstdDecoderSnafu)?;
-        scratch.clear();
-        reader.read_to_end(scratch).context(error::IoSnafu)?;
+    fn prepare_workspace(&self, scratch: &DecoderBuffer) -> Result<()> {
+        if let Some(memory) = scratch.memory() {
+            memory.prepare_zstd().context(error::IoSnafu)?;
+        }
+        Ok(())
+    }
+
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()> {
+        if let Some(memory) = scratch.memory() {
+            scratch.resize(maximum, maximum).context(error::IoSnafu)?;
+            let written = memory
+                .decode_zstd(compressed_bytes, &mut scratch.bytes)
+                .context(error::IoSnafu)?;
+            if written > maximum {
+                return Err(invalid("Zstandard decoder exceeded its destination"))
+                    .context(error::IoSnafu);
+            }
+            scratch.bytes.truncate(written);
+            return Ok(());
+        }
+        let reader = zstd::Decoder::new(compressed_bytes).context(error::BuildZstdDecoderSnafu)?;
+        scratch
+            .read_block(reader, maximum)
+            .context(error::IoSnafu)?;
         Ok(())
     }
 }
 
 impl DecompressorVariant for Snappy {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()> {
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()> {
         let len =
             snap::raw::decompress_len(compressed_bytes).context(error::BuildSnappyDecoderSnafu)?;
-        scratch.resize(len, 0);
+        scratch.resize(len, maximum).context(error::IoSnafu)?;
         let mut decoder = snap::raw::Decoder::new();
         decoder
-            .decompress(compressed_bytes, scratch)
+            .decompress(compressed_bytes, &mut scratch.bytes)
             .context(error::BuildSnappyDecoderSnafu)?;
         Ok(())
     }
 }
 
 impl DecompressorVariant for Lzo {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()> {
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()> {
+        // The pinned LZO API only exposes an allocating, unbounded decoder.
+        // Its `expected_size` argument is a hint, not an enforced output cap.
+        if scratch.controlled() {
+            return Err(invalid("LZO decoder has no bounded allocation interface"))
+                .context(error::IoSnafu);
+        }
         let decompressed = lzokay_native::decompress_all(compressed_bytes, None)
             .context(error::BuildLzoDecoderSnafu)?;
-        // TODO: better way to utilize scratch here
-        scratch.clear();
-        scratch.extend(decompressed);
+        scratch.bytes.clear();
+        scratch
+            .grow(decompressed.len(), maximum)
+            .context(error::IoSnafu)?;
+        scratch.bytes.extend(decompressed);
         Ok(())
     }
 }
 
 impl DecompressorVariant for Lz4 {
-    fn decompress_block(&self, compressed_bytes: &[u8], scratch: &mut Vec<u8>) -> Result<()> {
-        let decompressed =
-            lz4_flex::block::decompress(compressed_bytes, self.max_decompressed_block_size)
-                .context(error::BuildLz4DecoderSnafu)?;
-        // TODO: better way to utilize scratch here
-        scratch.clear();
-        scratch.extend(decompressed);
+    fn decompress_block(
+        &self,
+        compressed_bytes: &[u8],
+        scratch: &mut DecoderBuffer,
+        maximum: usize,
+    ) -> Result<()> {
+        scratch.resize(maximum, maximum).context(error::IoSnafu)?;
+        let length = lz4_flex::block::decompress_into(compressed_bytes, &mut scratch.bytes)
+            .context(error::BuildLz4DecoderSnafu)?;
+        scratch.bytes.truncate(length);
         Ok(())
     }
 }
@@ -227,42 +298,78 @@ impl DecompressorVariant for Lz4 {
 // TODO: push this earlier so we don't check this variant each time
 fn get_decompressor_variant(
     Compression {
-        compression_type,
-        max_decompressed_block_size,
+        compression_type, ..
     }: Compression,
 ) -> Box<dyn DecompressorVariant> {
     match compression_type {
         CompressionType::Zlib => Box::new(Zlib),
         CompressionType::Snappy => Box::new(Snappy),
         CompressionType::Lzo => Box::new(Lzo),
-        CompressionType::Lz4 => Box::new(Lz4 {
-            max_decompressed_block_size,
-        }),
+        CompressionType::Lz4 => Box::new(Lz4),
         CompressionType::Zstd => Box::new(Zstd),
     }
 }
 
 enum State {
     Original(Bytes),
-    Compressed(Vec<u8>),
+    Compressed,
 }
 
 struct DecompressorIter {
-    stream: BytesMut,
+    stream: Bytes,
     current: Option<State>, // when we have compression but the value is original
     compression: Option<Box<dyn DecompressorVariant>>,
-    scratch: Vec<u8>,
+    maximum: usize,
+    scratch: DecoderBuffer,
 }
 
 impl DecompressorIter {
     fn new(stream: Bytes, compression: Option<Compression>, scratch: Vec<u8>) -> Self {
         Self {
-            stream: BytesMut::from(stream.as_ref()),
+            stream,
             current: None,
             compression: compression.map(get_decompressor_variant),
-            scratch,
+            maximum: compression.map_or(0, |value| value.max_decompressed_block_size),
+            scratch: DecoderBuffer::new(scratch, None),
         }
     }
+
+    fn prepare_continuation(&mut self) -> Result<()> {
+        if !self.scratch.controlled() || !has_compressed_block(&self.stream) {
+            return Ok(());
+        }
+        if let Some(compression) = &self.compression {
+            // A stored first block must not hide later decoder work from the
+            // caller's row sizer. Own the actual bounded payload/context now.
+            // This is a conservative format-capacity reservation, not a claim
+            // that the declared maximum is the smallest possible workspace.
+            self.scratch
+                .grow(self.maximum, self.maximum)
+                .context(error::IoSnafu)?;
+            compression.prepare_workspace(&self.scratch)?;
+        }
+        Ok(())
+    }
+}
+
+/// Inspect framing without consuming bytes or advancing lazy validation/errors.
+/// A malformed extent cannot lead to another block before ordinary decode fails.
+fn has_compressed_block(mut bytes: &[u8]) -> bool {
+    while let Some(header) = bytes.get(..3) {
+        let header = CompressionHeader::decode([header[0], header[1], header[2]]);
+        let (CompressionHeader::Original(length) | CompressionHeader::Compressed(length)) = header;
+        let Some(rest) = bytes
+            .get(3..)
+            .and_then(|bytes| bytes.get(length as usize..))
+        else {
+            return false;
+        };
+        if matches!(header, CompressionHeader::Compressed(_)) {
+            return true;
+        }
+        bytes = rest;
+    }
+    false
 }
 
 impl FallibleStreamingIterator for DecompressorIter {
@@ -272,33 +379,66 @@ impl FallibleStreamingIterator for DecompressorIter {
 
     #[inline]
     fn advance(&mut self) -> Result<(), Self::Error> {
+        self.scratch.check().context(error::IoSnafu)?;
+        // The previous block is consumed. Reuse its scratch allocation; retain
+        // original encoded Bytes and its caller-owned input credit directly.
+        self.current = None;
         if self.stream.is_empty() {
-            self.current = None;
+            self.scratch.clear_storage();
             return Ok(());
         }
 
         match &self.compression {
             Some(compression) => {
-                // TODO: take stratch from current State::Compressed for re-use
+                if self.maximum == 0 {
+                    return error::OutOfSpecSnafu {
+                        msg: "compression block maximum must be positive",
+                    }
+                    .fail();
+                }
+                if self.stream.len() < 3 {
+                    return error::OutOfSpecSnafu {
+                        msg: "truncated compression header",
+                    }
+                    .fail();
+                }
                 let header = self.stream.split_to(3);
                 let header = [header[0], header[1], header[2]];
-                match CompressionHeader::decode(header) {
+                let header = CompressionHeader::decode(header);
+                let (CompressionHeader::Original(length) | CompressionHeader::Compressed(length)) =
+                    header;
+                if length as usize > self.stream.len() {
+                    return error::OutOfSpecSnafu {
+                        msg: "truncated compression payload",
+                    }
+                    .fail();
+                }
+                match header {
                     CompressionHeader::Original(length) => {
+                        if length as usize > self.maximum {
+                            return error::OutOfSpecSnafu {
+                                msg: "original block exceeds its declared maximum",
+                            }
+                            .fail();
+                        }
                         let original = self.stream.split_to(length as usize);
-                        self.current = Some(State::Original(original.into()));
+                        self.current = Some(State::Original(original));
                     }
                     CompressionHeader::Compressed(length) => {
                         let compressed = self.stream.split_to(length as usize);
-                        compression.decompress_block(&compressed, &mut self.scratch)?;
-                        self.current = Some(State::Compressed(std::mem::take(&mut self.scratch)));
+                        self.scratch.bytes.clear();
+                        compression.decompress_block(
+                            &compressed,
+                            &mut self.scratch,
+                            self.maximum,
+                        )?;
+                        self.current = Some(State::Compressed);
                     }
                 };
                 Ok(())
             }
             None => {
-                // TODO: take stratch from current State::Compressed for re-use
-                self.current = Some(State::Original(self.stream.clone().into()));
-                self.stream.clear();
+                self.current = Some(State::Original(std::mem::take(&mut self.stream)));
                 Ok(())
             }
         }
@@ -308,7 +448,7 @@ impl FallibleStreamingIterator for DecompressorIter {
     fn get(&self) -> Option<&Self::Item> {
         self.current.as_ref().map(|x| match x {
             State::Original(x) => x.as_ref(),
-            State::Compressed(x) => x.as_ref(),
+            State::Compressed => self.scratch.bytes.as_ref(),
         })
     }
 }
@@ -318,6 +458,7 @@ pub struct Decompressor {
     decompressor: DecompressorIter,
     offset: usize,
     is_first: bool,
+    failed: bool,
 }
 
 impl Decompressor {
@@ -327,7 +468,22 @@ impl Decompressor {
             decompressor: DecompressorIter::new(stream, compression, scratch),
             offset: 0,
             is_first: true,
+            failed: false,
         }
+    }
+
+    /// Decode with caller-owned credits for decompressed payload capacity and
+    /// replacement overlap. Encoded Bytes retain their original input owner.
+    /// Codec-private workspace remains outside this buffer contract. LZO's
+    /// allocating API cannot participate and fails before compressed decoding.
+    pub fn new_with_memory(
+        stream: Bytes,
+        compression: Option<Compression>,
+        memory: Arc<dyn DecoderMemory>,
+    ) -> Self {
+        let mut reader = Self::new(stream, compression, Vec::new());
+        reader.decompressor.scratch = DecoderBuffer::new(Vec::new(), Some(memory));
+        reader
     }
 
     // TODO: remove need for this upstream
@@ -336,46 +492,73 @@ impl Decompressor {
             decompressor: DecompressorIter::new(Bytes::new(), None, vec![]),
             offset: 0,
             is_first: true,
+            failed: false,
         }
+    }
+
+    /// Admit and decode the first nonempty physical block without consuming
+    /// any logical value. Repeated calls preserve the current read position.
+    pub fn prepare(&mut self) -> std::io::Result<()> {
+        if self.failed {
+            return Err(invalid("ORC decompressor previously failed"));
+        }
+        if self.is_first {
+            loop {
+                self.advance()?;
+                if self
+                    .decompressor
+                    .get()
+                    .map_or(true, |bytes| !bytes.is_empty())
+                {
+                    break;
+                }
+            }
+            if let Err(error) = self.decompressor.prepare_continuation() {
+                self.failed = true;
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, error));
+            }
+        }
+        Ok(())
+    }
+
+    fn advance(&mut self) -> std::io::Result<()> {
+        self.is_first = false;
+        self.offset = 0;
+        if let Err(error) = self.decompressor.advance() {
+            self.failed = true;
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, error));
+        }
+        Ok(())
     }
 }
 
 impl std::io::Read for Decompressor {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if self.is_first {
-            self.is_first = false;
-            self.decompressor
-                .advance()
-                .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
-        }
-        let current = self.decompressor.get();
-        let current = if let Some(current) = current {
-            if current.len() == self.offset {
-                self.decompressor
-                    .advance()
-                    .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
-                self.offset = 0;
-                let current = self.decompressor.get();
-                if let Some(current) = current {
-                    current
-                } else {
-                    return Ok(0);
-                }
-            } else {
-                &current[self.offset..]
-            }
-        } else {
+        if buf.is_empty() {
             return Ok(0);
-        };
-
-        if current.len() >= buf.len() {
-            buf.copy_from_slice(&current[..buf.len()]);
-            self.offset += buf.len();
-            Ok(buf.len())
-        } else {
-            buf[..current.len()].copy_from_slice(current);
-            self.offset += current.len();
-            Ok(current.len())
+        }
+        if self.failed {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "ORC decompressor previously failed",
+            ));
+        }
+        loop {
+            if !self.is_first {
+                match self.decompressor.get() {
+                    Some(current) if self.offset < current.len() => {
+                        let count = buf.len().min(current.len() - self.offset);
+                        buf[..count].copy_from_slice(&current[self.offset..self.offset + count]);
+                        self.offset += count;
+                        return Ok(count);
+                    }
+                    None => return Ok(0),
+                    Some(_) => (),
+                }
+            }
+            self.advance()?;
+            // Empty physical blocks do not imply logical EOF. Keep advancing
+            // until a value, an actual exhausted stream, or an error occurs.
         }
     }
 }
@@ -524,6 +707,7 @@ impl Compressor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
 
     #[test]
     fn compression_header_roundtrip() {
@@ -607,3 +791,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "compression_tests.rs"]
+mod continuation_tests;

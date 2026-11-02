@@ -62,12 +62,19 @@ use crate::reader::ChunkReader;
 
 const DEFAULT_FOOTER_SIZE: u64 = 16 * 1024;
 
+#[path = "metadata_memory.rs"]
+mod memory;
+
+#[cfg(test)]
+#[path = "metadata_tests.rs"]
+mod tests;
+
 /// The file's metadata.
 #[derive(Debug, Clone)]
 pub struct FileMetadata {
     compression: Option<Compression>,
     root_data_type: RootDataType,
-    number_of_rows: u64,
+    number_of_rows: Option<u64>,
     file_format_version: String,
     /// Statistics of columns across entire file
     column_statistics: Vec<ColumnStatistics>,
@@ -122,12 +129,16 @@ impl FileMetadata {
                 );
             }
         }
-        let number_of_rows = footer.number_of_rows();
-        let column_statistics = footer
-            .statistics
-            .iter()
-            .map(TryFrom::try_from)
-            .collect::<Result<Vec<_>>>()?;
+        let number_of_rows = footer.number_of_rows;
+        let column_statistics = if footer.statistics.len() == footer.types.len() {
+            footer
+                .statistics
+                .iter()
+                .map(TryFrom::try_from)
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            Vec::new()
+        };
         ensure!(
             metadata.stripe_stats.is_empty() || metadata.stripe_stats.len() == footer.stripes.len(),
             OutOfSpecSnafu {
@@ -146,7 +157,13 @@ impl FileMetadata {
                 .stripes
                 .iter()
                 .zip(metadata.stripe_stats.iter())
-                .map(TryFrom::try_from)
+                .map(|(info, stats)| {
+                    if stats.col_stats.len() == footer.types.len() {
+                        StripeMetadata::try_from((info, stats))
+                    } else {
+                        StripeMetadata::try_from(info)
+                    }
+                })
                 .collect::<Result<Vec<_>>>()?
         };
         let user_custom_metadata = footer
@@ -165,7 +182,7 @@ impl FileMetadata {
             .unwrap_or("")
             .to_string();
 
-        Ok(Self {
+        let result = Self {
             compression,
             root_data_type,
             number_of_rows,
@@ -175,11 +192,55 @@ impl FileMetadata {
             user_custom_metadata,
             timestamp_units: Arc::new(timestamp_units),
             row_index_stride: footer.row_index_stride,
-        })
+        };
+        result.exact_number_of_rows()?;
+        Ok(result)
     }
 
     pub fn number_of_rows(&self) -> u64 {
-        self.number_of_rows
+        self.number_of_rows.unwrap_or_default()
+    }
+
+    /// Exact footer total after checked agreement with every stripe count.
+    /// A missing footer total is unavailable, even when stripe totals exist.
+    pub fn exact_number_of_rows(&self) -> Result<Option<u64>> {
+        let total = self.stripes.iter().try_fold(0_u64, |total, stripe| {
+            total
+                .checked_add(stripe.number_of_rows())
+                .context(OutOfSpecSnafu {
+                    msg: "stripe row total overflow",
+                })
+        })?;
+        ensure!(
+            self.number_of_rows
+                .map_or(true, |declared| declared == total),
+            OutOfSpecSnafu {
+                msg: "file and stripe row counts disagree"
+            }
+        );
+        Ok(self.number_of_rows)
+    }
+
+    fn validate_stripe_extents(&self, metadata_start: u64) -> Result<()> {
+        let mut previous_end = 3_u64;
+        for stripe in &self.stripes {
+            let end = stripe
+                .offset()
+                .checked_add(stripe.index_length())
+                .and_then(|n| n.checked_add(stripe.data_length()))
+                .and_then(|n| n.checked_add(stripe.footer_length()))
+                .context(OutOfSpecSnafu {
+                    msg: "stripe extent overflow",
+                })?;
+            ensure!(
+                stripe.offset() >= previous_end && end <= metadata_start,
+                OutOfSpecSnafu {
+                    msg: "stripe extent overlaps another stripe or file metadata"
+                }
+            );
+            previous_end = end;
+        }
+        Ok(())
     }
 
     pub fn compression(&self) -> Option<Compression> {
@@ -222,10 +283,46 @@ impl FileMetadata {
 }
 
 pub fn read_metadata<R: ChunkReader>(reader: &mut R) -> Result<FileMetadata> {
+    read_metadata_with_reservation(reader, &mut |_| Ok(()))
+}
+
+/// Parse metadata using a caller-owned reservation. The callback receives the
+/// total requested credit before buffer growth and protobuf conversion. Keep
+/// its final credit alive with the returned metadata. Encoded input buffers
+/// remain owned by the reader. This shape model is not an allocator/RSS bound.
+pub fn read_metadata_with_reservation<R: ChunkReader>(
+    reader: &mut R,
+    reserve: &mut dyn FnMut(u64) -> std::io::Result<()>,
+) -> Result<FileMetadata> {
+    read_metadata_controlled(reader, reserve, None)
+}
+
+/// Parse held metadata with separate caller-owned buffer/codec workspaces.
+/// `reserve` retains the parsed schema/statistics credit; `memory` owns each
+/// temporary decode allocation and supplies any required bounded codec.
+pub fn read_metadata_with_memory<R: ChunkReader>(
+    reader: &mut R,
+    reserve: &mut dyn FnMut(u64) -> std::io::Result<()>,
+    memory: Arc<dyn super::memory::DecoderMemory>,
+) -> Result<FileMetadata> {
+    read_metadata_controlled(reader, reserve, Some(memory))
+}
+
+fn read_metadata_controlled<R: ChunkReader>(
+    reader: &mut R,
+    reserve: &mut dyn FnMut(u64) -> std::io::Result<()>,
+    memory: Option<Arc<dyn super::memory::DecoderMemory>>,
+) -> Result<FileMetadata> {
     let file_len = reader.len();
     if file_len == 0 {
         return EmptyFileSnafu.fail();
     }
+    ensure!(
+        file_len >= 3 && reader.get_bytes(0, 3).context(error::IoSnafu)?.as_ref() == b"ORC",
+        OutOfSpecSnafu {
+            msg: "ORC header is missing"
+        }
+    );
 
     // Initial read of the file tail
     // Use a default size for first read in hopes of capturing all sections with one read
@@ -259,11 +356,27 @@ pub fn read_metadata<R: ChunkReader>(reader: &mut R) -> Result<FileMetadata> {
         msg: "Metadata length is empty",
     })?;
 
+    let metadata_start = metadata_start(file_len, postscript_len, footer_length, metadata_length)?;
+    // Controlled decompression owns its actual output and codec workspace.
+    // The callback only carries tail assembly and parser/retained shape here.
+    let block_workspace = if memory.is_some() {
+        0
+    } else {
+        postscript.compression_block_size.unwrap_or(256 * 1024)
+    };
+    let workspace = block_workspace
+        .checked_mul(2)
+        .and_then(|n| n.checked_add((footer_length + metadata_length).checked_mul(2)?))
+        .and_then(|n| n.checked_add(8192))
+        .context(OutOfSpecSnafu {
+            msg: "metadata codec workspace overflow",
+        })?;
+    reserve(metadata_credit(0, workspace)?).context(error::IoSnafu)?;
     // Ensure we have enough bytes for Footer and Metadata
     let mut tail_bytes = if footer_length + metadata_length > tail_bytes.len() as u64 {
         // Need second read
         // -1 is the postscript length byte
-        let offset = file_len - 1 - postscript_len - footer_length - metadata_length;
+        let offset = metadata_start;
         let bytes_to_read = (footer_length + metadata_length) - tail_bytes.len() as u64;
         let prepend_bytes = reader
             .get_bytes(offset, bytes_to_read)
@@ -276,18 +389,33 @@ pub fn read_metadata<R: ChunkReader>(reader: &mut R) -> Result<FileMetadata> {
         tail_bytes
     };
 
-    let footer = deserialize_footer(
+    let mut retained = 0_u64;
+    let footer: Footer = deserialize_admitted(
         tail_bytes.slice(tail_bytes.len() - footer_length as usize..),
         compression,
+        &mut retained,
+        workspace,
+        reserve,
+        memory.as_ref(),
     )?;
     tail_bytes.truncate(tail_bytes.len() - footer_length as usize);
 
-    let metadata = deserialize_footer_metadata(
+    let metadata: Metadata = deserialize_admitted(
         tail_bytes.slice(tail_bytes.len() - metadata_length as usize..),
         compression,
+        &mut retained,
+        workspace,
+        reserve,
+        memory.as_ref(),
     )?;
 
-    FileMetadata::from_proto(&postscript, &footer, &metadata)
+    let result = FileMetadata::from_proto(&postscript, &footer, &metadata)?;
+    result.validate_stripe_extents(metadata_start)?;
+    drop(tail_bytes);
+    drop(footer);
+    drop(metadata);
+    reserve(memory::retained(&result)?).context(error::IoSnafu)?;
+    Ok(result)
 }
 
 #[cfg(feature = "async")]
@@ -298,6 +426,18 @@ pub async fn read_metadata_async<R: super::AsyncChunkReader>(
     if file_len == 0 {
         return EmptyFileSnafu.fail();
     }
+    ensure!(
+        file_len >= 3
+            && reader
+                .get_bytes(0, 3)
+                .await
+                .context(error::IoSnafu)?
+                .as_ref()
+                == b"ORC",
+        OutOfSpecSnafu {
+            msg: "ORC header is missing"
+        }
+    );
 
     // Initial read of the file tail
     // Use a default size for first read in hopes of capturing all sections with one read
@@ -332,11 +472,12 @@ pub async fn read_metadata_async<R: super::AsyncChunkReader>(
         msg: "Metadata length is empty",
     })?;
 
+    let metadata_start = metadata_start(file_len, postscript_len, footer_length, metadata_length)?;
     // Ensure we have enough bytes for Footer and Metadata
     let mut tail_bytes = if footer_length + metadata_length > tail_bytes.len() as u64 {
         // Need second read
         // -1 is the postscript length byte
-        let offset = file_len - 1 - postscript_len - footer_length - metadata_length;
+        let offset = metadata_start;
         let bytes_to_read = (footer_length + metadata_length) - tail_bytes.len() as u64;
         let prepend_bytes = reader
             .get_bytes(offset, bytes_to_read)
@@ -361,9 +502,89 @@ pub async fn read_metadata_async<R: super::AsyncChunkReader>(
         compression,
     )?;
 
-    FileMetadata::from_proto(&postscript, &footer, &metadata)
+    let result = FileMetadata::from_proto(&postscript, &footer, &metadata)?;
+    result.validate_stripe_extents(metadata_start)?;
+    Ok(result)
 }
 
+fn metadata_start(file_len: u64, postscript: u64, footer: u64, metadata: u64) -> Result<u64> {
+    file_len
+        .checked_sub(1)
+        .and_then(|n| n.checked_sub(postscript))
+        .and_then(|n| n.checked_sub(footer))
+        .and_then(|n| n.checked_sub(metadata))
+        .filter(|start| *start >= 3)
+        .context(OutOfSpecSnafu {
+            msg: "metadata extent exceeds file",
+        })
+}
+
+fn metadata_credit(decoded_capacity: u64, workspace: u64) -> Result<u64> {
+    // An empty repeated ColumnStatistics message needs only two wire bytes,
+    // while its generated struct contains every optional statistics variant.
+    // Include protobuf vector growth and conversion overlap before parsing;
+    // replace this workspace estimate with retained shape credit afterwards.
+    decoded_capacity
+        .checked_mul(1024)
+        .and_then(|n| n.checked_add(workspace))
+        .and_then(|n| n.checked_add(8192))
+        .context(OutOfSpecSnafu {
+            msg: "metadata shape credit overflow",
+        })
+}
+
+fn deserialize_admitted<T: Message + Default>(
+    bytes: Bytes,
+    compression: Option<Compression>,
+    retained: &mut u64,
+    workspace: u64,
+    reserve: &mut dyn FnMut(u64) -> std::io::Result<()>,
+    memory: Option<&Arc<dyn super::memory::DecoderMemory>>,
+) -> Result<T> {
+    reserve(metadata_credit(*retained, workspace)?).context(error::IoSnafu)?;
+    let mut decoder = match memory {
+        Some(memory) => Decompressor::new_with_memory(bytes, compression, Arc::clone(memory)),
+        None => Decompressor::new(bytes, compression, vec![]),
+    };
+    let mut buffer = Vec::new();
+    let mut chunk = [0_u8; 8192];
+    loop {
+        let length = decoder.read(&mut chunk).context(error::IoSnafu)?;
+        if length == 0 {
+            break;
+        }
+        let wanted = buffer.len().checked_add(length).context(OutOfSpecSnafu {
+            msg: "metadata buffer overflow",
+        })?;
+        if wanted > buffer.capacity() {
+            let capacity = buffer
+                .capacity()
+                .checked_mul(2)
+                .unwrap_or(wanted)
+                .max(wanted);
+            let total = retained
+                .checked_add(capacity as u64)
+                .context(OutOfSpecSnafu {
+                    msg: "metadata capacity overflow",
+                })?;
+            reserve(metadata_credit(total, workspace)?).context(error::IoSnafu)?;
+            buffer
+                .try_reserve_exact(capacity - buffer.len())
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+                .context(error::IoSnafu)?;
+        }
+        buffer.extend_from_slice(&chunk[..length]);
+    }
+    *retained = retained
+        .checked_add(buffer.capacity() as u64)
+        .context(OutOfSpecSnafu {
+            msg: "metadata retained capacity overflow",
+        })?;
+    reserve(metadata_credit(*retained, workspace)?).context(error::IoSnafu)?;
+    T::decode(buffer.as_slice()).context(error::DecodeProtoSnafu)
+}
+
+#[cfg(feature = "async")]
 fn deserialize_footer(bytes: Bytes, compression: Option<Compression>) -> Result<Footer> {
     let mut buffer = vec![];
     Decompressor::new(bytes, compression, vec![])
@@ -372,6 +593,7 @@ fn deserialize_footer(bytes: Bytes, compression: Option<Compression>) -> Result<
     Footer::decode(buffer.as_slice()).context(error::DecodeProtoSnafu)
 }
 
+#[cfg(feature = "async")]
 fn deserialize_footer_metadata(bytes: Bytes, compression: Option<Compression>) -> Result<Metadata> {
     let mut buffer = vec![];
     Decompressor::new(bytes, compression, vec![])

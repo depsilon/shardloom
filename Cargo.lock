@@ -172,8 +172,6 @@ dependencies = [
 [[package]]
 name = "arrow-avro"
 version = "59.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b052309b61700bb359f7f2bcb70697c447d6331780850c3c21408273cd36509"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -182,6 +180,7 @@ dependencies = [
  "crc",
  "flate2",
  "indexmap",
+ "miniz_oxide",
  "rand 0.9.4",
  "serde",
  "serde_json",
@@ -288,6 +287,7 @@ dependencies = [
  "arrow-data",
  "arrow-schema",
  "arrow-select",
+ "bytes",
  "flatbuffers",
  "lz4_flex 0.14.0",
  "zstd",
@@ -2369,6 +2369,7 @@ dependencies = [
  "log",
  "lz4_flex 0.11.6",
  "lzokay-native",
+ "miniz_oxide",
  "num",
  "prost 0.13.5",
  "snafu",

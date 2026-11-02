@@ -2,6 +2,8 @@ use super::*;
 use arrow_array::{Array as _, Int64Array, StringArray};
 use std::{fs, path::PathBuf, sync::atomic::AtomicU64};
 
+mod adaptive;
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new(content: &str) -> Self {

@@ -11,6 +11,7 @@ use std::marker::PhantomData;
 use std::ptr;
 
 use vortex_array::memory::HostAllocator;
+use vortex_array::memory::WritableHostBuffer;
 use vortex_buffer::Alignment;
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexResult;
@@ -23,35 +24,105 @@ use zstd_sys::ZSTD_dictLoadMethod_e::ZSTD_dlm_byRef;
 const AUDITED_ZSTD_VERSION: u32 = 10507;
 const WORKSPACE_ALIGNMENT: usize = 8;
 
+/// Actual decoder storage reusable within one admitted reader operation.
+///
+/// No C pointer or input/output borrow escapes a decode call. Every call
+/// initializes fresh static state in the exclusively borrowed storage. Its
+/// allocator owner remains live until this value is dropped.
+#[derive(Default)]
+pub struct DecoderWorkspace {
+    context: Option<WritableHostBuffer>,
+}
+
+impl std::fmt::Debug for DecoderWorkspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DecoderWorkspace")
+            .field("bytes", &self.context.as_ref().map(WritableHostBuffer::len))
+            .finish()
+    }
+}
+
+impl DecoderWorkspace {
+    /// Admit actual storage before selecting work that may cross codec blocks.
+    /// This allocates no input/output or dynamic C state and is idempotent.
+    pub fn prepare(&mut self, allocator: &dyn HostAllocator) -> VortexResult<()> {
+        let required = context_size()?;
+        if self.context.is_none() {
+            let mut context = allocator.allocate(required, Alignment::new(WORKSPACE_ALIGNMENT))?;
+            validate_workspace(context.as_mut_slice(), required)?;
+            self.context = Some(context);
+        }
+        Ok(())
+    }
+
+    /// Decode a complete modern frame sequence into a caller-owned destination.
+    /// Invalid framing is rejected before the first workspace allocation.
+    pub fn decompress_frame_into(
+        &mut self,
+        frame: &[u8],
+        output: &mut [u8],
+        allocator: &dyn HostAllocator,
+    ) -> VortexResult<usize> {
+        decompress_slices(std::iter::once(frame), None, output, allocator, self)
+    }
+}
+
 pub(crate) fn decompress_frames(
     frames: &[ByteBuffer],
     dictionary: Option<&[u8]>,
     output: &mut [u8],
     allocator: &dyn HostAllocator,
 ) -> VortexResult<usize> {
-    if frames.is_empty() {
+    decompress_slices(
+        frames.iter().map(ByteBuffer::as_slice),
+        dictionary,
+        output,
+        allocator,
+        &mut DecoderWorkspace::default(),
+    )
+}
+
+/// Decode a complete modern frame sequence into a caller-owned destination.
+///
+/// The actual temporary decoder workspace uses `allocator`. All workspaces are
+/// released before returning, including on invalid input or denied allocation.
+/// Legacy frames, dynamic dictionaries and streaming contexts are unavailable.
+pub fn decompress_frame_into(
+    frame: &[u8],
+    output: &mut [u8],
+    allocator: &dyn HostAllocator,
+) -> VortexResult<usize> {
+    DecoderWorkspace::default().decompress_frame_into(frame, output, allocator)
+}
+
+fn decompress_slices<'a>(
+    frames: impl Iterator<Item = &'a [u8]> + Clone,
+    dictionary: Option<&[u8]>,
+    output: &mut [u8],
+    allocator: &dyn HostAllocator,
+    workspace: &mut DecoderWorkspace,
+) -> VortexResult<usize> {
+    if frames.clone().next().is_none() {
         return Ok(0);
     }
-    let version = zstd_safe::version_number();
-    vortex_ensure!(
-        version == AUDITED_ZSTD_VERSION,
-        "Native Zstd workspaces require audited provider version {AUDITED_ZSTD_VERSION}, found {version}"
-    );
-    for frame in frames {
-        validate_members(frame.as_slice())?;
+    let context_size = context_size()?;
+    for frame in frames.clone() {
+        validate_members(frame)?;
     }
-
-    // SAFETY: The pinned estimators take no pointers and have no preconditions.
-    // In 1.5.7 these sizes are sizeof(DCtx) and sizeof(DDict); byRef excludes a
-    // dictionary-content copy. The linked version was checked above.
-    let context_size = size_result(unsafe { zstd_sys::ZSTD_estimateDCtxSize() })?;
+    workspace.prepare(allocator)?;
     let dictionary_size = dictionary
         .map(|dict| {
+            // SAFETY: The pinned estimator takes no pointers and has no
+            // preconditions. byRef excludes a dictionary-content copy.
+            // context_size verified the linked version above.
             size_result(unsafe { zstd_sys::ZSTD_estimateDDictSize(dict.len(), ZSTD_dlm_byRef) })
         })
         .transpose()?;
     let alignment = Alignment::new(WORKSPACE_ALIGNMENT);
-    let mut context = allocator.allocate(context_size, alignment)?;
+    let context = workspace
+        .context
+        .as_mut()
+        .ok_or_else(|| vortex_err!("Native Zstd decoder workspace was not prepared"))?;
     let mut prepared = dictionary_size
         .map(|size| allocator.allocate(size, alignment))
         .transpose()?;
@@ -63,10 +134,22 @@ pub(crate) fn decompress_frames(
     let mut decoder = BorrowedDecoder::new(context.as_mut_slice(), context_size, prepared)?;
     let mut written = 0;
     for frame in frames {
-        written += decoder.decompress(frame.as_slice(), &mut output[written..])?;
+        written += decoder.decompress(frame, &mut output[written..])?;
     }
-    // All workspaces drop here, before the caller freezes/retains its output.
+    // Prepared dictionaries drop here. The caller owns the context lifetime:
+    // temporary for native frame arrays, reader-owned for controlled ORC.
     Ok(written)
+}
+
+fn context_size() -> VortexResult<usize> {
+    let version = zstd_safe::version_number();
+    vortex_ensure!(
+        version == AUDITED_ZSTD_VERSION,
+        "Native Zstd workspaces require audited provider version {AUDITED_ZSTD_VERSION}, found {version}"
+    );
+    // SAFETY: This pinned estimator takes no pointers and has no preconditions.
+    // In 1.5.7 the size is sizeof(DCtx). The linked version was checked above.
+    size_result(unsafe { zstd_sys::ZSTD_estimateDCtxSize() })
 }
 
 fn validate_members(mut bytes: &[u8]) -> VortexResult<()> {
@@ -108,7 +191,7 @@ fn size_result(result: usize) -> VortexResult<usize> {
     Ok(result)
 }
 
-fn initialize_workspace(bytes: &mut [u8], required: usize) -> VortexResult<()> {
+fn validate_workspace(bytes: &[u8], required: usize) -> VortexResult<()> {
     // Check the actual slice, not an allocator's advertised length/alignment.
     vortex_ensure!(
         required > 0 && bytes.len() == required,
@@ -119,6 +202,11 @@ fn initialize_workspace(bytes: &mut [u8], required: usize) -> VortexResult<()> {
         bytes.as_ptr().addr().is_multiple_of(WORKSPACE_ALIGNMENT),
         "Native Zstd workspace must be eight-byte aligned"
     );
+    Ok(())
+}
+
+fn initialize_workspace(bytes: &mut [u8], required: usize) -> VortexResult<()> {
+    validate_workspace(bytes, required)?;
     bytes.fill(0);
     Ok(())
 }

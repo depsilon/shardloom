@@ -61,6 +61,10 @@ impl<OffsetSize: OffsetSizeTrait> ListViewArrayReader<OffsetSize> {
 }
 
 impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListViewArrayReader<OffsetSize> {
+    fn set_batch_size_hint(&mut self, batch_size: usize) {
+        self.inner.set_batch_size_hint(batch_size);
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

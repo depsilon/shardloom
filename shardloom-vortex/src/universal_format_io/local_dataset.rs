@@ -42,6 +42,11 @@ pub(crate) struct LocalDataset {
 }
 
 impl LocalDataset {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn is_single_file(&self) -> bool {
+        matches!(self.membership, Membership::Single)
+    }
+
     pub(crate) fn manifest_identity(&self) -> Option<Arc<SourceIdentity>> {
         if let Membership::Manifest(identity) = &self.membership {
             Some(Arc::clone(identity))

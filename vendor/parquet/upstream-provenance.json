@@ -2,7 +2,7 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a",
+    "README.shardloom.md": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb",
     "src/file/metadata/memory_reservation.rs": "4ae4141063aba87d2f857357eb50b2ad379d1ace70ace32a80d201ebf571e3a1"
   },
   "license": "Apache-2.0",
@@ -10,13 +10,28 @@
   "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "85598086192c82c467a077bba95b435bd042ead134eec419b1480b076018280a"
+    "sha256": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb"
   },
-  "migration_status": "manifest_and_metadata_patches",
+  "migration_status": "manifest_metadata_and_explicit_batch_limit_patches",
   "modified_files_sha256": {
     "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d",
+    "src/arrow/array_reader/byte_array.rs": "b5d70e8726b74da6aa4e0c986b7760a612e08f8931ccf9c0299a362e62e1368c",
+    "src/arrow/array_reader/byte_array_dictionary.rs": "4f99f55be181a760d0de9e96f72b524a6b46e10b1ae5e29d0742a2414e6cc932",
+    "src/arrow/array_reader/byte_view_array.rs": "48c14678158140a5bec663c54e4161a57ccb9e361a6f6eab363138221a9f8125",
+    "src/arrow/array_reader/cached_array_reader.rs": "2c018427ba1ba790d8505eb87b8894977c6db1ec45ebb20fa4c1db37ba5aa516",
+    "src/arrow/array_reader/fixed_len_byte_array.rs": "0008b0d03634f054ba70b34bbc111c917a09d400354698c912f8edae16aa24d8",
+    "src/arrow/array_reader/fixed_size_list_array.rs": "20cb993054b38a6a72e4eeb7f7f483b966f1c7f429efbe81eeebe7093afc38d1",
+    "src/arrow/array_reader/list_array.rs": "de33819eb8d3a17d896591d6ccc53c9395743c62ab505943cdb1644fdbec5b42",
+    "src/arrow/array_reader/list_view_array.rs": "87ecb94f3fdbb96852bb5ba06e473113e40ce88ca58d7f74d31da0c2b1b565c2",
+    "src/arrow/array_reader/map_array.rs": "71ebb05d71d9f306c567729ddc0014852ae34570a752dbb23e45273c46f255f6",
+    "src/arrow/array_reader/mod.rs": "fbf55fcd18e36632ebc7b6b0f1486453ff4ae80693c863d1892bd9248b759c04",
+    "src/arrow/array_reader/null_array.rs": "45f3edb110d12fe7d358fc65a5890c2820bd95ebcea73939b719bbb097dfb713",
+    "src/arrow/array_reader/primitive_array.rs": "e319bf342d32ef4d63a7d8e873b64b675b78b39c37fcff48e3c7e7945a3afd53",
+    "src/arrow/array_reader/struct_array.rs": "4492aa8453f4fbe025dc0e6855601e8a89be4dac28b682fdfd959eb4f719d17e",
+    "src/arrow/arrow_reader/mod.rs": "882b910efb82e7a8a4139a7d999cc7d0708effe45e0fda3b94c4d55c990b33c6",
+    "src/arrow/arrow_reader/read_plan.rs": "0b886f4f2536c6a2ad99b828ffb6368bf403dd5213939189af858aaf25e9a6b0",
+    "src/arrow/record_reader/mod.rs": "224346c5b816c68031c50aedeb291c6591a3988b0610ad48d277a3a4aee7433c",
     "src/arrow/schema/primitive.rs": "3fe5a0931d35e11a2205c09401de05b76dc0d137146e5c9a21b1e0751b2607e6",
-    "src/arrow/arrow_reader/mod.rs": "cc695717a7ea4273a49691907066a6e7d8505c0e58eb8e8449fa52f0c2c69db7",
     "src/file/metadata/mod.rs": "35fab5421ee6480e2095425876618b7c87c66b5abe06ed5c6a07be862c1814c8",
     "src/file/metadata/options.rs": "abf5c8fcc8af05c051c493e4745c43745d47a7fef2ef2d256fab36a28e796a82",
     "src/file/metadata/thrift/mod.rs": "6b27ca28f96d8afa0b17e0030145f59101c769bf18841a51dd368d1285f2ea5e"

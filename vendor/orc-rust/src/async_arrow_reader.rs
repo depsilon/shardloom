@@ -92,34 +92,21 @@ impl<R: AsyncChunkReader + 'static> StripeFactory<R> {
     async fn read_next_stripe_inner(&mut self, info: &StripeMetadata) -> Result<Stripe> {
         let inner = &mut self.inner;
 
-        inner.stripe_index += 1;
-
-        Stripe::new_async(
+        Stripe::new_async_with_memory(
             &mut inner.reader,
             &inner.file_metadata,
             &inner.projected_data_type,
             info,
+            inner.decoder_memory.clone(),
         )
         .await
     }
 
     /// Read the next stripe from the file.
     pub async fn read_next_stripe(mut self) -> Result<(Self, Option<Stripe>)> {
-        let info = self
-            .inner
-            .file_metadata
-            .stripe_metadatas()
-            .get(self.inner.stripe_index)
-            .cloned();
-
-        if let Some(info) = info {
-            if let Some(range) = self.inner.file_byte_range.clone() {
-                let offset = info.offset() as usize;
-                if !range.contains(&offset) {
-                    self.inner.stripe_index += 1;
-                    return Ok((self, None));
-                }
-            }
+        if let Some(index) = self.inner.next_stripe_index() {
+            // Only this selected stripe must cross the asynchronous read.
+            let info = self.inner.file_metadata.stripe_metadatas()[index].clone();
             match self.read_next_stripe_inner(&info).await {
                 Ok(stripe) => Ok((self, Some(stripe))),
                 Err(err) => Err(err),
@@ -308,6 +295,7 @@ impl<R: AsyncChunkReader + 'static> ArrowReaderBuilder<R> {
             projected_data_type,
             stripe_index: 0,
             file_byte_range: self.file_byte_range,
+            decoder_memory: self.decoder_memory,
         };
         ArrowStreamReader::new(
             cursor,

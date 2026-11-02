@@ -63,7 +63,11 @@ impl std::fmt::Display for OwnedReservationDenied {
     }
 }
 
-impl std::error::Error for OwnedReservationDenied {}
+impl std::error::Error for OwnedReservationDenied {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
 
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) fn is_owned_reservation_denial(mut error: &(dyn std::error::Error + 'static)) -> bool {

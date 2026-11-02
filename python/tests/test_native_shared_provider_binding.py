@@ -2362,6 +2362,13 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             from native_metadata_count_cases import check_declines
         check_declines(self)
 
+    def test_parquet_union_hive_count_and_pruning_survive_all_five_surfaces(self):
+        if __package__:
+            from .native_metadata_count_cases import check_mapped_sources
+        else:
+            from native_metadata_count_cases import check_mapped_sources
+        check_mapped_sources(self)
+
     def test_json_lines_aliases_and_compression_use_shared_direct_reads(self):
         import gzip
         import shardloom as sl

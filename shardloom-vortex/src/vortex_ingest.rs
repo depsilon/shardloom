@@ -42,6 +42,10 @@ use shardloom_exec::{
     live_memory::{Budgeted, MemoryLease},
 };
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+use crate::universal_format_io::owned_batch::LegacyReader;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use crate::universal_format_io::owned_batch::{OwnedBatch, OwnedBatchReader};
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
     Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Float32Array,
@@ -10612,7 +10616,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     float_policy: FloatPolicy,
 ) -> Result<VortexPreparedStateWriteReport> {
     cancellation.check()?;
-    let (source, input_ownership) = request.source.into().into_parts();
+    let (source, input_ownership, mut reader) = request.source.into().into_parts();
     let request = VortexPreparedStateColumnarStreamWriteRequest {
         resources: request.resources,
         target_path: request.target_path,
@@ -10737,7 +10741,6 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
         cancellation.check()?;
         identity.validate()?;
     }
-    let mut reader = request.source.reader;
     let array_build_start = Instant::now();
     let stream_timing = VortexStreamingIngestTiming::with_derived_metadata_build_micros(
         embedded_derived_build_micros,
@@ -10748,7 +10751,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     cancellation.check()?;
     let first_batch =
         next_streaming_record_batch(reader.as_mut(), "streaming local columnar source")?
-            .unwrap_or_else(|| RecordBatch::new_empty(reader.schema()));
+            .unwrap_or_else(|| OwnedBatch::from(RecordBatch::new_empty(reader.schema())));
     cancellation.check()?;
     stream_timing.add_source_pull_elapsed(first_source_pull_start.elapsed());
     if let Some(lanes) = writer_physical_design_source.cpu_lanes.as_mut() {
@@ -11267,7 +11270,7 @@ fn duration_micros_u64(elapsed: std::time::Duration) -> u64 {
 struct StreamingColumnarVortexArrayIterator {
     dtype: vortex::array::dtype::DType,
     first_array: Option<vortex::array::ArrayRef>,
-    reader: Option<Box<dyn arrow_array::RecordBatchReader + Send>>,
+    reader: Option<Box<dyn OwnedBatchReader>>,
     prefetch: Option<StreamingColumnarVortexPrefetch>,
     reader_projection_columns: Vec<String>,
     source_shape: FlatColumnarSourceShape,
@@ -11306,7 +11309,9 @@ impl StreamingColumnarVortexArrayIterator {
         Self::with_runtime(
             dtype,
             first_array,
-            reader,
+            Box::new(crate::universal_format_io::owned_batch::LegacyReader(
+                reader,
+            )),
             reader_projection_columns,
             source_shape,
             batch_count,
@@ -11326,7 +11331,7 @@ impl StreamingColumnarVortexArrayIterator {
     fn with_runtime(
         dtype: vortex::array::dtype::DType,
         first_array: vortex::array::ArrayRef,
-        reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+        reader: Box<dyn OwnedBatchReader>,
         reader_projection_columns: Vec<String>,
         source_shape: FlatColumnarSourceShape,
         batch_count: Arc<AtomicUsize>,
@@ -11759,7 +11764,7 @@ impl Drop for StreamingColumnarVortexPrefetch {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 struct StreamingColumnarVortexArraySharedReader {
-    reader: Box<dyn arrow_array::RecordBatchReader + Send>,
+    reader: Box<dyn OwnedBatchReader>,
     next_batch_index: usize,
     stopped: bool,
 }
@@ -11826,7 +11831,7 @@ impl StreamingColumnarVortexArrayWorker {
     fn read_batch(
         &self,
         reader: &mut StreamingColumnarVortexArraySharedReader,
-    ) -> Result<Option<(usize, RecordBatch)>> {
+    ) -> Result<Option<(usize, OwnedBatch)>> {
         if reader.stopped {
             return Ok(None);
         }
@@ -11854,7 +11859,7 @@ impl StreamingColumnarVortexArrayWorker {
     fn convert_batch(
         &self,
         index: usize,
-        batch: RecordBatch,
+        batch: OwnedBatch,
         lease: &mut MemoryLease,
     ) -> Result<PrefetchedVortexArray> {
         // Copy charges also bound admitted controlled-reader transfers, which
@@ -11934,6 +11939,10 @@ mod prefetch_tests;
 #[path = "vortex_ingest_owned_tests.rs"]
 mod owned_ingest_tests;
 
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
+#[path = "vortex_ingest_owned_handoff_tests.rs"]
+mod owned_handoff_tests;
+
 #[cfg(all(test, feature = "vortex-write", feature = "universal-format-io", unix))]
 #[path = "vortex_ingest_reader_transfer_tests.rs"]
 mod reader_transfer_tests;
@@ -11948,9 +11957,9 @@ mod writer_slot_tests;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn next_streaming_record_batch(
-    reader: &mut dyn arrow_array::RecordBatchReader,
+    reader: &mut dyn OwnedBatchReader,
     context: &str,
-) -> Result<Option<RecordBatch>> {
+) -> Result<Option<OwnedBatch>> {
     reader
         .next()
         .transpose()
@@ -12118,14 +12127,17 @@ fn record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
-    batch: RecordBatch,
+    batch: impl Into<OwnedBatch>,
     source_shape: &FlatColumnarSourceShape,
     timing: &IngestStageTimings,
     native_memory: Option<(&NativeIngestMemory, &mut MemoryLease)>,
 ) -> Result<vortex::array::ArrayRef> {
+    let input = batch.into();
+    let batch = &*input;
     let rows = usize_to_u64(batch.num_rows())?;
     let started = Instant::now();
-    let projected = project_record_batch_for_vortex(&batch, source_shape);
+    let projected = project_record_batch_for_vortex(batch, source_shape);
+    let (batch, owner) = input.into_parts();
     drop(batch);
     timing.record(Stage::Projection, started.elapsed(), rows, 0, 0);
     let (projected, identity) = projected?;
@@ -12158,8 +12170,8 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             .from_arrow_record_batch(retained, &schema)
             .map_err(vortex_error);
         // Admitted copied/transferred input buffers and later allocator buffers
-        // hold their own credits. Other source owners remain excluded;
-        // release the conversion admission headroom, not buffer credits.
+        // hold their own credits. The owned source handoff also remains live
+        // through this call. Release conversion headroom, not either owner.
         lease.resize(0)?;
         result
     } else {
@@ -12172,6 +12184,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
         input_bytes,
         result.as_ref().map_or(0, vortex::array::ArrayRef::nbytes),
     );
+    drop(owner);
     result
 }
 

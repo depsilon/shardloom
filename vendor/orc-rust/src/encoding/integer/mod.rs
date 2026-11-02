@@ -49,6 +49,17 @@ pub enum RleVersion {
     V2,
 }
 
+pub(crate) fn decoder_buffer_bytes<N: NInt>(version: RleVersion) -> usize {
+    match version {
+        RleVersion::V1 => rle_v1::MAX_RUN_LENGTH * std::mem::size_of::<N>(),
+        // Both retained run vectors coexist with the temporary patch list.
+        RleVersion::V2 => {
+            rle_v2::MAX_RUN_LENGTH * (std::mem::size_of::<N>() + std::mem::size_of::<i64>())
+                + 31 * std::mem::size_of::<i64>()
+        }
+    }
+}
+
 pub fn get_signed_int_decoder<N: NInt>(
     reader: impl Read + Send + 'static,
     rle_version: RleVersion,

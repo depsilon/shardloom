@@ -19,33 +19,75 @@ use std::sync::Arc;
 
 use crate::encoding::integer::RleVersion;
 use crate::proto::{column_encoding::Kind as ProtoColumnKind, ColumnEncoding, StripeFooter};
+use crate::reader::memory::DecoderMemoryReservation;
 use crate::schema::DataType;
+
+/// Keep parsed metadata and its caller-owned credit together through every
+/// cloned column, including nested child columns that outlive a stripe handle.
+#[derive(Debug)]
+pub(crate) struct ColumnFooter {
+    pub(crate) data: Arc<StripeFooter>,
+    pub(crate) _credit: Option<Box<dyn DecoderMemoryReservation>>,
+    pub(crate) structure_credit: Option<Arc<dyn DecoderMemoryReservation>>,
+}
+
+impl std::ops::Deref for ColumnFooter {
+    type Target = StripeFooter;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Column {
-    footer: Arc<StripeFooter>,
+    data: Arc<ColumnData>,
+    footer: Arc<ColumnFooter>,
+}
+
+#[derive(Debug)]
+struct ColumnData {
     name: String,
     data_type: DataType,
 }
 
 impl Column {
     pub fn new(name: String, data_type: DataType, footer: Arc<StripeFooter>) -> Self {
-        Self {
-            footer,
-            data_type,
+        Self::new_with_footer(
             name,
+            data_type,
+            Arc::new(ColumnFooter {
+                data: footer,
+                _credit: None,
+                structure_credit: None,
+            }),
+        )
+    }
+
+    pub(crate) fn new_with_footer(
+        name: String,
+        data_type: DataType,
+        footer: Arc<ColumnFooter>,
+    ) -> Self {
+        Self {
+            data: Arc::new(ColumnData { data_type, name }),
+            footer,
         }
     }
 
+    pub(crate) fn storage_bytes() -> usize {
+        std::mem::size_of::<ColumnData>() + 2 * std::mem::size_of::<usize>()
+    }
+
     pub fn dictionary_size(&self) -> usize {
-        let column = self.data_type.column_index();
+        let column = self.data_type().column_index();
         self.footer.columns[column]
             .dictionary_size
             .unwrap_or_default() as usize
     }
 
     pub fn encoding(&self) -> ColumnEncoding {
-        let column = self.data_type.column_index();
+        let column = self.data_type().column_index();
         self.footer.columns[column].clone()
     }
 
@@ -59,19 +101,19 @@ impl Column {
     }
 
     pub fn data_type(&self) -> &DataType {
-        &self.data_type
+        &self.data.data_type
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        &self.data.name
     }
 
     pub fn column_id(&self) -> u32 {
-        self.data_type.column_index() as u32
+        self.data_type().column_index() as u32
     }
 
     pub fn children(&self) -> Vec<Column> {
-        match &self.data_type {
+        match self.data_type() {
             DataType::Boolean { .. }
             | DataType::Byte { .. }
             | DataType::Short { .. }
@@ -89,31 +131,25 @@ impl Column {
             | DataType::Date { .. } => vec![],
             DataType::Struct { children, .. } => children
                 .iter()
-                .map(|col| Column {
-                    footer: self.footer.clone(),
-                    name: col.name().to_string(),
-                    data_type: col.data_type().clone(),
+                .map(|col| {
+                    Self::new_with_footer(
+                        col.name().to_string(),
+                        col.data_type().clone(),
+                        self.footer.clone(),
+                    )
                 })
                 .collect(),
             DataType::List { child, .. } => {
-                vec![Column {
-                    footer: self.footer.clone(),
-                    name: "item".to_string(),
-                    data_type: *child.clone(),
-                }]
+                vec![Self::new_with_footer(
+                    "item".to_string(),
+                    *child.clone(),
+                    self.footer.clone(),
+                )]
             }
             DataType::Map { key, value, .. } => {
                 vec![
-                    Column {
-                        footer: self.footer.clone(),
-                        name: "key".to_string(),
-                        data_type: *key.clone(),
-                    },
-                    Column {
-                        footer: self.footer.clone(),
-                        name: "value".to_string(),
-                        data_type: *value.clone(),
-                    },
+                    Self::new_with_footer("key".to_string(), *key.clone(), self.footer.clone()),
+                    Self::new_with_footer("value".to_string(), *value.clone(), self.footer.clone()),
                 ]
             }
             DataType::Union { variants, .. } => {
@@ -121,10 +157,12 @@ impl Column {
                 variants
                     .iter()
                     .enumerate()
-                    .map(|(index, data_type)| Column {
-                        footer: self.footer.clone(),
-                        name: format!("{index}"),
-                        data_type: data_type.clone(),
+                    .map(|(index, data_type)| {
+                        Self::new_with_footer(
+                            format!("{index}"),
+                            data_type.clone(),
+                            self.footer.clone(),
+                        )
                     })
                     .collect()
             }

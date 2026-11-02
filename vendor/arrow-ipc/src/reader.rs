@@ -27,6 +27,23 @@
 mod stream;
 pub use stream::*;
 
+pub(crate) mod decoder_memory;
+pub use decoder_memory::{DecoderMemory, DecoderMemoryReservation};
+mod schema_owned;
+pub use schema_owned::{OwnedSchema, read_schema_with_memory};
+mod array_structure;
+mod dictionary_delta;
+mod owned_record_batch;
+pub use owned_record_batch::OwnedRecordBatch;
+mod owned_file_decoder;
+pub use owned_file_decoder::OwnedFileDecoder;
+#[cfg(test)]
+mod controlled_array_tests;
+#[cfg(test)]
+mod decoder_memory_tests;
+#[cfg(feature = "lz4")]
+pub(crate) mod lz4_owned;
+
 use arrow_select::concat;
 
 use flatbuffers::{VectorIter, VerifierOptions};
@@ -36,9 +53,9 @@ use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 use arrow_array::*;
-use arrow_buffer::{
-    ArrowNativeType, BooleanBuffer, Buffer, MutableBuffer, NullBuffer, ScalarBuffer,
-};
+#[cfg(test)]
+use arrow_buffer::ArrowNativeType;
+use arrow_buffer::{BooleanBuffer, Buffer, MutableBuffer, NullBuffer, ScalarBuffer};
 use arrow_data::{ArrayData, ArrayDataBuilder, UnsafeFlag};
 use arrow_schema::*;
 
@@ -62,8 +79,8 @@ fn read_buffer(
     compression_codec: Option<CompressionCodec>,
     decompression_context: &mut DecompressionContext,
 ) -> Result<Buffer, ArrowError> {
-    let start_offset = buf.offset() as usize;
-    let buf_data = a_data.slice_with_length(start_offset, buf.length() as usize);
+    let (start_offset, length) = checked_buffer_extent(buf, a_data.len())?;
+    let buf_data = a_data.slice_with_length(start_offset, length);
     // corner case: empty buffer
     match (buf_data.is_empty(), compression_codec) {
         (true, _) | (_, None) => Ok(buf_data),
@@ -72,6 +89,20 @@ fn read_buffer(
         }
     }
 }
+
+fn checked_buffer_extent(buf: &crate::Buffer, length: usize) -> Result<(usize, usize), ArrowError> {
+    let offset = usize::try_from(buf.offset())
+        .map_err(|_| decoder_memory::invalid("negative IPC buffer offset"))?;
+    let bytes = usize::try_from(buf.length())
+        .map_err(|_| decoder_memory::invalid("negative IPC buffer length"))?;
+    if offset.checked_add(bytes).is_none_or(|end| end > length) {
+        return Err(decoder_memory::invalid(
+            "IPC buffer extent exceeds its message body",
+        ));
+    }
+    Ok((offset, bytes))
+}
+
 impl RecordBatchDecoder<'_> {
     /// Coordinates reading arrays based on data types.
     ///
@@ -107,7 +138,10 @@ impl RecordBatchDecoder<'_> {
                     .ok_or(ArrowError::IpcError(format!(
                         "Missing variadic count for {data_type} column"
                     )))?;
-                let count = count + 2; // view and null buffer.
+                let count = count
+                    .checked_add(2)
+                    .filter(|count| *count >= 2)
+                    .ok_or_else(|| decoder_memory::invalid("invalid IPC variadic buffer count"))?;
                 let buffers = (0..count)
                     .map(|_| self.next_buffer())
                     .collect::<Result<Vec<_>, _>>()?;
@@ -135,8 +169,15 @@ impl RecordBatchDecoder<'_> {
                 let values = self.create_array(list_field, variadic_counts)?;
                 self.create_list_view_array(list_node, data_type, &list_buffers, values)
             }
-            FixedSizeList(list_field, _) => {
+            FixedSizeList(list_field, size) => {
                 let list_node = self.next_node(field)?;
+                let size = usize::try_from(*size)
+                    .map_err(|_| decoder_memory::invalid("negative IPC fixed list width"))?;
+                // Arrow's child-data validator assumes this multiplication fits.
+                // Reject untrusted geometry before constructing either array.
+                (list_node.length() as usize)
+                    .checked_mul(size)
+                    .ok_or_else(|| decoder_memory::invalid("IPC fixed list extent overflow"))?;
                 let list_buffers = [self.next_buffer()?];
                 let values = self.create_array(list_field, variadic_counts)?;
                 self.create_list_array(list_node, data_type, &list_buffers, values)
@@ -187,7 +228,12 @@ impl RecordBatchDecoder<'_> {
                         // values in the column are null. In that case we synthesize an
                         // empty values array so decoding can proceed.
                         if let Dictionary(_, value_type) = data_type {
-                            arrow_array::new_empty_array(value_type.as_ref())
+                            let values = arrow_array::new_empty_array(value_type.as_ref());
+                            if let Some(credit) = &self.structure_memory {
+                                owned_record_batch::attach_array(&values, credit, &[])?
+                            } else {
+                                values
+                            }
                         } else {
                             unreachable!()
                         }
@@ -206,13 +252,24 @@ impl RecordBatchDecoder<'_> {
                     self.next_buffer()?;
                 }
 
-                let type_ids: ScalarBuffer<i8> =
-                    self.next_buffer()?.slice_with_length(0, len).into();
+                let type_ids = self.next_buffer()?;
+                if type_ids.len() < len {
+                    return Err(decoder_memory::invalid("truncated IPC union type ids"));
+                }
+                let type_ids: ScalarBuffer<i8> = type_ids.slice_with_length(0, len).into();
 
                 let value_offsets = match mode {
                     UnionMode::Dense => {
-                        let offsets: ScalarBuffer<i32> =
-                            self.next_buffer()?.slice_with_length(0, len * 4).into();
+                        let length = len.checked_mul(4).ok_or_else(|| {
+                            decoder_memory::invalid("IPC union offset length overflow")
+                        })?;
+                        let offsets = self.next_buffer()?;
+                        if offsets.len() < length {
+                            return Err(decoder_memory::invalid("truncated IPC union offsets"));
+                        }
+                        let offsets =
+                            self.aligned_buffer(offsets.slice_with_length(0, length), 4)?;
+                        let offsets: ScalarBuffer<i32> = offsets.into();
                         Some(offsets)
                     }
                     UnionMode::Sparse => None,
@@ -269,23 +326,24 @@ impl RecordBatchDecoder<'_> {
     ) -> Result<ArrayRef, ArrowError> {
         let length = field_node.length() as usize;
         let null_buffer = (field_node.null_count() > 0).then_some(buffers[0].clone());
+        let data_buffers = self.aligned_buffers(data_type, &buffers[1..])?;
         let mut builder = match data_type {
             Utf8 | Binary | LargeBinary | LargeUtf8 => {
                 // read 3 buffers: null buffer (optional), offsets buffer and data buffer
                 ArrayData::builder(data_type.clone())
                     .len(length)
-                    .buffers(buffers[1..3].to_vec())
+                    .buffers(data_buffers)
                     .null_bit_buffer(null_buffer)
             }
             BinaryView | Utf8View => ArrayData::builder(data_type.clone())
                 .len(length)
-                .buffers(buffers[1..].to_vec())
+                .buffers(data_buffers)
                 .null_bit_buffer(null_buffer),
             _ if data_type.is_primitive() || matches!(data_type, Boolean | FixedSizeBinary(_)) => {
                 // read 2 buffers: null buffer (optional) and data buffer
                 ArrayData::builder(data_type.clone())
                     .len(length)
-                    .add_buffer(buffers[1].clone())
+                    .buffers(data_buffers)
                     .null_bit_buffer(null_buffer)
             }
             t => unreachable!("Data type {:?} either unsupported or not primitive", t),
@@ -298,12 +356,55 @@ impl RecordBatchDecoder<'_> {
 
     /// Update the ArrayDataBuilder based on settings in this decoder
     fn create_array_from_builder(&self, builder: ArrayDataBuilder) -> Result<ArrayRef, ArrowError> {
-        let mut builder = builder.align_buffers(!self.require_alignment);
+        let mut builder = builder
+            .align_buffers(!self.require_alignment && self.decompression_context.memory.is_none());
         if self.skip_validation.get() {
             // SAFETY: flag can only be set via unsafe code
             unsafe { builder = builder.skip_validation(true) }
         };
         Ok(make_array(builder.build()?))
+    }
+
+    fn aligned_buffer(&self, buffer: Buffer, alignment: usize) -> Result<Buffer, ArrowError> {
+        if buffer.as_ptr().addr() % alignment == 0 {
+            return Ok(buffer);
+        }
+        if self.require_alignment {
+            return Err(ArrowError::InvalidArgumentError(
+                "Misaligned IPC buffer".into(),
+            ));
+        }
+        if let Some(memory) = self.decompression_context.memory.as_deref() {
+            let mut copy = decoder_memory::AdmittedBuffer::new(buffer.len(), memory)?;
+            copy.as_mut_slice().copy_from_slice(buffer.as_slice());
+            Ok(copy.finish())
+        } else {
+            Ok(Buffer::from_slice_ref(buffer.as_slice()))
+        }
+    }
+
+    fn aligned_buffers(
+        &self,
+        data_type: &DataType,
+        buffers: &[Buffer],
+    ) -> Result<Vec<Buffer>, ArrowError> {
+        if self.decompression_context.memory.is_none() || self.require_alignment {
+            return Ok(buffers.to_vec());
+        }
+        if matches!(data_type, FixedSizeBinary(size) if *size < 0) {
+            return Err(decoder_memory::invalid("negative IPC fixed binary width"));
+        }
+        let layout = arrow_data::layout(data_type);
+        buffers
+            .iter()
+            .enumerate()
+            .map(|(index, buffer)| match layout.buffers.get(index) {
+                Some(arrow_data::BufferSpec::FixedWidth { alignment, .. }) => {
+                    self.aligned_buffer(buffer.clone(), *alignment)
+                }
+                _ => Ok(buffer.clone()),
+            })
+            .collect()
     }
 
     /// Reads the correct number of buffers based on list type and null_count, and creates a
@@ -321,7 +422,7 @@ impl RecordBatchDecoder<'_> {
         let mut builder = match data_type {
             List(_) | LargeList(_) | Map(_, _) => ArrayData::builder(data_type.clone())
                 .len(length)
-                .add_buffer(buffers[1].clone())
+                .buffers(self.aligned_buffers(data_type, &buffers[1..])?)
                 .add_child_data(child_data)
                 .null_bit_buffer(null_buffer),
 
@@ -354,8 +455,7 @@ impl RecordBatchDecoder<'_> {
         self.create_array_from_builder(
             ArrayData::builder(data_type.clone())
                 .len(length)
-                .add_buffer(buffers[1].clone()) // offsets
-                .add_buffer(buffers[2].clone()) // sizes
+                .buffers(self.aligned_buffers(data_type, &buffers[1..])?)
                 .add_child_data(child_data)
                 .null_bit_buffer(null_buffer)
                 .null_count(field_node.null_count() as usize),
@@ -374,6 +474,9 @@ impl RecordBatchDecoder<'_> {
         let skip_validation = self.skip_validation.get();
 
         let nulls = if null_count > 0 {
+            if len.div_ceil(8) > null_buffer.len() {
+                return Err(decoder_memory::invalid("truncated IPC struct validity"));
+            }
             let validity_buffer = BooleanBuffer::new(null_buffer, 0, len);
             let null_buffer = if skip_validation {
                 // safety: flag can only be set via unsafe code
@@ -406,7 +509,7 @@ impl RecordBatchDecoder<'_> {
             // safety: flag can only be set via unsafe code
             unsafe { StructArray::new_unchecked(struct_fields.clone(), struct_arrays, nulls) }
         } else {
-            StructArray::try_new(struct_fields.clone(), struct_arrays, nulls)?
+            StructArray::try_new_with_length(struct_fields.clone(), struct_arrays, nulls, len)?
         };
 
         Ok(Arc::new(struct_array))
@@ -425,7 +528,7 @@ impl RecordBatchDecoder<'_> {
             let null_buffer = (field_node.null_count() > 0).then_some(buffers[0].clone());
             let builder = ArrayData::builder(data_type.clone())
                 .len(field_node.length() as usize)
-                .add_buffer(buffers[1].clone())
+                .buffers(self.aligned_buffers(data_type, &buffers[1..])?)
                 .add_child_data(value_array.into_data())
                 .null_bit_buffer(null_buffer)
                 .null_count(field_node.null_count() as usize);
@@ -470,6 +573,8 @@ pub struct RecordBatchDecoder<'a> {
     ///
     /// See [`FileDecoder::with_skip_validation`] for details.
     skip_validation: UnsafeFlag,
+    /// Optional independent owner for constructed array metadata.
+    structure_memory: Option<Arc<dyn DecoderMemoryReservation>>,
 }
 
 impl<'a> RecordBatchDecoder<'a> {
@@ -487,6 +592,11 @@ impl<'a> RecordBatchDecoder<'a> {
         let field_nodes = batch.nodes().ok_or_else(|| {
             ArrowError::IpcError("Unable to get field nodes from IPC RecordBatch".to_string())
         })?;
+        usize::try_from(batch.length())
+            .map_err(|_| decoder_memory::invalid("negative IPC batch length"))?;
+        for buffer in buffers.iter() {
+            checked_buffer_extent(buffer, buf.len())?;
+        }
 
         let batch_compression = batch.compression();
         let compression = batch_compression
@@ -506,6 +616,7 @@ impl<'a> RecordBatchDecoder<'a> {
             projection: None,
             require_alignment: false,
             skip_validation: UnsafeFlag::new(),
+            structure_memory: None,
         })
     }
 
@@ -515,6 +626,15 @@ impl<'a> RecordBatchDecoder<'a> {
     /// that will be read
     pub fn with_projection(mut self, projection: Option<&'a [usize]>) -> Self {
         self.projection = projection;
+        self
+    }
+
+    /// Admit decoded compressed buffers and codec workspaces through a caller.
+    /// Misaligned payload copies also receive independent owners. Use
+    /// [`Self::read_owned_record_batch`] for array structures. Input messages,
+    /// the original schema and dictionary concatenation need separate owners.
+    pub fn with_decoder_memory(mut self, memory: Arc<dyn DecoderMemory>) -> Self {
+        self.decompression_context.memory = Some(memory);
         self
     }
 
@@ -544,8 +664,35 @@ impl<'a> RecordBatchDecoder<'a> {
         self
     }
 
+    /// Admit array structures and validation scratch before decoding, returning
+    /// the structure owner with the batch (including bufferless/empty outputs).
+    /// Payload buffers use the same factory independently. The caller must keep
+    /// the original schema and input/dictionary payload owners alive.
+    pub fn read_owned_record_batch(mut self) -> Result<OwnedRecordBatch, ArrowError> {
+        let memory = self.decompression_context.memory.clone().ok_or_else(|| {
+            decoder_memory::invalid("owned IPC batch requires a decoder memory factory")
+        })?;
+        let capacity = array_structure::record_batch(&self)?;
+        let credit: Arc<dyn DecoderMemoryReservation> =
+            Arc::from(memory.reserve(capacity.retained)?);
+        let temporary = memory.reserve(capacity.temporary)?;
+        self.structure_memory = Some(credit.clone());
+        let batch = self.read_record_batch()?;
+        drop(temporary);
+        Ok(OwnedRecordBatch { batch, credit })
+    }
+
     /// Read the record batch, consuming the reader
     pub fn read_record_batch(mut self) -> Result<RecordBatch, ArrowError> {
+        if self
+            .batch
+            .variadicBufferCounts()
+            .into_iter()
+            .flatten()
+            .any(|count| !(0..=i64::MAX - 2).contains(&count))
+        {
+            return Err(decoder_memory::invalid("invalid IPC variadic buffer count"));
+        }
         let mut variadic_counts: VecDeque<i64> = self
             .batch
             .variadicBufferCounts()
@@ -578,7 +725,9 @@ impl<'a> RecordBatchDecoder<'a> {
                 }
             }
 
-            arrays.sort_by_key(|t| t.0);
+            // Projection positions are unique even when fields repeat. No
+            // stable-sort allocation or tie behavior is required here.
+            arrays.sort_unstable_by_key(|t| t.0);
 
             let schema = Arc::new(schema.project(projection)?);
             let columns = arrays.into_iter().map(|t| t.1).collect::<Vec<_>>();
@@ -593,7 +742,7 @@ impl<'a> RecordBatchDecoder<'a> {
                     ))
                 }
             } else {
-                assert!(variadic_counts.is_empty());
+                self.finish_counts(&variadic_counts)?;
                 RecordBatch::try_new_with_options(schema, columns, &options)
             }
         } else {
@@ -614,7 +763,7 @@ impl<'a> RecordBatchDecoder<'a> {
                     ))
                 }
             } else {
-                assert!(variadic_counts.is_empty());
+                self.finish_counts(&variadic_counts)?;
                 RecordBatch::try_new_with_options(schema, children, &options)
             }
         }
@@ -632,16 +781,32 @@ impl<'a> RecordBatchDecoder<'a> {
         )
     }
 
-    fn skip_buffer(&mut self) {
-        self.buffers.next().unwrap();
+    fn finish_counts(&self, variadic_counts: &VecDeque<i64>) -> Result<(), ArrowError> {
+        if !variadic_counts.is_empty() || self.nodes.len() != 0 || self.buffers.len() != 0 {
+            return Err(decoder_memory::invalid(
+                "IPC node or buffer count does not match schema",
+            ));
+        }
+        Ok(())
+    }
+
+    fn skip_buffer(&mut self) -> Result<(), ArrowError> {
+        self.buffers
+            .next()
+            .ok_or_else(|| decoder_memory::invalid("missing skipped IPC buffer"))?;
+        Ok(())
     }
 
     fn next_node(&mut self, field: &Field) -> Result<&'a FieldNode, ArrowError> {
-        self.nodes.next().ok_or_else(|| {
+        let node = self.nodes.next().ok_or_else(|| {
             ArrowError::SchemaError(format!(
                 "Invalid data for schema. {field} refers to node not found in schema",
             ))
-        })
+        })?;
+        if node.length() < 0 || node.null_count() < 0 || node.null_count() > node.length() {
+            return Err(decoder_memory::invalid("invalid IPC field node lengths"));
+        }
+        Ok(node)
     }
 
     fn skip_field(
@@ -654,7 +819,7 @@ impl<'a> RecordBatchDecoder<'a> {
         match field.data_type() {
             Utf8 | Binary | LargeBinary | LargeUtf8 => {
                 for _ in 0..3 {
-                    self.skip_buffer()
+                    self.skip_buffer()?;
                 }
             }
             Utf8View | BinaryView => {
@@ -664,32 +829,35 @@ impl<'a> RecordBatchDecoder<'a> {
                         "Missing variadic count for {} column",
                         field.data_type()
                     )))?;
-                let count = count + 2; // view and null buffer.
+                let count = count
+                    .checked_add(2)
+                    .filter(|count| *count >= 2)
+                    .ok_or_else(|| decoder_memory::invalid("invalid IPC variadic buffer count"))?;
                 for _i in 0..count {
-                    self.skip_buffer()
+                    self.skip_buffer()?;
                 }
             }
             FixedSizeBinary(_) => {
-                self.skip_buffer();
-                self.skip_buffer();
+                self.skip_buffer()?;
+                self.skip_buffer()?;
             }
             List(list_field) | LargeList(list_field) | Map(list_field, _) => {
-                self.skip_buffer();
-                self.skip_buffer();
+                self.skip_buffer()?;
+                self.skip_buffer()?;
                 self.skip_field(list_field, variadic_count)?;
             }
             ListView(list_field) | LargeListView(list_field) => {
-                self.skip_buffer(); // Null buffer
-                self.skip_buffer(); // Offsets
-                self.skip_buffer(); // Sizes
+                self.skip_buffer()?; // Null buffer
+                self.skip_buffer()?; // Offsets
+                self.skip_buffer()?; // Sizes
                 self.skip_field(list_field, variadic_count)?;
             }
             FixedSizeList(list_field, _) => {
-                self.skip_buffer();
+                self.skip_buffer()?;
                 self.skip_field(list_field, variadic_count)?;
             }
             Struct(struct_fields) => {
-                self.skip_buffer();
+                self.skip_buffer()?;
 
                 // skip for each field
                 for struct_field in struct_fields {
@@ -701,17 +869,17 @@ impl<'a> RecordBatchDecoder<'a> {
                 self.skip_field(values_field, variadic_count)?;
             }
             Dictionary(_, _) => {
-                self.skip_buffer(); // Nulls
-                self.skip_buffer(); // Indices
+                self.skip_buffer()?; // Nulls
+                self.skip_buffer()?; // Indices
             }
             Union(fields, mode) => {
                 if self.version < MetadataVersion::V5 {
-                    self.skip_buffer(); // Null buffer
+                    self.skip_buffer()?; // Null buffer
                 }
-                self.skip_buffer(); // Type ids
+                self.skip_buffer()?; // Type ids
 
                 match mode {
-                    UnionMode::Dense => self.skip_buffer(), // Offsets
+                    UnionMode::Dense => self.skip_buffer()?, // Offsets
                     UnionMode::Sparse => {}
                 };
 
@@ -746,8 +914,8 @@ impl<'a> RecordBatchDecoder<'a> {
             | Decimal64(_, _)
             | Decimal128(_, _)
             | Decimal256(_, _) => {
-                self.skip_buffer();
-                self.skip_buffer();
+                self.skip_buffer()?;
+                self.skip_buffer()?;
             }
         };
         Ok(())
@@ -892,7 +1060,9 @@ fn get_dictionary_values(
             // Read a single column
             let record_batch = RecordBatchDecoder::try_new(
                 buf,
-                batch.data().unwrap(),
+                batch
+                    .data()
+                    .ok_or_else(|| decoder_memory::invalid("IPC dictionary has no value batch"))?,
                 Arc::new(schema),
                 dictionaries_by_id,
                 metadata,
@@ -914,10 +1084,15 @@ fn get_dictionary_values(
 
 /// Read the data for a given block
 fn read_block<R: Read + Seek>(mut reader: R, block: &Block) -> Result<Buffer, ArrowError> {
-    reader.seek(SeekFrom::Start(block.offset() as u64))?;
-    let body_len = block.bodyLength().to_usize().unwrap();
-    let metadata_len = block.metaDataLength().to_usize().unwrap();
-    let total_len = body_len.checked_add(metadata_len).unwrap();
+    let offset = u64::try_from(block.offset())
+        .map_err(|_| decoder_memory::invalid("negative IPC block offset"))?;
+    let (metadata_len, body_len) = block_lengths(block)?;
+    let total_len = metadata_len
+        .checked_add(body_len)
+        .filter(|length| *length <= isize::MAX as usize)
+        .ok_or_else(|| decoder_memory::invalid("IPC block length overflow"))?;
+    decoder_memory::aligned_capacity(total_len)?;
+    reader.seek(SeekFrom::Start(offset))?;
 
     let mut buf = MutableBuffer::from_len_zeroed(total_len);
     reader.read_exact(&mut buf)?;
@@ -928,12 +1103,46 @@ fn read_block<R: Read + Seek>(mut reader: R, block: &Block) -> Result<Buffer, Ar
 ///
 /// <https://arrow.apache.org/docs/format/Columnar.html#encapsulated-message-format>
 fn parse_message(buf: &[u8]) -> Result<Message::Message<'_>, ArrowError> {
-    let buf = match buf[..4] == CONTINUATION_MARKER {
-        true => &buf[8..],
-        false => &buf[4..],
-    };
-    crate::root_as_message(buf)
+    let (prefix, length) = message_extent(buf)?;
+    crate::root_as_message(&buf[prefix..prefix + length])
         .map_err(|err| ArrowError::ParseError(format!("Unable to get root as message: {err:?}")))
+}
+
+fn message_extent(buf: &[u8]) -> Result<(usize, usize), ArrowError> {
+    let first = buf
+        .get(..4)
+        .ok_or_else(|| decoder_memory::invalid("truncated IPC message prefix"))?;
+    let prefix = if first == CONTINUATION_MARKER { 8 } else { 4 };
+    let length = buf
+        .get(prefix - 4..prefix)
+        .ok_or_else(|| decoder_memory::invalid("truncated IPC message length"))?;
+    let length = usize::try_from(i32::from_le_bytes(length.try_into().unwrap()))
+        .map_err(|_| decoder_memory::invalid("negative IPC message length"))?;
+    if length == 0 || prefix.checked_add(length).is_none_or(|end| end > buf.len()) {
+        return Err(decoder_memory::invalid("invalid IPC metadata extent"));
+    }
+    Ok((prefix, length))
+}
+
+fn block_lengths(block: &Block) -> Result<(usize, usize), ArrowError> {
+    let metadata = usize::try_from(block.metaDataLength())
+        .map_err(|_| decoder_memory::invalid("negative IPC block metadata length"))?;
+    let body = usize::try_from(block.bodyLength())
+        .map_err(|_| decoder_memory::invalid("negative IPC block body length"))?;
+    Ok((metadata, body))
+}
+
+fn block_body(block: &Block, buf: &Buffer) -> Result<Buffer, ArrowError> {
+    let (metadata, body) = block_lengths(block)?;
+    let (prefix, length) = message_extent(buf)?;
+    if metadata != prefix + length || metadata.checked_add(body) != Some(buf.len()) {
+        return Err(decoder_memory::invalid("IPC block/message extent mismatch"));
+    }
+    let message = parse_message(buf)?;
+    if usize::try_from(message.bodyLength()).ok() != Some(body) {
+        return Err(decoder_memory::invalid("IPC message body length mismatch"));
+    }
+    Ok(buf.slice_with_length(metadata, body))
 }
 
 /// Read the footer length from the last 10 bytes of an Arrow IPC file
@@ -1092,12 +1301,13 @@ impl FileDecoder {
 
     /// Read the dictionary with the given block and data buffer
     pub fn read_dictionary(&mut self, block: &Block, buf: &Buffer) -> Result<(), ArrowError> {
+        let body = block_body(block, buf)?;
         let message = self.read_message(buf)?;
         match message.header_type() {
             crate::MessageHeader::DictionaryBatch => {
                 let batch = message.header_as_dictionary_batch().unwrap();
                 read_dictionary_impl(
-                    &buf.slice(block.metaDataLength() as _),
+                    &body,
                     batch,
                     &self.schema,
                     &mut self.dictionaries,
@@ -1118,6 +1328,7 @@ impl FileDecoder {
         block: &Block,
         buf: &Buffer,
     ) -> Result<Option<RecordBatch>, ArrowError> {
+        let body = block_body(block, buf)?;
         let message = self.read_message(buf)?;
         match message.header_type() {
             crate::MessageHeader::Schema => Err(ArrowError::IpcError(
@@ -1129,7 +1340,7 @@ impl FileDecoder {
                 })?;
                 // read the block that makes up the record batch into a buffer
                 RecordBatchDecoder::try_new(
-                    &buf.slice(block.metaDataLength() as _),
+                    &body,
                     batch,
                     self.schema.clone(),
                     &self.dictionaries,

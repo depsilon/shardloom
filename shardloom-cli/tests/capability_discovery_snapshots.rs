@@ -2148,6 +2148,37 @@ const WORLD_CLASS_SURFACE_SCOPES: [&str; 13] = [
     "security-governance",
 ];
 
+fn append_runtime_availability_keys(keys: &mut Vec<String>) {
+    keys.extend([
+        "runtime_capabilities_schema_version".to_string(),
+        "runtime_capabilities_scope".to_string(),
+    ]);
+    for (group, names) in [
+        ("native_input", &["vortex"][..]),
+        ("native_output", &["vortex"][..]),
+        (
+            "compatibility_output",
+            &[
+                "arrow_ipc",
+                "parquet",
+                "csv",
+                "jsonl",
+                "json",
+                "avro",
+                "orc",
+                "iceberg_compatible",
+                "delta_compatible",
+            ][..],
+        ),
+        ("frontend", &["cli", "sql", "dataframe_api"][..]),
+    ] {
+        for name in names {
+            keys.push(format!("runtime_capability_{group}_{name}_status"));
+            keys.push(format!("runtime_capability_{group}_{name}_scope"));
+        }
+    }
+}
+
 #[test]
 fn capability_discovery_json_field_keys_are_stable() {
     for (scope, expected_keys) in [
@@ -2164,17 +2195,20 @@ fn capability_discovery_json_field_keys_are_stable() {
     ] {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
-        assert_eq!(keys.as_slice(), expected_keys, "scope={scope}");
+        let mut expected_keys: Vec<String> =
+            expected_keys.iter().map(|key| (*key).to_string()).collect();
+        if matches!(scope, "adapters" | "certification") {
+            append_runtime_availability_keys(&mut expected_keys);
+        }
+        assert_eq!(keys.as_slice(), expected_keys.as_slice(), "scope={scope}");
     }
 
     let output = run_capabilities_scope("sql");
     let keys = field_keys(&output);
     let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
-    assert_eq!(
-        keys.as_slice(),
-        with_sql_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
-        "scope=sql"
-    );
+    let mut expected_keys = with_sql_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice());
+    append_runtime_availability_keys(&mut expected_keys);
+    assert_eq!(keys.as_slice(), expected_keys.as_slice(), "scope=sql");
     assert!(
         !keys
             .iter()
@@ -2185,7 +2219,7 @@ fn capability_discovery_json_field_keys_are_stable() {
         let output = run_capabilities_scope(scope);
         let keys = field_keys(&output);
         let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
-        let expected_keys = match scope {
+        let mut expected_keys = match scope {
             "python" => with_dataframe_notebook_package_and_generated_source_alignment_fields(
                 WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
@@ -2229,6 +2263,9 @@ fn capability_discovery_json_field_keys_are_stable() {
                 .map(str::to_string)
                 .collect(),
         };
+        if matches!(scope, "python" | "dataframe" | "universal-adapters") {
+            append_runtime_availability_keys(&mut expected_keys);
+        }
         assert_eq!(keys.as_slice(), expected_keys.as_slice(), "scope={scope}");
     }
 }

@@ -15,7 +15,7 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust")
+NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc")
 
 
 # Cargo commands as they appeared in the frozen workflow, before the intentional
@@ -69,7 +69,7 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 10)
+        self.assertEqual(len(assigned), 12)
         self.assertEqual(set(assigned), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
@@ -88,12 +88,22 @@ class ProviderCommandTests(unittest.TestCase):
         self.assertEqual(clippy_command, expected_clippy)
 
     def test_orc_provider_matches_admitted_runtime_features_and_checks_tests(self) -> None:
-        self.assertEqual(providers.GROUPS["formats"], ("orc-rust",))
+        self.assertEqual(providers.GROUPS["formats"], ("orc-rust", "arrow-avro", "arrow-ipc"))
         self.assertEqual(providers.commands("orc-rust"), [
             ["cargo", "test", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
              "--no-default-features", "--lib", "--", "--test-threads=2"],
             ["cargo", "clippy", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
              "--no-default-features", "--lib", "--tests", "--", "-D", "warnings"],
+        ])
+
+    def test_avro_runs_complete_library_with_only_the_admitted_codecs(self) -> None:
+        self.assertEqual(providers.commands("arrow-avro"), [
+            ["cargo", "test", "--locked", "--manifest-path", "vendor/arrow-avro/Cargo.toml",
+             "--no-default-features", "--features", "deflate,snappy", "--lib", "--",
+             "--test-threads=2"],
+            ["cargo", "clippy", "--locked", "--manifest-path", "vendor/arrow-avro/Cargo.toml",
+             "--no-default-features", "--features", "deflate,snappy", "--lib", "--tests",
+             "--", "-D", "warnings"],
         ])
 
     def test_generated_commands_preserve_frozen_feature_patch_target_and_thread_behavior(self) -> None:
@@ -116,6 +126,15 @@ class ProviderCommandTests(unittest.TestCase):
         self.assertNotIn("--lib", buffer_test)
         self.assertNotIn("--test-threads=2", buffer_test)
         self.assertIn("--all-targets", buffer_clippy)
+
+    def test_ipc_runs_both_codecs_and_complete_library_without_external_fixtures(self) -> None:
+        self.assertEqual(providers.commands("arrow-ipc"), [
+            ["cargo", "test", "--locked", "--manifest-path", "vendor/arrow-ipc/Cargo.toml",
+             "--features", "lz4,zstd", "--lib", "--", "--test-threads=2"],
+            ["cargo", "clippy", "--locked", "--manifest-path", "vendor/arrow-ipc/Cargo.toml",
+             "--features", "lz4,zstd", "--lib", "--tests", "--", "-D", "warnings"],
+        ])
+        self.assertNotIn("arrow_test_data", providers.CONFIGURATIONS["arrow-ipc"])
 
 
 class RunGroupTests(unittest.TestCase):
@@ -152,19 +171,36 @@ class RunGroupTests(unittest.TestCase):
         self.assertEqual(saved["status"], "passed")
         self.assertEqual(len(saved["commands"]), 2)
 
-    def test_orc_commands_do_not_inherit_vortex_lint_policy(self) -> None:
-        (self.root / ".github/provider-locks/orc-rust.lock").write_text("orc-rust lock\n")
-        (self.root / "vendor/orc-rust").mkdir()
-        with patch.dict(providers.os.environ, {"CLIPPY_CONF_DIR": "/inherited/vortex-policy"}):
+    def test_format_commands_have_scoped_lint_and_fixture_paths(self) -> None:
+        for crate in providers.GROUPS["formats"]:
+            (self.root / ".github/provider-locks" / f"{crate}.lock").write_text(f"{crate} lock\n")
+            (self.root / "vendor" / crate).mkdir()
+        fixtures = self.root / "vendor/arrow-avro/test/arrow-testing/data"
+        fixtures.mkdir(parents=True)
+        with patch.dict(providers.os.environ, {"CLIPPY_CONF_DIR": "/inherited/vortex-policy",
+                                               "ARROW_TEST_DATA": "/inherited/fixtures"}):
             with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
                 report = providers.run_group("formats", self.root / "out", root=self.root)
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(run.call_count, 2)
-        expected = str(self.root / "vendor/orc-rust")
-        for call in run.call_args_list:
+        self.assertEqual(run.call_count, 6)
+        for call, command in zip(run.call_args_list, report["commands"]):
+            crate = command["crate"]
+            expected = str(self.root / "vendor" / crate)
             self.assertEqual(call.kwargs["env"]["CLIPPY_CONF_DIR"], expected)
-        for command in report["commands"]:
             self.assertEqual(command["clippy_conf_dir"], expected)
+            if crate == "arrow-avro":
+                self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], str(fixtures))
+                self.assertEqual(command["arrow_test_data"], str(fixtures))
+            else:
+                self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], "/inherited/fixtures")
+                self.assertNotIn("arrow_test_data", command)
+
+    def test_missing_avro_fixtures_fail_before_commands(self) -> None:
+        with patch.object(providers, "GROUPS", {"formats": ("arrow-avro",)}):
+            with patch.object(providers.subprocess, "run") as run:
+                with self.assertRaisesRegex(ValueError, "missing committed provider test fixtures"):
+                    providers.run_group("formats", self.root / "out", root=self.root)
+        run.assert_not_called()
 
     def test_command_failure_is_rejected_and_failed_report_written(self) -> None:
         output = self.root / "out"

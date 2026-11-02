@@ -186,9 +186,17 @@ impl<'p, 's> Recorder<'p, 's> {
         // Retain only the supplied native relation. Input replay supplies its
         // full source schema; output replay supplies the completed query schema.
         // Bounded slices limit transient gather work for either producer.
-        for start in (0..array.len()).step_by(self.copy_rows) {
+        let mut sizing = crate::native_work_sizing::Rows::new(
+            crate::native_work_sizing::Owner::Replay,
+            array.dtype(),
+            self.copy_rows,
+            2,
+        )?;
+        let mut start = 0;
+        while start < array.len() {
             context.check_cancelled()?;
-            let end = start.saturating_add(self.copy_rows).min(array.len());
+            let selected = sizing.select((array.len() - start) as u64, context)?;
+            let end = start + selected.rows;
             let compact = native_payload::detach_with_policy(
                 &array.slice(start..end).map_err(vortex_error)?,
                 native_payload::CopyPolicy::PreserveUnobserved,
@@ -198,7 +206,10 @@ impl<'p, 's> Recorder<'p, 's> {
             checked_add(&mut report.rows, compact.len() as u64)?;
             checked_add(&mut report.buffer_bytes, compact.nbytes())?;
             report.max_batch_rows = report.max_batch_rows.max(compact.len());
+            let compact_bytes = compact.nbytes();
             self.retain(compact, context)?;
+            sizing.complete(selected, Some(compact_bytes), context);
+            start = end;
         }
         Ok(())
     }

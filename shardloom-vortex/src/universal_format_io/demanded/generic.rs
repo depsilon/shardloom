@@ -2,7 +2,8 @@
 //! decode formats only; predicates and every relational operator stay native.
 //!
 //! Projection is applied by IPC/ORC/Avro providers and by text construction.
-//! This module makes no row-group pruning claim for those adapters. Provider
+//! Parquet consumes shared mapped row-group exclusions; other formats do not.
+//! Provider
 //! transient allocations remain outside the retained-batch accounting boundary.
 
 use super::{
@@ -10,15 +11,16 @@ use super::{
     NativeExecutionContext, OwnedLocalRead, PreparedColumnarSource, Result, failed,
 };
 use crate::source_identity::SourceIdentity;
+use crate::universal_format_io::owned_batch::OwnedBatch;
 use crate::universal_format_io::{local_dataset::LocalDataset, text_stream::TextSource};
-use arrow_array::{RecordBatch, RecordBatchReader};
 use arrow_schema::SchemaRef;
 use shardloom_exec::{
+    adaptive_work::{WorkCost, WorkShape},
     compute_pool::CancellationToken,
     live_memory::{LiveMemoryPool, MemoryLease},
 };
 use std::{
-    io::{BufReader, Seek, SeekFrom},
+    io::{Seek, SeekFrom},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -26,8 +28,11 @@ use std::{
     },
 };
 
+#[path = "generic_decoder.rs"]
+pub(super) mod decoder;
 #[path = "generic_schema.rs"]
 mod schema;
+use decoder::Decoder;
 
 type TextFactory<'a> =
     dyn Fn(&Path, &LiveMemoryPool, &CancellationToken) -> Result<Arc<TextSource>> + 'a;
@@ -37,15 +42,41 @@ pub(super) struct Source {
     pub(super) schema: SchemaRef,
     pub(super) files: Vec<File>,
     pub(super) schema_discovery_read_bytes: u64,
+    pub(super) preparation_dictionary_status: Option<&'static str>,
+}
+
+impl Source {
+    pub(super) fn row_count_hint(&self, cancellation: &CancellationToken) -> Result<Option<usize>> {
+        let mut rows = 0_u64;
+        for file in &self.files {
+            cancellation.check()?;
+            let count = if let Some(metadata) = &file.parquet {
+                Some(super::metadata_count::file_rows(
+                    metadata.metadata(),
+                    cancellation,
+                )?)
+            } else if let Some(metadata) = &file.orc {
+                metadata.exact_number_of_rows().map_err(failed)?
+            } else {
+                file.text.as_ref().map(|text| text.rows() as u64)
+            };
+            let Some(count) = count else { return Ok(None) };
+            rows = add(rows, count)?;
+        }
+        usize::try_from(rows).map(Some).map_err(failed)
+    }
 }
 
 pub(super) struct File {
     pub(super) path: PathBuf,
     pub(super) identity: Arc<SourceIdentity>,
-    ipc_file_framing: bool,
     text: Option<Arc<TextSource>>,
-    schema: SchemaRef,
-    parquet: Option<super::ArrowReaderMetadata>,
+    pub(super) schema: SchemaRef,
+    ipc: Option<Arc<super::ipc::Metadata>>,
+    pub(super) parquet: Option<super::ArrowReaderMetadata>,
+    pub(super) orc: Option<Arc<orc_rust::reader::metadata::FileMetadata>>,
+    // Drop the physical schema before its retained provider structure credit.
+    avro_schema_credit: Option<Arc<dyn arrow_avro::reader::DecoderMemoryReservation>>,
 }
 
 impl LocalColumnarSource {
@@ -134,10 +165,12 @@ pub(super) fn admit_collection(
         let mut file = File {
             path,
             identity,
-            ipc_file_framing: false,
             text: None,
             schema: Arc::new(arrow_schema::Schema::empty()),
+            ipc: None,
             parquet: None,
+            orc: None,
+            avro_schema_credit: None,
         };
         let discovered = if let Some(factory) = text_factory {
             let text = factory(&file.path, memory, cancellation)?;
@@ -155,8 +188,11 @@ pub(super) fn admit_collection(
             file.text = Some(text);
             schema
         } else {
-            let workspace = metadata_workspace(&input)?;
-            let _workspace = memory.reserve(workspace)?;
+            // Avro and IPC admit physical input and source-shaped metadata
+            // structures before construction through this pool.
+            let _workspace = (!matches!(format, "avro" | "arrow-ipc"))
+                .then(|| metadata_workspace(&input).and_then(|bytes| memory.reserve(bytes)))
+                .transpose()?;
             match format {
                 "parquet" => {
                     use super::source::metadata_admission;
@@ -177,17 +213,31 @@ pub(super) fn admit_collection(
                     schema
                 }
                 "arrow-ipc" => {
-                    file.ipc_file_framing =
-                        input.len() >= 6 && input.bytes(0, 6)?.as_ref() == b"ARROW1";
-                    ipc_schema(&input, file.ipc_file_framing, memory)?
+                    let metadata = super::ipc::discover(&input, memory, cancellation)?;
+                    let schema = metadata.schema.schema().clone();
+                    file.ipc = Some(metadata);
+                    schema
                 }
-                "orc" => orc_rust::ArrowReaderBuilder::try_new(input.clone())
-                    .map_err(failed)?
-                    .schema(),
-                "avro" => arrow_avro::reader::ReaderBuilder::new()
-                    .build(BufReader::new(cursor(input.clone())))
-                    .map_err(failed)?
-                    .schema(),
+                "orc" => {
+                    let (metadata, mut held) =
+                        super::orc::admit(input.clone(), memory, cancellation)?;
+                    credit.absorb(&mut held)?;
+                    row_groups_total = row_groups_total
+                        .checked_add(metadata.stripe_metadatas().len())
+                        .ok_or_else(|| failed("source stripe count overflow"))?;
+                    let builder = orc_rust::ArrowReaderBuilder::new_with_metadata(
+                        input.clone(),
+                        Arc::clone(&metadata),
+                    );
+                    let schema = builder.schema();
+                    file.orc = Some(metadata);
+                    schema
+                }
+                "avro" => {
+                    let discovered = decoder::avro_schema(input.clone(), memory, cancellation)?;
+                    file.avro_schema_credit = Some(discovered.credit);
+                    discovered.schema
+                }
                 _ => return Err(failed("missing native source adapter")),
             }
         };
@@ -195,7 +245,13 @@ pub(super) fn admit_collection(
         credit.resize(add(
             credit.bytes(),
             bytes
-                .checked_mul(3)
+                // Original Avro/IPC schemas already retain provider credits;
+                // partition/merged copies still need native capacity.
+                .checked_mul(if matches!(format, "avro" | "arrow-ipc") {
+                    2
+                } else {
+                    3
+                })
                 .ok_or_else(|| failed("schema capacity overflow"))?,
         )?)?;
         file.schema = Arc::clone(&discovered);
@@ -226,6 +282,7 @@ pub(super) fn admit_collection(
             schema: schema.ok_or_else(|| failed("source inventory is empty"))?,
             files,
             schema_discovery_read_bytes,
+            preparation_dictionary_status: None,
         }),
         metadata_read_bytes,
         metadata_credit: credit,
@@ -234,6 +291,56 @@ pub(super) fn admit_collection(
         content_fingerprints,
     });
     source.validate_generation_controlled(cancellation)?;
+    Ok(source)
+}
+
+/// Reuse the existing single-file preparation layout policy with the retained
+/// metadata. Query admission and collection schema alignment stay unchanged.
+pub(super) fn preparation_layout(
+    mut source: Arc<LocalColumnarSource>,
+    memory: &LiveMemoryPool,
+    cancellation: &CancellationToken,
+) -> Result<Arc<LocalColumnarSource>> {
+    if !source.collection.is_single_file()
+        || source
+            .other
+            .as_ref()
+            .is_none_or(|source| source.format != "parquet")
+    {
+        return Ok(source);
+    }
+    cancellation.check()?;
+    let owned = Arc::get_mut(&mut source)
+        .ok_or_else(|| failed("preparation layout requires exclusive source admission"))?;
+    let format = owned.other.as_mut().expect("format checked");
+    let rows = format.row_count_hint(cancellation)?;
+    let file = format
+        .files
+        .first_mut()
+        .ok_or_else(|| failed("missing preparation file"))?;
+    // Keep original schema owners live while admitting the replacement schema,
+    // reader field map and retained merged-schema structures.
+    let mut replacement = memory.reserve(
+        schema_bytes(&file.schema)?
+            .checked_mul(3)
+            .ok_or_else(|| failed("preparation schema capacity overflow"))?,
+    )?;
+    let plan = super::super::parquet_dictionary_schema_plan(&file.schema, rows);
+    let old = file
+        .parquet
+        .as_ref()
+        .ok_or_else(|| failed("missing preparation metadata"))?;
+    let metadata = super::ArrowReaderMetadata::try_new(
+        Arc::clone(old.metadata()),
+        super::super::parquet_reader_options_with_optional_schema_hint(plan.schema_hint.as_ref()),
+    )
+    .map_err(super::source::metadata_admission::source_error)?;
+    file.schema = Arc::clone(metadata.schema());
+    file.parquet = Some(metadata);
+    format.schema = Arc::clone(&file.schema);
+    format.preparation_dictionary_status = Some(plan.dictionary_preservation_status);
+    owned.metadata_credit.absorb(&mut replacement)?;
+    owned.validate_generation_controlled(cancellation)?;
     Ok(source)
 }
 
@@ -255,61 +362,21 @@ fn metadata_workspace(input: &OwnedLocalRead) -> Result<u64> {
         .ok_or_else(|| failed("source metadata workspace overflow"))
 }
 
-fn ipc_schema(input: &OwnedLocalRead, file: bool, memory: &LiveMemoryPool) -> Result<SchemaRef> {
-    if !file {
-        if input.len() < 8 {
-            return Err(failed("IPC stream has no schema message"));
-        }
-        let header = input.bytes(0, 8)?;
-        let length = if header[..4] == [255; 4] {
-            &header[4..8]
-        } else {
-            &header[..4]
-        };
-        let length = i32::from_le_bytes(length.try_into().map_err(failed)?);
-        if length <= 0 || length > 16 << 20 {
-            return Err(failed("IPC stream schema exceeds metadata admission"));
-        }
-        let _workspace = memory.reserve(u64::try_from(length).map_err(failed)? * 32 + 8192)?;
-        return arrow_ipc::reader::StreamReader::try_new(cursor(input.clone()), None)
-            .map(|reader| reader.schema())
-            .map_err(failed);
-    }
-    if input.len() < 16 {
-        return Err(failed("IPC file is too short"));
-    }
-    let tail = input.bytes(input.len() - 10, 10)?;
-    let length = u32::from_le_bytes(tail[..4].try_into().map_err(failed)?) as usize;
-    if &tail[4..] != b"ARROW1"
-        || length == 0
-        || length > 16 << 20
-        || length as u64 > input.len() - 16
-    {
-        return Err(failed("IPC footer is malformed or exceeds admission"));
-    }
-    let _workspace = memory.reserve(length as u64 * 32 + 8192)?;
-    let bytes = input.bytes(input.len() - 10 - length as u64, length)?;
-    let footer = arrow_ipc::root_as_footer(&bytes).map_err(failed)?;
-    let schema = footer
-        .schema()
-        .ok_or_else(|| failed("IPC footer has no schema"))?;
-    if !schema.endianness().equals_to_target_endianness() {
-        return Err(failed("IPC endianness differs from native provider"));
-    }
-    Ok(Arc::new(
-        std::panic::catch_unwind(|| arrow_ipc::convert::fb_to_schema(schema))
-            .map_err(|_| failed("IPC footer contains an invalid logical schema"))?,
-    ))
-}
-
 pub(super) struct Reader {
-    active: Option<Box<dyn RecordBatchReader + Send>>,
+    active: Option<Decoder>,
     workspace: Option<MemoryLease>,
+    cost: Option<WorkCost>,
+    sizing: super::batch_work::Sizing,
     next_file: usize,
-    next_parquet_group: Option<(usize, usize)>,
+    next_group: usize,
+    group_end: usize,
+    batch_rows: usize,
+    active_region: Option<super::SourceGroup>,
+    region_rows: u64,
     row_groups_read: usize,
     rows: u64,
     decoded_rows: u64,
+    owned_parquet_handoff: bool,
     ended: bool,
 }
 
@@ -318,12 +385,43 @@ impl Reader {
         Self {
             active: None,
             workspace: None,
+            cost: None,
+            sizing: super::batch_work::Sizing::default(),
             next_file: 0,
-            next_parquet_group: None,
+            next_group: 0,
+            group_end: usize::MAX,
+            batch_rows: super::batch_work::MAX_ROWS,
+            active_region: None,
+            region_rows: 0,
             row_groups_read: 0,
             rows: 0,
             decoded_rows: 0,
+            owned_parquet_handoff: false,
             ended: false,
+        }
+    }
+
+    /// Only the sealed complete-ingest Parquet constructor selects this path.
+    /// Its batch envelope retains input credits through the native conversion.
+    pub(super) fn for_owned_parquet() -> Self {
+        Self {
+            owned_parquet_handoff: true,
+            ..Self::new()
+        }
+    }
+
+    /// A complete-source task shares the immutable admission and visits only
+    /// its assigned contiguous region range. No footer or schema is re-admitted.
+    #[cfg(feature = "vortex-write")]
+    pub(super) fn for_owned_parquet_groups(
+        groups: std::ops::Range<usize>,
+        batch_rows: usize,
+    ) -> Self {
+        Self {
+            next_group: groups.start,
+            group_end: groups.end,
+            batch_rows,
+            ..Self::for_owned_parquet()
         }
     }
 
@@ -332,12 +430,16 @@ impl Reader {
         prepared: &PreparedColumnarSource,
         metrics: &Arc<LocalReadMetrics>,
         context: &NativeExecutionContext<'_>,
-    ) -> Result<Option<(RecordBatch, u64)>> {
+    ) -> Result<Option<(OwnedBatch, u64)>> {
         self.next_with(
             prepared,
             context.memory(),
             context.cancellation(),
             &mut |identity| context.local_source_reader(identity, Arc::clone(metrics)),
+            &mut |shape| {
+                context
+                    .record_adaptive_work(crate::native_work_sizing::Owner::ColumnarDecode, shape);
+            },
         )
     }
 
@@ -347,10 +449,16 @@ impl Reader {
         metrics: &Arc<LocalReadMetrics>,
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
-    ) -> Result<Option<(RecordBatch, u64)>> {
-        self.next_with(prepared, memory, cancellation, &mut |identity| {
-            OwnedLocalRead::sequential(identity, memory, cancellation, Arc::clone(metrics))
-        })
+    ) -> Result<Option<(OwnedBatch, u64)>> {
+        self.next_with(
+            prepared,
+            memory,
+            cancellation,
+            &mut |identity| {
+                OwnedLocalRead::sequential(identity, memory, cancellation, Arc::clone(metrics))
+            },
+            &mut |_| {},
+        )
     }
 
     #[allow(clippy::too_many_lines)]
@@ -360,7 +468,8 @@ impl Reader {
         memory: &LiveMemoryPool,
         cancellation: &CancellationToken,
         open: &mut impl FnMut(Arc<SourceIdentity>) -> Result<OwnedLocalRead>,
-    ) -> Result<Option<(RecordBatch, u64)>> {
+        record: &mut impl FnMut(WorkShape),
+    ) -> Result<Option<(OwnedBatch, u64)>> {
         let source = prepared
             .source
             .other
@@ -385,8 +494,34 @@ impl Reader {
                 return Ok(None);
             }
             if let Some(active) = &mut self.active {
+                let block_rows = active.prepare_rows()?;
+                let credited_input = active.credited_input();
+                if active.can_resize()
+                    && let Some(limit) = prepared.max_rows
+                {
+                    active
+                        .set_batch_size(usize::try_from(limit - self.rows).unwrap_or(usize::MAX))?;
+                }
+                let selected = self
+                    .cost
+                    .map(|cost| {
+                        let remaining = block_rows.unwrap_or_else(|| {
+                            self.active_region
+                                .map_or(u64::MAX, |region| region.rows - self.region_rows)
+                        });
+                        let remaining = prepared
+                            .max_rows
+                            .map_or(remaining, |limit| remaining.min(limit - self.rows));
+                        self.sizing
+                            .select(memory, cost, remaining.min(self.batch_rows as u64))
+                    })
+                    .transpose()?
+                    .flatten();
+                if let Some(selected) = selected {
+                    active.set_batch_size(usize::try_from(selected.units()).map_err(failed)?)?;
+                }
                 if let Some(batch) = active.next() {
-                    let batch = batch.map_err(failed)?;
+                    let batch = batch.map_err(decoder::source_error)?;
                     let actual_rows = batch.num_rows();
                     self.decoded_rows = add(self.decoded_rows, actual_rows as u64)?;
                     let rows = prepared.max_rows.map_or(actual_rows, |limit| {
@@ -395,9 +530,20 @@ impl Reader {
                     let batch = if rows == actual_rows {
                         batch
                     } else {
-                        batch.slice(0, rows)
+                        batch.map(|batch| {
+                            Ok::<_, shardloom_core::ShardLoomError>(batch.slice(0, rows))
+                        })?
                     };
-                    let first = self.rows;
+                    let first = self.active_region.map_or(Ok(self.rows), |region| {
+                        add(region.first_row, self.region_rows)
+                    })?;
+                    self.region_rows = add(self.region_rows, rows as u64)?;
+                    if self
+                        .active_region
+                        .is_some_and(|region| self.region_rows > region.rows)
+                    {
+                        return Err(failed("decoder exceeded its admitted source extent"));
+                    }
                     self.rows = add(self.rows, rows as u64)?;
                     // Retained Arrow buffers receive credits before native
                     // handoff; upstream decode temporaries are not an RSS bound.
@@ -409,17 +555,56 @@ impl Reader {
                     );
                     let partitions =
                         &prepared.source.collection.files[self.next_file - 1].partitions;
-                    let batch = schema::align(batch, target, partitions, memory)?;
+                    let batch = if self.owned_parquet_handoff {
+                        if source.format != "parquet" {
+                            return Err(failed(
+                                "owned Parquet handoff requires its physical provider",
+                            ));
+                        }
+                        schema::align_owned_parquet(batch, target, partitions, memory)?
+                    } else {
+                        schema::align(batch, target, partitions, memory, credited_input)?
+                    };
                     source.files[self.next_file - 1].identity.validate()?;
-                    return Ok(Some((batch, first)));
+                    cancellation.check()?;
+                    if let Some(selected) = selected.filter(|_| batch.num_rows() > 0) {
+                        self.sizing.complete(selected, &batch);
+                        record(selected);
+                    }
+                    return Ok(Some((batch.retain(prepared.source.clone()), first)));
+                }
+                if self
+                    .active_region
+                    .is_some_and(|region| self.region_rows != region.rows)
+                {
+                    return Err(failed(
+                        "decoder did not complete its admitted source extent",
+                    ));
                 }
                 self.active.take();
                 self.workspace.take();
             }
-            let (file_index, group_index) = self
-                .next_parquet_group
-                .take()
-                .unwrap_or((self.next_file, 0));
+            self.active_region = if matches!(source.format, "parquet" | "orc") {
+                let Some(&region) = prepared
+                    .row_groups
+                    .get(self.next_group)
+                    .filter(|_| self.next_group < self.group_end)
+                else {
+                    self.ended = true;
+                    prepared
+                        .source
+                        .validate_generation_controlled(cancellation)?;
+                    return Ok(None);
+                };
+                self.next_group += 1;
+                Some(region)
+            } else {
+                None
+            };
+            self.region_rows = 0;
+            let file_index = self
+                .active_region
+                .map_or(self.next_file, |region| region.file);
             let Some(file) = source.files.get(file_index) else {
                 self.ended = true;
                 prepared
@@ -427,56 +612,107 @@ impl Reader {
                     .validate_generation_controlled(cancellation)?;
                 return Ok(None);
             };
-            if file_index == self.next_file {
-                self.next_file += 1;
-            }
+            self.next_file = file_index + 1;
             let projection =
                 schema::local_projection(&file.schema, &source.schema, &prepared.projection);
             let input = open(Arc::clone(&file.identity))?;
-            let shape = (projection.len() as u64)
-                .checked_mul(8192 * 64)
-                .and_then(|n| n.checked_add(65_536))
-                .ok_or_else(|| failed("decoder shape overflow"))?;
-            self.workspace = Some(memory.reserve(shape)?);
+            self.cost = if matches!(source.format, "parquet" | "orc" | "avro") {
+                let physical = file.schema.project(&projection).map_err(failed)?;
+                let logical = source
+                    .schema
+                    .project(&prepared.projection)
+                    .map_err(failed)?;
+                Some(super::batch_work::cost(
+                    &physical,
+                    &logical,
+                    &prepared.source.collection.files[file_index].partitions,
+                )?)
+            } else {
+                None
+            };
             self.active = Some(match source.format {
                 "parquet" => {
                     let metadata = file
                         .parquet
                         .as_ref()
                         .ok_or_else(|| failed("Parquet metadata owner missing"))?;
-                    let groups = metadata.metadata().num_row_groups();
-                    if group_index >= groups {
-                        self.workspace.take();
-                        continue;
-                    }
-                    if group_index + 1 < groups {
-                        self.next_parquet_group = Some((file_index, group_index + 1));
-                    }
+                    let region = self
+                        .active_region
+                        .as_mut()
+                        .ok_or_else(|| failed("Parquet region owner missing"))?;
                     let mask = super::ProjectionMask::roots(metadata.parquet_schema(), projection);
+                    self.workspace = Some(memory.reserve(super::batch_work::parquet_workspace(
+                        metadata.metadata().row_group(region.index),
+                        &mask,
+                    )?)?);
                     self.row_groups_read = self
                         .row_groups_read
                         .checked_add(1)
                         .ok_or_else(|| failed("read group count overflow"))?;
-                    Box::new(parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(input, metadata.clone())
-                        .with_row_groups(vec![group_index]).with_projection(mask).with_batch_size(8192).build().map_err(failed)?)
+                    let mut builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::new_with_metadata(input, metadata.clone())
+                        .with_row_groups(vec![region.index]).with_projection(mask).with_batch_size(8192);
+                    if let Some(limit) = prepared.max_rows {
+                        region.rows = region.rows.min(limit.saturating_sub(self.rows));
+                        builder = builder.with_limit(usize::try_from(region.rows).map_err(failed)?);
+                    }
+                    Decoder::Parquet(builder.build().map_err(failed)?)
                 }
-                "arrow-ipc" if file.ipc_file_framing => Box::new(
-                    arrow_ipc::reader::FileReader::try_new(cursor(input), Some(projection))
-                        .map_err(failed)?,
-                ),
-                "arrow-ipc" => Box::new(
-                    arrow_ipc::reader::StreamReader::try_new(cursor(input), Some(projection))
-                        .map_err(failed)?,
-                ),
-                "avro" => Box::new(
-                    arrow_avro::reader::ReaderBuilder::new()
-                        .with_batch_size(8192)
-                        .with_projection(projection)
-                        .build(BufReader::new(cursor(input)))
-                        .map_err(failed)?,
-                ),
+                "arrow-ipc" => Decoder::Ipc(super::ipc::Reader::new(
+                    input,
+                    file.ipc
+                        .as_ref()
+                        .ok_or_else(|| failed("IPC metadata owner missing"))?
+                        .clone(),
+                    &projection,
+                    memory,
+                    cancellation,
+                )?),
+                "avro" => {
+                    // A full physical projection needs no generated reader
+                    // schema or resolution plan. Alignment still applies the
+                    // logical field order and partitions after decoding.
+                    let projection =
+                        (!projection.iter().copied().eq(0..file.schema.fields().len()))
+                            .then_some(projection);
+                    decoder::avro(input, projection, memory, cancellation)?
+                }
                 "orc" => {
-                    let builder = orc_rust::ArrowReaderBuilder::try_new(input).map_err(failed)?;
+                    let metadata = file
+                        .orc
+                        .as_ref()
+                        .ok_or_else(|| failed("ORC metadata owner missing"))?;
+                    let region = self
+                        .active_region
+                        .as_mut()
+                        .ok_or_else(|| failed("ORC stripe owner missing"))?;
+                    let stripe = &metadata.stripe_metadatas()[region.index];
+                    let start = usize::try_from(stripe.offset()).map_err(failed)?;
+                    let end = start
+                        .checked_add(1)
+                        .ok_or_else(|| failed("ORC stripe offset overflow"))?;
+                    let mut builder = orc_rust::ArrowReaderBuilder::new_with_metadata(
+                        input,
+                        Arc::clone(metadata),
+                    )
+                    .with_decoder_memory(decoder::orc_memory(memory, cancellation))
+                    .with_file_byte_range(start..end);
+                    self.row_groups_read = self
+                        .row_groups_read
+                        .checked_add(1)
+                        .ok_or_else(|| failed("read stripe count overflow"))?;
+                    if let Some(limit) = prepared.max_rows {
+                        region.rows = region.rows.min(limit.saturating_sub(self.rows));
+                        let selected = usize::try_from(region.rows).map_err(failed)?;
+                        let skipped = usize::try_from(stripe.number_of_rows() - region.rows)
+                            .map_err(failed)?;
+                        builder = builder.with_row_selection(
+                            vec![
+                                orc_rust::row_selection::RowSelector::select(selected),
+                                orc_rust::row_selection::RowSelector::skip(skipped),
+                            ]
+                            .into(),
+                        );
+                    }
                     let names = projection
                         .iter()
                         .map(|&i| file.schema.field(i).name().clone())
@@ -485,18 +721,26 @@ impl Reader {
                         builder.file_metadata().root_data_type(),
                         &names,
                     );
-                    Box::new(builder.with_batch_size(8192).with_projection(mask).build())
+                    Decoder::Orc(
+                        builder
+                            .with_batch_size(super::batch_work::MAX_ROWS)
+                            .with_projection(mask)
+                            .try_build()
+                            .map_err(|error| decoder::source_error(error.into()))?,
+                    )
                 }
-                "csv" | "tsv" | "json" | "jsonl" => Box::new(
+                "csv" | "tsv" | "json" | "jsonl" => Decoder::Text(
                     file.text
                         .as_ref()
                         .ok_or_else(|| failed("text provider missing"))?
-                        .open_with_reader(
-                            &projection,
-                            8192,
-                            cancellation,
-                            Box::new(cursor(input)),
-                        )?,
+                        .open_with_reader(&projection, 8192, cancellation, Box::new(cursor(input)))?
+                        .with_downstream_cost(super::batch_work::alignment_cost(
+                            &source
+                                .schema
+                                .project(&prepared.projection)
+                                .map_err(failed)?,
+                            &prepared.source.collection.files[file_index].partitions,
+                        )?),
                 ),
                 _ => return Err(failed("generic source adapter missing")),
             });
@@ -543,6 +787,7 @@ impl Reader {
             data_read_bytes: metrics.bytes.load(Ordering::Relaxed),
             data_read_requests: metrics.requests.load(Ordering::Relaxed),
             parquet_selected_chunks: false,
+            adaptive_decode: self.sizing.report(),
         })
     }
 }

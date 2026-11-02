@@ -62,9 +62,14 @@ pub use metadata::inspect_local_columnar_schema;
 pub mod demanded;
 
 pub mod text_stream;
+mod work_sizing;
 
 #[cfg(test)]
+mod avro_batch_tests;
+#[cfg(test)]
 mod ipc_variant_tests;
+#[cfg(test)]
+mod provider_batch_tests;
 
 #[cfg(all(feature = "vortex-write", unix))]
 pub(crate) mod local_dataset;
@@ -273,6 +278,7 @@ pub struct FlatLocalColumnarStreamSource {
 
 #[cfg(feature = "vortex-write")]
 mod ingest_source;
+pub(crate) mod owned_batch;
 #[cfg(feature = "vortex-write")]
 pub use ingest_source::IngestColumnarStreamSource;
 
@@ -1584,6 +1590,21 @@ fn attach_embedded_derived_columns_to_stream_source(
     mut source: FlatLocalColumnarStreamSource,
     mode: EmbeddedDerivedColumnMode,
 ) -> FlatLocalColumnarStreamSource {
+    if let Some((output_schema, specs)) = prepare_embedded_derived_columns(&mut source, mode) {
+        source.reader = Box::new(EmbeddedDerivedColumnRecordBatchReader {
+            schema: output_schema,
+            inner: source.reader,
+            specs,
+            embedded_derived_build_micros: Arc::clone(&source.embedded_derived_build_micros),
+        });
+    }
+    source
+}
+
+fn prepare_embedded_derived_columns(
+    source: &mut FlatLocalColumnarStreamSource,
+    mode: EmbeddedDerivedColumnMode,
+) -> Option<(SchemaRef, Vec<EmbeddedDerivedColumnSpec>)> {
     let input_schema = source.reader.schema();
     let specs = embedded_derived_column_specs(input_schema.as_ref(), mode);
     if specs.is_empty() {
@@ -1593,7 +1614,7 @@ fn attach_embedded_derived_columns_to_stream_source(
                 source.source_dictionary_preservation_status
             );
         }
-        return source;
+        return None;
     }
     let output_schema = embedded_derived_column_schema(input_schema.as_ref(), &specs);
     let output_schema = Arc::new(output_schema);
@@ -1628,13 +1649,7 @@ fn attach_embedded_derived_columns_to_stream_source(
             }
         }
     );
-    source.reader = Box::new(EmbeddedDerivedColumnRecordBatchReader {
-        schema: Arc::clone(&output_schema),
-        inner: source.reader,
-        specs,
-        embedded_derived_build_micros: Arc::clone(&source.embedded_derived_build_micros),
-    });
-    source
+    Some((output_schema, specs))
 }
 
 fn embedded_derived_status_without_not_synthesized_marker(status: &str) -> String {
@@ -3106,6 +3121,15 @@ fn with_shared_runtime_columnar_source(
             cancellation,
         ));
     }
+    apply_shared_runtime_source_metadata(&mut source, runtime);
+    Ok(source)
+}
+
+#[cfg(feature = "vortex-write")]
+fn apply_shared_runtime_source_metadata(
+    source: &mut FlatLocalColumnarStreamSource,
+    runtime: IngestRuntime,
+) {
     source.ingest_executor_status = "bounded_shared_runtime_source".to_string();
     source.ingest_executor_kind =
         "ordered_source_tasks_on_shared_native_ingest_runtime".to_string();
@@ -3115,7 +3139,6 @@ fn with_shared_runtime_columnar_source(
         .ingest_executor_unit_count_hint
         .or(source.record_batch_count_hint);
     source.ingest_runtime = Some(runtime);
-    Ok(source)
 }
 
 fn columnar_stream_source_already_has_capillary_executor(

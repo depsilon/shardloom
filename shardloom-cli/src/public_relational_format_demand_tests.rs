@@ -412,7 +412,7 @@ fn public_compatibility_format_demand_invalidates_replaced_source_on_every_execu
 }
 
 #[test]
-fn public_compatibility_format_directories_count_only_parquet_as_metadata() {
+fn public_compatibility_format_directories_count_only_admitted_metadata() {
     let fixture = Fixture::new();
     for format in FORMATS {
         let directory = fixture.0.join(format!("parts-{format}"));
@@ -449,8 +449,17 @@ fn public_compatibility_format_directories_count_only_parquet_as_metadata() {
                 "{format}"
             );
             let input = result.execution.input.as_ref().unwrap();
-            assert_eq!(input.metadata_count_sources, 0, "{format}");
-            assert_eq!(input.columnar_rows_decoded, expected_rows, "{format}");
+            let metadata_count = format == "orc";
+            assert_eq!(
+                input.metadata_count_sources,
+                u64::from(metadata_count),
+                "{format}"
+            );
+            assert_eq!(
+                input.columnar_rows_decoded,
+                if metadata_count { 0 } else { expected_rows },
+                "{format}"
+            );
         }
     }
 }

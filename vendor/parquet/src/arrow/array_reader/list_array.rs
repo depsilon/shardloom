@@ -80,6 +80,10 @@ impl<OffsetSize: OffsetSizeTrait> ListArrayReader<OffsetSize> {
 
 /// Implementation of ListArrayReader.
 impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
+    fn set_batch_size_hint(&mut self, batch_size: usize) {
+        self.item_reader.set_batch_size_hint(batch_size);
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

@@ -209,7 +209,10 @@ fn native_nested_wide_schema_preserves_all_fields_values_and_typed_empty_writes(
         .write(&denied_path, Format::ArrowIpc, false)
         .err()
         .unwrap();
-    assert!(error.to_string().contains("memory reservation denied"));
+    assert!(
+        error.to_string().contains("memory reservation denied"),
+        "{error}"
+    );
     assert!(!denied_path.exists());
     assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), before);
     assert_eq!(constrained.snapshot().memory.reserved_bytes, reserved);

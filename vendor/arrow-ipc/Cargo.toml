@@ -73,6 +73,9 @@ version = "59.3.1"
 [dependencies.arrow-select]
 version = "59.3.1"
 
+[dependencies.bytes]
+version = "1.9"
+
 [dependencies.flatbuffers]
 version = "25.2.10"
 default-features = false
@@ -90,9 +93,6 @@ default-features = false
 version = "=0.14.3"
 optional = true
 default-features = false
-
-[dev-dependencies.bytes]
-version = "1.9"
 
 [dev-dependencies.criterion]
 version = "0.8.0"

@@ -104,8 +104,8 @@ impl ArrowSchemaOptions {
 /// See: <https://orc.apache.org/docs/types.html>
 #[derive(Debug, Clone)]
 pub struct RootDataType {
-    children: Vec<NamedColumn>,
-    all_children: HashSet<usize>,
+    children: Arc<Vec<NamedColumn>>,
+    all_children: Arc<HashSet<usize>>,
 }
 
 impl RootDataType {
@@ -123,6 +123,10 @@ impl RootDataType {
     /// considering transitive children of compound types.
     pub fn contains_column_index(&self, index: usize) -> bool {
         self.all_children.contains(&index)
+    }
+
+    pub(crate) fn maximum_column_index(&self) -> usize {
+        self.all_children.iter().copied().max().unwrap_or(0)
     }
 
     /// Convert into an Arrow schema.
@@ -160,8 +164,8 @@ impl RootDataType {
             .collect::<Vec<_>>();
         let all_children = get_all_children_indices_set(&children);
         Self {
-            children,
-            all_children,
+            children: Arc::new(children),
+            all_children: Arc::new(all_children),
         }
     }
 
@@ -171,8 +175,8 @@ impl RootDataType {
         let children = parse_struct_children_from_proto(types, 0)?;
         let all_children = get_all_children_indices_set(&children);
         Ok(Self {
-            children,
-            all_children,
+            children: Arc::new(children),
+            all_children: Arc::new(all_children),
         })
     }
 }
@@ -180,7 +184,7 @@ impl RootDataType {
 impl Display for RootDataType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ROOT")?;
-        for child in &self.children {
+        for child in self.children.iter() {
             write!(f, "\n  {child}")?;
         }
         Ok(())
@@ -190,8 +194,32 @@ impl Display for RootDataType {
 fn get_all_children_indices_set(columns: &[NamedColumn]) -> HashSet<usize> {
     let mut set = HashSet::new();
     set.insert(0);
-    set.extend(columns.iter().flat_map(|c| c.data_type().all_indices()));
+    for column in columns {
+        insert_indices(column.data_type(), &mut set);
+    }
     set
+}
+
+fn insert_indices(dtype: &DataType, set: &mut HashSet<usize>) {
+    set.insert(dtype.column_index());
+    match dtype {
+        DataType::Struct { children, .. } => {
+            for child in children {
+                insert_indices(child.data_type(), set);
+            }
+        }
+        DataType::List { child, .. } => insert_indices(child, set),
+        DataType::Map { key, value, .. } => {
+            insert_indices(key, set);
+            insert_indices(value, set);
+        }
+        DataType::Union { variants, .. } => {
+            for child in variants {
+                insert_indices(child, set);
+            }
+        }
+        _ => {}
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -26,11 +26,11 @@ fn aggregate(input: VortexRelationalPlan, measures: Vec<Measure>) -> VortexRelat
     }))
 }
 
-fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
+pub(super) fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
     aggregate(input, vec![measure("count", None, "rows")])
 }
 
-fn assert_metadata(result: &CollectedVortexRelational, rows: u64) {
+pub(super) fn assert_metadata(result: &CollectedVortexRelational, rows: u64) {
     let report = result.execution.input.as_ref().unwrap();
     assert_eq!(
         (report.metadata_count_sources, report.metadata_count_rows),

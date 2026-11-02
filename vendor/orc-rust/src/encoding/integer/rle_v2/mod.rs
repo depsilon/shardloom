@@ -39,7 +39,7 @@ mod direct;
 mod patched_base;
 mod short_repeat;
 
-const MAX_RUN_LENGTH: usize = 512;
+pub(super) const MAX_RUN_LENGTH: usize = 512;
 /// Minimum number of repeated values required to use Short Repeat sub-encoding
 const SHORT_REPEAT_MIN_LENGTH: usize = 3;
 const SHORT_REPEAT_MAX_LENGTH: usize = 10;

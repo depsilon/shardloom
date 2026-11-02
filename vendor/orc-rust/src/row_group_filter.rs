@@ -532,7 +532,7 @@ fn evaluate_is_null(
         if let Some(entry) = col_index.entry(row_group_idx) {
             if let Some(stats) = &entry.statistics {
                 // IS NULL: keep if has_null is true
-                *result_item = stats.has_null();
+                *result_item = stats.has_null_opt().unwrap_or(true);
             } else {
                 // No statistics, keep row group (maybe)
                 *result_item = true;
@@ -562,7 +562,7 @@ fn evaluate_is_not_null(
         if let Some(entry) = col_index.entry(row_group_idx) {
             if let Some(stats) = &entry.statistics {
                 // IS NOT NULL: keep if number_of_values > 0 (has non-null values)
-                *result_item = stats.number_of_values() > 0;
+                *result_item = stats.number_of_values_opt().map_or(true, |count| count > 0);
             } else {
                 // No statistics, keep row group (maybe)
                 *result_item = true;

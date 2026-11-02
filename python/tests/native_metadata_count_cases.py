@@ -126,3 +126,78 @@ def check_declines(test):
         ):
             for actual in test.all_surfaces(query, plan, sql, {"native_source_metadata_count_sources": "0"}):
                 test.assertEqual(actual.to_pylist(), expected)
+
+
+def check_mapped_sources(test):
+    """Schema unions and Hive constants preserve facts through all five routes."""
+    import json
+    import pyarrow.parquet as parquet
+    import shardloom as sl
+
+    pa, native = test.pa, test.native
+    client = sl.ShardLoomClient(transport="native", memory_bytes=128 << 20, max_parallelism=2)
+    test.addCleanup(client.close)
+    col, lit = native.Expression.column, native.Expression.literal
+    with tempfile.TemporaryDirectory(prefix="shardloom-mapped-count-") as directory:
+        for mode in ("union", "hive", "both"):
+            root = Path(directory) / mode
+            root.mkdir()
+            names = (["a.parquet", "b.parquet"] if mode == "union" else
+                     ["country=US/a.parquet", "country=CA/b.parquet",
+                      "country=__HIVE_DEFAULT_PARTITION__/c.parquet"])
+            for index, name in enumerate(names):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                ids = list(range(index * 100, index * 100 + 8))
+                payload = [n + 1000 for n in ids]
+                fields = ({"right_value": payload, "n": ids}
+                          if index == 1 and mode != "hive" else
+                          {"n": ids, "left_value": payload})
+                parquet.write_table(pa.table(fields), path, row_group_size=2)
+            path = root / "dataset.manifest"
+            path.write_text(json.dumps({"version": 1, "format": "parquet",
+                "files": list(reversed(names)),
+                "schema": "strict" if mode == "hive" else "union_by_name",
+                "partitioning": "none" if mode == "union" else "hive"}))
+            frame = sl.read_parquet(path, client=client)
+            relation = native.Relation.scan(str(path))
+            expected_count = len(names) * 8
+            checks = {
+                "native_source_metadata_count_sources": "1",
+                "native_source_metadata_count_rows": str(expected_count),
+                "native_source_demand_files": str(len(names)),
+                "native_source_demand_projected_columns": "0",
+                "native_source_demand_physical_leaf_columns": "0",
+                "native_source_demand_rows_decoded": "0",
+                "native_source_demand_row_groups_read": "0",
+                "native_source_demand_data_read_bytes": "0",
+                "native_source_demand_data_read_requests": "0",
+                "native_input_batches": "0",
+                "native_input_end_observed": "true",
+            }
+            tables = test.all_surfaces(frame.select("n AS renamed").agg("COUNT(*) AS total"),
+                relation.project([("renamed", col("n"))]).aggregate([], [("count", None, "total")]),
+                f"SELECT COUNT(*) AS total FROM (SELECT n AS renamed FROM '{path}') AS mapped",
+                checks, file_binding=(path, "parquet"))
+            for actual in tables:
+                test.assertEqual(actual.to_pylist(), [{"total": expected_count}], mode)
+                test.assertEqual(actual.schema.field("total").type, pa.uint64())
+                test.assertFalse(actual.schema.field("total").nullable)
+            cases = [(frame.filter("n = 105"), relation.filter(col("n") == lit(105)),
+                      "n = 105", 105)]
+            if mode != "hive":
+                cases.append((frame.filter("right_value = 1105"),
+                    relation.filter(col("right_value") == lit(1105)), "right_value = 1105", 105))
+            if mode != "union":
+                cases.append((frame.filter("country = 'US'").filter("n = 5"),
+                    relation.filter(col("country") == lit("US")).filter(col("n") == lit(5)),
+                    "country = 'US' AND n = 5", 5))
+            for selected, typed, predicate, expected in cases:
+                checks = {"native_source_metadata_count_sources": "0",
+                          "native_source_demand_row_groups_read": "1",
+                          "native_source_demand_rows_decoded": "2"}
+                tables = test.all_surfaces(selected.select("n"), typed.project([("n", col("n"))]),
+                    f"SELECT n FROM '{path}' WHERE {predicate}", checks, file_binding=(path, "parquet"))
+                for actual in tables:
+                    test.assertEqual(actual.to_pylist(), [{"n": expected}], (mode, predicate))
+                    test.assertEqual(actual.schema, tables[0].schema)

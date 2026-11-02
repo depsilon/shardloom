@@ -16,6 +16,7 @@
 // under the License.
 
 use crate::CompressionType;
+use crate::reader::decoder_memory::{AdmittedBuffer, Memory, invalid};
 use arrow_buffer::Buffer;
 use arrow_schema::ArrowError;
 use flatbuffers::FlatBufferBuilder;
@@ -93,6 +94,7 @@ pub type CompressionContext = IpcWriteContext;
 /// between subsequent decompression calls to avoid the performance overhead of initialising a new
 /// context for every decompression.
 pub struct DecompressionContext {
+    pub(crate) memory: Memory,
     #[cfg(feature = "zstd")]
     decompressor: Option<zstd::bulk::Decompressor<'static>>,
 }
@@ -114,6 +116,7 @@ impl DecompressionContext {
 impl Default for DecompressionContext {
     fn default() -> Self {
         DecompressionContext {
+            memory: None,
             #[cfg(feature = "zstd")]
             decompressor: None,
         }
@@ -233,6 +236,35 @@ impl CompressionCodec {
         // read the first 8 bytes to determine if the data is
         // compressed
         let decompressed_length = read_uncompressed_size(input)?;
+        if let Some(memory) = context.memory.as_deref() {
+            if decompressed_length == LENGTH_NO_COMPRESSED_DATA {
+                return Ok(input.slice(LENGTH_OF_PREFIX_DATA as usize));
+            }
+            let length = usize::try_from(decompressed_length)
+                .map_err(|_| invalid("invalid uncompressed IPC buffer length"))?;
+            let data = &input[LENGTH_OF_PREFIX_DATA as usize..];
+            if length == 0 && data.is_empty() {
+                return Ok(Buffer::from([]));
+            }
+            let mut output = AdmittedBuffer::new(length, memory)?;
+            match self {
+                CompressionCodec::Lz4Frame => {
+                    #[cfg(feature = "lz4")]
+                    crate::reader::lz4_owned::decompress(data, output.as_mut_slice(), memory)?;
+                    #[cfg(not(feature = "lz4"))]
+                    return Err(invalid("lz4 IPC decompression requires the lz4 feature"));
+                }
+                CompressionCodec::Zstd(_) => {
+                    let written = memory.decompress_zstd(data, output.as_mut_slice())?;
+                    if written != length {
+                        return Err(invalid(
+                            "Zstandard output differs from its declared IPC length",
+                        ));
+                    }
+                }
+            }
+            return Ok(output.finish());
+        }
         let buffer = if decompressed_length == 0 {
             // empty
             Buffer::from([])

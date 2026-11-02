@@ -1574,6 +1574,8 @@ impl PreparedVortexRelational {
             .push_str(context.float_policy().as_str());
         let composition = metrics.composition.report();
         report::append_composition(&mut certificate, &composition, context.recursion_limit());
+        context
+            .append_adaptive_work_certificate(&mut certificate.source_pushdown_report.proof_basis);
         application::append_certificate(&mut certificate, metrics)?;
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(

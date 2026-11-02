@@ -19,61 +19,92 @@ use std::io::Read;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use arrow::array::{ArrayRef, DictionaryArray, GenericByteArray, StringArray};
-use arrow::buffer::{Buffer, NullBuffer, OffsetBuffer};
-use arrow::compute::kernels::cast;
-use arrow::datatypes::{ByteArrayType, DataType, GenericBinaryType, GenericStringType};
-use snafu::{ensure, ResultExt};
+use arrow::array::{Array, ArrayRef, GenericByteArray, OffsetSizeTrait, StringArray};
+use arrow::buffer::NullBuffer;
+use arrow::datatypes::{ByteArrayType, GenericBinaryType, GenericStringType};
+use snafu::ResultExt;
 
 use crate::array_decoder::derive_present_vec;
 use crate::column::Column;
 use crate::compression::Decompressor;
-use crate::encoding::integer::get_unsigned_int_decoder;
 use crate::encoding::PrimitiveValueDecoder;
-use crate::error::{ArrowSnafu, IoSnafu, OffsetOverflowSnafu, Result};
+use crate::error::{ArrowSnafu, IoSnafu, Result};
 use crate::proto::column_encoding::Kind as ColumnEncodingKind;
 use crate::proto::stream::Kind;
+use crate::reader::memory::{
+    decoded::{offsets, total_length, Memory, Values},
+    invalid,
+};
 use crate::stripe::Stripe;
 
 use super::{ArrayBatchDecoder, Int64ArrayDecoder, PresentDecoder};
 
+#[cfg(test)]
+#[path = "string_ownership_tests.rs"]
+mod ownership_tests;
+
 // TODO: reduce duplication with string below
 pub fn new_binary_decoder(column: &Column, stripe: &Stripe) -> Result<Box<dyn ArrayBatchDecoder>> {
-    let present = PresentDecoder::from_stripe(stripe, column);
+    let present = PresentDecoder::from_stripe(stripe, column)?;
 
-    let lengths = stripe.stream_map().get(column, Kind::Length);
-    let lengths = get_unsigned_int_decoder(lengths, column.rle_version());
+    let lengths = stripe.stream_map().get_checked(column, Kind::Length)?;
+    let lengths = super::decoder_memory::unsigned(
+        lengths,
+        column.rle_version(),
+        stripe.stream_map().memory(),
+    )?;
 
-    let bytes = Box::new(stripe.stream_map().get(column, Kind::Data));
-    Ok(Box::new(BinaryArrayDecoder::new(bytes, lengths, present)))
+    let bytes = Box::new(stripe.stream_map().get_checked(column, Kind::Data)?);
+    Ok(Box::new(BinaryArrayDecoder::new(
+        bytes,
+        lengths,
+        present,
+        stripe.stream_map().memory(),
+    )))
 }
 
 pub fn new_string_decoder(column: &Column, stripe: &Stripe) -> Result<Box<dyn ArrayBatchDecoder>> {
     let kind = column.encoding().kind();
-    let present = PresentDecoder::from_stripe(stripe, column);
+    let present = PresentDecoder::from_stripe(stripe, column)?;
 
-    let lengths = stripe.stream_map().get(column, Kind::Length);
-    let lengths = get_unsigned_int_decoder(lengths, column.rle_version());
+    let lengths = stripe.stream_map().get_checked(column, Kind::Length)?;
+    let lengths = super::decoder_memory::unsigned(
+        lengths,
+        column.rle_version(),
+        stripe.stream_map().memory(),
+    )?;
 
     match kind {
         ColumnEncodingKind::Direct | ColumnEncodingKind::DirectV2 => {
-            let bytes = Box::new(stripe.stream_map().get(column, Kind::Data));
+            let bytes = Box::new(stripe.stream_map().get_checked(column, Kind::Data)?);
             Ok(Box::new(DirectStringArrayDecoder::new(
-                bytes, lengths, present,
+                bytes,
+                lengths,
+                present,
+                stripe.stream_map().memory(),
             )))
         }
         ColumnEncodingKind::Dictionary | ColumnEncodingKind::DictionaryV2 => {
-            let bytes = Box::new(stripe.stream_map().get(column, Kind::DictionaryData));
+            let bytes = Box::new(
+                stripe
+                    .stream_map()
+                    .get_checked(column, Kind::DictionaryData)?,
+            );
             // TODO: is this always guaranteed to be set for all dictionaries?
             let dictionary_size = column.dictionary_size();
             // We assume here we have fetched all the dictionary strings (according to size above)
-            let dictionary_strings = DirectStringArrayDecoder::new(bytes, lengths, None)
-                .next_byte_batch(dictionary_size, None)?;
+            let dictionary_strings =
+                DirectStringArrayDecoder::new(bytes, lengths, None, stripe.stream_map().memory())
+                    .next_byte_batch(dictionary_size, None)?;
             let dictionary_strings = Arc::new(dictionary_strings);
 
-            let indexes = stripe.stream_map().get(column, Kind::Data);
-            let indexes = get_unsigned_int_decoder(indexes, column.rle_version());
-            let indexes = Int64ArrayDecoder::new(indexes, present);
+            let indexes = stripe.stream_map().get_checked(column, Kind::Data)?;
+            let indexes = super::decoder_memory::unsigned(
+                indexes,
+                column.rle_version(),
+                stripe.stream_map().memory(),
+            )?;
+            let indexes = Int64ArrayDecoder::new(indexes, present, stripe.stream_map().memory());
 
             Ok(Box::new(DictionaryStringArrayDecoder::new(
                 indexes,
@@ -92,6 +123,7 @@ pub struct GenericByteArrayDecoder<T: ByteArrayType> {
     lengths: Box<dyn PrimitiveValueDecoder<i64> + Send>,
     present: Option<PresentDecoder>,
     phantom: PhantomData<T>,
+    memory: Memory,
 }
 
 impl<T: ByteArrayType> GenericByteArrayDecoder<T> {
@@ -99,12 +131,14 @@ impl<T: ByteArrayType> GenericByteArrayDecoder<T> {
         bytes: Box<Decompressor>,
         lengths: Box<dyn PrimitiveValueDecoder<i64> + Send>,
         present: Option<PresentDecoder>,
+        memory: Memory,
     ) -> Self {
         Self {
             bytes,
             lengths,
             present,
             phantom: Default::default(),
+            memory,
         }
     }
 
@@ -116,31 +150,19 @@ impl<T: ByteArrayType> GenericByteArrayDecoder<T> {
         let present =
             derive_present_vec(&mut self.present, parent_present, batch_size).transpose()?;
 
-        let mut lengths = vec![0; batch_size];
+        let mut lengths = Values::<i64>::zeroed(batch_size, &self.memory)?;
         if let Some(present) = &present {
             self.lengths.decode_spaced(&mut lengths, present)?;
         } else {
             self.lengths.decode(&mut lengths)?;
         }
-        let total_length: i64 = lengths.iter().sum();
-        ensure!(
-            total_length <= i32::MAX as i64,
-            OffsetOverflowSnafu {
-                total_length,
-                max_size: i32::MAX,
-                batch_size,
-            }
-        );
+        let total_length = total_length(&lengths, T::Offset::MAX_OFFSET)?;
+        let offsets = offsets::<T::Offset>(&lengths, &self.memory)?;
+        drop(lengths);
         // Fetch all data bytes at once
-        let mut bytes = Vec::with_capacity(total_length as usize);
-        self.bytes
-            .by_ref()
-            .take(total_length as u64)
-            .read_to_end(&mut bytes)
-            .context(IoSnafu)?;
-        let bytes = Buffer::from(bytes);
-        let offsets =
-            OffsetBuffer::<T::Offset>::from_lengths(lengths.into_iter().map(|l| l as usize));
+        let mut bytes = Values::<u8>::zeroed(total_length, &self.memory)?;
+        self.bytes.read_exact(&mut bytes).context(IoSnafu)?;
+        let bytes = bytes.into_buffer();
 
         let null_buffer = match present {
             // Edge case where keys of map cannot have a null buffer
@@ -171,17 +193,18 @@ impl<T: ByteArrayType> ArrayBatchDecoder for GenericByteArrayDecoder<T> {
             skip_present_and_get_non_null_count(&mut self.present, parent_present, n)?;
 
         // Decode lengths to determine how many bytes to skip
-        let mut lengths = vec![0; non_null_count];
-        self.lengths.decode(&mut lengths)?;
-        let total_bytes: i64 = lengths.iter().sum();
+        let total_bytes = super::skip_lengths(self.lengths.as_mut(), non_null_count)?;
 
         // Skip the data bytes
         // TODO: can we use the decompressor to skip the bytes?
-        std::io::copy(
+        let skipped = std::io::copy(
             &mut self.bytes.by_ref().take(total_bytes as u64),
             &mut std::io::sink(),
         )
         .context(IoSnafu)?;
+        if skipped != total_bytes as u64 {
+            return Err(invalid("truncated skipped string payload")).context(IoSnafu);
+        }
 
         Ok(())
     }
@@ -210,17 +233,33 @@ impl ArrayBatchDecoder for DictionaryStringArrayDecoder {
         let keys = self
             .indexes
             .next_primitive_batch(batch_size, parent_present)?;
-        // TODO: ORC spec states: For dictionary encodings the dictionary is sorted
-        //       (in lexicographical order of bytes in the UTF-8 encodings).
-        //       So we can set the is_ordered property here?
-        let array = DictionaryArray::try_new(keys, self.dictionary.clone()).context(ArrowSnafu)?;
-        // Cast back to StringArray to ensure all stripes have consistent datatype
-        // TODO: Is there anyway to preserve the dictionary encoding?
-        //       This costs performance.
-        let array = cast(&array, &DataType::Utf8).context(ArrowSnafu)?;
-
-        let array = Arc::new(array);
-        Ok(array)
+        // Preserve the reader's Utf8 schema, while admitting the expanded bytes
+        // before allocation instead of hiding them in a dictionary cast.
+        let memory = &self.indexes.memory;
+        let mut lengths = Values::<i64>::zeroed(batch_size, memory)?;
+        for (row, key) in keys.iter().enumerate() {
+            if let Some(key) = key {
+                let key = usize::try_from(key)
+                    .ok()
+                    .filter(|key| *key < self.dictionary.len())
+                    .ok_or_else(|| invalid("string dictionary index is out of range"))
+                    .context(IoSnafu)?;
+                lengths[row] = self.dictionary.value(key).len() as i64;
+            }
+        }
+        let length = total_length(&lengths, i32::MAX as usize)?;
+        let offsets = offsets::<i32>(&lengths, memory)?;
+        drop(lengths);
+        let mut bytes = Values::<u8>::zeroed(length, memory)?;
+        let mut position = 0;
+        for key in keys.iter().flatten() {
+            let value = self.dictionary.value(key as usize).as_bytes();
+            bytes[position..position + value.len()].copy_from_slice(value);
+            position += value.len();
+        }
+        let array = StringArray::try_new(offsets, bytes.into_buffer(), keys.nulls().cloned())
+            .context(ArrowSnafu)?;
+        Ok(Arc::new(array))
     }
 
     fn skip_values(&mut self, n: usize, parent_present: Option<&NullBuffer>) -> Result<()> {

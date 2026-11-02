@@ -16,6 +16,9 @@
 // under the License.
 
 pub mod metadata;
+pub mod memory;
+
+pub(crate) mod structure_memory;
 
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
