@@ -10,8 +10,8 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples use the published [1.0.0 API](package-user-install.md) and
-the matching [source build](source-checkout-install.md). The
+These examples use the published [1.1.0 API](package-user-install.md) and
+can run from an installed package or its matching [source tag](source-checkout-install.md). The
 [migration guide](../reference/python-api-migration.md) covers the 0.7.0
 Context/Result and error contracts. Memory and parallelism allocations remain
 explicit. Configure them once on
@@ -28,14 +28,16 @@ generated rows, and scoped local Vortex inputs are the default public examples. 
 IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
 present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
 
-## Current source examples
+## 1.1.0 package and source examples
 
-The following additions use a matching [current source build](source-checkout-install.md),
-not the published 1.0.0 package. The maintained
+The published 1.1.0 package includes the connected SQL/DataFrame plans and
+local table readers exercised below. The maintained
 [five-interface program](../../examples/source-interfaces/run.py) creates a small
 CSV, runs DataFrame, Python SQL, typed native, embedded workflow and CLI SQL queries,
 checks the same complete rows, then verifies explicit preparation and multi-output
-readback. Run it with a native Python installation and CLI from the same revision:
+readback. Run it from the `v1.1.0` source tag with a matching native Python installation
+and CLI. Use a Linux or macOS native wheel for the typed Python path. The
+Windows package exposes the CLI through subprocess transport.
 
 ```sh
 python examples/source-interfaces/run.py --binary /absolute/path/to/shardloom
@@ -47,7 +49,7 @@ illustrative caller choices. It performs no benchmark or package installation.
 
 For named scalar parameters and query-local DataFrames, use the
 [connected programming examples](../reference/connected-programming.md).
-For local Iceberg, Delta and Hudi snapshots, use the
+For the published local Iceberg, Delta and Hudi snapshot profiles, use the
 [table query guide](https://shardloom.io/field-guide/local-tables) and the
 [exact reader profiles](../architecture/native-local-table-readers-2026-11-02.md).
 Table sources require an explicit format, authoritative table schema and the

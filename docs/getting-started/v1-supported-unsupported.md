@@ -4,7 +4,7 @@
 # Capabilities and support
 
 <a id="v1-supported-and-unsupported-surface"></a>
-The public guide defaults to **v1.0.0**; sections marked current source describe later additions. Start with
+The public guide defaults to **v1.1.0**; sections marked current source describe later additions. Start with
 [installation and the first data workflow](https://shardloom.io/field-guide/start-local-proof).
 Use [version-scoped capabilities and known issues](https://shardloom.io/field-guide/limitations)
 for operations, types, package/platform requirements and remaining restrictions.

@@ -6,12 +6,12 @@ sidebar: {label: "Local table snapshots"}
 
 import GuideVersion from '../../../components/GuideVersion.astro';
 
-<GuideVersion development />
+<GuideVersion />
 
 Read a table's selected state through the same SQL, DataFrame and native
-operators used for local files. Use a matching
-[current source build](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md)
-with `release-user-surfaces`; these readers are not in the published 1.0.0 package.
+operators used for local files. Published 1.1.0 packages include these local,
+read-only snapshot profiles. Choose a wheel matching your OS, CPU and Python
+version. [Install ShardLoom](/field-guide/start-local-proof#install).
 `shardloom capabilities --format json` reports the installed reader availability
 without opening a table.
 

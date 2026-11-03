@@ -1,0 +1,151 @@
+{
+  "schema_version": "shardloom.workers_site_audit.v1",
+  "status": "passed_local_workers_component_verification",
+  "source_commit": "2cd1167724b4866010ad16baeefdc6293891308b",
+  "website_tree": "6d9d29997cd8af5adbbd08eed65a5cf9affdb814",
+  "config": {
+    "discovery_dry_run": "passed",
+    "wrangler.toml_dry_run": "passed",
+    "wrangler.jsonc_dry_run": "passed"
+  },
+  "versions": {
+    "wrangler": "4.157.0",
+    "node": "26.3.0",
+    "chrome": "155.0.8059.85"
+  },
+  "tracked_site_files": 82,
+  "wrangler_configs": 2,
+  "served_content_routes": 80,
+  "verified_redirect_rules": 115,
+  "largest_content_asset_bytes": 175488,
+  "not_found": {
+    "status": 404,
+    "matches_authored_404": true
+  },
+  "browser": {
+    "desktop_width": 1440,
+    "mobile_width": 390,
+    "reviewed_screenshots": 6,
+    "new_console_errors": 0,
+    "checks": {
+      "home_desktop": {
+        "width": 1440,
+        "documentWidth": 1440
+      },
+      "search_message": "7 results for 1.1.0",
+      "search_navigation": {
+        "pathname": "/field-guide/cli/",
+        "hash": "#local-table-bindings-in-110",
+        "heading": "Local table bindings in 1.1.0",
+        "version": true
+      },
+      "install_desktop": {
+        "width": 1440,
+        "documentWidth": 1440
+      },
+      "install_mobile": {
+        "width": 390,
+        "documentWidth": 390,
+        "version": true,
+        "install": true
+      },
+      "mobile_table_navigation": {
+        "pathname": "/field-guide/local-tables/",
+        "title": "Query local table snapshots | ShardLoom",
+        "width": 390,
+        "documentWidth": 390,
+        "version": true,
+        "menuExpanded": "false"
+      },
+      "home_mobile": {
+        "width": 390,
+        "documentWidth": 390
+      }
+    }
+  },
+  "hosted": {
+    "pr": 1652,
+    "build_id": "fb277c96-7880-49d9-8327-9ab88e2c9325",
+    "status": "initial_preview_failed",
+    "build_log_available_from_github": false,
+    "recent_pr_heads_observed": 12,
+    "prior_successful_heads": 11,
+    "cause": "unavailable"
+  },
+  "reproduction": "Export website/, wrangler.jsonc and wrangler.toml from the exact source commit. Install the recorded npm lock, run both Wrangler deploy --dry-run paths, then run the local HTTP and browser probes in the archive.",
+  "archive": {
+    "filename": "observations.tar.xz",
+    "bytes": 1639424,
+    "sha256": "1de98a3c4ad3e26897d490542d8404a7054a89c0983f3aebbae2708a91a3a33d",
+    "members": {
+      "audit/audit.json": {
+        "bytes": 84806,
+        "sha256": "a15fc0bc7360859a3d94dd971e530a6c2fc4fa75fd6dbb288e06377ca6a56f9d"
+      },
+      "audit/audit_local_workers_110.py": {
+        "bytes": 9181,
+        "sha256": "0e5bdd8e904f0bc5d592b03f8408f0cd25c9d272bdd5c1bd96df2b78f09c83dc"
+      },
+      "audit/automatic-dry-run.log": {
+        "bytes": 302,
+        "sha256": "b18a58f3d5978249745caaaa82eb2ed25fdc928bb7d0e516eae2c2dfd4d56394"
+      },
+      "audit/browser.cjs": {
+        "bytes": 7493,
+        "sha256": "e48c97d0e501b52f2b8ceffd635cf60c28de08900642a4bebd716b4642323c38"
+      },
+      "audit/local-dev.log": {
+        "bytes": 47869,
+        "sha256": "8ed34e58c27bb342d097684707a1d800d5f58c9ac0b8cc5848788d30804344ae"
+      },
+      "audit/package-lock.json": {
+        "bytes": 48336,
+        "sha256": "5339f2dc6eb68ce63b74b74dc5d2fa029829f1c28cfe51ecd78217ba36747840"
+      },
+      "audit/toml-dry-run.log": {
+        "bytes": 302,
+        "sha256": "b18a58f3d5978249745caaaa82eb2ed25fdc928bb7d0e516eae2c2dfd4d56394"
+      },
+      "browser/browser.json": {
+        "bytes": 2868,
+        "sha256": "3a6306d93557cc66eef8402ca7773590b50fead47577646b96bc83f83ac770f0"
+      },
+      "browser/home-desktop.png": {
+        "bytes": 872132,
+        "sha256": "66ee7bb9834865acfcacd8b84efe22d4208307484e69900aeb1f48ff106222f4"
+      },
+      "browser/home-mobile.png": {
+        "bytes": 264232,
+        "sha256": "b405ec07062bb49fe91620280024224ee472e76354cf134f39f75c29f4429e7f"
+      },
+      "browser/install-desktop.png": {
+        "bytes": 164957,
+        "sha256": "6b106e0676bb26c6f8c875e82dcb58444281d38d35aab0bb0873f43155f043f7"
+      },
+      "browser/install-mobile.png": {
+        "bytes": 58902,
+        "sha256": "fde86ef06b0d590a1cf3afc1fb716d0c2a6fb264afd70bbc150b5ed04ffcf5c1"
+      },
+      "browser/mobile-tables.png": {
+        "bytes": 80668,
+        "sha256": "c890fe97c03bd42be322b7b47cbceebd23f6368d76251f4763e3abae7b2a89e0"
+      },
+      "browser/search-desktop.png": {
+        "bytes": 184611,
+        "sha256": "1fb88fa1b676b6c4ad27abca48c1abee2da5c0f790248b1b7e9ec43d48cb595b"
+      },
+      "provider/release-110-publication-pr-review-1.json": {
+        "bytes": 15536,
+        "sha256": "1a3f8a6c207bb2c074f432d8d2eb0bcafc7d92ee00c2a3cf3ca810a0ce4567d2"
+      },
+      "provider/workers-frequency-terminal-details-r1.json": {
+        "bytes": 10738,
+        "sha256": "fa664235fb47b64c1095ad6111227fa0c25f7ee119f6d265657ede8497015c83"
+      },
+      "audit/jsonc-dry-run.log": {
+        "bytes": 302,
+        "sha256": "b18a58f3d5978249745caaaa82eb2ed25fdc928bb7d0e516eae2c2dfd4d56394"
+      }
+    }
+  }
+}

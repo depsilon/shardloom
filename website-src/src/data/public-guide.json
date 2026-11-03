@@ -1,9 +1,9 @@
 {
   "release": {
-    "release_tag": "v1.0.0",
-    "source_revision": "99d62ae3d10117720206463a27527a936623d182",
+    "release_tag": "v1.1.0",
+    "source_revision": "4d11d4e9c2349f0dc63dc27288b432a351c1a962",
     "artifact_channel": "pypi",
-    "evidence_ref": "docs/release/v1.0.0-publication-verification.md",
+    "evidence_ref": "docs/release/v1.1.0-publication-verification.md",
     "platforms": [
       {
         "wheel_tag": "cp310-abi3-macosx_26_0_arm64",
@@ -14,13 +14,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl",
+          "filename": "shardloom-1.1.0-cp310-abi3-macosx_26_0_arm64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "d8ae075a662787db5b963f98f44e3ad092f578efa71defd292cf93e28922fe41",
-          "size": 52065306,
-          "upload_time_iso_8601": "2026-10-25T22:43:36.717462Z",
-          "url": "https://files.pythonhosted.org/packages/37/c9/0ecb360350c3e710f95ebeb96c613711e45fe59e59569c5c57b5b7d3e9f6/shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl"
+          "sha256": "ad4c960135a2b2946ef30472e5961da8e58afc28055d68f53f4b48bc14424d30",
+          "size": 55247146,
+          "upload_time_iso_8601": "2026-11-03T14:27:30.604536Z",
+          "url": "https://files.pythonhosted.org/packages/c2/a5/c134448f7c402b227d627d3ddf1bb912393356b90f19937a59df143a505e/shardloom-1.1.0-cp310-abi3-macosx_26_0_arm64.whl"
         }
       },
       {
@@ -32,13 +32,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.0.0-cp310-abi3-manylinux_2_39_x86_64.whl",
+          "filename": "shardloom-1.1.0-cp310-abi3-manylinux_2_39_x86_64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp310",
-          "sha256": "3f7f7cda3be0969f5879c5f606a176f9e600daf1203a964aace0ec2ecf46804f",
-          "size": 58758764,
-          "upload_time_iso_8601": "2026-10-25T22:43:39.892608Z",
-          "url": "https://files.pythonhosted.org/packages/97/e9/da6900ef2e2f47ccfd518944e89f315ec0f6c35b9a7433249a9e9c43f3f3/shardloom-1.0.0-cp310-abi3-manylinux_2_39_x86_64.whl"
+          "sha256": "a1f196f5687f3883ba8483c57bd41181f222617cc1b48a544371db4ee4c90200",
+          "size": 62315632,
+          "upload_time_iso_8601": "2026-11-03T14:27:35.559453Z",
+          "url": "https://files.pythonhosted.org/packages/df/b0/327618deaace24f2638e65a3e86bb4ae77b86d3d74cd0af47b3fd6f272d3/shardloom-1.1.0-cp310-abi3-manylinux_2_39_x86_64.whl"
         }
       },
       {
@@ -49,13 +49,13 @@
           "subprocess"
         ],
         "artifact": {
-          "filename": "shardloom-1.0.0-cp313-cp313-win_amd64.whl",
+          "filename": "shardloom-1.1.0-cp313-cp313-win_amd64.whl",
           "packagetype": "bdist_wheel",
           "python_version": "cp313",
-          "sha256": "4a2ed5c0e0e87526bd40edd4e624461a0084e3044ad1431c6ee080ca1bbdb15b",
-          "size": 26514398,
-          "upload_time_iso_8601": "2026-10-25T22:43:42.701049Z",
-          "url": "https://files.pythonhosted.org/packages/d2/89/d43181bb79fbffbb116bb13f0db407da875119b9f875c2a839d60b0ec4eb/shardloom-1.0.0-cp313-cp313-win_amd64.whl"
+          "sha256": "a804a19391ee381c8893de50e6f6656967afa64c62ab9d286edf54b85ccae41f",
+          "size": 26933069,
+          "upload_time_iso_8601": "2026-11-03T14:27:39.370877Z",
+          "url": "https://files.pythonhosted.org/packages/10/19/c8e9678d1f59843caaf99d07b5d953f5bf1ea0f44f70929de9c90257f332/shardloom-1.1.0-cp313-cp313-win_amd64.whl"
         }
       }
     ],
@@ -63,17 +63,25 @@
       {
         "id": "local-files",
         "operation": "Read local files",
-        "types_formats": "CSV, JSON, JSONL/NDJSON, Vortex, Parquet, Arrow IPC/Feather, Avro and ORC",
+        "types_formats": "CSV, TSV, JSON, JSONL/NDJSON, Vortex, Parquet, Arrow IPC/Feather, Avro and ORC",
         "artifact_requirement": "Published CLI or Python wheel; source builds need the matching format features",
         "restriction": "Local paths only. Reader options and representable types depend on the format; remote catalogs and transactions are separate work.",
         "reference": "/field-guide/runtime-and-io#local-formats"
       },
       {
+        "id": "local-tables",
+        "operation": "Read a local table snapshot",
+        "types_formats": "Iceberg v1/v2, supported Delta profiles and Hudi Copy-on-Write v8/v9",
+        "artifact_requirement": "1.1.0 CLI or Python wheel with local table readers",
+        "restriction": "Select the table format and a supported snapshot of local Parquet data. The reader applies table-specific visibility and schema rules before execution.",
+        "reference": "/field-guide/local-tables#select-a-table-version"
+      },
+      {
         "id": "query",
-        "operation": "Filter, project, aggregate, join and order",
+        "operation": "Filter, project, aggregate, join, compute windows and order",
         "types_formats": "Admitted typed scalar and static nested inputs",
         "artifact_requirement": "Published CLI or Python wheel",
-        "restriction": "Only implemented expressions and relational shapes execute. Arbitrary Python callbacks and unrestricted SQL compatibility are not provided.",
+        "restriction": "SQL and DataFrame operations compose within the supported type and operator contracts. Named SQL parameters bind scalar values. Query-local relations bind DataFrames.",
         "reference": "/field-guide/runtime-and-io#native-execution"
       },
       {
@@ -97,7 +105,7 @@
         "operation": "Write local results",
         "types_formats": "Vortex, CSV, JSON, JSONL, Parquet, Arrow IPC, Avro and ORC",
         "artifact_requirement": "Published CLI or Python wheel with the matching writer",
-        "restriction": "Use a new destination. CSV translates nested values to JSON text; ORC rejects nested output. Individual writer fidelity and publication rules apply; multi-file atomic publication is not promised.",
+        "restriction": "Use a new destination. CSV writes nested values as JSON text. ORC supports admitted decimal, list, struct, date and timestamp values. Each destination has its own commit and readback.",
         "reference": "/field-guide/runtime-and-io#write-results"
       },
       {
@@ -109,10 +117,10 @@
         "reference": "/field-guide/python-surface#keep-results-native"
       }
     ],
-    "version": "1.0.0",
-    "installCommand": "python -m pip install shardloom==1.0.0",
-    "sourceUrl": "https://github.com/depsilon/shardloom/tree/99d62ae3d10117720206463a27527a936623d182",
-    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v1.0.0-publication-verification.md"
+    "version": "1.1.0",
+    "installCommand": "python -m pip install shardloom==1.1.0",
+    "sourceUrl": "https://github.com/depsilon/shardloom/tree/4d11d4e9c2349f0dc63dc27288b432a351c1a962",
+    "evidenceUrl": "https://github.com/depsilon/shardloom/blob/main/docs/release/v1.1.0-publication-verification.md"
   },
   "examples": {
     "snippets": {

@@ -3,7 +3,8 @@
 # Published package installation links
 
 <a id="package-user-install-status"></a>
-Use the [public installation and first data workflow](https://shardloom.io/field-guide/start-local-proof) and review [version, platform and support limits](https://shardloom.io/field-guide/limitations). This page now points to the retained release evidence.
+Use the public guide to choose a 1.1.0 wheel for your platform, install it
+and run a query. [Installation and first query](https://shardloom.io/field-guide/start-local-proof).
 
 <a id="install"></a>
 **Install:** Start at the [public getting-started guide](https://shardloom.io/field-guide/start-local-proof).
@@ -15,7 +16,7 @@ Use the [public installation and first data workflow](https://shardloom.io/field
 **Smoke Check:** Follow the first workflow in the [public getting-started guide](https://shardloom.io/field-guide/start-local-proof); for setup issues use [Troubleshooting And Support Bundle](troubleshooting-support.md).
 
 <a id="proof-refs"></a>
-**Proof Refs:** See the detailed [v1.0.0 publication verification](../release/v1.0.0-publication-verification.md).
+**Proof Refs:** The 1.1.0 record identifies each artifact and its installation checks. [Publication verification](../release/v1.1.0-publication-verification.md).
 
 <a id="uninstall-and-upgrade"></a>
 **Uninstall And Upgrade:** Check the [public installation guide](https://shardloom.io/field-guide/start-local-proof) for the current package path.
@@ -32,4 +33,4 @@ Use the [public installation and first data workflow](https://shardloom.io/field
 <a id="v060-distribution-proof"></a><a id="v0-6-0-distribution-proof"></a>
 **Historical v0.6.0 Distribution Proof:** The [original publication verification](../release/v0.6.0-publication-verification.md) retains the earlier artifact identities.
 
-For repository development, use [Source Checkout Install](source-checkout-install.md). This page no longer duplicates install commands, wheel tables, examples or release status markers.
+For repository development, follow the [source checkout instructions](source-checkout-install.md).
