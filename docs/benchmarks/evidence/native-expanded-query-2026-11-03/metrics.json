@@ -1,0 +1,732 @@
+{
+  "denominator": 10000,
+  "native_status_counts": {
+    "engine_error": 3,
+    "harness_error": 2,
+    "passed": 9995
+  },
+  "polars_status_counts": {
+    "passed": 10000
+  },
+  "native_engine_time_valid": {
+    "count": 9995,
+    "denominator": 10000,
+    "sum_seconds": 3192.078920629,
+    "mean_seconds": 0.3193675758508254
+  },
+  "complete_total_engine_seconds": null,
+  "complete_total_available": false,
+  "family_balanced_mean_native_engine_seconds": 0.38437909152448907,
+  "family_balanced_coverage": {
+    "families_with_valid_means": 18,
+    "family_denominator": 18
+  },
+  "families": {
+    "composite": {
+      "denominator": 1,
+      "native_status_counts": {
+        "passed": 1
+      },
+      "polars_status_counts": {
+        "passed": 1
+      },
+      "native_engine_time_valid": {
+        "count": 1,
+        "denominator": 1,
+        "sum_seconds": 0.196755167,
+        "mean_seconds": 0.196755167
+      },
+      "complete_total_engine_seconds": 0.196755167,
+      "complete_total_available": true
+    },
+    "cte_composition": {
+      "denominator": 392,
+      "native_status_counts": {
+        "passed": 392
+      },
+      "polars_status_counts": {
+        "passed": 392
+      },
+      "native_engine_time_valid": {
+        "count": 392,
+        "denominator": 392,
+        "sum_seconds": 33.944211957,
+        "mean_seconds": 0.08659237744132653
+      },
+      "complete_total_engine_seconds": 33.944211957,
+      "complete_total_available": true
+    },
+    "distinct": {
+      "denominator": 200,
+      "native_status_counts": {
+        "passed": 200
+      },
+      "polars_status_counts": {
+        "passed": 200
+      },
+      "native_engine_time_valid": {
+        "count": 200,
+        "denominator": 200,
+        "sum_seconds": 21.350854993,
+        "mean_seconds": 0.10675427496499999
+      },
+      "complete_total_engine_seconds": 21.350854993,
+      "complete_total_available": true
+    },
+    "global_aggregation": {
+      "denominator": 264,
+      "native_status_counts": {
+        "passed": 264
+      },
+      "polars_status_counts": {
+        "passed": 264
+      },
+      "native_engine_time_valid": {
+        "count": 264,
+        "denominator": 264,
+        "sum_seconds": 7.498529781,
+        "mean_seconds": 0.028403521897727272
+      },
+      "complete_total_engine_seconds": 7.498529781,
+      "complete_total_available": true
+    },
+    "grouped_aggregation": {
+      "denominator": 1756,
+      "native_status_counts": {
+        "passed": 1756
+      },
+      "polars_status_counts": {
+        "passed": 1756
+      },
+      "native_engine_time_valid": {
+        "count": 1756,
+        "denominator": 1756,
+        "sum_seconds": 124.426044209,
+        "mean_seconds": 0.07085765615546696
+      },
+      "complete_total_engine_seconds": 124.426044209,
+      "complete_total_available": true
+    },
+    "joins": {
+      "denominator": 2612,
+      "native_status_counts": {
+        "passed": 2612
+      },
+      "polars_status_counts": {
+        "passed": 2612
+      },
+      "native_engine_time_valid": {
+        "count": 2612,
+        "denominator": 2612,
+        "sum_seconds": 430.763232126,
+        "mean_seconds": 0.16491701076799387
+      },
+      "complete_total_engine_seconds": 430.763232126,
+      "complete_total_available": true
+    },
+    "multiway_joins": {
+      "denominator": 580,
+      "native_status_counts": {
+        "passed": 580
+      },
+      "polars_status_counts": {
+        "passed": 580
+      },
+      "native_engine_time_valid": {
+        "count": 580,
+        "denominator": 580,
+        "sum_seconds": 160.378453196,
+        "mean_seconds": 0.2765145744758621
+      },
+      "complete_total_engine_seconds": 160.378453196,
+      "complete_total_available": true
+    },
+    "nested": {
+      "denominator": 196,
+      "native_status_counts": {
+        "passed": 196
+      },
+      "polars_status_counts": {
+        "passed": 196
+      },
+      "native_engine_time_valid": {
+        "count": 196,
+        "denominator": 196,
+        "sum_seconds": 20.634833209,
+        "mean_seconds": 0.10527976127040817
+      },
+      "complete_total_engine_seconds": 20.634833209,
+      "complete_total_available": true
+    },
+    "nullable": {
+      "denominator": 205,
+      "native_status_counts": {
+        "passed": 205
+      },
+      "polars_status_counts": {
+        "passed": 205
+      },
+      "native_engine_time_valid": {
+        "count": 205,
+        "denominator": 205,
+        "sum_seconds": 40.096990041,
+        "mean_seconds": 0.1955950733707317
+      },
+      "complete_total_engine_seconds": 40.096990041,
+      "complete_total_available": true
+    },
+    "numeric": {
+      "denominator": 201,
+      "native_status_counts": {
+        "passed": 201
+      },
+      "polars_status_counts": {
+        "passed": 201
+      },
+      "native_engine_time_valid": {
+        "count": 201,
+        "denominator": 201,
+        "sum_seconds": 29.573908719,
+        "mean_seconds": 0.14713387422388058
+      },
+      "complete_total_engine_seconds": 29.573908719,
+      "complete_total_available": true
+    },
+    "ordering": {
+      "denominator": 206,
+      "native_status_counts": {
+        "passed": 206
+      },
+      "polars_status_counts": {
+        "passed": 206
+      },
+      "native_engine_time_valid": {
+        "count": 206,
+        "denominator": 206,
+        "sum_seconds": 171.441679285,
+        "mean_seconds": 0.8322411615776699
+      },
+      "complete_total_engine_seconds": 171.441679285,
+      "complete_total_available": true
+    },
+    "predicates": {
+      "denominator": 410,
+      "native_status_counts": {
+        "passed": 410
+      },
+      "polars_status_counts": {
+        "passed": 410
+      },
+      "native_engine_time_valid": {
+        "count": 410,
+        "denominator": 410,
+        "sum_seconds": 16.644145615,
+        "mean_seconds": 0.0405954771097561
+      },
+      "complete_total_engine_seconds": 16.644145615,
+      "complete_total_available": true
+    },
+    "projection": {
+      "denominator": 26,
+      "native_status_counts": {
+        "passed": 26
+      },
+      "polars_status_counts": {
+        "passed": 26
+      },
+      "native_engine_time_valid": {
+        "count": 26,
+        "denominator": 26,
+        "sum_seconds": 1.08517975,
+        "mean_seconds": 0.041737682692307695
+      },
+      "complete_total_engine_seconds": 1.08517975,
+      "complete_total_available": true
+    },
+    "sets": {
+      "denominator": 789,
+      "native_status_counts": {
+        "passed": 789
+      },
+      "polars_status_counts": {
+        "passed": 789
+      },
+      "native_engine_time_valid": {
+        "count": 789,
+        "denominator": 789,
+        "sum_seconds": 133.26545184,
+        "mean_seconds": 0.16890424821292777
+      },
+      "complete_total_engine_seconds": 133.26545184,
+      "complete_total_available": true
+    },
+    "strings": {
+      "denominator": 399,
+      "native_status_counts": {
+        "passed": 399
+      },
+      "polars_status_counts": {
+        "passed": 399
+      },
+      "native_engine_time_valid": {
+        "count": 399,
+        "denominator": 399,
+        "sum_seconds": 65.932140416,
+        "mean_seconds": 0.16524345968922305
+      },
+      "complete_total_engine_seconds": 65.932140416,
+      "complete_total_available": true
+    },
+    "subqueries": {
+      "denominator": 392,
+      "native_status_counts": {
+        "engine_error": 3,
+        "harness_error": 2,
+        "passed": 387
+      },
+      "polars_status_counts": {
+        "passed": 392
+      },
+      "native_engine_time_valid": {
+        "count": 387,
+        "denominator": 392,
+        "sum_seconds": 1373.841091356,
+        "mean_seconds": 3.5499769802480623
+      },
+      "complete_total_engine_seconds": null,
+      "complete_total_available": false
+    },
+    "temporal": {
+      "denominator": 595,
+      "native_status_counts": {
+        "passed": 595
+      },
+      "polars_status_counts": {
+        "passed": 595
+      },
+      "native_engine_time_valid": {
+        "count": 595,
+        "denominator": 595,
+        "sum_seconds": 46.876617384999996,
+        "mean_seconds": 0.07878423089915966
+      },
+      "complete_total_engine_seconds": 46.876617384999996,
+      "complete_total_available": true
+    },
+    "windows": {
+      "denominator": 776,
+      "native_status_counts": {
+        "passed": 776
+      },
+      "polars_status_counts": {
+        "passed": 776
+      },
+      "native_engine_time_valid": {
+        "count": 776,
+        "denominator": 776,
+        "sum_seconds": 514.128801584,
+        "mean_seconds": 0.662537115443299
+      },
+      "complete_total_engine_seconds": 514.128801584,
+      "complete_total_available": true
+    }
+  },
+  "paired_declarations_through_complete_delivery": {
+    "count": 9995,
+    "denominator": 10000,
+    "native_workflow_seconds": 3618.2194334936794,
+    "polars_workflow_seconds": 408.59269880387,
+    "native_to_polars_workflow_ratio": 8.855320822143407,
+    "ratio_available": true
+  },
+  "paired_same_source": {
+    "count": 6118,
+    "denominator": 10000,
+    "native_workflow_seconds": 1816.1267197881825,
+    "polars_workflow_seconds": 245.39011439331807,
+    "native_to_polars_workflow_ratio": 7.400977518096936,
+    "ratio_available": true
+  },
+  "paired_native_prepared_vortex": {
+    "count": 3877,
+    "denominator": 10000,
+    "native_workflow_seconds": 1802.0927137054969,
+    "polars_workflow_seconds": 163.20258441055194,
+    "native_to_polars_workflow_ratio": 11.042059904959334,
+    "ratio_available": true
+  },
+  "paired_unmatched_format": {
+    "count": 0,
+    "denominator": 10000,
+    "native_workflow_seconds": null,
+    "polars_workflow_seconds": null,
+    "native_to_polars_workflow_ratio": null,
+    "ratio_available": false
+  },
+  "native_top_20_engine_contributions": [
+    {
+      "id": "v2_subquery_membership_cbee5a0d90534b72",
+      "archetype": "subquery_membership",
+      "native_format": "vortex",
+      "surface": "python_sql",
+      "engine_seconds": 69.821753333
+    },
+    {
+      "id": "v2_subquery_membership_f1e19903a2044d02",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "surface": "dataframe",
+      "engine_seconds": 69.770571917
+    },
+    {
+      "id": "v2_subquery_membership_be359bc367552624",
+      "archetype": "subquery_membership",
+      "native_format": "vortex",
+      "surface": "typed_relation",
+      "engine_seconds": 69.378974791
+    },
+    {
+      "id": "v2_subquery_membership_3279bd5f42d22615",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "surface": "typed_relation",
+      "engine_seconds": 68.269933792
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_3279bd5f42d22615",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "surface": "dataframe",
+      "engine_seconds": 67.801498792
+    },
+    {
+      "id": "v2_subquery_membership_53d0148c3daa76c9",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "surface": "dataframe",
+      "engine_seconds": 67.249788167
+    },
+    {
+      "id": "v2_subquery_membership_0cffb5b60df74a24",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "surface": "typed_relation",
+      "engine_seconds": 66.414714125
+    },
+    {
+      "id": "v2_subquery_membership_f696f0a72b856c44",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "surface": "embedded_workflow",
+      "engine_seconds": 66.308854167
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_283cc1c26e245a73",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "surface": "python_sql",
+      "engine_seconds": 65.646284333
+    },
+    {
+      "id": "v2_window_rolling_sum_800f86e2b2cf35cc",
+      "archetype": "window_rolling_sum",
+      "native_format": "vortex",
+      "surface": "dataframe",
+      "engine_seconds": 40.714259333
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_1ac2b13e867a3d68",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "surface": "typed_relation",
+      "engine_seconds": 27.048672125
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_5073f298908f35db",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "dataframe",
+      "engine_seconds": 26.986677083
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_97945902dfb6c677",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "embedded_workflow",
+      "engine_seconds": 26.905183417
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_e4c988959cf287ea",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "cli_sql",
+      "engine_seconds": 26.539159292
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_c06d30857987326d",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "cli_sql",
+      "engine_seconds": 25.925413584
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_535ce1660fb85b9c",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "python_sql",
+      "engine_seconds": 25.834763208
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_377409c1e475dd5b",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "surface": "python_sql",
+      "engine_seconds": 25.735375333
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_e07823ad50247897",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "typed_relation",
+      "engine_seconds": 25.399195208
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_8b055ed9b49d549b",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "surface": "typed_relation",
+      "engine_seconds": 25.300431334
+    },
+    {
+      "id": "v2_subquery_membership_6f5899c5b0f80cf3",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "surface": "dataframe",
+      "engine_seconds": 24.970074958
+    }
+  ],
+  "top_20_matched_api_absolute_latency_gaps": [
+    {
+      "id": "v2_subquery_membership_f1e19903a2044d02",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 69.82818825007416,
+      "native_workflow_seconds": 69.87425283296034,
+      "polars_workflow_seconds": 0.04606458288617432
+    },
+    {
+      "id": "v2_subquery_membership_cbee5a0d90534b72",
+      "archetype": "subquery_membership",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "python_sql",
+      "absolute_workflow_gap_seconds": 69.78012095810845,
+      "native_workflow_seconds": 69.8252939581871,
+      "polars_workflow_seconds": 0.04517300007864833
+    },
+    {
+      "id": "v2_subquery_membership_be359bc367552624",
+      "archetype": "subquery_membership",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 69.32892249990255,
+      "native_workflow_seconds": 69.38111900002696,
+      "polars_workflow_seconds": 0.052196500124409795
+    },
+    {
+      "id": "v2_subquery_membership_3279bd5f42d22615",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 68.21727979066782,
+      "native_workflow_seconds": 68.27374079078436,
+      "polars_workflow_seconds": 0.05646100011654198
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_3279bd5f42d22615",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 67.85534933279268,
+      "native_workflow_seconds": 67.90576124982908,
+      "polars_workflow_seconds": 0.050411917036399245
+    },
+    {
+      "id": "v2_subquery_membership_53d0148c3daa76c9",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "polars_format": "arrow-ipc",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 67.29992037499323,
+      "native_workflow_seconds": 67.35099687497132,
+      "polars_workflow_seconds": 0.05107649997808039
+    },
+    {
+      "id": "v2_subquery_membership_0cffb5b60df74a24",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "polars_format": "arrow-ipc",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 66.36459237523377,
+      "native_workflow_seconds": 66.4160847500898,
+      "polars_workflow_seconds": 0.05149237485602498
+    },
+    {
+      "id": "v2_subquery_membership_f696f0a72b856c44",
+      "archetype": "subquery_membership",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "embedded_workflow",
+      "absolute_workflow_gap_seconds": 66.26532979216427,
+      "native_workflow_seconds": 66.31376900011674,
+      "polars_workflow_seconds": 0.04843920795246959
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_283cc1c26e245a73",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "python_sql",
+      "absolute_workflow_gap_seconds": 65.60140125011094,
+      "native_workflow_seconds": 65.6514317500405,
+      "polars_workflow_seconds": 0.05003049992956221
+    },
+    {
+      "id": "v2_window_rolling_sum_800f86e2b2cf35cc",
+      "archetype": "window_rolling_sum",
+      "native_format": "vortex",
+      "polars_format": "parquet",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 40.63112137466669,
+      "native_workflow_seconds": 40.82474758382887,
+      "polars_workflow_seconds": 0.19362620916217566
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_5073f298908f35db",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 27.0434196239803,
+      "native_workflow_seconds": 27.092032541055232,
+      "polars_workflow_seconds": 0.04861291707493365
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_1ac2b13e867a3d68",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 27.002916749101132,
+      "native_workflow_seconds": 27.05231541604735,
+      "polars_workflow_seconds": 0.04939866694621742
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_97945902dfb6c677",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "embedded_workflow",
+      "absolute_workflow_gap_seconds": 26.86055108299479,
+      "native_workflow_seconds": 26.909815541934222,
+      "polars_workflow_seconds": 0.0492644589394331
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_e4c988959cf287ea",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "cli_sql",
+      "absolute_workflow_gap_seconds": 26.61030766600743,
+      "native_workflow_seconds": 26.6589449159801,
+      "polars_workflow_seconds": 0.04863724997267127
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_c06d30857987326d",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "cli_sql",
+      "absolute_workflow_gap_seconds": 26.034097706899047,
+      "native_workflow_seconds": 26.083740290952846,
+      "polars_workflow_seconds": 0.04964258405379951
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_535ce1660fb85b9c",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "python_sql",
+      "absolute_workflow_gap_seconds": 25.79244487476535,
+      "native_workflow_seconds": 25.838246499886736,
+      "polars_workflow_seconds": 0.04580162512138486
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_377409c1e475dd5b",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "parquet",
+      "polars_format": "parquet",
+      "surface": "python_sql",
+      "absolute_workflow_gap_seconds": 25.695623041130602,
+      "native_workflow_seconds": 25.740362707991153,
+      "polars_workflow_seconds": 0.04473966686055064
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_e07823ad50247897",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 25.36000783275813,
+      "native_workflow_seconds": 25.406166832894087,
+      "polars_workflow_seconds": 0.046159000135958195
+    },
+    {
+      "id": "v2_subquery_null_aware_anti_8b055ed9b49d549b",
+      "archetype": "subquery_null_aware_anti",
+      "native_format": "vortex",
+      "polars_format": "arrow-ipc",
+      "surface": "typed_relation",
+      "absolute_workflow_gap_seconds": 25.256816542241722,
+      "native_workflow_seconds": 25.302682750159875,
+      "polars_workflow_seconds": 0.04586620791815221
+    },
+    {
+      "id": "v2_subquery_membership_6f5899c5b0f80cf3",
+      "archetype": "subquery_membership",
+      "native_format": "arrow-ipc",
+      "polars_format": "arrow-ipc",
+      "surface": "dataframe",
+      "absolute_workflow_gap_seconds": 25.029526083962992,
+      "native_workflow_seconds": 25.07515629194677,
+      "polars_workflow_seconds": 0.04563020798377693
+    }
+  ],
+  "native_accounting": {
+    "generated": 10000,
+    "attempt_slots": 10000,
+    "returned_complete_typed_result": 9995,
+    "correct": 9995,
+    "statuses": {
+      "passed": 9995,
+      "engine_error": 3,
+      "harness_error": 2
+    },
+    "interrupted_or_unexecuted": 0
+  },
+  "polars_accounting": {
+    "generated": 10000,
+    "attempt_slots": 10000,
+    "returned_complete_typed_result": 10000,
+    "correct": 10000,
+    "statuses": {
+      "passed": 10000
+    },
+    "interrupted_or_unexecuted": 0
+  }
+}

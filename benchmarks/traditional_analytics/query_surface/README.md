@@ -96,6 +96,27 @@ comes from the runtime report. Cross-engine observations use declaration through
 complete Python-row delivery and report common-source and prepared-Vortex cases
 separately. Every selected case contributes to its family denominator.
 
+The [November 3 observations](../../../docs/benchmarks/native-expanded-query-2026-11-03.md)
+include the case table, all independent expectations, complete observed
+worker files and preparation receipts. To check the published results from a
+checkout, run the offline replay below with Python 3.10 or later. Each
+archived record binds the original SQLite blob and its exact decompressed
+JSON. Replay validates that JSON on the current platform without reopening the
+original data.
+
+```sh
+PACKET=docs/benchmarks/evidence/native-expanded-query-2026-11-03
+python -B benchmarks/traditional_analytics/query_surface/expanded_replay.py \
+  --packet "$PACKET/packet" --reports "$PACKET"
+python -B benchmarks/traditional_analytics/query_surface/expanded_membership_replay.py \
+  --baseline "$PACKET/packet" --candidate "$PACKET/membership"
+```
+
+To package a new completed local run, first write its offline report to
+`$EXPANSION/report`, then run `expanded_packet.py --root "$EXPANSION" --output NEW_DIRECTORY`.
+The index binds every compressed part and the original ledgers. The reader
+reconstructs each case, checks its full result and recomputes the published metrics.
+
 ## Responsibilities
 
 | Module | Contract |

@@ -1,0 +1,12 @@
+{
+  "status": "passed_portable_membership_comparison",
+  "baseline_index_sha256": "10f0420d0d627fefee23a5275c8fcaa49ffcbb35c6da8bb59d5f60b499f0829d",
+  "followup_index_sha256": "6e39668e90e689452159ba8c8e6761669f8a03dcbf18d72c52a0a09d22f601ac",
+  "query_executions": 0,
+  "original_passing": 387,
+  "candidate_passing": 392,
+  "paired": 387,
+  "original_paired_engine_seconds": 1373.841091356,
+  "candidate_paired_engine_seconds": 402.009008583,
+  "recovered": 5
+}
