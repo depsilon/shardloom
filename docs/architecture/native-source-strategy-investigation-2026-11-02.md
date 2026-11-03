@@ -9,10 +9,11 @@ source/workflow/planner owners, not a new implementation phase or competitive
 gate. The [phase plan](phased-execution-plan.md#planned) owns the queue.
 
 The maintainer originally requested this review after the version bump, then
-explicitly moved it before the next Full43 measurement. Complete the investigation
-dispositions and resulting cleanup before freezing the measurement build. Current
-correctness checks and dependency integration continue; the final isolated
-ingest-plus-Full43 run remains pending.
+explicitly moved it before the next Full43 measurement. The investigation
+dispositions and resulting cleanup are complete. The subsequent release-build
+[preparation-plus-Full43 observation](../benchmarks/native-preparation-contracts-2026-11-02.md)
+passes local acceptance and retains A/B/C under the combined engine-time rule.
+It does not alter this investigation's explicit source choices.
 The supplied review's revision-specific CI status, timing table and Full43 hold
 are historical context; verify current source and saved results when this work
 starts. They are not current acceptance evidence or automatic policy thresholds.
@@ -140,8 +141,9 @@ The recorded work narrows the next decisions:
   The source route is not simply decoding every column for every ranking row.
 - Existing Vortex Q13/Q24 report stored length-helper rewrites. Existing Vortex
   Q19 still lists `EventTime` and `UserID` as numeric accessor inputs, consistent
-  with the old nullable-helper guard. The pending C change requires its own fresh
-  artifact to prove removal of that raw time input; this probe does not do so.
+  with the old nullable-helper guard. C's subsequent fresh-artifact observation
+  proves removal of that raw time input from scan/accessor demand; this earlier
+  probe does not do so and supplies no per-column I/O/decode measurement.
 - Existing Vortex Q34 records zero native-dictionary worker chunks and values.
   The probe supplies no physical frequency-domain or first-use cost proof for E.
   Missing source/decode/worker counters remain unavailable rather than zero.
@@ -161,8 +163,11 @@ report-only writes select the existing validated commit without constructing a
 discarded receipt. A/B/C contracts and controls continue to final acceptance;
 D/E and the additional source strategy mechanisms have explicit no-change
 dispositions. Broad local validation and completed test-cache retirement now
-pass. The clean release build, installed-wheel proof and workflow freeze remain
-required before the requested Full43.
+pass. The subsequent clean release build, 303 installed integration tests and
+frozen preparation/Full43 workflow also pass. That workflow totals 83.601467538
+engine seconds versus the retained 84.232222712, with the higher query total
+recorded and accepted. The historical source probe remains separate from that
+observation and establishes no automatic preparation payback threshold.
 
 ### Existing public source choices
 

@@ -264,14 +264,19 @@ single Full43 pass, followed by the combined documentation/site refresh and
 1.1.0 milestone. Preserve all earlier observations and failed attempts; this
 reordering does not authorize benchmark repeats or package publication.
 
-The pre-measurement investigation closeout now retains A/B/C after focused
-controls and complete local Rust/provider/API/license gates, with performance
-acceptance still pending. D/E are deferred for missing ownership/domain proof.
+The [complete-workflow acceptance](../benchmarks/native-preparation-contracts-2026-11-02.md)
+now retains A/B/C after focused controls, complete local Rust/provider/API/license
+gates, the clean release build, 303 installed integration tests and the frozen
+fresh preparation/Full43 pass. Combined engine time is 83.601467538 seconds versus
+84.232222712; Full43 alone rises from 40.592222712 to 44.580467538. The maintainer
+accepts that tradeoff under the lower-combined-total rule. D/E are deferred for
+missing ownership/domain proof.
 The fourteen-execution source-strategy probe preserves explicit source choices;
 it supplies no automatic preparation threshold or additional runtime mechanism.
 The report-only receipt cleanup and completed test-cache retirement are done.
-Next: freeze the clean release build and installed-wheel proof, then execute the
-declared fresh preparation/publication and single Full43 acceptance protocol.
+Next: finish hosted integration of the preparation contracts, then the combined
+README/documentation/field-guide/website refresh and 1.1.0 milestone. The accepted
+observations require no repeat; source-strategy and individual-cause limits remain.
 
 **November 1 completeness priority:** items 18 and 23 complete and integrate
 the engine's supported capabilities. Finish both before returning to performance

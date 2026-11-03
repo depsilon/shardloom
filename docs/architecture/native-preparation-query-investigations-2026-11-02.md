@@ -2,12 +2,12 @@
 
 # Preparation and query investigations before the documentation refresh
 
-Status: November 2 pre-measurement investigation and cleanup complete. A/B/C are
-implemented and locally validated; their release-build creation/publication/first
-Full43 acceptance remains pending. D/E have explicit no-change dispositions.
-Complete workflow acceptance after items 18/23 integration and applicable
-local-format acceptance, before the README/documentation/field-guide/website
-refresh. Complete that refresh before the 1.1.0 version bump. The
+Status: November 2 local complete-workflow acceptance passed. A/B/C are retained:
+creation, publication and the first Full43 total 83.601467538 engine seconds,
+0.630755174 below the retained baseline. Full43 alone is 3.988244826 seconds
+higher; the maintainer accepts that recorded tradeoff. Hosted integration remains
+pending. D/E have explicit no-change dispositions. The README/documentation/
+field-guide/website refresh follows acceptance and precedes the 1.1.0 version bump. The
 [phase plan](phased-execution-plan.md#planned) owns sequencing. These packages
 extend the existing preparation, source, representation and metadata owners;
 they introduce no new phase ID or competitive gate.
@@ -15,7 +15,7 @@ they introduce no new phase ID or competitive gate.
 The maintainer supplied the opportunities below from a review of main and PR
 #1643 at `70faa310`. Reground each mechanism before implementation. The accepted
 [fresh preparation and prepared-query evidence](../benchmarks/evidence/native-adaptive-prepared-full43-2026-11-02.json)
-uses runtime `f0bf6d46`: creation 36.945, publication 6.695 and Full43
+uses baseline runtime `f0bf6d46`: creation 36.945, publication 6.695 and Full43
 40.592222712 engine seconds, totaling 84.232222712. These stage totals do not
 attribute time to checksum reads, indexing, helper evaluation or code-frequency
 reconstruction. No speedup is forecast from them.
@@ -24,65 +24,70 @@ reconstruction. No speedup is forecast from them.
 
 ### A. Artifact finalization: reuse committed checksum proof
 
-- [ ] Trace the existing workspace-safe streaming SHA-256, byte count, completed
+- [x] Trace the existing workspace-safe streaming SHA-256, byte count, completed
   writer validation and commit through `vortex_ingest.rs` publication and
   `LocalReuseFileFingerprint::from_path` / `sha256_file_digest`.
-- [ ] Design a private committed-artifact receipt carrying digest, byte count,
+- [x] Design a private committed-artifact receipt carrying digest, byte count,
   committed identity, writer/source validation and the ownership/lifecycle proof
   needed to establish the same artifact at immediate publication. A caller's
   digest string or unchecked constructor is insufficient.
-- [ ] Admit reuse only for a proven fresh same-transaction handoff. Preserve
+- [x] Admit reuse only for a proven fresh same-transaction handoff. Preserve
   content fingerprinting for independently supplied artifacts, later publication,
   changed/replaced files and missing proof. Preserve cancellation, mutation,
   commit and publication-race controls.
-- [ ] Measure payload bytes reread solely to reconstruct the writer's checksum;
+- [x] Measure payload bytes reread solely to reconstruct the writer's checksum;
   the admitted fresh handoff should reach zero. Keep separately required
   independent storage readback. A writer checksum proves accepted write bytes,
   not an independent readback of persisted storage.
-- [ ] Include shared admitted footer/dtype/embedded-binding/generation ownership
-  where it fits the same lifecycle. Account for already deferred large-file
-  inventory work and identify later identity work outside the publication clock.
+- [x] Evaluate shared footer/dtype/embedded-binding/generation ownership. Defer
+  the separate admission lifetimes rather than broaden this receipt. Retain
+  already deferred large-file inventory and later independent identity checks
+  outside the publication clock.
 
-The accepted artifact is 15,732,915,012 bytes. A removable full checksum read is
+The baseline artifact is 15,732,915,012 bytes. A removable full checksum read is
 a work-removal hypothesis with a concrete counter. The 6.695-second publication
 span includes other work and is not a checksum-time measurement.
 
 ### B. Text compression preparation: sparse frame indexing
 
-- [ ] Ground `collect_valid_vbv` and its `value_byte_indices` consumer in
+- [x] Ground `collect_valid_vbv` and its `value_byte_indices` consumer in
   `vendor/vortex-zstd/src/array.rs`, the effective frame-width policy and the
   native writer's 8,192-value frame configuration.
-- [ ] Determine effective frame width before packing. Return the unchanged
+- [x] Determine effective frame width before packing. Return the unchanged
   length-prefixed valid-value payload, valid count and frame-start offsets only,
   eliminating the per-valid-string offset vector and second index construction.
-- [ ] Preserve codec, compression level, dictionary policy, exact payload and
+- [x] Preserve codec, compression level, dictionary policy, exact payload and
   frame boundaries, validity, logical types, empty/null behavior, overflow/error
   ordering and dependency provenance. Prove identical frames and metadata where
   the existing representation makes byte identity the correct contract.
-- [ ] Count scratch bytes and offset entries, then measure complete creation,
+- [x] Count scratch bytes and offset entries, then measure complete creation,
   publication and queries against the newly written artifact under unchanged
   resource limits. Cumulative index writes are distinct from peak live memory.
-- [ ] Evaluate frame-local payload packing only as a subsequent separately
+- [x] Leave frame-local payload packing as a subsequent separately
   admitted extension. It changes allocation lifetimes and compression feeding;
   preserve error/cancellation behavior and acknowledge remaining payload copies.
 
 ### C. Derived-expression contract continuity
 
-- [ ] Trace `embedded_derived_column_schema` and typed helper construction in
+- [x] Trace `embedded_derived_column_schema` and typed helper construction in
   `universal_format_io.rs` through persistence, embedded rewrite admission and
   `triple_count_workers::preserve_raw_minute_input`.
-- [ ] Define producer/consumer proof for input nullability, null introduction,
+- [x] Define producer/consumer proof for input nullability, null introduction,
   output type, overflow/error behavior, expression semantics and source identity.
   Begin with the demonstrated typed minute/minute-bucket helper contract.
-- [ ] Give newly written helpers sound non-null declarations when admitted
+- [x] Give newly written helpers sound non-null declarations when admitted
   non-null inputs and transform semantics prove them. Do not infer this for
   dictionary values merely from non-null row codes.
-- [ ] Consider existing artifacts only with exact generation-bound zero-null
-  coverage over the accessed domain; absence or sampling cannot supply proof.
-  Such admission must preserve the artifact's logical schema.
-- [ ] Prove actual helper selection, lower raw timestamp reads/decodes and minute
-  extraction, and continued specialized-worker admission. Verify complete values,
-  temporal/null semantics, fallible expressions and source invalidation.
+- [x] Preserve existing artifact schemas and the nullable-helper guard. A later
+  admission would require exact generation-bound zero-null coverage over the
+  accessed domain; absence or sampling cannot supply proof.
+- [x] Prove actual helper selection, removal of the raw timestamp from scan and
+  numeric-accessor demand, and continued specialized-worker admission. Verify
+  complete values, temporal/null semantics, fallible expressions and source
+  invalidation.
+- [ ] Quantify the originally requested per-column payload-read/decode savings.
+  Those counters remain unavailable; demand removal is proved within the scope
+  above, and lower observed read/decode bytes are not claimed by this acceptance.
 
 Q19 is an affected grouped-count target, not a measurement of removable minute
 work. Broaden controls to other helpers and shared consumers without introducing
@@ -276,10 +281,37 @@ This includes the small default-profile cache recreated by the final native
 staged-write smoke test. Current inputs, accepted output/runtime/wheel and all
 compact observations remain; no payload backup or storage-limit increase occurs.
 
-The remaining acceptance is the clean release build, installed-wheel proof and
-one frozen fresh preparation/publication followed by one isolated Full43 pass.
-The controls above prove the bounded contracts, not their complete-workflow
-performance. No further source-strategy mechanism is selected for this batch.
+The clean release build and installed-wheel proof subsequently pass: all 303
+installed integration tests complete without skips, errors or failures, with
+binary identity, load and uninstall checks. One frozen fresh preparation and
+one isolated Full43 then pass complete-result and unchanged-source/runtime/input
+checks. No further source-strategy mechanism is selected for this batch.
+
+### Complete-workflow decision
+
+The [accepted observation](../benchmarks/native-preparation-contracts-2026-11-02.md)
+retains A/B/C under the frozen lower-combined-engine-time rule. Creation is
+38.936 seconds, publication 0.085 and Full43 44.580467538, totaling
+83.601467538 versus 84.232222712. All 43 queries run once and all 381 independent
+reference rows match. The maintainer explicitly accepts the higher query total
+within this lower combined total; no query-only speedup is claimed.
+
+Immediate publication consumes the committed writer digest and reads zero
+payload bytes for fingerprinting. Successful Zstd packing records 342,244 frame
+indices occupying 2,737,952 native `usize` bytes across 2,799,929,916 valid values.
+Q19 selects the persisted minute helper, omits raw `EventTime` from its scan and
+numeric-accessor inputs, and retains the specialized worker with 1,212 submitted
+chunks. These counters establish activation within their stated scopes, not an
+individual elapsed-time benefit, peak-memory reduction or per-column I/O saving.
+
+The [acceptance packet](../benchmarks/evidence/native-preparation-contracts-2026-11-02/acceptance.json)
+binds the source, runtime, installed package, workflow freeze, complete results,
+investigations, cleanup and all 35 preparation receipts. All 389 archived members
+pass full byte readback. This is evidence packaging, not a portable semantic
+replay verifier. Original failures remain; the early `io720` receipt has no log
+and is explicitly recorded as an evidence gap. The comparison includes intervening
+runtime changes and one observation per workflow, so neither sole-cause attribution
+nor repeatability is established. Hosted acceptance is still required.
 
 The implemented batch is A/B/C, with source-grounded contracts and targeted
 controls establishing each mechanism. D/E follow only after their
