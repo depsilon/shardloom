@@ -19,7 +19,16 @@ sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "python/src"), str(Path(__file
 from native_workflow_protocol import strict_json
 from query_surface.expanded_catalog import build, spaces
 from query_surface.expanded_packet import CASES_PER_PART, bounded_unpack
-from query_surface.expanded_replay import bounded, lines, metadata, require, sha, source_json, verify_bindings
+from query_surface.expanded_replay import (
+    bounded,
+    lines,
+    metadata,
+    require,
+    sha,
+    source_json,
+    verify_bindings,
+    verify_transport,
+)
 from query_surface.expanded_report import replay
 from query_surface.run import write_json
 
@@ -119,7 +128,8 @@ def verify(baseline, followup):
     for name, revision in (("base-commit", source), ("candidate-commit", candidate)):
         raw = text[name].encode()
         require(
-            hashlib.sha1(f"commit {len(raw)}\0".encode() + raw).hexdigest() == revision,
+            hashlib.sha1(f"commit {len(raw)}\0".encode() + raw, usedforsecurity=False).hexdigest()
+            == revision,
             "git commit identity differs",
         )
     require(
@@ -210,6 +220,7 @@ def verify(baseline, followup):
                     expected = record["expected"]["value"]
                     old = record["native"]
                     raw = source_json(old, "packet")
+                    verify_transport(old["packet"], row, "native")
                     old_result = replay(
                         (seq, row["id"], old["status"], zlib.compress(raw, 0)),
                         row,
@@ -222,7 +233,8 @@ def verify(baseline, followup):
                     )
                     attempt = next(attempts)
                     require(attempt[:2] == (seq, row["id"]), "out-of-order follow-up case")
-                    bounded_unpack(attempt[3], row["id"])
+                    followup_packet, _ = bounded_unpack(attempt[3], row["id"])
+                    verify_transport(followup_packet, row, "native")
                     result = replay(
                         attempt,
                         row,

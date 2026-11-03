@@ -31,6 +31,7 @@ from query_surface.expanded_packet import (
     canonical_blob_bytes,
 )
 from query_surface.expanded_report import replay
+from query_surface.report import STATUSES
 from query_surface.run import write_json
 
 
@@ -238,6 +239,51 @@ def source_json(entry, key):
     return raw
 
 
+def verify_transport(packet, row, stage):
+    if packet is None:
+        return
+    supervision = packet["supervision"]
+    timing = packet["files"].get("one.timing.json")
+    if timing is None:
+        require("native timing evidence is missing" in supervision["guard_failures"], "missing child timing")
+    else:
+        child = strict_json(timing["utf8"])
+        for key in (
+            "seconds",
+            "user_cpu_seconds",
+            "system_cpu_seconds",
+            "peak_rss_bytes",
+            "minor_page_faults",
+            "major_page_faults",
+            "input_block_operations",
+            "output_block_operations",
+            "os_counter_scope",
+        ):
+            if key in child:
+                summary_key = "native_peak_rss_bytes" if key == "peak_rss_bytes" else key
+                require(supervision.get(summary_key) == child[key], "child observation differs: " + key)
+        require(
+            child["returncode"] == 0 or "profiled native command failed" in supervision["guard_failures"],
+            "unsuccessful child omitted from guard failures",
+        )
+    if packet["classified_status"] == "passed" or supervision["returncode"] or supervision["guard_failures"]:
+        return
+    # A supervisor may classify absent or invalid stdout. A classified worker
+    # response, including a deadline exception, must name its own request.
+    try:
+        worker = strict_json(packet["files"]["one.stdout.json"].get("utf8", ""))
+    except ValueError:
+        return
+    if isinstance(worker, dict) and worker.get("status") in STATUSES:
+        engine = "polars" if stage == "polars" else "native"
+        require(
+            worker.get("id") == row["id"]
+            and worker.get("case_identity") == row["case_identity"]
+            and worker.get("execution_engine") == engine,
+            "worker failure belongs to another request",
+        )
+
+
 def verify_packet(root, reports=None):
     index = strict_json(bounded(root / "index.json", 2 << 20))
     require(
@@ -311,6 +357,7 @@ def verify_packet(root, reports=None):
                     continue
                 entry = value[stage]
                 raw = source_json(entry, "packet")
+                verify_transport(entry["packet"], row, stage)
                 # Feed the existing ledger comparator without depending on the
                 # producing machine's choice of equivalent DEFLATE bitstream.
                 blob = zlib.compress(raw, 0) if raw is not None else None

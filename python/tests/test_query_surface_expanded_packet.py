@@ -12,10 +12,28 @@ import zlib
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "benchmarks/traditional_analytics"))
 from query_surface.expanded_packet import bounded_unpack, canonical_blob_bytes, write_part
-from query_surface.expanded_replay import lines, source_json
+from query_surface.expanded_replay import lines, source_json, verify_transport
 
 
 class ExpandedPacketTests(unittest.TestCase):
+    def test_failure_identity_and_child_rss_cannot_move_between_cases(self):
+        packet = {
+            "classified_status": "engine_error",
+            "supervision": {"returncode": 0, "guard_failures": [], "native_peak_rss_bytes": 12},
+            "files": {
+                "one.timing.json": {"utf8": '{"returncode":0,"peak_rss_bytes":12}'},
+                "one.stdout.json": {
+                    "utf8": '{"status":"engine_error","id":"a","case_identity":"i","execution_engine":"native"}'
+                },
+            },
+        }
+        verify_transport(packet, {"id": "a", "case_identity": "i"}, "native")
+        with self.assertRaisesRegex(ValueError, "another request"):
+            verify_transport(packet, {"id": "b", "case_identity": "j"}, "native")
+        packet["supervision"]["native_peak_rss_bytes"] = 11
+        with self.assertRaisesRegex(ValueError, "child observation"):
+            verify_transport(packet, {"id": "a", "case_identity": "i"}, "native")
+
     def test_ordered_chunk_and_original_blob_round_trip(self):
         rows = [{"id": "first", "text": "é"}, {"id": "last", "value": None}]
         with tempfile.TemporaryDirectory() as tmp:
