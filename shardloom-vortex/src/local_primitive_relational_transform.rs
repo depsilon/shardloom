@@ -7,6 +7,29 @@ use super::{
     Validity, add, failed, native_relational_expression, native_relational_sort, vortex_error,
 };
 
+pub(super) fn column_projection(expressions: &[native_relational_expression::Expression]) -> bool {
+    expressions.iter().all(|expression| {
+        matches!(
+            expression.kind,
+            native_relational_expression::Kind::Column(_)
+        )
+    })
+}
+
+impl Node {
+    /// Direct field selections preserve the producer's value-validation scope.
+    pub(super) fn before_column_projections(&self) -> &Self {
+        match &self.kind {
+            NodeKind::Project { input, expressions } if column_projection(expressions) =>
+                input.before_column_projections(),
+            NodeKind::Pipeline { input, stages } if stages.iter().all(|stage| {
+                matches!(&stage.kind, PipelineKind::Project(expressions) if column_projection(expressions))
+            }) => input.before_column_projections(),
+            _ => self,
+        }
+    }
+}
+
 impl PreparedVortexRelational {
     pub(super) fn run_transform(
         &self,
@@ -231,7 +254,8 @@ impl PreparedVortexRelational {
         if self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)? {
             return Ok(());
         }
-        if metrics.input.is_some()
+        if output_prefix.is_some()
+            && (metrics.input.is_some() || prepared_prefix_input(input, spec))
             && let Some(mut sort) =
                 native_relational_sort::StreamingPrefix::try_new(spec, *output_prefix, context)?
         {
@@ -276,6 +300,25 @@ impl PreparedVortexRelational {
             metrics.input.is_some(),
             consume,
         )
+    }
+}
+
+fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> bool {
+    match &input.before_column_projections().kind {
+        // The non-spilling window gathers passthrough values with ValidateValues
+        // and constructs its computed columns in the native allocator.
+        NodeKind::Window { .. } => true,
+        // There is no payload-only field here. The original sort already
+        // requires every integer key from every row. StreamingPrefix checks
+        // the complete record and takes independent ownership before pruning.
+        NodeKind::Scan {
+            source: super::ScanSource::File(_),
+            ..
+        } => spec.fields.iter().all(|(name, dtype)| {
+            matches!(dtype, vortex::array::dtype::DType::Primitive(ptype, _) if ptype.is_int())
+                && spec.names.contains(name)
+        }),
+        _ => false,
     }
 }
 

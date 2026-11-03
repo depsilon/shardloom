@@ -1,11 +1,11 @@
 //! Schema-bound projection, predicates, ordering and output ranges.
 
 use super::super::PipelineKind;
+use super::super::transform::column_projection;
 use super::{
     Binder, DType, Node, NodeKind, Result, failed, field, native_relational_sort, validate_key,
     validate_name, validate_payload, validate_unique, validate_width,
 };
-use crate::local_primitives::native_relational_expression::{Expression, Kind};
 use crate::relational_query::{
     VortexRelationalFilter, VortexRelationalLimit, VortexRelationalProject, VortexRelationalSort,
 };
@@ -177,12 +177,6 @@ impl Binder<'_> {
             },
         })
     }
-}
-
-fn column_projection(expressions: &[Expression]) -> bool {
-    expressions
-        .iter()
-        .all(|expression| matches!(&expression.kind, Kind::Column(_)))
 }
 
 fn cap_ordering_prefix(mut node: &mut Node, rows: usize) {

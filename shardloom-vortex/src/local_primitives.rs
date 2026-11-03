@@ -98,6 +98,9 @@ mod filtered_string_count_tests;
 #[cfg_attr(not(unix), allow(dead_code))]
 mod footer_aggregate;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
+#[path = "local_primitives/grouped_order_candidate_tests.rs"]
+mod grouped_order_candidate_tests;
+#[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/lazy_layout_metadata_tests.rs"]
 mod lazy_layout_metadata_tests;
 #[cfg(feature = "vortex-local-primitives")]
@@ -22707,7 +22710,7 @@ fn numeric_pair_late_measure_route_enabled(
     let Ok(state_template) = SimpleAggregateStates::new(aggregate, &projected_columns) else {
         return false;
     };
-    let Some(specs) = state_template.compact_group_measure_specs() else {
+    let Some(specs) = state_template.compact_group_measure_specs(false) else {
         return false;
     };
     let [order] = aggregate.order_by.as_slice() else {
@@ -26820,7 +26823,10 @@ impl SimpleAggregateStates {
         found
     }
 
-    fn compact_group_measure_specs(&self) -> Option<Vec<CompactAggregateMeasureSpec>> {
+    fn compact_group_measure_specs(
+        &self,
+        single_key: bool,
+    ) -> Option<Vec<CompactAggregateMeasureSpec>> {
         let mut specs = Vec::with_capacity(self.states.len());
         for state in &self.states {
             if !matches!(
@@ -26834,7 +26840,10 @@ impl SimpleAggregateStates {
                     AggregateValueTransform::Identity | AggregateValueTransform::Length
                 )
                 || (state.function == SimpleAggregateFunction::Count
-                    && state.column_index.is_some())
+                    && state.column_index.is_some()
+                    && !(single_key
+                        && self.states.len() == 1
+                        && state.value_transform == AggregateValueTransform::Identity))
             {
                 return None;
             }
@@ -27453,8 +27462,8 @@ struct CompactAggregateMeasureValue {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-struct GroupedAggregateOrderCandidate {
-    key: AggregateGroupKey,
+struct GroupedAggregateOrderCandidate<'a> {
+    key: &'a AggregateGroupKey,
     order_values: Vec<GroupedAggregateOrderValue>,
 }
 
@@ -28638,7 +28647,7 @@ impl CompactAggregateMeasures {
             match spec.function {
                 SimpleAggregateFunction::Count => {
                     if let Some(column_index) = spec.column_index {
-                        if aggregate_direct_numeric_value(
+                        if !matches!(aggregate_direct_stat_value(
                             accessors.get(column_index).ok_or_else(|| {
                                 ShardLoomError::InvalidOperation(
                                     "local Vortex compact aggregate count column index was missing; no fallback execution was attempted"
@@ -28646,8 +28655,7 @@ impl CompactAggregateMeasures {
                                 )
                             })?,
                             row_index,
-                        )?
-                        .is_some()
+                        )?, StatValue::Null)
                         {
                             value.increment_count()?;
                         }
@@ -30013,7 +30021,9 @@ impl<'a> GroupedAggregateStates<'a> {
         }
         let group_key_indices = aggregate_group_key_indices(&group_columns);
         let state_template = SimpleAggregateStates::new(request, declared_columns)?;
-        let compact_measure_specs = state_template.compact_group_measure_specs();
+        let compact_measure_specs = state_template.compact_group_measure_specs(
+            request.group_by.len() == 1 && request.group_expressions.is_empty(),
+        );
         Ok(Self {
             native_execution_ctx: session.map(native_numeric_execution_ctx),
             request,
@@ -35942,12 +35952,11 @@ impl<'a> GroupedAggregateStates<'a> {
         if self.request.order_by.is_empty() {
             return self.source_order_result_row_count_and_summary(limit, &group_by, output);
         }
-        let mut candidates = self.ordered_candidates()?;
-        let candidate_groups = candidates.len();
+        let (mut candidates, candidate_groups, peak_candidates) = self.ordered_candidates(limit)?;
         let available = candidate_groups.saturating_sub(self.request.offset);
         let row_count = limit.map_or(available, |limit| available.min(limit));
         let retained_cap = self.request.offset.saturating_add(row_count);
-        let group_output_strategy = if limit.is_some() && retained_cap < candidates.len() {
+        let group_output_strategy = if limit.is_some() && retained_cap < candidate_groups {
             self.capillary_select_ordered_candidates(&mut candidates, retained_cap);
             "capillary_ordered_topk"
         } else {
@@ -35961,13 +35970,13 @@ impl<'a> GroupedAggregateStates<'a> {
             selected.len(),
             |row, column| {
                 let candidate = &selected[row];
-                let group = self.groups.get(&candidate.key).ok_or_else(|| {
+                let group = self.groups.get(candidate.key).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "local Vortex grouped aggregate ordered candidate key was missing from state; no fallback execution was attempted"
                             .to_string(),
                     )
                 })?;
-                self.native_group_value(&candidate.key, group, column)
+                self.native_group_value(candidate.key, group, column)
             },
         )?;
         let functions = self.state_template.functions_summary();
@@ -35998,6 +36007,7 @@ impl<'a> GroupedAggregateStates<'a> {
             },
             "group_output_strategy": group_output_strategy,
             "candidate_groups": candidate_groups,
+            "peak_buffered_order_candidates": peak_candidates,
             "retained_candidate_groups": retained_cap.min(candidate_groups),
             "evicted_or_spilled_group_count": 0,
             "compact_group_state_strategy": self.compact_group_state_strategy(),
@@ -37215,10 +37225,10 @@ impl<'a> GroupedAggregateStates<'a> {
             retained_cap > Self::grouped_count_star_streaming_topk_linear_retention_cap();
         let mut retained = if large_retained_window {
             let mut candidates =
-                Vec::<GroupedAggregateOrderCandidate>::with_capacity(self.groups.len());
+                Vec::<GroupedAggregateOrderCandidate<'_>>::with_capacity(self.groups.len());
             for (key, group) in &self.groups {
                 candidates.push(GroupedAggregateOrderCandidate {
-                    key: key.clone(),
+                    key,
                     order_values: vec![GroupedAggregateOrderValue::CountStar(
                         group.compact_count_star().ok_or_else(|| {
                             ShardLoomError::InvalidOperation(
@@ -37232,7 +37242,7 @@ impl<'a> GroupedAggregateStates<'a> {
             self.capillary_select_ordered_candidates(&mut candidates, retained_cap);
             candidates
         } else {
-            let mut retained = Vec::<GroupedAggregateOrderCandidate>::with_capacity(
+            let mut retained = Vec::<GroupedAggregateOrderCandidate<'_>>::with_capacity(
                 retained_cap.min(self.groups.len()),
             );
             for (key, group) in &self.groups {
@@ -37243,7 +37253,7 @@ impl<'a> GroupedAggregateStates<'a> {
                     )
                 })?;
                 if retained.len() < retained_cap {
-                    retained.push(Self::count_star_ordered_candidate(key.clone(), count));
+                    retained.push(Self::count_star_ordered_candidate(key, count));
                     continue;
                 }
                 if retained_cap == 0 {
@@ -37262,7 +37272,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 if self.compare_count_star_key_to_ordered_candidate(key, count, worst_candidate)
                     == std::cmp::Ordering::Less
                 {
-                    retained[worst_index] = Self::count_star_ordered_candidate(key.clone(), count);
+                    retained[worst_index] = Self::count_star_ordered_candidate(key, count);
                 }
             }
             retained
@@ -37275,12 +37285,12 @@ impl<'a> GroupedAggregateStates<'a> {
             selected.len(),
             |row, column| {
                 let candidate = &selected[row];
-                let group = self.groups.get(&candidate.key).ok_or_else(|| {
+                let group = self.groups.get(candidate.key).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(
                         "native count result candidate state is absent".into(),
                     )
                 })?;
-                self.native_group_value(&candidate.key, group, column)
+                self.native_group_value(candidate.key, group, column)
             },
         )?;
         let functions = self.state_template.functions_summary();
@@ -37348,9 +37358,9 @@ impl<'a> GroupedAggregateStates<'a> {
     }
 
     fn count_star_ordered_candidate(
-        key: AggregateGroupKey,
+        key: &AggregateGroupKey,
         count: u64,
-    ) -> GroupedAggregateOrderCandidate {
+    ) -> GroupedAggregateOrderCandidate<'_> {
         GroupedAggregateOrderCandidate {
             key,
             order_values: vec![GroupedAggregateOrderValue::CountStar(count)],
@@ -37361,7 +37371,7 @@ impl<'a> GroupedAggregateStates<'a> {
         &self,
         left_key: &AggregateGroupKey,
         left_count: u64,
-        right: &GroupedAggregateOrderCandidate,
+        right: &GroupedAggregateOrderCandidate<'_>,
     ) -> std::cmp::Ordering {
         for (index, order) in self.request.order_by.iter().enumerate() {
             let left_value =
@@ -37375,7 +37385,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 return ordering;
             }
         }
-        compare_aggregate_group_keys(left_key, &right.key, &self.string_interner)
+        compare_aggregate_group_keys(left_key, right.key, &self.string_interner)
     }
 
     fn source_order_result_row_count_and_summary(
@@ -37478,8 +37488,20 @@ impl<'a> GroupedAggregateStates<'a> {
         Ok((row_count, payload))
     }
 
-    fn ordered_candidates(&self) -> Result<Vec<GroupedAggregateOrderCandidate>> {
-        let mut candidates = Vec::with_capacity(self.groups.len());
+    fn ordered_candidates(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<(Vec<GroupedAggregateOrderCandidate<'_>>, usize, usize)> {
+        let cap = limit
+            .map(|limit| self.request.offset.saturating_add(limit))
+            .filter(|cap| *cap <= self.groups.len() / 4);
+        // Selecting the best K of two successive blocks preserves the best K
+        // of their union under the complete order (including the group key).
+        // Larger windows keep the single select-nth pass.
+        let capacity = cap.map_or(self.groups.len(), |cap| (cap * 2).max(1));
+        let mut candidates = Vec::with_capacity(capacity);
+        let mut eligible = 0;
+        let mut peak = 0;
         let prepared_having = prepare_aggregate_having(&self.request.having);
         for (key, group) in &self.groups {
             if !self.group_matches_prepared_having(key, group, &prepared_having)? {
@@ -37491,12 +37513,16 @@ impl<'a> GroupedAggregateStates<'a> {
                 .iter()
                 .map(|order| self.result_order_value_for_group_column(key, group, &order.column))
                 .collect::<Result<Vec<_>>>()?;
-            candidates.push(GroupedAggregateOrderCandidate {
-                key: key.clone(),
-                order_values,
-            });
+            candidates.push(GroupedAggregateOrderCandidate { key, order_values });
+            eligible += 1;
+            peak = peak.max(candidates.len());
+            if let Some(cap) = cap
+                && candidates.len() == capacity
+            {
+                self.capillary_select_ordered_candidates(&mut candidates, cap);
+            }
         }
-        Ok(candidates)
+        Ok((candidates, eligible, peak))
     }
 
     fn needs_numeric_pair_late_measure_second_pass(&self) -> bool {
@@ -38143,7 +38169,7 @@ impl<'a> GroupedAggregateStates<'a> {
 
     fn capillary_select_ordered_candidates(
         &self,
-        candidates: &mut Vec<GroupedAggregateOrderCandidate>,
+        candidates: &mut Vec<GroupedAggregateOrderCandidate<'_>>,
         retained_cap: usize,
     ) {
         if retained_cap >= candidates.len() {
@@ -39285,14 +39311,14 @@ impl<'a> GroupedAggregateStates<'a> {
         })
     }
 
-    fn sort_ordered_candidates(&self, candidates: &mut [GroupedAggregateOrderCandidate]) {
+    fn sort_ordered_candidates(&self, candidates: &mut [GroupedAggregateOrderCandidate<'_>]) {
         candidates.sort_by(|left, right| self.compare_ordered_candidates(left, right));
     }
 
     fn compare_ordered_candidates(
         &self,
-        left: &GroupedAggregateOrderCandidate,
-        right: &GroupedAggregateOrderCandidate,
+        left: &GroupedAggregateOrderCandidate<'_>,
+        right: &GroupedAggregateOrderCandidate<'_>,
     ) -> std::cmp::Ordering {
         for (index, order) in self.request.order_by.iter().enumerate() {
             let ordering = compare_grouped_ordered_values(
@@ -39304,7 +39330,7 @@ impl<'a> GroupedAggregateStates<'a> {
                 return ordering;
             }
         }
-        compare_aggregate_group_keys(&left.key, &right.key, &self.string_interner)
+        compare_aggregate_group_keys(left.key, right.key, &self.string_interner)
     }
 
     fn count_distinct_state_entries(&self) -> Result<u64> {

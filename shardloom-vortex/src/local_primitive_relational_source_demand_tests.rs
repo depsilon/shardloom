@@ -33,6 +33,9 @@ mod window_tests;
 #[path = "local_primitive_relational_source_demand_join_tests.rs"]
 mod join_tests;
 
+#[path = "local_primitive_relational_source_demand_membership_tests.rs"]
+mod membership_tests;
+
 #[path = "local_primitive_relational_source_demand_transfer_tests.rs"]
 mod transfer_tests;
 

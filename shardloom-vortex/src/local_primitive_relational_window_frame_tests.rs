@@ -251,6 +251,58 @@ fn collect(plan: &VortexRelationalPlan) -> Vec<Value> {
 }
 
 #[test]
+fn prepared_window_output_admits_bounded_ordering_with_offset() {
+    use crate::relational_query::{VortexRelationalLimit, VortexRelationalSort};
+
+    let fixture = fixture(2);
+    let window = one(
+        &fixture,
+        VortexRelationalWindowFunction::RowNumber,
+        None,
+        Some("id"),
+    );
+    let sort = VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+        input: window,
+        keys: vec![OrderKey {
+            column: column("out"),
+            descending: true,
+            nulls: Some(NullOrder::Last),
+        }],
+    }));
+    let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+        input: sort,
+        offset: 1,
+        count: 2,
+    }));
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let initial = prepared.snapshot().memory.reserved_bytes;
+    #[cfg(debug_assertions)]
+    let observation = crate::local_primitives::native_relational_observation::Session::start();
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(json_rows(&result), [json!({"out": 9}), json!({"out": 8})]);
+    assert!(result.execution.input.is_none());
+    assert!(result.execution.native_io_certificate.is_certified());
+    assert!(
+        result
+            .execution
+            .native_io_certificate
+            .source_pushdown_report
+            .proof_basis
+            .split_whitespace()
+            .any(|field| field == "streaming_ordering_prefix_rows_validated=10")
+    );
+    #[cfg(debug_assertions)]
+    assert_eq!(
+        observation.finish().sort_streaming_prefix_rows_validated,
+        10
+    );
+    drop(result);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+}
+
+#[test]
 fn native_window_frames_defaults_empty_intervals_and_extreme_offsets() {
     let fixture = fixture(2);
     let framed = |function| VortexRelationalWindowFunction::Framed(function);
