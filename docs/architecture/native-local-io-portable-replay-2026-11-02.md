@@ -70,7 +70,8 @@ not a general-purpose sandbox security claim.
 
 The maintained entrypoint is `scripts/verify_local_io_packet.py`. It uses PyArrow
 25.0.1, fastavro 1.13.1 and cramjam 2.11.0 as verification readers, outside the
-engine runtime. From a checkout with those optional evidence dependencies:
+engine runtime. Run these checks with Python 3.11 or newer and those optional
+evidence dependencies.
 
 ```sh
 python3 -B scripts/verify_local_io_packet.py \

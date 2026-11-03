@@ -52,7 +52,7 @@ records one complete fresh preparation and Full43, including the accepted
 combined-time gain and higher query total. It is source-build engineering
 evidence, not a measurement of the published package or a comparative public score.
 The [source examples](../../examples/source-interfaces/run.py) and field guide
-document the current implementation ahead of the planned 1.1.0 version bump.
+document the [1.1.0 source milestone](v1.1.0-release-notes.md).
 Published-channel proofs below remain for the immutable 1.0.0 artifacts.
 
 ### Published package and support promise

@@ -1,0 +1,8 @@
+# Independent saved-output readers for the Ubuntu x86_64 CPython 3.11 proof job.
+# File identities from the versioned PyPI release records on November 3, 2026.
+# https://pypi.org/pypi/pyarrow/25.0.1/json
+pyarrow==25.0.1 --hash=sha256:25f8720bf6387d5dc2ebd2622112de630760419e4b66134405dd24110d15f37e
+# https://pypi.org/pypi/fastavro/1.13.1/json
+fastavro==1.13.1 --hash=sha256:950f2e260f65c7e6135288c142b078d06d2f1c90fc52f91a14c08e5f8811bf06
+# https://pypi.org/pypi/cramjam/2.11.0/json
+cramjam==2.11.0 --hash=sha256:41eafc8c1653a35a5c7e75ad48138f9f60085cc05cd99d592e5298552d944e9f

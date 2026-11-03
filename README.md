@@ -77,8 +77,9 @@ Memory and parallelism are illustrative caller choices. Continue with
 The current checkout adds connected SQL/DataFrame plans, broader analytical
 functions, direct local readers and adaptive execution within caller limits.
 It also reads admitted local **Iceberg, Delta Lake and Hudi snapshots**. These
-additions are being prepared for 1.1.0; the published 1.0.0 artifacts retain
-their release-time behavior. Use a matching [source build](docs/getting-started/source-checkout-install.md).
+additions form the [1.1.0 source milestone](docs/release/v1.1.0-release-notes.md);
+the published 1.0.0 artifacts retain their release-time behavior. Use a matching
+[source build](docs/getting-started/source-checkout-install.md).
 
 - [Compose SQL and DataFrames](docs/reference/connected-programming.md) with named
   scalar parameters, query-local relations, CTEs, temporal operations and windows.

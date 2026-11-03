@@ -73,7 +73,7 @@ writing results, and reopening a data file.
 
 ## Current source workflows
 
-The development checkout adds named SQL parameters, query-local DataFrame
+The 1.1.0 source checkout adds named SQL parameters, query-local DataFrame
 bindings, richer temporal/analytical operations, shared direct local readers,
 adaptive work sizing and admitted Iceberg/Delta/Hudi snapshot reads. Use a
 matching source build for these additions; the published 1.0.0 wheel is unchanged.
