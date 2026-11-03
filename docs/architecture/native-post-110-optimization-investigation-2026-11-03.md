@@ -136,6 +136,14 @@ transfers emits an empty map. A route that observed no Arrow regions omits
 the map. Transferred regions continue to use their existing counters.
 Historical envelopes predate both fields.
 
+The public preparation projection takes its allowlist from the typed report's
+complete field names. Earlier code obtained the names from an empty observation
+and therefore dropped conditional fields. Active conversion-prefetch owners
+can now expose their existing window counts and headroom evidence through the
+same envelope. The projection forwards only values supplied by the operation.
+Those windows describe preparation admission. The compute pool's lifetime
+queue peaks and enqueue waits have a separate scope.
+
 | First failed proof | What the measurement can decide |
 | --- | --- |
 | `policy_requires_copy` | The caller supplied the data through a validated-copy boundary. Changing that category requires new producer provenance. |

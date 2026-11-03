@@ -174,6 +174,18 @@ impl VortexIngestStageReport {
     /// Stable production evidence; no value here substitutes for end-to-end duration.
     #[must_use]
     pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        self.collect_fields(false)
+    }
+
+    /// Public projection keys, including evidence emitted only by active owners.
+    pub fn evidence_field_names() -> impl Iterator<Item = String> {
+        Self::default()
+            .collect_fields(true)
+            .into_iter()
+            .map(|(key, _)| key)
+    }
+
+    fn collect_fields(&self, include_optional_names: bool) -> Vec<(String, String)> {
         let mut fields = vec![
             ("vortex_ingest_stage_time_scope".into(), "summed_monotonic_elapsed_work_spans_may_overlap_not_cpu_or_exclusive_wall".into()),
             ("vortex_ingest_stage_byte_scope".into(), "provider_stage_bytes_are_array_memory_size_estimates_may_share_storage_not_allocations_or_io_zero_where_not_measured;stream_arrow_ownership_input_bytes_are_actual_copied_regions;output_bytes_are_full_new_copy_allocation_charges_including_alignment".into()),
@@ -210,7 +222,7 @@ impl VortexIngestStageReport {
             }
         }
         self.text_packing.append_fields(&mut fields);
-        if self.ownership_counts.buffer_regions > 0 {
+        if include_optional_names || self.ownership_counts.buffer_regions > 0 {
             fields.push((
                 "vortex_ingest_ownership_copy_reasons".into(),
                 self.ownership_counts.copy_reasons.evidence_json(),
@@ -221,7 +233,7 @@ impl VortexIngestStageReport {
             ));
         }
         let work = self.conversion_prefetch;
-        if work.completed_windows != 0 || work.declined_windows != 0 {
+        if include_optional_names || work.completed_windows != 0 || work.declined_windows != 0 {
             fields.push((
                 "vortex_ingest_conversion_prefetch_scope".into(),
                 "completed_non_eof_task_admission_windows;task_credits_and_admitted_copy_overlap;retained_sources_and_outputs_share_pool;queue_ceiling_unchanged;not_provider_allocator_or_rss_bound".into(),
