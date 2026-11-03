@@ -262,9 +262,9 @@ blocked capabilities. See the [control model](docs/architecture/pulseweave-runti
 
 Current source applies the next admitted batch, conversion window, queue task or
 spill block using shared headroom. It preserves the caller's memory and lane
-ceilings. Complete IPC messages, Avro blocks, metadata and stateful semantic
-boundaries can still require an irreducible allocation; a smaller requested
-batch cannot make an unsupported or over-budget operation safe.
+ceilings. Complete IPC messages, Avro blocks, metadata and operator state can
+require a minimum allocation even when the requested batch is small.
+Execution is blocked if a required allocation exceeds the caller's memory ceiling.
 
 ### Memory and data movement: ownership follows the work
 
