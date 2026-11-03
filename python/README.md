@@ -71,6 +71,19 @@ writing results, and reopening a data file.
 - [Limitations](https://shardloom.io/field-guide/limitations)
 - [Development](https://shardloom.io/field-guide/development)
 
+## Current source workflows
+
+The 1.1.0 source checkout adds named SQL parameters, query-local DataFrame
+bindings, richer temporal/analytical operations, shared direct local readers,
+adaptive work sizing and admitted Iceberg/Delta/Hudi snapshot reads. Use a
+matching source build for these additions; the published 1.0.0 wheel is unchanged.
+
+The [connected programming guide](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md)
+shows SQL/DataFrame composition. The [local table guide](https://shardloom.io/field-guide/local-tables)
+shows explicit formats and snapshot selectors. A small
+[five-interface example](https://github.com/depsilon/shardloom/blob/main/examples/source-interfaces/run.py)
+checks complete results, explicit preparation and two independently reopened outputs.
+
 <a id="source-only-native-python-api"></a>
 
 <a id="native-python-api"></a>

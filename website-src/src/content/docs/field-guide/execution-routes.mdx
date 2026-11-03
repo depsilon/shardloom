@@ -4,6 +4,10 @@ description: "Read, load, prepare, execute, write, and reuse data with ShardLoom
 sidebar: {"label":"Data lifecycle","order":4}
 ---
 
+import GuideVersion from '../../../components/GuideVersion.astro';
+
+<GuideVersion />
+
 A workflow describes data, operations, and a destination. ShardLoom plans and
 executes the supported work. The verbs below distinguish describing a query,
 preparing its input, computing an answer, and consuming the result.
@@ -28,10 +32,15 @@ separate checks; unsupported work returns an actionable diagnostic.
 
 ## Load and reuse data
 
-Ordinary local queries read the original files through the shared native source
+In current source, ordinary local queries read the original files through the shared native source
 owner. They do not create or depend on an automatically prepared Vortex copy.
 An explicit source preparation call imports the complete source into a reusable
 Vortex file when persistence is wanted.
+
+For [local table sources](/field-guide/local-tables) in current source, the read
+binds an admitted Iceberg, Delta or Hudi snapshot and applies its schema and
+visibility rules. It does not enumerate a table directory as ordinary files.
+Table preparation, catalog access and table commits have separate boundaries.
 
 Source handles and explicit preparation are reused only while the source, schema, and file identities still
 match. Generation checks span reuse and execution, and detected changes fail
@@ -47,6 +56,12 @@ still computes a fresh result.
 The existing `ctx.prepare(...)` and DataFrame `prepare(target_vortex_path)`
 methods prepare **source data**. Their names do not mean that a query result has
 been computed or that arbitrary query preparation is reusable.
+
+CLI source-policy aliases such as `auto` do not authorize automatic durable
+preparation. Use the ordinary read for direct source execution and an explicit
+preparation API when a reusable artifact is wanted. The
+[source-strategy investigation](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-source-strategy-investigation-2026-11-02.md)
+retains these choices; it establishes no universal preparation payback threshold.
 
 <span id="native-vortex"></span>
 

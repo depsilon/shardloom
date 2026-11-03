@@ -41,8 +41,10 @@ everyday analytical completion and before the AI-data package.
 item's remaining I/O work with the shared demand-aware defaults and the
 [cross-surface and format acceptance gate](#cross-surface-and-format-acceptance-gate)
 below. The planned **1.1.0 minor version bump follows item 18 acceptance and the
-subsequently added item 23**, before item 19. Foundry and AI acceptance move to the later 1.2.0 and 1.3.0
-milestones respectively. This updates the earlier ordering without accepting
+subsequently added item 23**, before item 19. The November 2 maintainer update
+schedules Foundry after item 19 and the expanded analytical coverage campaign,
+then proceeds directly to AI work. The next version checkpoint follows AI
+acceptance. This updates the earlier ordering without accepting
 the preserved `codex/universal-io` branch or claiming new runtime/timing proof.
 
 **October 30 Full43 deferral:** no further Full43 run is permitted until this

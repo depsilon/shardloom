@@ -72,6 +72,26 @@ executes it. The example creates its own input and cleans its temporary director
 Memory and parallelism are illustrative caller choices. Continue with
 [SQL and writing results](https://shardloom.io/field-guide/start-local-proof).
 
+## Current development source
+
+The current checkout adds connected SQL/DataFrame plans, broader analytical
+functions, direct local readers and adaptive execution within caller limits.
+It also reads admitted local **Iceberg, Delta Lake and Hudi snapshots**. These
+additions form the [1.1.0 source milestone](docs/release/v1.1.0-release-notes.md);
+the published 1.0.0 artifacts retain their release-time behavior. Use a matching
+[source build](docs/getting-started/source-checkout-install.md).
+
+- [Compose SQL and DataFrames](docs/reference/connected-programming.md) with named
+  scalar parameters, query-local relations, CTEs, temporal operations and windows.
+- [Read local table snapshots](https://shardloom.io/field-guide/local-tables) with
+  explicit selectors, table visibility and field identity; catalog/remote access
+  and table commits remain separate work.
+- [Run all five interfaces](examples/source-interfaces/run.py) against one small
+  local source, write two outputs from one action and reopen their complete values.
+- [Inspect applied resource decisions](docs/architecture/native-adaptive-acceptance-2026-11-02.md)
+  across the supported source, operator and writer paths. Accounted reservations
+  and physical format limits remain distinct from process memory.
+
 ## What Makes ShardLoom Different
 
 ShardLoom combines work avoidance, computation over compressed data, explicit resource
@@ -240,6 +260,12 @@ small units, or holding work for memory or downstream capacity. Application is s
 supported local routes; reports distinguish applied controls from advisory decisions and
 blocked capabilities. See the [control model](docs/architecture/pulseweave-runtime-control.md).
 
+Current source applies the next admitted batch, conversion window, queue task or
+spill block using shared headroom. It preserves the caller's memory and lane
+ceilings. Complete IPC messages, Avro blocks, metadata and operator state can
+require a minimum allocation even when the requested batch is small.
+Execution is blocked if a required allocation exceeds the caller's memory ceiling.
+
 ### Memory and data movement: ownership follows the work
 
 Buffers, retained operator state, and results carry explicit ownership and memory reservations
@@ -273,13 +299,16 @@ This keeps shared computation independent of the source and destination format.
 | Text files | CSV and the TSV/delimited family; JSON, JSONL, and NDJSON, with explicit schemas, quoting, framing, and rich-value representations. |
 | Dataset organization | Directories, globs, manifests, partitions, and multi-file collections, with membership, schema, ordering, and generation identity. |
 | Enterprise format extensions | Workbook contracts such as XLSX, including worksheet selection, cached formula values, dates, precision, and format limits. |
-| Table integration contracts | Iceberg, Delta, and Hudi require their own snapshot, schema, delete, log, and publication semantics beyond reading the underlying files. |
+| Local table snapshots in current source | Iceberg v1/v2, admitted Delta reader profiles and Hudi Copy-on-Write v8/v9 resolve table state and visibility before native computation. Catalogs, remote reads and table writes remain outside these read-only profiles. |
 | Transport integration contracts | S3, ADLS/Azure Blob, GCS, and HTTP own authentication, selected-range access, retries, and publication while reusing file adapters and native computation. |
 
 The [I/O contract](docs/architecture/native-universal-io-performance-coverage-2026-10-24.md)
 also defines shared demand across adapters, mixed-format queries, explicit one-computation
 multi-output requests, format-aware writer layout, and independent readback. Individual
 adapter capabilities determine which combinations execute and which require diagnostics.
+The [local table reader contract](docs/architecture/native-local-table-readers-2026-11-02.md)
+records exact version, schema, delete, checkpoint and timeline limits; a readable
+Parquet file alone does not establish a valid table snapshot.
 
 Platform integration follows the same separation. The optional
 [Foundry integration contract](docs/architecture/native-foundry-integration-2026-10-25.md)

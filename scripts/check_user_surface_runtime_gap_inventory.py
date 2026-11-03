@@ -250,6 +250,13 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "no_fallback_policy",
     ),
     (
+        "execution is blocked if a required allocation exceeds the caller's memory ceiling.",
+        "policy_rejected",
+        "not_applicable_policy_diagnostic",
+        "native memory admission rejects a required allocation above the caller's ceiling",
+        "execution_resource_admission",
+    ),
+    (
         "blocked capabilities. see the [control model](docs/architecture/pulseweave-runtime-control.md)",
         "runtime_available_needs_claim_evidence",
         "native_vortex_ingest_control_boundary",

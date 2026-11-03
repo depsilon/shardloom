@@ -169,6 +169,13 @@ engine seconds versus the retained 84.232222712, with the higher query total
 recorded and accepted. The historical source probe remains separate from that
 observation and establishes no automatic preparation payback threshold.
 
+The subsequent post-1.1.0 investigation reuses these fourteen saved operations
+to trace capability continuity, copies and selected reads at common owners.
+It also examines separately identified release-build preparation, Full43 and
+347-case captures. The initial pass preserves the original measurements and
+uses complete stdout envelopes or retained worker outcomes to recover fields
+omitted by compact summaries. [Post-bump contract](native-post-110-optimization-investigation-2026-11-03.md).
+
 ### Existing public source choices
 
 | Intent | Existing behavior |

@@ -40,10 +40,35 @@ semantics. Decimal arithmetic binds exact output metadata before execution.
 Explicit `NULLS FIRST` or `NULLS LAST` controls NULL placement independently of
 ascending/descending ordering. Unsupported expressions fail without another engine.
 
+Development source builds add named scalar parameters and query-local DataFrame
+bindings to `ctx.sql(...)`; these additions are not part of published 1.0.0.
+For example:
+
+```python
+import shardloom as sl
+
+with sl.context(transport="native", memory_bytes=64 << 20,
+                max_parallelism=2) as ctx:
+    source = ctx.sequence(0, 5)
+    query = ctx.sql(
+        "SELECT value FROM input WHERE value >= :minimum ORDER BY value",
+        relations={"input": source},
+        parameters={"minimum": 2},
+    )
+    assert query.collect().to_rows() == (
+        {"value": 2}, {"value": 3}, {"value": 4},
+    )
+```
+
+Parameters bind scalar values and `relations` binds lazy plans for this query.
+See the [connected programming reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md#names-parameters-and-schemas)
+for named types, scoping and validation details. The
+[local table snapshot guide](/field-guide/local-tables) covers development-source
+Iceberg, Delta and Hudi source bindings and selectors; those readers are not part
+of published 1.0.0.
+
 ## Deliver the result
 
 The SQL plan supports collection, supported batch iteration, and named writers.
 Use the [same result contract](/field-guide/python-surface#consume-results) as
 DataFrame plans. The example interpolates only its own generated local path.
-Named value parameters and query-local DataFrame bindings are planned additions;
-they are not part of the current `ctx.sql(...)` signature.

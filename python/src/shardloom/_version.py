@@ -3,4 +3,4 @@
 This file is derived from root Cargo.toml by scripts/sync_workspace_package_versions.py.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"

@@ -1,0 +1,120 @@
+---
+title: "Query local table snapshots"
+description: "Read admitted Iceberg, Delta Lake and Hudi snapshots with explicit formats and selectors."
+sidebar: {label: "Local table snapshots"}
+---
+
+import GuideVersion from '../../../components/GuideVersion.astro';
+
+<GuideVersion development />
+
+Read a table's selected state through the same SQL, DataFrame and native
+operators used for local files. Use a matching
+[current source build](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md)
+with `release-user-surfaces`; these readers are not in the published 1.0.0 package.
+`shardloom capabilities --format json` reports the installed reader availability
+without opening a table.
+
+## Select a table version
+
+Use `sl.read` with an explicit table format. Delta and Hudi take the local table
+root; Iceberg takes an exact metadata JSON file. This example assumes a Delta
+table with `id` and `label` columns. Replace the path and version with your own.
+The 128-MiB allocation and two lanes are illustrative caller choices.
+
+```python
+import shardloom as sl
+
+with sl.context(transport="native", memory_bytes=128 << 20,
+                max_parallelism=2) as ctx:
+    events = sl.read("/data/events", input_format="delta", version=0,
+                     client=ctx.client)
+    selected = ctx.sql(
+        "SELECT id,label FROM events WHERE id >= :minimum ORDER BY id LIMIT 20",
+        relations={"events": events}, parameters={"minimum": 2},
+    )
+    result = selected.collect()
+    print(result.schema)
+    print(result.to_rows())
+```
+
+The result contains only rows visible in version 0, with the table's logical
+column names. Filters, joins, grouping and ordering apply across its selected
+files. `to_rows()` explicitly creates Python objects for this small result.
+
+Replace the `events` declaration inside the open context for the other formats:
+
+```python
+events = sl.read("/data/iceberg/metadata.json", input_format="iceberg",
+                 snapshot_id=1, client=ctx.client)
+
+events = sl.read("/data/hudi", input_format="hudi",
+                 instant="20261101000100", client=ctx.client)
+```
+
+| Format | Selector | When omitted |
+| --- | --- | --- |
+| Iceberg | `snapshot_id`: signed 64-bit snapshot ID | Use the explicit metadata file's current snapshot. |
+| Delta | `version`: unsigned 64-bit log version | Freeze the latest log version seen at admission; fail if it cannot be reconstructed. |
+| Hudi | `instant`: 14- or 17-digit requested instant of a completed write | Freeze the latest completed write. An explicit instant resolves to that write's completion boundary. |
+
+Use only the selector belonging to the format. `ctx.read(path, input_format=...)`
+can declare the current table state; historical selectors are exposed by
+`sl.read(..., client=ctx.client)`. Declarations are lazy. Admission fixes the
+snapshot for the action, and later commits do not enter that held snapshot.
+An Iceberg metadata filename is explicit: the reader does not search for the
+latest metadata file or consult a catalog.
+
+## Query through the CLI
+
+Bind the same Delta table and version in a POSIX shell:
+
+```sh
+shardloom run sql \
+  --sql "SELECT id,label FROM '/data/events' WHERE id >= 2 ORDER BY id LIMIT 20" \
+  --source-bindings '{"/data/events":{"input_format":"delta","table_snapshot":{"version":0}}}' \
+  --request collect --bounded true \
+  --memory-bytes 134217728 --max-parallelism 2 --format json
+```
+
+`--bounded true` declares that the requested result fits collection; it does not
+truncate an oversized answer. Embedded workflows use the same arguments through
+`Session.workflow`. Typed callers bind
+`tables=[(path, format, snapshot_id, version, instant)]` on `Session.sql` or
+`Session.plan`, using `None` for the other selectors. See the
+[five-interface example](https://github.com/depsilon/shardloom/blob/main/examples/source-interfaces/run.py)
+for the shared execution and result pattern.
+
+## Supported reader profiles
+
+| Format | Admitted local state | Important exclusions |
+| --- | --- | --- |
+| Iceberg v1/v2 | Manifest lists/manifests, Parquet data and delete files, field-ID mapping, applicable v2 position/equality deletes, admitted primitive evolution and identity partitions. | v3/v4, encryption, unsupported types/defaults or field identity. |
+| Delta | Reader v1/v2 and explicitly admitted v3 features; contiguous JSON logs or complete classic/multipart Parquet checkpoints; add/remove reconciliation and none/name/id column mapping. | Deletion vectors, V2 checkpoints, catalog-managed tables, unsupported reader features and type widening. |
+| Hudi Copy-on-Write | Table versions 8/9, timeline layout 2, complete active timeline and local Parquet base files; completed write/replacement visibility. | Merge-on-Read, log merging, bootstrap, archived LSM history and unsupported rollback/restore/cleaned-history states. |
+
+The initial schema profile is top-level primitive data, including admitted
+numeric, text, binary, decimal, date and microsecond timestamp types. Exact
+format-specific types, evolution and partition constants follow the
+[reader contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-local-table-readers-2026-11-02.md#user-contract-and-explicit-limits).
+Nested evolution and every possible type/operator pairing are not implied.
+The table supplies its authoritative schema; `schema=` overrides and standalone
+plan schema inspection are unsupported. Inspect `result.schema` after a successful
+action. An empty valid snapshot retains its schema.
+
+## Visibility, resources and output
+
+Table visibility is applied before rows reach native operators. Missing or
+changed metadata, data or delete files fail explicitly; required deletes are
+never ignored, and uncommitted files do not enter the result. Reading every
+Parquet file in a directory is not a substitute for this contract.
+
+Metadata, delete state and physical decode workspace use the action's shared
+memory grant. Some structures must fit as a whole; reducing output rows cannot
+remove every metadata or codec allocation. See [resources](/field-guide/resources).
+
+These are local, read-only table sources. Remote paths, catalog authentication,
+`prepare_once` table ingestion and table commits are outside this route. A query
+can write an ordinary Vortex or supported compatibility result to a separate
+destination through the [existing writers](/field-guide/runtime-and-io#write-results);
+that output is not an Iceberg, Delta or Hudi transaction.

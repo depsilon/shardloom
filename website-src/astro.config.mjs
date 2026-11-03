@@ -51,6 +51,7 @@ export default defineConfig({
             { slug: "field-guide/sql" },
             { slug: "field-guide/cli" },
             { slug: "field-guide/runtime-and-io" },
+            { slug: "field-guide/local-tables" },
             { slug: "field-guide/resources" },
           ],
         },

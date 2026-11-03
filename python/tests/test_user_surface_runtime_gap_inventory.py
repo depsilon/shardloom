@@ -43,6 +43,11 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
         )
         self.assertEqual(control[0], "runtime_available_needs_claim_evidence")
         self.assertEqual(control[4], "pulseweave.proof_bound")
+        resource = module.classify_doc_line(
+            "Execution is blocked if a required allocation exceeds the caller's memory ceiling."
+        )
+        self.assertEqual(resource[0], "policy_rejected")
+        self.assertEqual(resource[4], "execution_resource_admission")
         self.assertIsNone(module.classify_doc_line("Unsupported requests can execute externally."))
         self.assertIsNone(module.classify_doc_line("Unspecified runtime capabilities remain blocked."))
 

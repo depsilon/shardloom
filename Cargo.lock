@@ -3040,7 +3040,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "arrow-array",
  "arrow-avro",
@@ -3061,7 +3061,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-contract-tests"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "shardloom-core",
  "shardloom-exec",
@@ -3071,7 +3071,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "jiff",
  "jiff-tzdb",
@@ -3081,7 +3081,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-exec"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "shardloom-core",
  "shardloom-plan",
@@ -3089,14 +3089,14 @@ dependencies = [
 
 [[package]]
 name = "shardloom-plan"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "shardloom-core",
 ]
 
 [[package]]
 name = "shardloom-python"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "adbc_core",
  "adbc_ffi",
@@ -3113,7 +3113,7 @@ dependencies = [
 
 [[package]]
 name = "shardloom-vortex"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "arrow-array",
  "arrow-avro",

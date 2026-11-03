@@ -6237,6 +6237,19 @@ jobs:
         self.assertIn("python_compatibility_matrix", lane_ids)
         self.assertIn("rust_msrv_validation", lane_ids)
 
+    def test_ci_gate_matrix_requires_local_io_replay_and_controls(self) -> None:
+        module = self._load_script_module("check_ci_gate_matrix.py", "local_io_ci_contract_test")
+        lane = next(lane for lane in module.REQUIRED_LANES if lane.lane_id == "python_tests")
+        workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs/release/ci-gate-matrix.md").read_text(encoding="utf-8")
+        self.assertEqual(module.lane_status(lane, workflow, doc)["status"], "passed")
+        commands = [command for command in lane.commands if "local_io" in command]
+        self.assertEqual(len(commands), 2)
+        for command in commands:
+            with self.subTest(command=command):
+                changed = workflow.replace(command, "echo omitted")
+                self.assertEqual(module.lane_status(lane, changed, doc)["status"], "failed")
+
     def test_ci_gate_matrix_requires_windows_native_release_build(self) -> None:
         module = self._load_script_module(
             "check_ci_gate_matrix.py", "check_ci_gate_matrix_windows_native_for_test"

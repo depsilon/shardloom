@@ -10,9 +10,11 @@ readers to understand the phase plan, RFCs, or benchmark internals:
 - What evidence do I get?
 - What is not supported yet?
 
-ShardLoom is still a pre-release, Vortex-first, no-fallback local compute project. These use cases
-are not production, platform, performance, Spark-replacement, broad SQL/DataFrame, object-store,
-lakehouse, or Foundry production claims.
+ShardLoom is a published technical preview with ongoing source development. The
+[field guide](https://shardloom.io/field-guide) is the ordinary user entry point;
+this atlas retains maintainer use-case and evidence classifications. Published
+packages and later source capabilities have separate acceptance records. These
+use cases do not establish production support or comparative performance.
 
 ## Status Vocabulary
 
@@ -42,7 +44,7 @@ family to at least one use case:
 9. query scenario cookbook
 10. output and fanout
 11. object-store/S3/GCS/ADLS boundaries
-12. table/lakehouse boundaries
+12. local table snapshots and later catalog/lakehouse integration boundaries
 13. Foundry dev-stack and local proof
 14. evidence/audit/claim gates
 15. benchmark interpretation
@@ -67,11 +69,14 @@ If a use case is `planned`, `blocked`, `unsupported`, or `report_only`, the bloc
 part of the product surface. It prevents unsupported paths from being mistaken for hidden runtime
 support.
 
-Current scoped runtime smokes include source-checkout status/capability checks, source-free local
-generated-output helpers, local compatibility import certification, prepared/native Vortex benchmark
-paths, SQL local CSV projection/filter/limit, and the Python local CSV query-builder wrapper over
-that same SQL smoke. These are technical-preview paths, not broad SQL/DataFrame or production
-claims.
+Current source acceptance extends beyond the historical smoke entries: shared
+local source/operator/writer work runs across all five public interfaces, with
+the [format and resource matrix](../architecture/native-adaptive-acceptance-2026-11-02.md)
+and [local table snapshot profiles](../architecture/native-local-table-readers-2026-11-02.md)
+recording complete results and explicit limits. Start with the
+[runnable source example](../../examples/source-interfaces/run.py). The index's
+older fixture and report-only entries retain their stated scope; they do not
+expand remote, catalog, table-write or Foundry support.
 
 ## Local Validation
 

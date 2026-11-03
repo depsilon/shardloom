@@ -2,7 +2,8 @@
 
 # Universal I/O implementation batch
 
-Status: implementation and acceptance remain in progress. The r6, r7 and r8
+Status: local implementation, matrix and portable-evidence acceptance complete;
+the final documentation/milestone integration remains pending. The r6, r7 and r8
 runtimes passed their combined correctness checks but failed the original
 347-query strict performance retention gate. The November 1 maintainer decision
 accepts r8's minor timing tradeoff for completing the broader direct-read and
@@ -12,8 +13,9 @@ both. This implements the October 31 batching decision in
 [item 18](native-universal-io-performance-coverage-2026-10-24.md). Exact direct
 source count retains its [separate semantic contract](native-direct-source-count-2026-10-31.md)
 inside this batch. Changed candidates have separately identified validation
-cycles; failed earlier checks and rejected measurements remain recorded. Full43
-remains deferred.
+cycles; failed earlier checks and rejected measurements remain recorded. The
+Full43 hold at this checkpoint was later superseded by explicit authorizations
+recorded in the adaptive/preparation acceptance; it grants no routine repeats.
 
 ## Direct reads and shared declarations
 
@@ -231,10 +233,16 @@ the saved Vortex outputs validates 348 readbacks covering 33 distinct
 output/reference pairs, without executing more engine queries. Frozen inputs
 and all 3,249 build-source files still match the validated runtime.
 
-Portable evidence replay, functional gap disposition, documentation/website
-checks and PR acceptance remain open. Existing timing screens remain visible as
-diagnostic results; they do not require more tuning cycles for this completion
-work. Earlier runtimes' matrix observations do not replace current-r8 coverage.
+The November 3 [portable replay and gap disposition](native-local-io-portable-replay-2026-11-02.md)
+closes saved-evidence acceptance without executing another query. Complete
+values, compatibility-output decoding, prior independent Vortex decodes,
+lifecycle, source/runtime bindings, original receipts and all three rejected
+347-case cohorts replay successfully. Sixteen corruption controls and relocated
+replay pass. The [documentation/site checks](../release/v1.1.0-documentation-refresh.md)
+also pass locally. Runtime integration is merged in PR #1640; the final
+evidence/docs milestone retains its hosted gate. Existing timing screens remain
+diagnostic results and require no tuning cycle for this completion work.
+Earlier runtimes' matrix observations do not replace current-r8 coverage.
 
 Before the next candidate measurement, the outer supervisor was corrected to
 keep inventories of completed evidence outside query execution. Active output

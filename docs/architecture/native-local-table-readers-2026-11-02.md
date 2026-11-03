@@ -1,6 +1,10 @@
 # Native local table readers
 
-Status: local acceptance passed November 2; hosted checks and review pending.
+Status: local acceptance passed November 2; PR #1645 merged November 2 after all
+58 hosted checks passed on `78c5e0a9e262739b3ab5b86d261239e9c6f9baf1`. Both
+reported review findings were fixed and validated; automated re-review was still
+running at merge, so review is not recorded as cleared. Hosted acceptance is
+copied to the evidence directory below.
 
 ## Decision and ownership
 
@@ -162,12 +166,15 @@ verification passes:
   refusals, 15 unsupported-state refusals, nine conflicting-snapshot refusals and nine
   pre-access schema-inspection refusals.
 - All 299 installed-wheel integration tests without failures, errors or skips on macOS ARM64,
-  with installed CLI/library identity, load and removal proof. Hosted Linux acceptance remains
-  pending.
+  with installed CLI/library identity, load and removal proof. PR #1645 merged as
+  `9cd723df420399d92b3a2a8981d3823899fe2b24` after all 58 hosted checks passed on
+  `78c5e0a9e262739b3ab5b86d261239e9c6f9baf1`; exact hosted evidence is
+  [hosted-acceptance.json](../benchmarks/evidence/native-local-table-readers-2026-11-02/hosted-acceptance.json).
 
-Final public and installed tests use the same frozen CLI and native-library bytes. Hosted
-checks/review and integration remain required. No benchmark result or performance claim is part
-of this implementation.
+Final public and installed tests use the same frozen CLI and native-library bytes. The two
+reported review findings were fixed and validated; the final automated re-review remained
+running at merge, so this record does not claim that review was cleared. Hosted checks and merge
+are complete; no benchmark result or performance claim is part of this implementation.
 
 The useful adjacent-format inventory currently identifies SQLite ordinary reads and spreadsheet
 workbooks beyond the existing eight file readers. Select an additional provider only after

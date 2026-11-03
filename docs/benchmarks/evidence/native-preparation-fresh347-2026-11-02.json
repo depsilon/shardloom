@@ -1,0 +1,106 @@
+{
+  "schema_version": "shardloom.fresh_347_checkpoint_summary.v1",
+  "date": "2026-11-02",
+  "status": "complete_validated_fresh_observation",
+  "source_revision": "d8c433fe8951acacd8785df50b5c21836835c575",
+  "source_scope": "Retained clean release build; all 3395 compiled Rust/Python/TOML/lock files match before and after. Later clean checkout commits contain documentation/evidence and main integration.",
+  "profile": "release",
+  "features": [
+    "release-user-surfaces"
+  ],
+  "dataset": {
+    "seed": 20261026,
+    "fact_rows": 1000000,
+    "entity_rows": 100000,
+    "product_rows": 10000,
+    "relationship_rows": 200000,
+    "calendar_rows": 731,
+    "profile": "balanced"
+  },
+  "queries": 347,
+  "executions_per_query": 1,
+  "complete_reference_rows": 12565,
+  "baseline_engine_execution_seconds": 12.121946081,
+  "engine_execution_seconds": 12.006862126,
+  "change_engine_seconds": -0.11508395500000113,
+  "change_fraction": -0.009493851418823307,
+  "timing_rule": "Sum of engine_execution_seconds for one execution of each original case in original order.",
+  "resource_policy": {
+    "memory_ceiling_bytes": 2147483648,
+    "parallelism_ceiling": 2,
+    "adaptive_work_sizing": true
+  },
+  "surface": "original_frozen_python_sql_worker_to_current_native_session",
+  "cache_policy": "Same verified five Parquet files; prehash before execution; no prepared artifacts; OS cache uncontrolled.",
+  "input_format": "original_five_parquet_files",
+  "prepared_input_bytes_written": 0,
+  "old_runtime_executions": 0,
+  "full43_executed": false,
+  "comparison_engine_invoked": false,
+  "validation": {
+    "complete_result_comparisons": 347,
+    "complete_rows": 12565,
+    "independent_values_schema_order": "passed",
+    "input_harness_runtime_source_identity": "passed",
+    "no_fallback_and_resource_guards": "passed"
+  },
+  "retained_local_evidence": {
+    "root": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1",
+    "files": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1/inputs.json",
+        "bytes": 7698744,
+        "sha256": "3989d74f04a7eca53c359aa29e123eb2f058573524e0d8c6a723696d689115fe"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1/protocol.json",
+        "bytes": 7753,
+        "sha256": "33067f20d5473e125704328ea9f8b3e7fb29a237416274775db22eb1925a8358"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1/native-observations.json",
+        "bytes": 1047528,
+        "sha256": "f4aecca752c8cef725a8313fe48f6352c5b0700536fe67353b1238c291448ef9"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1/complete-result-validation.json",
+        "bytes": 158899,
+        "sha256": "e9e3674951942cfc72af5260265507bdf40fc06326668e22c7f116480add4a41"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/broad-preparation-fresh347-r1/performance.json",
+        "bytes": 1993,
+        "sha256": "6c8ef5eb96d1af7a0d5ca306763529c9c6146711c31111705d76c4870cd6edbe"
+      }
+    ],
+    "runtime_manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-preparation-contracts-r1/manifest.json",
+      "bytes": 588709,
+      "sha256": "bc315438f701d6b69a0e99d7e5d9f548687409b3968867096415a19b9fab1f9a"
+    },
+    "receipts": [
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io762-preparation-fresh347-freeze.json",
+        "bytes": 2207,
+        "sha256": "ad9b6ecaff9aea5a4d5b0bbe893e34e2a8ee89264d52a1961011c6426505bd52"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io763-preparation-fresh347-freeze.json",
+        "bytes": 2214,
+        "sha256": "58db5447df5d9af369018cc0c2ecc0db56a895c2e0db11815fec5958d9b0c61b"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io764-preparation-fresh347.json",
+        "bytes": 2544,
+        "sha256": "31248c4ac4a6113a5fbadb2f81741add42263784f855a265574e8b8dd6c31308"
+      },
+      {
+        "path": "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io765-preparation-fresh347-verification.json",
+        "bytes": 2208,
+        "sha256": "da0b86769a0b658e91e8f8514f0b228108a81c1378cb20a8e4ca653ee84ac6d4"
+      }
+    ]
+  },
+  "preflight": "io762 stopped before query execution because a supervision comparison included trailing blank lines. io763 verifies that only the source checkout path and trailing blank lines differ. Exactly one actual query pass follows; original failed receipt is retained.",
+  "limits": "Single whole-runtime observation against saved earlier evidence; no isolated attribution or repeatability claim. Combined-workflow acceptance is unchanged."
+}

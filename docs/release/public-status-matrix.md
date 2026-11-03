@@ -36,6 +36,27 @@ support bundles remain local/redacted and remote telemetry/upload surfaces remai
 
 ## Local Engine Maturity
 
+### Current source additions after 1.0.0
+
+The source checkout now includes the [connected programming model](../reference/connected-programming.md),
+completed analytical families, shared direct local readers/writers and
+[applied adaptive resource decisions](../architecture/native-adaptive-acceptance-2026-11-02.md).
+The [local table readers](../architecture/native-local-table-readers-2026-11-02.md)
+add finite Iceberg v1/v2, Delta and Hudi Copy-on-Write profiles across all five
+public interfaces. Catalog discovery, remote table access and table commits
+remain outside those profiles. Named schemas, logical types and per-format
+visibility restrictions remain authoritative.
+
+The [preparation-contract observation](../benchmarks/native-preparation-contracts-2026-11-02.md)
+records one complete fresh preparation and Full43, including the accepted
+combined-time gain and higher query total. It is source-build engineering
+evidence, not a measurement of the published package or a comparative public score.
+The [source examples](../../examples/source-interfaces/run.py) and field guide
+document the [1.1.0 source milestone](v1.1.0-release-notes.md).
+Published-channel proofs below remain for the immutable 1.0.0 artifacts.
+
+### Published package and support promise
+
 **Published local engine; operational hardening in progress.** This is the current public
 support label. The technical-preview designation describes the support promise, not whether
 the engine or packages exist. v1.0.0 is available through GitHub, TestPyPI, PyPI and Homebrew;
