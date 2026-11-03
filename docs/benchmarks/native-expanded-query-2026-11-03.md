@@ -111,6 +111,37 @@ its equivalent Parquet or IPC source on Polars, the corresponding sums were
 pairs and their particular mix of requests. Preparation is measured separately.
 [Metrics and denominators](evidence/native-expanded-query-2026-11-03/metrics.json).
 
+Polars had the lower aggregate request time in each family. ShardLoom won
+143 of 264 global aggregations, although the slower requests brought its
+family total to 1.72× Polars. The largest release gaps were in subqueries,
+ordering and windows. The composite family had a single observation.
+
+<details>
+<summary>Complete-delivery results for all 18 families</summary>
+
+| Family | Successful pairs | ShardLoom wins | Polars seconds | ShardLoom seconds | Ratio of sums |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Projection | 26 | 11 | 0.82 | 1.18 | 1.44× |
+| Global aggregation | 264 | 143 | 9.32 | 16.06 | 1.72× |
+| Predicates | 410 | 124 | 15.71 | 36.07 | 2.30× |
+| Grouped aggregation | 1,756 | 636 | 67.04 | 195.23 | 2.91× |
+| Temporal | 595 | 284 | 24.37 | 73.36 | 3.01× |
+| CTE composition | 392 | 156 | 16.34 | 49.74 | 3.04× |
+| Nested | 196 | 51 | 8.42 | 28.95 | 3.44× |
+| Distinct | 200 | 59 | 7.62 | 30.14 | 3.95× |
+| Composite | 1 | 0 | 0.05 | 0.20 | 4.09× |
+| Sets | 789 | 138 | 34.94 | 165.45 | 4.74× |
+| Numeric | 201 | 51 | 7.75 | 37.79 | 4.88× |
+| Joins | 2,612 | 428 | 110.07 | 545.56 | 4.96× |
+| Strings | 399 | 94 | 15.64 | 82.20 | 5.26× |
+| Nullable | 205 | 54 | 8.03 | 49.44 | 6.16× |
+| Multiway joins | 580 | 86 | 25.41 | 185.23 | 7.29× |
+| Windows | 776 | 284 | 32.71 | 549.02 | 16.79× |
+| Ordering | 206 | 35 | 8.47 | 181.45 | 21.42× |
+| Subqueries | 387 | 28 | 15.88 | 1,391.14 | 87.63× |
+
+</details>
+
 The 12 scale cases are independent surrogates for the maintainer's 5M-row
 summary. The original SQL and datasets were unavailable. Times below are
 milliseconds. The first two timing columns use the native engine clock.
