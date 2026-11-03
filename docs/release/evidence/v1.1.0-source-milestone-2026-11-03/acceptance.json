@@ -1,0 +1,310 @@
+{
+  "schema_version": "shardloom.source_milestone_acceptance.v1",
+  "status": "local_acceptance_passed",
+  "source_version": "1.1.0",
+  "published_channel_version": "1.0.0",
+  "publication_attempted": false,
+  "runtime_source": "ff84e23dc53e06fdde9411ef4a402165012a9950",
+  "runtime_files": {
+    "shardloom": {
+      "bytes": 82376032,
+      "sha256": "47cb231ab0734963d71b97571e980ec10dee9345c0aef4e07b452b63ee0b56db"
+    },
+    "_native.abi3.so": {
+      "bytes": 82766208,
+      "sha256": "dd2ebb61c3b9f6f4184d07cdc419af4cfdeaecc9066d50108dc69f3b764e71a4"
+    }
+  },
+  "frozen_source_files": 3400,
+  "verification_only_files_after_build": [
+    "scripts/local_io_portable_replay.py",
+    "scripts/test_local_io_packet.py"
+  ],
+  "workspace_members": [
+    "shardloom-cli",
+    "shardloom-contract-tests",
+    "shardloom-core",
+    "shardloom-exec",
+    "shardloom-plan",
+    "shardloom-python",
+    "shardloom-vortex"
+  ],
+  "third_party_lock_entries_unchanged": true,
+  "wheel": {
+    "filename": "shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "bytes": 55274606,
+    "sha256": "393a67cd0347c6d9d7df4eb349d0e2133632c6930b59571d235554862f9dbd3c"
+  },
+  "installed": {
+    "tests": 303,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "installed_version": "1.1.0",
+  "uninstall": "passed",
+  "workspace_tests": {
+    "passed": 3318,
+    "failed": 0,
+    "ignored": 0
+  },
+  "static_checks": 11,
+  "gates": {
+    "io785-local-io-replay-acceptance": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/record_local_io_replay.py"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 217,
+        "sha256": "af4222b073ca44a5dc4404e6837cad874a7e8ac0ea0430359e4993d38a37e7d8"
+      }
+    },
+    "io786-source110-site-build": {
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "build"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 3827,
+        "sha256": "589ae41fb30467fcc756455caa5f8f74fe466a3224269245313ca17a58cc005c"
+      }
+    },
+    "io787-source110-site-types": {
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "check"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 1017,
+        "sha256": "dd6df56013908b4355e6f10287cc989fde13f09b88337ce0efde62aa82322089"
+      }
+    },
+    "io788-source110-static-checks": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/check_source110.py"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 3606,
+        "sha256": "71cd885641567c115587c82a4087b9f4a08f70e4cbf5ee8f0350d5ff04c0a5b1"
+      }
+    },
+    "io789-source110-ci-contract": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_release_scripts.py",
+        "-k",
+        "ci_gate_matrix",
+        "-v"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 923,
+        "sha256": "438ccf12733b4c3407508278e01acc5e975d940d978c2f62b4c05d4af7f51624"
+      }
+    },
+    "io790-source110-release-build": {
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "--offline",
+        "--release",
+        "--features",
+        "release-user-surfaces",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 3102,
+        "sha256": "23660fbc7451596c3fe4a30efead140f36c369504c9851d074a4e904604c3b5f"
+      }
+    },
+    "io791-source110-runtime-freeze": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/freeze_source110_runtime.py",
+        "source110-runtime-r1",
+        "io790-source110-release-build.json"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 405,
+        "sha256": "5896c7321508842c8fe07b5b1c75f674ce30debf2c79a55fbb3632ac4cac68e0"
+      }
+    },
+    "io792-source110-installed-wheel": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-source110-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/source110-runtime-r1/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/source110-runtime-r1/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-proof-wheelhouse"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 10358,
+        "sha256": "3863b0a6ef2d749d14971a7eb61b06330449258b239679077cfb7c4ade8fd206"
+      }
+    },
+    "io793-every-output-report-controls": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_local_io_packet.py",
+        "-v"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 2859,
+        "sha256": "9d8bd5b39bfbaf73eb96024756d6d154eec422c5f05d8f0df068b97af7c96f3e"
+      }
+    },
+    "io794-every-output-report-isolation": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/isolate_local_io_replay.py",
+        "--verify-existing-copy"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 973,
+        "sha256": "e9f9059bc0da1907ef75dcfbedde3f186b6a8c5fdd859fe8720c90128921de27"
+      }
+    },
+    "io795-source110-isolation-copy-retirement": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/retire_source110_replay_copies.py"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 292,
+        "sha256": "fba93065fb6bdea7a16a97941fe347d056f7d90f8f2e3bc2a1c5f0ae8a7fcf6b"
+      }
+    },
+    "io796-source110-workspace-clippy": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 6092,
+        "sha256": "9ecee16e2e0149432e422e5f695bb17ad12fa1ea0a7fa09f78c92ffd8bd8923a"
+      }
+    },
+    "io797-source110-workspace-tests": {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "passed",
+      "returncode": 0,
+      "log": {
+        "bytes": 491643,
+        "sha256": "f47d50f69c43e4835c49e38bc9fcf5f5cbd6f3e465841f9fbac6b327074f7e6a"
+      }
+    }
+  },
+  "portable_replay": {
+    "pre_bump_source_commit": "dcbe2cc2eedaffbc44d7f7bd431ccffcbaceb821",
+    "verifier_commit": "79a4cc841508a25bcb16db3e7c104837fdfc0a3d",
+    "tests": 17,
+    "failures": 0,
+    "skipped": 0,
+    "observations": 9633,
+    "output_readbacks": 2648,
+    "report_equal_to_original_replay": true,
+    "relocated": true,
+    "original_evidence_reads": 0,
+    "collection_sha256": "677b350b8322e3a8112417e9b4aaff37b8826fe6f669e4734a5fe112ece7f738"
+  },
+  "duplicate_packet_retirement": {
+    "status": "passed",
+    "retired_files": 66,
+    "retired_bytes": 375519166,
+    "retained_collection_files": 33,
+    "plan_sha256": "25fed0b9e04a79f63c20bb8a73b34355e708cb52bbea5152f9f14ab31c138870",
+    "repeated_identity_checks": true,
+    "closed_handles": true,
+    "no_payload_backup": true,
+    "engine_queries": 0
+  },
+  "archive": {
+    "path": "checks-and-package-proof.tar.xz",
+    "bytes": 261576,
+    "sha256": "2c083ddad0de51412fd26927944faa43749e623451578d417706b7f5ec9d77a4",
+    "members": 60,
+    "complete_member_readback": true
+  },
+  "new_benchmark_observations": 0,
+  "hosted_acceptance": "separate_gate",
+  "scope": "Local macOS ARM64 build, installation and native integration tests for the source milestone."
+}

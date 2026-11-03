@@ -2,6 +2,12 @@
 
 ## Current retention policy
 
+The November 3 source milestone retired two temporary copies of the local I/O
+packet after relocated replay. All 66 files (375,519,166 logical bytes) matched
+the committed collection. Repeated identity checks and closed-handle checks
+preceded removal. The source milestone retains the compact retirement inventory
+and the original failed and passed replay outcomes. [Acceptance](../release/evidence/v1.1.0-source-milestone-2026-11-03/acceptance.json).
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.

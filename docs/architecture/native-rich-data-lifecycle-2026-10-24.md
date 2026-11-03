@@ -15,6 +15,10 @@ adds statistics, temporal fidelity, broader numeric semantics and batch function
 The later [AI-data package](native-ai-data-workflows-2026-10-24.md) connects these
 same types and exact expressions to model batches, fitted features and retrieval;
 it does not duplicate their storage or arithmetic implementation.
+The November 2 sequencing update places the saved-envelope optimization
+investigation immediately after 1.1.0 and before this rich-data work. The
+expanded analytical coverage campaign follows item 19, before Foundry.
+[Post-bump investigation](native-post-110-optimization-investigation-2026-11-03.md).
 This is queued implementation, not a claim of complete rich-type support.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
