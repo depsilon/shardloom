@@ -1353,6 +1353,35 @@ class ReleaseScriptTests(unittest.TestCase):
 
 
 
+    def test_release_readiness_consumes_the_declared_prepared_input_formats(self) -> None:
+        producer = self._load_script_module(
+            "check_v1_source_prepared_state_scope.py", "source_formats_for_readiness_test"
+        )
+        report = producer.build_report(REPO_ROOT)
+        self.assertEqual(report["status"], "passed")
+        formats = report["supported_input_formats"]
+        self.assertIn("tsv", formats)
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "scope.json"
+            output = Path(directory) / "readiness.json"
+            for observed, expected in (
+                (formats, "passed"),
+                ([name for name in formats if name != "tsv"], "blocked"),
+                (["csv" if name == "tsv" else name for name in formats], "blocked"),
+            ):
+                with self.subTest(formats=observed):
+                    source.write_text(json.dumps({**report, "supported_input_formats": observed}))
+                    subprocess.run(
+                        [sys.executable, str(REPO_ROOT / "scripts/check_release_readiness.py"),
+                         "--repo-root", str(REPO_ROOT), "--allow-blocked",
+                         "--v1-source-prepared-state-scope-report", str(source),
+                         "--output", str(output)],
+                        check=True, capture_output=True, text=True,
+                    )
+                    checks = json.loads(output.read_text())["checks"]
+                    gate, = (row for row in checks if row["name"] == "v1_source_prepared_state_scope_gate")
+                    self.assertEqual(gate["status"], expected, gate)
+
     def test_release_readiness_accepts_burned_down_runtime_gap_count(self) -> None:
         module = self._load_script_module(
             "check_release_readiness.py",

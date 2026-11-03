@@ -31,6 +31,7 @@ from release_channel_contract import (
     selected_channel_ids,
 )
 from golden_workflow_contract import GOLDEN_WORKFLOW_IDS
+from check_v1_source_prepared_state_scope import SUPPORTED_FORMATS
 from check_v1_correctness_conformance import (
     EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
     EXPECTED_ADMITTED_VALIDATOR_CASES,
@@ -1473,9 +1474,9 @@ def main() -> int:
                 v1_source_prepared_blockers.append(
                     f"v1 SourceState/prepared-state {field} must be false for declarative scope evidence"
                 )
-        if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 7:
+        if v1_source_prepared_state_scope.get("supported_input_formats") != list(SUPPORTED_FORMATS):
             v1_source_prepared_blockers.append(
-                "v1 SourceState/prepared-state format coverage must contain 7 formats"
+                "v1 SourceState/prepared-state format coverage differs from the declared input formats"
             )
         if len(v1_source_prepared_state_scope.get("invalidation_case_ids", [])) != 7:
             v1_source_prepared_blockers.append(
