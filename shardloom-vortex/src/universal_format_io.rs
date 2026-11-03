@@ -67,6 +67,8 @@ mod work_sizing;
 #[cfg(test)]
 mod avro_batch_tests;
 #[cfg(test)]
+mod derived_contract_tests;
+#[cfg(test)]
 mod ipc_variant_tests;
 #[cfg(test)]
 mod provider_batch_tests;
@@ -1672,10 +1674,20 @@ fn embedded_derived_column_schema(
         .map(|field| field.as_ref().clone())
         .collect::<Vec<_>>();
     for spec in specs {
+        let source = input_schema.field(spec.source_index);
+        // Direct typed minute builders propagate input nulls and either return
+        // a value or fail. Row-code nullability does not prove dictionary-value
+        // nullability; text parsing and other helpers keep their prior contract.
+        let typed_null_preserving = matches!(
+            spec.kind,
+            EmbeddedDerivedColumnKind::ExtractMinute | EmbeddedDerivedColumnKind::DateTruncMinute
+        ) && is_source_native_extract_minute_arrow_dtype(
+            source.data_type(),
+        );
         fields.push(Field::new(
             &spec.output_column,
             spec.output_data_type.clone(),
-            true,
+            source.is_nullable() || !typed_null_preserving,
         ));
     }
     Schema::new(fields)
@@ -2030,27 +2042,29 @@ fn embedded_extract_and_date_trunc_minute_arrays(
         return build_embedded_minute_arrays(
             values,
             |value| integer_second_minute_i64(i64::from(value)),
-            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+            |value| integer_second_date_trunc_minute_i64(i64::from(value)),
         );
     }
     if let Some(values) = source.as_any().downcast_ref::<Int16Array>() {
         return build_embedded_minute_arrays(
             values,
             |value| integer_second_minute_i64(i64::from(value)),
-            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+            |value| integer_second_date_trunc_minute_i64(i64::from(value)),
         );
     }
     if let Some(values) = source.as_any().downcast_ref::<Int32Array>() {
         return build_embedded_minute_arrays(
             values,
             |value| integer_second_minute_i64(i64::from(value)),
-            |value| Ok(integer_second_date_trunc_minute_i64(i64::from(value))),
+            |value| integer_second_date_trunc_minute_i64(i64::from(value)),
         );
     }
     if let Some(values) = source.as_any().downcast_ref::<Int64Array>() {
-        return build_embedded_minute_arrays(values, integer_second_minute_i64, |value| {
-            Ok(integer_second_date_trunc_minute_i64(value))
-        });
+        return build_embedded_minute_arrays(
+            values,
+            integer_second_minute_i64,
+            integer_second_date_trunc_minute_i64,
+        );
     }
     if let Some(values) = source.as_any().downcast_ref::<UInt8Array>() {
         return build_embedded_minute_arrays(
@@ -2081,9 +2095,11 @@ fn embedded_extract_and_date_trunc_minute_arrays(
         );
     }
     if let Some(values) = source.as_any().downcast_ref::<TimestampSecondArray>() {
-        return build_embedded_minute_arrays(values, integer_second_minute_i64, |value| {
-            Ok(integer_second_date_trunc_minute_i64(value))
-        });
+        return build_embedded_minute_arrays(
+            values,
+            integer_second_minute_i64,
+            integer_second_date_trunc_minute_i64,
+        );
     }
     if let Some(values) = source.as_any().downcast_ref::<TimestampMillisecondArray>() {
         return build_embedded_minute_arrays(values, timestamp_millis_minute, |value| {
@@ -2832,22 +2848,22 @@ fn date_trunc_minute_array_value(array: &ArrayRef, row_index: usize) -> Result<O
     if let Some(values) = array.as_any().downcast_ref::<Int8Array>() {
         return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
             values.value(row_index),
-        ))));
+        ))?));
     }
     if let Some(values) = array.as_any().downcast_ref::<Int16Array>() {
         return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
             values.value(row_index),
-        ))));
+        ))?));
     }
     if let Some(values) = array.as_any().downcast_ref::<Int32Array>() {
         return Ok(Some(integer_second_date_trunc_minute_i64(i64::from(
             values.value(row_index),
-        ))));
+        ))?));
     }
     if let Some(values) = array.as_any().downcast_ref::<Int64Array>() {
         return Ok(Some(integer_second_date_trunc_minute_i64(
             values.value(row_index),
-        )));
+        )?));
     }
     if let Some(values) = array.as_any().downcast_ref::<UInt8Array>() {
         return Ok(Some(integer_second_date_trunc_minute_u64(u64::from(
@@ -2872,7 +2888,7 @@ fn date_trunc_minute_array_value(array: &ArrayRef, row_index: usize) -> Result<O
     if let Some(values) = array.as_any().downcast_ref::<TimestampSecondArray>() {
         return Ok(Some(integer_second_date_trunc_minute_i64(
             values.value(row_index),
-        )));
+        )?));
     }
     if let Some(values) = array.as_any().downcast_ref::<TimestampMillisecondArray>() {
         return Ok(Some(timestamp_millis_date_trunc_minute(
@@ -2915,8 +2931,13 @@ fn timestamp_nanos_minute(value: i64) -> u8 {
     u8::try_from(value.div_euclid(60_000_000_000).rem_euclid(60)).expect("minute is in 0..60")
 }
 
-fn integer_second_date_trunc_minute_i64(value: i64) -> i64 {
-    value.div_euclid(60) * 60
+fn integer_second_date_trunc_minute_i64(value: i64) -> Result<i64> {
+    value.div_euclid(60).checked_mul(60).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "embedded date-trunc-minute derived column exceeded int64 range; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
 }
 
 fn integer_second_date_trunc_minute_u64(value: u64) -> Result<i64> {

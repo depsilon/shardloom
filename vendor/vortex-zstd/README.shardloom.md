@@ -23,6 +23,15 @@ unreachable frames and validates selected values, framing and lengths. Checked
 UTF-8 reconstruction reuses the retained array provider's validation receipt;
 binary reconstruction preserves arbitrary bytes.
 
+String packing retains the same valid-value length-prefixed payload but writes
+only frame-start offsets, after resolving effective frame width. It no longer
+allocates one offset per valid value or constructs a second frame index. The
+existing allocator still admits payload, frame indices, sample sizes, codec
+workspace and retained output independently. Exact-frame tests compare the
+sparse index with the original per-value representation for dictionary and
+non-dictionary compression, including nulls, binary values, slices and partial
+frames. Frame-local payload packing is not part of this change.
+
 `ZstdBuffers` has a separate draft wire edition. Registering its implementation
 does not enable that edition. The ordinary ShardLoom writer retains frozen core
 edition enforcement and rejects this optional representation. Its upstream

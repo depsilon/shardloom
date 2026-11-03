@@ -2,8 +2,8 @@
 
 # Compatible dependency batch
 
-Status: local acceptance passed on the complete dependency graph. Hosted checks
-and review of the consolidated PR remain pending.
+Status: accepted and merged in PR #1639 as `529b1980` after all 58 hosted checks
+pass on the complete dependency graph at `66153267`.
 
 The November 2 maintainer request is to repair failed open PR checks and merge
 compatible work. This batch preserves the original heads of five dependency PRs
@@ -116,7 +116,13 @@ solely to accept a bot update. The earlier
 - [x] Preserve one ADBC core version and update the complete notice bundle.
 - [x] Validate the combined default/native workspace and affected public bindings.
 - [x] Verify an installed native package and applicable local release contracts.
-- [ ] Pass hosted checks and review on the final combined head, then merge.
+- [x] Pass hosted checks, inspect review state on the final combined head, then merge.
+
+The [hosted acceptance record](../benchmarks/evidence/dependency-intake-2026-11-02/hosted-acceptance.json)
+preserves all 58 passing checks, the absence of submitted review findings at
+merge, and ancestry of the original heads of #1635–#1639. All five PRs are now
+closed and merged; the consolidated normal merge retains their commits. The
+partial Arrow-major proposal #1642 remains deferred under the contract above.
 
 The [local acceptance packet](../benchmarks/evidence/dependency-intake-2026-11-02/acceptance.json)
 binds the final source snapshot, CLI/library identities and installed wheel.

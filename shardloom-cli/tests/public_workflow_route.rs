@@ -3887,6 +3887,16 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
             "public_workflow_preparation_vortex_ingest_performed",
             "true"
         )));
+        if cfg!(unix) {
+            assert!(stdout.contains(&field(
+                "public_workflow_preparation_vortex_prepared_olap_state_artifact_fingerprint_source",
+                "committed_writer_streaming_sha256"
+            )));
+            assert!(stdout.contains(&field(
+                "public_workflow_preparation_vortex_prepared_olap_state_artifact_fingerprint_payload_bytes_read",
+                "0"
+            )));
+        }
         assert!(stdout.contains(&field(
             "public_workflow_preparation_local_workflow_input_row_cap",
             "none_synthetic_row_cap_disabled"

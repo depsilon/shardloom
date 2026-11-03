@@ -377,6 +377,7 @@ fn write_observed(
         None,
         runtime.as_ref(),
         &CancellationToken::default(),
+        false,
     );
     drop(drivers);
     let snapshot = memory.pool.snapshot();

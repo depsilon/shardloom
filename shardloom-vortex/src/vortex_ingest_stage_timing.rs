@@ -38,6 +38,38 @@ struct WorkSpan {
     output_bytes: u64,
 }
 
+/// Successful selected-text packing, reconstructed from exact emitted frames.
+/// These cumulative requested scratch extents are not live memory or codec totals.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct TextPackingCounts {
+    completed_calls: u64,
+    valid_values: u64,
+    payload_bytes: u64,
+    frame_index_entries: u64,
+    frame_index_bytes: u64,
+}
+
+impl TextPackingCounts {
+    fn append_fields(&self, fields: &mut Vec<(String, String)>) {
+        fields.push((
+            "vortex_ingest_text_packing_scope".into(),
+            "successful_selected_text_zstd_calls;exact_completed_frame_metadata;payload_includes_length_prefixes;one_native_usize_index_per_frame;cumulative_requested_scratch_bytes_not_peak_memory_or_codec_total;failed_calls_excluded".into(),
+        ));
+        for (suffix, value) in [
+            ("completed_calls", self.completed_calls),
+            ("valid_values", self.valid_values),
+            ("payload_bytes", self.payload_bytes),
+            ("frame_index_entries", self.frame_index_entries),
+            ("frame_index_bytes", self.frame_index_bytes),
+        ] {
+            fields.push((
+                format!("vortex_ingest_text_packing_{suffix}"),
+                value.to_string(),
+            ));
+        }
+    }
+}
+
 /// Measured scopes inside the native ingest implementation, independent of wall totals.
 /// Provider-stage bytes are logical estimates; the Arrow ownership span records actual
 /// copied region bytes and full admitted allocation charges, not physical I/O traffic.
@@ -45,6 +77,7 @@ struct WorkSpan {
 pub struct VortexIngestStageReport {
     spans: [WorkSpan; 13],
     ownership_counts: ArrowOwnershipCounts,
+    text_packing: TextPackingCounts,
     text_active_nanos: u64,
     identity_projection_batches: u64,
     conversion_prefetch: shardloom_exec::adaptive_work::AdaptiveWorkReport,
@@ -89,6 +122,7 @@ impl VortexIngestStageReport {
                 fields.push((format!("vortex_ingest_{name}_{suffix}"), value.to_string()));
             }
         }
+        self.text_packing.append_fields(&mut fields);
         let work = self.conversion_prefetch;
         if work.completed_windows != 0 || work.declined_windows != 0 {
             fields.push((
@@ -149,7 +183,7 @@ fn legacy_writer_field_declares_corrected_inclusive_wall_semantics() {
 
 #[cfg(feature = "vortex-write")]
 mod measured {
-    use super::{ArrowOwnershipCounts, VortexIngestStageReport, WorkSpan};
+    use super::{ArrowOwnershipCounts, TextPackingCounts, VortexIngestStageReport, WorkSpan};
     use std::{
         sync::{
             Arc, Mutex,
@@ -225,10 +259,28 @@ mod measured {
         active: Arc<Mutex<ActiveState>>,
         identities: Arc<AtomicU64>,
         ownership_counts: Arc<Mutex<ArrowOwnershipCounts>>,
+        text_packing: Arc<Mutex<TextPackingCounts>>,
         conversion_prefetch: Arc<Mutex<shardloom_exec::adaptive_work::AdaptiveWorkReport>>,
     }
 
     impl IngestStageTimings {
+        pub(crate) fn record_text_packing(&self, frames: &[vortex_zstd::ZstdFrameMetadata]) {
+            let entries = u64::try_from(frames.len()).unwrap_or(u64::MAX);
+            let mut counts = self
+                .text_packing
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            counts.completed_calls = counts.completed_calls.saturating_add(1);
+            counts.frame_index_entries = counts.frame_index_entries.saturating_add(entries);
+            counts.frame_index_bytes = counts.frame_index_bytes.saturating_add(
+                entries.saturating_mul(u64::try_from(size_of::<usize>()).unwrap_or(u64::MAX)),
+            );
+            for frame in frames {
+                counts.valid_values = counts.valid_values.saturating_add(frame.n_values);
+                counts.payload_bytes = counts.payload_bytes.saturating_add(frame.uncompressed_size);
+            }
+        }
+
         #[cfg(feature = "universal-format-io")]
         pub(crate) fn complete_conversion_prefetch(
             &self,
@@ -334,6 +386,10 @@ mod measured {
                     .ownership_counts
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
+                text_packing: *self
+                    .text_packing
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
                 text_active_nanos: self
                     .active
                     .lock()
@@ -416,6 +472,50 @@ mod measured {
         assert_eq!(report.spans[12].rows, 6);
         assert_eq!(report.spans[12].input_bytes, 52);
         assert_eq!(report.spans[12].output_bytes, 64);
+    }
+
+    #[test]
+    fn completed_text_frames_report_sparse_packing_extents_across_handles() {
+        use vortex::array::arrays::VarBinViewArray;
+        use vortex::{VortexSessionDefault as _, array::VortexSessionExecute as _};
+
+        let session = vortex::session::VortexSession::default();
+        let mut ctx = session.create_execution_ctx();
+        let timings = IngestStageTimings::default();
+        for (input, owner) in [
+            (
+                VarBinViewArray::from_iter_str(std::iter::repeat_n("", 16_385)),
+                timings.clone(),
+            ),
+            (
+                VarBinViewArray::from_iter_str(std::iter::empty::<&str>()),
+                timings.clone(),
+            ),
+        ] {
+            let data =
+                vortex_zstd::ZstdData::from_var_bin_view_without_dict(&input, 0, 8_192, &mut ctx)
+                    .unwrap();
+            owner.record_text_packing(data.frame_metadata());
+        }
+        let report = timings.snapshot();
+        #[cfg(feature = "universal-format-io")]
+        let report = report.with_stream(&VortexIngestStageReport::default());
+        let fields = report
+            .evidence_fields()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(fields["vortex_ingest_text_packing_completed_calls"], "2");
+        assert_eq!(fields["vortex_ingest_text_packing_valid_values"], "16385");
+        assert_eq!(fields["vortex_ingest_text_packing_payload_bytes"], "65540");
+        assert_eq!(
+            fields["vortex_ingest_text_packing_frame_index_entries"],
+            "3"
+        );
+        assert_eq!(
+            fields["vortex_ingest_text_packing_frame_index_bytes"],
+            (3 * size_of::<usize>()).to_string()
+        );
+        assert!(fields["vortex_ingest_text_packing_scope"].contains("failed_calls_excluded"));
     }
 
     #[cfg(feature = "universal-format-io")]

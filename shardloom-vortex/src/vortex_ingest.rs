@@ -81,6 +81,10 @@ mod nested_layout;
 #[path = "vortex_ingest_text_stats_tests.rs"]
 mod text_stats_tests;
 
+#[cfg(all(test, unix, feature = "vortex-write"))]
+#[path = "vortex_ingest_committed_artifact_tests.rs"]
+mod committed_artifact_tests;
+
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::{
     FlatLocalColumnarSource, FlatLocalColumnarStreamSource, IngestColumnarStreamSource,
@@ -1253,6 +1257,11 @@ pub struct VortexPreparedOlapStateReport {
     pub prepared_artifact_ref: PathBuf,
     pub prepared_artifact_digest: String,
     pub prepared_artifact_size_bytes: u64,
+    /// Origin of the artifact checksum; descriptive evidence, never authority.
+    pub artifact_fingerprint_source: String,
+    /// Actual payload bytes read solely to construct this artifact fingerprint.
+    /// `None` means no fingerprint was obtained, rather than zero work.
+    pub artifact_fingerprint_payload_bytes_read: Option<u64>,
     pub artifact_model: String,
     pub prepared_layout_policy: String,
     pub segment_map_status: String,
@@ -1297,6 +1306,19 @@ pub struct VortexPreparedOlapStateReport {
     pub certificate_refs: String,
     pub fallback_attempted: bool,
     pub external_engine_invoked: bool,
+}
+
+/// Writer-origin, single-use receipt for immediate prepared-state publication.
+///
+/// Created only after the native writer and its requested source/reopen checks
+/// succeed. Its private descriptor proof is separate from cloneable reports.
+#[derive(Debug)]
+pub struct VortexPreparedArtifactReceipt {
+    committed: shardloom_core::WorkspaceSafeCommittedArtifact,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    source_identities: Vec<Arc<SourceIdentity>>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    cancellation: CancellationToken,
 }
 
 impl VortexPreparedStateReuseRequest {
@@ -2382,6 +2404,15 @@ impl VortexPreparedOlapStateReport {
                 self.prepared_artifact_size_bytes.to_string(),
             ),
             (
+                "vortex_prepared_olap_state_artifact_fingerprint_source".to_string(),
+                self.artifact_fingerprint_source.clone(),
+            ),
+            (
+                "vortex_prepared_olap_state_artifact_fingerprint_payload_bytes_read".to_string(),
+                self.artifact_fingerprint_payload_bytes_read
+                    .map_or_else(|| "unavailable".to_string(), |bytes| bytes.to_string()),
+            ),
+            (
                 "vortex_prepared_olap_state_artifact_model".to_string(),
                 self.artifact_model.clone(),
             ),
@@ -2594,6 +2625,65 @@ pub fn vortex_prepared_state_reuse_manifest_path(
 pub fn write_vortex_prepared_olap_state_bundle(
     mut request: VortexPreparedOlapStateWriteRequest,
 ) -> Result<VortexPreparedOlapStateReport> {
+    normalize_prepared_olap_bundle_request(&mut request);
+    publish_vortex_prepared_olap_single_artifact_state(&request)
+}
+
+/// Publish immediately from a completed native writer's consumed receipt.
+/// Independent and later publication use the ordinary content-fingerprint API.
+///
+/// # Errors
+/// Refuses any writer-generation change before or during publication. Retains
+/// the ordinary layout inventory and all required independent writer readback.
+pub fn write_vortex_prepared_olap_state_bundle_with_receipt(
+    mut request: VortexPreparedOlapStateWriteRequest,
+    receipt: VortexPreparedArtifactReceipt,
+) -> Result<VortexPreparedOlapStateReport> {
+    normalize_prepared_olap_bundle_request(&mut request);
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        receipt.cancellation.check()?;
+        for identity in &receipt.source_identities {
+            identity.validate()?;
+        }
+    }
+    let report = receipt.committed.with_verified_digest(
+        &request.prepared_artifact_path,
+        |digest, size_bytes, modified| {
+            let fingerprint = LocalReuseFileFingerprint {
+                path: absolute_local_path(&request.prepared_artifact_path)?,
+                size_bytes,
+                mtime_ns: modified.duration_since(UNIX_EPOCH).map_or_else(
+                    |_| "unknown".to_string(),
+                    |value| value.as_nanos().to_string(),
+                ),
+                content_digest: digest.to_owned(),
+                digest_source: "committed_writer_streaming_sha256".to_string(),
+                payload_bytes_read: 0,
+            };
+            Ok(prepared_olap_report_from_request(
+                &request,
+                &fingerprint,
+                prepared_olap_state_status(
+                    &request,
+                    prepared_olap_exact_sidecar_family_count(&request),
+                ),
+                fingerprint.content_digest.clone(),
+                false,
+            ))
+        },
+    )?;
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        for identity in &receipt.source_identities {
+            identity.validate()?;
+        }
+        receipt.cancellation.check()?;
+    }
+    Ok(report)
+}
+
+fn normalize_prepared_olap_bundle_request(request: &mut VortexPreparedOlapStateWriteRequest) {
     if !prepared_olap_metadata_ref_declared(&request.prepared_layout_policy) {
         request.prepared_layout_policy =
             VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_LAYOUT_POLICY.to_string();
@@ -2607,7 +2697,6 @@ pub fn write_vortex_prepared_olap_state_bundle(
     request.aggregate_summary_manifest = "none".to_string();
     request.row_position_manifest = "none".to_string();
     request.dictionary_union_manifest = "none".to_string();
-    publish_vortex_prepared_olap_single_artifact_state(&request)
 }
 
 /// Publish fail-closed, content-addressed OLAP evidence for one Vortex artifact.
@@ -3627,6 +3716,8 @@ struct LocalReuseFileFingerprint {
     size_bytes: u64,
     mtime_ns: String,
     content_digest: String,
+    digest_source: String,
+    payload_bytes_read: u64,
 }
 
 #[cfg(test)]
@@ -3659,8 +3750,11 @@ impl LocalReuseFileFingerprint {
                 || "unknown".to_string(),
                 |value| value.as_nanos().to_string(),
             );
+        let (content_digest, payload_bytes_read) = sha256_file_digest_with_bytes(&path, label)?;
         Ok(Self {
-            content_digest: sha256_file_digest(&path, label)?,
+            content_digest,
+            digest_source: "independent_artifact_content_sha256".to_string(),
+            payload_bytes_read,
             path,
             size_bytes: metadata.len(),
             mtime_ns: modified,
@@ -4020,7 +4114,12 @@ pub fn prepare_native_vortex_artifact_controlled(
     ))
 }
 
+#[cfg(all(test, feature = "vortex-write"))]
 fn sha256_file_digest(path: &Path, label: &str) -> Result<String> {
+    sha256_file_digest_with_bytes(path, label).map(|(digest, _)| digest)
+}
+
+fn sha256_file_digest_with_bytes(path: &Path, label: &str) -> Result<(String, u64)> {
     let mut file = fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to open {label} '{}' for prepared-state reuse digest: {error}; no fallback execution was attempted",
@@ -4029,6 +4128,7 @@ fn sha256_file_digest(path: &Path, label: &str) -> Result<String> {
     })?;
     let mut digest = sha2::Sha256::new();
     let mut buffer = [0_u8; 8192];
+    let mut bytes_read = 0_u64;
     loop {
         let read = file.read(&mut buffer).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -4040,8 +4140,11 @@ fn sha256_file_digest(path: &Path, label: &str) -> Result<String> {
             break;
         }
         digest.update(&buffer[..read]);
+        bytes_read = bytes_read.checked_add(read as u64).ok_or_else(|| {
+            ShardLoomError::new("prepared-state fingerprint byte count exceeded u64")
+        })?;
     }
-    Ok(sha256_digest_string(digest.finalize()))
+    Ok((sha256_digest_string(digest.finalize()), bytes_read))
 }
 
 fn sha256_file_prefix_digest(path: &Path, prefix_len: u64, label: &str) -> Result<String> {
@@ -4636,6 +4739,8 @@ fn prepared_olap_report_from_request(
         prepared_artifact_ref: request.prepared_artifact_path.clone(),
         prepared_artifact_digest: artifact_fingerprint.content_digest.clone(),
         prepared_artifact_size_bytes: artifact_fingerprint.size_bytes,
+        artifact_fingerprint_source: artifact_fingerprint.digest_source.clone(),
+        artifact_fingerprint_payload_bytes_read: Some(artifact_fingerprint.payload_bytes_read),
         artifact_model: VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL.to_string(),
         prepared_layout_policy: request.prepared_layout_policy.clone(),
         segment_map_status: request.segment_map_status.clone(),
@@ -4757,6 +4862,12 @@ fn prepared_olap_blocked_report(
         ),
         prepared_artifact_size_bytes: artifact_fingerprint
             .map_or(0, |fingerprint| fingerprint.size_bytes),
+        artifact_fingerprint_source: artifact_fingerprint.map_or_else(
+            || "not_obtained".to_string(),
+            |fingerprint| fingerprint.digest_source.clone(),
+        ),
+        artifact_fingerprint_payload_bytes_read: artifact_fingerprint
+            .map(|fingerprint| fingerprint.payload_bytes_read),
         artifact_model: VORTEX_PREPARED_OLAP_SINGLE_ARTIFACT_MODEL.to_string(),
         prepared_layout_policy: request.prepared_layout_policy.clone(),
         segment_map_status: request.segment_map_status.clone(),
@@ -10339,12 +10450,46 @@ pub fn write_flat_scalar_vortex_prepared_state(
     write_flat_scalar_vortex_prepared_state_with_memory(request, &memory)
 }
 
+/// Write scalar input and retain a single-use receipt for immediate publication.
+///
+/// # Errors
+/// Returns the ordinary native writer's feature, admission and validation errors.
+pub fn write_flat_scalar_vortex_prepared_state_with_receipt(
+    request: VortexPreparedStateWriteRequest,
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)> {
+    #[cfg(feature = "vortex-write")]
+    {
+        let memory = LiveMemoryPool::new(request.resources.memory_bytes())?;
+        write_flat_scalar_vortex_prepared_state_with_memory_outcome(request, &memory, true)
+    }
+    #[cfg(not(feature = "vortex-write"))]
+    {
+        write_flat_scalar_vortex_prepared_state(request).map(|report| (report, None))
+    }
+}
+
 /// Keep an existing source/operation owner while constructing buffered output.
 #[cfg(feature = "vortex-write")]
 pub(crate) fn write_flat_scalar_vortex_prepared_state_with_memory(
     request: VortexPreparedStateWriteRequest,
     memory: &LiveMemoryPool,
 ) -> Result<VortexPreparedStateWriteReport> {
+    write_flat_scalar_vortex_prepared_state_with_memory_outcome(request, memory, false)
+        .map(|(report, _)| report)
+}
+
+#[cfg(feature = "vortex-write")]
+fn write_flat_scalar_vortex_prepared_state_with_memory_outcome(
+    request: VortexPreparedStateWriteRequest,
+    memory: &LiveMemoryPool,
+    retain_committed_artifact: bool,
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)> {
     validate_declared_ingest_resources(
         request.resources,
         request.capillary_prewrite_input.as_ref(),
@@ -10400,43 +10545,45 @@ pub(crate) fn write_flat_scalar_vortex_prepared_state_with_memory(
         &column_families,
     )?;
     let array_build_micros = array_build_start.elapsed().as_micros();
-    let mut report = finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
-        memory,
-        resources: request.resources,
-        target_path: request.target_path,
-        column_count: request.columns.len(),
-        column_families,
-        row_count,
-        array: &array_build.array,
-        array_build_micros,
-        certification_level: request.certification_level,
-        allow_overwrite: request.allow_overwrite,
-        array_build_provider_kind: array_build.provider_kind,
-        array_build_provider_surface: array_build.provider_surface,
-        array_build_strategy: array_build.strategy,
-        array_build_prefetch_window: 0,
-        array_build_input_layout: array_build.input_layout,
-        array_build_record_batch_count: array_build.record_batch_count,
-        manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
-        capillary_prewrite_control,
-        layout_write_decision,
-        preparation_spine: VortexPreparationSpineFinalizeInput {
-            vortex_first_decision: array_build.vortex_first_decision,
-            feature_gate: array_build.feature_gate,
-            source_surface: array_build.source_surface,
-            split_surface: "single_materialized_scalar_row_split",
-            split_count: usize::from(row_count > 0),
-            projection_mask_status: "full_projection_materialized",
-            filter_mask_status: "not_requested",
-            materialization_boundary_status: array_build.materialization_boundary_status,
-            decode_boundary_status: array_build.decode_boundary_status,
-        },
-    })?;
+    let (mut report, receipt) =
+        finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+            memory,
+            retain_committed_artifact,
+            resources: request.resources,
+            target_path: request.target_path,
+            column_count: request.columns.len(),
+            column_families,
+            row_count,
+            array: &array_build.array,
+            array_build_micros,
+            certification_level: request.certification_level,
+            allow_overwrite: request.allow_overwrite,
+            array_build_provider_kind: array_build.provider_kind,
+            array_build_provider_surface: array_build.provider_surface,
+            array_build_strategy: array_build.strategy,
+            array_build_prefetch_window: 0,
+            array_build_input_layout: array_build.input_layout,
+            array_build_record_batch_count: array_build.record_batch_count,
+            manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
+            capillary_prewrite_control,
+            layout_write_decision,
+            preparation_spine: VortexPreparationSpineFinalizeInput {
+                vortex_first_decision: array_build.vortex_first_decision,
+                feature_gate: array_build.feature_gate,
+                source_surface: array_build.source_surface,
+                split_surface: "single_materialized_scalar_row_split",
+                split_count: usize::from(row_count > 0),
+                projection_mask_status: "full_projection_materialized",
+                filter_mask_status: "not_requested",
+                materialization_boundary_status: array_build.materialization_boundary_status,
+                decode_boundary_status: array_build.decode_boundary_status,
+            },
+        })?;
     drop(array_build);
     drop(conversion_memory);
     drop(control_memory);
     report.shared_native_memory = Some(buffered_ingest_memory_report(memory));
-    Ok(report)
+    Ok((report, receipt))
 }
 
 /// Write flat columnar Arrow batches into a local Vortex artifact and
@@ -10524,38 +10671,40 @@ pub fn write_flat_columnar_vortex_prepared_state(
                 "empty_source_no_data_decode",
             )
         };
-    let mut report = finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
-        memory: &memory,
-        resources: request.resources,
-        target_path: request.target_path,
-        column_count: request.source.materialized_columns.len(),
-        column_families: array_build.column_families.clone(),
-        row_count,
-        array: &array_build.array,
-        array_build_micros,
-        certification_level: request.certification_level,
-        allow_overwrite: request.allow_overwrite,
-        array_build_provider_kind: array_build.provider_kind,
-        array_build_provider_surface: array_build.provider_surface,
-        array_build_strategy: array_build.strategy,
-        array_build_prefetch_window: 0,
-        array_build_input_layout: "arrow_record_batch_columnar_source_state",
-        array_build_record_batch_count: request.source.batches.len(),
-        manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
-        capillary_prewrite_control,
-        layout_write_decision,
-        preparation_spine: VortexPreparationSpineFinalizeInput {
-            vortex_first_decision,
-            feature_gate: "vortex-write,universal-format-io",
-            source_surface: "local_columnar_source_state_arrow_record_batches",
-            split_surface: "arrow_record_batch_source_splits",
-            split_count: request.source.batches.len(),
-            projection_mask_status,
-            filter_mask_status: "not_requested",
-            materialization_boundary_status,
-            decode_boundary_status,
-        },
-    })?;
+    let (mut report, _receipt) =
+        finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+            memory: &memory,
+            retain_committed_artifact: false,
+            resources: request.resources,
+            target_path: request.target_path,
+            column_count: request.source.materialized_columns.len(),
+            column_families: array_build.column_families.clone(),
+            row_count,
+            array: &array_build.array,
+            array_build_micros,
+            certification_level: request.certification_level,
+            allow_overwrite: request.allow_overwrite,
+            array_build_provider_kind: array_build.provider_kind,
+            array_build_provider_surface: array_build.provider_surface,
+            array_build_strategy: array_build.strategy,
+            array_build_prefetch_window: 0,
+            array_build_input_layout: "arrow_record_batch_columnar_source_state",
+            array_build_record_batch_count: request.source.batches.len(),
+            manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
+            capillary_prewrite_control,
+            layout_write_decision,
+            preparation_spine: VortexPreparationSpineFinalizeInput {
+                vortex_first_decision,
+                feature_gate: "vortex-write,universal-format-io",
+                source_surface: "local_columnar_source_state_arrow_record_batches",
+                split_surface: "arrow_record_batch_source_splits",
+                split_count: request.source.batches.len(),
+                projection_mask_status,
+                filter_mask_status: "not_requested",
+                materialization_boundary_status,
+                decode_boundary_status,
+            },
+        })?;
     drop(array_build);
     drop(conversion_memory);
     drop(control_memory);
@@ -10615,6 +10764,54 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
     cancellation: &CancellationToken,
     float_policy: FloatPolicy,
 ) -> Result<VortexPreparedStateWriteReport> {
+    write_flat_columnar_vortex_prepared_state_streaming_outcome(
+        request,
+        cancellation,
+        float_policy,
+        false,
+    )
+    .map(|(report, _)| report)
+}
+
+/// Stream native preparation and retain a single-use immediate-publication
+/// receipt separately from its cloneable report. The caller's source validation,
+/// cancellation, resource and floating-value policies are unchanged.
+///
+/// # Errors
+/// Returns the controlled writer's admission, validation and publication errors.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)]
+pub fn write_flat_columnar_vortex_prepared_state_streaming_with_receipt<
+    S: Into<IngestColumnarStreamSource>,
+>(
+    request: VortexPreparedStateColumnarStreamWriteRequest<S>,
+    cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)> {
+    write_flat_columnar_vortex_prepared_state_streaming_outcome(
+        request,
+        cancellation,
+        float_policy,
+        true,
+    )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[allow(clippy::too_many_lines)] // Keep the shared writer and its admission lifetime together.
+fn write_flat_columnar_vortex_prepared_state_streaming_outcome<
+    S: Into<IngestColumnarStreamSource>,
+>(
+    request: VortexPreparedStateColumnarStreamWriteRequest<S>,
+    cancellation: &CancellationToken,
+    float_policy: FloatPolicy,
+    retain_committed_artifact: bool,
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)> {
     cancellation.check()?;
     let (source, input_ownership, mut reader) = request.source.into().into_parts();
     let request = VortexPreparedStateColumnarStreamWriteRequest {
@@ -10843,6 +11040,7 @@ pub fn write_flat_columnar_vortex_prepared_state_streaming_with_float_policy<
         };
     finalize_vortex_prepared_state_stream_write(VortexPreparedStateStreamFinalizeInput {
         cancellation: cancellation.clone(),
+        retain_committed_artifact,
         resources: request.resources,
         target_path: request.target_path,
         prepared_source_binding: request.prepared_source_binding,
@@ -11115,6 +11313,7 @@ fn validate_flat_columnar_stream_source_shape(
 #[cfg(feature = "vortex-write")]
 struct VortexPreparedStateFinalizeInput<'a> {
     memory: &'a LiveMemoryPool,
+    retain_committed_artifact: bool,
     resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     column_count: usize,
@@ -11146,6 +11345,7 @@ where
         + 'static,
 {
     cancellation: CancellationToken,
+    retain_committed_artifact: bool,
     resources: shardloom_core::ExecutionResources,
     target_path: PathBuf,
     prepared_source_binding: Option<String>,
@@ -12290,7 +12490,10 @@ mod text_io_tests;
 #[allow(clippy::too_many_lines)]
 fn finalize_vortex_prepared_state_write(
     input: VortexPreparedStateFinalizeInput<'_>,
-) -> Result<VortexPreparedStateWriteReport> {
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)> {
     let mut capillary_prewrite_control = input.capillary_prewrite_control.clone();
     capillary_prewrite_control.apply_task_role_gate("vortex_segment_write", "write")?;
     let write_result = write_vortex_array(
@@ -12299,6 +12502,7 @@ fn finalize_vortex_prepared_state_write(
         input.allow_overwrite,
         &input.layout_write_decision,
         input.memory,
+        input.retain_committed_artifact,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&input.target_path)?;
 
@@ -12382,7 +12586,7 @@ fn finalize_vortex_prepared_state_write(
             .clone(),
     );
 
-    Ok(VortexPreparedStateWriteReport {
+    let report = VortexPreparedStateWriteReport {
         resources: input.resources,
         target_path: input.target_path,
         shared_native_memory: None,
@@ -12445,14 +12649,29 @@ fn finalize_vortex_prepared_state_write(
         prepared_olap_layout_inventory,
         segment_metadata_primitive,
         workspace_write_report: write_result.workspace_write_report,
-    })
+    };
+    Ok((
+        report,
+        write_result
+            .committed_artifact
+            .map(|committed| VortexPreparedArtifactReceipt {
+                committed,
+                #[cfg(feature = "universal-format-io")]
+                source_identities: Vec::new(),
+                #[cfg(feature = "universal-format-io")]
+                cancellation: CancellationToken::default(),
+            }),
+    ))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[allow(clippy::too_many_lines)]
 fn finalize_vortex_prepared_state_stream_write<I>(
     input: VortexPreparedStateStreamFinalizeInput<I>,
-) -> Result<VortexPreparedStateWriteReport>
+) -> Result<(
+    VortexPreparedStateWriteReport,
+    Option<VortexPreparedArtifactReceipt>,
+)>
 where
     I: vortex::array::iter::ArrayIterator
         + futures::Stream<Item = vortex::error::VortexResult<vortex::array::ArrayRef>>
@@ -12481,6 +12700,7 @@ where
         input.prepared_source_binding.as_deref(),
         input.ingest_runtime.as_ref(),
         &input.cancellation,
+        input.retain_committed_artifact,
     )?;
     cleanup_legacy_prepared_olap_state_sidecars(&target_path)?;
     if let Some(expected_rows) = row_count_hint
@@ -12570,7 +12790,7 @@ where
             .clone(),
     );
 
-    Ok(VortexPreparedStateWriteReport {
+    let report = VortexPreparedStateWriteReport {
         resources: input.resources,
         target_path,
         shared_native_memory: input.native_memory.as_ref().map(|memory| {
@@ -12647,7 +12867,18 @@ where
         prepared_olap_layout_inventory,
         segment_metadata_primitive,
         workspace_write_report: write_result.workspace_write_report,
-    })
+    };
+    input.cancellation.check()?;
+    Ok((
+        report,
+        write_result
+            .committed_artifact
+            .map(|committed| VortexPreparedArtifactReceipt {
+                committed,
+                source_identities: input.source_identities,
+                cancellation: input.cancellation,
+            }),
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -14231,6 +14462,7 @@ struct LocalVortexWriteResult {
     vortex_final_commit_micros: u128,
     stage_work: VortexIngestStageReport,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
+    committed_artifact: Option<shardloom_core::WorkspaceSafeCommittedArtifact>,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -14249,6 +14481,43 @@ struct LocalVortexWriterRuntimePolicy {
     requested_parallelism: usize,
     applied_parallelism: usize,
     background_workers: usize,
+}
+
+/// Select receipt retention without duplicating producer or commit validation.
+#[cfg(feature = "vortex-write")]
+fn write_validated_vortex_artifact<T>(
+    workspace_root: impl AsRef<Path>,
+    path: &Path,
+    allow_overwrite: bool,
+    operation_label: &str,
+    retain_committed_artifact: bool,
+    producer: impl FnOnce(&mut shardloom_core::WorkspaceSafeLocalStagingWriter) -> Result<T>,
+    validate_before_commit: impl FnOnce(&T) -> Result<()>,
+) -> Result<(
+    T,
+    WorkspaceSafeLocalWriteReport,
+    Option<shardloom_core::WorkspaceSafeCommittedArtifact>,
+)> {
+    if retain_committed_artifact {
+        shardloom_core::write_workspace_safe_bytes_with_validated_producer_receipt(
+            workspace_root,
+            path,
+            allow_overwrite,
+            operation_label,
+            producer,
+            validate_before_commit,
+        )
+    } else {
+        shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+            workspace_root,
+            path,
+            allow_overwrite,
+            operation_label,
+            producer,
+            validate_before_commit,
+        )
+        .map(|(output, report)| (output, report, None))
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -14342,7 +14611,7 @@ impl LocalVortexWriteContext {
         ))
     }
 
-    #[allow(clippy::too_many_lines)] // Admission, publication and measured writer evidence stay together.
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)] // Keep the writer and receipt lifetimes explicit.
     fn write_array(
         &self,
         path: &Path,
@@ -14351,6 +14620,7 @@ impl LocalVortexWriteContext {
         layout_write_decision: &VortexLayoutWriteRuntimeDecision,
         writer_context_reuse_status: impl Into<String>,
         memory: &LiveMemoryPool,
+        retain_committed_artifact: bool,
     ) -> Result<LocalVortexWriteResult> {
         use vortex::array::memory::HostMemorySessionExt as _;
         let _writer_memory = memory
@@ -14397,12 +14667,13 @@ impl LocalVortexWriteContext {
             &writer_session,
         );
         prepare_vortex_target(path, allow_overwrite)?;
-        let (summary, workspace_write_report) =
-            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+        let (summary, workspace_write_report, committed_artifact) =
+            write_validated_vortex_artifact(
                 workspace_root,
                 path,
                 allow_overwrite,
                 "local vortex_ingest artifact",
+                retain_committed_artifact,
                 |writer| {
                     let segment_write_start = Instant::now();
                     let result = write_options
@@ -14459,6 +14730,7 @@ impl LocalVortexWriteContext {
             vortex_final_commit_micros: workspace_stage_micros,
             stage_work: writer_stage_timing.stages.snapshot(),
             workspace_write_report,
+            committed_artifact,
         })
     }
 
@@ -14479,6 +14751,7 @@ impl LocalVortexWriteContext {
         writer_input_lookahead: Option<WriterInputLookahead>,
         prepared_source_binding: Option<&str>,
         cancellation: &CancellationToken,
+        retain_committed_artifact: bool,
     ) -> Result<LocalVortexWriteResult>
     where
         I: vortex::array::iter::ArrayIterator
@@ -14556,12 +14829,13 @@ impl LocalVortexWriteContext {
         let _ = prepared_source_binding;
         prepare_vortex_target(path, allow_overwrite)?;
         cancellation.check()?;
-        let (summary, workspace_write_report) =
-            shardloom_core::write_workspace_safe_bytes_with_validated_producer(
+        let (summary, workspace_write_report, committed_artifact) =
+            write_validated_vortex_artifact(
                 workspace_root,
                 path,
                 allow_overwrite,
                 "streaming local vortex_ingest artifact",
+                retain_committed_artifact,
                 |writer| {
                     cancellation.check()?;
                     let segment_write_start = Instant::now();
@@ -14642,6 +14916,7 @@ impl LocalVortexWriteContext {
             vortex_final_commit_micros: workspace_stage_micros,
             stage_work: writer_stage_timing.stages.snapshot(),
             workspace_write_report,
+            committed_artifact,
         })
     }
 
@@ -15207,18 +15482,19 @@ fn large_source_fast_zstd_text_leaf_strategy(
             VORTEX_PREPARED_OLAP_WRITER_SOURCE_TEXT_ZSTD_FAST_LEVEL,
             values_per_frame,
             ctx,
-        )
-        .map(vortex::array::IntoArray::into_array);
+        );
         writer_stage_timing.stages.record(
             Stage::TextZstd,
             started.elapsed(),
             rows,
             input_bytes,
-            compressed
-                .as_ref()
-                .map_or(0, vortex::array::ArrayRef::nbytes),
+            compressed.as_ref().map_or(0, vortex::array::Array::nbytes),
         );
         let compressed = compressed?;
+        writer_stage_timing
+            .stages
+            .record_text_packing(compressed.data().frame_metadata());
+        let compressed = vortex::array::IntoArray::into_array(compressed);
         #[cfg(all(test, feature = "universal-format-io"))]
         if let Some(gate) = &writer_stage_timing.codec_completion_gate {
             gate.checkpoint()?;
@@ -15283,6 +15559,7 @@ fn write_vortex_array(
     allow_overwrite: bool,
     layout_write_decision: &VortexLayoutWriteRuntimeDecision,
     memory: &LiveMemoryPool,
+    retain_committed_artifact: bool,
 ) -> Result<LocalVortexWriteResult> {
     LOCAL_VORTEX_WRITE_CONTEXT.with(|context| {
         let context = context.borrow();
@@ -15294,6 +15571,7 @@ fn write_vortex_array(
             layout_write_decision,
             reuse_status,
             memory,
+            retain_committed_artifact,
         )
     })
 }
@@ -15312,6 +15590,7 @@ fn write_vortex_array_iterator<I>(
     prepared_source_binding: Option<&str>,
     ingest_runtime: Option<&crate::ingest_runtime::IngestRuntime>,
     cancellation: &CancellationToken,
+    retain_committed_artifact: bool,
 ) -> Result<LocalVortexWriteResult>
 where
     I: vortex::array::iter::ArrayIterator
@@ -15332,6 +15611,7 @@ where
             writer_input_lookahead,
             prepared_source_binding,
             cancellation,
+            retain_committed_artifact,
         )
     };
     if let Some(runtime) = ingest_runtime {
@@ -17856,6 +18136,18 @@ mod tests {
             "text_zstd_policy_prior_uat_backed_numeric_btrblocks_requires_lifecycle_acceptance"
         );
         assert_eq!(report.reopen_row_count, 1);
+        let fields: BTreeMap<_, _> = report.stage_work.evidence_fields().into_iter().collect();
+        assert_eq!(fields["vortex_ingest_text_packing_completed_calls"], "1");
+        assert_eq!(fields["vortex_ingest_text_packing_valid_values"], "1");
+        assert_eq!(fields["vortex_ingest_text_packing_payload_bytes"], "9");
+        assert_eq!(
+            fields["vortex_ingest_text_packing_frame_index_entries"],
+            "1"
+        );
+        assert_eq!(
+            fields["vortex_ingest_text_packing_frame_index_bytes"],
+            size_of::<usize>().to_string()
+        );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

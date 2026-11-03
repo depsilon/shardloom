@@ -366,11 +366,13 @@ pub use security::{
     SecretRefId, SecurityGovernanceEvidenceArea, SecurityGovernanceEvidenceEntry,
     SecurityGovernanceEvidenceGateReport, SecurityGovernanceEvidenceStatus, SecurityPlan,
     SecurityPolicyStatus, SecurityReport, SensitiveField, WorkspacePathSafetyReport,
-    WorkspaceSafeLocalStagingWriter, WorkspaceSafeLocalWritePlan, WorkspaceSafeLocalWriteReport,
-    infer_local_output_workspace_root, plan_credential_policy_enforcement_gate,
-    plan_sandbox_governance_readiness_gate, plan_security_governance_evidence_gate,
-    plan_workspace_safe_local_output, redact_credential_like_values, write_workspace_safe_bytes,
+    WorkspaceSafeCommittedArtifact, WorkspaceSafeLocalStagingWriter, WorkspaceSafeLocalWritePlan,
+    WorkspaceSafeLocalWriteReport, infer_local_output_workspace_root,
+    plan_credential_policy_enforcement_gate, plan_sandbox_governance_readiness_gate,
+    plan_security_governance_evidence_gate, plan_workspace_safe_local_output,
+    redact_credential_like_values, write_workspace_safe_bytes,
     write_workspace_safe_bytes_with_producer, write_workspace_safe_bytes_with_validated_producer,
+    write_workspace_safe_bytes_with_validated_producer_receipt,
 };
 
 pub use session::{

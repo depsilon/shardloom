@@ -251,6 +251,33 @@ the ledger.
 
 Current autonomous execution order:
 
+**November 2 investigation and measurement sequencing correction:** finish the
+five preparation/query investigations, bring the source/preparation strategy
+investigation forward from after 1.1.0, and complete the resulting code and
+generated-artifact cleanup before the next Full43 measurement. Current focused
+and already-running correctness checks and dependency PR integration continue.
+Use source evidence and finite representative comparisons to decide whether
+additional shared runtime changes are justified; do not presume each candidate
+ships. Freeze the final build and complete-workflow protocol only after those
+dispositions and cleanup. Then run the authorized isolated fresh preparation and
+single Full43 pass, followed by the combined documentation/site refresh and
+1.1.0 milestone. Preserve all earlier observations and failed attempts; this
+reordering does not authorize benchmark repeats or package publication.
+
+The [complete-workflow acceptance](../benchmarks/native-preparation-contracts-2026-11-02.md)
+now retains A/B/C after focused controls, complete local Rust/provider/API/license
+gates, the clean release build, 303 installed integration tests and the frozen
+fresh preparation/Full43 pass. Combined engine time is 83.601467538 seconds versus
+84.232222712; Full43 alone rises from 40.592222712 to 44.580467538. The maintainer
+accepts that tradeoff under the lower-combined-total rule. D/E are deferred for
+missing ownership/domain proof.
+The fourteen-execution source-strategy probe preserves explicit source choices;
+it supplies no automatic preparation threshold or additional runtime mechanism.
+The report-only receipt cleanup and completed test-cache retirement are done.
+Next: finish hosted integration of the preparation contracts, then the combined
+README/documentation/field-guide/website refresh and 1.1.0 milestone. The accepted
+observations require no repeat; source-strategy and individual-cause limits remain.
+
 **November 1 completeness priority:** items 18 and 23 complete and integrate
 the engine's supported capabilities. Finish both before returning to performance
 optimization. Correctness, source/operator/sink reachability, ownership, user
@@ -474,7 +501,7 @@ before the 1.1.0 milestone. After item 19, execute the separately versioned
 [expanded analytical testing and benchmarking campaign](native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19)
 using the existing harness, before item 21 Foundry work. With the October 31
 adaptive-execution addition, the resulting order is
-**20 → 18 → 23 → pre-refresh preparation/query investigations → README/documentation/field-guide/website refresh → 1.1.0 milestone → source/preparation strategy investigation → 19 → expanded coverage/benchmark acceptance → 21 →
+**20 → 18 → 23 → preparation/query and source/preparation strategy investigations → cleanup and final isolated measurement → README/documentation/field-guide/website refresh → 1.1.0 milestone → 19 → expanded coverage/benchmark acceptance → 21 →
 1.2.0 milestone → 22 → 1.3.0 milestone**. The frozen 347 cases and their timing
 history stay unchanged. Targeted correctness and acceptance for current work are
 not deferred; publication still requires separate authorization.
@@ -491,24 +518,26 @@ Retain existing owners, user ceilings, independent validation and no fallback.
 Keep creation, publication and first Full43 engine totals separate and combined;
 the supplied timing breakdown is context, not attribution or a speedup forecast.
 These are investigations with explicit implementation/disposition gates, not
-five presumed optimizations. This addition leaves the distinct post-version
-source/preparation-strategy investigation in its requested position. The active
+five presumed optimizations. The later November 2 sequencing correction brings
+the distinct source/preparation-strategy investigation into the same pre-measurement
+work, followed by any justified cleanup. The active
 decision-evidence development and separately authorized one-pass 347-case
 performance check continue; this queue addition starts no new ingestion or
 Full43 execution and grants no publication authorization.
 
-**November 2 post-version investigation:** the maintainer schedules the
+**November 2 source/preparation investigation, brought forward:** the maintainer originally scheduled the
 [source/preparation strategy investigation](native-source-strategy-investigation-2026-11-02.md)
-immediately after the 1.1.0 version bump and before item 19. Clarify explicit
+after the 1.1.0 version bump, then explicitly moved it before the next Full43
+measurement together with the optimization investigations and cleanup. Clarify explicit
 source investment independently of provider and output selection; use a small
 matched direct/general-prepared/specialized-prepared/fresh-preparation comparison
 to identify the next shared improvement. Preserve provider eligibility, generation
 and resource contracts; enabling spill is not a valid control for forcing a
 general provider. Automatic preparation requires a later cost/permission decision.
 The original 347 history and the larger post-item-19 coverage campaign remain
-separate. This scheduling request does not defer current correctness/acceptance
-or the already authorized ingest-plus-Vortex Full43 run, and does not authorize
-publication.
+separate. Current correctness checks continue; the authorized ingest-plus-Vortex
+Full43 run waits for the combined investigation dispositions, cleanup and final
+build. No publication authorization is added.
 
 **October 30 Full43 deferral:** do not execute another Full43 pass until item 18's
 universal I/O work and format/interface acceptance are complete. This replaces

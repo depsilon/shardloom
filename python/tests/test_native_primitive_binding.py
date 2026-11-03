@@ -752,7 +752,14 @@ class NativePrimitiveBindingTests(unittest.TestCase):
             self.assertEqual(first.envelope.field("native_source_demand_prepared_input_bytes_written"), "0")
             self.assertIsNone(first.envelope.field("public_workflow_local_source_prepared_vortex_path"))
             prepared = self.root / f"context-demand-control-{input_format}.vortex"
-            ctx.prepare_vortex(source, prepared, input_format=input_format, check=True)
+            preparation = ctx.prepare_vortex(source, prepared, input_format=input_format, check=True)
+            if os.name == "posix":
+                self.assertEqual(preparation.envelope.field(
+                    "vortex_prepared_olap_state_artifact_fingerprint_source"
+                ), "committed_writer_streaming_sha256")
+                self.assertEqual(preparation.envelope.field(
+                    "vortex_prepared_olap_state_artifact_fingerprint_payload_bytes_read"
+                ), "0")
             original_generation = generation(prepared)
             def filtered(path):
                 return ctx.read(path).filter(sl.col("value") >= 0).select("value").sort("value")

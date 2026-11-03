@@ -110,6 +110,24 @@ uses a corrected runtime, so its comparison with the preceding direct-Parquet
 observation is not an identical-build causal comparison. This exception does
 not change the ordinary direct-Parquet default or authorize additional repeats.
 
+The November 2 preparation/query investigation additionally authorizes one fresh
+preparation/publication and one first Full43 on the A/B/C candidate. The later
+sequencing correction brings A–E and the source/preparation-strategy investigation,
+their dispositions and justified cleanup before the final build/protocol freeze.
+Use the clean release profile and unchanged resource limits for this workflow;
+compare its combined engine total with the retained release-profile observation,
+while keeping creation, publication and query totals distinct. Preserve intervening
+runtime changes and single-observation limitations; do not attribute the complete
+difference solely to A/B/C. No baseline repeat, extra Full43 or package publication
+is authorized by this scoped acceptance.
+
+That [accepted observation](../benchmarks/native-preparation-contracts-2026-11-02.md)
+is complete: creation 38.936, publication 0.085 and Full43 44.580467538 engine
+seconds total 83.601467538, below the retained 84.232222712. The maintainer
+explicitly accepts the Full43 increase within the lower combined workflow total.
+Preserve both stage outcomes and the historical comparison's attribution limits;
+this decision does not authorize another run or imply a query-only improvement.
+
 **October 30 execution hold:** the maintainer defers all further Full43 runs
 until item 18's universal I/O work and its
 [cross-surface and format acceptance gate](../architecture/native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate)

@@ -119,8 +119,8 @@ fn native_zstd_compression_validates_every_actual_mutable_extent() {
         .filter(|request| matches!(request, Request::Buffer { .. }))
         .count();
     assert_eq!(
-        count, 7,
-        "payload, offsets, starts, samples, scratch and two retained frames"
+        count, 6,
+        "payload, frame starts, samples, scratch and two retained frames"
     );
     for target in 0..count {
         for fault in [Fault::ShortMutable, Fault::LongMutable] {
@@ -133,14 +133,61 @@ fn native_zstd_compression_validates_every_actual_mutable_extent() {
 fn native_zstd_compression_validates_frozen_extents_and_actual_offset_alignment() {
     let input = VarBinViewArray::from_iter_str(["a long native Unicode λ sample", "second sample"]);
     // The reusable output scratch is never frozen; all other payloads are.
-    for target in [0, 1, 2, 3, 5, 6] {
+    for target in [0, 1, 2, 4, 5] {
         malformed_compression(&input, target, Fault::ShortFrozen);
     }
-    // These are typed value offsets, frame starts and sample sizes. Their
+    // These are typed frame starts and sample sizes. Their
     // actual frozen pointers must be aligned even if the allocator says so.
-    for target in [1, 2, 3] {
+    for target in [1, 2] {
         malformed_compression(&input, target, Fault::MisalignedFrozen);
     }
+}
+
+#[test]
+fn native_zstd_sparse_frame_index_charges_only_frame_starts_and_refunds_denial() {
+    let input = VarBinViewArray::from_iter_str(std::iter::repeat_n("", 16_385));
+    let memory = LiveMemoryPool::new(64 << 20).unwrap();
+    let (session, recorder) = admission_session(&memory, None);
+    let data = ZstdData::from_var_bin_view_without_dict(
+        &input,
+        0,
+        8_192,
+        &mut session.create_execution_ctx(),
+    )
+    .unwrap();
+    let requests = recorder.requests.lock().unwrap().clone();
+    assert_eq!(
+        &requests[..2],
+        &[
+            Request::Buffer {
+                bytes: 16_385 * size_of::<u32>(),
+                alignment: 1,
+            },
+            Request::Buffer {
+                bytes: 3 * size_of::<usize>(),
+                alignment: align_of::<usize>(),
+            },
+        ],
+        "the payload is unchanged; only three frame-start offsets are allocated"
+    );
+    assert_eq!(
+        data.into_parts(Validity::NonNullable).metadata.frames.len(),
+        3
+    );
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+    let denied = LiveMemoryPool::new(64 << 20).unwrap();
+    let (session, recorder) = admission_session(&denied, Some(1));
+    let error = ZstdData::from_var_bin_view_without_dict(
+        &input,
+        0,
+        8_192,
+        &mut session.create_execution_ctx(),
+    )
+    .unwrap_err();
+    assert!(crate::owned_buffers::is_owned_reservation_denial(&error));
+    assert_eq!(*recorder.requests.lock().unwrap(), requests[..2]);
+    assert_eq!(denied.snapshot().reserved_bytes, 0);
 }
 
 #[derive(Debug)]
