@@ -160,6 +160,17 @@ copy and release behavior. Compare the visible-byte sum with the existing copy
 total and pair preparation counts with `stream_arrow_ownership_work_nanos`.
 The older 406 operations supply no measured per-reason byte volumes.
 
+The public control at `a0fff04a` prepared 2,048 rows and verified every row
+after reopening the Vortex artifact. Sixteen copied regions totaling 16,250
+visible bytes reached `capacity_exceeds_copy_charge`. Direct CLI and embedded
+Python each returned the same thirteen selected rows and reported one such
+region of 1,010 bytes. A metadata-only count omitted the copy map. The public
+preparation envelope also preserved 15 completed conversion-prefetch windows.
+The complete default and release-feature workspace suites passed 3,318 and
+6,876 tests respectively. The archive includes the initial projection failure
+and the corrected public responses. [Control acceptance](../benchmarks/evidence/native-post-110-optimization-2026-11-03/acceptance.json) ·
+[Verified receipts and small fixtures](../benchmarks/evidence/native-post-110-optimization-2026-11-03/verification.tar.xz).
+
 **Decision for the next eligible capture.** If `unique_standard_owner_unproved`
 accounts for material work, determine whether a controlled producer can supply
 complete backing identity, capacity and lifetime for that subset. If slices,

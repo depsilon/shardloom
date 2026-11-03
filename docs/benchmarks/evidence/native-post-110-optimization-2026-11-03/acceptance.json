@@ -1,0 +1,270 @@
+{
+  "schema_version": "shardloom.retained_component_investigation_acceptance.v1",
+  "status": "passed",
+  "saved_analysis": {
+    "operations": 406,
+    "inputs": 2628,
+    "new_engine_queries": 0,
+    "independent_query_rows": 13038,
+    "input_manifest_sha256": "869e5542434755a2d6c72ea5f29f411c6e41aac98a3e7b07d2f73dec93d978aa",
+    "operation_table_sha256": "f7dd28fe141a37f2d3db05bd55fda96affa827868d94ba69b60502745720e4ee",
+    "replay_isolation": "Python audit hook blocked original artifact reads and subprocess/network effects after imports",
+    "new_performance_observations": 0
+  },
+  "forward_capture": {
+    "runtime_source_revision": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+    "profile": "ci-native",
+    "features": [
+      "release-user-surfaces"
+    ],
+    "fixture": {
+      "status": "passed",
+      "rows": 2048,
+      "prepared_readback_rows": 2048,
+      "direct_complete_rows": 13,
+      "embedded_complete_rows": 13,
+      "metadata_count": 2048,
+      "metadata_omits_copy_map": true,
+      "direct": {
+        "capacity_exceeds_copy_charge": {
+          "regions": 1,
+          "visible_bytes": 1010
+        }
+      },
+      "preparation": {
+        "capacity_exceeds_copy_charge": {
+          "regions": 16,
+          "visible_bytes": 16250
+        }
+      },
+      "embedded": {
+        "capacity_exceeds_copy_charge": {
+          "regions": 1,
+          "visible_bytes": 1010
+        }
+      },
+      "source_output_bytes": 42620,
+      "binaries": {
+        "shardloom": "b0dbcb10649324b43606015f27adff149977cf310b70ae1a3f2abc23ac92210f",
+        "lib_native.dylib": "5a4908a628bd8018c3279f308ca137aabbeea8960df1ae23e033bb34fb46ab50"
+      }
+    },
+    "scope": "Small correctness controls. Historical benchmark reason volumes remain unknown."
+  },
+  "checks": {
+    "default_workspace": {
+      "passed": 3318,
+      "failed": 0,
+      "ignored": 0
+    },
+    "native_workspace": {
+      "passed": 6876,
+      "failed": 0,
+      "ignored": 36
+    },
+    "native_initial": {
+      "passed": 6858,
+      "failed": 1,
+      "ignored": 36
+    },
+    "formatting_and_strict_default_and_native_clippy": "passed",
+    "saved_evidence_controls": 5
+  },
+  "original_failed_attempts": {
+    "808": "Default CLI invoked by staged-write smoke could not use optional Serde derive.",
+    "817": "Strict native lint required explicit defaults and a Copy disposition.",
+    "818": "The initial CLI evidence appender exceeded its lint line budget.",
+    "821": "Direct and metadata controls passed. Public preparation projected out conditional owner fields."
+  },
+  "attempts": [
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "336ed9095cf863ab7387723f892c5297e83f4e0723cfb6edfd933a8c4da290a8",
+      "path": "io804-post110-input-freeze.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "0771b6629ef58ca66fbb86fe12e260fee34f0308572aba7449940c28e9cba77f",
+      "path": "io805-post110-frozen-analysis.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "bde3b3e9915440c418d3eb3d666bf661ca4602afc89b7dff901e582c6097e8ba",
+      "path": "io806-post110-replay-controls.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "81ee5cb08a5da1c8321eb2cea90de64b2e17337aa7c5bf7a5dedb0e49834c53e",
+      "path": "io807-post110-isolated-replay.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "failed",
+      "returncode": 101,
+      "log_sha256": "abbef828722c701c86d04b92c0eedb198258632f6bd6a9253158024b7b32e1d9",
+      "path": "io808-post110-native-workspace.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "84f282946db60c1890d91eec12600c12777cead6f6fd6c31b24aad07d9470412",
+      "path": "io809-post110-input-freeze-r3.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "f643a3688e210a89cbb141001eab4730352564eba466b8a5b7fca0fc47edddb7",
+      "path": "io810-post110-frozen-analysis-r3.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "5f9d91d07870b30855367e8c107e1c3b5fdec4bf83bc0e4db198f55141462f97",
+      "path": "io811-post110-replay-controls-r3.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "f11808fe9c73a5a02d5e2deec018c25584775a9893e20dd08f6cf26831803bae",
+      "path": "io812-post110-isolated-replay-r3.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "60948f88e08a9b1d7ef5cafb8572814da9a66cbaa85f1284fb430ab53b84ba3d",
+      "path": "io813-post110-ci-gate.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "path": "io814-post110-workspace-format.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "5d6bb9a35f6e3b46133bac0b4cce7b274d5ee6904debe62728960f087075e413",
+      "path": "io815-post110-default-clippy.json"
+    },
+    {
+      "head": "17328d9eb41bd9b9b8c730f5b3f1f0393e52511f",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "31d2989ba7ea57b0358fce4f98c0d33c75ddd012595d05ac3a2906f54466b3df",
+      "path": "io816-post110-default-tests.json"
+    },
+    {
+      "head": "6a89c521c38ce62ad70809821861f38120ddde2e",
+      "status": "failed",
+      "returncode": 101,
+      "log_sha256": "d1565b0e033f6a8bb734ff2c88223c2910ef5c9622038d25cd8ea7f7a052c417",
+      "path": "io817-post110-native-clippy.json"
+    },
+    {
+      "head": "eb2a0e3b5dfd7b436d37dfcc10c98a5769a0b53b",
+      "status": "failed",
+      "returncode": 101,
+      "log_sha256": "7ecc44f68bce1bbaa454f60d6a1c70452c4d2e86d12a500a14e347774214638e",
+      "path": "io818-post110-native-clippy-r2.json"
+    },
+    {
+      "head": "b42db5abbcc4c560b5ca9b78cf21fd9cfa08849d",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "0141d4bf782ae0024689407ea30db9b643b135b12d0148af239b7d9455fb1fc2",
+      "path": "io819-post110-native-clippy-r3.json"
+    },
+    {
+      "head": "b42db5abbcc4c560b5ca9b78cf21fd9cfa08849d",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "d21af5a56c5287bbafe00c6dfd1aa938bc9e5d5d5ac4f6d9a316af3033738adc",
+      "path": "io820-post110-fixture-runtime.json"
+    },
+    {
+      "head": "b42db5abbcc4c560b5ca9b78cf21fd9cfa08849d",
+      "status": "failed",
+      "returncode": 1,
+      "log_sha256": "4b8bfd4978b3fa0e7c00226ada9e2a02c90a7e74369733b86612850156de8a18",
+      "path": "io821-post110-public-copy-controls.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "path": "io822-post110-final-fmt.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "b8902e74e862bb504d7ada9f87104be7b75a692cd824664b30c0feb2ba8d2eab",
+      "path": "io823-post110-final-default-clippy.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "19c3c0bf2f7467aaf36fc35b1900aeefe82ddb18e49decbd087daaae20b249df",
+      "path": "io824-post110-final-default-tests.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "b41b0d26b63dc94b92a198a13b8277635847947e42e0c1a3b4d33462a98864a7",
+      "path": "io825-post110-final-native-clippy.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "1d70d57bed8027aa2ffa7eb08851412b7a63fa9dcf7a926f8dfd6d568065c20f",
+      "path": "io826-post110-fixture-runtime-r2.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "b0d6c7e64a7eed85cd9eb1d1df7f86880857e500665a3e6aafc491a5a033ba72",
+      "path": "io827-post110-public-copy-controls-r2.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "11ff1ab43134625767dd703b2a6dc0dcb4ff20ab0928aec78739c2c3e9006501",
+      "path": "io828-post110-final-native-tests.json"
+    },
+    {
+      "head": "a0fff04af643cd5372b464fa043d09d92f3ca446",
+      "status": "passed",
+      "returncode": 0,
+      "log_sha256": "f11808fe9c73a5a02d5e2deec018c25584775a9893e20dd08f6cf26831803bae",
+      "path": "io829-post110-final-archived-replay.json"
+    }
+  ],
+  "archive": {
+    "file": "verification.tar.xz",
+    "members": 78,
+    "bytes": 193892,
+    "sha256": "17fa24d847f6ed931bdccc62d3af748992e347a92c3bbcc274ec27aca48ca4a6",
+    "complete_member_readback": true
+  }
+}
