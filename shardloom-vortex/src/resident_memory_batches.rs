@@ -7,6 +7,7 @@ use super::{
 };
 use crate::local_primitives::native_capacity::ReservedVec;
 use crate::resident_session::ResidentVortexSession;
+use crate::vortex_ingest::ArrowCopyReasons;
 use shardloom_core::Result;
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
 use std::sync::Arc;
@@ -33,7 +34,7 @@ pub struct MemoryBatchSourceBuilder {
     bytes: usize,
     copied: u64,
     columnar_copied: u64,
-    columnar_copy_reasons: crate::vortex_ingest::ArrowCopyReasons,
+    columnar_copy_reasons: ArrowCopyReasons,
     transfer_report: NativeTransferReport,
     cancellation: CancellationToken,
 }
@@ -54,7 +55,7 @@ impl MemoryBatchSourceBuilder {
             bytes: 0,
             copied: 0,
             columnar_copied: 0,
-            columnar_copy_reasons: Default::default(),
+            columnar_copy_reasons: ArrowCopyReasons::default(),
             transfer_report: NativeTransferReport::default(),
             cancellation,
         })

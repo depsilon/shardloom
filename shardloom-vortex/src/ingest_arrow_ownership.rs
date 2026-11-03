@@ -31,6 +31,7 @@ struct CopyObservation {
     held: Option<std::collections::HashMap<(usize, usize), arrow_buffer::Buffer>>,
 }
 
+#[derive(Clone, Copy)]
 enum RegionDisposition {
     Copied(ArrowCopyReason),
     Transferred { capacity: u64 },

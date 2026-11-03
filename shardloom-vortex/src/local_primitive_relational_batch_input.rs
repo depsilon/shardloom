@@ -8,6 +8,7 @@ use super::{
 use std::cell::{Cell, RefCell};
 
 use super::replay;
+use crate::vortex_ingest::ArrowCopyReasons;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[path = "local_primitive_relational_batch_ranked.rs"]
@@ -218,7 +219,7 @@ pub struct ExecutedVortexBatchInput {
     /// Caller storage and metadata are excluded; this is not process RSS.
     pub intake_columnar_buffer_bytes_copied: u64,
     /// Completed input copies by first failed proof, before any operator-owned copies.
-    pub intake_columnar_copy_reasons: crate::vortex_ingest::ArrowCopyReasons,
+    pub intake_columnar_copy_reasons: ArrowCopyReasons,
     /// Visible bytes and regions adopted from the private reader, after unique
     /// standard-allocation proof. Public producers always retain copy intake.
     pub intake_columnar_buffer_bytes_transferred: u64,
@@ -329,7 +330,7 @@ impl Default for ExecutedVortexBatchInput {
             input_logical_bytes: 0,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
-            intake_columnar_copy_reasons: Default::default(),
+            intake_columnar_copy_reasons: ArrowCopyReasons::default(),
             intake_columnar_buffer_bytes_transferred: 0,
             intake_columnar_buffer_regions_transferred: 0,
             intake_columnar_allocation_bytes_transferred: 0,
