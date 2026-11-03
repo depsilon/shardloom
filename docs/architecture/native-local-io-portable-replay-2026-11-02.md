@@ -84,6 +84,15 @@ their exact corrections, final commands, complete logs and verifier identities.
 The collection is byte-identical to the original four bounded bundles; the
 reader's existing record/part limits have not been enlarged.
 
+A subsequent review found that identical compatibility outputs shared both
+their decode and their report validation. The maintained verifier now checks
+each observation's report independently. Each typed readback must identify
+the writer path, format, size, digest and row count, including when another
+observation produced identical bytes. The seventeenth control corrupts the
+second report for two identical outputs and exercises that distinction. All
+17 tests and the complete relocated replay pass. The reproduced report matches
+the initial acceptance across all 9,633 observations.
+
 ## Gap disposition
 
 The original r8 matrix, later shared adaptive owner/interface acceptance and

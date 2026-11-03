@@ -2,16 +2,18 @@
 """Corruption controls for the historical local I/O saved-evidence contract."""
 import copy
 from decimal import Decimal
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'benchmarks/traditional_analytics')]
-from local_io_portable_replay import Collection, complete_gate, execution, refusal, safe_fallback, same
+from local_io_portable_replay import Collection, Values, complete_gate, execution, refusal, safe_fallback, same
 from local_io_replay_values import avro_type, compare, compare_wire, exact_json, read_output
 from query_timing_report import TIMING_BOUNDARY, TIMING_CLOCK, query_phase_timings
 
@@ -155,6 +157,29 @@ class LocalIoValueTests(unittest.TestCase):
                         pa.table({'id': [1, 2, 4], 'text': ['a', None, 'z']})):
             with self.subTest(changed=changed.schema), self.assertRaises(ValueError):
                 compare(changed, expected)
+
+    def test_reused_decode_still_validates_each_output_report(self):
+        pa = self.pa
+        expected = pa.table({'id': [1, 2]})
+        sink = pa.BufferOutputStream()
+        with pa.ipc.new_file(sink, expected.schema) as writer:
+            writer.write_table(expected)
+        raw = sink.getvalue().to_pybytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        first = dict(path='/first.arrow', bytes=len(raw), sha256=digest)
+        second = {**first, 'path': '/second.arrow'}
+        reference = {**first, 'path': '/reference.arrow'}
+        values = Values(SimpleNamespace(identity=lambda item: raw), {})
+        report = dict(**first, format='arrow-ipc', rows=2, complete_values_schema_and_order_equal=True)
+        for output in (first, second):
+            values.readback(dict(output=output, report={**report, **output}), reference,
+                            'arrow-ipc', rich=False, observation={})
+        self.assertEqual(len(values.outputs), 1)
+        for change in (dict(complete_values_schema_and_order_equal=False), dict(rows=1),
+                       dict(path=first['path']), dict(format='parquet')):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                values.readback(dict(output=second, report={**report, **second, **change}),
+                                reference, 'arrow-ipc', rich=False, observation={})
 
     def test_representation_normalization_preserves_metadata_and_nullability(self):
         pa = self.pa

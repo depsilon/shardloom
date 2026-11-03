@@ -176,18 +176,28 @@ class Values:
                  and exported['compared_columns'] == report['compared_columns'], 'Vortex decode coverage differs')
             self.vortex_observations.append(dict(observation=observation, output=output,
                                                  expected=expected, export_key=export_key))
-        elif key not in self.outputs:
-            reference = ipc(reference_bytes)
-            if rich and fmt in {'csv', 'json', 'jsonl'}:
+        else:
+            wire = rich and fmt in {'csv', 'json', 'jsonl'}
+            if wire:
                 need(report['complete_wire_values_and_order_equal'] is True
                      and report['logical_schema_embedded'] is False
                      and report['exact_typed_roundtrip_claim'] is False, 'rich wire scope differs')
-                compare_wire(data, fmt, reference)
             else:
                 need(report['complete_values_schema_and_order_equal'] is True, 'format readback incomplete')
-                reference = translated(reference, fmt) if rich else reference
-                compare(read_output(data, fmt, reference.schema), reference)
-            self.outputs[key] = reference.num_rows
+                need(report['format'] == fmt and all(report[name] == output[name]
+                     for name in ('path', 'bytes', 'sha256')), 'format readback identity differs')
+            # Observations may share identical bytes and an independent decode.
+            # Each must still carry its own successful, correctly bound report.
+            if key not in self.outputs:
+                reference = ipc(reference_bytes)
+                if wire:
+                    compare_wire(data, fmt, reference)
+                else:
+                    reference = translated(reference, fmt) if rich else reference
+                    compare(read_output(data, fmt, reference.schema), reference)
+                self.outputs[key] = reference.num_rows
+            if not wire:
+                need(report['rows'] == self.outputs[key], 'format readback row count differs')
         self.readbacks += 1
 
 
