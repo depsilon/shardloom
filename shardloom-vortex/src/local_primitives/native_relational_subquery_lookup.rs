@@ -216,7 +216,7 @@ impl<'a> Search<'a> {
                 })?
             };
             add(&mut self.candidates, 1)?;
-            if value == Some(!all) {
+            if spec.decides_reduction(value) {
                 return Ok(value);
             }
             unknown |= value.is_none();

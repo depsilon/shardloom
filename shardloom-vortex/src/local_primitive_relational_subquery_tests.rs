@@ -34,6 +34,10 @@ fn plan(
 }
 
 fn predicates(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
+    predicate_observations(plan).0
+}
+
+fn predicate_observations(plan: &VortexRelationalPlan) -> (Vec<serde_json::Value>, u64) {
     let prepared = prepare_relational(plan, policy()).unwrap();
     let rows = json_rows(
         &prepared
@@ -62,6 +66,7 @@ fn predicates(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
         .unwrap();
     assert_eq!(json_rows(&result), rows);
     assert_eq!(result.execution.spillable_subquery_stages, 1);
+    let candidates = result.execution.spillable_subquery_candidate_rows;
     assert!(
         result
             .execution
@@ -73,9 +78,37 @@ fn predicates(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
     drop(result);
     assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     fs::remove_dir(&directory).unwrap();
-    rows.into_iter()
-        .map(|row| row["predicate"].clone())
-        .collect()
+    (
+        rows.into_iter()
+            .map(|row| row["predicate"].clone())
+            .collect(),
+        candidates,
+    )
+}
+
+#[test]
+fn nullable_membership_probes_stop_at_the_first_decisive_candidate() {
+    let left = Fixture::new(tuple(&[None, Some(7), Some(8)], &[None; 3]), 3);
+    let mut inner = vec![Some(7); 257];
+    inner.push(None);
+    let right = Fixture::new(tuple(&inner, &vec![None; inner.len()]), 64);
+    for negated in [false, true] {
+        let query = plan(
+            &left,
+            &right,
+            Kind::In {
+                columns: vec![key("a", "a")],
+            },
+            negated,
+            vec![],
+        );
+        let (values, candidates) = predicate_observations(&query);
+        assert_eq!(
+            serde_json::json!(values),
+            serde_json::json!([null, !negated, null])
+        );
+        assert_eq!(candidates, 3);
+    }
 }
 
 #[test]
