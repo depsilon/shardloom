@@ -407,6 +407,7 @@ jobs:
         run: |
           python -B -m unittest discover -s scripts -p test_parquet_demand_completion_packet.py -v
           python -B -m unittest discover -s scripts -p test_direct_source_count_evidence.py -v
+          python -B -m unittest discover -s scripts -p test_native_saved_operations.py -v
       - name: Local I/O complete saved-evidence replay and corruption controls
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/ci-local-io-replay.txt

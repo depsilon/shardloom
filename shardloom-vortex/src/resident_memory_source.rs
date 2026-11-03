@@ -6,6 +6,7 @@
 //! operator scratch, or process RSS. No file, answer cache, or external engine
 //! participates in this source.
 
+use crate::vortex_ingest::ArrowCopyReasons;
 use std::sync::Arc;
 
 use shardloom_core::{Result, ShardLoomError};
@@ -113,6 +114,7 @@ struct MemorySourceOwner {
     input_logical_bytes: usize,
     intake_payload_bytes_copied: u64,
     intake_columnar_buffer_bytes_copied: u64,
+    intake_columnar_copy_reasons: ArrowCopyReasons,
     intake_columnar_buffer_bytes_transferred: u64,
     intake_columnar_buffer_regions_transferred: u64,
     intake_columnar_allocation_bytes_transferred: u64,
@@ -239,6 +241,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_copy_reasons: ArrowCopyReasons::default(),
             intake_columnar_buffer_bytes_transferred: 0,
             intake_columnar_buffer_regions_transferred: 0,
             intake_columnar_allocation_bytes_transferred: 0,
@@ -353,6 +356,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied,
             intake_columnar_buffer_bytes_copied: 0,
+            intake_columnar_copy_reasons: ArrowCopyReasons::default(),
             intake_columnar_buffer_bytes_transferred: 0,
             intake_columnar_buffer_regions_transferred: 0,
             intake_columnar_allocation_bytes_transferred: 0,
@@ -432,6 +436,10 @@ impl ResidentMemorySource {
     #[must_use]
     pub fn intake_columnar_buffer_bytes_copied(&self) -> u64 {
         self.0.intake_columnar_buffer_bytes_copied
+    }
+
+    pub(crate) fn intake_columnar_copy_reasons(&self) -> &ArrowCopyReasons {
+        &self.0.intake_columnar_copy_reasons
     }
 
     pub(crate) fn intake_columnar_buffer_bytes_transferred(&self) -> u64 {

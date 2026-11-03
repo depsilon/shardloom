@@ -12,7 +12,7 @@ use shardloom_core::{Result, ShardLoomError};
 use vortex::array::memory::HostAllocator;
 use vortex::buffer::Alignment;
 
-use super::stage_timing::ArrowOwnershipCounts;
+use super::stage_timing::{ArrowCopyReason, ArrowOwnershipCounts};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ArrowOwnershipPolicy {
@@ -31,6 +31,12 @@ struct CopyObservation {
     held: Option<std::collections::HashMap<(usize, usize), arrow_buffer::Buffer>>,
 }
 
+#[derive(Clone, Copy)]
+enum RegionDisposition {
+    Copied(ArrowCopyReason),
+    Transferred { capacity: u64 },
+}
+
 impl Default for CopyObservation {
     fn default() -> Self {
         Self {
@@ -41,14 +47,10 @@ impl Default for CopyObservation {
 }
 
 impl CopyObservation {
-    fn observe(&mut self, buffer: &arrow_buffer::Buffer) -> Result<()> {
-        self.observe_region(buffer, None)
-    }
-
     fn observe_region(
         &mut self,
         buffer: &arrow_buffer::Buffer,
-        transferred_allocation: Option<u64>,
+        disposition: RegionDisposition,
     ) -> Result<()> {
         let bytes = u64::try_from(buffer.len())
             .map_err(|_| ownership_error("Arrow observed buffer length overflow"))?;
@@ -58,33 +60,37 @@ impl CopyObservation {
             .buffer_regions
             .checked_add(1)
             .ok_or_else(|| ownership_error("Arrow observed region count overflow"))?;
-        if let Some(allocation) = transferred_allocation {
-            self.counts.transferred_buffer_regions = self
-                .counts
-                .transferred_buffer_regions
-                .checked_add(1)
-                .ok_or_else(|| ownership_error("Arrow transferred region count overflow"))?;
-            self.counts.transferred_buffer_bytes = self
-                .counts
-                .transferred_buffer_bytes
-                .checked_add(bytes)
-                .ok_or_else(|| ownership_error("Arrow transferred bytes overflow"))?;
-            self.counts.transferred_allocation_bytes = self
-                .counts
-                .transferred_allocation_bytes
-                .checked_add(allocation)
-                .ok_or_else(|| ownership_error("Arrow transferred allocation overflow"))?;
-        } else {
-            self.counts.copied_buffer_bytes = self
-                .counts
-                .copied_buffer_bytes
-                .checked_add(bytes)
-                .ok_or_else(|| ownership_error("Arrow observed copied bytes overflow"))?;
-            self.counts.copied_allocation_bytes = self
-                .counts
-                .copied_allocation_bytes
-                .checked_add(charge)
-                .ok_or_else(|| ownership_error("Arrow observed allocation charge overflow"))?;
+        match disposition {
+            RegionDisposition::Transferred { capacity } => {
+                self.counts.transferred_buffer_regions = self
+                    .counts
+                    .transferred_buffer_regions
+                    .checked_add(1)
+                    .ok_or_else(|| ownership_error("Arrow transferred region count overflow"))?;
+                self.counts.transferred_buffer_bytes = self
+                    .counts
+                    .transferred_buffer_bytes
+                    .checked_add(bytes)
+                    .ok_or_else(|| ownership_error("Arrow transferred bytes overflow"))?;
+                self.counts.transferred_allocation_bytes = self
+                    .counts
+                    .transferred_allocation_bytes
+                    .checked_add(capacity)
+                    .ok_or_else(|| ownership_error("Arrow transferred allocation overflow"))?;
+            }
+            RegionDisposition::Copied(reason) => {
+                self.counts.copied_buffer_bytes = self
+                    .counts
+                    .copied_buffer_bytes
+                    .checked_add(bytes)
+                    .ok_or_else(|| ownership_error("Arrow observed copied bytes overflow"))?;
+                self.counts.copied_allocation_bytes = self
+                    .counts
+                    .copied_allocation_bytes
+                    .checked_add(charge)
+                    .ok_or_else(|| ownership_error("Arrow observed allocation charge overflow"))?;
+                self.counts.copy_reasons.record(reason, bytes);
+            }
         }
         let Some(held) = &mut self.held else {
             return Ok(());
@@ -317,10 +323,15 @@ fn admit_buffer(
     observation: &mut CopyObservation,
 ) -> Result<arrow_buffer::Buffer> {
     let copy_charge = buffer_copy_allocation_bytes(buffer.len())?;
-    let buffer = if !buffer.is_empty()
-        && buffer.ptr_offset() == 0
-        && alignment.is_some_and(|alignment| buffer.as_ptr().addr().is_multiple_of(alignment))
-    {
+    let (buffer, reason) = if buffer.is_empty() {
+        (buffer, ArrowCopyReason::EmptyRegion)
+    } else if buffer.ptr_offset() != 0 {
+        (buffer, ArrowCopyReason::NonzeroPointerOffset)
+    } else if alignment.is_none() {
+        (buffer, ArrowCopyReason::UnknownAlignment)
+    } else if alignment.is_some_and(|align| !buffer.as_ptr().addr().is_multiple_of(align)) {
+        (buffer, ArrowCopyReason::MisalignedPointer)
+    } else {
         match buffer.into_mutable() {
             Ok(mutable) => {
                 // Arrow 59.3.1 succeeds only for Arc-unique Standard(Layout)
@@ -342,17 +353,20 @@ fn admit_buffer(
                     ));
                     // Retain a clone only after unique ownership has been proved.
                     // This keeps address identities live without blocking transfer.
-                    observation.observe_region(&retained, Some(capacity_u64))?;
+                    observation.observe_region(
+                        &retained,
+                        RegionDisposition::Transferred {
+                            capacity: capacity_u64,
+                        },
+                    )?;
                     return Ok(retained);
                 }
-                buffer
+                (buffer, ArrowCopyReason::ExcessCapacity)
             }
-            Err(buffer) => buffer,
+            Err(buffer) => (buffer, ArrowCopyReason::UniqueStandardOwnerUnproved),
         }
-    } else {
-        buffer
     };
-    observation.observe(&buffer)?;
+    observation.observe_region(&buffer, RegionDisposition::Copied(reason))?;
     let length = buffer.len();
     let mut admitted = allocator
         .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
@@ -424,7 +438,10 @@ fn copy_array_data(
         // aligned pointer: retain a one-byte allocation behind an empty slice.
         let length = buffer.len();
         if let Some(observation) = observation.as_deref_mut() {
-            observation.observe(buffer)?;
+            observation.observe_region(
+                buffer,
+                RegionDisposition::Copied(ArrowCopyReason::CopyPolicy),
+            )?;
         }
         let mut admitted = allocator
             .allocate(length.max(1), Alignment::DEFAULT_ALIGNMENT)
@@ -753,6 +770,48 @@ mod tests {
     }
 
     #[test]
+    fn controlled_copies_record_only_the_first_failed_transfer_proof() {
+        use arrow_buffer::Buffer;
+        let shared = Buffer::from_vec(vec![1_u8; 8]);
+        let misaligned = Buffer::from_vec(vec![2_u8; 8]);
+        let stricter_alignment = 1 << (misaligned.as_ptr().addr().trailing_zeros() + 1);
+        let mut oversized = Vec::with_capacity(4096);
+        oversized.extend([3_u8; 8]);
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let allocator = ReservedHostAllocator::new(memory.clone());
+        let mut observation = CopyObservation::default();
+        for (buffer, align) in [
+            (Buffer::from_vec(Vec::<u8>::new()), None),
+            (shared.slice_with_length(1, 7), None),
+            (Buffer::from_vec(vec![4_u8; 8]), None),
+            (misaligned, Some(stricter_alignment)),
+            (shared.clone(), Some(1)),
+            (Buffer::from_vec(oversized), Some(1)),
+            (Buffer::from_vec(vec![5_u8; 8]), Some(1)),
+        ] {
+            drop(admit_buffer(buffer, align, &allocator, &mut observation).unwrap());
+        }
+        let counts = observation.counts;
+        assert_eq!(counts.buffer_regions, 7);
+        assert_eq!(counts.transferred_buffer_regions, 1);
+        assert_eq!(counts.copied_buffer_bytes, 39);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&counts.copy_reasons.evidence_json())
+                .unwrap(),
+            serde_json::json!({
+                "empty_region": {"regions": 1, "visible_bytes": 0},
+                "nonzero_pointer_offset": {"regions": 1, "visible_bytes": 7},
+                "unknown_alignment": {"regions": 1, "visible_bytes": 8},
+                "misaligned_pointer": {"regions": 1, "visible_bytes": 8},
+                "unique_standard_owner_unproved": {"regions": 1, "visible_bytes": 8},
+                "capacity_exceeds_copy_charge": {"regions": 1, "visible_bytes": 8}
+            })
+        );
+        drop(observation);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
     fn observed_copies_count_shared_values_and_validity_without_reusing_them() {
         let shared: ArrayRef = Arc::new(Int64Array::from(vec![Some(7), None, Some(-3)]));
         let input = RecordBatch::try_new(
@@ -770,6 +829,11 @@ mod tests {
             copy_batch_profiled(input, &ReservedHostAllocator::new(memory.clone())).unwrap();
         assert_eq!(copied, expected);
         assert_eq!(counts.buffer_regions, 4);
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&counts.copy_reasons.evidence_json())
+                .unwrap(),
+            serde_json::json!({"policy_requires_copy": {"regions": 4, "visible_bytes": counts.copied_buffer_bytes}})
+        );
         assert_eq!(counts.repeated_buffer_regions, 2);
         assert_eq!(counts.copied_buffer_bytes, 2 * (3 * 8 + 1));
         assert_eq!(counts.repeated_buffer_bytes, 3 * 8 + 1);
@@ -807,9 +871,14 @@ mod tests {
         let buffer: arrow_buffer::Buffer =
             bytes::Bytes::from_owner(Owner(Arc::clone(&dropped), [7; 32])).into();
         let mut observer = CopyObservation::default();
-        observer.observe(&buffer).unwrap();
-        observer.observe(&buffer.slice_with_length(0, 16)).unwrap();
-        observer.observe(&buffer).unwrap();
+        for region in [&buffer, &buffer.slice_with_length(0, 16), &buffer] {
+            observer
+                .observe_region(
+                    region,
+                    RegionDisposition::Copied(ArrowCopyReason::CopyPolicy),
+                )
+                .unwrap();
+        }
         drop(buffer);
         assert!(!dropped.load(Ordering::SeqCst));
         assert_eq!(observer.counts.buffer_regions, 3);

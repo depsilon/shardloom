@@ -370,6 +370,13 @@ fn public_arrow_query_producer_cannot_claim_private_reader_transfer() {
     assert_eq!(calls, 2);
     let input = result.execution.input.as_ref().unwrap();
     assert_eq!(input.intake_columnar_buffer_bytes_copied, 128 * 8);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            &input.intake_columnar_copy_reasons.evidence_json()
+        )
+        .unwrap(),
+        serde_json::json!({"policy_requires_copy": {"regions": 1, "visible_bytes": 128 * 8}})
+    );
     assert_eq!(input.intake_columnar_buffer_bytes_transferred, 0);
     assert_eq!(input.intake_columnar_buffer_regions_transferred, 0);
     assert_eq!(input.intake_columnar_allocation_bytes_transferred, 0);

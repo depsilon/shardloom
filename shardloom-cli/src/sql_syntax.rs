@@ -11595,6 +11595,14 @@ mod tests {
     fn public_workflow_preparation_preserves_observed_stage_scopes_without_invented_zeros() {
         let raw_fields = vec![
             (
+                "vortex_ingest_ownership_copy_reasons".to_string(),
+                r#"{"nonzero_pointer_offset":{"regions":2,"visible_bytes":19}}"#.to_string(),
+            ),
+            (
+                "vortex_ingest_conversion_prefetch_shrunk_windows".to_string(),
+                "3".to_string(),
+            ),
+            (
                 "vortex_ingest_stream_validation_work_nanos".to_string(),
                 "452".to_string(),
             ),
@@ -11616,6 +11624,24 @@ mod tests {
             ),
         ];
         let fields = field_map(public_workflow_preparation_fields(&raw_fields));
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_ingest_ownership_copy_reasons",
+            r#"{"nonzero_pointer_offset":{"regions":2,"visible_bytes":19}}"#,
+        );
+        assert_field_eq(
+            &fields,
+            "public_workflow_preparation_vortex_ingest_conversion_prefetch_shrunk_windows",
+            "3",
+        );
+        assert!(!fields.contains_key(
+            "public_workflow_preparation_vortex_ingest_conversion_prefetch_grown_windows"
+        ));
+        assert!(
+            !fields.contains_key(
+                "public_workflow_preparation_vortex_ingest_ownership_copy_reason_scope"
+            )
+        );
         assert_field_eq(
             &fields,
             "public_workflow_preparation_vortex_ingest_stream_validation_work_nanos",

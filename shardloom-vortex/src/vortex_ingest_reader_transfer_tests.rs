@@ -179,6 +179,20 @@ fn controlled_parquet_ingest_transfers_with_identical_complete_output() {
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         assert_eq!(memory.snapshot().denied_reservations, 0);
         assert_eq!(fs::read(&control).unwrap(), fs::read(&candidate).unwrap());
+        for report in [&control_report, &candidate_report] {
+            let fields: BTreeMap<_, _> = report.stage_work.evidence_fields().into_iter().collect();
+            let reasons: BTreeMap<String, BTreeMap<String, u64>> =
+                serde_json::from_str(&fields["vortex_ingest_ownership_copy_reasons"]).unwrap();
+            assert_eq!(
+                reasons.values().map(|r| r["visible_bytes"]).sum::<u64>(),
+                ownership(report, "copied_buffer_bytes")
+            );
+            assert_eq!(
+                reasons.values().map(|r| r["regions"]).sum::<u64>()
+                    + ownership(report, "transferred_buffer_regions"),
+                ownership(report, "buffer_regions")
+            );
+        }
         check_complete_values(&candidate);
     }
 }

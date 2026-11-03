@@ -2,6 +2,183 @@
 
 # Where shared native execution loses useful source facts or does extra work
 
+## Saved-record results
+
+The offline replay reconstructed 406 operations from 2,628 retained files.
+It compared every ClickBench and broad-query result with its independent
+reference and verified both preparations against their original acceptance,
+process, runtime, source-generation and artifact records. It also compared the
+earlier preparation with the exact stdout used for D/E ownership attribution.
+The investigation ran zero engine queries. The three original anchors and
+their checked-in archives supply 183 reused files. A content-addressed
+supplement preserves the other 2,445, including worker requests, receipts and
+independent expectations. [Component report](../benchmarks/evidence/native-post-110-optimization-2026-11-03/report.json) ·
+[Operation table](../benchmarks/evidence/native-post-110-optimization-2026-11-03/operations.jsonl.xz).
+
+| Cohort | Operations | Complete rows | Engine seconds | Scope |
+| --- | ---: | ---: | ---: | --- |
+| Direct Parquet probe | 7 | 46 | 98.624293789 | Original Parquet, parent ci-native build |
+| Prepared Vortex probe | 7 | 46 | 9.732908874 | Same seven statements and binary, different representation and providers |
+| Fresh preparation | 1 | 99,997,497 input | 38.936 creation + 0.085 publication | Clean release workflow |
+| Fresh prepared Full43 | 43 | 381 | 44.580467538 | First complete pass against that new artifact |
+| Fresh analytical cohort | 347 | 12,565 | 12.006862126 | Five original Parquet inputs, 2 GiB and two lanes |
+| Prior preparation used for D/E | 1 | 99,997,497 input | 36.945 creation + 6.695 publication | Earlier runtime and artifact |
+
+All 406 complete records expose `execution_resource_*` fields. None of the
+corresponding compact projections retain that family. The ClickBench summaries
+include native I/O decision rows. The 347-case physical summaries retain only
+`native_source_demand_*`, although every full worker report contains the
+decision schema. No record in these cohorts contains the writer-specific
+`native_vortex_result_export_replay_decision_*` family. These prepare and
+collect operations cannot measure activation of that writer capability.
+
+### Ranked decisions by shared component
+
+1. **Source-to-operator admission has the largest observed route difference.**
+   Q19 and Q34 contribute 38.729017292 and 27.768237459 engine seconds to
+   the 88.891384915-second net difference across the seven pairs. The direct
+   reader carries projection, a held generation, validation, bounded batches
+   and detached ownership into relational execution. The specialized provider
+   requires one native Vortex file and no batch or memory source. The records
+   establish the admission boundary. They do not establish equivalent encoded
+   string domains, an equivalent epoch or an equivalent prepared minute
+   accessor on the incoming batches. Preserve that restriction. A future
+   admission needs a named operator, an equivalent proof under its input
+   contract and a same-representation control. Q1 already uses a metadata
+   count. Q3 requests two of 105 columns, copies zero visible buffer bytes and
+   is 0.399643625 engine seconds faster direct.
+2. **Measure copy reasons first at the shared Arrow admission function.**
+   Four direct cases account for 20,449,529,657 visible bytes copied. Q24
+   contributes 9,938,729,407, Q34 contributes 9,036,164,542 and Q13 and Q19
+   contribute 737,317,854 each. The broad cohort has 36,047,398 bytes across
+   145 cases. Its string and projection families contribute 20,489,283 and
+   12,304,799 bytes. Both preparations independently report 30,974,099,552
+   bytes copied and 72,299,123,989 transferred. Full new copy charges were
+   30,985,042,016 bytes in each. The source, ingest and decision counters
+   overlap at this boundary. The parent probe's 48,305 representation-retention
+   declines record the set `required_representation_copy`. They do not count
+   unique backing allocations. The first information that can change transfer
+   eligibility is the failed proof at the actual copy branch, weighted by
+   region count and visible length. No saved observation can recover that
+   split. [Shared ownership implementation](../../shardloom-vortex/src/ingest_arrow_ownership.rs).
+3. **Selected payload reads have a measurable upper bound.** Direct Q24
+   reads 3,055,708,051 rank bytes in 226 group visits, then 458,940,301
+   payload bytes in seven visits. It decodes 99,997,497 and 3,250,534 rows
+   respectively for ten winning positions. Five broad cases independently
+   use the same path. Their payload phase decodes 40,960 rows for 135 positions
+   and reads 1,163,011 bytes. Those payload byte totals bound what a deeper
+   selection could remove from the reported reads. The captures lack positions
+   relative to compressed pages and a proof that finer reads preserve the
+   current winning-group validation/errors. Defer reader changes until those
+   constraints and the physical page floor are known.
+4. **Preparation work narrows the ownership question.** The fresh report
+   records 64,028,919,946 text-Zstd work nanoseconds and 23,146,711,661
+   active nanoseconds across selected text scopes. Numeric compression records
+   36,947,464,486 work nanoseconds. Stream Arrow conversion and Arrow ownership
+   record 22,930,577,408 and 22,900,584,305 work nanoseconds across the same
+   503 batches. The conversion boundary includes ownership work. These
+   overlapping spans cannot be added or subtracted from 38.936 creation
+   seconds to predict savings. Pair the copy measurement with the existing
+   ownership span. Keep the selected text packing, frame index and writer
+   digest. Publication reread zero artifact payload bytes for fingerprinting.
+5. **Worker coordination warrants operator-specific evidence.** Three prepared
+   probe operations and 12 fresh Full43 operations expose aggregate worker
+   fields. Fresh Q34 reports nine peak active workers, 1,848,250 caller-merge
+   nanoseconds and 3,207,692,452 caller-join-wait nanoseconds. Its accumulated
+   partition lock wait is 7,204,486,543 nanoseconds across workers. Those spans
+   have different clocks and can overlap. Q19 has a different aggregate owner
+   and reports submitted chunks without that timing breakdown. This evidence
+   does not identify a producer blocked on a full queue. Defer queue policy
+   changes. A queue-pressure comparison would require pool-lifetime peaks and
+   enqueue-wait deltas bound to the same owner and interval.
+
+The fresh Q19 scan and materialized-accessor lists select the minute helper
+and exclude raw EventTime. They measure the selected columns, while per-column
+payload reads and decode work remain unavailable. Fresh Q34 and Q35 expose a
+root-only layout inventory and `dictionary_layout_availability_not_inspected`.
+Zero native-dictionary worker chunks cannot establish an eligible persisted
+frequency consumer. Neither missing attribution justifies new metadata.
+
+The decision records also distinguish activation from opportunity. Across the
+seven direct cases, the metadata-count owner considered, admitted and executed
+once with `exact_held_metadata`. Three operations report 904 region decisions,
+of which 243 were admitted and executed and 661 declined. The merged decline
+reasons include `required_value_evaluation` and `exclusion_not_proved`.
+Assigning 661 refusals to either individual reason would overstate the record.
+The specialized-provider refusal is a separate plan-level decision. It can
+coexist with successful metadata, ordering or representation decisions in the
+same relational execution. [Native decision contract](../../shardloom-core/src/native_io_decisions.rs).
+
+Run `python3 -B scripts/verify_native_saved_operations.py` with Python 3.11 or
+newer from a checkout containing the three anchors. Add `--operations PATH`
+to export the verified table to a new JSONL file. Each row retains its receipt
+labels, process ID, runtime, input generation, workload identity, declared
+and admitted limits, owner fields and scope. For example, both Q24 probe
+requests allowed twelve lanes. The direct route admitted ten and the prepared
+route admitted twelve. The table keeps these limits separate from observed
+worker activity. The report defines units and source fields for the comparable metrics.
+A numeric zero is an observation. The strings `omitted`, `inapplicable` and
+`unavailable` preserve the three different coverage gaps. Native I/O decision
+counts are instrumented owner outcomes, and each reason list is a set. The
+six cohorts contain no certified preceding same-declaration resident snapshot
+pair. Every lifetime delta therefore remains null.
+
+### Forward measurement selected from the replay
+
+The admitted change measures the shared Arrow copy boundary. Preparation
+reports `public_workflow_preparation_vortex_ingest_ownership_copy_reasons`.
+Completed relational batch intake reports `native_input_columnar_copy_reasons`.
+Each field contains a JSON map with `regions` and `visible_bytes` for each
+observed reason. The corresponding `copy_reason_scope` field identifies the
+boundary. One region contributes to exactly one bucket. A copied zero-length
+region increments its region count. A completed Arrow boundary with only
+transfers emits an empty map. A route that observed no Arrow regions omits
+the map. Transferred regions continue to use their existing counters.
+Historical envelopes predate both fields.
+
+The public preparation projection takes its allowlist from the typed report's
+complete field names. Earlier code obtained the names from an empty observation
+and therefore dropped conditional fields. Active conversion-prefetch owners
+can now expose their existing window counts and headroom evidence through the
+same envelope. The projection forwards only values supplied by the operation.
+Those windows describe preparation admission. The compute pool's lifetime
+queue peaks and enqueue waits have a separate scope.
+
+| First failed proof | What the measurement can decide |
+| --- | --- |
+| `policy_requires_copy` | The caller supplied the data through a validated-copy boundary. Changing that category requires new producer provenance. |
+| `empty_region` | An aligned empty buffer requires its existing minimal allocation. Its visible byte volume is zero. |
+| `nonzero_pointer_offset` | A slice starts inside the allocation. Its visible length cannot price the complete retained owner. |
+| `unknown_alignment` or `misaligned_pointer` | The physical type lacks an admitted alignment or the pointer fails its known requirement. |
+| `unique_standard_owner_unproved` | Arrow could not recover an exclusively owned standard allocation. Shared and opaque owners can both reach this condition. Its byte volume is only an upper bound on eligible shared storage. |
+| `capacity_exceeds_copy_charge` | The complete standard capacity is known. Keeping it would cost more retained credit than the aligned copy. |
+
+The same fixed counters cover value, offset, validity and child buffers. Ingest
+merges them across batches. Relational execution merges completed intake into
+its own report. The branches retain their existing validation, reservation,
+copy and release behavior. Compare the visible-byte sum with the existing copy
+total and pair preparation counts with `stream_arrow_ownership_work_nanos`.
+The older 406 operations supply no measured per-reason byte volumes.
+
+The public control at `a0fff04a` prepared 2,048 rows and verified every row
+after reopening the Vortex artifact. Sixteen copied regions totaling 16,250
+visible bytes reached `capacity_exceeds_copy_charge`. Direct CLI and embedded
+Python each returned the same thirteen selected rows and reported one such
+region of 1,010 bytes. A metadata-only count omitted the copy map. The public
+preparation envelope also preserved 15 completed conversion-prefetch windows.
+The complete default and release-feature workspace suites passed 3,318 and
+6,876 tests respectively. The archive includes the initial projection failure
+and the corrected public responses. [Control acceptance](../benchmarks/evidence/native-post-110-optimization-2026-11-03/acceptance.json) ·
+[Verified receipts and small fixtures](../benchmarks/evidence/native-post-110-optimization-2026-11-03/verification.tar.xz).
+
+**Decision for the next eligible capture.** If `unique_standard_owner_unproved`
+accounts for material work, determine whether a controlled producer can supply
+complete backing identity, capacity and lifetime for that subset. If slices,
+alignment, copy policy or excess capacity dominate, investigate that specific
+producer or preserve its restriction. A change in transfer eligibility still
+requires the frozen complete-workflow correctness, resource and engine-time
+comparison. The saved analysis and reason-reporting tests establish no speedup.
+
 The maintainer schedules this investigation immediately after the **1.1.0 source
 milestone and before item 19**. Keep it one work unit under the existing source,
 operator, ownership, preparation and compute-pool performance owners in the RFC
