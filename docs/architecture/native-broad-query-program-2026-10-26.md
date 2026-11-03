@@ -64,6 +64,12 @@ investigation uses the saved case IDs, complete worker output, preparation
 receipts and native follow-up evidence. The commands in the harness guide
 document the original experiment. Routine validation uses offline replay.
 
+The next investigation batch grouped the work across 18 families in one
+review. The existing runtime completed 33 paired declaration probes and four
+separate operator profiles. Carry the file-validation contract, partition
+ordering, join gather ownership and read-range measurements into the next
+engineering checkpoint. [Measured decisions](../benchmarks/native-expanded-work-investigations-2026-11-03.md).
+
 Following 1.1.0 publication, bring the campaign for existing analytical
 capabilities forward ahead of item 19. Freeze a separately versioned corpus
 of **10,000 distinct query cases** including the original 347 and 9,653 new

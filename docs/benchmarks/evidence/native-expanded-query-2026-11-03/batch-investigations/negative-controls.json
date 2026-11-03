@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "index_sha256": "2f79d264ad4babc52d730f81cd8c95d8fa8e35a4f3fd44632ee49d00268af581",
+  "reader_sha256": "cdec28ab4ef652e972197f2ab27d246cbfcc9f7d5f34efb2787711ce9a7db8d6",
+  "controls": [
+    {
+      "mutation": "rehash-engine-total",
+      "returncode": 1,
+      "expected": "review table differs from captured observations",
+      "diagnostic": "ValueError: review table differs from captured observations"
+    },
+    {
+      "mutation": "rehash-footer-trailer",
+      "returncode": 1,
+      "expected": "bad Vortex postscript",
+      "diagnostic": "ValueError: bad Vortex postscript"
+    }
+  ],
+  "queries_executed": 0,
+  "original_artifacts_unchanged": true
+}

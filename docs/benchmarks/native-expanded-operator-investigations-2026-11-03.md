@@ -164,3 +164,7 @@ the frozen cases, raw worker output and both build records. A flipped archive
 byte and a modified timing total with an updated file checksum each failed
 verification. [Replay instructions](../../benchmarks/traditional_analytics/query_surface/README.md) ·
 [Corruption controls](evidence/native-expanded-query-2026-11-03/operator-investigations/corruption-controls.json).
+
+The next investigation batch used the same runtime to compare 33 pairs of
+public plans, sample four composed requests and inspect the prepared file's
+physical layout. [Broader workload findings](native-expanded-work-investigations-2026-11-03.md).
