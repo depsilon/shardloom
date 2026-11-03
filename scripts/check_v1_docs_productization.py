@@ -37,7 +37,7 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
 }
 GUIDE_ROOT = Path("website-src/src/content/docs/field-guide")
 GUIDE_SLUGS = (
-    "index", "start-local-proof", "python-surface", "sql", "cli", "runtime-and-io",
+    "index", "start-local-proof", "python-surface", "sql", "cli", "runtime-and-io", "local-tables",
     "resources", "execution-model", "compute-flow", "execution-routes", "reference",
     "embedding", "limitations", "troubleshooting", "development", "benchmark-methodology",
 )

@@ -26,6 +26,26 @@ and unreviewed reader/codec scratch have separate allocation behavior.
 The [resource contract](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/required-execution-resources-2026-10-10.md)
 defines inheritance and administrator ceilings.
 
+## Adaptive work in current source
+
+Current source uses the same declared grant to choose the next admitted source
+batch, conversion window, output gather, worker task or physical spill block.
+Work can shrink under shared pressure and grow again after owners release
+capacity. The engine does not raise the caller's memory or parallelism ceiling
+to make an operation fit.
+
+Physical and semantic limits remain: an IPC message, Avro block, dictionary,
+metadata structure or complete operator state may need an irreducible allocation.
+Slicing rows after decoding does not shrink that earlier decode. Where no safe
+smaller unit exists, the operation keeps its documented bound or rejects the
+allocation. A selected lane count does not prove that workers ran in parallel.
+
+Source, operator and output reports distinguish applied work from advisory
+planning. The [accepted owner matrix](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-adaptive-acceptance-2026-11-02.md)
+records the exact paths and pressure controls. The standalone feedback-planning
+utility remains advisory; general skew, runtime-filter and cache proposals are
+not enabled by this acceptance.
+
 ## Authorize spill
 
 Spill requires an explicit supported policy, a local workspace and a disk quota.

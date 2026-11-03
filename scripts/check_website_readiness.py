@@ -28,6 +28,7 @@ EXPECTED_PAGES = [
     "field-guide/start-local-proof/index.html",
     "field-guide/python-surface/index.html",
     "field-guide/runtime-and-io/index.html",
+    "field-guide/local-tables/index.html",
     "field-guide/execution-model/index.html",
     "field-guide/compute-flow/index.html",
     "field-guide/execution-routes/index.html",

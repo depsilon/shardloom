@@ -28,6 +28,33 @@ generated rows, and scoped local Vortex inputs are the default public examples. 
 IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
 present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
 
+## Current source examples
+
+The following additions use a matching [current source build](source-checkout-install.md),
+not the published 1.0.0 package. The maintained
+[five-interface program](../../examples/source-interfaces/run.py) creates a small
+CSV, runs DataFrame, Python SQL, typed native, embedded workflow and CLI SQL queries,
+checks the same complete rows, then verifies explicit preparation and multi-output
+readback. Run it with a native Python installation and CLI from the same revision:
+
+```sh
+python examples/source-interfaces/run.py --binary /absolute/path/to/shardloom
+```
+
+It prints `status: passed`, the five interface names and rows `{"id": 2}` and
+`{"id": 3}`, and cleans its temporary files. Its 128-MiB/two-lane settings are
+illustrative caller choices. It performs no benchmark or package installation.
+
+For named scalar parameters and query-local DataFrames, use the
+[connected programming examples](../reference/connected-programming.md).
+For local Iceberg, Delta and Hudi snapshots, use the
+[table query guide](https://shardloom.io/field-guide/local-tables) and the
+[exact reader profiles](../architecture/native-local-table-readers-2026-11-02.md).
+Table sources require an explicit format, authoritative table schema and the
+appropriate selector. They cannot be treated as arbitrary Parquet directories.
+
+## Published local examples continued
+
 <!-- stable_v1_example_local_csv -->
 
 ```python

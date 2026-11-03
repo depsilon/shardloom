@@ -10,6 +10,17 @@ and [phase plan](phased-execution-plan.md#engine-wide-adaptive-execution) remain
 authoritative. The original failures and timing observations retain their
 original source and scope.
 
+The later requested [fresh 347-case observation](../benchmarks/evidence/native-preparation-fresh347-2026-11-02.json)
+uses the retained preparation-contract release runtime at `d8c433fe`. All 347
+original cases execute once, with all 12,565 independent result rows verified.
+Engine time is 12.006862126 seconds versus the saved 12.121946081-second earlier
+observation. It keeps the original five Parquet inputs, case order, 2-GiB/two-lane
+limits and frozen Python SQL harness. No earlier runtime or competitor is rerun.
+This whole-runtime observation includes intervening native, table-reader,
+dependency and preparation changes; it does not isolate their contribution or
+establish repeatability. It does not change the separately accepted combined
+preparation/Full43 disposition.
+
 ## Acceptance boundaries
 
 The memory grant governs named native reservations and admitted provider work.

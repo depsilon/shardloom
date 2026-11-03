@@ -26,6 +26,9 @@ its values.
 `read_csv`, `read_json`, `read_parquet`, and `read_vortex` make the boundary explicit.
 Pass `schema=` when the input needs a declared type contract. See
 [formats and types](/field-guide/runtime-and-io#local-formats).
+Local Iceberg, Delta, and Hudi snapshot readers are development-source additions
+and are not included in published 1.0.0; see the
+[local table snapshot guide](/field-guide/local-tables).
 
 For generated data, the context provides `from_rows`, `from_batches`, `range`,
 and `repeat`. Typed batches require a schema; arbitrary Python callbacks are
@@ -92,6 +95,16 @@ The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 `write_parquet`, `write_arrow_ipc`, `write_avro`, `write_orc`, `write_csv`,
 `write_json`, and `write_jsonl`. Read their
 [fidelity and publication limits](/field-guide/runtime-and-io#write-results).
+
+## Connected SQL in development source
+
+Development source builds also support named scalar parameters and query-local
+DataFrame bindings through `ctx.sql(..., parameters=..., relations=...)`. These
+additions are not part of published 1.0.0. Parameters bind scalar values, while
+`relations` binds existing lazy plans for that query; neither substitutes SQL
+fragments or identifiers. See the
+[connected SQL and DataFrame reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md#names-parameters-and-schemas)
+for binding rules and limits.
 
 <span id="keep-results-native"></span>
 

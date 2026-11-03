@@ -17,7 +17,17 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Local Iceberg, Delta and Hudi table readers — local acceptance`
+- [x] `Pre-1.1.0 documentation, examples and generated-site refresh — local acceptance`
+  — the [documentation closeout](../release/v1.1.0-documentation-refresh.md)
+  records the ordinary five-interface example, two independently reopened fanout
+  outputs, explicit preparation and literal table/connected examples. Generated
+  documentation, the 21-page site, API/link/status checks and desktop/mobile
+  navigation/search/theme review pass. Published 1.0.0 identity remains separate
+  from current source. All original failed attempts and 54 evidence members are
+  retained with byte readback. Hosted integration and the source-version/package
+  milestone remain required; no new performance attribution or publication follows.
+
+- [x] `Local Iceberg, Delta and Hudi table readers — merged`
   — the [reader profiles and acceptance](native-local-table-readers-2026-11-02.md)
   resolve explicit local snapshots through the shared native source, resource and
   adaptive owners. Iceberg v1/v2 field identity and applicable position/equality
@@ -32,10 +42,12 @@ phase plan first.
   and [review supplement](../benchmarks/evidence/native-local-table-reader-review-2026-11-02/acceptance.json)
   preserve source/runtime identities and original failures. The supplement covers
   Iceberg identity partition/delete semantics, narrow Delta checkpoint values and
-  primitives-only feature independence. Hosted checks/review
-  remain pending. Catalogs, remote execution, table writes and unsupported
-  format/type states remain explicit exclusions. The five pre-refresh
-  investigations and combined documentation/site closeout remain next; this adds
+  primitives-only feature independence. PR #1645 merges as `9cd723df` after all
+  58 hosted checks pass. Both reported findings are fixed; automated re-review
+  was still running at merge, so no cleared-review claim is made. Catalogs,
+  remote execution, table writes and unsupported format/type states remain
+  explicit exclusions. The investigations and documentation retain their own
+  acceptance records; this adds
   no performance claim, competitive-gate closure or package publication.
 
 - [x] `Adaptive native execution and typed decision acceptance — merged`

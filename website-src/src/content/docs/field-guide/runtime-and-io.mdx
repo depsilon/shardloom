@@ -56,8 +56,15 @@ an explicit format. Network and catalog protocols are not implicit readers.
 | Vortex files | Vortex | Highest-fidelity input and persistence; file/schema validation still applies. |
 | Text input | CSV, TSV, JSON, JSONL/NDJSON | Shared direct readers apply parsing, schema and generation checks. Explicit preparation creates a reusable Vortex file. |
 | Columnar/structured files | Parquet, Arrow IPC file/stream, Feather V2, Avro, ORC | Direct readers use the embedded schema; it must be representable by the adapter. |
+| Local table snapshots in current source | Iceberg v1/v2, admitted Delta profiles, Hudi Copy-on-Write v8/v9 | Explicit table format and snapshot selection; read-only local Parquet data with each table's visibility and schema rules. See [local tables](/field-guide/local-tables). |
 | Typed memory | Exact-width integers, finite Float32/64, Boolean, UTF8, binary, Decimal128, Date32, timezone-free microsecond timestamps | Use explicit schemas for rich types; Decimal128 precision is 1–38 and scale is 0–precision. |
 | Nested values | Static List, FixedSizeList and ordered Struct | Recursive field and child-buffer admission applies. General Variant/extension types and nested arithmetic are not implied. |
+
+Current source also admits the extended temporal domains and calendar/time-series
+operations in the [connected programming reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md).
+That broader engine type support does not widen every file or table adapter's
+schema profile. Unsupported combinations return a diagnostic before producing
+a successful result.
 
 ## Write results
 
@@ -81,6 +88,17 @@ the structured diagnostic for cleanup/recovery. Reopening the saved file perform
 normal source validation. See the [published output contract](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/v1-local-output-sink-scope.md)
 and [current limitations](/field-guide/limitations#known-issues).
 
+### Write multiple results in current source
+
+Use one `plan.fanout({"vortex": vortex_path, "jsonl": jsonl_path})` action to
+compute a supported plan once and deliver it to both destinations. The shared
+owner retains or explicitly spills completed native data for the writers;
+calling two separate writers is two actions. Staging validates all requested
+destinations, but final renames are not a multi-file atomic transaction. Retain
+the output report if publication fails. The
+[runnable source example](https://github.com/depsilon/shardloom/blob/main/examples/source-interfaces/run.py)
+checks one execution and reopens both complete outputs.
+
 ## Preparation and result handoffs
 
 Prepared files are reused only after identity checks. Saved results can be
@@ -89,6 +107,13 @@ not metadata blindly copied from the old source. In-process results retain
 engine-owned arrays and memory reservations through supported chaining and output.
 See [reusing columnar results](/field-guide/python-surface#keep-results-native) and
 the [data lifecycle](/field-guide/execution-routes).
+
+The current source path reads ordinary files directly. Explicit preparation
+creates a reusable Vortex artifact; compatible derived helpers stay hidden from
+ordinary `SELECT *`. Reuse validates the source and artifact identities. Preparation
+does not cache query answers. See the
+[preparation contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/native-preparation-query-investigations-2026-11-02.md)
+for validation and publication details.
 
 ## Resources and recovery
 

@@ -1,0 +1,237 @@
+{
+  "schema_version": "shardloom.documentation_refresh_acceptance.v1",
+  "status": "local_documentation_acceptance_passed",
+  "date": "2026-11-02",
+  "base_revision": "cee1276588b0dba7b90fd3cbb59be58aa64b6b44",
+  "scope": "README, Python README, public status/examples, current-source guide, local table guide, generated site, and existing route validators.",
+  "publication_status": "Published artifact claims remain at 1.0.0; later source behavior is labeled explicitly. No package publication or tag.",
+  "checks": [
+    {
+      "receipt": "io759-docs-proof-environment.json",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-m",
+        "venv",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "receipt": "io760-docs-install-accepted-wheel.json",
+      "status": "passed",
+      "command": [
+        "env",
+        "PYTHONPATH=",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/installed-wheel-preparation-contracts-r1/dist/shardloom-1.0.0-cp310-abi3-macosx_27_0_arm64.whl",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-proof-wheelhouse/pyarrow-25.0.1-cp313-cp313-macosx_12_0_arm64.whl"
+      ],
+      "log_sha256": "a0e5e8ed2acad3f82f2f195f733ca02a6280f9fc06e978ff2d4fce62a4d7373a"
+    },
+    {
+      "receipt": "io761-docs-five-interface-example.json",
+      "status": "failed",
+      "command": [
+        "env",
+        "PYTHONPATH=",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "examples/source-interfaces/run.py",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-preparation-contracts-r1/shardloom"
+      ],
+      "log_sha256": "1b0b919e4b001cebde9c7b0ff8f4bbe544ec002af0d286191418e26f33707fdd"
+    },
+    {
+      "receipt": "io766-docs-five-interface-example.json",
+      "status": "failed",
+      "command": [
+        "env",
+        "PYTHONPATH=",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "examples/source-interfaces/run.py",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-preparation-contracts-r1/shardloom"
+      ],
+      "log_sha256": "3491034f746e44528d09223da4ef06b89a28b65f139d5b939daeadb4f1652ead"
+    },
+    {
+      "receipt": "io767-docs-five-interface-example.json",
+      "status": "passed",
+      "command": [
+        "env",
+        "PYTHONPATH=",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "examples/source-interfaces/run.py",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/io-runtime-preparation-contracts-r1/shardloom"
+      ],
+      "log_sha256": "b97c3c91c4b9f9fd86902c3badf3c45798151d3b446dc3892a3cb34aec58127d"
+    },
+    {
+      "receipt": "io768-docs-website-dependencies.json",
+      "status": "passed",
+      "command": [
+        "npm",
+        "ci",
+        "--prefix",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/site-dependencies",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "log_sha256": "998341b64081bbde02ee2073179dc96eea7ffa91f52d923432de92c2d6adfac5"
+    },
+    {
+      "receipt": "io769-docs-snippet-examples.json",
+      "status": "passed",
+      "command": [
+        "env",
+        "PYTHONPATH=",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/check_refreshed_doc_examples.py"
+      ],
+      "log_sha256": "bcbfc93131ff38481475425641a328993a942ea33d22cfc656c7e471050e6bba"
+    },
+    {
+      "receipt": "io770-docs-website-build.json",
+      "status": "passed",
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "build"
+      ],
+      "log_sha256": "d35f752bdcb73f61eeb4aa1ef564faeba4068adcf637ac517bfe348dc67a8dde"
+    },
+    {
+      "receipt": "io771-docs-website-types.json",
+      "status": "passed",
+      "command": [
+        "npm",
+        "--prefix",
+        "website-src",
+        "run",
+        "check"
+      ],
+      "log_sha256": "69b27bac4dc7dacd0afe2dd27a29c516b9f07cd2b454463975702f0f0cf3687d"
+    },
+    {
+      "receipt": "io772-docs-acceptance-checks.json",
+      "status": "failed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/check_documentation_refresh.py"
+      ],
+      "log_sha256": "735fc78d9e7678e9537c1df6903b2c182b4405044477bcc94f201422bdcac101"
+    },
+    {
+      "receipt": "io773-docs-route-validation.json",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_public_guide_contract_rejects_divergent_examples_links_and_search",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_public_guide_rejects_unverified_release_platform_and_capability",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_accepts_required_markers",
+        "python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_blocks_missing_marker",
+        "-v"
+      ],
+      "log_sha256": "9c09e5fbb0c1a8bf522344b7a3f9c2532da339bf959d38b339f17c49cc874eb6"
+    },
+    {
+      "receipt": "io774-docs-public-status.json",
+      "status": "passed",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/public-status-r2.json"
+      ],
+      "log_sha256": "d40f2558d64d883bfa4c8c4feed961fe0e0e4f181e08a39050c9fc2e573e553a"
+    },
+    {
+      "receipt": "io775-docs-website-readiness.json",
+      "status": "passed",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_website_readiness.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/website-readiness-r2.json"
+      ],
+      "log_sha256": "99db227101ebeda4b5829f0051248202cac85ad329eac79357e94b5c7e6f5a41"
+    }
+  ],
+  "outcomes": {
+    "five_public_interfaces": "passed complete values and no-fallback evidence",
+    "fanout": "one execution, both Vortex and JSONL outputs reopened completely",
+    "explicit_preparation": "passed complete Vortex readback",
+    "literal_doc_snippets": "Delta/Iceberg/Hudi selectors, named scalar/query-local SQL, connected computation passed; only small fixture paths/declarations substituted",
+    "astro_build": "21 pages with Pagefind and legacy aliases",
+    "astro_check": "0 errors, 0 warnings, 0 hints",
+    "website_links": "10 tests passed",
+    "public_api": "15 tests passed and generated reference current",
+    "route_and_status_controls": "4 tests passed, final public status and readiness passed",
+    "static_assets": "passed",
+    "npm_audit": "0 vulnerabilities"
+  },
+  "browser_review": {
+    "method": "Interactive Playwright review of the local generated site; screenshots and snapshots retained",
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 1000
+      },
+      {
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "observations": [
+      "No horizontal body overflow; code and tables scroll within their containers",
+      "Iceberg search finds local table guide and result navigation succeeds",
+      "Mobile menu reaches development page; light-theme switching succeeds",
+      "Observed console has no warnings or errors"
+    ],
+    "cleanup": "Task browser session and local server closed after review"
+  },
+  "original_failures": [
+    {
+      "receipt": "io761-docs-five-interface-example.json",
+      "cause": "Embedded source binding used schema rather than source_schema",
+      "disposition": "Example binding corrected; io767 passes"
+    },
+    {
+      "receipt": "io766-docs-five-interface-example.json",
+      "cause": "CLI example looked for fallback evidence in result fields rather than its JSON envelope",
+      "disposition": "Envelope contract checked explicitly; io767 passes"
+    },
+    {
+      "receipt": "io772-docs-acceptance-checks.json",
+      "cause": "Existing guide/readiness route registries omitted the new local-tables route",
+      "disposition": "Both registries updated; io773 controls and io774/io775 checks pass"
+    }
+  ],
+  "archive": {
+    "path": "checks-and-rendered-review.tar.xz",
+    "bytes": 569636,
+    "sha256": "81a2106cc48a2414585e3672bc8198017c963db6e4eeb6569db6f8e257d81403",
+    "members": 54,
+    "complete_member_readback": "passed"
+  },
+  "limitations": "Documentation evidence only. Runtime correctness and timing retain their separate immutable acceptance. Initial failed attempts are preserved, not converted into passes. Hosted integration remains pending."
+}

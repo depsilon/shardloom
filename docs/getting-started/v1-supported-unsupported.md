@@ -4,13 +4,15 @@
 # Capabilities and support
 
 <a id="v1-supported-and-unsupported-surface"></a>
-The public guide describes **v1.0.0**. Start with
+The public guide defaults to **v1.0.0**; sections marked current source describe later additions. Start with
 [installation and the first data workflow](https://shardloom.io/field-guide/start-local-proof).
 Use [version-scoped capabilities and known issues](https://shardloom.io/field-guide/limitations)
 for operations, types, package/platform requirements and remaining restrictions.
 
 For exact contracts, see the [application reference](https://shardloom.io/field-guide/reference).
 Feature availability, operational support and comparative performance are separate facts.
+See [current source capabilities](https://shardloom.io/field-guide/development#current-source-capabilities)
+for the development checkout; those additions do not change the published artifacts.
 
 ## Maintainer inventories
 

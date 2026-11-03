@@ -8,10 +8,15 @@ semantics and recovery. The phase plan remains the active queue.
 Latest acceptance: the [November 2 owner and public-interface matrix](native-adaptive-acceptance-2026-11-02.md)
 passes local default/native workspace, release-runtime and installed-package
 checks. It binds the eleven owner families to their executable controls and
-necessary physical or semantic limits. Hosted checks and review remain pending.
-Earlier pending statements below record their original checkpoints; the matrix
-is the current local acceptance status. Combined documentation/site closeout and
-the ordered follow-up queue remain separate.
+necessary physical or semantic limits. PR #1644 merged as
+`d3e943add236baf3200fa07d299437cc3dd71314` after all 58 hosted checks passed on
+`563279a54e398897584eb2b132d7d0bb017f44a2`; the closeout record reports zero
+review findings. Earlier pending statements below record their original
+checkpoints. The [combined documentation/site closeout](../release/v1.1.0-documentation-refresh.md)
+passes local example, generated-site and browser checks. The earlier I/O
+[portable evidence](native-local-io-portable-replay-2026-11-02.md) now passes
+complete replay, corruption controls and relocated verification. Hosted
+integration of the final evidence/docs milestone remains separate.
 
 The November 1 maintainer decision starts this work before item 18's combined
 portable-evidence, documentation and website closeout. Item 18's completed
@@ -1094,5 +1099,7 @@ matched-comparison step: preserve the completed authorized single-pass baseline
 and partial-decision checkpoint with their build and coverage limits. Final
 decision wiring does not require repeating either observation. Preserve the
 Full43 hold and isolated single-pass procedure; this contract starts no benchmark
-run. Documentation, website,
-portable evidence, expert review, hosted checks and merge remain required.
+run. The documentation/site refresh passes local acceptance as linked above;
+the earlier I/O portable-evidence replay also passes. Hosted integration of the
+final evidence/docs milestone remains separate.
+Runtime hosted checks and merge are complete as recorded in the latest acceptance.

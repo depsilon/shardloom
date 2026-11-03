@@ -1,0 +1,489 @@
+{
+  "schema_version": "shardloom.local_io_portable_acceptance.v1",
+  "status": "passed",
+  "replay": {
+    "schema_version": "shardloom.local_io_saved_replay.v1",
+    "status": "passed",
+    "collection_sha256": "677b350b8322e3a8112417e9b4aaff37b8826fe6f669e4734a5fe112ece7f738",
+    "declaration_sha256": "45cf7545e45993aa54d2b6d024de08bbb8b4418a20b33adcc3a93195b0cfcd8a",
+    "observations": 9633,
+    "stages": {
+      "smoke": {
+        "observations": 205,
+        "coverage": {
+          "cli_sql": 41,
+          "collections": 200,
+          "embedded_workflow": 41,
+          "python_sql": 41,
+          "dataframe": 41,
+          "typed_relation": 41,
+          "writes": 5,
+          "outputs": 40
+        },
+        "original_jsonl_reconstructed": true
+      },
+      "correctness": {
+        "observations": 4555,
+        "coverage": {
+          "cli_sql": 911,
+          "collections": 4105,
+          "embedded_workflow": 911,
+          "python_sql": 911,
+          "dataframe": 911,
+          "typed_relation": 911,
+          "writes": 450,
+          "outputs": 800
+        },
+        "original_jsonl_reconstructed": true
+      },
+      "fidelity": {
+        "observations": 400,
+        "coverage": {
+          "cli_sql": 80,
+          "collections": 40,
+          "writes": 350,
+          "outputs": 350,
+          "embedded_workflow": 80,
+          "python_sql": 80,
+          "dataframe": 80,
+          "typed_relation": 80,
+          "expected_refusals": 10
+        },
+        "original_jsonl_reconstructed": false
+      },
+      "timing": {
+        "observations": 4455,
+        "coverage": {
+          "cli_sql": 891,
+          "collections": 3015,
+          "embedded_workflow": 891,
+          "python_sql": 891,
+          "dataframe": 891,
+          "typed_relation": 891,
+          "writes": 1440,
+          "outputs": 1440
+        },
+        "original_jsonl_reconstructed": true
+      },
+      "lifecycle": {
+        "observations": 18,
+        "coverage": {
+          "lifecycle": 18
+        },
+        "original_jsonl_reconstructed": false
+      }
+    },
+    "bindings": {
+      "compiled_sources": 3249,
+      "external_artifacts": 141,
+      "process_receipts": 202,
+      "original_outcomes": {
+        "failed": 65,
+        "passed": 137
+      },
+      "package_tests": 289,
+      "source_revision": "a1d66dbb7316cf5a64441ccca632948072f1db83"
+    },
+    "saved_value_comparisons": 10878,
+    "saved_value_rows": 10779851,
+    "unique_arrow_pairs": 75,
+    "output_readbacks": 2648,
+    "unique_compatibility_decodes": 398,
+    "vortex": {
+      "observations": 348,
+      "saved_independent_decodes": 33,
+      "new_vortex_decodes": 0
+    },
+    "diagnostic_timing_screen": {
+      "cases": 297,
+      "families": 16,
+      "observations": 4455,
+      "material_case_gaps": 216,
+      "material_family_gaps": 10,
+      "disposition": "diagnostic_only_by_recorded_maintainer_decision"
+    },
+    "historical_347_candidates": [
+      {
+        "complete_comparisons": 347,
+        "complete_rows": 12565,
+        "baseline_engine_seconds": 11.978234339,
+        "candidate_engine_seconds": 12.058373305,
+        "benefit_gate_passed": false
+      },
+      {
+        "complete_comparisons": 347,
+        "complete_rows": 12565,
+        "baseline_engine_seconds": 11.978234339,
+        "candidate_engine_seconds": 12.021364065,
+        "benefit_gate_passed": false
+      },
+      {
+        "complete_comparisons": 347,
+        "complete_rows": 12565,
+        "baseline_engine_seconds": 11.978234339,
+        "candidate_engine_seconds": 12.065099498,
+        "benefit_gate_passed": false
+      }
+    ],
+    "new_engine_queries": 0,
+    "archived_code_executed": false,
+    "limitations": [
+      "Saved observations are replayed; no new performance measurement or causal claim.",
+      "Original inputs and executable/provider binaries remain external hash-bound objects.",
+      "Vortex checks replay saved independent decodes; compatibility outputs are decoded again.",
+      "Rich text checks wire values without claiming embedded logical types or typed roundtrip.",
+      "Content hashes establish consistency, not signed provenance."
+    ]
+  },
+  "isolation": {
+    "status": "passed",
+    "original_read_controls": [
+      "open:/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/local-io-r17/manifest.json",
+      "open:/Users/dylan/.codex/worktrees/native-direct-source-count/shardloom-local-repo/Cargo.toml"
+    ],
+    "replay_original_reads": 0,
+    "replay_external_effect_attempts": 0,
+    "isolation": "relocated packet; Python audit hook rejects original evidence/source reads and process/network effects after reader imports",
+    "dependencies": {
+      "pyarrow": "25.0.1",
+      "fastavro": "1.13.1",
+      "cramjam": "2.11.0"
+    }
+  },
+  "controls": {
+    "tests": 16,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "source_files": {
+    "benchmarks/traditional_analytics/query_surface/__init__.py": {
+      "bytes": 273,
+      "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471"
+    },
+    "benchmarks/traditional_analytics/query_surface/adapters.py": {
+      "bytes": 17775,
+      "sha256": "b09527e58458b9e5d1cb0c7fc75f09976f924f9a406cae9377aefd571c963ee4"
+    },
+    "benchmarks/traditional_analytics/query_surface/corpus.py": {
+      "bytes": 21241,
+      "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390"
+    },
+    "benchmarks/traditional_analytics/query_surface/coverage.py": {
+      "bytes": 2175,
+      "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9"
+    },
+    "benchmarks/traditional_analytics/query_surface/datasets.py": {
+      "bytes": 20182,
+      "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff"
+    },
+    "benchmarks/traditional_analytics/query_surface/diagnostics.py": {
+      "bytes": 3257,
+      "sha256": "f2137e0d6595b01ecc2d42730d58da2dd0327710c0df605afee94b72c0b46600"
+    },
+    "benchmarks/traditional_analytics/query_surface/evidence.py": {
+      "bytes": 9363,
+      "sha256": "45e82e34fcbbaba99c029a5e9b2b1a27ddc9f0fd80f2805da69021253d9bcc21"
+    },
+    "benchmarks/traditional_analytics/query_surface/polars_adapter.py": {
+      "bytes": 9311,
+      "sha256": "3fe8503c51711daa025bdbf5ebe56c98cbd883e606d1a952c3134ac86182d1e8"
+    },
+    "benchmarks/traditional_analytics/query_surface/polars_run.py": {
+      "bytes": 14914,
+      "sha256": "c0d2117ec724e1e4fd73d207b73c0d31007173175cab9e423b6add4d4b1651e2"
+    },
+    "benchmarks/traditional_analytics/query_surface/reference.py": {
+      "bytes": 11455,
+      "sha256": "a30bd04f95cda8fbe52adc2bc2ea0c31af94164d404c4553858e2744c5bcb362"
+    },
+    "benchmarks/traditional_analytics/query_surface/replay.py": {
+      "bytes": 20591,
+      "sha256": "9a1974e233f58bd312844a03cb6138883af291a343a19b1885a40d6541254ed0"
+    },
+    "benchmarks/traditional_analytics/query_surface/report.py": {
+      "bytes": 5527,
+      "sha256": "7e47454caa4db9e9fd7536cbc1b1cf83b382be2ae3fcdec20e21f190609eb5fc"
+    },
+    "benchmarks/traditional_analytics/query_surface/run.py": {
+      "bytes": 17353,
+      "sha256": "e9304eb02a0a08c007bae3549c371af83742cabf95b489f6b8e1738cd39c623b"
+    },
+    "benchmarks/traditional_analytics/query_surface/semantics.py": {
+      "bytes": 18504,
+      "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074"
+    },
+    "benchmarks/traditional_analytics/query_surface/specification.py": {
+      "bytes": 11184,
+      "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401"
+    },
+    "benchmarks/traditional_analytics/query_surface/worker.py": {
+      "bytes": 9264,
+      "sha256": "deaadf718fc51f8340e196b28622e3539f32df8d873ee9a9770c2dd61c968107"
+    },
+    "scripts/local_io_portable_replay.py": {
+      "bytes": 31771,
+      "sha256": "4d347abfa462fdc62a541017214220e62a531cdbfdc447d113b22a16643997d4"
+    },
+    "scripts/local_io_replay_values.py": {
+      "bytes": 10692,
+      "sha256": "fbfbd3c8bc9421d052bf945b602f1049f1e428da2bdf9d9d12c7ee3d454f3e04"
+    },
+    "scripts/native_workflow_protocol.py": {
+      "bytes": 7464,
+      "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+    },
+    "scripts/parquet_demand_completion_replay.py": {
+      "bytes": 13556,
+      "sha256": "7cabd3043df5c9f74d2e304724176ca9daa2fbc078a3000f3ecb227782e1bc2d"
+    },
+    "scripts/query_timing_report.py": {
+      "bytes": 4235,
+      "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1"
+    },
+    "scripts/shared_performance_bundle.py": {
+      "bytes": 11949,
+      "sha256": "3c0569edaa312730de157b983415a30538493bbb2595cf4ae5a4957d92ac0883"
+    },
+    "scripts/test_local_io_packet.py": {
+      "bytes": 12164,
+      "sha256": "5e34c54e51106c7adaf8813c80d15d930ce810530bdfa954f88b9fff50565a6d"
+    },
+    "scripts/verify_local_io_packet.py": {
+      "bytes": 1083,
+      "sha256": "83a02244b60a8135deadeabe26faa6c5c4d4852a3b2be342cbb23902a202d0e7"
+    }
+  },
+  "observations": [
+    {
+      "name": "io779-local-io-portable-replay",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "PYTHONPATH=/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts:/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/benchmarks/traditional_analytics:/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/oracle-python",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts/verify_local_io_packet.py",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/portable-local-io-r1",
+        "--report",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/local-io-portable-replay-r1.json"
+      ]
+    },
+    {
+      "name": "io780-local-io-portable-replay",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "env",
+        "PYTHONPATH=/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts:/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/benchmarks/traditional_analytics:/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/oracle-python",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts/verify_local_io_packet.py",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/portable-local-io-r1",
+        "--report",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/local-io-portable-replay-r2.json"
+      ]
+    },
+    {
+      "name": "io781-local-io-portable-replay",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "env",
+        "PYTHONPATH=/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts:/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/benchmarks/traditional_analytics:/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/oracle-python",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/.codex/worktrees/native-docs-refresh/shardloom-local-repo/scripts/verify_local_io_packet.py",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/portable-local-io-r1",
+        "--report",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/local-io-portable-replay-r3.json"
+      ]
+    },
+    {
+      "name": "io782-local-io-replay-controls",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_local_io_packet.py",
+        "-v"
+      ]
+    },
+    {
+      "name": "io783-local-io-isolated-replay",
+      "status": "failed",
+      "returncode": 1,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/isolate_local_io_replay.py"
+      ]
+    },
+    {
+      "name": "io784-local-io-isolated-replay",
+      "status": "passed",
+      "returncode": 0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/docs-refresh-r1/python/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/tools/isolate_local_io_replay.py"
+      ]
+    }
+  ],
+  "collection_files": {
+    "binary/manifest.json": {
+      "bytes": 438694,
+      "sha256": "922ecdb01b3f5448c9079167146ef871a2901db2813447444e38eb0561122e26"
+    },
+    "binary/part-000/manifest.json": {
+      "bytes": 450,
+      "sha256": "0d6c383b1a22b23000da8db9fbf3c93cda66f36fa3ccd8f5d26ecfc3765680ee"
+    },
+    "binary/part-000/packet.tar.xz": {
+      "bytes": 2803704,
+      "sha256": "b7684831c2ae9e72265e3e2674ea9344215773fac771101781204b868859fd71"
+    },
+    "binary/part-001/manifest.json": {
+      "bytes": 447,
+      "sha256": "f1eb2f0c5074e6f4d04ef401f7e76a540883398afb53dc5c1038ebe823889e92"
+    },
+    "binary/part-001/packet.tar.xz": {
+      "bytes": 6894968,
+      "sha256": "bc5d618c21ec7bf50a894c8f004b01c01724eacd2eb9089ad027a1cf553d535c"
+    },
+    "binary/part-002/manifest.json": {
+      "bytes": 447,
+      "sha256": "47ee1985ed78d1401d46260ab2c56180c14614d04b91f128aa6c3ed7a8a72bf8"
+    },
+    "binary/part-002/packet.tar.xz": {
+      "bytes": 6890732,
+      "sha256": "1fd08d22905874f6edf744571d02d4ac41274aea8834feee6e29982f434254ca"
+    },
+    "binary/part-003/manifest.json": {
+      "bytes": 448,
+      "sha256": "d62430cc1adb277effa67118cc8a74c5a7335b526c3aac3c74281608c94a87a8"
+    },
+    "binary/part-003/packet.tar.xz": {
+      "bytes": 33400120,
+      "sha256": "802d3eeafa13127fee3ea9c4ba08e6b85b82bb094244a4d323c93b494723b0ef"
+    },
+    "binary/part-004/manifest.json": {
+      "bytes": 448,
+      "sha256": "b38d48eba69d51c7d19af198c1dff18284bca837ef2a374ed244ff46ef593ef6"
+    },
+    "binary/part-004/packet.tar.xz": {
+      "bytes": 25519772,
+      "sha256": "4bfa7918e12898a51425467957001086326e0334ffb03cc054f6600caae938da"
+    },
+    "binary/part-005/manifest.json": {
+      "bytes": 448,
+      "sha256": "357544d06d7f7fe5cf06fa5012fc5706f84f0de9379996182d62f1a2f0079ffe"
+    },
+    "binary/part-005/packet.tar.xz": {
+      "bytes": 26152072,
+      "sha256": "d5736f35571ed8d691b33e0b06736a82bac870f15965f89196b41b6b9191f317"
+    },
+    "binary/part-006/manifest.json": {
+      "bytes": 445,
+      "sha256": "60ad7f74fc51583c4a8ebe86c4007e6e579d3ddbc848e321e6fada988e0df3e6"
+    },
+    "binary/part-006/packet.tar.xz": {
+      "bytes": 13093184,
+      "sha256": "7d47ddf917720cf09ec86a1e99c48c30860240a77e360b52eab76cdf65a6ec1f"
+    },
+    "manifest.json": {
+      "bytes": 899,
+      "sha256": "677b350b8322e3a8112417e9b4aaff37b8826fe6f669e4734a5fe112ece7f738"
+    },
+    "metadata/manifest.json": {
+      "bytes": 9142849,
+      "sha256": "0974640fe88aa466d1eca2b282a26c186a5ba3ffb4dda4491bda67e5e6f3b895"
+    },
+    "metadata/part-000/manifest.json": {
+      "bytes": 454,
+      "sha256": "896a51eb932d1be9721a84981b2a937d7c35e54e56265325903950a1faf40f6b"
+    },
+    "metadata/part-000/packet.tar.xz": {
+      "bytes": 1926168,
+      "sha256": "a91bf8c8ed6851000b8c650436a051ff932ca0308f791b0c864f7268a18aa247"
+    },
+    "metadata/part-001/manifest.json": {
+      "bytes": 454,
+      "sha256": "528490ec52e54abb9042856d6e20e7c00fc7547eb9901a3b3a08faee433f93a0"
+    },
+    "metadata/part-001/packet.tar.xz": {
+      "bytes": 4038716,
+      "sha256": "8749e4f780c49d0644e4421f4b506568a03cfd627721ec482a96d3f5dcf74162"
+    },
+    "metadata/part-002/manifest.json": {
+      "bytes": 455,
+      "sha256": "358f4af35f3606dabf0c59551976c86be7098a6be32043a21a802b4a6f31a35e"
+    },
+    "metadata/part-002/packet.tar.xz": {
+      "bytes": 12205116,
+      "sha256": "6a412c6696e461edbf02a4e9faa387d7f4183fecb9b17d5ecd88ecf18ba36d55"
+    },
+    "metadata/part-003/manifest.json": {
+      "bytes": 444,
+      "sha256": "9e64e725fb094aa727cada1014b7ecd3cb4d6ea8286b7e833870b6372efc3f8c"
+    },
+    "metadata/part-003/packet.tar.xz": {
+      "bytes": 819708,
+      "sha256": "fbfbcc3f5a25afa01054d24ecca6fffde5e00d63edec4d9161b02d37451dc90b"
+    },
+    "text/manifest.json": {
+      "bytes": 439170,
+      "sha256": "98fecfda3fc42f205b285c9f279f992057131fec0ac7a8b42846cab2452ea559"
+    },
+    "text/part-000/manifest.json": {
+      "bytes": 448,
+      "sha256": "e0dc369ea36e2886ba70515709664eaad5462631dbcc33a2b245869a97b62b6f"
+    },
+    "text/part-000/packet.tar.xz": {
+      "bytes": 9265436,
+      "sha256": "20ea33c0bad074552039f6b573c656e4f13896be07fa9e897e822167ddd47ec5"
+    },
+    "text/part-001/manifest.json": {
+      "bytes": 445,
+      "sha256": "e2e339ba0d702309871a0f2bceb483a5496e73e850abea6588dcda0fa61580f6"
+    },
+    "text/part-001/packet.tar.xz": {
+      "bytes": 10814548,
+      "sha256": "e45dab2c7d744ae096554e081468f9abfc39ef696e2406a8536f806c824f75ed"
+    },
+    "values/manifest.json": {
+      "bytes": 4392417,
+      "sha256": "59f9512805631cfe3046520a12eed26dbe6e05dc3b1039a04e41aa3d88660c94"
+    },
+    "values/part-000/manifest.json": {
+      "bytes": 449,
+      "sha256": "a3ed37a7688c734d12373947fa1988960698aec88428e5a561e98f5b306c24eb"
+    },
+    "values/part-000/packet.tar.xz": {
+      "bytes": 19515028,
+      "sha256": "df0941a63b43b20f055f39d0474986c26c06ff9acd9cb832009d5fd6419e2dd8"
+    }
+  },
+  "acceptance_archive": {
+    "path": "docs/benchmarks/evidence/native-local-io-replay-acceptance-2026-11-03.tar.xz",
+    "bytes": 73748,
+    "sha256": "92a3767344802e588b5faa0a679a4b9e518d7c8be93a8a6c3939c9262b184b22",
+    "members": 40,
+    "complete_member_readback": true
+  },
+  "failed_attempts": [
+    "io779: external identities carried descriptive metadata in addition to path/size/hash; verifier comparison corrected.",
+    "io780: installed-package log paths are relative to their report directory; verifier lookup corrected.",
+    "io783: PyArrow compute loaded lazily after original-path reads were denied; reader import moved before the guard."
+  ],
+  "new_engine_queries": 0,
+  "publication_attempted": false
+}

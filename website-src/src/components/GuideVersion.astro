@@ -4,7 +4,7 @@ const { development = false } = Astro.props;
 ---
 <aside class="guide-version" aria-label="Documentation version" data-pagefind-ignore>
   <strong>{development ? "Development source" : `Published ${release.version}`}</strong>
-  <span>{development ? "These API changes are not in the published package." : "Examples and availability refer to this package."}</span>
+  <span>{development ? "These API changes are not in the published package." : "Examples use this package unless marked as current source."}</span>
   <a href={development ? "/field-guide/start-local-proof" : "/field-guide/development"}>
     {development ? "Published guide" : "Development and migration"}
   </a>

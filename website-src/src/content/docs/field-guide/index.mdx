@@ -24,6 +24,7 @@ This guide identifies available operations, types, and platforms, alongside
 - [Python and DataFrames](/field-guide/python-surface) — configure a context, describe a query, and consume results.
 - [SQL](/field-guide/sql) and [CLI](/field-guide/cli) — express and run the same supported work.
 - [Reading and writing data](/field-guide/runtime-and-io) — choose formats and understand types, fidelity, and write behavior.
+- [Local table snapshots](/field-guide/local-tables) — use current source to query admitted Iceberg, Delta and Hudi states.
 - [Memory and parallelism](/field-guide/resources) — choose resource settings and manage spill and cancellation.
 
 ## Understand the engine
@@ -43,4 +44,6 @@ This guide identifies available operations, types, and platforms, alongside
 - [Development and migration](/field-guide/development) — API migration, source builds, and contributor tooling.
 
 The [repository](https://github.com/depsilon/shardloom) holds detailed API references
-and implementation evidence.
+and implementation evidence. Pages mark later source additions separately from
+the published package; [current source capabilities](/field-guide/development#current-source-capabilities)
+include connected plans, broader analytics, direct readers and adaptive execution.
