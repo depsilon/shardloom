@@ -13,14 +13,15 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "benchmarks" / "traditional_analytics"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from query_surface.datasets import file_hash
 from query_surface.evidence import identity, validate_prepared
 from query_surface import run as query_run
-import test_query_surface_evidence as fixtures
-from test_query_surface_evidence import write
+from python.tests import test_query_surface_evidence as fixtures
+from python.tests.test_query_surface_evidence import write
 
 
 class ExpandedPreparationTests(unittest.TestCase):
