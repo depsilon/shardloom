@@ -40,8 +40,8 @@ categories = ["command-line-utilities", "database", "encoding", "science"]
 rust-version = "1.96"
 
 [workspace.dependencies]
-adbc_core = "=0.24.0"
-adbc_ffi = "=0.24.0"
+adbc_core = "=0.25.0"
+adbc_ffi = "=0.25.0"
 arrow-array = "=59.3.1"
 arrow-buffer = "=59.3.1"
 arrow-data = "=59.3.1"
@@ -53,7 +53,7 @@ arrow-schema = "=59.3.1"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
-jiff = { version = "=0.2.35", default-features = false, features = ["std"] }
+jiff = { version = "=0.2.38", default-features = false, features = ["std"] }
 jiff-tzdb = "=0.1.6"
 memchr = "2.8.3"
 parquet = "=59.3.1"
@@ -68,7 +68,7 @@ sha2 = "0.11"
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 tokio = { version = "=1.54.1", default-features = false, features = ["macros", "rt-multi-thread", "sync", "time", "net", "io-util"] }
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
-tonic = { version = "=0.14.6", default-features = false, features = ["transport", "codegen", "router", "tls-ring"] }
+tonic = { version = "=0.14.8", default-features = false, features = ["transport", "codegen", "router", "tls-ring"] }
 tonic-prost = "=0.14.6"
 shardloom-core = { version = "1.0.0", path = "shardloom-core" }
 shardloom-exec = { version = "1.0.0", path = "shardloom-exec" }

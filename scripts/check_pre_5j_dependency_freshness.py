@@ -116,15 +116,16 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
     1153: {
         "dependency": "rusqlite",
         "expected_manifest": "shardloom-cli/Cargo.toml",
-        "expected_manifest_version": "0.40.2",
+        "expected_manifest_version": "0.41.1",
         "expected_lock_versions": {
-            "rusqlite": "0.40.2",
-            "libsqlite3-sys": "0.38.2",
+            "rusqlite": "0.41.1",
+            "libsqlite3-sys": "0.39.1",
         },
         "review_doc": "docs/dependencies/sqlite-rusqlite-dependency-review.md",
         "review_markers": [
             "https://github.com/depsilon/shardloom/pull/1153",
-            "rusqlite = 0.40.2",
+            "rusqlite = 0.41.1",
+            "libsqlite3-sys = 0.39.1",
             "default-features = false",
             "features = [\"bundled\"]",
             "fallback execution",
@@ -135,6 +136,13 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
 # Historical intake IDs and superseding patch PRs share the reviewed current
 # graph. Each new PR also requires its own recorded review reference.
 ADMITTED_DEPENDABOT_PRS.update({
+    1636: {
+        **ADMITTED_DEPENDABOT_PRS[1153],
+        "review_markers": [
+            *ADMITTED_DEPENDABOT_PRS[1153]["review_markers"],
+            "https://github.com/depsilon/shardloom/pull/1636",
+        ],
+    },
     1570: {
         **ADMITTED_DEPENDABOT_PRS[1151],
         "review_markers": [

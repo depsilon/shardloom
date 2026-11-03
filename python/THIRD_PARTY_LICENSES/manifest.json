@@ -4,45 +4,45 @@
   "components": [
     {
       "name": "adbc_core",
-      "version": "0.24.0",
+      "version": "0.25.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/apache/arrow-adbc",
-      "crate_checksum_sha256": "365059b13a01bbf6f324b5bfe328232a819679731431f78105e2883256236858",
+      "crate_checksum_sha256": "7d1448c5d1597ce04cf1228e9e096dc4dc0dc0d568080283824125c60b22c325",
       "files": [
-        {
-          "text": "texts/46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e.txt",
-          "sha256": "46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e",
-          "bytes": 16669,
-          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/LICENSE.txt"
-        },
         {
           "text": "texts/59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb.txt",
           "sha256": "59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb",
           "bytes": 171,
-          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/NOTICE.txt"
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/1f9f5540dbcb695c540dfcdafeea421c7d94adb1/NOTICE.txt"
+        },
+        {
+          "text": "texts/dc5cebbee29b59a9ac7939feeb810ed88d5c299d964f4941497c1b56c24dac62.txt",
+          "sha256": "dc5cebbee29b59a9ac7939feeb810ed88d5c299d964f4941497c1b56c24dac62",
+          "bytes": 18429,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/1f9f5540dbcb695c540dfcdafeea421c7d94adb1/LICENSE.txt"
         }
       ]
     },
     {
       "name": "adbc_ffi",
-      "version": "0.24.0",
+      "version": "0.25.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/apache/arrow-adbc",
-      "crate_checksum_sha256": "12cdef84c12e9e8858b300440c36ca94ba24fb2e188175251dc39bb44ba3584e",
+      "crate_checksum_sha256": "6e45d58b6adb27c160c8a67be956c1d260e90aad56e36e2a46f3bcffa914a8ab",
       "files": [
-        {
-          "text": "texts/46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e.txt",
-          "sha256": "46ca1f0bf9634eb3472498b47a7b1a0298db2117076e933ea0c93e5c61a84e8e",
-          "bytes": 16669,
-          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/LICENSE.txt"
-        },
         {
           "text": "texts/59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb.txt",
           "sha256": "59d7cc401deb7b8ca6c6463848a9d6a302b18d83c2a3f75136bfead3c5c5f9bb",
           "bytes": 171,
-          "upstream_url": "https://github.com/apache/arrow-adbc/blob/a3f81c6feb1133ba80600ac32e6d7c0b0b407e18/NOTICE.txt"
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/1f9f5540dbcb695c540dfcdafeea421c7d94adb1/NOTICE.txt"
+        },
+        {
+          "text": "texts/dc5cebbee29b59a9ac7939feeb810ed88d5c299d964f4941497c1b56c24dac62.txt",
+          "sha256": "dc5cebbee29b59a9ac7939feeb810ed88d5c299d964f4941497c1b56c24dac62",
+          "bytes": 18429,
+          "upstream_url": "https://github.com/apache/arrow-adbc/blob/1f9f5540dbcb695c540dfcdafeea421c7d94adb1/LICENSE.txt"
         }
       ]
     },
@@ -636,11 +636,11 @@
     },
     {
       "name": "async-executor",
-      "version": "1.14.0",
+      "version": "1.14.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0 OR MIT",
       "repository": "https://github.com/smol-rs/async-executor",
-      "crate_checksum_sha256": "c96bf972d85afc50bf5ab8fe2d54d1586b4e0b46c97c50a0c9e71e2f7bcd812a",
+      "crate_checksum_sha256": "f426a31126c735126297bc5ea7a521263c9faff4f63ca415267ee625651c4f37",
       "files": [
         {
           "text": "texts/23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3.txt",
@@ -3624,11 +3624,11 @@
     },
     {
       "name": "jiff",
-      "version": "0.2.35",
+      "version": "0.2.38",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Unlicense OR MIT",
       "repository": "https://github.com/BurntSushi/jiff",
-      "crate_checksum_sha256": "668b7183bd07af9a4885f5c35b0cc5c83c4607a913c16b7e17291832910d2dcc",
+      "crate_checksum_sha256": "b2b005715dcbeb0089a3c0dab99f2ff1cc3b2525323552703d648585d342a383",
       "files": [
         {
           "text": "texts/01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f.txt",
@@ -3680,11 +3680,11 @@
     },
     {
       "name": "jiff-static",
-      "version": "0.2.35",
+      "version": "0.2.38",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Unlicense OR MIT",
       "repository": "https://github.com/BurntSushi/jiff",
-      "crate_checksum_sha256": "3a69dcb3a21cfb32ce1cd056169337ca284af0766dd766e7878819b251a49204",
+      "crate_checksum_sha256": "2cc9817253cf7c7ee4684451bd327e88d6f3658014e54a29198625590650695c",
       "files": [
         {
           "text": "texts/01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f.txt",
@@ -4140,23 +4140,17 @@
     },
     {
       "name": "libsqlite3-sys",
-      "version": "0.38.2",
+      "version": "0.39.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
       "repository": "https://github.com/rusqlite/rusqlite",
-      "crate_checksum_sha256": "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8",
+      "crate_checksum_sha256": "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3",
       "files": [
         {
           "text": "texts/c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f.txt",
           "sha256": "c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f",
           "bytes": 1067,
           "crate_path": "LICENSE"
-        },
-        {
-          "text": "texts/ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131.txt",
-          "sha256": "ea4fcb309f14a22065e1ea45362d494d320012249ed865fe9c7c0946db754131",
-          "bytes": 1467,
-          "crate_path": "sqlcipher/LICENSE"
         }
       ]
     },
@@ -6048,11 +6042,11 @@
     },
     {
       "name": "rusqlite",
-      "version": "0.40.2",
+      "version": "0.41.1",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
       "repository": "https://github.com/rusqlite/rusqlite",
-      "crate_checksum_sha256": "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3",
+      "crate_checksum_sha256": "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594",
       "files": [
         {
           "text": "texts/c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f.txt",
@@ -7200,16 +7194,16 @@
     },
     {
       "name": "tonic",
-      "version": "0.14.6",
+      "version": "0.14.8",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
-      "repository": "https://github.com/hyperium/tonic",
-      "crate_checksum_sha256": "ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef",
+      "repository": "https://github.com/grpc/grpc-rust",
+      "crate_checksum_sha256": "cd1fa9b1a51188f3266a823208078315811269d06d272c3a61be0b9a194194ff",
       "files": [
         {
-          "text": "texts/e24a56698aa6feaf3a02272b3624f9dc255d982970c5ed97ac4525a95056a5b3.txt",
-          "sha256": "e24a56698aa6feaf3a02272b3624f9dc255d982970c5ed97ac4525a95056a5b3",
-          "bytes": 1056,
+          "text": "texts/5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1.txt",
+          "sha256": "5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1",
+          "bytes": 1053,
           "crate_path": "LICENSE"
         }
       ]

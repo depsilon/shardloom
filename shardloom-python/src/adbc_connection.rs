@@ -2,7 +2,7 @@
 
 use super::{Bridge, call0, python_error, unsupported, unsupported_option_reads};
 use adbc_core::{
-    Connection, Optionable,
+    CancelHandle, Connection, Optionable,
     error::Result,
     options::{InfoCode, ObjectDepth, OptionConnection, OptionValue},
     schemas,
@@ -15,6 +15,14 @@ use std::{collections::HashSet, sync::Arc};
 
 pub(super) struct LocalConnection {
     pub(super) bridge: Bridge,
+}
+
+struct ConnectionCancellation(Bridge);
+
+impl CancelHandle for ConnectionCancellation {
+    fn try_cancel(&self) -> Result<()> {
+        call0(&self.0, "cancel")
+    }
 }
 
 impl Optionable for LocalConnection {
@@ -50,8 +58,8 @@ impl Connection for LocalConnection {
         call0(&self.bridge, "ensure_open")?;
         Ok(Self::StatementType::new(Arc::clone(&self.bridge)))
     }
-    fn cancel(&mut self) -> Result<()> {
-        call0(&self.bridge, "cancel")
+    fn get_cancel_handle(&self) -> Box<dyn CancelHandle> {
+        Box::new(ConnectionCancellation(Arc::clone(&self.bridge)))
     }
     fn get_info(
         &self,

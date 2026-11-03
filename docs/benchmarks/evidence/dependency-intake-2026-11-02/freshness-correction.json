@@ -1,0 +1,234 @@
+{
+  "status": "passed",
+  "scope": "Dependency freshness gate and reviewed SQLite version declarations only",
+  "parent_head": "9525d1dbbcfbf31df75e8a140752867320530bcc",
+  "hosted_failure": {
+    "job_url": "https://github.com/depsilon/shardloom/actions/runs/41542051039/job/125608393960",
+    "failed_subtests": 6,
+    "cause": "Historical gate still required rusqlite 0.40.2 and libsqlite3-sys 0.38.2 after reviewed graph upgrade."
+  },
+  "correction": {
+    "rusqlite": "0.41.1",
+    "libsqlite3-sys": "0.39.1",
+    "intake_prs": [
+      1153,
+      1636
+    ],
+    "unknown_versions_and_prs_still_blocked": true
+  },
+  "runtime_source_changed": false,
+  "original_acceptance_preserved": "acceptance.json",
+  "tests": {
+    "command": "python scripts/run_python_test_shard.py --shard release_scripts",
+    "elapsed_seconds": 4.649,
+    "error_count": 0,
+    "external_engine_invoked": false,
+    "failure_count": 0,
+    "fallback_attempted": false,
+    "module_count": 1,
+    "modules": [
+      "python.tests.test_release_scripts"
+    ],
+    "schema_version": "shardloom.python_test_shard_evidence.v1",
+    "shard_id": "release_scripts",
+    "skipped_count": 0,
+    "status": "passed",
+    "test_count": 171
+  },
+  "checks": [
+    {
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/run_python_test_shard.py",
+        "--shard",
+        "release_scripts",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/dependency-release-scripts-r2.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo",
+      "query_workload": false,
+      "build_inventory_policy": "periodic",
+      "evidence_inventory_policy": "periodic",
+      "active_output": null,
+      "head": "9525d1dbbcfbf31df75e8a140752867320530bcc",
+      "working_tree": " M docs/dependencies/sqlite-rusqlite-dependency-review.md\n M python/tests/test_release_scripts.py\n M scripts/check_pre_5j_dependency_freshness.py\n",
+      "changed_source_inventory": {
+        "docs/dependencies/sqlite-rusqlite-dependency-review.md": {
+          "sha256": "aea316b9af8f9f473d5d5f35bf638a9eaedb3f491b91d642f4f79f2dcba22034",
+          "bytes": 3297
+        },
+        "python/tests/test_release_scripts.py": {
+          "sha256": "b7c93ca3e41798115192e98c6a8223232941731f5416966c1935ff48787bed1a",
+          "bytes": 437993
+        },
+        "scripts/check_pre_5j_dependency_freshness.py": {
+          "sha256": "8974062b8fa9baf4fe77d05b759c2940662415524e610a7f60256b9ffb1bb3d4",
+          "bytes": 30927
+        }
+      },
+      "driver_sha256": "d49feef74ef45ac622caebc19fc9023d1395dee8cd19108f758144825f1152bb",
+      "environment": {
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 44762734711,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 13215023104,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        },
+        "cargo": {
+          "workspace_bytes": 42674180096,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 13214937088,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        }
+      },
+      "storage_inventory_scopes": [
+        {
+          "scopes": [
+            "output",
+            "cargo"
+          ],
+          "child_started": false,
+          "forced": false
+        },
+        {
+          "scopes": [
+            "output",
+            "cargo"
+          ],
+          "child_started": true,
+          "forced": true
+        }
+      ],
+      "timeout_seconds": 2400,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 4151,
+      "output_bytes": 1103,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 4.897131708217785,
+      "log_sha256": "ecde9aba27c7050f41b795d315f0ba72fb1eeb5b8db203b041e7e30a5791565d"
+    },
+    {
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/check_public_status_docs.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/direct-source-count-2026-10-31/dependency-review-public-status-docs.json"
+      ],
+      "cwd": "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo",
+      "query_workload": false,
+      "build_inventory_policy": "periodic",
+      "evidence_inventory_policy": "periodic",
+      "active_output": null,
+      "head": "9525d1dbbcfbf31df75e8a140752867320530bcc",
+      "working_tree": " M docs/dependencies/sqlite-rusqlite-dependency-review.md\n M python/tests/test_release_scripts.py\n M scripts/check_pre_5j_dependency_freshness.py\n",
+      "changed_source_inventory": {
+        "docs/dependencies/sqlite-rusqlite-dependency-review.md": {
+          "sha256": "aea316b9af8f9f473d5d5f35bf638a9eaedb3f491b91d642f4f79f2dcba22034",
+          "bytes": 3297
+        },
+        "python/tests/test_release_scripts.py": {
+          "sha256": "b7c93ca3e41798115192e98c6a8223232941731f5416966c1935ff48787bed1a",
+          "bytes": 437993
+        },
+        "scripts/check_pre_5j_dependency_freshness.py": {
+          "sha256": "8974062b8fa9baf4fe77d05b759c2940662415524e610a7f60256b9ffb1bb3d4",
+          "bytes": 30927
+        }
+      },
+      "driver_sha256": "d49feef74ef45ac622caebc19fc9023d1395dee8cd19108f758144825f1152bb",
+      "environment": {
+        "CARGO_TARGET_DIR": "/Users/dylan/.cache/shardloom/cargo-target",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CLIPPY_CONF_DIR": null,
+        "SHARDLOOM_PIP_AUDIT_PYTHON": null
+      },
+      "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "storage_last_observation": {
+        "output": {
+          "workspace_bytes": 44762837111,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 13214986240,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        },
+        "cargo": {
+          "workspace_bytes": 42674180096,
+          "log_bytes": 0,
+          "max_log_bytes": 201326592,
+          "free_bytes": 13214961664,
+          "reserved_candidate_bytes": 134217728,
+          "reserved_log_bytes": 0
+        }
+      },
+      "storage_inventory_scopes": [
+        {
+          "scopes": [
+            "output",
+            "cargo"
+          ],
+          "child_started": false,
+          "forced": false
+        },
+        {
+          "scopes": [
+            "output",
+            "cargo"
+          ],
+          "child_started": true,
+          "forced": true
+        }
+      ],
+      "timeout_seconds": 2400,
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "output_limit_bytes": 8388608,
+      "timed_out": false,
+      "interrupted_signal": null,
+      "process_group_drained": true,
+      "direct_child_reaped": true,
+      "pid": 4293,
+      "output_bytes": 106,
+      "group_absence_unproved_at_cleanup": false,
+      "returncode": 0,
+      "seconds": 0.36952554201707244,
+      "log_sha256": "05a4c50bf33b8bbd04423515ccd6996d72a654e02e978f6fe2ff8ffa6d86fdeb"
+    }
+  ],
+  "logs": {
+    "freshness-hosted-failure.log.gz": {
+      "sha256": "e76e472d02c9c56eb02fb569429673b4b9313e345a60220dd422224ce43884e2",
+      "bytes": 7615,
+      "uncompressed_sha256": "33c1cc0e1a42bdfd0c74a30da5e9e9e8efb769f48a7b7c4ec64b7709435fbd99",
+      "uncompressed_bytes": 35151
+    },
+    "freshness-local-passed.log.gz": {
+      "sha256": "0da22ab35963a0654c305de461f69f3723a0d8621d279f0ffc74cc21eb3a880d",
+      "bytes": 401,
+      "uncompressed_sha256": "ecde9aba27c7050f41b795d315f0ba72fb1eeb5b8db203b041e7e30a5791565d",
+      "uncompressed_bytes": 1103
+    }
+  }
+}

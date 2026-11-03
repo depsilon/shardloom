@@ -2,7 +2,7 @@
 
 use super::{Bridge, call0, invalid, python_error, unsupported, unsupported_option_reads};
 use adbc_core::{
-    Optionable, PartitionedResult, Statement,
+    CancelHandle, Optionable, PartitionedResult, Statement,
     error::Result,
     options::{OptionStatement, OptionValue},
 };
@@ -10,14 +10,48 @@ use arrow_array::{RecordBatch, RecordBatchReader};
 use arrow_pyarrow::{FromPyArrow, ToPyArrow};
 use arrow_schema::{ArrowError, Schema, SchemaRef};
 use pyo3::prelude::*;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+// The exporter takes a handle before the first execution. Keep its target in a
+// shared slot so it follows statement reuse without retaining obsolete streams.
+#[derive(Clone, Default)]
+struct StatementCancellation {
+    stream: Arc<Mutex<Option<Bridge>>>,
+}
+
+impl StatementCancellation {
+    fn current(&self) -> Result<Option<Bridge>> {
+        self.stream
+            .lock()
+            .map(|stream| stream.clone())
+            .map_err(|_| invalid("ADBC statement cancellation lock poisoned"))
+    }
+
+    fn replace(&self, stream: Option<Bridge>) -> Result<Option<Bridge>> {
+        self.stream
+            .lock()
+            .map(|mut current| std::mem::replace(&mut *current, stream))
+            .map_err(|_| invalid("ADBC statement cancellation lock poisoned"))
+    }
+}
+
+impl CancelHandle for StatementCancellation {
+    fn try_cancel(&self) -> Result<()> {
+        // Release the slot lock before entering Python: a callback can release
+        // the GIL, and statement execution may need to replace this slot.
+        if let Some(stream) = self.current()? {
+            call0(&stream, "cancel")?;
+        }
+        Ok(())
+    }
+}
 
 pub(super) struct LocalStatement {
     pub(super) bridge: Bridge,
     query: Option<String>,
     prepared: Option<Py<PyAny>>,
     parameters: Option<RecordBatch>,
-    stream: Option<Bridge>,
+    stream: StatementCancellation,
 }
 
 impl LocalStatement {
@@ -27,7 +61,7 @@ impl LocalStatement {
             query: None,
             prepared: None,
             parameters: None,
-            stream: None,
+            stream: StatementCancellation::default(),
         }
     }
     fn prepared(&mut self) -> Result<&Py<PyAny>> {
@@ -39,7 +73,7 @@ impl LocalStatement {
             .ok_or_else(|| invalid("ADBC statement has no prepared SQL"))
     }
     fn stop(&mut self) -> Result<()> {
-        if let Some(stream) = self.stream.take() {
+        if let Some(stream) = self.stream.replace(None)? {
             call0(&stream, "close")?;
         }
         Ok(())
@@ -67,7 +101,7 @@ impl Optionable for LocalStatement {
         if key.as_ref() == "shardloom.execution_report" {
             let stream = self
                 .stream
-                .as_ref()
+                .current()?
                 .ok_or_else(|| invalid("ADBC statement has no completed execution"))?;
             return Python::attach(|py| {
                 let report = stream.bind(py).getattr("report")?;
@@ -139,7 +173,7 @@ impl Statement for LocalStatement {
             Ok((Arc::new(schema), Arc::new(pair.get_item(1)?.unbind())))
         })
         .map_err(python_error)?;
-        self.stream = Some(Arc::clone(&stream));
+        self.stream.replace(Some(Arc::clone(&stream)))?;
         Ok(Box::new(NativeReader {
             schema,
             stream,
@@ -204,11 +238,8 @@ impl Statement for LocalStatement {
     fn set_substrait_plan(&mut self, _plan: impl AsRef<[u8]>) -> Result<()> {
         Err(unsupported("Substrait plan execution"))
     }
-    fn cancel(&mut self) -> Result<()> {
-        if let Some(stream) = &self.stream {
-            call0(stream, "cancel")?;
-        }
-        Ok(())
+    fn get_cancel_handle(&self) -> Box<dyn CancelHandle> {
+        Box::new(self.stream.clone())
     }
 }
 

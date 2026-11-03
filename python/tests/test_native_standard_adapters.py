@@ -223,6 +223,135 @@ class NativeStandardAdapterTests(unittest.TestCase):
         with self.assertRaises(self.manager.Error):
             other.execute_query()
 
+    def test_cancel_handle_tracks_statement_reuse_and_preserves_connection(self):
+        import threading
+        ctx = self.context()
+        ctx.register("streamed", ctx.from_batches(
+            lambda: ([{"id": start + offset} for offset in range(3000)]
+                     for start in range(0, 12_000, 3000)),
+            schema={"id": "int64"}, streaming=True))
+        connection = self.open(ctx)
+        statement = self.statement(connection, "SELECT id FROM streamed")
+        peer = self.statement(connection, "SELECT 9 AS value")
+        statement.cancel()  # The exported handle exists before any stream.
+        for _ in range(2):
+            reader = self.reader(statement)
+            self.addCleanup(reader.close)
+            retained = reader.read_next_batch()
+            errors = []
+            def cancel():
+                try:
+                    statement.cancel()
+                except Exception as error:
+                    errors.append(error)
+            worker = threading.Thread(target=cancel, daemon=True)
+            worker.start()
+            worker.join(timeout=5)
+            self.assertFalse(worker.is_alive(), "ADBC cancellation must not deadlock")
+            self.assertEqual(errors, [])
+            with self.assertRaises(self.pa.ArrowException):
+                reader.read_all()
+            reader.close()
+            self.assertEqual(retained.column(0)[0].as_py(), 0)
+        self.assertEqual(self.reader(peer).read_all().to_pylist(), [{"value": 9}])
+        statement.set_sql_query("SELECT 7 AS value")
+        statement.cancel()  # Resetting SQL detaches the previous stream.
+        self.assertEqual(self.reader(statement).read_all().to_pylist(), [{"value": 7}])
+
+    def test_connection_cancel_handle_preserves_other_context_and_allows_reuse(self):
+        ctx = self.context()
+        ctx.register("streamed", ctx.from_batches(
+            lambda: ([{"id": start + offset} for offset in range(3000)]
+                     for start in range(0, 12_000, 3000)),
+            schema={"id": "int64"}, streaming=True))
+        connection = self.open(ctx)
+        connection.cancel()
+        statement = self.statement(connection, "SELECT id FROM streamed")
+        reader = self.reader(statement)
+        self.addCleanup(reader.close)
+        retained = reader.read_next_batch()
+        other_context = self.context()
+        other_context.register("streamed", other_context.from_batches(
+            lambda: ([{"id": start + offset} for offset in range(3000)]
+                     for start in range(0, 12_000, 3000)),
+            schema={"id": "int64"}, streaming=True))
+        other = self.statement(self.open(other_context), "SELECT id FROM streamed")
+        other_reader = self.reader(other)
+        self.addCleanup(other_reader.close)
+        first = other_reader.read_next_batch()
+        connection.cancel()
+        with self.assertRaises(self.pa.ArrowException):
+            reader.read_all()
+        reader.close()
+        self.assertEqual(retained.column(0)[0].as_py(), 0)
+        remaining = other_reader.read_all()
+        self.assertEqual(first.num_rows + remaining.num_rows, 12_000)
+        self.assertEqual(remaining.column("id")[-1].as_py(), 11_999)
+        statement.set_sql_query("SELECT 8 AS value")
+        self.assertEqual(self.reader(statement).read_all().to_pylist(), [{"value": 8}])
+
+    def test_busy_statement_error_releases_traceback_and_active_reader_on_close(self):
+        ctx = self.context()
+        closed = []
+        def producer():
+            try:
+                for start in range(0, 12_000, 3000):
+                    yield [{"id": start + offset} for offset in range(3000)]
+            finally:
+                closed.append(True)
+        ctx.register("streamed", ctx.from_batches(producer, schema={"id": "int64"}, streaming=True))
+        connection = self.open(ctx)
+        active = self.statement(connection, "SELECT id FROM streamed")
+        rejected = self.statement(connection, "SELECT id FROM streamed")
+        def conflict():
+            reader = self.reader(active)
+            reader.read_next_batch()
+            rejected.execute_query()
+        with self.assertRaisesRegex(self.manager.Error, "incremental consumer"):
+            conflict()
+        # The error traceback owns conflict()'s unclosed Arrow reader. Releasing
+        # it from a later native call must not reenter Python without the GIL.
+        rejected.set_sql_query("SELECT 10 AS value")
+        active.set_sql_query("SELECT 11 AS value")
+        gc.collect()
+        self.assertEqual(closed, [True])
+        self.assertEqual(self.reader(rejected).read_all().to_pylist(), [{"value": 10}])
+
+    def test_unhandled_busy_error_cleans_up_without_native_process_crash(self):
+        import pathlib
+        import subprocess
+        import sys
+        import textwrap
+        script = textwrap.dedent("""
+            import sys, unittest
+            sys.path.insert(0, sys.argv[1])
+            from test_native_standard_adapters import NativeStandardAdapterTests
+            class RejectedOverlap(NativeStandardAdapterTests):
+                def test_overlap(self):
+                    ctx = self.context()
+                    ctx.register("streamed", ctx.from_batches(
+                        lambda: ([{"id": start + offset} for offset in range(3000)]
+                                 for start in range(0, 12000, 3000)),
+                        schema={"id": "int64"}, streaming=True))
+                    connection = self.open(ctx)
+                    active = self.statement(connection, "SELECT id FROM streamed")
+                    rejected = self.statement(connection, "SELECT id FROM streamed")
+                    reader = self.reader(active)
+                    reader.read_next_batch()
+                    self.reader(rejected)
+            suite = unittest.defaultTestLoader.loadTestsFromName("test_overlap", RejectedOverlap)
+            result = unittest.TestResult()
+            suite.run(result)
+            assert len(result.errors) == 1 and not result.failures, result.errors
+            assert "incremental consumer" in result.errors[0][1], result.errors
+            print("rejected overlap and native cleanup completed")
+        """)
+        result = subprocess.run([sys.executable, "-X", "faulthandler", "-c", script,
+                                 str(pathlib.Path(__file__).resolve().parent)],
+                                text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("native cleanup completed", result.stdout)
+
     def test_late_failure_and_early_reader_close_release_producer(self):
         ctx = self.context()
         events = []
