@@ -120,6 +120,13 @@ before scoring. The original cases retain their historical reference results.
 New reference results use a separate SQLite implementation of the declared semantics.
 [Frozen evidence index](evidence/native-expanded-query-2026-11-03/packet/index.json).
 
+The comparison adapter later restricted its whole-right-input summary to
+negative membership, where SQL null and empty-set semantics require it.
+Positive membership uses only a deduplicated key match. This avoids
+duplicating matching rows on older Polars versions that prune the unused
+summary aggregates. The frozen observations retain the original adapter
+identity and independently checked outputs from Polars 2.1.0.
+
 The 2,323 Python SQL, 1,976 CLI SQL, 1,953 embedded workflow, 1,889 typed relation
 and 1,859 DataFrame requests account for the 10,000 native attempts.
 Offline replay checked returned schemas, complete values, ordering under the

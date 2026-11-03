@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import MagicMock
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -219,6 +220,17 @@ class ExpandedNestedTests(unittest.TestCase):
         self.assertEqual(dataframe(node, (Frame("left"), Frame("right")), sl), "membership-frame")
         self.assertEqual(calls["filter"], ("left", ("not", ("in_source", "key", "right", "candidate"))))
         self.assertEqual(calls["select"], ("left", ("row_id", "key", "label")))
+
+    def test_positive_membership_uses_only_the_deduplicated_right_keys(self):
+        outer, inner = membership_sources()
+        node = membership(outer, inner, left_key="key", right_key="candidate", negated=False)
+        left, right, pl = MagicMock(), MagicMock(), MagicMock()
+        pl.len.side_effect = AssertionError("positive membership must not summarize the right input")
+        polars_plan(node, (left, right), pl)
+        right.select.assert_called_once_with(pl.col.return_value)
+        keys = right.select.return_value.unique.return_value.with_columns.return_value
+        left.join.assert_called_once_with(keys, left_on="key", right_on="candidate", how="left")
+        left.join.return_value.join.assert_not_called()
 
     def test_polars_explode_and_membership_match_independent_sql_where_oracle(self):
         try:

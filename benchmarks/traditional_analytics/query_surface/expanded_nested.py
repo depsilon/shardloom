@@ -159,13 +159,13 @@ def polars_plan(node: Relation, children: tuple[object, ...], pl):
     left, right = children
     matched_right = right.select(pl.col(right_key)).unique().with_columns(pl.lit(True).alias("__rhs_match"))
     joined = left.join(matched_right, left_on=left_key, right_on=right_key, how="left")
-    summary = right.select(
-        (pl.len() > 0).alias("__rhs_nonempty"),
-        pl.col(right_key).is_null().any().fill_null(False).alias("__rhs_has_null"),
-    )
-    joined = joined.join(summary, how="cross")
     matched = pl.col("__rhs_match").fill_null(False)
     if negated:
+        summary = right.select(
+            (pl.len() > 0).alias("__rhs_nonempty"),
+            pl.col(right_key).is_null().any().fill_null(False).alias("__rhs_has_null"),
+        )
+        joined = joined.join(summary, how="cross")
         keep = (~pl.col("__rhs_nonempty")) | (
             pl.col(left_key).is_not_null() & ~matched & ~pl.col("__rhs_has_null")
         )
