@@ -104,6 +104,7 @@ fn full_domain_timestamp_nested_compression_certificate_matches_mixed_subtrees()
             let result = context.write_array(
                 &path, &array, false, &decision(composition, &path), "test",
                 &LiveMemoryPool::new(16 << 20).unwrap(),
+                false,
             ).unwrap();
             let inventory = physical_inventory(&context, &path);
             for (field, encoding) in [("mixed", "vortex.constant"), ("other", "vortex.primitive")] {

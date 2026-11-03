@@ -600,21 +600,39 @@ fn collect_valid_primitive(
     Ok(result)
 }
 
+struct PackedVarBinValues {
+    payload: ByteBuffer,
+    frame_byte_starts: Buffer<usize>,
+    n_values: usize,
+    values_per_frame: usize,
+}
+
 #[expect(
     clippy::host_endian_bytes,
     reason = "offsets are native Buffer<usize> storage; serialized value lengths use little endian"
 )]
 fn collect_valid_vbv(
     vbv: &VarBinViewArray,
+    requested_values_per_frame: usize,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<(ByteBuffer, Buffer<usize>)> {
+) -> VortexResult<PackedVarBinValues> {
     let mask = vbv
         .as_ref()
         .validity()?
         .execute_mask(vbv.as_ref().len(), ctx)?;
     let count = mask.true_count();
+    let values_per_frame = if requested_values_per_frame > 0 {
+        requested_values_per_frame.min(count.max(1))
+    } else {
+        count.max(1)
+    };
     if count == 0 {
-        return Ok((Buffer::empty(), Buffer::empty()));
+        return Ok(PackedVarBinValues {
+            payload: Buffer::empty(),
+            frame_byte_starts: Buffer::empty(),
+            n_values: 0,
+            values_per_frame,
+        });
     }
     let views = vbv.views();
     let mut payload_len = 0usize;
@@ -630,7 +648,8 @@ fn collect_valid_vbv(
     }
     let allocator = ctx.host_allocator();
     let mut payload = allocator.allocate(payload_len, Alignment::none())?;
-    let mut offsets = allocator.allocate_typed::<usize>(count)?;
+    let frame_count = count.div_ceil(values_per_frame);
+    let mut offsets = allocator.allocate_typed::<usize>(frame_count)?;
     let bytes = payload.as_mut_slice();
     let index_bytes = offsets.as_mut_slice();
     vortex_ensure!(
@@ -638,37 +657,49 @@ fn collect_valid_vbv(
         "Native Zstd input buffer has incorrect length"
     );
     vortex_ensure!(
-        index_bytes.len() == count * size_of::<usize>(),
+        index_bytes.len() == frame_count * size_of::<usize>(),
         "Native Zstd offset buffer has incorrect length"
     );
     let mut offset = 0usize;
     let mut valid_index = 0usize;
+    let mut frame_index = 0usize;
+    let mut values_left_in_frame = 0usize;
     for (index, view) in views.iter().enumerate() {
         if !mask.value(index) {
             continue;
         }
         let value = compression_value(vbv, view)?;
-        let index_start = valid_index * size_of::<usize>();
-        index_bytes[index_start..index_start + size_of::<usize>()]
-            .copy_from_slice(&offset.to_ne_bytes());
+        if values_left_in_frame == 0 {
+            let index_start = frame_index * size_of::<usize>();
+            index_bytes[index_start..index_start + size_of::<usize>()]
+                .copy_from_slice(&offset.to_ne_bytes());
+            frame_index += 1;
+            values_left_in_frame = values_per_frame;
+        }
         bytes[offset..offset + size_of::<ViewLen>()]
             .copy_from_slice(&ViewLen::try_from(value.len())?.to_le_bytes());
         offset += size_of::<ViewLen>();
         bytes[offset..offset + value.len()].copy_from_slice(value);
         offset += value.len();
         valid_index += 1;
+        values_left_in_frame -= 1;
     }
     vortex_ensure!(
-        offset == payload_len && valid_index == count,
+        offset == payload_len && valid_index == count && frame_index == frame_count,
         "Native Zstd input changed during preparation"
     );
     let payload = payload.freeze();
     let offsets = offsets.freeze_typed::<usize>()?;
     vortex_ensure!(
-        payload.len() == payload_len && offsets.len() == count,
+        payload.len() == payload_len && offsets.len() == frame_count,
         "Native Zstd preparation freeze changed buffer length"
     );
-    Ok((payload, offsets))
+    Ok(PackedVarBinValues {
+        payload,
+        frame_byte_starts: offsets,
+        n_values: count,
+        values_per_frame,
+    })
 }
 
 fn compression_value<'a>(vbv: &'a VarBinViewArray, view: &'a BinaryView) -> VortexResult<&'a [u8]> {
@@ -1499,25 +1530,14 @@ impl ZstdData {
         // this approach is simpler and can be best in cases when there is
         // mutual information between strings and their lengths.
         // We compress only the valid elements.
-        let (value_bytes, value_byte_indices) = collect_valid_vbv(vbv, ctx)?;
-        let n_values = value_byte_indices.len();
-        let values_per_frame = if values_per_frame > 0 {
-            values_per_frame.min(n_values.max(1))
-        } else {
-            n_values.max(1)
-        };
-
+        let packed = collect_valid_vbv(vbv, values_per_frame, ctx)?;
         let allocator = ctx.host_allocator();
-        let frame_byte_starts =
-            compression_offsets(n_values.div_ceil(values_per_frame), &allocator, |index| {
-                Ok(value_byte_indices[index * values_per_frame])
-            })?;
         let storage = Self::compress_values(
-            &value_bytes,
-            &frame_byte_starts,
+            &packed.payload,
+            &packed.frame_byte_starts,
             level,
-            values_per_frame,
-            n_values,
+            packed.values_per_frame,
+            packed.n_values,
             use_dictionary,
             &allocator,
         )?;
@@ -1938,6 +1958,10 @@ impl OperationsVTable<Zstd> for Zstd {
             .execute_scalar(0, ctx)
     }
 }
+
+#[cfg(test)]
+#[path = "frame_index_tests.rs"]
+mod frame_index_tests;
 
 #[cfg(test)]
 #[expect(clippy::cast_possible_truncation)]

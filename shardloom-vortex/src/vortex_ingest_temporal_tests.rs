@@ -243,6 +243,7 @@ fn write_and_verify(
                 &decision,
                 "test",
                 &LiveMemoryPool::new(16 << 20).unwrap(),
+                false,
             )
             .unwrap();
         assert!(
@@ -452,6 +453,7 @@ fn date_only_files_keep_full_domain_minimum_and_maximum_statistics() {
                     &decision,
                     "test",
                     &LiveMemoryPool::new(16 << 20).unwrap(),
+                    false,
                 )
                 .unwrap();
             assert!(

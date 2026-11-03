@@ -2413,7 +2413,7 @@ impl SourceFingerprintPolicy {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct VortexIngestReport {
     request: VortexIngestRequest,
     source: VortexIngestSourceData,
@@ -2426,6 +2426,7 @@ struct VortexIngestReport {
     prepared_olap_publication_millis: u128,
     evidence_render_millis: u128,
     vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
+    committed_artifact: Option<shardloom_vortex::VortexPreparedArtifactReceipt>,
     scout_ingress: shardloom_vortex::VortexScoutIngressReport,
     layout_write_advisor: shardloom_vortex::VortexLayoutWriteAdvisorReport,
     capillary_preparation: shardloom_vortex::VortexCapillaryPreparationReport,
@@ -2435,7 +2436,7 @@ struct VortexIngestReport {
     prepared_olap_state: Option<shardloom_vortex::VortexPreparedOlapStateReport>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 enum VortexIngestOutcome {
     Prepared(Box<VortexIngestReport>),
 }
@@ -3799,6 +3800,8 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
         "vortex_prepared_olap_state_digest",
         "vortex_prepared_olap_state_prepared_artifact_ref",
         "vortex_prepared_olap_state_prepared_artifact_digest",
+        "vortex_prepared_olap_state_artifact_fingerprint_source",
+        "vortex_prepared_olap_state_artifact_fingerprint_payload_bytes_read",
         "vortex_prepared_olap_state_artifact_model",
         "vortex_prepared_olap_state_writer_layout_strategy",
         "vortex_prepared_olap_state_embedded_layout_statistics_contract",
@@ -4077,13 +4080,15 @@ fn run_vortex_ingest_prepare_once_with_schema(
     let mut report =
         run_vortex_ingest_prepare_once_with_adapter(request, source_adapter, source_schema_hints)?;
     let publication_start = Instant::now();
-    report.prepared_olap_state = Some(write_prepared_olap_state_for_report(&report)?);
+    report.request.cancellation.check()?;
+    report.prepared_olap_state = Some(write_prepared_olap_state_for_report(&mut report)?);
+    report.request.cancellation.check()?;
     report.prepared_olap_publication_millis = publication_start.elapsed().as_millis();
     Ok(VortexIngestOutcome::Prepared(Box::new(report)))
 }
 
 fn write_prepared_olap_state_for_report(
-    report: &VortexIngestReport,
+    report: &mut VortexIngestReport,
 ) -> Result<shardloom_vortex::VortexPreparedOlapStateReport, ShardLoomError> {
     let source_row_count = u64::try_from(report.source.row_count).map_err(|_| {
         ShardLoomError::InvalidOperation(
@@ -4122,7 +4127,11 @@ fn write_prepared_olap_state_for_report(
             .preparation_spine
             .native_io_certificate_refs
     ));
-    shardloom_vortex::write_vortex_prepared_olap_state_bundle(request)
+    if let Some(receipt) = report.committed_artifact.take() {
+        shardloom_vortex::write_vortex_prepared_olap_state_bundle_with_receipt(request, receipt)
+    } else {
+        shardloom_vortex::write_vortex_prepared_olap_state_bundle(request)
+    }
 }
 
 fn run_vortex_ingest_prepare_once_without_reuse_with_schema(
@@ -5119,7 +5128,8 @@ fn run_scalar_rows_vortex_prepare(
     .certification_level(request.certification_level)
     .layout_write_advisor(layout_write_advisor.clone())
     .capillary_prewrite_input(prewrite_input);
-    let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+    let (vortex_report, committed_artifact) =
+        shardloom_vortex::write_flat_scalar_vortex_prepared_state_with_receipt(vortex_request)?;
     let layout_write_advisor =
         layout_write_advisor.with_runtime_decision(&vortex_report.layout_write_decision);
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
@@ -5169,6 +5179,7 @@ fn run_scalar_rows_vortex_prepare(
         prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
+        committed_artifact,
         scout_ingress,
         layout_write_advisor,
         capillary_preparation,
@@ -5345,8 +5356,8 @@ fn try_run_schema_declared_text_vortex_prepare(
     vortex_request
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
-    let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
+    let (vortex_report, committed_artifact) =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_receipt(
             vortex_request,
             &request.cancellation,
             request.float_policy,
@@ -5413,6 +5424,7 @@ fn try_run_schema_declared_text_vortex_prepare(
         prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
+        committed_artifact,
         scout_ingress,
         layout_write_advisor,
         capillary_preparation,
@@ -5587,8 +5599,8 @@ fn try_run_inferred_text_vortex_prepare(
     vortex_request
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
-    let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
+    let (vortex_report, committed_artifact) =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_receipt(
             vortex_request,
             &request.cancellation,
             request.float_policy,
@@ -5655,6 +5667,7 @@ fn try_run_inferred_text_vortex_prepare(
         prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
+        committed_artifact,
         scout_ingress,
         layout_write_advisor,
         capillary_preparation,
@@ -5793,8 +5806,8 @@ fn finish_text_streaming_vortex_prepare<
     vortex_request
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
-    let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
+    let (vortex_report, committed_artifact) =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_receipt(
             vortex_request,
             &request.cancellation,
             request.float_policy,
@@ -5861,6 +5874,7 @@ fn finish_text_streaming_vortex_prepare<
         prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
+        committed_artifact,
         scout_ingress,
         layout_write_advisor,
         capillary_preparation,
@@ -5970,8 +5984,8 @@ fn run_columnar_vortex_prepare(
     vortex_request
         .prepared_source_binding
         .clone_from(&request.prepared_source_binding);
-    let vortex_report =
-        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_float_policy(
+    let (vortex_report, committed_artifact) =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state_streaming_with_receipt(
             vortex_request,
             &request.cancellation,
             request.float_policy,
@@ -6038,6 +6052,7 @@ fn run_columnar_vortex_prepare(
         prepared_olap_publication_millis: 0,
         evidence_render_millis,
         vortex_report,
+        committed_artifact,
         scout_ingress,
         layout_write_advisor,
         capillary_preparation,

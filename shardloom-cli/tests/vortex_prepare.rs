@@ -504,6 +504,16 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("prepared_state_created", "true")));
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(stdout.contains(&field("timing_scope", "vortex_ingest_prepare_once")));
+    if cfg!(unix) {
+        assert!(stdout.contains(&field(
+            "vortex_prepared_olap_state_artifact_fingerprint_source",
+            "committed_writer_streaming_sha256"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_prepared_olap_state_artifact_fingerprint_payload_bytes_read",
+            "0"
+        )));
+    }
     assert!(stdout.contains(&field("certification_level", "ingest_certified")));
     assert!(stdout.contains(&field(
         "certification_status",

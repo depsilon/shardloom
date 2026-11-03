@@ -19,6 +19,9 @@ use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+mod committed_artifact;
+pub use committed_artifact::WorkspaceSafeCommittedArtifact;
+
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -1558,7 +1561,62 @@ pub fn write_workspace_safe_bytes_with_validated_producer<T>(
     producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
     validate_before_commit: impl FnOnce(&T) -> Result<()>,
 ) -> Result<(T, WorkspaceSafeLocalWriteReport)> {
-    let operation_label = operation_label.into();
+    let (output, report, _) = write_workspace_safe_validated_outcome(
+        workspace_root.as_ref(),
+        requested_output_path.as_ref(),
+        allow_overwrite,
+        operation_label.into(),
+        producer,
+        validate_before_commit,
+        false,
+    )?;
+    Ok((output, report))
+}
+
+/// Write and validate an artifact while retaining an opaque, single-use checksum
+/// receipt for immediate publication. Existing report fields remain descriptive.
+/// Platforms without admitted descriptor-generation identity return no receipt;
+/// their publication callers must retain independent content fingerprinting.
+///
+/// # Errors
+/// Returns the ordinary workspace-safe producer/validation/commit errors, or
+/// refuses receipt creation when the committed writer generation cannot be proven.
+pub fn write_workspace_safe_bytes_with_validated_producer_receipt<T>(
+    workspace_root: impl AsRef<Path>,
+    requested_output_path: impl AsRef<Path>,
+    allow_overwrite: bool,
+    operation_label: impl Into<String>,
+    producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
+    validate_before_commit: impl FnOnce(&T) -> Result<()>,
+) -> Result<(
+    T,
+    WorkspaceSafeLocalWriteReport,
+    Option<WorkspaceSafeCommittedArtifact>,
+)> {
+    write_workspace_safe_validated_outcome(
+        workspace_root.as_ref(),
+        requested_output_path.as_ref(),
+        allow_overwrite,
+        operation_label.into(),
+        producer,
+        validate_before_commit,
+        true,
+    )
+}
+
+fn write_workspace_safe_validated_outcome<T>(
+    workspace_root: &Path,
+    requested_output_path: &Path,
+    allow_overwrite: bool,
+    operation_label: String,
+    producer: impl FnOnce(&mut WorkspaceSafeLocalStagingWriter) -> Result<T>,
+    validate_before_commit: impl FnOnce(&T) -> Result<()>,
+    retain_committed_artifact: bool,
+) -> Result<(
+    T,
+    WorkspaceSafeLocalWriteReport,
+    Option<WorkspaceSafeCommittedArtifact>,
+)> {
     let plan =
         plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
     let target_before = workspace_output_metadata(&plan.target_path)?;
@@ -1598,9 +1656,27 @@ pub fn write_workspace_safe_bytes_with_validated_producer<T>(
             staging_path.display()
         )));
     }
-    drop(staging_writer);
+    let pending = if retain_committed_artifact {
+        match committed_artifact::PendingCommittedArtifact::from_writer(
+            staging_writer,
+            &plan,
+            &staging_path,
+        ) {
+            Ok(pending) => pending,
+            Err(error) => {
+                let _ = fs::remove_file(&staging_path);
+                return Err(error);
+            }
+        }
+    } else {
+        drop(staging_writer);
+        None
+    };
     let (commit_mode, cleanup_status, rollback_status, overwrite_performed) =
         commit_workspace_safe_staging_file(&plan, &staging_path, target_before.as_ref())?;
+    let committed_artifact = pending
+        .map(committed_artifact::PendingCommittedArtifact::committed)
+        .transpose()?;
 
     Ok((
         producer_output,
@@ -1624,6 +1700,7 @@ pub fn write_workspace_safe_bytes_with_validated_producer<T>(
             fallback_attempted: false,
             external_engine_invoked: false,
         },
+        committed_artifact,
     ))
 }
 

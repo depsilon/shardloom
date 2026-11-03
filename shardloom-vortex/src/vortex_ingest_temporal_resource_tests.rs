@@ -77,6 +77,7 @@ fn full_domain_timestamp_writer_shares_retained_grants_preserves_outputs_and_reu
                         &decision(composition, path),
                         "test",
                         pool,
+                        false,
                     );
                     let Err(error) = result else {
                         panic!("insufficient shared grant must fail");
@@ -103,6 +104,7 @@ fn full_domain_timestamp_writer_shares_retained_grants_preserves_outputs_and_reu
                     &decision(composition, &existing),
                     "test",
                     &memory,
+                    false,
                 )
                 .unwrap();
             assert_reopened(&context, &existing, &array);
@@ -251,6 +253,7 @@ fn full_domain_timestamp_stream_failures_release_owners_and_preserve_previous_ou
                     None,
                     None,
                     &cancellation,
+                    false,
                 );
                 assert_eq!(
                     pulls.load(Ordering::SeqCst),

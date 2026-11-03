@@ -1170,6 +1170,7 @@ fn check_streaming_pipeline_end(grant: usize, end: PipelineEnd, parallel_codec: 
             None,
             runtime.as_ref(),
             &CancellationToken::default(),
+            false,
         );
         drop(drivers);
         let snapshot = memory.pool.snapshot();
