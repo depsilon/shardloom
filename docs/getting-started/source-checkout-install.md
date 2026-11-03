@@ -4,9 +4,10 @@
 
 Status marker: `source_checkout_install_v1=true`.
 
-Use this path to run the current repository revision. For the published
-v1.0.0 packages, see [Package User Install Status](package-user-install.md). Build the CLI and use the Python package
-from the same checkout. This local proof does not establish production readiness,
+Use this path to build the current repository revision. For the published
+v1.1.0 packages, see [Package User Install Status](package-user-install.md). To
+reproduce the accepted 1.1.0 source milestone, check out the `v1.1.0` tag before
+building. Build the CLI and use the Python package from the same checkout. This local proof does not establish production readiness,
 performance superiority, Spark replacement, or broad SQL/DataFrame support.
 
 ## Build
@@ -58,8 +59,10 @@ $env:SHARDLOOM_BIN = "target\debug\shardloom.exe"
 
 ## Optional Native Python Binding
 
-Published 1.0.0 Linux x86_64 and macOS arm64 wheels include `shardloom.native`;
+The Linux x86_64 and macOS ARM64 registry wheels include `shardloom.native`.
 `sl.context(...)` selects native transport on those platforms by default.
+The macOS wheel on PyPI targets macOS 26 and later. The macOS wheel attached
+to the GitHub release targets macOS 27 and later.
 Explicit `transport="native"` remains available. This section builds the
 matching extension from source. An editable Python install alone does not
 compile the extension. Build the extension, CLI
@@ -136,8 +139,8 @@ Local Linux wheels built by the command above retain their host-specific tag.
 The publication workflow separately runs the compatibility audit and installed
 proof for the published `manylinux_2_39_x86_64` wheel. Windows native extension
 execution remains unsupported; its published Python wheel uses the bundled CLI.
-See the [1.0.0 distribution proof](../release/v1.0.0-publication-verification.md)
-for actual platform and interpreter coverage.
+The public release record lists the wheel tags and installed-package checks
+for each platform. [1.1.0 publication verification](../release/v1.1.0-publication-verification.md).
 
 ## Single Local Proof
 

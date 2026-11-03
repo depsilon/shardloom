@@ -30,9 +30,9 @@ standard or another database's dialect compatibility.
 
 Use `ctx.sql_support()` for the installed engine's inspection report. Use plan
 inspection to check a particular expression; inspection is not query execution.
-The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/sql-parser-binder-readiness.md),
-[typed expression contract](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/native-typed-expressions-2026-10-03.md),
-and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v1.0.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
+The [published parser/binder reference](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/sql-parser-binder-readiness.md),
+[typed expression contract](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/native-typed-expressions-2026-10-03.md),
+and [scalar-subquery semantics](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/architecture/native-scalar-subqueries-2026-10-05.md)
 describe supported forms and deterministic rejections.
 
 COUNT, SUM, AVG, MIN, MAX and exact COUNT DISTINCT retain their type/NULL
@@ -40,8 +40,8 @@ semantics. Decimal arithmetic binds exact output metadata before execution.
 Explicit `NULLS FIRST` or `NULLS LAST` controls NULL placement independently of
 ascending/descending ordering. Unsupported expressions fail without another engine.
 
-Development source builds add named scalar parameters and query-local DataFrame
-bindings to `ctx.sql(...)`; these additions are not part of published 1.0.0.
+Published 1.1.0 packages add named scalar parameters and query-local DataFrame
+bindings to `ctx.sql(...)`.
 For example:
 
 ```python
@@ -63,9 +63,8 @@ with sl.context(transport="native", memory_bytes=64 << 20,
 Parameters bind scalar values and `relations` binds lazy plans for this query.
 See the [connected programming reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md#names-parameters-and-schemas)
 for named types, scoping and validation details. The
-[local table snapshot guide](/field-guide/local-tables) covers development-source
-Iceberg, Delta and Hudi source bindings and selectors; those readers are not part
-of published 1.0.0.
+[local table snapshot guide](/field-guide/local-tables) covers the published
+Iceberg, Delta and Hudi reader profiles and their explicit selectors.
 
 ## Deliver the result
 

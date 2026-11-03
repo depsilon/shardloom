@@ -26,9 +26,8 @@ its values.
 `read_csv`, `read_json`, `read_parquet`, and `read_vortex` make the boundary explicit.
 Pass `schema=` when the input needs a declared type contract. See
 [formats and types](/field-guide/runtime-and-io#local-formats).
-Local Iceberg, Delta, and Hudi snapshot readers are development-source additions
-and are not included in published 1.0.0; see the
-[local table snapshot guide](/field-guide/local-tables).
+For a local Iceberg, Delta or Hudi table, select the table format and snapshot
+explicitly. [Local table snapshot guide](/field-guide/local-tables).
 
 For generated data, the context provides `from_rows`, `from_batches`, `range`,
 and `repeat`. Typed batches require a schema; arbitrary Python callbacks are
@@ -36,7 +35,7 @@ not a query execution backend. Resource validation happens before data access.
 
 ## Consume results
 
-| Intent | Published 1.0.0 operation | Result |
+| Intent | Published 1.1.0 operation | Result |
 | --- | --- | --- |
 | Collect a small complete result | `plan.collect()` | `Result` with data and execution details; engine-owned columnar data when using native transport. |
 | Read schema | `result.schema` | Ordered names and logical types, including empty results. |
@@ -46,9 +45,9 @@ not a query execution backend. Resource validation happens before data access.
 | Deliver larger supported results | `plan.iter_batches()` or a writer | Bounded delivery rather than an arbitrary-sized Python tuple. |
 | Inspect execution | `result.details` | Typed execution envelope with diagnostics, source identity and execution details. |
 
-Small computed-result collection is limited to **65,536 rows and 8 MiB** in this
-release. `result_rows` is the wire-oriented row representation; `to_rows()`
-restores logical binary, decimal and temporal values. Neither conversion reruns
+Small computed-result collection is limited to **65,536 rows and 8 MiB** in
+this release. `result_rows` exposes the wire representation. Use `to_rows()`
+to restore logical binary, decimal and temporal values. Neither conversion reruns
 the source. A query memory allocation does not bound consumer-retained Python objects.
 
 `run()` is the compatibility report-oriented operation; it is not a shortcut
@@ -96,11 +95,10 @@ The [first workflow](/field-guide/start-local-proof#write-and-reopen) shows
 `write_json`, and `write_jsonl`. Read their
 [fidelity and publication limits](/field-guide/runtime-and-io#write-results).
 
-## Connected SQL in development source
+## Connected SQL in 1.1.0
 
-Development source builds also support named scalar parameters and query-local
-DataFrame bindings through `ctx.sql(..., parameters=..., relations=...)`. These
-additions are not part of published 1.0.0. Parameters bind scalar values, while
+Published 1.1.0 packages support named scalar parameters and query-local
+DataFrame bindings through `ctx.sql(..., parameters=..., relations=...)`. Parameters bind scalar values, while
 `relations` binds existing lazy plans for that query; neither substitutes SQL
 fragments or identifiers. See the
 [connected SQL and DataFrame reference](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md#names-parameters-and-schemas)

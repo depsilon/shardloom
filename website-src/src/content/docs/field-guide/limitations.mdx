@@ -13,9 +13,10 @@ import CapabilityTable from '../../../components/CapabilityTable.astro';
 
 <PackagePlatforms />
 
-The native wheels contain both the extension and CLI. Windows uses its CLI-backed
-package. A source distribution needs a compatible compiled engine; it is not a
-portable native wheel. See [installation](/field-guide/start-local-proof#install).
+The Linux and macOS native wheels include the Python extension and CLI. The
+Windows x86_64 wheel requires CPython 3.13 and runs the bundled CLI through
+subprocess transport. A source distribution requires a compatible compiled
+engine. [Installation](/field-guide/start-local-proof#install).
 
 ## Runtime limits
 
@@ -38,8 +39,7 @@ is not evidence that an unrelated workload is implemented.
 
 ## External systems
 
-Local files and local Vortex manifests/partitions are the executable data
-boundaries in the published guide. Current source additionally admits
+Published 1.1.0 packages admit local files, Vortex manifests/partitions, and
 [local Iceberg, Delta and Hudi snapshots](/field-guide/local-tables) under precise
 read-only profiles. Remote writes, catalog transactions,
 production object-store services, REST/Flight services and Foundry integration
@@ -61,10 +61,10 @@ performance claim.
 
 ## Extending breadth and volume
 
-Development adds supported operations and types to the same ShardLoom engine. The
-[development and migration page](/field-guide/development) describes the published
-API and how to distinguish later source work. Immutable published packages
-retain their release-time behavior.
+The 1.1.0 package adds supported operations and types to the same ShardLoom
+engine. The [development and migration page](/field-guide/development) describes
+the published API and how to build later source revisions. Each immutable
+package retains the behavior of its release version.
 
 ## Failure behavior
 

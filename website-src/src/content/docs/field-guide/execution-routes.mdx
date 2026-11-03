@@ -32,15 +32,12 @@ separate checks; unsupported work returns an actionable diagnostic.
 
 ## Load and reuse data
 
-In current source, ordinary local queries read the original files through the shared native source
-owner. They do not create or depend on an automatically prepared Vortex copy.
-An explicit source preparation call imports the complete source into a reusable
-Vortex file when persistence is wanted.
+Ordinary local queries read the original files through the shared native reader.
+To persist the source for reuse, call `ctx.prepare_vortex(source, destination)`
+and query the resulting Vortex file.
 
-For [local table sources](/field-guide/local-tables) in current source, the read
-binds an admitted Iceberg, Delta or Hudi snapshot and applies its schema and
-visibility rules. It does not enumerate a table directory as ordinary files.
-Table preparation, catalog access and table commits have separate boundaries.
+For a local Iceberg, Delta or Hudi table, the reader selects a supported snapshot
+and applies its schema and visibility rules. [Local table sources](/field-guide/local-tables).
 
 Source handles and explicit preparation are reused only while the source, schema, and file identities still
 match. Generation checks span reuse and execution, and detected changes fail

@@ -44,6 +44,32 @@ development loop; a focused shared-runtime concern can justify using the existin
 isolated Full43 procedure. This program does not authorize routine repeats,
 cache manipulation, artificial pacing or reruns for presentation alone.
 
+## November 3 expanded campaign
+
+Following 1.1.0 publication, bring the campaign for existing analytical
+capabilities forward ahead of item 19. Freeze a separately versioned corpus
+of **10,000 distinct query cases** including the original 347 and 9,653 new
+declarations. Interface projections, input layouts, scale sentinels and repeated
+observations use those case identities. Preserve the original 347 observations
+and the unimplemented requests alongside the new coverage.
+
+Freeze case identities, input generations, independently calculated expected
+values, ordered schemas, ordering policies, resources, software identities
+and measurement boundaries before either measured run. Execute Polars once
+per case first, then run the declared ShardLoom interfaces. Record a row for
+each incorrect, unsupported, adapter-missing, timed-out or unexecuted case.
+Keep the Polars API and ShardLoom engine clocks separate. Compare matched
+declaration-through-complete-delivery measurements only where both sides
+produce the required typed result.
+
+Use the supplied 5M-row summary to prioritize selective and broad predicates,
+compound grouping, joins, nullable aggregates, ordering, strings and windows.
+The original SQL and input generator are unavailable. Independently specified
+5M-row sentinels must carry their own workload identities. Measure preparation
+separately and inspect where native source, operator and output capabilities
+actually apply across composed plans. Add rich-data-dependent cases when item
+19 supplies the required behavior. The coverage design below still applies.
+
 ## October 30 coverage expansion after item 19
 
 The maintainer schedules the expanded analytical testing/benchmark campaign after

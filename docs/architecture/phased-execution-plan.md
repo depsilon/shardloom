@@ -267,10 +267,19 @@ cannot identify safe shared allocations. Revisit transfer admission when a
 future authorized capture supplies that breakdown and the required backing
 proof. The retained investigation executed zero new workload queries.
 
-Next deliver item 19's rich-data lifecycle, run the expanded analytical
-correctness/benchmark campaign, then complete item 21's Foundry integration.
-Item 22's AI data workflows follow Foundry directly. The version checkpoint
-after item 22 is currently planned as 1.3.0.
+**November 3 publication and query coverage order.** The 1.1.0 technical
+preview completed the GitHub, TestPyPI, PyPI and Homebrew channel sequence.
+[Publication verification](../release/v1.1.0-publication-verification.md).
+
+Next freeze 10,000 distinct analytical cases, including the original 347.
+Run one Polars baseline across that fixed cohort before the ShardLoom pass.
+The existing query harness owns the declarations, independent expectations
+and five ShardLoom interfaces. Record direct input and explicit preparation
+separately. [Campaign contract](native-broad-query-program-2026-10-26.md#november-3-expanded-campaign).
+
+Then deliver item 19's rich-data lifecycle and add cases requiring those
+capabilities. Item 21's Foundry integration leads directly to item 22's AI
+workflows. The post-AI version checkpoint is currently planned as 1.3.0.
 
 **November 2 investigation and measurement sequencing correction:** finish the
 five preparation/query investigations, bring the source/preparation strategy
@@ -523,10 +532,11 @@ with actual adapter admission and complete readback. Its own acceptance remains
 before the 1.1.0 milestone. After item 19, execute the separately versioned
 [expanded analytical testing and benchmarking campaign](native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19)
 using the existing harness, before item 21 Foundry work. The November 2
-maintainer update removes the intermediate version bump after item 21. The order is
+maintainer update removes the intermediate version bump after item 21. The order recorded on November 2 was
 **20 → 18 → 23 → preparation/query and source/preparation strategy investigations → cleanup and final isolated measurement → README/documentation/field-guide/website refresh → 1.1.0 milestone → saved-envelope optimization investigation → 19 → expanded coverage/benchmark acceptance → 21 →
 22 → post-AI version checkpoint (planned 1.3.0)**. The frozen 347 cases and their timing
-history stay unchanged. Targeted correctness and acceptance for current work are
+history stay unchanged. The November 3 campaign decision above brings released
+analytical coverage forward ahead of item 19. Targeted correctness and acceptance for current work are
 not deferred; publication still requires separate authorization.
 
 **November 2 pre-refresh investigation addition:** after the current integration

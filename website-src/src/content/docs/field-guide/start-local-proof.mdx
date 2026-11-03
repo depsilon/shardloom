@@ -37,13 +37,11 @@ On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` instead.
 
 <PackagePlatforms />
 
-The example selects `transport="native"` on Linux or macOS. On the Windows
-package, use `transport="subprocess"`. This changes process isolation, not the
-query engine. The Windows wheel has build and artifact inspection evidence;
-it does not have the Linux/macOS native runtime coverage. The source distribution
-contains no compiled engine; use the [source build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md)
-if no wheel matches your platform. PyPy and other CPU/OS combinations are not
-covered by these wheel tags.
+The Linux and macOS registry wheels select `transport="native"` by default.
+On Windows x86_64 with CPython 3.13, select `transport="subprocess"` to run
+the wheel's bundled CLI. For a source installation, follow the tagged build
+instructions for your platform.
+[Source build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
 <a id="2-bring-a-local-file"></a>
 <a id="3-run-and-inspect"></a>

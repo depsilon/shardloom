@@ -1,6 +1,6 @@
 ---
 title: "Development and migration"
-description: "Distinguish the published package from current source capabilities, and follow API migration and source-build guidance."
+description: "Use the published 1.1.0 package, review its supported boundaries, and follow API migration and source-build guidance."
 pagefind: false
 ---
 
@@ -12,20 +12,26 @@ import { developmentExample } from '../../../data/quickstart.mjs';
 
 ## Published package and source
 
-The lifecycle and `Result` API described here is included in
-[v1.0.0](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.0.0-release-notes.md). Published package availability
-is tracked in the [selected-channel package readiness matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/package-channel-readiness-matrix.md).
+The lifecycle and `Result` API described here remains available in
+[v1.1.0](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/release/v1.1.0-release-notes.md). The separate
+[publication verification](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.1.0-publication-verification.md)
+binds the selected artifacts and per-channel installation proofs.
 For reproducible future source work, pin source commits and follow
 [source installation](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md).
 
-## Current source capabilities
+<span id="current-source-capabilities"></span>
+<span id="published-110-capabilities"></span>
 
-The current checkout is the [1.1.0 source milestone](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.1.0-release-notes.md).
-Published packages remain at 1.0.0. Build matching Python and CLI components
-from one pinned revision with `release-user-surfaces`, and inspect that build's
-capabilities before using a format or operator.
+## Published 1.1.0 capabilities
 
-| Task | Current source support | Boundary to keep explicit |
+The published 1.1.0 package includes the [connected programming model](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md),
+admitted analytical families, shared direct local I/O, adaptive resource
+decisions and read-only Iceberg/Delta/Hudi snapshot profiles. The
+[dated source milestone record](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/release/v1.1.0-release-notes.md)
+lists the operations added in this release. Use `shardloom capabilities --format json`
+to inspect the formats and operators available in your installation.
+
+| Task | Published 1.1.0 support | Boundary to keep explicit |
 | --- | --- | --- |
 | Compose SQL and DataFrames | Named scalar parameters, query-local relations, nested CTE scopes, admitted recursive queries and explicit CTE materialization. | Parameters are values, not SQL text; recursion has declared limits. See [connected programming](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md). |
 | Analyze richer values | Extended numeric/aggregate and temporal/time-series operations share typed native execution. | Each operation has type, overflow, NULL and ordering rules; file adapters retain their own schema profiles. |
@@ -34,7 +40,7 @@ capabilities before using a format or operator.
 | Deliver multiple outputs | One supported `fanout` action computes once and writes its requested destinations. | Final publication is not a multi-file atomic transaction. See [writers](/field-guide/runtime-and-io#write-multiple-results-in-current-source). |
 | Adapt work to available capacity | Source batches, conversion windows, queues, output gathers and native spill blocks use admitted shared headroom. | Physical and semantic minimums remain; reservations are not a total-process memory cap. See [resources](/field-guide/resources#adaptive-work-in-current-source). |
 
-The [five-interface example](https://github.com/depsilon/shardloom/blob/main/examples/source-interfaces/run.py)
+The [five-interface example](https://github.com/depsilon/shardloom/blob/v1.1.0/examples/source-interfaces/run.py)
 creates a small local source, checks complete answers through DataFrame, Python
 SQL, typed native, embedded workflow and CLI SQL, then reopens two outputs and
 an explicitly prepared Vortex input. Run it with a matching native installation
@@ -46,7 +52,7 @@ python examples/source-interfaces/run.py --binary /absolute/path/to/shardloom
 
 It prints the two rows `{"id": 2}` and `{"id": 3}` and a passing status, then
 removes its temporary files. Its resource settings are examples, not workload
-sizing recommendations. The [source acceptance matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md#current-source-additions-after-100)
+sizing recommendations. The [published capability matrix](https://github.com/depsilon/shardloom/blob/main/docs/release/public-status-matrix.md#current-source-additions-after-100)
 links the detailed implementation evidence and remaining limits.
 
 ## API migration
@@ -71,8 +77,8 @@ selected backend. Memory and parallelism remain explicit caller choices.
 
 ## Reuse completed data
 
-This example for the published 1.0.0 API returns the same two rows after the original
-context closes. Native admission retains ShardLoom-owned data without an Arrow
+This example uses the Context/Result API carried forward from 1.0.0 and returns
+the same two rows after the original context closes. Native admission retains ShardLoom-owned data without an Arrow
 or Python-row export. A process-backed context uses typed payload conversion.
 
 <Code code={developmentExample} lang="python" title="context-result.py" />
@@ -98,8 +104,9 @@ atomic publication, or resume interrupted queries. Native structural storage
 admission covers six classes: child caches/classification, cumulative row offsets,
 reader metadata vectors, segment specifications, file statistics tables, and user
 metadata names/locators. See the [v1.0.0 release notes](https://github.com/depsilon/shardloom/blob/main/docs/release/v1.0.0-release-notes.md)
-and its linked acceptance records for exact workloads and limits. Future source
-work is separate; pin source commits for reproducibility.
+and its linked acceptance records for exact workloads and limits. The 1.1.0
+package adds the separately documented connected plans, analytical families,
+local readers and adaptive resource decisions.
 
 ## Roadmap and contributor material
 
