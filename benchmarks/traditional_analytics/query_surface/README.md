@@ -8,7 +8,7 @@ SQL submission as another interface. All candidate computation remains native
 ShardLoom execution over Vortex. Independent reference calculations and the
 optional Polars comparison are benchmark tools only.
 
-The current full catalog contains **366 cases: 347 executable cases and 19
+The original full catalog contains **366 cases: 347 executable cases and 19
 pending requests**, across 79 archetypes and 21 named families. Sixty archetypes
 are executable. The default pairwise catalog contains 147 cases, of which 128
 are executable; selecting its development partition executes 109. The aggregate
@@ -16,6 +16,85 @@ factor space has 240 feasible cells and its deterministic pairwise subset has 21
 Counts are not a completeness claim. A pending adapter can represent an already
 implemented engine capability; a proposed request is neither an executed rejection
 nor a correctness pass.
+
+## Expanded analytical cohort
+
+The separately versioned `analytical-10000-v2` campaign preserves the original
+347 executable identities and their execution order. It adds 9,653 distinct
+requests. Each request has a unique rendered SQL statement with symbolic source
+names. The 19 historical pending declarations remain visible outside that
+denominator. The 104 archetypes include population and multiway joins, nullable
+and distinct reductions, selective predicates, ordered payloads, windows, as-of
+matches, three-valued subqueries, list expansion, shared materialization and
+bounded recursion.
+
+The November 3 maintainer decision admits one Polars observation for each of
+the 10,000 cases before the native pass. Earlier 347-case results keep their
+original comparison contract. The new inputs comprise 8,924 cases on the
+original million-row population, 132 small semantic cases, 880 cases on a
+separately seeded shuffled holdout with 100,003 fact rows, and 64 cases at
+five million rows. Twelve named scale cases cover families from the maintainer's
+5M summary. Their SQL and input data were independently designed for this
+campaign.
+
+`expanded_catalog.py` selects feasible factor cells, covers every declared
+pair plus the specified three-, four- or five-factor intersections, then fills
+the remaining family budgets deterministically. Each case has one primary
+native interface and input route. The recursive and explicitly materialized
+requests use the SQL interfaces. Polars expresses the finite recursive frontier
+as a bounded sequence of lazy relations. The twelve scale cases also receive
+one alternate native execution on Vortex explicitly prepared from their Parquet
+source. Those twelve observations have their own ledger.
+
+### Reproduce the expanded run
+
+Use an empty nonsynced directory and the pinned Polars/PyArrow environment.
+Set `EXPANSION` to that directory, `ORIGINAL` to the retained million-row
+Arrow dataset directory, `PREPARED` to its validated `prepared.json`,
+and `LEGACY` to the frozen 347-case `inputs.json` with its independent
+reference files and Parquet sources available at their recorded paths.
+`BINARY` and `LIBRARY` select the matching ShardLoom CLI and native extension.
+Allocation includes source files, three physical formats, reference data,
+complete observation ledgers and the existing free-space reserve.
+
+```sh
+SUITE=benchmarks/traditional_analytics/query_surface
+python -B "$SUITE/expanded_inputs.py" --root "$EXPANSION" --original "$ORIGINAL"
+python -B "$SUITE/expanded_freeze.py" design --root "$EXPANSION" --legacy "$LEGACY"
+python -B "$SUITE/expanded_freeze.py" inputs --root "$EXPANSION" \
+  --original "$ORIGINAL" --prepared "$PREPARED" --binary "$BINARY" --library "$LIBRARY"
+for profile in smoke holdout scale primary; do
+  python -B "$SUITE/expanded_freeze.py" expectations --root "$EXPANSION" --profile "$profile" || exit 1
+done
+python -B "$SUITE/expanded_freeze.py" seal --root "$EXPANSION"
+python -B "$SUITE/expanded_run.py" polars --root "$EXPANSION" &&
+python -B "$SUITE/expanded_run.py" prepare --root "$EXPANSION" &&
+python -B "$SUITE/expanded_run.py" native --root "$EXPANSION" &&
+python -B "$SUITE/expanded_run.py" alternate --root "$EXPANSION" &&
+python -B "$SUITE/expanded_report.py" --root "$EXPANSION" --output "$EXPANSION/report"
+```
+
+The freeze checks the retained expectations, complete source readbacks, unique
+case and source identities, comparator environment and selected runtime. Pass
+`--runtime-proof` to `seal` when a release staging receipt is available. New
+expected values come from an independent SQLite evaluator over the original
+Arrow values. Its SQL compiler and explicit type, NULL and ordering rules live
+in the benchmark harness. The native and Polars requests each construct their
+own plans and compare their complete results with those expectations.
+
+The native grant is 2 GiB and two threads. Both engines use a fresh supervised
+process per request. Each scored stage checks input and code identities before
+and after execution, journals each attempt before dispatch and retains the
+request, complete result or failure, clocks and process evidence in a compressed
+SQLite ledger. `--resume-unattempted` continues a recovered stage once its
+previous supervisor and process group have exited and its lock is released.
+An interrupted attempt stays visible. A completed stage refuses a second run.
+
+Replay produces per-case receipts, family metrics, a separate comparison for
+the twelve 5M cases and the preparation measurements. The native engine clock
+comes from the runtime report. Cross-engine observations use declaration through
+complete Python-row delivery and report common-source and prepared-Vortex cases
+separately. Every selected case contributes to its family denominator.
 
 ## Responsibilities
 

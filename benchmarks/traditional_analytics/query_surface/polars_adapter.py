@@ -84,6 +84,15 @@ def aggregate(measure, pl):
         value = pl.when(arg.count() > 0).then(arg.sum()).otherwise(None)
     elif measure.function in {"avg", "min", "max"}:
         value = getattr(arg, "mean" if measure.function == "avg" else measure.function)()
+    elif measure.function in {"var_pop", "var_samp", "stddev_pop", "stddev_samp"}:
+        fn = arg.var if measure.function.startswith("var") else arg.std
+        value = fn(ddof=int(measure.function.endswith("samp")))
+    elif measure.function in {"sum_distinct", "avg_distinct"}:
+        distinct = arg.drop_nulls().unique()
+        reduced = distinct.sum() if measure.function == "sum_distinct" else distinct.mean()
+        value = pl.when(arg.count() > 0).then(reduced).otherwise(None)
+    elif measure.function == "median":
+        value = arg.median()
     else:
         raise AdapterGap(f"Polars adapter has no reviewed aggregate: {measure.function}")
     return value.cast(dtype(measure.dtype, pl)).alias(measure.alias)
@@ -128,7 +137,8 @@ def declaration(relation, sources, pl):
         joined = left.join(right, left_on=["left_" + a for a, _ in keys],
             right_on=["right_" + b for _, b in keys], how=kind, nulls_equal=False, coalesce=False)
         return joined.select(*(pl.col(side + "_" + name).alias(alias) for side, name, alias in columns))
-    raise AdapterGap(f"Polars adapter has no reviewed relation: {op}")
+    from .expanded_operators import declare
+    return declare(relation, "polars_plan", inputs, pl)
 
 
 def _without_nullability(value):
@@ -165,7 +175,9 @@ def execute(relation, sources, *, parallelism):
     return TypedResult(schema, rows), {"execution_engine": "polars", "version": pl.__version__,
         "thread_pool_size": pl.thread_pool_size(), "selected_engine": "auto",
         "complete_consumption": True, "execution_mode": "first_query_fresh_session",
-        "input_format": "original_arrow_ipc", "public_declaration": relation.record(),
+        "input_format": ("original_arrow_ipc" if all(source_format(p) == "arrow-ipc"
+                         for name in relation.sources() for p in sources[name]) else "original_parquet"),
+        "public_declaration": relation.record(),
         "logical_plan": plan.explain(optimized=False), "optimized_plan": plan.explain(optimized=True),
         "plan_capture": "after timed complete consumption; no second collect",
         "observed_schema": schema_record(schema),

@@ -200,7 +200,8 @@ def relation_sql(relation: Relation, sources):
                               for side, name, alias in columns)
         on = " AND ".join(f"f.{quoted(a)} = d.{quoted(b)}" for a, b in keys)
         return f"SELECT {projection} FROM ({inputs[0]}) AS f {kind.upper()} JOIN ({inputs[1]}) AS d ON {on}"
-    raise AdapterGap(f"SQL relation adapter is absent: {op}")
+    from .expanded_operators import declare
+    return declare(relation, "sql", inputs)
 
 
 def relation_native(relation: Relation, sources, native):
@@ -242,7 +243,8 @@ def relation_native(relation: Relation, sources, native):
     if op == "join":
         kind = {"semi": "left_semi", "anti": "left_anti"}.get(args[2], args[2])
         return source.join(inputs[1], list(args[0]), list(args[1]), kind=kind)
-    raise AdapterGap(f"typed relation adapter is absent: {op}")
+    from .expanded_operators import declare
+    return declare(relation, "native_plan", inputs, native)
 
 
 def relation_dataframe(relation: Relation, sources, sl, client):
@@ -289,11 +291,12 @@ def relation_dataframe(relation: Relation, sources, sl, client):
         condition = " AND ".join(f"f.{quoted(a)} = d.{quoted(b)}" for a, b in keys)
         return source.join(inputs[1], condition=condition, how=kind).select(*(
             f"{'f' if side == 'left' else 'd'}.{quoted(name)} AS {quoted(alias)}" for side, name, alias in columns))
-    raise AdapterGap(f"DataFrame relation adapter is absent: {op}")
+    from .expanded_operators import declare
+    return declare(relation, "dataframe", inputs, sl)
 
 
 def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
-            parallelism=1, timeout=60):
+            parallelism=1, timeout=60, time_public_request_only=False):
     """Consume one full result. Outer supervisor owns deadlines/process cleanup.
 
     Each call currently measures a fresh public session. Persistent/prepared
@@ -304,9 +307,12 @@ def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
     if surface not in SURFACES:
         raise ValueError("unknown public surface")
     started = time.perf_counter()
-    sql = relation_sql(relation, sources)
-    files = [(str(path), source_format(path), None)
-             for name in sorted(relation.sources()) for path in _paths(sources, name)]
+    submits_sql = surface in {"cli_sql", "embedded_workflow", "python_sql"}
+    sql = relation_sql(relation, sources) if submits_sql or not time_public_request_only else None
+    files = []
+    if not time_public_request_only or surface in {"python_sql", "typed_relation"}:
+        files = [(str(path), source_format(path), None)
+                 for name in sorted(relation.sources()) for path in _paths(sources, name)]
     with ExitStack() as stack:
         if surface in {"dataframe", "cli_sql"}:
             client = sl.ShardLoomClient(binary=str(binary), transport="subprocess" if surface == "cli_sql" else "native",
@@ -342,8 +348,13 @@ def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
             rows, export = result.row_export(temporal_objects=False)
             report = {"fields": fields, "row_export": export}
         from .evidence import no_fallback
+        # The v2 delivery clock ends when the complete public result is in hand.
+        # Preserve the historical v1 clock boundary for callers replaying it.
+        if time_public_request_only:
+            consumed = time.perf_counter()
         no_fallback(fields)
-        consumed = time.perf_counter()
+        if not time_public_request_only:
+            consumed = time.perf_counter()
         clocks = {"setup_and_declaration_seconds": constructed - started,
                   "collect_call_seconds": collected - constructed,
                   "delivery_seconds": consumed - collected,
@@ -353,7 +364,10 @@ def execute(relation, sources, surface, *, native, binary, memory_bytes=1 << 30,
         from query_timing_report import query_phase_timings
         from .diagnostics import extract
         clocks.update(query_phase_timings(fields, consumed - started, allow_missing=True))
+        if sql is None:
+            sql = relation_sql(relation, sources)
         return TypedResult(schema, rows), {"surface": surface, "sql_declaration": sql,
+            "sql_declaration_submitted": submits_sql,
             "public_declaration": relation.record(), "fields": fields, "raw_report": report,
             "clocks": clocks, "execution_mode": "first_query_fresh_session",
             "diagnostics": extract(fields),

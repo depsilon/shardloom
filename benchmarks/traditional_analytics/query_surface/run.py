@@ -56,26 +56,53 @@ def worker(job, prefix, timeout, guard):
     return worker_outcome(receipt, Path(receipt["stdout"]).read_bytes()), receipt
 
 
-def prepare(dataset, manifest, root, logs, args, guard):
+def prepare(dataset, manifest, root, logs, args, guard, *, parquet_sources=None):
     root.mkdir()
     sources, inputs, receipts = {}, [], []
+    physical_sources = {}
+    if parquet_sources is not None:
+        if (not isinstance(parquet_sources, dict)
+                or set(parquet_sources) != set(manifest["tables"])):
+            raise ValueError("Parquet sources must cover exactly the manifest tables")
+        seen, seen_files = set(), set()
+        for table, record in manifest["tables"].items():
+            candidates = parquet_sources[table]
+            if not isinstance(candidates, list) or len(candidates) != len(record["files"]):
+                raise ValueError("Parquet source parts must match the manifest layout")
+            physical_sources[table] = []
+            for candidate in candidates:
+                if not isinstance(candidate, str):
+                    raise ValueError("Parquet sources must be absolute path strings")
+                path = Path(candidate)
+                if (not path.is_absolute() or path.suffix != ".parquet" or path.is_symlink()
+                        or not path.is_file() or str(path) in seen):
+                    raise ValueError("Parquet sources must be unique absolute regular .parquet files")
+                seen.add(str(path))
+                source_identity = identity(path)
+                file_key = (source_identity["generation"]["device"], source_identity["generation"]["inode"])
+                if file_key in seen_files:
+                    raise ValueError("Parquet sources must identify distinct regular files")
+                seen_files.add(file_key)
+                physical_sources[table].append(source_identity)
     for table, record in manifest["tables"].items():
         sources[table] = []
         for index, member in enumerate(record["files"]):
-            source = dataset / member["path"]
+            readback_source = dataset / member["path"]
+            source = Path(physical_sources[table][index]["path"]) if parquet_sources is not None else readback_source
             destination = root / f"{table}-{index:05d}.vortex"
             prefix = logs / f"prepare-{table}-{index:05d}"
             print(json.dumps({"stage": "native_input_preparation", "table": table, "part": index,
                               "rows": member["rows"]}), flush=True)
+            input_format = "parquet" if parquet_sources is not None else "arrow-ipc"
             command = [str(args.binary), "vortex-prepare", str(source), str(destination),
-                       "--input-format", "arrow-ipc", "--memory-gb", str(args.memory_gb),
+                       "--input-format", input_format, "--memory-gb", str(args.memory_gb),
                        "--max-parallelism", str(args.parallelism), "--format", "json"]
             receipt = supervise(command, prefix, args.preparation_timeout, guard)
             envelope = strict_json(Path(receipt["stdout"]).read_text()) if receipt["returncode"] == 0 else {}
             if receipt["guard_failures"]:
                 raise RuntimeError(f"native preparation failed; retained receipt: {prefix}")
             preparation_fields(envelope)
-            readback_job = {"kind": "readback", "source_paths": [str(source)], "native_path": str(destination),
+            readback_job = {"kind": "readback", "source_paths": [str(readback_source)], "native_path": str(destination),
                             "library": str(args.library), "memory_bytes": args.memory_gb << 30, "parallelism": args.parallelism}
             outcome, checked = worker(readback_job, logs / f"readback-{table}-{index:05d}", args.preparation_timeout, guard)
             if outcome["status"] != "passed" or outcome["checked_rows"] != member["rows"]:
@@ -87,6 +114,8 @@ def prepare(dataset, manifest, root, logs, args, guard):
                               "rows": outcome["checked_rows"]}), flush=True)
     record = {"logical_identity": manifest["logical_identity"], "sources": sources, "inputs": inputs,
               "receipts": receipts, "complete_independent_readback": True}
+    if parquet_sources is not None:
+        record["physical_sources"] = physical_sources
     write_json(root / "prepared.json", record)
     return record
 
