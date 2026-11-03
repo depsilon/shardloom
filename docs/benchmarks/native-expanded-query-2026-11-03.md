@@ -141,6 +141,18 @@ report before the RSS guard stopped it. Its supervising receipt recorded a
 3,433,742,336-byte child peak. Those two outcomes remain open.
 [Ranked source admission](../../shardloom-vortex/src/local_primitive_relational_ranked.rs).
 
+Two successful 1M-row prepared group cases differ from the failed group by one
+query factor each. Changing its aggregate argument to `signed_value`, or its
+function to `min`, admitted the native file provider and selected
+`capillary_ordered_topk` after `direct_accessor_general_group_update`.
+The two child peaks were 889.7 MB and 889.3 MB. Their reported native peak
+reservations were 326.5 MB and 325.9 MB. Those measurements identify a
+group-state and process-memory comparison worth tracing at scale. The failed
+5M case provides no final certificate assigning its memory to that owner.
+The case IDs are `v2_single_key_reducer_a56dde8b9bd5d428` and
+`v2_single_key_reducer_75e1579c0df46929`.
+[Per-case native evidence](evidence/native-expanded-query-2026-11-03/cases.jsonl.gz).
+
 ## Preparation
 
 Preparing the 5,000,000-row fact file converted 542,171,434 bytes of Parquet
@@ -160,3 +172,9 @@ route in this observation. All 15 new output parts passed full IPC readback,
 including all five scale tables.
 [Preparation data](evidence/native-expanded-query-2026-11-03/preparation.json) ·
 [Raw CLI receipts in the packet](evidence/native-expanded-query-2026-11-03/packet/index.json).
+
+The checked-in baseline and follow-up replayed with Python's site packages
+disabled. Local verification passed 105 query-surface tests with the pinned
+Polars and native interfaces, 41 release-profile subquery tests and 3,318
+default workspace tests. Formatting and strict workspace Clippy passed.
+[Validation receipts and logs](evidence/native-expanded-query-2026-11-03/validation.json).
