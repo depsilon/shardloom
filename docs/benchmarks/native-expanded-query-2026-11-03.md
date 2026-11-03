@@ -49,6 +49,11 @@ does not isolate the cause of the higher empty and restricted totals.
 [Regression test](../../shardloom-vortex/src/local_primitive_relational_subquery_tests.rs) ·
 [Raw follow-up proof](evidence/native-expanded-query-2026-11-03/membership/proofs.json.xz).
 
+Across all 392 affected requests, the patched engine took 452.098 seconds
+through complete delivery. The same requests took 16.449 seconds in the
+original Polars pass (27.48×). This comparison includes the five recovered
+requests. A patched total for the full 10,000 is unavailable.
+
 ## What ran
 
 The catalog preserves the original 347 executable declarations and adds 9,653.
@@ -89,6 +94,12 @@ The 9,995 successes cover 3,192.078920629 engine seconds. A complete 10,000-case
 native total is unavailable.
 
 ## Matched comparisons
+
+On the 9,995 successful pairs, Polars finished faster 7,333 times and
+ShardLoom finished faster 2,662 times. The complete-delivery sums were
+408.593 seconds for Polars and 3,618.219 for ShardLoom (8.86×).
+Of ShardLoom's wins, 1,583 used the same source format and 1,079 used
+prepared Vortex. Polars finished fastest on all 12 paired 5M-row cases.
 
 Polars reports declaration through complete Python-row delivery. It does not
 expose a separate engine clock in this harness. On the 6,118 successful pairs
