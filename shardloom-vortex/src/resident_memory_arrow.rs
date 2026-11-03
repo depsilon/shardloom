@@ -181,6 +181,7 @@ impl ResidentMemorySource {
             input_logical_bytes,
             intake_payload_bytes_copied: 0,
             intake_columnar_buffer_bytes_copied: counts.copied_buffer_bytes,
+            intake_columnar_copy_reasons: counts.copy_reasons,
             intake_columnar_buffer_bytes_transferred: counts.transferred_buffer_bytes,
             intake_columnar_buffer_regions_transferred: counts.transferred_buffer_regions,
             intake_columnar_allocation_bytes_transferred: counts.transferred_allocation_bytes,

@@ -65,7 +65,7 @@ use shardloom_exec::{
 
 #[path = "vortex_ingest_stage_timing.rs"]
 mod stage_timing;
-pub use stage_timing::VortexIngestStageReport;
+pub use stage_timing::{ArrowCopyReasons, VortexIngestStageReport};
 #[cfg(feature = "vortex-write")]
 use stage_timing::{IngestStageTimings, Stage};
 

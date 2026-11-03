@@ -71,6 +71,7 @@ pub(super) fn source(
         input_logical_bytes,
         intake_payload_bytes_copied: 0,
         intake_columnar_buffer_bytes_copied: 0,
+        intake_columnar_copy_reasons: Default::default(),
         intake_columnar_buffer_bytes_transferred: 0,
         intake_columnar_buffer_regions_transferred: 0,
         intake_columnar_allocation_bytes_transferred: 0,

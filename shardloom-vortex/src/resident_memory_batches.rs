@@ -33,6 +33,7 @@ pub struct MemoryBatchSourceBuilder {
     bytes: usize,
     copied: u64,
     columnar_copied: u64,
+    columnar_copy_reasons: crate::vortex_ingest::ArrowCopyReasons,
     transfer_report: NativeTransferReport,
     cancellation: CancellationToken,
 }
@@ -53,6 +54,7 @@ impl MemoryBatchSourceBuilder {
             bytes: 0,
             copied: 0,
             columnar_copied: 0,
+            columnar_copy_reasons: Default::default(),
             transfer_report: NativeTransferReport::default(),
             cancellation,
         })
@@ -142,7 +144,10 @@ impl MemoryBatchSourceBuilder {
             source.input_logical_bytes(),
             source.intake_payload_bytes_copied(),
             source.intake_columnar_buffer_bytes_copied(),
-        )
+        )?;
+        self.columnar_copy_reasons
+            .merge(source.intake_columnar_copy_reasons());
+        Ok(())
     }
 
     /// Append complete native batches from this same session without transferring
@@ -370,6 +375,7 @@ impl MemoryBatchSourceBuilder {
             input_logical_bytes: self.bytes,
             intake_payload_bytes_copied: self.copied,
             intake_columnar_buffer_bytes_copied: self.columnar_copied,
+            intake_columnar_copy_reasons: self.columnar_copy_reasons,
             // This builder accepts copied public Arrow or already-native
             // results, never the private decoder's single-use intake handle.
             intake_columnar_buffer_bytes_transferred: 0,

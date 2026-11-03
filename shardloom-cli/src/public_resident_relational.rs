@@ -1037,7 +1037,24 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
         ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
     ];
-    for (key, value) in completed {
+    let copy_evidence = (input.intake_columnar_buffer_regions_transferred > 0
+        || !input.intake_columnar_copy_reasons.is_empty())
+    .then(|| {
+        [
+            (
+                "native_input_columnar_copy_reasons",
+                input.intake_columnar_copy_reasons.evidence_json(),
+            ),
+            (
+                "native_input_columnar_copy_reason_scope",
+                shardloom_vortex::vortex_ingest::ArrowCopyReasons::SCOPE.into(),
+            ),
+        ]
+    });
+    for (key, value) in completed
+        .into_iter()
+        .chain(copy_evidence.into_iter().flatten())
+    {
         fields.retain(|(existing, _)| existing != key);
         fields.push((key.into(), value));
     }
