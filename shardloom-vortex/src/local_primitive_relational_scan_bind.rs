@@ -149,36 +149,47 @@ impl Binder<'_> {
                 spec,
                 ..
             } => {
-                // Admission below excludes dynamic bindings. Both batch keys and
-                // guard expressions address logical fields by name. The final
-                // subquery field is synthesized after probing, never scanned.
-                self.charge_named_fields(&spec.fields)?;
-                let marker = spec
-                    .fields
-                    .last()
-                    .ok_or_else(|| failed("missing subquery result field"))?
-                    .clone();
-                let mut columns: BTreeSet<String> = needed
-                    .into_iter()
-                    .filter(|name| *name != marker.0)
-                    .map(str::to_owned)
-                    .chain(spec.left_keys.iter().cloned())
-                    .collect();
-                if let Some(guard) = &spec.guard {
-                    guard.visit_columns(&mut |name| {
-                        columns.insert(name.to_owned());
-                        Ok(())
-                    })?;
-                }
-                self.narrow_source_demand(outer, columns.iter().map(String::as_str))?;
-                self.narrow_source_demand(inner, spec.right_keys.iter().map(String::as_str))?;
-                spec.fields.clone_from(&outer.fields);
-                spec.fields.push(marker);
+                self.narrow_membership_inputs(outer, inner, spec, needed)?;
                 input.fields.clone_from(&spec.fields);
             }
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
         }
+        Ok(())
+    }
+
+    fn narrow_membership_inputs<'name>(
+        &mut self,
+        outer: &mut Node,
+        inner: &mut Node,
+        spec: &mut native::native_relational_subquery::Spec,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        // The caller admits only bound, owned inputs. Both batch keys and
+        // guard expressions address logical fields by name. The final
+        // subquery field is synthesized after probing, never scanned.
+        self.charge_named_fields(&spec.fields)?;
+        let marker = spec
+            .fields
+            .last()
+            .ok_or_else(|| failed("missing subquery result field"))?
+            .clone();
+        let mut columns: BTreeSet<String> = needed
+            .into_iter()
+            .filter(|name| *name != marker.0)
+            .map(str::to_owned)
+            .chain(spec.left_keys.iter().cloned())
+            .collect();
+        if let Some(guard) = &spec.guard {
+            guard.visit_columns(&mut |name| {
+                columns.insert(name.to_owned());
+                Ok(())
+            })?;
+        }
+        self.narrow_source_demand(outer, columns.iter().map(String::as_str))?;
+        self.narrow_source_demand(inner, spec.right_keys.iter().map(String::as_str))?;
+        spec.fields.clone_from(&outer.fields);
+        spec.fields.push(marker);
         Ok(())
     }
 

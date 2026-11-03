@@ -19,13 +19,15 @@ pub(super) fn column_projection(expressions: &[native_relational_expression::Exp
 impl Node {
     /// Direct field selections preserve the producer's value-validation scope.
     pub(super) fn before_column_projections(&self) -> &Self {
-        match &self.kind {
-            NodeKind::Project { input, expressions } if column_projection(expressions) =>
-                input.before_column_projections(),
-            NodeKind::Pipeline { input, stages } if stages.iter().all(|stage| {
-                matches!(&stage.kind, PipelineKind::Project(expressions) if column_projection(expressions))
-            }) => input.before_column_projections(),
-            _ => self,
+        let mut node = self;
+        loop {
+            node = match &node.kind {
+                NodeKind::Project { input, expressions } if column_projection(expressions) => input,
+                NodeKind::Pipeline { input, stages } if stages.iter().all(|stage| {
+                    matches!(&stage.kind, PipelineKind::Project(expressions) if column_projection(expressions))
+                }) => input,
+                _ => return node,
+            };
         }
     }
 }

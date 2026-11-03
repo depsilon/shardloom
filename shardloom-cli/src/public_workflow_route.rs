@@ -13752,7 +13752,7 @@ mod tests {
             "group_output_strategy": "source_order_limited_group_admission_no_sort",
             "group_admission_strategy": "first_k_source_order_groups_then_existing_key_updates",
             "candidate_groups": 10,
-            "peak_buffered_order_candidates": 7,
+            "peak_buffered_order_candidates": 10,
             "retained_candidate_groups": 10,
             "aggregate_key_encoding_mode": "typed_hash_exact",
             "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
@@ -13916,7 +13916,7 @@ mod tests {
                         "first_k_source_order_groups_then_existing_key_updates",
                     ),
                     ("local_primitive_candidate_groups", "10"),
-                    ("local_primitive_peak_buffered_order_candidates", "7"),
+                    ("local_primitive_peak_buffered_order_candidates", "10"),
                     (
                         "local_primitive_aggregate_key_encoding_mode",
                         "typed_hash_exact",
