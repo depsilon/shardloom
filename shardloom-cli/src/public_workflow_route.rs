@@ -13659,6 +13659,28 @@ mod tests {
     }
 
     #[test]
+    fn local_primitive_group_candidate_peak_is_conditional() {
+        for observed in [None, Some(0), Some(62)] {
+            let payload = observed.map_or_else(
+                || serde_json::json!({}),
+                |peak| serde_json::json!({"peak_buffered_order_candidates": peak}),
+            );
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(
+                &mut fields,
+                Some(&payload.to_string()),
+            );
+            let reported = fields
+                .iter()
+                .find(|(k, _)| k == "local_primitive_peak_buffered_order_candidates");
+            assert_eq!(
+                reported.map(|(_, value)| value.clone()),
+                observed.map(|n| n.to_string())
+            );
+        }
+    }
+
+    #[test]
     fn local_primitive_result_summary_lifts_sort_driver_count_and_scope() {
         let scope = "admitted provider drivers, not measured utilization";
         for drivers in [0, 1] {
@@ -13752,7 +13774,6 @@ mod tests {
             "group_output_strategy": "source_order_limited_group_admission_no_sort",
             "group_admission_strategy": "first_k_source_order_groups_then_existing_key_updates",
             "candidate_groups": 10,
-            "peak_buffered_order_candidates": 10,
             "retained_candidate_groups": 10,
             "aggregate_key_encoding_mode": "typed_hash_exact",
             "aggregate_update_strategy": "transformed_dictionary_general_measure_group_update",
@@ -13916,7 +13937,6 @@ mod tests {
                         "first_k_source_order_groups_then_existing_key_updates",
                     ),
                     ("local_primitive_candidate_groups", "10"),
-                    ("local_primitive_peak_buffered_order_candidates", "10"),
                     (
                         "local_primitive_aggregate_key_encoding_mode",
                         "typed_hash_exact",
