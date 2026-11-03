@@ -271,13 +271,16 @@ proof. The retained investigation executed zero new workload queries.
 preview completed the GitHub, TestPyPI, PyPI and Homebrew channel sequence.
 [Publication verification](../release/v1.1.0-publication-verification.md).
 
-Next freeze 10,000 distinct analytical cases, including the original 347.
-Run one Polars baseline across that fixed cohort before the ShardLoom pass.
-The existing query harness owns the declarations, independent expectations
-and five ShardLoom interfaces. Record direct input and explicit preparation
-separately. [Campaign contract](native-broad-query-program-2026-10-26.md#november-3-expanded-campaign).
+The frozen 10,000-case campaign ran Polars first and ShardLoom second.
+Polars passed 10,000 and the release runtime passed 9,995. The native
+membership change recovered all five deadlines in a separate 392-case pass.
+Two additional 5M prepared-source cases remain open. High-cardinality grouping
+reached the memory guard and unfiltered wide top-k reached the deadline.
+The scale preparation receipt locates most elapsed time inside the provider
+encode/write stage. Keep the original results and follow-up denominators
+separate. [Campaign observations](../benchmarks/native-expanded-query-2026-11-03.md).
 
-Then deliver item 19's rich-data lifecycle and add cases requiring those
+Next deliver item 19's rich-data lifecycle and add cases requiring those
 capabilities. Item 21's Foundry integration leads directly to item 22's AI
 workflows. The post-AI version checkpoint is currently planned as 1.3.0.
 

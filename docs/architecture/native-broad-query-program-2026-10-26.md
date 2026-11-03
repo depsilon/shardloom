@@ -46,6 +46,14 @@ cache manipulation, artificial pacing or reruns for presentation alone.
 
 ## November 3 expanded campaign
 
+The first expanded pass is complete. All 10,000 Polars requests and 9,995
+ShardLoom release requests matched their independent expectations. A
+post-release change to native membership recovered all five deadlines and
+passed the complete affected cohort. The separate prepared-Vortex 5M group
+and wide top-k failures remain in the record. The next corpus extension adds
+the capabilities that require item 19.
+[Measurements and controls](../benchmarks/native-expanded-query-2026-11-03.md).
+
 Following 1.1.0 publication, bring the campaign for existing analytical
 capabilities forward ahead of item 19. Freeze a separately versioned corpus
 of **10,000 distinct query cases** including the original 347 and 9,653 new
