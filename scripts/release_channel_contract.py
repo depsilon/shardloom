@@ -21,12 +21,16 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 
 # The JSON field names still include v0_1_0 for schema compatibility. The
 # selected release value itself is the current proof-backed package version.
-SELECTED_PACKAGE_RELEASE_VERSION = "1.0.0"
+SELECTED_PACKAGE_RELEASE_VERSION = "1.1.0"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 # Approved identities observed during the publication train. Keep these keyed
 # by release so advancing the selected version cannot reuse a prior build's
 # source/run binding. PyPI's source adds only the prerequisite proof documents.
 PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
+    "1.1.0": {'testpypi': {'source_commit': '4d11d4e9c2349f0dc63dc27288b432a351c1a962',
+                  'workflow_run_id': 41639185725},
+     'pypi': {'source_commit': 'ee32bf4a810340495f8e71e811437ab413b56986',
+              'workflow_run_id': 41648070335}},
     "1.0.0": {'testpypi': {'source_commit': '99d62ae3d10117720206463a27527a936623d182',
                   'workflow_run_id': 40237652235},
      'pypi': {'source_commit': 'a279efa1a73bc4b09d4fb7a190500069f4d4ce3b',
@@ -87,6 +91,10 @@ PUBLISHED_REGISTRY_BUILD_IDENTITIES = {
     },
 }
 PUBLISHED_REGISTRY_DISTRIBUTIONS = {
+    "1.1.0": ('shardloom-1.1.0-cp310-abi3-macosx_26_0_arm64.whl',
+     'shardloom-1.1.0-cp310-abi3-manylinux_2_39_x86_64.whl',
+     'shardloom-1.1.0-cp313-cp313-win_amd64.whl',
+     'shardloom-1.1.0.tar.gz'),
     "1.0.0": ('shardloom-1.0.0-cp310-abi3-macosx_26_0_arm64.whl',
      'shardloom-1.0.0-cp310-abi3-manylinux_2_39_x86_64.whl',
      'shardloom-1.0.0-cp313-cp313-win_amd64.whl',
@@ -139,6 +147,7 @@ PUBLISHED_REGISTRY_DISTRIBUTIONS = {
 # results/no fallback, and prints the captured JSON result. A new release must
 # approve its own program; arbitrary isolated Python is not execution evidence.
 PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
+    "1.1.0": '3d4697f78b1a7deecb8ca5f9eecb872ac4f5e1acc181b2c54dfc5bd1f2a79544',
     "1.0.0": '9d2edc55b3e67886895155a6ac8abb99e13a4a3e7a1f39a32844b884e1578278',
     "0.7.0": 'c16d31b93d6c53208b4a0c42ab9cf725f1867474c4ce08d417556ea17bc9e273',
     "0.6.0": 'ff03c39a574abf01ed3e7315c9982fa48a0de006332dcda9d1214cc4dfa4ed3b',
@@ -154,6 +163,18 @@ PUBLISHED_REGISTRY_BUNDLED_SMOKE_SHA256 = {
 # command, output, recovery note and lifecycle result, including non-registry
 # channels. Updating a record requires explicit review of a new approved pin.
 PUBLISHED_CHANNEL_TRANSCRIPTS = {
+    "1.1.0": {'github_prerelease': ('github-prerelease',
+                           'shardloom.github_prerelease_channel_proof.v1',
+                           '91ef199b853cc78e02158b6b2c4d51f26919bed30a42975abec4acfd8566f15d'),
+     'testpypi': ('testpypi',
+                  'shardloom.python_registry_package_proof.v1',
+                  '4d9a1dcfd645559e8b803c59794bd6d718b5c9f52226a3e5f42ba7e90fabbd1e'),
+     'pypi': ('pypi',
+              'shardloom.python_registry_package_proof.v1',
+              'a618f1dcd4794c2bad28a5c9bf6a5bf9191f24d27bb53e0a766ed11c8a68b70b'),
+     'homebrew_tap': ('homebrew',
+                      'shardloom.homebrew_channel_proof.v1',
+                      'afcddc79e41c3205e6018b7f9c8403f48af84fa6de211345d7ce82b85159f4f0')},
     "1.0.0": {'github_prerelease': ('github-prerelease',
                            'shardloom.github_prerelease_channel_proof.v1',
                            '1876084688a18fddf6c9c8c0431be5200d17ec4e2a8e279ec235c3e74e3c737a'),
@@ -273,6 +294,8 @@ PUBLISHED_CHANNEL_TRANSCRIPTS = {
 # distributions against the published wheel hashes. Their immutable records bind
 # the extracted CLI hashes/sizes, source inputs, and checksum/SBOM hashes.
 PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
+    "1.1.0": {'testpypi': '591826e934badaefe187d17eafe080dd063b656007b2b31a747bbb6912627969',
+     'pypi': '56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282'},
     "1.0.0": {'testpypi': '76b26756cdc63cc8e902137d61ede5268725613902d96164beeeb5f9fd908463',
      'pypi': '0683b7562ba59fb40594d179a29d45c44fa51c564f9a03ecb55aa5b234505eba'},
     "0.7.0": {'testpypi': 'c7502d915f7fef22602581f2c1aa454b36efdd5dc6df04d4a803f6e245a1a523',
@@ -303,6 +326,8 @@ PUBLISHED_REGISTRY_PROVENANCE_SHA256 = {
 # Approved isolated native load and complete integration programs for ABI3 wheels.
 # Earlier CLI-only releases have no native-module installation claim.
 PUBLISHED_REGISTRY_NATIVE_PROOF_PROGRAM_SHA256 = {
+    "1.1.0": {'IMPORT_CHECK': '648bc5fd7d4bf97209c941ed69f39f198f132d35d820d283120f4f817bcdb445',
+     'RUN_TESTS': 'bf166a2886afac40dde681dd749f4ea8fbd5096d38d618e0050651765e496575'},
     "1.0.0": {'IMPORT_CHECK': '648bc5fd7d4bf97209c941ed69f39f198f132d35d820d283120f4f817bcdb445',
      'RUN_TESTS': '4572a2910b956f8e33a70f7737633a5aa0ac44187df98e6bb2b85f67e4a00015'},
     "0.7.0": {'IMPORT_CHECK': '648bc5fd7d4bf97209c941ed69f39f198f132d35d820d283120f4f817bcdb445',

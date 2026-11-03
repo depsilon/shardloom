@@ -65,11 +65,11 @@ for callable signatures and contributor tooling.
 Plan/capability inspection is not query execution. Writers require explicit
 destinations and follow the [format and write contract](/field-guide/runtime-and-io#write-results).
 
-## Local table bindings in current source
+## Local table bindings in 1.1.0
 
 Use `run sql --source-bindings` to bind an explicit Iceberg, Delta or Hudi table
 and its optional snapshot selector. A table root is not an inferred file format.
 The [table query example](/field-guide/local-tables#query-through-the-cli) shows
-the complete command and admitted reader profiles. The current source CLI's
-`capabilities --format json` exposes their installed availability; the published
-1.0.0 executable does not include these table readers.
+the complete command and admitted reader profiles. The installed
+`capabilities --format json` command reports their availability. Published
+1.1.0 CLI packages include these local table readers within the documented profiles.

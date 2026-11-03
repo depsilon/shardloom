@@ -9,10 +9,10 @@ with `sl.context(...)` and explicit memory and parallelism settings.
 ## Install
 
 <!-- BEGIN SHARDLOOM RELEASE -->
-Published **1.0.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
+Published **1.1.0**. [Install and platform requirements](https://shardloom.io/field-guide/start-local-proof).
 
 ```sh
-python -m pip install shardloom==1.0.0
+python -m pip install shardloom==1.1.0
 ```
 
 - macOS 26 or newer, Apple silicon; CPython 3.10 or newer; native or subprocess.
@@ -71,18 +71,18 @@ writing results, and reopening a data file.
 - [Limitations](https://shardloom.io/field-guide/limitations)
 - [Development](https://shardloom.io/field-guide/development)
 
-## Current source workflows
+## New in 1.1.0
 
-The 1.1.0 source checkout adds named SQL parameters, query-local DataFrame
-bindings, richer temporal/analytical operations, shared direct local readers,
-adaptive work sizing and admitted Iceberg/Delta/Hudi snapshot reads. Use a
-matching source build for these additions; the published 1.0.0 wheel is unchanged.
+Pass named scalar parameters and query-local DataFrames to `ctx.sql(...)`
+with `parameters=` and `relations=`. The same plan can read a local file or
+a supported Iceberg, Delta Lake or Hudi snapshot.
+[SQL and DataFrame composition](https://github.com/depsilon/shardloom/blob/v1.1.0/docs/reference/connected-programming.md) ·
+[Local table snapshots](https://shardloom.io/field-guide/local-tables).
 
-The [connected programming guide](https://github.com/depsilon/shardloom/blob/main/docs/reference/connected-programming.md)
-shows SQL/DataFrame composition. The [local table guide](https://shardloom.io/field-guide/local-tables)
-shows explicit formats and snapshot selectors. A small
-[five-interface example](https://github.com/depsilon/shardloom/blob/main/examples/source-interfaces/run.py)
-checks complete results, explicit preparation and two independently reopened outputs.
+The five-interface example checks the same two ordered rows through each
+interface, then reopens two outputs and an explicitly prepared Vortex file.
+It passes with the installed macOS ARM64 GitHub wheel and its bundled CLI.
+[Run the tagged example](https://github.com/depsilon/shardloom/blob/v1.1.0/examples/source-interfaces/run.py).
 
 <a id="source-only-native-python-api"></a>
 
@@ -95,15 +95,16 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
-## Application batch functions in development source
+## Application batch functions
 
-Post-1.0.0 source builds support explicitly trusted, deterministic, row-preserving
+Published 1.1.0 native Python wheels support explicitly trusted, deterministic, row-preserving
 Python callables through `ctx.batch_functions.register(...)` and
 `frame.map_batches(function)`. Rust callbacks use the same native operator.
 Declare ordered input/output schemas, null behavior, version and resource limits;
 the callable runs only during an action. See the
 [example and ownership contract](https://github.com/depsilon/shardloom/blob/main/docs/reference/application-batch-functions.md).
-This in-process API is separate from plugin loading and stock CLI execution.
+This in-process API requires the Linux or macOS native Python wheel or a
+matching source build.
 
 <a id="package-build-smoke"></a>
 <a id="local-analytics-benchmark"></a>
