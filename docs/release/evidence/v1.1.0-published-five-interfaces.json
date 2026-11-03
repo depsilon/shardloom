@@ -1,0 +1,303 @@
+{
+  "blockers": [],
+  "channel": "github_prerelease",
+  "example": {
+    "generation": [
+      16777233,
+      156172532,
+      5956,
+      1793704582012865797,
+      1793704582012865797
+    ],
+    "path": "/Users/dylan/.codex/worktrees/native-release-110/shardloom-local-repo/examples/source-interfaces/run.py",
+    "resolved": "/Users/dylan/.codex/worktrees/native-release-110/shardloom-local-repo/examples/source-interfaces/run.py",
+    "sha256": "5771a2e2551220e439672a726d668fcad16944416074e9ebdcf3ee41e73b52e8"
+  },
+  "example_result": {
+    "explicit_preparation_readback": true,
+    "interfaces": [
+      "DataFrame",
+      "Python SQL",
+      "typed native",
+      "embedded workflow",
+      "CLI SQL"
+    ],
+    "multi_output_readbacks": 2,
+    "rows": [
+      {
+        "id": 2
+      },
+      {
+        "id": 3
+      }
+    ],
+    "status": "passed"
+  },
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "input_identities": [
+    {
+      "generation": [
+        16777233,
+        89406795,
+        8431,
+        1789246837532150184,
+        1789246837532150184
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    {
+      "generation": [
+        16777233,
+        156177477,
+        16463,
+        1793710650173271939,
+        1793710650173271939
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/release-tools/verify_bundled_registry_110.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.1.0/release-tools/verify_bundled_registry_110.py",
+      "sha256": "938c02c01009f2f37f555d3739e1ec74643477c69e19b81bef78fb0d846eb0b0"
+    },
+    {
+      "generation": [
+        16777233,
+        156415796,
+        55274606,
+        1793710225517906408,
+        1793710225517906408
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234/downloads/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234/downloads/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "sha256": "393a67cd0347c6d9d7df4eb349d0e2133632c6930b59571d235554862f9dbd3c"
+    },
+    {
+      "generation": [
+        16777233,
+        156172532,
+        5956,
+        1793704582012865797,
+        1793704582012865797
+      ],
+      "path": "/Users/dylan/.codex/worktrees/native-release-110/shardloom-local-repo/examples/source-interfaces/run.py",
+      "resolved": "/Users/dylan/.codex/worktrees/native-release-110/shardloom-local-repo/examples/source-interfaces/run.py",
+      "sha256": "5771a2e2551220e439672a726d668fcad16944416074e9ebdcf3ee41e73b52e8"
+    },
+    {
+      "generation": [
+        16777233,
+        156417210,
+        1302452,
+        1793710231384077701,
+        1793710231384077701
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234.json",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234.json",
+      "sha256": "91ef199b853cc78e02158b6b2c4d51f26919bed30a42975abec4acfd8566f15d"
+    },
+    {
+      "generation": [
+        16777233,
+        156422513,
+        3758,
+        1793711233405740350,
+        1793711233405740350
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/release-tools/prove_installed_example.py",
+      "resolved": "/Users/dylan/LocalData/shardloom/release-v1.1.0/release-tools/prove_installed_example.py",
+      "sha256": "c5f64d7a1626b1c40044154c8aee7d13f7641b6f645fee8874f4bfcaaa572fd5"
+    }
+  ],
+  "installed_runtime": {
+    "cli": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom",
+    "cli_sha256": "47cb231ab0734963d71b97571e980ec10dee9345c0aef4e07b452b63ee0b56db",
+    "library": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/lib/python3.13/site-packages/shardloom/_native.abi3.so",
+    "library_sha256": "dd2ebb61c3b9f6f4184d07cdc419af4cfdeaecc9066d50108dc69f3b764e71a4"
+  },
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "proof_directory": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "registry_upload_attempted_by_this_tool": false,
+  "secrets_required": false,
+  "source_commit": "4d11d4e9c2349f0dc63dc27288b432a351c1a962",
+  "steps": [
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-I",
+        "-m",
+        "venv",
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "create_venv",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 89512,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 1.2026102079544216,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/00-create_venv.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/00-create_venv.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234/downloads/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "install",
+      "output_bytes": 239,
+      "output_limit_bytes": 2097152,
+      "pid": 89528,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.5809598341584206,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/01-install.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/01-install.stdout.txt",
+      "stdout_sha256": "da68ad6cd7e2a276152dcc3440732f151bf4059c985c1fc814dffb0affd5f518",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/bin/python",
+        "-I",
+        "-c",
+        "\nimport hashlib, json, sys\nfrom pathlib import Path\nimport shardloom\nfrom shardloom import ShardLoomClient, _native\nassert shardloom.__version__ == _native.__version__ == \"1.1.0\"\nclient = ShardLoomClient()\ntry:\n    binary = Path(client.binary_command()[0]).resolve()\nfinally:\n    client.close()\nlibrary = Path(_native.__file__).resolve()\nassert all(path.is_relative_to(Path(sys.prefix).resolve()) for path in (binary,library,Path(shardloom.__file__).resolve()))\ndef digest(path):\n    with path.open(\"rb\") as stream: return hashlib.file_digest(stream,\"sha256\").hexdigest()\nprint(json.dumps({\"cli\":str(binary),\"library\":str(library),\"cli_sha256\":digest(binary),\"library_sha256\":digest(library)}))\n"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "identify_installed_runtime",
+      "output_bytes": 491,
+      "output_limit_bytes": 2097152,
+      "pid": 89531,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.7226050000172108,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/02-identify_installed_runtime.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/02-identify_installed_runtime.stdout.txt",
+      "stdout_sha256": "e2bf455ce9b67cae639d3480ce8af3750779f4fab1bae8b93d864eb28ba1be88",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/bin/python",
+        "-I",
+        "/Users/dylan/.codex/worktrees/native-release-110/shardloom-local-repo/examples/source-interfaces/run.py",
+        "--binary",
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/lib/python3.13/site-packages/shardloom/bin/macos-aarch64/shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "run_published_example",
+      "output_bytes": 212,
+      "output_limit_bytes": 2097152,
+      "pid": 89534,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.7389384591951966,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/03-run_published_example.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/03-run_published_example.stdout.txt",
+      "stdout_sha256": "b97c3c91c4b9f9fd86902c3badf3c45798151d3b446dc3892a3cb34aec58127d",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/bin/python",
+        "-I",
+        "-m",
+        "pip",
+        "--isolated",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "uninstall",
+      "output_bytes": 118,
+      "output_limit_bytes": 2097152,
+      "pid": 89537,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.2370957499369979,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/04-uninstall.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/04-uninstall.stdout.txt",
+      "stdout_sha256": "7c8e8ce04e6137e77061d311de835802a2b2692fd61cd326b9e3df1a5d60e223",
+      "timed_out": false,
+      "timeout_seconds": 60
+    },
+    {
+      "cleanup_grace_seconds_per_signal": 3.0,
+      "command": [
+        "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/venv/bin/python",
+        "-I",
+        "-c",
+        "import importlib.util; assert importlib.util.find_spec('shardloom') is None"
+      ],
+      "direct_child_reaped": true,
+      "group_absence_unproved_at_cleanup": false,
+      "interrupted_signal": null,
+      "name": "verify_uninstalled",
+      "output_bytes": 0,
+      "output_limit_bytes": 2097152,
+      "pid": 89539,
+      "process_group_drained": true,
+      "returncode": 0,
+      "seconds": 0.037425125017762184,
+      "stderr_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/05-verify_uninstalled.stderr.txt",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/five-interface-github-110-gfoecjc5/05-verify_uninstalled.stdout.txt",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timed_out": false,
+      "timeout_seconds": 60
+    }
+  ],
+  "total_log_limit_bytes": 16777216,
+  "wheel": {
+    "generation": [
+      16777233,
+      156415796,
+      55274606,
+      1793710225517906408,
+      1793710225517906408
+    ],
+    "path": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234/downloads/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "resolved": "/Users/dylan/LocalData/shardloom/release-v1.1.0/github-package-proof-v1.1.0-4d11d4e9c234/downloads/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+    "sha256": "393a67cd0347c6d9d7df4eb349d0e2133632c6930b59571d235554862f9dbd3c"
+  },
+  "whole_run_timeout_seconds": 600
+}

@@ -195,6 +195,25 @@ class RegistryReleaseEvidenceTests(unittest.TestCase):
                 else:
                     self.assertIsNone(evidence.inspect_distribution(path, "python-dist-windows", b"")["native_library"])
 
+    def test_110_rejects_rebound_100_suite_and_linux_audit_counts(self):
+        version = "1.1.0"
+        self.assertEqual(evidence.NATIVE_PROOF_EXPECTATIONS[version], {"tests": 303, "linux_payloads": 290})
+        for field, count, diagnostic in (
+            ("integration", 140, "complete zero-skip"),
+            ("linux_audit", 280, "Linux portability"),
+        ):
+            with self.subTest(field=field):
+                files, distribution, programs = native_fixture(True, package_version=version)
+                report = json.loads(files["proof/report.json"])
+                if field == "integration":
+                    report[field]["tests"] = count
+                    files["proof/integration.json"] = evidence.json_bytes(report[field])
+                else:
+                    report[field]["unchanged_payload_count"] = count
+                files["proof/report.json"] = evidence.json_bytes(report)
+                with self.assertRaisesRegex(ValueError, diagnostic):
+                    evidence.verify_native_proof(files, distribution, programs, package_version=version)
+
     def test_native_install_evidence_requires_exact_wheel_module_suite_logs_and_programs(self):
         for linux in (False, True):
             files, distribution, programs = native_fixture(linux)
