@@ -1,0 +1,132 @@
+{
+  "archive": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/operator-public-pack-r1",
+  "controls": [
+    {
+      "command": [
+        "/opt/homebrew/bin/python3.13",
+        "-B",
+        "-S",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py",
+        "--repo",
+        "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo",
+        "--archive",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/operator-public-pack-controls-fantv1h6/flipped-proof-byte"
+      ],
+      "expected_diagnostic": "archive bytes differ",
+      "matched": true,
+      "name": "flipped-proof-byte",
+      "returncode": 1,
+      "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py\", line 639, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py\", line 189, in main\n    raw_proofs = contents(archive, \"proofs.json.xz\", index[\"files\"][\"proofs.json.xz\"])\n  File \"/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/expanded_membership_replay.py\", line 42, in contents\n    require(len(data) == spec[\"compressed_bytes\"] and sha(data) == spec[\"sha256\"], \"archive bytes differ\")\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/expanded_replay.py\", line 40, in require\n    raise ValueError(message)\nValueError: archive bytes differ\n",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "/opt/homebrew/bin/python3.13",
+        "-B",
+        "-S",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py",
+        "--repo",
+        "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo",
+        "--archive",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/operator-public-pack-controls-fantv1h6/rehashed-result-corruption"
+      ],
+      "expected_diagnostic": "published results differ",
+      "matched": true,
+      "name": "rehashed-result-corruption",
+      "returncode": 1,
+      "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py\", line 639, in <module>\n    main()\n    ~~~~^^\n  File \"/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py\", line 630, in main\n    verify_published_result(archive, index, result, bounded, require, sha, strict_json)\n    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py\", line 21, in verify_published_result\n    require(\n    ~~~~~~~^\n        sha(published) == index[\"result_sha256\"] and strict_json(published) == result,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        \"published results differ\",\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/expanded_replay.py\", line 40, in require\n    raise ValueError(message)\nValueError: published results differ\n",
+      "stdout": ""
+    }
+  ],
+  "format": "shardloom.operator_public_pack_negative_controls.v1",
+  "helper_sha256": "f6849faeb1bda3f45ec68290cfbad891fc6483f7dff352ed0076c2547e4b0a37",
+  "original_archive": {
+    "challenge.sqlite.xz": {
+      "bytes": 11148,
+      "sha256": "12e99eb52fb54814cc619bfcdcca958d04bbff2b632d1ef01e9910a25e5956c2"
+    },
+    "index.json": {
+      "bytes": 14006,
+      "sha256": "12ceedf6cd62dfa45150198a1b93774ac348ee1136e81707ac085545329808bb"
+    },
+    "matched.sqlite.xz": {
+      "bytes": 1176644,
+      "sha256": "a24dc238d2751df8c780a7451eb34b47430561035e5499ba0d3403e6a3414f89"
+    },
+    "owner-alternate.packet.z.xz": {
+      "bytes": 11988,
+      "sha256": "d88758c8ed192ac37e7f5c8087760dad1d53ad5c11252e747edb4d4753f61ec9"
+    },
+    "owner-native.packet.z.xz": {
+      "bytes": 12024,
+      "sha256": "9ed05b4ec13e3d228fcaf2e19115d93912d3aa973c090dacc2920ce4403aae56"
+    },
+    "proofs.json.xz": {
+      "bytes": 401624,
+      "sha256": "5f1a92602ba498d8adc2550bdb1449f5e91923113fc58356d04e74e1b6b81a45"
+    },
+    "results.json": {
+      "bytes": 124419,
+      "sha256": "97fc6670346ce99aa6d070a928b5b50e5ce07a56fe3ffb8008f32166189005b7"
+    },
+    "verify.py": {
+      "bytes": 30431,
+      "sha256": "d20b7a22e305a2e5113fb5449f83b703c5757932dca111ca34e699e447fea3bf"
+    }
+  },
+  "positive_control": {
+    "command": [
+      "/opt/homebrew/bin/python3.13",
+      "-B",
+      "-S",
+      "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py",
+      "--repo",
+      "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo",
+      "--archive",
+      "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/operator-public-pack-controls-fantv1h6/baseline"
+    ],
+    "returncode": 0,
+    "stderr": "",
+    "stdout": "{\"challenge_status\": \"passed\", \"matched\": {\"candidate_case_directions\": {\"higher\": 17, \"lower\": 38}, \"candidate_engine_seconds\": 49.194976546999996, \"complete\": true, \"matched_case_routes\": 55, \"parent_engine_seconds\": 82.718741794}, \"query_executions\": 0, \"verified\": true}\n"
+  },
+  "python_version": "3.13.13",
+  "query_executions": 0,
+  "repo": "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo",
+  "status": "passed",
+  "untouched_archive_after": {
+    "challenge.sqlite.xz": {
+      "bytes": 11148,
+      "sha256": "12e99eb52fb54814cc619bfcdcca958d04bbff2b632d1ef01e9910a25e5956c2"
+    },
+    "index.json": {
+      "bytes": 14006,
+      "sha256": "12ceedf6cd62dfa45150198a1b93774ac348ee1136e81707ac085545329808bb"
+    },
+    "matched.sqlite.xz": {
+      "bytes": 1176644,
+      "sha256": "a24dc238d2751df8c780a7451eb34b47430561035e5499ba0d3403e6a3414f89"
+    },
+    "owner-alternate.packet.z.xz": {
+      "bytes": 11988,
+      "sha256": "d88758c8ed192ac37e7f5c8087760dad1d53ad5c11252e747edb4d4753f61ec9"
+    },
+    "owner-native.packet.z.xz": {
+      "bytes": 12024,
+      "sha256": "9ed05b4ec13e3d228fcaf2e19115d93912d3aa973c090dacc2920ce4403aae56"
+    },
+    "proofs.json.xz": {
+      "bytes": 401624,
+      "sha256": "5f1a92602ba498d8adc2550bdb1449f5e91923113fc58356d04e74e1b6b81a45"
+    },
+    "results.json": {
+      "bytes": 124419,
+      "sha256": "97fc6670346ce99aa6d070a928b5b50e5ce07a56fe3ffb8008f32166189005b7"
+    },
+    "verify.py": {
+      "bytes": 30431,
+      "sha256": "d20b7a22e305a2e5113fb5449f83b703c5757932dca111ca34e699e447fea3bf"
+    }
+  },
+  "verifier": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/verify_operator_pairs.py",
+  "verifier_sha256": "d20b7a22e305a2e5113fb5449f83b703c5757932dca111ca34e699e447fea3bf"
+}

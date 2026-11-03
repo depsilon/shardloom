@@ -110,7 +110,14 @@ python -B benchmarks/traditional_analytics/query_surface/expanded_replay.py \
   --packet "$PACKET/packet" --reports "$PACKET"
 python -B benchmarks/traditional_analytics/query_surface/expanded_membership_replay.py \
   --baseline "$PACKET/packet" --candidate "$PACKET/membership"
+python -B -S benchmarks/traditional_analytics/query_surface/expanded_operator_replay.py \
+  --repo . --archive "$PACKET/operator-investigations"
 ```
+
+The operator replay checks the 55 matched case-route pairs, the separate
+prepared-group challenge, fresh declaration evidence and the unscored
+reservation capture against the original requests. It uses Python's standard
+library and the saved worker packets.
 
 To package a new completed local run, first write its offline report to
 `$EXPANSION/report`, then run `expanded_packet.py --root "$EXPANSION" --output NEW_DIRECTORY`.

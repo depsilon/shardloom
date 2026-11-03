@@ -265,3 +265,8 @@ disabled. Local verification passed 105 query-surface tests with the pinned
 Polars and native interfaces, 41 release-profile subquery tests and 3,318
 default workspace tests. Formatting and strict workspace Clippy passed.
 [Validation receipts and logs](evidence/native-expanded-query-2026-11-03/validation.json).
+
+The subsequent operator investigation compared 55 affected case-route
+requests on matched parent and candidate builds. The separate prepared 5M
+group challenge completed under the original RSS guard.
+[Operator results and remaining gaps](native-expanded-operator-investigations-2026-11-03.md).

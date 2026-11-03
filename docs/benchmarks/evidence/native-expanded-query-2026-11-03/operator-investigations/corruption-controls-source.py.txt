@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Run bounded negative controls against a completed portable operator pack."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import platform
+
+MAX_FILE = 64 << 20
+MAX_TOTAL = 256 << 20
+RECEIPT_NAME = "operator-public-pack-negative-controls.json"
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def snapshot(root):
+    found = {}
+    total = 0
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            raise ValueError("archive contains symlink: " + str(path.relative_to(root)))
+        if path.is_file():
+            size = path.stat().st_size
+            if size > MAX_FILE:
+                raise ValueError("archive file exceeds size cap: " + str(path.relative_to(root)))
+            total += size
+            if total > MAX_TOTAL:
+                raise ValueError("archive exceeds total size cap")
+            found[str(path.relative_to(root))] = {"bytes": size, "sha256": sha(path)}
+    return found
+
+
+def run(verifier, repo, archive):
+    command = [sys.executable, "-B", "-S", str(verifier), "--repo", str(repo), "--archive", str(archive)]
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, timeout=180, check=False, cwd=repo)
+    return command, result.returncode, result.stdout, result.stderr
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive", type=Path, required=True,
+                        help="completed portable archive directory")
+    parser.add_argument("--repo", type=Path, required=True,
+                        help="native-expanded-investigations repository")
+    parser.add_argument("--verifier", type=Path, required=True,
+                        help="trusted local verify_operator_pairs.py, outside copied archive")
+    parser.add_argument("--receipt", type=Path, required=True,
+                        help="new receipt path inside the task output directory")
+    args = parser.parse_args()
+    archive, repo, verifier = (p.resolve(strict=True) for p in (args.archive, args.repo, args.verifier))
+    receipt = args.receipt.resolve()
+    task_output = Path(__file__).resolve().parents[1]
+    if not archive.is_dir() or not repo.is_dir() or not verifier.is_file():
+        parser.error("archive and repo must be directories; verifier must be a file")
+    if verifier.name != "verify_operator_pairs.py" or archive in verifier.parents:
+        parser.error("--verifier must be the trusted local verifier outside copied archive")
+    if receipt.parent != task_output or receipt.name != RECEIPT_NAME:
+        parser.error("--receipt must be the designated exclusive receipt in task output")
+    if receipt.exists():
+        parser.error("receipt already exists; refusing to overwrite")
+    original = snapshot(archive)
+    required = {"index.json", "results.json", "proofs.json.xz", "matched.sqlite.xz",
+                "challenge.sqlite.xz", "verify.py"}
+    if not required.issubset(original):
+        parser.error("archive is incomplete; missing " + ", ".join(sorted(required - original.keys())))
+    if original["verify.py"]["sha256"] != sha(verifier):
+        parser.error("archive verifier differs from explicit trusted verifier")
+    if archive == task_output or archive in task_output.parents:
+        parser.error("archive must be separate from task output")
+
+    record = {"format": "shardloom.operator_public_pack_negative_controls.v1",
+              "query_executions": 0, "archive": str(archive), "repo": str(repo),
+              "verifier": str(verifier), "verifier_sha256": sha(verifier),
+              "helper_sha256": sha(Path(__file__).resolve()), "python_version": platform.python_version(),
+              "original_archive": original, "controls": []}
+    try:
+        with tempfile.TemporaryDirectory(prefix="operator-public-pack-controls-", dir=task_output) as temp:
+            temp = Path(temp)
+            baseline = temp / "baseline"
+            shutil.copytree(archive, baseline)
+            command, code, out, err = run(verifier, repo, baseline)
+            record["positive_control"] = {"command": command, "returncode": code,
+                                           "stdout": out, "stderr": err}
+            if code != 0 or '"verified": true' not in out or '"query_executions": 0' not in out:
+                raise RuntimeError("positive verification failed")
+
+            def rejected(label, expected, mutate):
+                case = temp / label
+                shutil.copytree(archive, case)
+                mutate(case)
+                command, rc, stdout, stderr = run(verifier, repo, case)
+                diagnostic = stdout + stderr
+                passed = rc != 0 and expected in diagnostic
+                record["controls"].append({"name": label, "command": command, "returncode": rc,
+                                           "expected_diagnostic": expected, "matched": passed,
+                                           "stdout": stdout, "stderr": stderr})
+                if not passed:
+                    raise RuntimeError(label + " did not fail with expected diagnostic: " + expected)
+
+            def flip_proofs(case):
+                path = case / "proofs.json.xz"
+                raw = bytearray(path.read_bytes())
+                if not raw:
+                    raise RuntimeError("proofs archive is empty")
+                raw[len(raw) // 2] ^= 1
+                path.write_bytes(raw)
+
+            rejected("flipped-proof-byte", "archive bytes differ", flip_proofs)
+
+            def corrupt_rehashed_results(case):
+                index_path, result_path = case / "index.json", case / "results.json"
+                index = json.loads(index_path.read_text(encoding="utf-8"))
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                original_time = result["matched"]["candidate_engine_seconds"]
+                result["matched"]["candidate_engine_seconds"] = 1.0 if original_time is None else original_time + 1.0
+                result_path.write_text(json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+                index["result_sha256"] = hashlib.sha256(result_path.read_bytes()).hexdigest()
+                index_path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+            rejected("rehashed-result-corruption", "published results differ", corrupt_rehashed_results)
+            record["untouched_archive_after"] = snapshot(archive)
+            if record["untouched_archive_after"] != original:
+                raise RuntimeError("original archive changed during controls")
+            record["status"] = "passed"
+    except Exception as exc:
+        record["status"] = "failed"
+        record["failure"] = f"{type(exc).__name__}: {exc}"
+        try:
+            record["untouched_archive_after"] = snapshot(archive)
+            record["original_archive_unchanged"] = record["untouched_archive_after"] == original
+        except Exception as snapshot_error:
+            record["archive_snapshot_error"] = f"{type(snapshot_error).__name__}: {snapshot_error}"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = os.open(receipt, flags, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        json.dump(record, stream, indent=2, sort_keys=True, allow_nan=False)
+        stream.write("\n")
+    print(json.dumps({"status": record["status"], "receipt": str(receipt),
+                      "query_executions": 0}, sort_keys=True))
+    return 0 if record["status"] == "passed" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

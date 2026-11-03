@@ -50,7 +50,11 @@ The first expanded pass is complete. All 10,000 Polars requests and 9,995
 ShardLoom release requests matched their independent expectations. A
 post-release change to native membership recovered all five deadlines and
 passed the complete affected cohort. The separate prepared-Vortex 5M group
-and wide top-k failures remain in the record. The next corpus extension adds
+and wide top-k failures remain in the record. A later candidate recovered the
+prepared group and lowered engine time across 55 matched requests. The wide
+top-k deadline remains open.
+[Operator investigation](../benchmarks/native-expanded-operator-investigations-2026-11-03.md).
+The next corpus extension adds
 the capabilities that require item 19.
 [Measurements and controls](../benchmarks/native-expanded-query-2026-11-03.md).
 
