@@ -54,6 +54,12 @@ and wide top-k failures remain in the record. The next corpus extension adds
 the capabilities that require item 19.
 [Measurements and controls](../benchmarks/native-expanded-query-2026-11-03.md).
 
+The November 3 follow-up keeps the 10,000 Polars observations as the permanent
+baseline for this corpus. Both full measured passes are closed. Further
+investigation uses the saved case IDs, complete worker output, preparation
+receipts and native follow-up evidence. The commands in the harness guide
+document the original experiment. Routine validation uses offline replay.
+
 Following 1.1.0 publication, bring the campaign for existing analytical
 capabilities forward ahead of item 19. Freeze a separately versioned corpus
 of **10,000 distinct query cases** including the original 347 and 9,653 new

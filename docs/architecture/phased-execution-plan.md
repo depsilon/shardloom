@@ -280,6 +280,12 @@ The scale preparation receipt locates most elapsed time inside the provider
 encode/write stage. Keep the original results and follow-up denominators
 separate. [Campaign observations](../benchmarks/native-expanded-query-2026-11-03.md).
 
+The maintainer closed both full-suite runs on November 3. The saved Polars
+pass is the standing comparison baseline. Use the existing packets for
+investigations and keep the full ShardLoom cohort parked. Assess a concrete
+native change against its affected cases and controls when independently
+justified.
+
 Next deliver item 19's rich-data lifecycle and add cases requiring those
 capabilities. Item 21's Foundry integration leads directly to item 22's AI
 workflows. The post-AI version checkpoint is currently planned as 1.3.0.

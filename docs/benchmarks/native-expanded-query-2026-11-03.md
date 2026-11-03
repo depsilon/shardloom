@@ -11,6 +11,44 @@ membership archetypes account for **1,373.841091356 engine seconds** across
 [Family metrics](evidence/native-expanded-query-2026-11-03/metrics.json) ·
 [Case table](evidence/native-expanded-query-2026-11-03/cases.jsonl.gz).
 
+## Working from a case ID
+
+Both measured passes are closed. The captured Polars results are the standing
+comparison baseline. The case table has one row per frozen request with
+family, archetype, input profile, public interface, physical formats, result
+status, clocks and selected work counters.
+
+For a deeper investigation, the following command reads the exact recorded
+worker response for a case from this checkout. The example selects the 1M
+prepared group that counted `signed_value`. Choose `polars`, `native` or
+`alternate` for the lane. The alternate lane exists on the twelve 5M
+surrogates. A guard-stopped attempt can have empty stdout, in which case
+the command prints its supervision record.
+
+```sh
+python3 - v2_single_key_reducer_a56dde8b9bd5d428 native <<'PY'
+import gzip, json, lzma, sys
+from pathlib import Path
+
+root = Path("docs/benchmarks/evidence/native-expanded-query-2026-11-03")
+case_id, lane = sys.argv[1:]
+with gzip.open(root / "cases.jsonl.gz", "rt") as cases:
+    seq = next(i for i, line in enumerate(cases) if json.loads(line)["id"] == case_id)
+part, offset = divmod(seq, 250)
+with lzma.open(root / "packet" / f"cases-{part:04d}.jsonl.xz", "rt") as stream:
+    row = next(json.loads(line) for i, line in enumerate(stream) if i == offset)
+assert row["seq"] == seq and row["id"] == case_id
+packet = row[lane]["packet"]
+stdout = packet["files"]["one.stdout.json"]["utf8"]
+print(stdout or json.dumps(packet["supervision"], indent=2))
+PY
+```
+
+The same packet contains the complete `one.job.json`, stderr and child timing.
+The independent typed expectation is in `row["expected"]["value"]`. The
+offline verifier validates their hashes and rechecks the results.
+[Reproduction and replay](../../benchmarks/traditional_analytics/query_surface/README.md#reproduce-the-expanded-run).
+
 ## Membership follow-up
 
 The post-release change passed **392 of 392** requests from the two affected
