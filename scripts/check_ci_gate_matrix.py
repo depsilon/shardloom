@@ -281,6 +281,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         job_id="python-tests",
         commands=(
             "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
+            "python -B -m unittest discover -s scripts -p test_native_saved_operations.py -v",
             "python -B -m unittest discover -s scripts -p test_local_io_packet.py -v",
             "python -B scripts/verify_local_io_packet.py docs/benchmarks/evidence/native-local-io-portable-2026-11-03",
             "python scripts/merge_python_test_shard_evidence.py",

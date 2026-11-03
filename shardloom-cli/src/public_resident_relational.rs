@@ -930,18 +930,35 @@ pub(super) fn append_execution(
         fields.push((key, value));
     }
     append_batch_input(fields, result);
-    append_table_snapshots(fields, result);
+    append_structured_batch_fields(fields, result);
 }
 
-fn append_table_snapshots(fields: &mut Vec<(String, String)>, result: &ExecutedVortexRelational) {
+fn append_structured_batch_fields(
+    fields: &mut Vec<(String, String)>,
+    result: &ExecutedVortexRelational,
+) {
     if let Some(input) = &result.input {
-        let key = "native_source_table_snapshots";
-        fields.retain(|(existing, _)| existing != key);
+        const SNAPSHOTS: &str = "native_source_table_snapshots";
+        const REASONS: &str = "native_input_columnar_copy_reasons";
+        const SCOPE: &str = "native_input_columnar_copy_reason_scope";
+        fields.retain(|(key, _)| !matches!(key.as_str(), SNAPSHOTS | REASONS | SCOPE));
         fields.push((
-            key.into(),
+            SNAPSHOTS.into(),
             serde_json::to_string(&input.table_snapshots)
                 .expect("table snapshot evidence is serializable"),
         ));
+        if input.intake_columnar_buffer_regions_transferred > 0
+            || !input.intake_columnar_copy_reasons.is_empty()
+        {
+            fields.push((
+                REASONS.into(),
+                input.intake_columnar_copy_reasons.evidence_json(),
+            ));
+            fields.push((
+                SCOPE.into(),
+                shardloom_vortex::vortex_ingest::ArrowCopyReasons::SCOPE.into(),
+            ));
+        }
     }
 }
 

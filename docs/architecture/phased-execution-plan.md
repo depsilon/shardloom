@@ -259,12 +259,13 @@ portable packet. The original performance screens and scoped maintainer
 decisions accompany their measured runtimes. Hosted integration gates the
 milestone. [Source acceptance](../release/v1.1.0-release-notes.md).
 
-Immediately after 1.1.0, complete the [saved-envelope optimization investigation](native-post-110-optimization-investigation-2026-11-03.md).
-Normalize full retained outcomes, rank source-to-operator capability continuity,
-residual copies, selected payload reads, preparation stages and worker
-coordination, then fill only attribution gaps that change a decision. Select
-a mechanism only when eligible work, cost and complete-workflow acceptance
-are established. The first pass uses saved evidence and runs no new queries.
+Immediately after 1.1.0, the [saved-envelope optimization investigation](native-post-110-optimization-investigation-2026-11-03.md)
+replayed 406 operations and ranked the five shared components. Its selected
+measurement reports the first failed Arrow transfer proof, region count and
+visible bytes at preparation and query intake. The historical envelopes
+cannot identify safe shared allocations. Revisit transfer admission when a
+future authorized capture supplies that breakdown and the required backing
+proof. The retained investigation executed zero new workload queries.
 
 Next deliver item 19's rich-data lifecycle, run the expanded analytical
 correctness/benchmark campaign, then complete item 21's Foundry integration.

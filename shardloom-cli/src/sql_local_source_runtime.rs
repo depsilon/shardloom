@@ -3857,9 +3857,7 @@ fn public_workflow_preparation_fields(raw_fields: &[(String, String)]) -> Vec<(S
     }
     // Derive the allowlist from the typed report, but forward only observed
     // fields. A route without instrumentation must not manufacture zero work.
-    for (key, _) in
-        shardloom_vortex::vortex_ingest::VortexIngestStageReport::default().evidence_fields()
-    {
+    for key in shardloom_vortex::vortex_ingest::VortexIngestStageReport::evidence_field_names() {
         if let Some(value) = raw_map.get(key.as_str()) {
             selected.push((
                 format!("public_workflow_preparation_{key}"),
