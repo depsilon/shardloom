@@ -292,7 +292,6 @@ fn typed_payload_validation_checks_discarded_rows_before_ordering_keys() {
             ),
         ]);
         let spec = Spec {
-            retained: None,
             fields: fields(&array),
             keys: vec![VortexRelationalOrderKey {
                 column: ColumnRef::new("key").unwrap(),
@@ -332,7 +331,6 @@ fn typed_payload_validation_does_not_allocate_numeric_scratch_and_cancels_in_ord
             owner.validity(),
             &context.native_session().host_allocator(),
             shardloom_core::FloatPolicy::Strict,
-            |_| true,
             || {
                 checks += 1;
                 context.check_cancelled()
@@ -348,7 +346,6 @@ fn typed_payload_validation_does_not_allocate_numeric_scratch_and_cancels_in_ord
             owner.validity(),
             &context.native_session().host_allocator(),
             shardloom_core::FloatPolicy::Strict,
-            |_| true,
             || {
                 checks += 1;
                 if checks == 2 {

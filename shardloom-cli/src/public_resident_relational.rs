@@ -25,8 +25,8 @@ mod batches;
 mod sources;
 pub(super) use batches::run as run_batches;
 pub(super) use sources::{
-    has_file_collection, prepare_declared_in_session, prepare_in_session,
-    prepare_in_session_with_reuse, prepare_native_in_session, prepare_primitive_in_session,
+    has_file_collection, prepare_in_session, prepare_in_session_with_reuse,
+    prepare_native_in_session, prepare_primitive_in_session,
 };
 
 pub(super) struct PreparedPublicRelational {

@@ -27,7 +27,7 @@ use vortex::{
 
 pub(super) fn copy(
     source: &ArrayRef,
-    rows: super::Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,
@@ -71,7 +71,7 @@ pub(super) fn copy(
 /// movement preserves storage without evaluating an unobserved measure.
 pub(super) fn decimal<const RETAIN: bool>(
     source: Option<&ArrayRef>,
-    rows: super::Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
@@ -80,7 +80,7 @@ pub(super) fn decimal<const RETAIN: bool>(
     let mut execution = context.native_session().create_execution_ctx();
     decimal_with::<RETAIN>(
         source,
-        rows.iter(),
+        rows.iter().copied(),
         dtype,
         policy,
         &mut DecimalWork {
@@ -325,7 +325,7 @@ fn copy_buffers(
     source: &ArrayRef,
     bytes: &ByteBuffer,
     stride: usize,
-    rows: super::Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,

@@ -5,9 +5,6 @@ use super::super::{ArrayRef, Expression, NativeExecutionContext};
 use super::{Function, KeyColumn, Result, Value, growth, output, vortex_error};
 use std::borrow::Cow;
 
-#[path = "native_relational_scalar_dictionary.rs"]
-mod dictionary;
-
 #[cfg(test)]
 #[path = "native_relational_scalar_batch_tests.rs"]
 mod tests;
@@ -35,9 +32,6 @@ impl Function {
         super::super::super::native_relational_observation::record(|counts| {
             counts.expression_prepared_utf8_batches += 1;
         });
-        if let Some(output) = dictionary::evaluate(self, expression, values, rows, context)? {
-            return Ok(Some(output));
-        }
         let mut scratch = context.memory().reserve(0)?;
         macro_rules! build {
             ($row:ident, $text:ident, $value:expr) => {

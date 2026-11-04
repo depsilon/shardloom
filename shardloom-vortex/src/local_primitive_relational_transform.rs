@@ -250,7 +250,7 @@ impl PreparedVortexRelational {
                 parameter,
                 &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
             )?;
-            return sort.finish_prefix(context, batch_rows, *output_prefix, consume);
+            return sort.finish(context, batch_rows, consume);
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)? {
@@ -306,10 +306,11 @@ impl PreparedVortexRelational {
 }
 
 fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> bool {
-    if validated_output_payload(input) {
-        return true;
-    }
     match &input.before_column_projections().kind {
+        // These non-spilling owners validate every emitted payload before the
+        // consumer sees it. Aggregate keys and join output share native gather;
+        // computed aggregate/window values use the checked result builders.
+        NodeKind::Window { .. } | NodeKind::Aggregate { .. } | NodeKind::Join { .. } => true,
         // There is no payload-only field here. The original sort already
         // requires every integer key from every row. StreamingPrefix checks
         // the complete record and takes independent ownership before pruning.
@@ -320,33 +321,6 @@ fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> b
             matches!(dtype, vortex::array::dtype::DType::Primitive(ptype, _) if ptype.is_int())
                 && spec.names.contains(name)
         }),
-        _ => false,
-    }
-}
-
-fn validated_output_payload(input: &Node) -> bool {
-    match &input.kind {
-        // These owners validate gathered payloads and computed results before
-        // delivery. A direct projection preserves exactly that proof.
-        NodeKind::Window { .. } | NodeKind::Aggregate { .. } | NodeKind::Join { .. } => true,
-        NodeKind::Project { input, expressions } => {
-            let input_validated = validated_output_payload(input);
-            expressions
-                .iter()
-                .all(|expression| expression.validates_output_payload(input_validated))
-        }
-        NodeKind::Pipeline { input, stages } => {
-            let mut validated = validated_output_payload(input);
-            for stage in stages {
-                let PipelineKind::Project(expressions) = &stage.kind else {
-                    return false;
-                };
-                validated = expressions
-                    .iter()
-                    .all(|expression| expression.validates_output_payload(validated));
-            }
-            validated
-        }
         _ => false,
     }
 }

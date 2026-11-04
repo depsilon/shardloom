@@ -332,55 +332,6 @@ pub fn prepare_sql_operation(
     spill: Option<&str>,
     cancellation: &CancellationToken,
 ) -> Result<PreparedNativeOperation> {
-    prepare_sql_operation_inner(
-        statement,
-        None,
-        resources,
-        session,
-        bindings,
-        spill,
-        cancellation,
-    )
-}
-
-/// Prepare ordinary SQL with its retained declaration, preserving complete-
-/// statement provider selection. Syntax is reused only for the exact unbound
-/// statement after normalization; each action still admits its current sources
-/// and resources. A changed statement follows the ordinary declaration path.
-/// # Errors
-/// Returns the same SQL, source, resource and provider errors as
-/// [`prepare_sql_operation`]. No execution error retries another provider.
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-pub fn prepare_declared_sql_operation(
-    statement: &str,
-    declaration: &NativeRelationDeclaration,
-    resources: ExecutionResources,
-    session: &ResidentVortexSession,
-    bindings: &[SqlSourceBinding],
-    spill: Option<&str>,
-    cancellation: &CancellationToken,
-) -> Result<PreparedNativeOperation> {
-    prepare_sql_operation_inner(
-        statement,
-        Some(declaration),
-        resources,
-        session,
-        bindings,
-        spill,
-        cancellation,
-    )
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn prepare_sql_operation_inner(
-    statement: &str,
-    declaration: Option<&NativeRelationDeclaration>,
-    resources: ExecutionResources,
-    session: &ResidentVortexSession,
-    bindings: &[SqlSourceBinding],
-    spill: Option<&str>,
-    cancellation: &CancellationToken,
-) -> Result<PreparedNativeOperation> {
     cancellation.check()?;
     validate_sql_spill(spill, resources)?;
     shardloom_vortex::local_primitives::prepared_relational::validate_session_policy(
@@ -397,9 +348,8 @@ fn prepare_sql_operation_inner(
         }
     }
     let request = sql_request(statement, resources, bindings, spill)?;
-    let (operation, reusable) = resident_relational::prepare_declared_in_session(
+    let (operation, reusable) = resident_relational::prepare_in_session_with_reuse(
         statement,
-        declaration,
         &request,
         session,
         |schemas| register_sources(schemas, bindings, cancellation),

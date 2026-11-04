@@ -13,23 +13,19 @@ use std::{cell::RefCell, rc::Rc};
 #[path = "local_primitive_relational_batch_order_recovery_tests.rs"]
 mod recovery_tests;
 
-fn repeated_rows(count: usize) -> Vec<Row> {
-    fixture_rows()
+#[test]
+fn streamed_ordering_spill_preserves_multikey_ties_and_nested_stage_order() {
+    let fixture = Fixture::new(keyed(&[], &[]), 1);
+    let rows = fixture_rows()
         .into_iter()
         .cycle()
-        .take(count)
+        .take(24_019)
         .enumerate()
         .map(|(id, mut row)| {
             row.id = i64::try_from(id).unwrap();
             row
         })
-        .collect()
-}
-
-#[test]
-fn streamed_ordering_spill_preserves_multikey_ties_and_nested_stage_order() {
-    let fixture = Fixture::new(keyed(&[], &[]), 1);
-    let rows = repeated_rows(24_019);
+        .collect::<Vec<_>>();
     for (nested, demand) in [(false, None), (true, None), (false, Some((8, 5)))] {
         let keys = vec![
             key("n", true, NullOrder::Last),
@@ -94,107 +90,6 @@ fn streamed_ordering_spill_preserves_multikey_ties_and_nested_stage_order() {
         drop(result);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
         assert_names(&fixture, &["input.vortex"]);
-    }
-}
-
-#[test]
-fn streamed_ordering_retained_fields_preserve_spill_keys_ranges_and_source_release() {
-    let fixture = Fixture::new(keyed(&[], &[]), 1);
-    let rows = repeated_rows(8_193);
-    let keys = vec![
-        key("n", true, NullOrder::Last),
-        key("s", false, NullOrder::First),
-    ];
-    let mut expected = rows.clone();
-    reference_sort(&mut expected, &keys);
-    let expected = expected[8..15]
-        .iter()
-        .map(|row| serde_json::json!({"ordinal": row.id, "duplicate": row.id}))
-        .collect::<Vec<_>>();
-    for spilled in [false, true] {
-        for project_above_limit in [false, true] {
-            let input = sorted(scan(), keys.clone());
-            let input = if project_above_limit {
-                limited(input, 8, 7)
-            } else {
-                input
-            };
-            let plan = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
-                input,
-                expressions: vec![
-                    ("ordinal".into(), col("id")),
-                    ("duplicate".into(), col("id")),
-                ],
-            }));
-            let plan = if project_above_limit {
-                plan
-            } else {
-                limited(plan, 8, 7)
-            };
-            let prepared = prepare_rows(&plan);
-            let prepared = if spilled {
-                prepared.with_spill(spill(&fixture, 64 << 20)).unwrap()
-            } else {
-                prepared
-            };
-            let memory = prepared.session.memory().clone();
-            let before = memory.snapshot().reserved_bytes;
-            let mut chunks = rows.chunks(997);
-            let mut prior: Option<Weak<MemoryLease>> = None;
-            let mut calls = 0;
-            let mut provider = |session: &ResidentVortexSession| {
-                assert!(
-                    prior
-                        .as_ref()
-                        .is_none_or(|witness| witness.strong_count() == 0)
-                );
-                calls += 1;
-                chunks
-                    .next()
-                    .map(|rows| {
-                        let batch = rows_source(session, rows)?;
-                        prior = Some(batch.batch_release_witness()?);
-                        Ok(batch)
-                    })
-                    .transpose()
-            };
-            let result = prepared
-                .with_batch_input(&mut provider)
-                .unwrap()
-                .collect_jsonl(&CancellationToken::default())
-                .unwrap();
-            assert_eq!(json_rows(&result), expected);
-            let proof = &result
-                .execution
-                .native_io_certificate
-                .source_pushdown_report
-                .proof_basis;
-            assert!(proof.contains("native_payload_work_version=1"));
-            let omitted = proof
-                .split_whitespace()
-                .find_map(|field| {
-                    field
-                        .strip_prefix("sort_payload_omitted_cells=")
-                        .map(|value| value.parse::<u64>().unwrap())
-                })
-                .unwrap();
-            assert!(omitted > 0);
-            assert_eq!(calls, rows.len().div_ceil(997) + 1);
-            let input = result.execution.input.as_ref().unwrap();
-            assert_eq!(input.rows, rows.len() as u64);
-            assert!(input.end_of_input_observed && input.output_ownership_detached);
-            if spilled {
-                let report = result.execution.spill.as_ref().unwrap();
-                assert!(report.runs_written >= 2);
-                assert!(report.merge_passes >= 1);
-                assert!(report.owned_cleanup_completed);
-            }
-            drop(result);
-            assert_eq!(memory.snapshot().reserved_bytes, before);
-            drop(prepared);
-            assert_eq!(memory.snapshot().reserved_bytes, 0);
-            assert_names(&fixture, &["input.vortex"]);
-        }
     }
 }
 

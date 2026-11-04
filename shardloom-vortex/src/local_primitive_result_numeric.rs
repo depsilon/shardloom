@@ -68,7 +68,6 @@ pub(super) fn copy_column(
         valid,
         allocator,
         float_policy,
-        |_| true,
         check_cancelled,
     )
     .map(|array| array.expect("copy mode constructs an owned column"))
@@ -81,7 +80,6 @@ pub(super) fn validate_column(
     valid: &Mask,
     allocator: &HostAllocatorRef,
     float_policy: shardloom_core::FloatPolicy,
-    observed: impl Fn(usize) -> bool,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<()> {
     visit_column::<false>(
@@ -90,7 +88,6 @@ pub(super) fn validate_column(
         valid,
         allocator,
         float_policy,
-        observed,
         check_cancelled,
     )
     .map(drop)
@@ -102,7 +99,6 @@ fn visit_column<const COPY: bool>(
     valid: &Mask,
     allocator: &HostAllocatorRef,
     float_policy: shardloom_core::FloatPolicy,
-    observed: impl Fn(usize) -> bool,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<Option<ArrayRef>> {
     let temporal = crate::native_payload_schema::temporal_storage(dtype);
@@ -128,15 +124,7 @@ fn visit_column<const COPY: bool>(
     }
     macro_rules! visit {
         ($validate:expr) => {
-            visit_validated::<COPY>(
-                dtype,
-                source,
-                valid,
-                allocator,
-                observed,
-                $validate,
-                check_cancelled,
-            )
+            visit_validated::<COPY>(dtype, source, valid, allocator, $validate, check_cancelled)
         };
     }
     match ptype {
@@ -175,7 +163,6 @@ fn visit_validated<const COPY: bool>(
     source: &ByteBuffer,
     valid: &Mask,
     allocator: &HostAllocatorRef,
-    observed: impl Fn(usize) -> bool,
     mut validate: impl FnMut(usize) -> Result<()>,
     mut check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<Option<ArrayRef>> {
@@ -203,9 +190,7 @@ fn visit_validated<const COPY: bool>(
             check_cancelled()?;
             let end = rows.min(start.saturating_add(1024));
             for row in start..end {
-                if observed(row) {
-                    validate(row)?;
-                }
+                validate(row)?;
             }
             if let Some(data) = data.as_mut() {
                 data.as_mut_slice()[start * stride..end * stride]
@@ -216,11 +201,6 @@ fn visit_validated<const COPY: bool>(
         for row in 0..rows {
             if row.is_multiple_of(1024) {
                 check_cancelled()?;
-            }
-            if !observed(row) {
-                // An absent coordinate below a NULL parent has an admitted
-                // default. Its physical child value is outside observation.
-                continue;
             }
             if valid.value(row) {
                 validate(row)?;

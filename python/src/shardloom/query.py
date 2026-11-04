@@ -138,8 +138,24 @@ class WorkflowOperation:
 
     def to_summary(self) -> str:
         """Return a deterministic operation summary."""
-        from ._query_declarations import WorkflowOperation_to_summary as _impl
-        return _impl(self)
+
+        if self.kind == "filter":
+            return f"filter({self.values[0]})"
+        if self.kind == "having":
+            return f"having({self.values[0]})"
+        if self.kind == "group_by" and self.grouping_clause is not None:
+            return f"group_by({self.grouping_clause})"
+        if self.kind == "select":
+            return f"select({','.join(self.values)})"
+        if self.kind == "limit":
+            limit_parts = _limit_operation_parts(self.values)
+            if limit_parts is None:
+                return f"limit({','.join(self.values)})"
+            count, offset = limit_parts
+            if offset != "0":
+                return f"limit({count}, offset={offset})"
+            return f"limit({count})"
+        return f"{self.kind}({','.join(self.values)})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,8 +255,15 @@ class IntervalLiteral:
     unit: str
 
     def __post_init__(self) -> None:
-        from ._query_expression_methods import IntervalLiteral___post_init__ as _impl
-        return _impl(self)
+        interval_value = _normalize_interval_integer(self.value)
+        unit = _normalize_interval_unit(self.unit)
+        multiplier = _INTERVAL_SECOND_MULTIPLIERS[unit]
+        if builtins.abs(interval_value * multiplier) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
+            raise ValueError(
+                "interval literal admits absolute values within the scoped temporal arithmetic bound"
+            )
+        object.__setattr__(self, "value", interval_value)
+        object.__setattr__(self, "unit", unit)
 
     @property
     def sql(self) -> str:
@@ -380,8 +403,16 @@ class ColumnExpression:
         return PredicateExpression(f"{self.sql} {operator} {rhs}", _predicate_sources(self, value), resource_limits=_predicate_limits(self, value))
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
-        from ._query_expression_methods import ColumnExpression__numeric_binary as _impl
-        return _impl(self, operator, value)
+        rhs = (
+            _parenthesize_numeric_operand(value.sql)
+            if isinstance(value, ColumnExpression)
+            else _sql_numeric_literal(value)
+        )
+        return ColumnExpression(
+            f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}",
+            _predicate_sources(self, value),
+            resource_limits=_predicate_limits(self, value),
+        )
 
     def __add__(self, value: object) -> "ColumnExpression":
         """Return a scoped numeric addition expression for predicates."""
@@ -638,8 +669,17 @@ class ColumnExpression:
 
     def substr(self, start: object, length: object) -> "ColumnExpression":
         """Return a scoped 1-based `SUBSTR(column, start, length)` expression."""
-        from ._query_expression_methods import ColumnExpression_substr as _impl
-        return _impl(self, start, length)
+
+        column = self.sql
+        normalized_start = _normalize_substring_bound("substring start", start, minimum=1)
+        normalized_length = _normalize_substring_bound(
+            "substring length", length, minimum=0
+        )
+        return ColumnExpression(
+            f"SUBSTR({column}, {normalized_start}, {normalized_length})",
+            self.source_bindings,
+            resource_limits=self.resource_limits,
+        )
 
     def substring(self, start: object, length: object) -> "ColumnExpression":
         """Alias for `substr(...)`."""
@@ -662,8 +702,19 @@ class ColumnExpression:
 
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
-        from ._query_expression_methods import ColumnExpression_replace as _impl
-        return _impl(self, needle, replacement)
+
+        column = self.sql
+        needle_literal = _sql_string_function_literal(
+            "replace search literal", needle, allow_empty=False
+        )
+        replacement_literal = _sql_string_function_literal(
+            "replace replacement literal", replacement, allow_empty=True
+        )
+        return ColumnExpression(
+            f"REPLACE({column}, {needle_literal}, {replacement_literal})",
+            self.source_bindings,
+            resource_limits=self.resource_limits,
+        )
 
     def unhex(self) -> "ColumnExpression":
         """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
@@ -719,8 +770,22 @@ class ColumnExpression:
         limit: int | None = None,
     ) -> PredicateExpression:
         """Return a scoped bounded local-source IN-subquery predicate."""
-        from ._query_expression_methods import ColumnExpression_isin_source as _impl
-        return _impl(self, source, column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+        source_column = _normalize_expression_column(column)
+        source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
+        tail = _sql_in_subquery_tail(
+            where=where,
+            group_by=group_by,
+            having=having,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+        return PredicateExpression(
+            f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})",
+            _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
+        )
 
     def any_source(
         self,
@@ -737,8 +802,22 @@ class ColumnExpression:
         limit: int | None = None,
     ) -> PredicateExpression:
         """Return a scoped bounded local-source `ANY (SELECT ...)` predicate."""
-        from ._query_expression_methods import ColumnExpression_any_source as _impl
-        return _impl(self, comparison, source, column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+        predicate = _quantified_source_predicate(
+            self.sql,
+            comparison,
+            "ANY",
+            source,
+            column,
+            source_alias=source_alias,
+            where=where,
+            group_by=group_by,
+            having=having,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def all_source(
         self,
@@ -755,8 +834,22 @@ class ColumnExpression:
         limit: int | None = None,
     ) -> PredicateExpression:
         """Return a scoped bounded local-source `ALL (SELECT ...)` predicate."""
-        from ._query_expression_methods import ColumnExpression_all_source as _impl
-        return _impl(self, comparison, source, column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+        predicate = _quantified_source_predicate(
+            self.sql,
+            comparison,
+            "ALL",
+            source,
+            column,
+            source_alias=source_alias,
+            where=where,
+            group_by=group_by,
+            having=having,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+        return PredicateExpression(predicate.sql, _predicate_sources(self, predicate), resource_limits=_predicate_limits(self, predicate))
 
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
@@ -779,8 +872,22 @@ class ColumnExpression:
         limit: int | None = None,
     ) -> PredicateExpression:
         """Return a scoped bounded local-source NOT IN-subquery predicate."""
-        from ._query_expression_methods import ColumnExpression_not_in_source as _impl
-        return _impl(self, source, column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+        source_column = _normalize_expression_column(column)
+        source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
+        tail = _sql_in_subquery_tail(
+            where=where,
+            group_by=group_by,
+            having=having,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
+        return PredicateExpression(
+            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})",
+            _predicate_sources(self, source, where, having),
+            resource_limits=_predicate_limits(self, source, where, having),
+        )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
         """Return a scoped inclusive range predicate.
@@ -937,8 +1044,17 @@ class ColumnExpression:
         local 1970-01-01 midnight for calendar grids. Calendar policies reject
         ambiguous times and missing month-end dates unless explicitly changed.
         """
-        from ._query_expression_methods import ColumnExpression_temporal_bucket as _impl
-        return _impl(self, every, unit, origin=origin, month_end=month_end, ambiguity=ambiguity)
+
+        if isinstance(every, bool) or not isinstance(every, int) or every <= 0:
+            raise ValueError("temporal bucket spacing requires a positive integer")
+        if origin is not None and (isinstance(origin, bool) or not isinstance(origin, int)):
+            raise TypeError("temporal bucket origin requires integer ticks or None")
+        return self._temporal_call(
+            "temporal_bucket", str(every), _temporal_control_literal("unit", unit),
+            "NULL" if origin is None else str(origin),
+            _temporal_control_literal("month_end", month_end),
+            _temporal_control_literal("ambiguity", ambiguity),
+        )
 
     def calendar_add_days(self, days: object, *, ambiguity: str = "reject") -> "ColumnExpression":
         """Declare local calendar-day arithmetic with explicit ambiguity policy."""
@@ -1230,8 +1346,19 @@ class Result:
     @property
     def result_rows(self) -> tuple[Mapping[str, Any], ...]:
         """Decode this execution's rows without reading or executing its source again."""
-        from ._query_result_methods import Result_result_rows as _impl
-        return _impl(self)
+
+        if self.native_result is not None:
+            return tuple(self.native_result.row_export(wire_values=True)[0])
+        values = self.envelope.field("result_values_json")
+        if values is None:
+            return _jsonl_object_rows(self.result_jsonl, field_name="result_jsonl")
+        try:
+            rows = json.loads(values)
+        except ValueError as error:
+            raise ShardLoomProtocolError("invalid native result_values_json") from error
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ShardLoomProtocolError("native result_values_json requires an array of row objects")
+        return tuple(rows)
 
     @property
     def result_schema(self) -> tuple[tuple[str, ResultType], ...]:
@@ -1263,8 +1390,21 @@ class Result:
         Failed or cancelled actions expose no complete observations. A write
         exposes them only after publication; use its receipt for output status.
         """
-        from ._query_result_methods import Result_observations as _impl
-        return _impl(self)
+        if self.envelope.status != "success" or not self.envelope.field_bool(
+            "relational_observation_data_completed", False
+        ):
+            return {}
+        count = self.envelope.field_int("relational_observation_count", 0)
+        observations = {}
+        for index in builtins.range(count):
+            prefix = f"relational_observation_{index}"
+            name = _required_field(self.envelope, prefix + "_name")
+            schema = schema_fields(_required_field(self.envelope, prefix + "_schema_json"), "vortex.dtype.serde.v1")
+            rows = _jsonl_object_rows(_required_field(self.envelope, prefix + "_result_jsonl"), field_name=prefix)
+            if len(rows) != 1 or name in observations:
+                raise ShardLoomProtocolError("observations require unique names and one completed metric row")
+            observations[name] = tuple(python_rows(rows, schema))[0]
+        return observations
 
     def to_arrow(self):
         """Export completed data without rerunning its query."""
@@ -1399,20 +1539,46 @@ class Result:
     @property
     def result_known(self) -> bool:
         """Whether the primitive emitted a known result cardinality."""
-        from ._query_result_methods import Result_result_known as _impl
-        return _impl(self)
+
+        return self.envelope.field_bool("result_known", False) is True or _any_true_field(
+            self.envelope,
+            (
+                "filtered_count_local_execution_result_known",
+                "project_local_execution_result_known",
+                "filter_project_local_execution_result_known",
+                "filter_local_execution_result_known",
+            ),
+        )
 
     @property
     def rows_scanned(self) -> int | None:
         """Return the reported local Vortex rows scanned, when present."""
-        from ._query_result_methods import Result_rows_scanned as _impl
-        return _impl(self)
+
+        return _first_int_field(
+            self.envelope,
+            (
+                "local_primitive_rows_scanned",
+                "filtered_count_local_execution_rows_scanned",
+                "filter_local_execution_rows_scanned",
+                "project_local_execution_rows_scanned",
+                "filter_project_local_execution_rows_scanned",
+            ),
+        )
 
     @property
     def rows_selected(self) -> int | None:
         """Return the reported selected row count, when present."""
-        from ._query_result_methods import Result_rows_selected as _impl
-        return _impl(self)
+
+        return _first_int_field(
+            self.envelope,
+            (
+                "rows_selected",
+                "local_primitive_rows_selected",
+                "filtered_count_local_execution_rows_selected",
+                "filter_local_execution_rows_selected",
+                "filter_project_local_execution_rows_selected",
+            ),
+        )
 
     @property
     def rows_projected(self) -> int | None:
@@ -1430,14 +1596,38 @@ class Result:
     @property
     def projected_columns(self) -> tuple[str, ...]:
         """Return projected columns reported by the primitive."""
-        from ._query_result_methods import Result_projected_columns as _impl
-        return _impl(self)
+
+        value = _first_string_field(
+            self.envelope,
+            (
+                "local_primitive_projected_columns",
+                "project_local_execution_projected_columns",
+                "filter_project_local_execution_projected_columns",
+                "columns",
+            ),
+        )
+        if not value:
+            return ()
+        return tuple(part.strip() for part in value.split(",") if part.strip())
 
     @property
     def fallback_attempted(self) -> bool:
         """Whether this primitive path attempted fallback execution."""
-        from ._query_result_methods import Result_fallback_attempted as _impl
-        return _impl(self)
+
+        if self.envelope.fallback.attempted:
+            return True
+        return _any_true_field(
+            self.envelope,
+            (
+                "fallback_attempted",
+                "local_primitive_native_io_fallback_attempted",
+                "local_primitive_execution_certificate_fallback_attempted",
+                "filtered_count_local_execution_fallback_attempted",
+                "filter_local_execution_fallback_attempted",
+                "project_local_execution_fallback_attempted",
+                "filter_project_local_execution_fallback_attempted",
+            ),
+        )
 
     @property
     def external_engine_invoked(self) -> bool:
@@ -1448,14 +1638,34 @@ class Result:
     @property
     def runtime_execution(self) -> bool:
         """Whether the report represents actual local Vortex runtime execution."""
-        from ._query_result_methods import Result_runtime_execution as _impl
-        return _impl(self)
+
+        return _any_true_field(
+            self.envelope,
+            (
+                "runtime_execution",
+                "local_primitive_report_present",
+                "filtered_count_local_execution_result_known",
+                "project_local_execution_result_known",
+                "filter_project_local_execution_result_known",
+                "filter_local_execution_result_known",
+            ),
+        )
 
     @property
     def data_read(self) -> bool:
         """Whether the primitive read Vortex data."""
-        from ._query_result_methods import Result_data_read as _impl
-        return _impl(self)
+
+        return _any_true_field(
+            self.envelope,
+            (
+                "data_read",
+                "data_io_performed",
+                "filtered_count_local_execution_data_read",
+                "filter_local_execution_data_read",
+                "project_local_execution_data_read",
+                "filter_project_local_execution_data_read",
+            ),
+        )
 
     @property
     def data_decoded(self) -> bool:
@@ -1484,8 +1694,17 @@ class Result:
     @property
     def claim_gate_status(self) -> str | None:
         """Return the most specific claim gate status reported by the primitive."""
-        from ._query_result_methods import Result_claim_gate_status as _impl
-        return _impl(self)
+
+        return _first_string_field(
+            self.envelope,
+            (
+                "filter_project_local_execution_claim_gate_status",
+                "filter_local_execution_claim_gate_status",
+                "project_local_execution_claim_gate_status",
+                "why_claim_gate_status",
+                "claim_gate_status",
+            ),
+        )
 
     @property
     def evidence_summary(self) -> EvidenceSummary:
@@ -1589,8 +1808,33 @@ class RollingFrame:
         check: bool = False,
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        from ._query_composition_methods import RollingFrame__aggregate as _impl
-        return _impl(self, aggregate, column, alias=alias, check=check, **kwargs)
+        target_ref = _normalize_rolling_aggregate_target(
+            aggregate,
+            column,
+            alias=alias,
+            kwargs=kwargs,
+        )
+        if kwargs:
+            return self.frame._unsupported_operation(
+                f"rolling-{aggregate}",
+                target_ref,
+                check=check,
+            )
+        payload = _vortex_rolling_window_payload(
+            column,
+            output_column=alias,
+            window_size=self.window,
+            min_periods=self.min_periods,
+            aggregate=aggregate,
+            center=self.center,
+        )
+        if payload is None:
+            return self.frame._unsupported_operation(
+                f"rolling-{aggregate}",
+                target_ref,
+                check=check,
+            )
+        return self.frame._append(WorkflowOperation("rolling_window", (payload,)))
 
     def sum(
         self,
@@ -1668,23 +1912,97 @@ def _strip_index_metadata_operations(
 
 
 def _vortex_expression_project_columns_from_payload(payload: str) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _vortex_expression_project_columns_from_payload as _impl
-    return _impl(payload)
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    columns = decoded.get("columns")
+    if isinstance(columns, str):
+        values = tuple(column.strip() for column in columns.split(",") if column.strip())
+    elif _is_non_string_sequence(columns):
+        values = tuple(str(column).strip() for column in columns if str(column).strip())
+    else:
+        return None
+    if not values or any(not _is_sql_identifier(column) for column in values):
+        return None
+    return values
 
 
 def _vortex_melt_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _vortex_melt_projection_columns_from_payload as _impl
-    return _impl(payload)
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    id_columns = _json_column_tuple(decoded.get("id_columns"))
+    value_columns = _json_column_tuple(decoded.get("value_columns"))
+    if id_columns is None or value_columns is None or not value_columns:
+        return None
+    columns = (*id_columns, *value_columns)
+    if any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return columns
 
 
 def _vortex_explode_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _vortex_explode_projection_columns_from_payload as _impl
-    return _impl(payload)
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    raw_columns = (
+        decoded.get("explode_columns")
+        or decoded.get("target_columns")
+        or decoded.get("columns")
+    )
+    if raw_columns is None:
+        raw_columns = (
+            decoded.get("column")
+            or decoded.get("explode_column")
+            or decoded.get("target_column")
+        )
+    try:
+        columns = _normalize_columns((raw_columns,))
+    except (TypeError, ValueError):
+        return None
+    element_field = decoded.get("element_field") or decoded.get("field")
+    if element_field is not None and (
+        not isinstance(element_field, str) or not _is_sql_identifier(element_field)
+    ):
+        return None
+    if not columns or any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return tuple(columns)
 
 
 def _vortex_explode_projection_payload(columns: Sequence[str]) -> str | None:
-    from ._query_reshape_arguments import _vortex_explode_projection_payload as _impl
-    return _impl(columns)
+    if not columns:
+        return None
+    if len(columns) == 1:
+        dotted = _split_dotted_field_accessor(columns[0])
+        if dotted is not None:
+            source_column, element_field = dotted
+            return json.dumps(
+                {
+                    "column": source_column,
+                    "element_field": element_field,
+                    "output_column": element_field,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+    if any(not _is_sql_identifier(column) for column in columns):
+        return None
+    payload: dict[str, object]
+    if len(columns) == 1:
+        payload = {"column": columns[0]}
+    else:
+        payload = {"explode_columns": list(columns)}
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
 
 
 def _split_dotted_field_accessor(value: str) -> tuple[str, str] | None:
@@ -1698,8 +2016,24 @@ def _split_dotted_field_accessor(value: str) -> tuple[str, str] | None:
 
 
 def _vortex_pivot_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _vortex_pivot_projection_columns_from_payload as _impl
-    return _impl(payload)
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    index_column = decoded.get("index_column") or decoded.get("index")
+    pivot_column = decoded.get("pivot_column") or decoded.get("columns")
+    value_column = decoded.get("value_column") or decoded.get("values")
+    columns = (index_column, pivot_column, value_column)
+    if not all(isinstance(column, str) and _is_sql_identifier(column) for column in columns):
+        return None
+    if len(set(columns)) != len(columns):
+        return None
+    aggregate = str(decoded.get("aggregate") or decoded.get("aggfunc") or "").strip().lower()
+    if aggregate not in {"first", "first_unique", "sum", "count", "mean", "min", "max"}:
+        return None
+    return tuple(columns)  # type: ignore[return-value]
 
 
 def _vortex_pivot_projection_payload(
@@ -1710,13 +2044,80 @@ def _vortex_pivot_projection_payload(
     aggregate: str,
     kwargs: Mapping[str, object],
 ) -> str | None:
-    from ._query_reshape_arguments import _vortex_pivot_projection_payload as _impl
-    return _impl(index=index, columns=columns, values=values, aggregate=aggregate, kwargs=kwargs)
+    if index is None or columns is None or values is None:
+        return None
+    try:
+        index_columns = _normalize_columns((index,))
+        pivot_columns = _normalize_columns((columns,))
+        value_columns = _normalize_columns((values,))
+    except (TypeError, ValueError):
+        return None
+    if len(index_columns) != 1 or len(pivot_columns) != 1 or len(value_columns) != 1:
+        return None
+    index_column = index_columns[0]
+    pivot_column = pivot_columns[0]
+    value_column = value_columns[0]
+    if (
+        not _is_sql_identifier(index_column)
+        or not _is_sql_identifier(pivot_column)
+        or not _is_sql_identifier(value_column)
+        or len({index_column, pivot_column, value_column}) != 3
+    ):
+        return None
+    normalized_aggregate = aggregate.strip().lower().replace("-", "_")
+    policy_kwargs = _normalize_pivot_policy_kwargs(kwargs)
+    if policy_kwargs is None:
+        return None
+    aliases = {
+        "first": "first_unique",
+        "first_unique": "first_unique",
+        "unique": "first_unique",
+        "sum": "sum",
+        "count": "count",
+        "mean": "mean",
+        "avg": "mean",
+        "min": "min",
+        "max": "max",
+    }
+    aggregate_value = aliases.get(normalized_aggregate)
+    if aggregate_value is None:
+        return None
+    if aggregate_value == "first_unique" and bool(policy_kwargs.get("margins", False)):
+        return None
+    payload = {
+        "aggregate": aggregate_value,
+        "index_column": index_column,
+        "pivot_column": pivot_column,
+        "value_column": value_column,
+    }
+    payload.update(policy_kwargs)
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
 
 
 def _normalize_pivot_policy_kwargs(kwargs: Mapping[str, object]) -> dict[str, object] | None:
-    from ._query_reshape_arguments import _normalize_pivot_policy_kwargs as _impl
-    return _impl(kwargs)
+    allowed = {"fill_value", "dropna", "margins", "margins_name"}
+    if any(key not in allowed for key in kwargs):
+        return None
+    policy: dict[str, object] = {}
+    if "fill_value" in kwargs:
+        fill_value = _json_scalar_policy_value(kwargs["fill_value"])
+        if fill_value is None and kwargs["fill_value"] is not None:
+            return None
+        policy["fill_value"] = fill_value
+    if "dropna" in kwargs:
+        dropna = kwargs["dropna"]
+        if not isinstance(dropna, bool):
+            return None
+        policy["dropna"] = dropna
+    if "margins" in kwargs:
+        margins = kwargs["margins"]
+        if not isinstance(margins, bool):
+            return None
+        policy["margins"] = margins
+    if "margins_name" in kwargs:
+        margins_name = _require_non_empty("pivot_table margins_name", kwargs["margins_name"])
+        policy["margins_name"] = margins_name
+    return policy
 
 
 def _json_scalar_policy_value(value: object) -> object | None:
@@ -1734,13 +2135,40 @@ def _normalize_pivot_table_single_aggregate(
     *,
     values: object | None,
 ) -> str | None:
-    from ._query_reshape_arguments import _normalize_pivot_table_single_aggregate as _impl
-    return _impl(aggfunc, values=values)
+    if aggfunc is None:
+        return "mean"
+    if isinstance(aggfunc, str):
+        return _require_non_empty("pivot_table aggfunc", aggfunc)
+    if isinstance(aggfunc, Mapping):
+        if len(aggfunc) != 1 or values is None:
+            return None
+        try:
+            value_columns = _normalize_columns((values,))
+        except (TypeError, ValueError):
+            return None
+        if len(value_columns) != 1:
+            return None
+        raw_key, raw_value = next(iter(aggfunc.items()))
+        if str(raw_key).strip() != value_columns[0]:
+            return None
+        return _normalize_pivot_table_single_aggregate(raw_value, values=values)
+    if _is_non_string_sequence(aggfunc):
+        if len(aggfunc) != 1:
+            return None
+        return _normalize_pivot_table_single_aggregate(aggfunc[0], values=values)
+    return None
 
 
 def _json_column_tuple(value: object) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _json_column_tuple as _impl
-    return _impl(value)
+    if isinstance(value, str):
+        columns = tuple(column.strip() for column in value.split(",") if column.strip())
+    elif _is_non_string_sequence(value):
+        columns = tuple(str(column).strip() for column in value if str(column).strip())
+    else:
+        return None
+    if any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return columns
 
 
 def _vortex_melt_projection_payload(
@@ -1751,13 +2179,76 @@ def _vortex_melt_projection_payload(
     value_name: object | None,
     kwargs: Mapping[str, object],
 ) -> str | None:
-    from ._query_reshape_arguments import _vortex_melt_projection_payload as _impl
-    return _impl(id_vars=id_vars, value_vars=value_vars, var_name=var_name, value_name=value_name, kwargs=kwargs)
+    if kwargs or value_vars is None:
+        return None
+    try:
+        id_columns = _normalize_optional_columns(id_vars)
+        value_columns = _normalize_columns((value_vars,))
+    except (TypeError, ValueError):
+        return None
+    variable_column = "variable" if var_name is None else str(var_name).strip()
+    value_column = "value" if value_name is None else str(value_name).strip()
+    if (
+        not value_columns
+        or not variable_column
+        or not value_column
+        or variable_column == value_column
+        or any(not _is_sql_identifier(column) for column in id_columns)
+        or any(not _is_sql_identifier(column) for column in value_columns)
+        or not _is_sql_identifier(variable_column)
+        or not _is_sql_identifier(value_column)
+        or variable_column in id_columns
+        or value_column in id_columns
+    ):
+        return None
+    payload = {
+        "id_columns": list(id_columns),
+        "value_columns": list(value_columns),
+        "variable_column": variable_column,
+        "value_column": value_column,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
 
 
 def _vortex_rolling_window_columns_from_payload(payload: str) -> tuple[str, ...] | None:
-    from ._query_reshape_arguments import _vortex_rolling_window_columns_from_payload as _impl
-    return _impl(payload)
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    source_column = decoded.get("source_column") or decoded.get("column") or decoded.get("on")
+    if not isinstance(source_column, str) or not _is_sql_identifier(source_column):
+        return None
+    output_column = decoded.get("output_column") or decoded.get("alias")
+    if not isinstance(output_column, str) or not _is_sql_identifier(output_column):
+        return None
+    if source_column == output_column:
+        return None
+    window_size = decoded.get("window_size") or decoded.get("window")
+    min_periods = decoded.get("min_periods")
+    center = decoded.get("center", False)
+    if not isinstance(center, bool):
+        return None
+    aggregate = str(decoded.get("aggregate") or decoded.get("agg") or "").strip().lower()
+    try:
+        parsed_window = _normalize_positive_int("rolling window", window_size)
+        parsed_min_periods = (
+            parsed_window
+            if min_periods is None
+            else _normalize_positive_int("rolling min_periods", min_periods)
+        )
+    except (TypeError, ValueError):
+        return None
+    if parsed_min_periods > parsed_window or aggregate not in {
+        "sum",
+        "mean",
+        "count",
+        "min",
+        "max",
+    }:
+        return None
+    return (source_column,)
 
 
 def _vortex_rolling_window_payload(
@@ -1769,8 +2260,39 @@ def _vortex_rolling_window_payload(
     aggregate: str,
     center: bool = False,
 ) -> str | None:
-    from ._query_reshape_arguments import _vortex_rolling_window_payload as _impl
-    return _impl(column, output_column=output_column, window_size=window_size, min_periods=min_periods, aggregate=aggregate, center=center)
+    source_column = _normalize_expression_column(column)
+    if "." in source_column:
+        return None
+    output = (
+        _normalize_output_column_name(output_column)
+        if output_column is not None
+        else _normalize_output_column_name(f"{source_column}_rolling_{aggregate}")
+    )
+    if output == source_column:
+        return None
+    normalized_window = _normalize_positive_int("rolling window", window_size)
+    normalized_min_periods = _normalize_positive_int("rolling min_periods", min_periods)
+    normalized_aggregate = aggregate.strip().lower()
+    if normalized_min_periods > normalized_window or normalized_aggregate not in {
+        "sum",
+        "mean",
+        "count",
+        "min",
+        "max",
+    }:
+        return None
+    return json.dumps(
+        {
+            "aggregate": normalized_aggregate,
+            "min_periods": normalized_min_periods,
+            "output_column": output,
+            "source_column": source_column,
+            "window_size": normalized_window,
+            "center": bool(center),
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -2250,8 +2772,20 @@ class WorkflowNotebookPreview:
 
     def to_html(self) -> str:
         """Render a small HTML table for notebook frontends."""
-        from ._query_report_views import WorkflowNotebookPreview_to_html as _impl
-        return _impl(self)
+
+        columns = _row_field_order(self.rows)
+        if not columns:
+            return "<table><tbody></tbody></table>"
+        header = "".join(f"<th>{html.escape(column)}</th>" for column in columns)
+        body_rows = []
+        for row in self.rows:
+            cells = "".join(
+                f"<td>{html.escape(_display_cell(row.get(column)))}</td>"
+                for column in columns
+            )
+            body_rows.append(f"<tr>{cells}</tr>")
+        body = "".join(body_rows)
+        return f"<table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table>"
 
     def _repr_html_(self) -> str:
         """Notebook HTML representation."""
@@ -2287,8 +2821,37 @@ class LazyFrame:
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> "LazyFrame":
         """Declare SQL using the same lazy relation and source owners as readers."""
-        from ._query_declarations import LazyFrame_from_sql as _impl
-        return _impl(cls, statement, client, input_uri, input_format, source_bindings, relations=relations, parameters=parameters, resources=resources, resource_limits=resource_limits)
+        from ._connected import normalize_relations, normalize_parameters
+
+        statement = _require_non_empty("SQL statement", statement)
+        bound = normalize_relations(relations, client)
+        values = normalize_parameters(parameters)
+        if (bound or values) and getattr(client, "transport", "subprocess") != "native":
+            raise ValueError("named relations and typed parameters require the in-process native transport")
+        sources = tuple(source_bindings)
+        if input_uri is not None and input_format is not None:
+            primary = WorkflowSource(input_format, input_uri)
+            matching = tuple(source for source in sources if source.uri == input_uri)
+            if any(_public_workflow_input_format(source) != input_format for source in matching):
+                raise ValueError(f"conflicting format or schema declarations for source {input_uri!r}")
+            if not matching:
+                sources = (primary, *sources)
+        frame = cls(
+            WorkflowSource("sql", "", relation=SqlRelation(statement, sources, bound, values, input_uri, input_format)),
+            client, resources=resources, resource_limits=resource_limits,
+        )
+        if getattr(client, "transport", "subprocess") == "native":
+            plan = client._native_backend_for().declaration(frame)
+            if bound:
+                # Native binding accounts for lexical CTE scopes and source-free
+                # relations. Physical source paths cannot identify these policies.
+                used = frozenset(plan.bound_input_indices)
+                limits = merge_resource_limits(frame.resource_limits, _predicate_limits(
+                    tuple(value for index, (_, value) in enumerate(bound) if index in used)
+                ))
+                if limits != frame.resource_limits:
+                    frame = _dataclass_replace(frame, resource_limits=limits)
+        return frame
 
     @property
     def statement(self) -> str:
@@ -2299,8 +2862,15 @@ class LazyFrame:
         return statement
 
     def _declared_input_kwargs(self) -> dict[str, Any]:
-        from ._query_declarations import LazyFrame__declared_input_kwargs as _impl
-        return _impl(self)
+        bindings = _workflow_source_bindings(self._declared_sources())
+        payload: dict[str, Any] = {"source_bindings": bindings} if bindings else {}
+        if self.source.relation is None:
+            payload.update(input_uri=self.source.uri, input_format=_public_workflow_input_format(self.source))
+        elif self.source.relation.input_uri is not None:
+            payload.update(input_uri=self.source.relation.input_uri, input_format=self.source.relation.input_format)
+        elif not payload and (embedded := _embedded_vortex_input_uri(self.source.relation.statement)) is not None:
+            payload.update(input_uri=embedded, input_format="vortex")
+        return payload
 
     def _has_declared_limit(self) -> bool:
         if self.source.relation is None:
@@ -2313,8 +2883,18 @@ class LazyFrame:
         return "sql" if self.source.relation is not None else "dataframe"
 
     def __post_init__(self) -> None:
-        from ._query_declarations import LazyFrame___post_init__ as _impl
-        return _impl(self)
+        limits = merge_resource_limits(
+            self.resource_limits, getattr(self.client, "resource_limits", None),
+            _predicate_limits(self.operations),
+        )
+        resources = optional_resources(
+            resources=self.resources, inherited=getattr(self.client, "resources", None),
+            limits=limits,
+        )
+        object.__setattr__(self, "resources", resources)
+        object.__setattr__(self, "resource_limits", merge_resource_limits(
+            limits, resources.limits if resources is not None else None,
+        ))
 
     @property
     def source_format(self) -> str:
@@ -2331,11 +2911,10 @@ class LazyFrame:
     @property
     def operation_summary(self) -> str:
         """Return a deterministic logical-plan summary for report surfaces."""
-        def describe():
-            parts = [self.source.to_summary()]
-            parts.extend(operation.to_summary() for operation in self.operations)
-            return " -> ".join(parts)
-        return self._native_plan.describe("summary", describe) if type(self) is LazyFrame else describe()
+
+        parts = [self.source.to_summary()]
+        parts.extend(operation.to_summary() for operation in self.operations)
+        return " -> ".join(parts)
 
     def with_engine(self, engine_mode: str) -> "LazyFrame":
         """Return this lazy workflow with a different requested engine mode."""
@@ -2461,8 +3040,34 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped schema-declared non-null filter when admitted."""
-        from ._query_transform_methods import LazyFrame_dropna as _impl
-        return _impl(self, subset=subset, how=how, axis=axis, thresh=thresh, check=check, **kwargs)
+
+        target_ref = _normalize_dropna_target(
+            subset=subset,
+            how=how,
+            axis=axis,
+            thresh=thresh,
+            kwargs=kwargs,
+        )
+        predicate = self._schema_declared_dropna_predicate(
+            subset,
+            how=how,
+            axis=axis,
+            thresh=thresh,
+            kwargs=kwargs,
+        )
+        if predicate is not None:
+            if predicate == "":
+                return self
+            return self._with_filter_condition(predicate)
+        if self.source.source_format == "vortex" and not kwargs:
+            normalized_how = _normalize_dropna_how(how)
+            if normalized_how == "any" and subset is not None and thresh is None:
+                target_columns = _normalize_columns((subset,))
+                if target_columns and all(_is_sql_identifier(column) for column in target_columns):
+                    return self._with_filter_condition(
+                        " AND ".join(f"{column} IS NOT NULL" for column in target_columns)
+                    )
+        return self._unsupported_operation("dropna", target_ref, check=check)
 
     def astype(
         self,
@@ -2473,8 +3078,18 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped schema-declared cast projection when admitted."""
-        from ._query_transform_methods import LazyFrame_astype as _impl
-        return _impl(self, dtype, errors=errors, check=check, **kwargs)
+
+        target_ref = _normalize_astype_target(dtype=dtype, errors=errors, kwargs=kwargs)
+        projection = self._schema_declared_astype_projection(
+            dtype,
+            errors=errors,
+            kwargs=kwargs,
+        )
+        if projection is not None:
+            return self._with_rewritten_projection(projection)
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation("native-vortex-cast", target_ref, check=check)
+        return self._unsupported_operation("astype", target_ref, check=check)
 
     def sample(
         self,
@@ -2489,8 +3104,63 @@ class LazyFrame:
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped deterministic sample over admitted Vortex-backed rows."""
-        from ._query_transform_methods import LazyFrame_sample as _impl
-        return _impl(self, n, fraction, seed, frac=frac, random_state=random_state, weights=weights, replace=replace, check=check)
+
+        effective_fraction = _normalize_sample_fraction_alias(
+            fraction=fraction,
+            frac=frac,
+        )
+        effective_seed = _normalize_sample_seed_alias(
+            seed=seed,
+            random_state=random_state,
+        )
+        target_ref = _normalize_sample_target(
+            n=n,
+            fraction=effective_fraction,
+            seed=effective_seed,
+            weights=weights,
+            replace=replace,
+        )
+        if effective_seed is not None and (
+            isinstance(effective_seed, bool) or not isinstance(effective_seed, int)
+        ):
+            return self._unsupported_operation("sample", target_ref, check=check)
+        sample_weight_column = _normalize_sample_weight_column(weights)
+        if weights is not None and sample_weight_column is None:
+            return self._unsupported_operation("sample", target_ref, check=check)
+        sample_seed = (
+            0
+            if effective_seed is None
+            else _normalize_non_negative_int("sample seed", effective_seed)
+        )
+        if effective_fraction is not None:
+            sample_fraction = _normalize_sample_fraction_value(effective_fraction)
+            values = ["fraction", f"{sample_fraction:.12g}", str(sample_seed)]
+            if sample_weight_column is not None:
+                values = [
+                    f"fraction={sample_fraction:.12g}",
+                    f"seed={sample_seed}",
+                    f"weights={sample_weight_column}",
+                ]
+            if replace is True:
+                values.append("replacement")
+            return self._append(
+                WorkflowOperation(
+                    "sample",
+                    tuple(values),
+                )
+            )
+        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
+        _validate_positive_row_count("sample n", sample_n)
+        if sample_weight_column is not None:
+            values = [f"n={sample_n}", f"seed={sample_seed}", f"weights={sample_weight_column}"]
+            if replace is True:
+                values.append("replacement")
+            return self._append(WorkflowOperation("sample", tuple(values)))
+        if replace is True:
+            return self._append(
+                WorkflowOperation("sample", (str(sample_n), str(sample_seed), "replacement"))
+            )
+        return self._append(WorkflowOperation("sample", (str(sample_n), str(sample_seed))))
 
     def explode(
         self,
@@ -2521,8 +3191,26 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped explicit-key merge alias when admitted."""
-        from ._query_transform_methods import LazyFrame_merge as _impl
-        return _impl(self, other, on=on, left_on=left_on, right_on=right_on, how=how, check=check, **kwargs)
+
+        target_ref = _normalize_merge_target(
+            other,
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            how=how,
+            kwargs=kwargs,
+        )
+        if (
+            not kwargs
+            and on is not None
+            and left_on is None
+            and right_on is None
+            and self._can_lower_merge_to_join(other, on=on, how=how)
+        ):
+            joined = self.join(other, on=on, how=how, check=check)
+            if isinstance(joined, LazyFrame):
+                return joined
+        return self._unsupported_operation("merge", target_ref, check=check)
 
     def concat(
         self,
@@ -2534,8 +3222,22 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped row-wise concat over matching projected local-source branches."""
-        from ._query_transform_methods import LazyFrame_concat as _impl
-        return _impl(self, others, axis=axis, join=join, check=check, **kwargs)
+
+        target_ref = _normalize_concat_target(others, axis=axis, join=join, kwargs=kwargs)
+        other = _single_lazyframe_target(others)
+        projection = self._explicit_set_operation_projection_columns()
+        other_projection = (
+            other._explicit_set_operation_projection_columns() if other is not None else None
+        )
+        if (
+            axis == 0
+            and not kwargs
+            and other is not None
+            and projection == other_projection
+            and projection is not None
+        ):
+            return self.union_all(other, check=check)
+        return self._unsupported_operation("concat", target_ref, check=check)
 
     def pivot(
         self,
@@ -2547,8 +3249,23 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped native Vortex pivot plan when explicitly shaped."""
-        from ._query_transform_methods import LazyFrame_pivot as _impl
-        return _impl(self, index=index, columns=columns, values=values, check=check, **kwargs)
+
+        target_ref = _normalize_pivot_target(
+            index=index,
+            columns=columns,
+            values=values,
+            kwargs=kwargs,
+        )
+        payload = _vortex_pivot_projection_payload(
+            index=index,
+            columns=columns,
+            values=values,
+            aggregate="first_unique",
+            kwargs=kwargs,
+        )
+        if payload is not None:
+            return self._append(WorkflowOperation("pivot", (payload,)))
+        return self._unsupported_operation("pivot", target_ref, check=check)
 
     def pivot_table(
         self,
@@ -2561,8 +3278,28 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped native Vortex pivot-table plan when explicitly shaped."""
-        from ._query_transform_methods import LazyFrame_pivot_table as _impl
-        return _impl(self, values=values, index=index, columns=columns, aggfunc=aggfunc, check=check, **kwargs)
+
+        target_ref = _normalize_pivot_table_target(
+            values=values,
+            index=index,
+            columns=columns,
+            aggfunc=aggfunc,
+            kwargs=kwargs,
+        )
+        aggregate = _normalize_pivot_table_single_aggregate(
+            aggfunc,
+            values=values,
+        )
+        payload = _vortex_pivot_projection_payload(
+            index=index,
+            columns=columns,
+            values=values,
+            aggregate=aggregate or "",
+            kwargs=kwargs,
+        )
+        if payload is not None:
+            return self._append(WorkflowOperation("pivot", (payload,)))
+        return self._unsupported_operation("pivot-table", target_ref, check=check)
 
     def melt(
         self,
@@ -2576,8 +3313,54 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped native Vortex melt plan when explicitly or schema-inferred shaped."""
-        from ._query_transform_methods import LazyFrame_melt as _impl
-        return _impl(self, id_vars=id_vars, value_vars=value_vars, var_name=var_name, value_name=value_name, ignore_index=ignore_index, check=check, **kwargs)
+
+        target_ref = _normalize_melt_target(
+            id_vars=id_vars,
+            value_vars=value_vars,
+            var_name=var_name,
+            value_name=value_name,
+            ignore_index=ignore_index,
+            kwargs=kwargs,
+        )
+        effective_value_vars = value_vars
+        if effective_value_vars is None and not kwargs and ignore_index:
+            effective_value_vars = self._schema_declared_melt_value_columns(id_vars)
+        if not ignore_index and not kwargs:
+            try:
+                original_id_columns = _normalize_optional_columns(id_vars)
+                value_columns = (
+                    _normalize_columns((value_vars,))
+                    if value_vars is not None
+                    else self._schema_declared_melt_value_columns(id_vars)
+                )
+            except (TypeError, ValueError):
+                value_columns = None
+            if value_columns:
+                indexed = self.reset_index()
+                if isinstance(indexed, LazyFrame):
+                    id_columns = ("index", *original_id_columns)
+                    payload = _vortex_melt_projection_payload(
+                        id_vars=id_columns,
+                        value_vars=value_columns,
+                        var_name=var_name,
+                        value_name=value_name,
+                        kwargs=kwargs,
+                    )
+                    if payload is not None:
+                        candidate = indexed._append(WorkflowOperation("melt", (payload,)))
+                        if candidate._relation_statement() is not None:
+                            return candidate
+        if ignore_index and (
+            payload := _vortex_melt_projection_payload(
+                id_vars=id_vars,
+                value_vars=effective_value_vars,
+                var_name=var_name,
+                value_name=value_name,
+                kwargs=kwargs,
+            )
+        ) is not None:
+            return self._append(WorkflowOperation("melt", (payload,)))
+        return self._unsupported_operation("melt", target_ref, check=check)
 
     def rolling(
         self,
@@ -2589,8 +3372,32 @@ class LazyFrame:
         **kwargs: object,
     ) -> "RollingFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped source-order rolling builder when admitted."""
-        from ._query_transform_methods import LazyFrame_rolling as _impl
-        return _impl(self, window, min_periods=min_periods, center=center, check=check, **kwargs)
+
+        target_ref = _normalize_rolling_target(
+            window,
+            min_periods=min_periods,
+            center=center,
+            kwargs=kwargs,
+        )
+        if kwargs:
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        try:
+            window_size = _normalize_positive_int("rolling window", window)
+            min_window_periods = (
+                window_size
+                if min_periods is None
+                else _normalize_positive_int("rolling min_periods", min_periods)
+            )
+        except (TypeError, ValueError):
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        if min_window_periods > window_size:
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        return RollingFrame(
+            frame=self,
+            window=window_size,
+            min_periods=min_window_periods,
+            center=bool(center),
+        )
 
     def duplicated(
         self,
@@ -2601,8 +3408,16 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped row-duplicate mask for admitted Vortex-backed rows."""
-        from ._query_transform_methods import LazyFrame_duplicated as _impl
-        return _impl(self, subset, keep=keep, check=check, **kwargs)
+
+        target_ref = _normalize_duplicated_target(subset=subset, keep=keep, kwargs=kwargs)
+        normalized_keep = _normalize_duplicate_keep_value(keep)
+        if not kwargs and normalized_keep in {"first", "last", "false"}:
+            columns = self._duplicate_mask_projection_columns(subset)
+            if columns is not None:
+                return self._append(
+                    WorkflowOperation("duplicate_mask", (*columns, f"keep={normalized_keep}"))
+                )
+        return self._unsupported_operation("duplicated", target_ref, check=check)
 
     def tail(
         self,
@@ -2624,8 +3439,24 @@ class LazyFrame:
         WorkflowProfileReport | UnsupportedWorkflowOperationReport
     ):
         """Return a metadata-first profile for admitted local/Vortex columns."""
-        from ._query_report_views import LazyFrame_describe as _impl
-        return _impl(self, *columns, check=check, **kwargs)
+
+        target_ref = _normalize_describe_target(columns, kwargs)
+        if not kwargs:
+            if not columns:
+                return self.profile(check=check)
+            normalized_columns = _normalize_columns(columns)
+            if self.source.source_format == "vortex":
+                projection_columns = self._declared_projection_columns()
+                if projection_columns is None:
+                    return self._unsupported_operation("describe", target_ref, check=check)
+                missing = tuple(
+                    column for column in normalized_columns if column not in projection_columns
+                )
+                if missing:
+                    return self._unsupported_operation("describe", target_ref, check=check)
+            if all(_is_sql_identifier(column) for column in normalized_columns):
+                return self.select(*normalized_columns).profile(check=check)
+        return self._unsupported_operation("describe", target_ref, check=check)
 
     def nunique(
         self,
@@ -2635,8 +3466,21 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped one-column count-distinct aggregate when admitted."""
-        from ._query_transform_methods import LazyFrame_nunique as _impl
-        return _impl(self, *columns, dropna=dropna, check=check, **kwargs)
+
+        target_ref = _normalize_distinct_count_target(
+            columns,
+            dropna=dropna,
+            kwargs=kwargs,
+        )
+        normalized_columns = _normalize_columns(columns)
+        if (
+            not kwargs
+            and dropna is True
+            and len(normalized_columns) == 1
+            and self._can_append_nunique(normalized_columns[0])
+        ):
+            return self.agg(unique_count=count_distinct(normalized_columns[0]))
+        return self._unsupported_operation("nunique", target_ref, check=check)
 
     def value_counts(
         self,
@@ -2647,8 +3491,26 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped grouped `count(*)` workflow when admitted."""
-        from ._query_transform_methods import LazyFrame_value_counts as _impl
-        return _impl(self, *columns, sort=sort, dropna=dropna, check=check, **kwargs)
+
+        target_ref = _normalize_value_counts_target(
+            columns,
+            sort=sort,
+            dropna=dropna,
+            kwargs=kwargs,
+        )
+        normalized_columns = _normalize_columns(columns)
+        if not kwargs and self._can_append_value_counts(normalized_columns):
+            frame = self
+            if dropna:
+                frame = self._with_filter_condition(
+                    " AND ".join(
+                        f"{column} IS NOT NULL" for column in normalized_columns
+                    )
+                )
+            grouped = frame.group_by(*normalized_columns).count(alias="rows")
+            if isinstance(grouped, LazyFrame):
+                return grouped.sort("rows", descending=True) if sort else grouped
+        return self._unsupported_operation("value-counts", target_ref, check=check)
 
     def nlargest(
         self,
@@ -2698,8 +3560,51 @@ class LazyFrame:
         keep: str,
         check: bool,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        from ._query_transform_methods import LazyFrame__top_n_by_columns as _impl
-        return _impl(self, operation, n, columns, descending=descending, keep=keep, check=check)
+        normalized_n = _normalize_top_n_count(operation, n)
+        normalized_columns = _normalize_columns((columns,))
+        normalized_keep = _normalize_top_n_keep(operation, keep)
+        target_ref = _normalize_top_n_target(
+            n=normalized_n,
+            columns=normalized_columns,
+            keep=normalized_keep,
+        )
+        if normalized_keep in {"first", "last", "all"} and self._can_append_sort(
+            normalized_columns
+        ):
+            sort_values = (
+                ("desc" if descending else "asc", *normalized_columns)
+                if normalized_keep == "first"
+                else (
+                    "desc" if descending else "asc",
+                    f"keep={normalized_keep}",
+                    *normalized_columns,
+                )
+            )
+            sorted_frame = self._append(
+                WorkflowOperation(
+                    "sort",
+                    sort_values,
+                )
+            )
+            return sorted_frame.limit(normalized_n)
+        if self.source.source_format == "vortex":
+            sort_values = (
+                ("desc" if descending else "asc", *normalized_columns)
+                if normalized_keep == "first"
+                else (
+                    "desc" if descending else "asc",
+                    f"keep={normalized_keep}",
+                    *normalized_columns,
+                )
+            )
+            sorted_frame = self._append(
+                WorkflowOperation(
+                    "sort",
+                    sort_values,
+                )
+            )
+            return sorted_frame.limit(normalized_n)
+        return self._unsupported_operation(operation, target_ref, check=check)
 
     def fillna(
         self,
@@ -2713,8 +3618,36 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a bounded schema-declared null-fill projection when admitted."""
-        from ._query_transform_methods import LazyFrame_fillna as _impl
-        return _impl(self, value, axis=axis, inplace=inplace, method=method, limit=limit, check=check, **kwargs)
+
+        target_ref = _normalize_fillna_target(
+            value,
+            axis=axis,
+            inplace=inplace,
+            method=method,
+            limit=limit,
+            kwargs=kwargs,
+        )
+        if (
+            not kwargs
+            and value is None
+            and _normalize_dropna_axis(axis) == "rows"
+            and not inplace
+            and (method_name := _normalize_fill_method(method)) == "ffill"
+        ):
+            fill_limit = _normalize_optional_positive_int("fillna limit", limit)
+            payload = self._forward_fill_null_expression_project_payload(fill_limit)
+            if payload is not None:
+                return self._append(WorkflowOperation("expression_project", (payload,)))
+        if (
+            not kwargs
+            and method is None
+            and limit is None
+            and _normalize_dropna_axis(axis) in {"rows", "columns"}
+            and not inplace
+            and (projection := self._schema_declared_fillna_projection(value))
+        ):
+            return self._with_rewritten_projection(projection)
+        return self._unsupported_operation("fillna", target_ref, check=check)
 
     def fill_null(
         self,
@@ -2728,8 +3661,16 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `fillna(...)` using expression-engine null terminology."""
-        from ._query_transform_methods import LazyFrame_fill_null as _impl
-        return _impl(self, value, axis=axis, inplace=inplace, method=method, limit=limit, check=check, **kwargs)
+
+        return self.fillna(
+            value,
+            axis=axis,
+            inplace=inplace,
+            method=method,
+            limit=limit,
+            check=check,
+            **kwargs,
+        )
 
     def isna(
         self,
@@ -2785,8 +3726,40 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped scalar conditional rewrite when the native route can admit it."""
-        from ._query_transform_methods import LazyFrame_mask as _impl
-        return _impl(self, cond, other, axis=axis, inplace=inplace, level=level, check=check, **kwargs)
+
+        target_ref = _normalize_mask_target(
+            cond=cond,
+            other=other,
+            axis=axis,
+            inplace=inplace,
+            level=level,
+            kwargs=kwargs,
+        )
+        if (
+            not kwargs
+            and _normalize_dropna_axis(axis) == "rows"
+            and not inplace
+            and level is None
+        ):
+            predicate = _vortex_tiny_predicate_from_sql(_predicate_sql(cond))
+            target_column = (
+                _vortex_tiny_predicate_column(predicate) if predicate is not None else None
+            )
+            if target_column is not None:
+                payload = self._expression_project_payload(
+                    (
+                        {
+                            "kind": "mask_scalar",
+                            "target_column": target_column,
+                            "predicate": predicate,
+                            "replacement": other,
+                        },
+                    ),
+                    required_columns=(target_column,),
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
+        return self._unsupported_operation("mask", target_ref, check=check)
 
     def replace(
         self,
@@ -2801,8 +3774,38 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped scalar value rewrite when the native route can admit it."""
-        from ._query_transform_methods import LazyFrame_replace as _impl
-        return _impl(self, to_replace, value, regex=regex, inplace=inplace, method=method, limit=limit, check=check, **kwargs)
+
+        target_ref = _normalize_replace_target(
+            to_replace=to_replace,
+            value=value,
+            regex=regex,
+            inplace=inplace,
+            method=method,
+            limit=limit,
+            kwargs=kwargs,
+        )
+        if (
+            not kwargs
+            and not inplace
+            and method is None
+            and limit is None
+            and to_replace is not None
+        ):
+            rewrite_specs = (
+                self._regex_replace_rewrite_specs(to_replace, value)
+                if regex
+                else self._replace_rewrite_specs(to_replace, value)
+            )
+            if rewrite_specs is not None:
+                payload = self._expression_project_payload(
+                    rewrite_specs,
+                    required_columns=tuple(
+                        str(spec["target_column"]) for spec in rewrite_specs
+                    ),
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
+        return self._unsupported_operation("replace", target_ref, check=check)
 
     def apply(
         self,
@@ -2812,8 +3815,23 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped ShardLoom plan-transform apply when admitted."""
-        from ._query_transform_methods import LazyFrame_apply as _impl
-        return _impl(self, function, *args, check=check, **kwargs)
+
+        if isinstance(function, WorkflowPlanTransform):
+            result = function.apply(self, *args, **kwargs)
+            if isinstance(result, LazyFrame):
+                return result
+            return self._unsupported_operation(
+                "apply",
+                f"plan_transform={function.name};return_type={type(result).__name__}",
+                check=check,
+            )
+        target_ref = _normalize_callable_transform_target(
+            "apply",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("apply", target_ref, check=check)
 
     def pipe(
         self,
@@ -2823,8 +3841,23 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped ShardLoom plan-transform pipe when admitted."""
-        from ._query_transform_methods import LazyFrame_pipe as _impl
-        return _impl(self, function, *args, check=check, **kwargs)
+
+        if isinstance(function, WorkflowPlanTransform):
+            result = function.apply(self, *args, **kwargs)
+            if isinstance(result, LazyFrame):
+                return result
+            return self._unsupported_operation(
+                "pipe",
+                f"plan_transform={function.name};return_type={type(result).__name__}",
+                check=check,
+            )
+        target_ref = _normalize_callable_transform_target(
+            "pipe",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("pipe", target_ref, check=check)
 
     def transform(
         self,
@@ -2834,8 +3867,20 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Apply an explicit plan transform or native column-expression mapping."""
-        from ._query_transform_methods import LazyFrame_transform as _impl
-        return _impl(self, function, *args, check=check, **kwargs)
+
+        if isinstance(function, WorkflowPlanTransform):
+            return self.pipe(function, *args, check=check, **kwargs)
+        if isinstance(function, WorkflowColumnTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
+        if not args and not kwargs and isinstance(function, Mapping):
+            return self.with_columns(function, check=check)
+        target_ref = _normalize_callable_transform_target(
+            "transform",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("transform", target_ref, check=check)
 
     def applymap(
         self,
@@ -2845,8 +3890,16 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return scoped column transforms while blocking Python cell callables."""
-        from ._query_transform_methods import LazyFrame_applymap as _impl
-        return _impl(self, function, *args, check=check, **kwargs)
+
+        if isinstance(function, WorkflowColumnTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
+        target_ref = _normalize_callable_transform_target(
+            "applymap",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("applymap", target_ref, check=check)
 
     def map(
         self,
@@ -2870,8 +3923,16 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return scoped declarative row transforms while blocking Python row callables."""
-        from ._query_transform_methods import LazyFrame_map_rows as _impl
-        return _impl(self, function, *args, check=check, **kwargs)
+
+        if isinstance(function, WorkflowRowTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
+        target_ref = _normalize_callable_transform_target(
+            "map_rows",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("map-rows", target_ref, check=check)
 
     def eval(
         self,
@@ -2881,8 +3942,24 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped expression-project assignment when admitted."""
-        from ._query_transform_methods import LazyFrame_eval as _impl
-        return _impl(self, expr, check=check, **kwargs)
+
+        target_ref = _normalize_eval_target(expr, kwargs)
+        if not kwargs:
+            rewrite_specs = _eval_numeric_scalar_assignment_rewrites(
+                expr, allow_zero_division=self.client.float_policy == "extended"
+            )
+            if rewrite_specs is not None:
+                target_columns = tuple(
+                    str(rewrite_spec["target_column"])
+                    for rewrite_spec in rewrite_specs
+                )
+                payload = self._expression_project_payload(
+                    rewrite_specs,
+                    required_columns=target_columns,
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
+        return self._unsupported_operation("eval", target_ref, check=check)
 
     def distinct(self) -> "LazyFrame":
         """Return a lazy plan with row-level duplicate removal."""
@@ -2968,8 +4045,38 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return scoped retained rows after native Vortex row-key deduplication."""
-        from ._query_transform_methods import LazyFrame_drop_duplicates as _impl
-        return _impl(self, subset, keep=keep, check=check, **kwargs)
+
+        if not kwargs:
+            normalized_keep = _normalize_duplicate_keep_value(keep)
+            projection_columns = self._unary_projection_columns()
+            try:
+                subset_columns = (
+                    projection_columns
+                    if subset is None and projection_columns is not None
+                    else _normalize_columns((subset,))
+                )
+            except (TypeError, ValueError):
+                subset_columns = ()
+            if (
+                normalized_keep in {"first", "last", "false"}
+                and projection_columns is not None
+                and subset_columns
+                and (subset_columns == ("*",) or all(_is_sql_identifier(column) for column in subset_columns))
+                and all(column == "*" or _is_sql_identifier(column) for column in projection_columns)
+                and (projection_columns == ("*",) or all(column in projection_columns for column in subset_columns))
+            ):
+                return self._append(
+                    WorkflowOperation(
+                        "drop_duplicates",
+                        (*subset_columns, f"keep={normalized_keep}"),
+                    )
+                )
+        target_ref = _normalize_duplicated_target(
+            subset=subset,
+            keep=keep,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("drop-duplicates", target_ref, check=check)
 
     def unique(self) -> "LazyFrame":
         """Alias for `distinct()` using familiar DataFrame naming."""
@@ -2985,8 +4092,17 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Attach scoped index-state metadata without changing encoded row data."""
-        from ._query_transform_methods import LazyFrame_set_index as _impl
-        return _impl(self, keys, drop=drop, check=check, **kwargs)
+
+        target_ref = _normalize_index_target(
+            "set_index",
+            keys=keys,
+            drop=drop,
+            kwargs=kwargs,
+        )
+        index_columns = _normalize_index_columns(keys)
+        if drop is False and not kwargs:
+            return self._append(WorkflowOperation("set_index", index_columns))
+        return self._unsupported_operation("set-index", target_ref, check=check)
 
     def reset_index(
         self,
@@ -2995,8 +4111,39 @@ class LazyFrame:
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Materialize an explicit source-order row number unless `drop=True` is requested."""
-        from ._query_transform_methods import LazyFrame_reset_index as _impl
-        return _impl(self, check=check, **kwargs)
+
+        if kwargs == {"drop": True}:
+            if _workflow_index_columns(self.operations):
+                return LazyFrame(
+                    source=self.source,
+                    client=self.client,
+                    operations=_strip_index_metadata_operations(self.operations),
+                    engine_mode=self.engine_mode,
+                    resources=self.resources, resource_limits=self.resource_limits,
+                )
+            return self
+        if not kwargs or kwargs == {"drop": False}:
+            base = LazyFrame(
+                source=self.source,
+                client=self.client,
+                operations=_strip_index_metadata_operations(self.operations),
+                engine_mode=self.engine_mode,
+                resources=self.resources, resource_limits=self.resource_limits,
+            )
+            projection_columns = base._expression_project_projection_columns(())
+            if projection_columns is not None:
+                target_column = (
+                    "index"
+                    if "index" not in projection_columns
+                    else "__shardloom_row_number"
+                )
+                payload = base._row_number_expression_project_payload(target_column)
+                if payload is not None:
+                    return base._append(WorkflowOperation("expression_project", (payload,)))
+            if _workflow_index_columns(self.operations):
+                return base
+        target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
+        return self._unsupported_operation("reset-index", target_ref, check=check)
 
     def sort_index(
         self,
@@ -3024,16 +4171,96 @@ class LazyFrame:
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped computed-column workflow when admitted."""
-        from ._query_transform_methods import LazyFrame_with_column as _impl
-        return _impl(self, name, expression, check=check)
+
+        column_name = _normalize_output_column_name(name)
+        expression_sources = _predicate_sources(expression)
+        expression_limits = _predicate_limits(expression)
+        try:
+            literal = (
+                expression
+                if isinstance(expression, (Decimal, bytes, bytearray, date))
+                else _generated_literal_expression(expression)
+            )
+            expression_sql = "NULL" if literal is None else _sql_literal(literal)
+        except (TypeError, ValueError):
+            try:
+                expression_sql = _sql_computed_projection_expression(expression)
+            except (TypeError, ValueError):
+                expression_text = _require_non_empty("column expression", expression)
+                if self.source.source_format == "vortex" and _sql_text_looks_like_cast(
+                    expression_text
+                ):
+                    return self._append(
+                        WorkflowOperation("with_column", (column_name, expression_text), expression_sources, resource_limits=expression_limits)
+                    )
+                return self._unsupported_operation(
+                    "with-column",
+                    f"{column_name}={expression_text}",
+                    check=check,
+                )
+        if expression_project_payload := self._numeric_scalar_expression_project_payload(
+            column_name,
+            expression_sql,
+        ):
+            return self._append(
+                self._computed_projection_operation(
+                    expression_project_payload, column_name, expression_sql,
+                    source_bindings=expression_sources,
+                    resource_limits=expression_limits,
+                )
+            )
+        if expression_project_payload := self._string_replace_expression_project_payload(
+            column_name,
+            expression_sql,
+        ):
+            return self._append(
+                self._computed_projection_operation(
+                    expression_project_payload, column_name, expression_sql,
+                    source_bindings=expression_sources,
+                    resource_limits=expression_limits,
+                )
+            )
+        if (self.source.source_format == "vortex"
+                and isinstance(expression, ComplexProjectionExpression)
+                and self._can_append_projection_column(column_name, allow_vortex=True)):
+            projected = self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
+            ))
+            if projected._has_structured_binary_export_shape():
+                return projected
+        if self._can_append_projection_column(column_name, allow_vortex=True):
+            return self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
+            ))
+        if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
+            return self._append(WorkflowOperation(
+                "with_column", (column_name, expression_sql), expression_sources,
+                resource_limits=expression_limits,
+            ))
+        return self._unsupported_operation(
+            "with-column",
+            f"{column_name}={expression_sql}",
+            check=check,
+        )
 
     def _computed_projection_operation(
         self, payload: str, name: str, expression: str,
         *, source_bindings: tuple[WorkflowSource, ...] = (),
         resource_limits: ExecutionResourceLimits | None = None,
     ) -> WorkflowOperation:
-        from ._query_transform_methods import LazyFrame__computed_projection_operation as _impl
-        return _impl(self, payload, name, expression, source_bindings=source_bindings, resource_limits=resource_limits)
+        from ._relational_sql import computed_projection
+
+        columns = self._expression_project_projection_columns(())
+        if columns == ("*",):
+            return WorkflowOperation("with_column", (name, expression), source_bindings, resource_limits=resource_limits)
+        return WorkflowOperation(
+            "expression_project", (payload,),
+            source_bindings=source_bindings,
+            projection_sql=computed_projection(columns, name, expression) if columns is not None else None,
+            resource_limits=resource_limits,
+        )
 
     def with_columns(
         self,
@@ -3047,8 +4274,18 @@ class LazyFrame:
         This is a convenience alias over repeated `with_column(...)` calls. It
         does not widen expression semantics or introduce another execution path.
         """
-        from ._query_transform_methods import LazyFrame_with_columns as _impl
-        return _impl(self, columns, check=check, **named_expressions)
+
+        items = _normalize_named_projection_items(
+            "with_columns",
+            columns,
+            named_expressions,
+        )
+        workflow: LazyFrame | UnsupportedWorkflowOperationReport = self
+        for name, expression in items:
+            if isinstance(workflow, UnsupportedWorkflowOperationReport):
+                return workflow
+            workflow = workflow.with_column(name, expression, check=check)
+        return workflow
 
     def assign(
         self,
@@ -3104,8 +4341,38 @@ class LazyFrame:
         check: bool = False,
     ) -> PublicWorkflowRoute:
         """Return the shared public route envelope for this lazy workflow."""
-        from ._query_action_methods import LazyFrame_route as _impl
-        return _impl(self, requested_output=requested_output, output_ref=output_ref, execution_policy=execution_policy, materialization_policy=materialization_policy, evidence_level=evidence_level, bounded=bounded, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        normalized_bounded = (
+            self._has_declared_limit()
+            if bounded is None and requested_output == "collect"
+            else bounded
+        )
+        effective_evidence_level = evidence_level
+        if (
+            evidence_level == "runtime_smoke"
+            and _is_declared_local_source(self.source)
+        ):
+            effective_evidence_level = "production_admitted_local_workflow"
+        effective_execution_policy = (
+            _public_workflow_default_execution_policy(self.source)
+            if execution_policy is None
+            else execution_policy
+        )
+        relational_statement = self._native_relational_statement()
+        return self.client.public_workflow_route(
+            self._surface,
+            **self._declared_input_kwargs(),
+            sql_statement=relational_statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy=effective_execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=effective_evidence_level,
+            bounded=normalized_bounded,
+            check=check,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources, required=False),
+        )
 
     def run(
         self,
@@ -3124,8 +4391,33 @@ class LazyFrame:
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Execute this lazy workflow with the ShardLoom engine."""
-        from ._query_action_methods import LazyFrame_run as _impl
-        return _impl(self, requested_output=requested_output, output_ref=output_ref, execution_policy=execution_policy, materialization_policy=materialization_policy, evidence_level=evidence_level, bounded=bounded, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        normalized_bounded = (
+            self._has_declared_limit()
+            if bounded is None and requested_output == "collect"
+            else bounded
+        )
+        effective_execution_policy = (
+            _public_workflow_default_execution_policy(self.source)
+            if execution_policy is None
+            else execution_policy
+        )
+        relational_statement = self._native_relational_statement()
+        return self.client.public_workflow_run(
+            self._surface,
+            **self._declared_input_kwargs(),
+            sql_statement=relational_statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy=effective_execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=normalized_bounded,
+            **_native_plan_kwargs(self),
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
+            check=check,
+        )
 
     def prepare(
         self,
@@ -3139,8 +4431,33 @@ class LazyFrame:
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Load or reuse this source in a Vortex file without executing the query."""
-        from ._query_action_methods import LazyFrame_prepare as _impl
-        return _impl(self, target_vortex_path, evidence_level=evidence_level, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        source = self.source
+        if source.relation is not None:
+            relation = source.relation
+            if relation.input_uri is not None:
+                source = next((item for item in relation.source_bindings
+                               if item.uri == relation.input_uri),
+                              WorkflowSource(relation.input_format or
+                                  _source_format_for_local_source_ref(relation.input_uri) or "auto",
+                                  relation.input_uri))
+            elif len(relation.source_bindings) == 1 and not relation.relations:
+                source = relation.source_bindings[0]
+            else:
+                raise ValueError("prepare() requires one explicit file source; use write_vortex() to execute a composed query")
+        return self.client.public_workflow_prepare(
+            self._surface,
+            input_uri=source.uri,
+            input_format=_public_workflow_input_format(source),
+            source_schema=_prepare_vortex_schema_hints(source),
+            output_ref=target_vortex_path,
+            plan_summary=self.operation_summary,
+            evidence_level=evidence_level,
+            **_terminal_resource_kwargs(memory_gb, max_parallelism,
+                memory_bytes=memory_bytes, resources=resources,
+                inherited=self.resources, limits=self.resource_limits),
+            check=check,
+        )
 
     def profile(
         self,
@@ -3160,8 +4477,22 @@ class LazyFrame:
 
         This is a data-consuming diagnostic, not a metadata-only explain call.
         """
-        from ._query_report_views import LazyFrame_profile as _impl
-        return _impl(self, limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        _validate_positive_row_count("profile limit", limit)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowProfileReport(
+            workflow=self,
+            smoke_report=report,
+            schema_report=_workflow_schema_report(self, report),
+            limit=limit,
+        )
 
     def collect(
         self,
@@ -3219,8 +4550,18 @@ class LazyFrame:
         released; separate Python and consumer allocations use caller memory.
         Supported local files use the shared direct readers for batch consumption.
         """
-        from ._query_action_methods import LazyFrame_iter_batches as _impl
-        return _impl(self, batch_rows=batch_rows, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, output_window_bytes=output_window_bytes)
+        statement = self._relation_statement()
+        if statement is None:
+            raise ValueError("batch consumption requires an admitted native SQL declaration")
+        return self.client.public_workflow_batches(
+            self._surface, batch_rows=batch_rows, sql_statement=statement,
+            output_window_bytes=output_window_bytes,
+            **_native_plan_kwargs(self),
+            **self._declared_input_kwargs(),
+            input_batches=_workflow_batch_inputs(self._declared_sources()),
+            plan_summary=self.operation_summary, evidence_level="production_admitted_local_workflow",
+            **_terminal_resource_kwargs(memory_gb, max_parallelism, spill, inherited=self.resources, limits=self.resource_limits, memory_bytes=memory_bytes, resources=resources),
+        )
 
     def count(
         self,
@@ -3280,8 +4621,17 @@ class LazyFrame:
         check: bool = True,
     ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
-        from ._query_action_methods import LazyFrame_write_jsonl as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_json(
         self,
@@ -3297,8 +4647,17 @@ class LazyFrame:
         check: bool = True,
     ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="json")` (one JSON array)."""
-        from ._query_action_methods import LazyFrame_write_json as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="json",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_csv(
         self,
@@ -3314,8 +4673,17 @@ class LazyFrame:
         check: bool = True,
     ) -> Result | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
-        from ._query_action_methods import LazyFrame_write_csv as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="csv",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_parquet(
         self,
@@ -3335,8 +4703,17 @@ class LazyFrame:
         The CLI must be built with `--features universal-format-io`; default
         binaries return ShardLoom's deterministic Parquet sink blocker.
         """
-        from ._query_action_methods import LazyFrame_write_parquet as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="parquet",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_arrow_ipc(
         self,
@@ -3356,8 +4733,17 @@ class LazyFrame:
         The CLI must be built with `--features universal-format-io`; default
         binaries return ShardLoom's deterministic Arrow IPC sink blocker.
         """
-        from ._query_action_methods import LazyFrame_write_arrow_ipc as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="arrow-ipc",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_avro(
         self,
@@ -3377,8 +4763,17 @@ class LazyFrame:
         The CLI must be built with `--features universal-format-io`; default
         binaries return ShardLoom's deterministic Avro sink blocker.
         """
-        from ._query_action_methods import LazyFrame_write_avro as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="avro",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def write_orc(
         self,
@@ -3398,8 +4793,17 @@ class LazyFrame:
         The CLI must be built with `--features universal-format-io`; default
         binaries return ShardLoom's deterministic ORC sink blocker.
         """
-        from ._query_action_methods import LazyFrame_write_orc as _impl
-        return _impl(self, target_uri, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        return self.write(
+            target_uri,
+            output_format="orc",
+            allow_overwrite=allow_overwrite,
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+            check=check,
+        )
 
     def fanout(
         self,
@@ -3417,8 +4821,16 @@ class LazyFrame:
         Result | UnsupportedWorkflowOperationReport
     ):
         """Write one declared workflow through the common multi-output owner."""
-        from ._query_action_methods import LazyFrame_fanout as _impl
-        return _impl(self, outputs, allow_overwrite=allow_overwrite, reuse=reuse, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+        normalized_outputs = _normalize_fanout_outputs(outputs)
+        output_format, output_path = normalized_outputs[0]
+        if self._relation_statement() is None:
+            return self._unsupported_operation("fanout", str(output_path), check=check)
+        return self._public_workflow_write_report(
+            output_path, requested_output=_public_write_request_for_format(output_format),
+            allow_overwrite=allow_overwrite, fanout_outputs=normalized_outputs[1:],
+            reuse=reuse,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check,
+        )
 
     def to_pandas(
         self,
@@ -3431,8 +4843,23 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a pandas DataFrame at an explicit bounded materialization boundary."""
-        from ._query_action_methods import LazyFrame_to_pandas as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        pandas = _optional_module("pandas")
+        if pandas is None:
+            return self._unsupported_operation(
+                "to-pandas",
+                "missing optional dependency: pandas",
+                check=check,
+            )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_pandas(report, pandas)
 
     def to_arrow(
         self,
@@ -3445,8 +4872,23 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table at an explicit bounded materialization boundary."""
-        from ._query_action_methods import LazyFrame_to_arrow as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_table(
         self,
@@ -3459,8 +4901,23 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a PyArrow table for admitted bounded local-source workflows."""
-        from ._query_action_methods import LazyFrame_to_arrow_table as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-table",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_table(report, pyarrow)
 
     def to_arrow_ipc(
         self,
@@ -3473,8 +4930,23 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> bytes | UnsupportedWorkflowOperationReport:
         """Return Arrow IPC stream bytes for admitted bounded local-source workflows."""
-        from ._query_action_methods import LazyFrame_to_arrow_ipc as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        pyarrow = _optional_module("pyarrow")
+        if pyarrow is None:
+            return self._unsupported_operation(
+                "to-arrow-ipc",
+                "missing optional dependency: pyarrow",
+                check=check,
+            )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_arrow_ipc(report, pyarrow)
 
     def to_numpy(
         self,
@@ -3487,8 +4959,23 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> object | UnsupportedWorkflowOperationReport:
         """Return a NumPy array for admitted bounded local-source workflow rows."""
-        from ._query_action_methods import LazyFrame_to_numpy as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        numpy = _optional_module("numpy")
+        if numpy is None:
+            return self._unsupported_operation(
+                "to-numpy",
+                "missing optional dependency: numpy",
+                check=check,
+            )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _result_to_numpy(report, numpy)
 
     def to_python_objects(
         self,
@@ -3500,8 +4987,16 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
         """Return bounded Python row objects for admitted local-source workflows."""
-        from ._query_action_methods import LazyFrame_to_python_objects as _impl
-        return _impl(self, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=None, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return report.python_objects
 
     def prepare_vortex(
         self,
@@ -3524,8 +5019,56 @@ class LazyFrame:
         single `.vortex` artifact and reports no-sidecar evidence; callers opt into replacing an
         existing artifact with ``allow_overwrite=True`` when the writer admits replacement.
         """
-        from ._query_action_methods import LazyFrame_prepare_vortex as _impl
-        return _impl(self, target_vortex_path, workspace=workspace, input_format=input_format, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, allow_overwrite=allow_overwrite, certification_level=certification_level, check=check)
+
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        if self.engine_mode not in {"auto", "batch"}:
+            raise ValueError(
+                "LazyFrame.prepare_vortex currently supports engine_mode='auto' or 'batch' "
+                "for scoped local batch preparation; live/hybrid preparation remains gated"
+            )
+        if self.source.memory_input:
+            target = _generated_prepared_vortex_target_path(
+                self.source.uri.rsplit("/", 1)[-1],
+                target_vortex_path=target_vortex_path, workspace=workspace,
+            )
+            return self.write_vortex(
+                target, allow_overwrite=allow_overwrite, check=check,
+                resources=resources,
+            )
+        if self.source.source_format == "vortex":
+            raise ValueError(
+                "LazyFrame.prepare_vortex starts from raw compatibility input; "
+                "read_vortex(...) sources are already Vortex-native"
+            )
+        if not _is_declared_local_source(self.source):
+            raise ValueError(
+                "LazyFrame.prepare_vortex requires a local CSV, JSON/JSONL/NDJSON, Parquet, "
+                "Arrow IPC, Avro, or ORC source"
+            )
+        if self.operations:
+            raise ValueError(
+                "LazyFrame.prepare_vortex prepares the raw local source before query operators; "
+                "call it directly on read_*(...) or use write_vortex(...) for a query-result sink"
+            )
+        target = _prepared_vortex_target_path(
+            self.source.uri,
+            target_vortex_path=target_vortex_path,
+            workspace=workspace,
+        )
+        return self.client.vortex_prepare(
+            self.source.uri,
+            target,
+            input_format=input_format,
+            schema=_prepare_vortex_schema_hints(self.source),
+            allow_overwrite=allow_overwrite,
+            certification_level=certification_level,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            check=check,
+        )
 
     def write_vortex(
         self,
@@ -3681,8 +5224,76 @@ class LazyFrame:
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped local-source join workflow when admitted."""
-        from ._query_composition_methods import LazyFrame_join as _impl
-        return _impl(self, other, on=on, condition=condition, how=how, check=check)
+
+        normalized_how = _normalize_join_how(how)
+        if on is not None and condition is not None:
+            raise ValueError("join() accepts either on= equi keys or condition=, not both")
+        normalized_condition = (
+            None if condition is None else _normalize_join_condition(condition)
+        )
+        if normalized_how == "cross" and normalized_condition is not None:
+            raise ValueError("cross joins do not accept condition=; use filter() after join()")
+        normalized_columns = (
+            ()
+            if on is None
+            else tuple(
+                _normalize_output_column_name(column)
+                for column in _normalize_columns((on,))
+            )
+        )
+        columns = ",".join(normalized_columns)
+        right_uri: str
+        right_summary: str
+        right_operations: tuple[WorkflowOperation, ...] = ()
+        right_statement: str | None = None
+        right_source_local = False
+        if isinstance(other, LazyFrame):
+            if other.client is not self.client:
+                raise ValueError("joined relation belongs to another context")
+            right_uri = other.source.uri
+            right_summary = other.operation_summary
+            right_operations = other.operations
+            if self.client.transport == "native":
+                right_statement = f"SELECT * FROM {other._bound_relation_source().uri}"
+            elif right_operations or other.source.relation is not None:
+                right_statement = other._relation_statement()
+            right_source_local = other._relation_statement() is not None
+            right_source_vortex = other.source.source_format == "vortex"
+        else:
+            right_uri = _require_non_empty("join right source", other)
+            right_summary = right_uri
+            right_source_local = _source_format_for_local_source_ref(right_uri) is not None
+            right_source_vortex = _is_local_vortex_source_ref(right_uri)
+        target = f"{normalized_how}:{columns}:{normalized_condition or ''}:{right_summary}"
+        if (
+            (
+                self._relation_statement() is not None
+                and (right_source_local or right_source_vortex)
+            )
+            and (not right_operations or right_statement is not None)
+            and (normalized_columns or normalized_condition is not None or normalized_how == "cross")
+        ):
+            return self._append(
+                WorkflowOperation(
+                    "join",
+                    (
+                        right_uri,
+                        columns,
+                        columns,
+                        normalized_how,
+                        "f",
+                        "d",
+                        normalized_condition or "",
+                    ),
+                    source_bindings=_predicate_sources(other, condition),
+                    right_statement=right_statement,
+                    resource_limits=_predicate_limits(other, condition),
+                    right_frame=other if isinstance(other, LazyFrame) else None,
+                )
+            )
+        if self.source.source_format == "vortex" or right_source_vortex:
+            return self._unsupported_operation("native-vortex-join", target, check=check)
+        return self._unsupported_operation("join", target, check=check)
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
         """Return a grouped lazy workflow handle for scoped aggregation."""
@@ -3710,8 +5321,23 @@ class LazyFrame:
         Bucket calculation and aggregation are performed by the native temporal
         and grouping owners when the workflow is executed.
         """
-        from ._query_composition_methods import LazyFrame_resample as _impl
-        return _impl(self, time, every, unit, by=by, origin=origin, month_end=month_end, ambiguity=ambiguity)
+
+        time_column = _normalize_temporal_grid_column(time, "time")
+        keys = _normalize_temporal_grid_keys(by, time_column)
+        spacing = _normalize_temporal_grid_int("every", every, required=True)
+        if spacing <= 0:
+            raise ValueError("resample spacing must be a positive integer")
+        normalized_unit = _normalize_temporal_grid_unit(unit)
+        normalized_origin = _normalize_temporal_grid_int("origin", origin)
+        normalized_month_end, normalized_ambiguity = _normalize_temporal_grid_policies(
+            month_end, ambiguity,
+        )
+        bucket = col(time_column).temporal_bucket(
+            spacing, normalized_unit, origin=normalized_origin,
+            month_end=normalized_month_end, ambiguity=normalized_ambiguity,
+        )
+        bucketed = self.with_column(time_column, bucket)
+        return bucketed.group_by(*keys, time_column)
 
     def gap_fill(
         self,
@@ -3731,8 +5357,30 @@ class LazyFrame:
         This records literal controls only; it does not inspect or load source
         rows. Bounds and origin are signed 64-bit ticks in the source domain.
         """
-        from ._query_composition_methods import LazyFrame_gap_fill as _impl
-        return _impl(self, time, every, unit, by=by, start=start, end=end, origin=origin, month_end=month_end, ambiguity=ambiguity)
+
+        time_column = _normalize_temporal_grid_column(time, "time")
+        keys = _normalize_temporal_grid_keys(by, time_column)
+        spacing = _normalize_temporal_grid_int("every", every, required=True)
+        if spacing <= 0:
+            raise ValueError("gap fill spacing must be a positive integer")
+        normalized_unit = _normalize_temporal_grid_unit(unit)
+        normalized_start = _normalize_temporal_grid_int("start", start)
+        normalized_end = _normalize_temporal_grid_int("end", end)
+        normalized_origin = _normalize_temporal_grid_int("origin", origin)
+        normalized_month_end, normalized_ambiguity = _normalize_temporal_grid_policies(
+            month_end, ambiguity,
+        )
+        return self._append(WorkflowOperation("gap_fill", (
+            time_column,
+            str(spacing),
+            normalized_unit,
+            ",".join(keys),
+            "NULL" if normalized_start is None else str(normalized_start),
+            "NULL" if normalized_end is None else str(normalized_end),
+            "NULL" if normalized_origin is None else str(normalized_origin),
+            normalized_month_end,
+            normalized_ambiguity,
+        )))
 
     def groupby(self, *columns: object) -> "GroupedLazyFrame":
         """Alias for `group_by(...)` using pandas-style naming."""
@@ -3761,8 +5409,17 @@ class LazyFrame:
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scalar aggregate workflow when admitted, otherwise report unsupported."""
-        from ._query_composition_methods import LazyFrame_aggregate as _impl
-        return _impl(self, *expressions, check=check)
+
+        values = _normalize_columns(expressions)
+        target = ",".join(values)
+        if self._can_append_scalar_aggregate():
+            return self._append(WorkflowOperation(
+                "aggregate", values, _predicate_sources(expressions),
+                resource_limits=_predicate_limits(expressions),
+            ))
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation("native-vortex-aggregate", target, check=check)
+        return self._unsupported_operation("aggregate", target, check=check)
 
     def map_batches(self, function) -> "LazyFrame":
         """Apply a registered rowwise function at this exact plan position.
@@ -3787,8 +5444,20 @@ class LazyFrame:
         the action, and metrics become available on its completed Result.
         Scalar expressions inside aggregates use native type and null rules.
         """
-        from ._query_composition_methods import LazyFrame_observe as _impl
-        return _impl(self, name, *expressions, **named_expressions)
+        from ._connected import identifier
+        name = identifier(name, label="observation name")
+        if getattr(self.client, "transport", "subprocess") != "native":
+            raise ValueError("observations require the in-process native transport")
+        values = list(_normalize_columns(expressions)) if expressions else []
+        values.extend(_format_named_aggregate(alias, expression) for alias, expression in named_expressions.items())
+        if not values:
+            raise ValueError("observation requires at least one aggregate")
+        if _predicate_sources(expressions, named_expressions):
+            raise ValueError("observation metrics cannot read another relation")
+        frame = self._append(WorkflowOperation("observe", (name, *values),
+            resource_limits=_predicate_limits(expressions, named_expressions)))
+        self.client._native_backend_for().declaration(frame)
+        return frame
 
     def agg(
         self,
@@ -3797,8 +5466,32 @@ class LazyFrame:
         **named_expressions: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scalar aggregate workflow for positional expressions when admitted."""
-        from ._query_composition_methods import LazyFrame_agg as _impl
-        return _impl(self, *expressions, check=check, **named_expressions)
+
+        values = list(_normalize_columns(expressions)) if expressions else []
+        target_values = list(values)
+        target_values.extend(
+            f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        values.extend(
+            _format_named_aggregate(name, expression)
+            for name, expression in named_expressions.items()
+        )
+        if not values:
+            raise ValueError("aggregate expressions must not be empty")
+        if self._can_append_scalar_aggregate():
+            return self._append(WorkflowOperation(
+                "aggregate", tuple(values),
+                _predicate_sources(expressions, named_expressions),
+                resource_limits=_predicate_limits(expressions, named_expressions),
+            ))
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation(
+                "native-vortex-aggregate",
+                ",".join(target_values),
+                check=check,
+            )
+        return self._unsupported_operation("agg", ",".join(target_values), check=check)
 
     def sort(
         self,
@@ -3808,8 +5501,27 @@ class LazyFrame:
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped sort workflow when admitted, otherwise report unsupported."""
-        from ._query_composition_methods import LazyFrame_sort as _impl
-        return _impl(self, *columns, descending=descending, nulls=nulls, check=check)
+
+        normalized_columns = _normalize_columns(columns)
+        direction = "desc" if descending else "asc"
+        null_ordering = _normalize_sort_nulls(nulls)
+        target = f"{direction}:{','.join(normalized_columns)}"
+        if null_ordering is not None:
+            target = f"{target}:nulls_{null_ordering}"
+        if self._can_append_sort(normalized_columns):
+            return self._append(
+                WorkflowOperation(
+                    "sort",
+                    _format_sort_operation_values(
+                        direction,
+                        normalized_columns,
+                        null_ordering,
+                    ),
+                    _predicate_sources(columns),
+                    resource_limits=_predicate_limits(columns),
+                )
+            )
+        return self._unsupported_operation("sort", target, check=check)
 
     def order_by(
         self,
@@ -3893,8 +5605,16 @@ class LazyFrame:
         Data-dependent schemas are available on the completed Result. Explicit
         sampled diagnostics remain available through describe_schema().
         """
-        from ._query_report_views import LazyFrame_schema as _impl
-        return _impl(self, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        self.client._ensure_open()
+        if getattr(self.client, "transport", "subprocess") != "native":
+            raise ValueError("metadata schema inspection requires the in-process native transport")
+        return self.client._native_backend_for().schema(self, allocation)
 
     def describe_schema(
         self,
@@ -3925,8 +5645,19 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
         """Validate an expected schema against admitted local-source rows."""
-        from ._query_report_views import LazyFrame_validate_schema as _impl
-        return _impl(self, schema, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        normalized = _normalize_schema(schema)
+        if not normalized:
+            raise ValueError("schema validation contract must not be empty")
+        report = self._bounded_schema_report(check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _validate_workflow_schema(report, normalized)
 
     def data_quality_check(
         self,
@@ -3938,8 +5669,24 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Run bounded data-quality checks for admitted local-source workflows."""
-        from ._query_report_views import LazyFrame_data_quality_check as _impl
-        return _impl(self, *checks, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        normalized_checks = _normalize_columns(checks)
+        parsed_checks = _parse_data_quality_checks(normalized_checks)
+        if parsed_checks is not None:
+            report = self._bounded_schema_report(check=check, resources=allocation)
+            if isinstance(report, UnsupportedWorkflowOperationReport):
+                return report
+            return _workflow_data_quality_report(report, parsed_checks)
+        return self._unsupported_operation(
+            "data-quality",
+            ",".join(normalized_checks),
+            check=check,
+        )
 
     def data_quality(
         self,
@@ -3969,8 +5716,16 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
         """Return bounded null-count and schema summary for admitted workflows."""
-        from ._query_report_views import LazyFrame_data_quality_summary as _impl
-        return _impl(self, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_schema_report(check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowDataQualityReport(schema_report=report)
 
     def quarantine(
         self,
@@ -3986,8 +5741,65 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> WorkflowQuarantineReport | UnsupportedWorkflowOperationReport:
         """Return bounded quarantine evidence for admitted local-source workflows."""
-        from ._query_report_views import LazyFrame_quarantine as _impl
-        return _impl(self, target_uri, *checks, output_format=output_format, limit=limit, allow_overwrite=allow_overwrite, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        _validate_positive_row_count("quarantine limit", limit)
+        parsed_checks: tuple[_WorkflowDataQualityCheckSpec, ...] | None = None
+        if checks:
+            normalized_checks = _normalize_columns(checks)
+            parsed_checks = _parse_data_quality_checks(normalized_checks)
+            if parsed_checks is None:
+                return self._unsupported_operation(
+                    "quarantine",
+                    ",".join(normalized_checks),
+                    check=check,
+                )
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        schema_report = _workflow_schema_report(self, report)
+        parsed_checks = parsed_checks or _workflow_quarantine_checks(schema_report, ())
+        quality_report = _workflow_data_quality_report(schema_report, parsed_checks)
+        rows = _workflow_quarantine_rows(schema_report, parsed_checks)
+        normalized_output_format = _normalize_optional_quarantine_output_format(
+            target_uri,
+            output_format,
+        )
+        sink_report: Result | None = None
+        if target_uri is not None and rows:
+            pushdown_statement = self._quarantine_pushdown_statement(
+                parsed_checks,
+                limit=limit,
+            )
+            if pushdown_statement is not None and normalized_output_format is not None:
+                sink = LazyFrame.from_sql(
+                    statement=pushdown_statement,
+                    client=self.client,
+                    source_bindings=self._declared_sources(),
+                    resources=self.resources, resource_limits=self.resource_limits,
+                ).write(
+                    target_uri,
+                    output_format=normalized_output_format,
+                    allow_overwrite=allow_overwrite,
+                    check=check,
+                    resources=allocation,
+                )
+                if sink.envelope.status == "success":
+                    sink_report = sink
+        return WorkflowQuarantineReport(
+            workflow=self,
+            quality_report=quality_report,
+            checks=tuple(spec.raw for spec in parsed_checks),
+            rows=rows,
+            limit=limit,
+            target_uri=None if target_uri is None else str(target_uri),
+            output_format=normalized_output_format,
+            sink_report=sink_report,
+        )
 
     def preview(
         self,
@@ -4060,8 +5872,21 @@ class LazyFrame:
         resources: ExecutionResources | None = None,
     ) -> WorkflowNotebookPreview | UnsupportedWorkflowOperationReport:
         """Return a bounded notebook/display preview for admitted workflows."""
-        from ._query_composition_methods import LazyFrame_display as _impl
-        return _impl(self, limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        _validate_positive_row_count("display limit", limit)
+        report = self._bounded_materialization_report(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return WorkflowNotebookPreview(
+            workflow=self,
+            smoke_report=report,
+            limit=limit,
+        )
 
     def certify(self, *, check: bool = False) -> WorkflowCertificationReport:
         """Return validation reports for this workflow without executing it."""
@@ -4140,8 +5965,38 @@ class LazyFrame:
         keyword: str,
         check: bool,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        from ._query_composition_methods import LazyFrame__set_operation as _impl
-        return _impl(self, other, operation=operation, keyword=keyword, check=check)
+        if isinstance(other, LazyFrame):
+            if getattr(self.client, "transport", "subprocess") == "native":
+                frame = LazyFrame.from_sql(
+                    f"SELECT * FROM __sl_left {keyword} SELECT * FROM __sl_right",
+                    self.client, relations={"__sl_left": self, "__sl_right": other},
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
+                )
+                if self.source._session is not None:
+                    from .session import _session_frame
+                    frame = _session_frame(self.source._session, frame)
+                return frame
+            left = self._sql_local_source_union_branch_statement()
+            right = other._sql_local_source_union_branch_statement()
+            if left is None and (complete_left := self._relation_statement()) is not None:
+                left = f"SELECT * FROM ({complete_left}) AS _sl_set_left"
+            if right is None and (complete_right := other._relation_statement()) is not None:
+                right = f"SELECT * FROM ({complete_right}) AS _sl_set_right"
+            if left is not None and right is not None:
+                frame = LazyFrame.from_sql(
+                    statement=f"{left} {keyword} {right}",
+                    client=self.client,
+                    source_bindings=(*self._declared_sources(), *other._declared_sources()),
+                    resources=self.resources, resource_limits=_predicate_limits(self, other),
+                )
+                if self.source._session is not None:
+                    from .session import _session_frame
+                    frame = _session_frame(self.source._session, frame)
+                return frame
+            target = f"{self.operation_summary};{other.operation_summary}"
+        else:
+            target = str(other)
+        return self._unsupported_operation(operation, target, check=check)
 
     def _unsupported_operation(
         self,
@@ -4150,12 +6005,64 @@ class LazyFrame:
         *,
         check: bool,
     ) -> UnsupportedWorkflowOperationReport:
-        from ._query_composition_methods import LazyFrame__unsupported_operation as _impl
-        return _impl(self, operation, target_ref, check=check)
+        operation = self._native_vortex_blocker_operation(operation, target_ref)
+        envelope = self.client.workflow_unsupported_plan(
+            operation,
+            self.operation_summary,
+            target_ref,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self,
+            operation=operation,
+            envelope=envelope,
+        )
 
     def _native_vortex_blocker_operation(self, operation: str, target_ref: str | None) -> str:
-        from ._query_composition_methods import LazyFrame__native_vortex_blocker_operation as _impl
-        return _impl(self, operation, target_ref)
+        if self.source.source_format != "vortex":
+            return operation
+        normalized = operation.replace("_", "-")
+        if normalized.startswith("native-vortex-"):
+            return normalized
+        if normalized in {
+            "write-vortex",
+            "write-parquet",
+            "write-arrow-ipc",
+            "write-arrow",
+            "write-ipc",
+            "write-avro",
+            "write-orc",
+            "write-jsonl",
+            "write-csv",
+            "fanout",
+        }:
+            return "native-vortex-sink"
+        if normalized in {"join", "merge"} or any(
+            op.kind == "join" for op in self.operations
+        ):
+            return "native-vortex-join"
+        if normalized in {"aggregate", "aggregation", "agg", "group-by", "groupby"} or any(
+            op.kind in {"aggregate", "group_by"} for op in self.operations
+        ):
+            return "native-vortex-aggregate"
+        if normalized in {"nlargest", "nsmallest"} or _workflow_has_top_n_shape(
+            self.operations
+        ):
+            return "native-vortex-top-n"
+        if normalized in {"astype", "cast", "try-cast"} or any(
+            op.kind == "with_column"
+            and any(_sql_text_looks_like_cast(value) for value in op.values)
+            for op in self.operations
+        ):
+            return "native-vortex-cast"
+        if target_ref is not None and _sql_text_looks_like_cast(target_ref):
+            return "native-vortex-cast"
+        if any(
+            op.kind == "filter" and _sql_filter_looks_like_substring_contains(op.values[0])
+            for op in self.operations
+        ):
+            return "native-vortex-string-contains"
+        return operation
 
 
 
@@ -4176,16 +6083,70 @@ class LazyFrame:
 
 
     def _has_structured_binary_export_shape(self) -> bool:
-        from ._query_legacy_lowering import LazyFrame__has_structured_binary_export_shape as _impl
-        return _impl(self)
+        if self.source.source_format != "vortex":
+            return False
+        operations = [op for op in self.operations if op.kind != "set_index"]
+        if len(operations) < 1:
+            return False
+        if operations[-1].kind == "limit":
+            limit_parts = _limit_operation_parts(operations[-1].values)
+            if limit_parts is None or limit_parts[1] != "0":
+                return False
+            if int(limit_parts[0]) <= 0:
+                return False
+            operations = operations[:-1]
+        if not operations or operations[0].kind != "select":
+            return False
+        if not all(_is_sql_identifier(column) and column.lower() not in {"null", "true", "false"}
+                   for column in operations[0].values):
+            return False
+        for operation in operations[1:]:
+            if operation.kind != "with_column" or len(operation.values) != 2:
+                return False
+            name, expression = operation.values
+            if not _is_sql_identifier(name):
+                return False
+            expression_text = str(expression).strip()
+            if expression_text.startswith("ARRAY[") and expression_text.endswith("]"):
+                continue
+            if expression_text.startswith("STRUCT(") and expression_text.endswith(")"):
+                inner = expression_text[len("STRUCT(") : -1].strip()
+                try:
+                    columns = _split_projection_function_args(inner)
+                except ValueError:
+                    return False
+                if columns and all(_is_sql_identifier(column) for column in columns):
+                    continue
+            return False
+        return True
 
     def _can_append_scalar_aggregate(self) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_scalar_aggregate as _impl
-        return _impl(self)
+        if self._relation_statement() is not None:
+            return True
+        if _workflow_has_offset(self):
+            return False
+        if not _is_declared_local_source(self.source) and self.source.source_format != "vortex":
+            return False
+        if self.source.source_format == "vortex" and any(
+            operation.kind == "limit" for operation in self.operations
+        ):
+            return False
+        return all(
+            operation.kind not in {"select", "aggregate", "group_by", "sort"}
+            for operation in self.operations
+        )
 
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_group_by_aggregate as _impl
-        return _impl(self, columns)
+        if self._relation_statement() is not None:
+            return True
+        if _workflow_has_offset(self):
+            return False
+        if not _is_declared_local_source(self.source):
+            return False
+        return all(
+            operation.kind not in {"select", "aggregate", "group_by", "sort"}
+            for operation in self.operations
+        )
 
     def _can_append_value_counts(self, columns: tuple[str, ...]) -> bool:
         if not _is_declared_local_source(self.source):
@@ -4206,24 +6167,93 @@ class LazyFrame:
         )
 
     def _explicit_set_operation_projection_columns(self) -> tuple[str, ...] | None:
-        from ._query_plan_rules import LazyFrame__explicit_set_operation_projection_columns as _impl
-        return _impl(self)
+        projection: tuple[str, ...] | None = None
+        for operation in self.operations:
+            if operation.kind == "filter":
+                continue
+            if operation.kind == "select" and projection is None:
+                if any(not _is_sql_identifier(column) for column in operation.values):
+                    return None
+                projection = operation.values
+                continue
+            return None
+        return projection
 
     def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_sort as _impl
-        return _impl(self, columns)
+        if not columns:
+            return False
+        if len(set(columns)) != len(columns):
+            return False
+        if self._relation_statement() is not None:
+            return True
+        if any(operation.kind == "limit" for operation in self.operations):
+            return False
+        if _is_declared_local_source(self.source):
+            return all(operation.kind != "sort" for operation in self.operations)
+        if self.source.source_format == "vortex":
+            return all(
+                operation.kind in {"filter", "select", "set_index", "group_by", "aggregate", "having", "window", "join"}
+                for operation in self.operations
+            )
+        return False
 
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_window as _impl
-        return _impl(self, expressions)
+        if expressions and self._relation_statement() is not None:
+            return True
+        if (not (_is_declared_local_source(self.source) or self.source.source_format == "vortex")
+                or not expressions):
+            return False
+        for operation in self.operations:
+            if operation.kind in {"select", "filter", "window"}:
+                continue
+            return False
+        return True
 
     def _can_append_having(self) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_having as _impl
-        return _impl(self)
+        if self._relation_statement() is not None:
+            return bool(self.operations and self.operations[-1].kind == "aggregate")
+        if not _is_declared_local_source(self.source) and self.source.source_format != "vortex":
+            return False
+        saw_aggregate = False
+        for operation in self.operations:
+            if operation.kind == "aggregate":
+                saw_aggregate = True
+                continue
+            if saw_aggregate and operation.kind in {"filter", "having", "sort", "limit"}:
+                return False
+        return saw_aggregate
 
     def _can_append_projection_column(self, column_name: str, *, allow_vortex: bool = False) -> bool:
-        from ._query_plan_rules import LazyFrame__can_append_projection_column as _impl
-        return _impl(self, column_name, allow_vortex=allow_vortex)
+        if self._relation_statement() is not None:
+            return True
+        if (not _is_declared_local_source(self.source)
+                and not (allow_vortex and self.source.source_format == "vortex")):
+            return False
+        saw_join = False
+        saw_projection = False
+        for operation in self.operations:
+            if operation.kind == "join":
+                saw_join = True
+                continue
+            if operation.kind == "select":
+                saw_projection = True
+                if column_name in operation.values:
+                    return False
+            elif operation.kind == "filter":
+                continue
+            elif operation.kind == "with_column":
+                if column_name == operation.values[0]:
+                    return False
+                continue
+            elif operation.kind == "window":
+                return False
+            elif operation.kind == "having":
+                return False
+            else:
+                return False
+        if saw_join and not saw_projection:
+            return False
+        return True
 
     def _can_lower_merge_to_join(
         self,
@@ -4232,8 +6262,21 @@ class LazyFrame:
         on: object,
         how: str,
     ) -> bool:
-        from ._query_plan_rules import LazyFrame__can_lower_merge_to_join as _impl
-        return _impl(self, other, on=on, how=how)
+        if self._relation_statement() is None:
+            return False
+        try:
+            normalized_how = _normalize_join_how(how)
+            normalized_columns = tuple(
+                _normalize_output_column_name(column)
+                for column in _normalize_columns((on,))
+            )
+        except (TypeError, ValueError):
+            return False
+        if not normalized_columns:
+            return False
+        if isinstance(other, LazyFrame):
+            return other._relation_statement() is not None
+        return _source_format_for_local_source_ref(str(other)) is not None
 
     def _unary_projection_columns(self) -> tuple[str, ...] | None:
         from ._relational_sql import frame_stages
@@ -4247,15 +6290,35 @@ class LazyFrame:
         self,
         required_columns: tuple[str, ...],
     ) -> tuple[str, ...] | None:
-        from ._query_legacy_lowering import LazyFrame__expression_project_projection_columns as _impl
-        return _impl(self, required_columns)
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None:
+            return None
+        required = tuple(dict.fromkeys(required_columns))
+        if any(not _is_sql_identifier(column) for column in required):
+            return None
+        if projection_columns != ("*",) and any(column not in projection_columns for column in required):
+            return None
+        return projection_columns
 
     def _duplicate_mask_projection_columns(
         self,
         subset: object | None,
     ) -> tuple[str, ...] | None:
-        from ._query_legacy_lowering import LazyFrame__duplicate_mask_projection_columns as _impl
-        return _impl(self, subset)
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None:
+            return None
+        if subset is None:
+            return projection_columns
+        subset_columns = _normalize_columns((subset,))
+        if not subset_columns or any(not _is_sql_identifier(column) for column in subset_columns):
+            return None
+        missing = tuple(column for column in subset_columns if column not in projection_columns) if projection_columns != ("*",) else ()
+        if missing:
+            raise ValueError(
+                "duplicated subset referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        return subset_columns
 
     def _expression_project_payload(
         self,
@@ -4263,54 +6326,337 @@ class LazyFrame:
         *,
         required_columns: tuple[str, ...],
     ) -> str | None:
-        from ._query_legacy_lowering import LazyFrame__expression_project_payload as _impl
-        return _impl(self, rewrite_specs, required_columns=required_columns)
+        projection_columns = self._expression_project_projection_columns(required_columns)
+        if projection_columns is None:
+            return None
+        # Declared source types remain hints only while stages preserve those
+        # fields. Derived expressions bind their types in the native executor.
+        schema = self.source.schema_map if all(
+            operation.kind in {"filter", "select", "set_index", "sort", "limit", "tail", "sample", "distinct", "drop_duplicates"}
+            and (operation.kind != "select" or all(_is_sql_identifier(value) for value in operation.values))
+            for operation in self.operations
+        ) else {}
+        rewrites: list[dict[str, object]] = []
+        for spec in rewrite_specs:
+            kind = str(spec.get("kind", "")).strip()
+            target_column = str(spec.get("target_column", "")).strip()
+            if not kind or not target_column or not _is_sql_identifier(target_column):
+                return None
+            if kind == "row_number":
+                start = spec.get("start", 0)
+                if isinstance(start, bool) or not isinstance(start, int) or start < 0:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "row_number",
+                        "target_column": target_column,
+                        "start": start,
+                    }
+                )
+                continue
+            target_dtype = schema.get(target_column)
+            if kind == "mask_scalar":
+                predicate = str(spec.get("predicate", "")).strip()
+                replacement = _vortex_expression_scalar_payload(
+                    spec.get("replacement"),
+                    target_dtype=target_dtype,
+                )
+                if not predicate or replacement is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "mask_scalar",
+                        "target_column": target_column,
+                        "predicate": predicate,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "replace_scalar":
+                to_replace = _vortex_expression_scalar_payload(
+                    spec.get("to_replace"),
+                    target_dtype=target_dtype,
+                    allow_null=False,
+                )
+                replacement = _vortex_expression_scalar_payload(
+                    spec.get("replacement"),
+                    target_dtype=target_dtype,
+                )
+                if to_replace is None or replacement is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "replace_scalar",
+                        "target_column": target_column,
+                        "to_replace": to_replace,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "string_replace_scalar":
+                dtype = target_dtype.strip().lower().replace("-", "_") if target_dtype else None
+                needle = spec.get("needle")
+                replacement = spec.get("replacement")
+                if (
+                    dtype not in {None, "utf8", "string", "str"}
+                    or not isinstance(needle, str)
+                    or needle == ""
+                    or not isinstance(replacement, str)
+                ):
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "string_replace_scalar",
+                        "target_column": target_column,
+                        "needle": needle,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "regex_replace_scalar":
+                dtype = target_dtype.strip().lower().replace("-", "_") if target_dtype else None
+                pattern = spec.get("pattern")
+                replacement = spec.get("replacement")
+                if (
+                    dtype not in {None, "utf8", "string", "str"}
+                    or not isinstance(pattern, str)
+                    or pattern == ""
+                    or not isinstance(replacement, str)
+                ):
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "regex_replace_scalar",
+                        "target_column": target_column,
+                        "pattern": pattern,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "numeric_scalar_arithmetic":
+                operator = str(spec.get("operator", "")).strip()
+                if operator not in {"+", "-", "*", "/"}:
+                    return None
+                operand = _vortex_expression_scalar_payload(
+                    spec.get("operand"),
+                    target_dtype=target_dtype,
+                    allow_null=False,
+                )
+                if operand is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "numeric_scalar_arithmetic",
+                        "target_column": target_column,
+                        "operator": operator,
+                        "operand": operand,
+                    }
+                )
+            elif kind == "forward_fill_null":
+                limit = spec.get("limit")
+                rewrite: dict[str, object] = {
+                    "kind": "forward_fill_null",
+                    "target_column": target_column,
+                }
+                if limit is not None:
+                    if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+                        return None
+                    rewrite["limit"] = limit
+                rewrites.append(rewrite)
+            else:
+                return None
+        if not rewrites:
+            return None
+        payload = {
+            "columns": "*" if projection_columns == ("*",) else list(projection_columns),
+            "rewrites": rewrites,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
     def _row_number_expression_project_payload(
         self,
         target_column: str,
     ) -> str | None:
-        from ._query_legacy_lowering import LazyFrame__row_number_expression_project_payload as _impl
-        return _impl(self, target_column)
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        return self._expression_project_payload(
+            (
+                {
+                    "kind": "row_number",
+                    "target_column": target_column,
+                    "start": 0,
+                },
+            ),
+            required_columns=(),
+        )
 
     def _forward_fill_null_expression_project_payload(
         self,
         limit: int | None,
     ) -> str | None:
-        from ._query_legacy_lowering import LazyFrame__forward_fill_null_expression_project_payload as _impl
-        return _impl(self, limit)
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None or projection_columns == ("*",):
+            return None
+        return self._expression_project_payload(
+            tuple(
+                {
+                    "kind": "forward_fill_null",
+                    "target_column": column,
+                    "limit": limit,
+                }
+                if limit is not None
+                else {
+                    "kind": "forward_fill_null",
+                    "target_column": column,
+                }
+                for column in projection_columns
+            ),
+            required_columns=projection_columns,
+        )
 
     def _replace_rewrite_specs(
         self,
         to_replace: object,
         value: object,
     ) -> tuple[Mapping[str, object], ...] | None:
-        from ._query_legacy_lowering import LazyFrame__replace_rewrite_specs as _impl
-        return _impl(self, to_replace, value)
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        specs: list[Mapping[str, object]] = []
+        if isinstance(to_replace, Mapping):
+            if not to_replace:
+                return None
+            replacement_map = value if isinstance(value, Mapping) else None
+            for raw_column, old_value in to_replace.items():
+                column = str(raw_column).strip()
+                if not _is_sql_identifier(column) or column not in projection_columns:
+                    return None
+                if isinstance(old_value, Mapping) and value is None:
+                    if not old_value:
+                        return None
+                    for nested_old, nested_new in old_value.items():
+                        specs.append(
+                            {
+                                "kind": "replace_scalar",
+                                "target_column": column,
+                                "to_replace": nested_old,
+                                "replacement": nested_new,
+                            }
+                        )
+                    continue
+                if replacement_map is not None:
+                    if raw_column not in replacement_map and column not in replacement_map:
+                        return None
+                    new_value = replacement_map.get(raw_column, replacement_map.get(column))
+                else:
+                    new_value = value
+                specs.append(
+                    {
+                        "kind": "replace_scalar",
+                        "target_column": column,
+                        "to_replace": old_value,
+                        "replacement": new_value,
+                    }
+                )
+            return tuple(specs)
+        if len(projection_columns) != 1:
+            return None
+        return (
+            {
+                "kind": "replace_scalar",
+                "target_column": projection_columns[0],
+                "to_replace": to_replace,
+                "replacement": value,
+            },
+        )
 
     def _regex_replace_rewrite_specs(
         self,
         to_replace: object,
         value: object,
     ) -> tuple[Mapping[str, object], ...] | None:
-        from ._query_legacy_lowering import LazyFrame__regex_replace_rewrite_specs as _impl
-        return _impl(self, to_replace, value)
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        specs: list[Mapping[str, object]] = []
+        if isinstance(to_replace, Mapping):
+            if not to_replace:
+                return None
+            replacement_map = value if isinstance(value, Mapping) else None
+            for raw_column, pattern in to_replace.items():
+                column = str(raw_column).strip()
+                if not _is_sql_identifier(column) or column not in projection_columns:
+                    return None
+                if not isinstance(pattern, str) or pattern == "":
+                    return None
+                if replacement_map is not None:
+                    if raw_column not in replacement_map and column not in replacement_map:
+                        return None
+                    replacement = replacement_map.get(raw_column, replacement_map.get(column))
+                else:
+                    replacement = value
+                if not isinstance(replacement, str):
+                    return None
+                specs.append(
+                    {
+                        "kind": "regex_replace_scalar",
+                        "target_column": column,
+                        "pattern": pattern,
+                        "replacement": replacement,
+                    }
+                )
+            return tuple(specs)
+        if (
+            len(projection_columns) != 1
+            or not isinstance(to_replace, str)
+            or to_replace == ""
+            or not isinstance(value, str)
+        ):
+            return None
+        return (
+            {
+                "kind": "regex_replace_scalar",
+                "target_column": projection_columns[0],
+                "pattern": to_replace,
+                "replacement": value,
+            },
+        )
 
     def _string_replace_expression_project_payload(
         self,
         column_name: str,
         expression_sql: str,
     ) -> str | None:
-        from ._query_legacy_lowering import LazyFrame__string_replace_expression_project_payload as _impl
-        return _impl(self, column_name, expression_sql)
+        parsed = _vortex_string_replace_expression_parts(expression_sql)
+        if parsed is None:
+            return None
+        source_column, needle, replacement = parsed
+        if source_column != column_name:
+            return None
+        return self._expression_project_payload(
+            (
+                {
+                    "kind": "string_replace_scalar",
+                    "target_column": column_name,
+                    "needle": needle,
+                    "replacement": replacement,
+                },
+            ),
+            required_columns=(column_name,),
+        )
 
     def _numeric_scalar_expression_project_payload(
         self,
         column_name: str,
         expression_sql: str,
     ) -> str | None:
-        from ._query_legacy_lowering import LazyFrame__numeric_scalar_expression_project_payload as _impl
-        return _impl(self, column_name, expression_sql)
+        rewrite = _numeric_scalar_assignment_rewrite_from_expression(
+            column_name,
+            expression_sql,
+        )
+        if rewrite is None:
+            return None
+        return self._expression_project_payload(
+            (rewrite,),
+            required_columns=(column_name,),
+        )
 
     def _schema_declared_projection_columns(self) -> tuple[str, ...] | None:
         from ._relational_sql import frame_stages
@@ -4327,37 +6673,128 @@ class LazyFrame:
         *,
         allowed_operations: set[str] | None = None,
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__projection_columns_for_schema_or_explicit_selection as _impl
-        return _impl(self, allowed_operations=allowed_operations)
+        if self.source.schema:
+            return self._declared_projection_columns(allowed_operations=allowed_operations)
+        projection_columns: tuple[str, ...] | None = None
+        for operation in self.operations:
+            if operation.kind == "select":
+                if any(not _is_sql_identifier(value) for value in operation.values):
+                    return None
+                projection_columns = operation.values
+            elif operation.kind == "set_index":
+                continue
+            elif allowed_operations is not None and operation.kind in allowed_operations:
+                continue
+            else:
+                return None
+        if not projection_columns:
+            return None
+        return projection_columns
 
     def _declared_projection_columns(
         self,
         *,
         allowed_operations: set[str] | None = None,
     ) -> tuple[str, ...] | None:
-        from ._query_legacy_lowering import LazyFrame__declared_projection_columns as _impl
-        return _impl(self, allowed_operations=allowed_operations)
+        if not self.source.schema:
+            return None
+        declared_columns = tuple(name for name, _dtype in self.source.schema)
+        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
+            return None
+        projection_columns = declared_columns
+        for operation in self.operations:
+            if operation.kind == "select":
+                if any(not _is_sql_identifier(value) for value in operation.values):
+                    return None
+                projection_columns = operation.values
+            elif operation.kind == "set_index":
+                continue
+            elif allowed_operations is not None and operation.kind in allowed_operations:
+                continue
+            else:
+                return None
+        return projection_columns
 
     def _schema_declared_rename_projection(
         self,
         items: tuple[tuple[str, str], ...],
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_rename_projection as _impl
-        return _impl(self, items)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None:
+            return None
+        rename_map = dict(items)
+        if any(not _is_sql_identifier(source) for source in rename_map):
+            raise ValueError("rename source column names admit only bare SQL identifiers")
+        missing = tuple(source for source in rename_map if source not in projection_columns)
+        if missing:
+            raise ValueError(
+                "rename referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        output_names = tuple(rename_map.get(column, column) for column in projection_columns)
+        if len(set(output_names)) != len(output_names):
+            raise ValueError("rename output column names must be unique")
+        return tuple(
+            column if column == output_name else f"{column} AS {output_name}"
+            for column, output_name in zip(projection_columns, output_names)
+        )
 
     def _schema_declared_drop_projection(
         self,
         columns: tuple[str, ...],
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_drop_projection as _impl
-        return _impl(self, columns)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None:
+            return None
+        if any(not _is_sql_identifier(column) for column in columns):
+            return None
+        missing = tuple(column for column in columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "drop referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        remaining = tuple(column for column in projection_columns if column not in set(columns))
+        if not remaining:
+            raise ValueError("drop must leave at least one projected column")
+        return remaining
 
     def _schema_declared_fillna_projection(
         self,
         value: object | None,
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_fillna_projection as _impl
-        return _impl(self, value)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None or value is None:
+            return None
+        if isinstance(value, Mapping):
+            if not value:
+                return None
+            fill_values: dict[str, str] = {}
+            for raw_column, raw_value in value.items():
+                column = _require_non_empty("fillna column", raw_column)
+                if not _is_sql_identifier(column):
+                    raise ValueError("fillna column names admit only bare SQL identifiers")
+                fill_literal = _sql_fillna_literal(raw_value)
+                if fill_literal is None:
+                    return None
+                fill_values[column] = fill_literal
+            missing = tuple(column for column in fill_values if column not in projection_columns)
+            if missing:
+                raise ValueError(
+                    "fillna referenced unknown declared/projection column(s): "
+                    + ", ".join(missing)
+                )
+        else:
+            fill_literal = _sql_fillna_literal(value)
+            if fill_literal is None:
+                return None
+            fill_values = {column: fill_literal for column in projection_columns}
+        return tuple(
+            f"COALESCE({column}, {fill_values[column]}) AS {column}"
+            if column in fill_values
+            else column
+            for column in projection_columns
+        )
 
     def _schema_declared_null_mask_projection(
         self,
@@ -4365,15 +6802,54 @@ class LazyFrame:
         *,
         is_not: bool,
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_null_mask_projection as _impl
-        return _impl(self, columns, is_not=is_not)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None and not columns:
+            return None
+        target_columns = (
+            _normalize_columns(columns)
+            if columns
+            else projection_columns
+        )
+        if any(not _is_sql_identifier(column) for column in target_columns):
+            return None
+        missing = (
+            tuple(column for column in target_columns if column not in projection_columns)
+            if projection_columns is not None
+            else ()
+        )
+        if missing:
+            raise ValueError(
+                "null-mask referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        null_operator = "IS NOT NULL" if is_not else "IS NULL"
+        return tuple(f"{column} {null_operator} AS {column}" for column in target_columns)
 
     def _schema_declared_melt_value_columns(
         self,
         id_vars: object | None,
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_melt_value_columns as _impl
-        return _impl(self, id_vars)
+        projection_columns = self._unary_projection_columns()
+        if projection_columns is None or projection_columns == ("*",):
+            return None
+        try:
+            id_columns = _normalize_optional_columns(id_vars)
+        except (TypeError, ValueError):
+            return None
+        if any(not _is_sql_identifier(column) for column in id_columns):
+            return None
+        missing = tuple(column for column in id_columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "melt id_vars referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        value_columns = tuple(
+            column for column in projection_columns if column not in set(id_columns)
+        )
+        if not value_columns:
+            return None
+        return value_columns
 
     def _schema_declared_dropna_predicate(
         self,
@@ -4384,8 +6860,36 @@ class LazyFrame:
         thresh: int | None,
         kwargs: Mapping[str, object],
     ) -> str | None:
-        from ._query_report_views import LazyFrame__schema_declared_dropna_predicate as _impl
-        return _impl(self, subset, how=how, axis=axis, thresh=thresh, kwargs=kwargs)
+        if kwargs:
+            return None
+        if _normalize_dropna_axis(axis) != "rows":
+            return None
+        if any(operation.kind == "limit" for operation in self.operations):
+            return None
+        normalized_how = _normalize_dropna_how(how)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None and subset is None:
+            return None
+        target_columns = _normalize_columns((subset,)) if subset is not None else projection_columns
+        if any(not _is_sql_identifier(column) for column in target_columns):
+            return None
+        missing = (
+            tuple(column for column in target_columns if column not in projection_columns)
+            if projection_columns is not None
+            else ()
+        )
+        if missing:
+            raise ValueError(
+                "dropna referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        if thresh is not None:
+            threshold = _normalize_non_negative_int("dropna thresh", thresh)
+            if threshold == 0:
+                return ""
+            return _dropna_threshold_predicate(target_columns, threshold)
+        joiner = " AND " if normalized_how == "any" else " OR "
+        return joiner.join(f"{column} IS NOT NULL" for column in target_columns)
 
     def _schema_declared_astype_projection(
         self,
@@ -4394,8 +6898,27 @@ class LazyFrame:
         errors: str,
         kwargs: Mapping[str, object],
     ) -> tuple[str, ...] | None:
-        from ._query_report_views import LazyFrame__schema_declared_astype_projection as _impl
-        return _impl(self, dtype, errors=errors, kwargs=kwargs)
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None or kwargs:
+            return None
+        normalized_errors = _normalize_astype_errors(errors)
+        if normalized_errors != "raise":
+            return None
+        dtype_map = _normalize_astype_dtype_map(dtype, projection_columns)
+        if dtype_map is None:
+            return None
+        missing = tuple(column for column in dtype_map if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "astype referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        return tuple(
+            f"CAST({column} AS {dtype_map[column]}) AS {column}"
+            if column in dtype_map
+            else column
+            for column in projection_columns
+        )
 
     def _bounded_schema_report(
         self, *, check: bool,
@@ -4404,8 +6927,15 @@ class LazyFrame:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
-        from ._query_report_views import LazyFrame__bounded_schema_report as _impl
-        return _impl(self, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        report = self._bounded_materialization_report(limit=100, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        return _workflow_schema_report(self, report)
 
     def _bounded_materialization_report(
         self,
@@ -4417,8 +6947,19 @@ class LazyFrame:
         max_parallelism: int | None = None,
         resources: ExecutionResources | None = None,
     ) -> Result | UnsupportedWorkflowOperationReport:
-        from ._query_legacy_lowering import LazyFrame__bounded_materialization_report as _impl
-        return _impl(self, limit=limit, check=check, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources)
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism, resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+        if limit is not None:
+            _validate_positive_row_count("materialization limit", limit)
+        report = self.collect(limit=limit, check=check, resources=allocation)
+        if isinstance(report, UnsupportedWorkflowOperationReport):
+            return report
+        if report.status != "success":
+            return UnsupportedWorkflowOperationReport(report.workflow, "collect", report.envelope)
+        return report
 
     def _quarantine_pushdown_statement(
         self,
@@ -4426,8 +6967,48 @@ class LazyFrame:
         *,
         limit: int,
     ) -> str | None:
-        from ._query_report_views import LazyFrame__quarantine_pushdown_statement as _impl
-        return _impl(self, checks, limit=limit)
+        predicate = _quarantine_pushdown_predicate(checks)
+        if predicate is None:
+            return None
+        if _workflow_has_offset(self):
+            # The legacy quarantine helper rebuilt source/filter stages and
+            # could not preserve an offset. Keep the complete relation as the
+            # input to the quarantine filter instead of dropping that stage.
+            relation = self._relation_statement()
+            if relation is None:
+                return None
+            return (
+                f"SELECT * FROM ({relation}) AS _sl_quarantine "
+                f"WHERE {predicate} LIMIT {limit}"
+            )
+        operations: list[WorkflowOperation] = []
+        filters: list[str] = []
+        saw_select = False
+        for operation in self.operations:
+            if operation.kind == "select" and not saw_select:
+                operations.append(operation)
+                saw_select = True
+            elif operation.kind == "filter":
+                filters.append(operation.values[0])
+            elif operation.kind == "limit":
+                continue
+            else:
+                return None
+        filters.append(predicate)
+        operations.append(
+            WorkflowOperation(
+                "filter",
+                (" AND ".join(f"({value})" for value in filters),),
+            )
+        )
+        operations.append(WorkflowOperation("limit", (str(limit),)))
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=tuple(operations),
+            engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
+        )._relation_statement()
 
     def _append_group_by_aggregate(
         self,
@@ -4438,14 +7019,21 @@ class LazyFrame:
         resource_limits: ExecutionResourceLimits | None = None,
         grouping_clause: str | None = None,
     ) -> "LazyFrame":
-        from ._query_plan_rules import LazyFrame__append_group_by_aggregate as _impl
-        return _impl(self, columns, expressions, source_bindings=source_bindings, resource_limits=resource_limits, grouping_clause=grouping_clause)
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=(
+                *self.operations,
+                WorkflowOperation("group_by", columns, grouping_clause=grouping_clause),
+                WorkflowOperation("aggregate", expressions, source_bindings, resource_limits=resource_limits),
+            ),
+            engine_mode=self.engine_mode,
+            resources=self.resources, resource_limits=self.resource_limits,
+        )
 
     def _declared_sources(self) -> tuple[WorkflowSource, ...]:
-        def describe():
-            root = self.source.relation.source_bindings if self.source.relation is not None else (self.source,)
-            return (*root, *(source for operation in self.operations for source in operation.source_bindings))
-        return self._native_plan.describe("sources", describe) if type(self) is LazyFrame else describe()
+        root = self.source.relation.source_bindings if self.source.relation is not None else (self.source,)
+        return (*root, *(source for operation in self.operations for source in operation.source_bindings))
 
     def _bound_relation_source(self) -> WorkflowSource:
         # The retained frame keeps this opaque, process-local identifier unique.
@@ -4458,22 +7046,301 @@ class LazyFrame:
 
     def _relation_statement(self) -> str | None:
         """Render this complete input, including its order and limits, without I/O."""
-        from ._query_statement import LazyFrame__relation_statement as _impl
-        if type(self) is LazyFrame:
-            return self._native_plan.describe("statement", lambda: _impl(self))
-        return _impl(self)
+        from ._relational_sql import flat_order_is_safe, render_frame
+
+        if self.source.relation is not None:
+            from ._relational_sql import render_stages
+            return render_stages(self.source.relation.statement, self.operations)
+
+        if flat_order_is_safe(self.operations):
+            statement = self._sql_local_source_statement(allow_native_source=True, require_limit=False)
+            if statement is not None:
+                return statement
+        return render_frame(self)
 
 
     def _sql_local_source_statement(
         self, *, default_limit: int | None = None, allow_native_source: bool = False,
         require_limit: bool = True,
     ) -> str | None:
-        from ._query_statement import LazyFrame__sql_local_source_statement as _impl
-        return _impl(self, default_limit=default_limit, allow_native_source=allow_native_source, require_limit=require_limit)
+        if not _is_declared_local_source(self.source) and not (
+            allow_native_source and (
+                self.source.source_format == "vortex" or _is_declared_local_source(self.source)
+            )
+        ):
+            return None
+        projection_list: tuple[str, ...] | None = None
+        aggregate_list: tuple[str, ...] | None = None
+        group_by_list: tuple[str, ...] | None = None
+        literal_columns: list[tuple[str, str]] = []
+        window_expressions: list[str] = []
+        join_info: tuple[str, ...] | None = None
+        sort_key: tuple[str, tuple[str, ...], str | None] | None = None
+        distinct_requested = False
+        predicate: str | None = None
+        having: str | None = None
+        limit: str | None = None
+        limit_offset = "0"
+        for operation in self.operations:
+            if operation.kind == "select" and projection_list is None:
+                if window_expressions or distinct_requested:
+                    return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "select projection", value
+                    )
+                    for value in operation.values
+                ):
+                    return None
+                projection_list = operation.values
+            elif operation.kind == "aggregate" and aggregate_list is None:
+                if distinct_requested:
+                    return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "aggregate expression", value
+                    )
+                    for value in operation.values
+                ):
+                    return None
+                aggregate_list = operation.values
+            elif operation.kind == "group_by" and group_by_list is None:
+                if operation.grouping_clause is not None:
+                    return None  # The stage renderer owns grouping-set grammar.
+                if distinct_requested:
+                    return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "GROUP BY column", value
+                    )
+                    for value in operation.values
+                ):
+                    return None
+                group_by_list = operation.values
+            elif operation.kind == "with_column":
+                if window_expressions or distinct_requested:
+                    return None
+                if not _sql_fragment_admitted_for_local_source_statement(
+                    "computed-column expression", operation.values[1]
+                ):
+                    return None
+                literal_columns.append((operation.values[0], operation.values[1]))
+            elif operation.kind == "window":
+                if (
+                    aggregate_list is not None
+                    or group_by_list is not None
+                    or literal_columns
+                    or join_info is not None
+                    or sort_key is not None
+                    or distinct_requested
+                    or having is not None
+                    or limit is not None
+                ):
+                    return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "window expression",
+                        value,
+                        allowed_keywords=("order by",),
+                    )
+                    for value in operation.values
+                ):
+                    return None
+                window_expressions.extend(operation.values)
+            elif operation.kind == "sort" and sort_key is None:
+                sort_key = _parse_sort_operation_values(operation.values)
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "ORDER BY column", value
+                    )
+                    for value in sort_key[1]
+                ):
+                    return None
+            elif operation.kind == "join" and join_info is None:
+                if operation.right_statement is not None:
+                    return None
+                if (aggregate_list is not None or group_by_list is not None or distinct_requested
+                        or predicate is not None or sort_key is not None or limit is not None
+                        or projection_list is not None or literal_columns or window_expressions):
+                    # This flat SQL renderer cannot move a preceding input stage
+                    # across a join; doing so can change rows and null extension.
+                    return None
+                join_info = operation.values  # type: ignore[assignment]
+            elif operation.kind == "distinct" and not distinct_requested:
+                if limit is not None:
+                    return None
+                distinct_requested = True
+            elif operation.kind == "filter" and predicate is None:
+                if (
+                    aggregate_list is not None
+                    or group_by_list is not None
+                    or distinct_requested
+                    or having is not None
+                    or sort_key is not None
+                    or window_expressions
+                    or limit is not None
+                ):
+                    return None
+                predicate = _rewrite_predicate_with_computed_columns(
+                    operation.values[0],
+                    tuple(literal_columns),
+                )
+            elif operation.kind == "having" and having is None:
+                if aggregate_list is None or sort_key is not None or limit is not None:
+                    return None
+                having = operation.values[0]
+            elif operation.kind == "limit" and limit is None:
+                limit_parts = _limit_operation_parts(operation.values)
+                if limit_parts is None:
+                    return None
+                limit, limit_offset = limit_parts
+            else:
+                return None
+        if limit is None:
+            if default_limit is None and require_limit:
+                return None
+            if default_limit is not None:
+                limit = str(default_limit)
+                limit_offset = "0"
+        limit_clause = (
+            f" LIMIT {limit}"
+            + (f" OFFSET {limit_offset}" if limit is not None and limit_offset != "0" else "")
+            if limit is not None
+            else ""
+        )
+        if group_by_list is not None and aggregate_list is None:
+            return None
+        if join_info is not None:
+            if len(join_info) == 6:
+                right_uri, left_key, right_key, how, left_alias, right_alias = join_info
+                join_condition = ""
+            elif len(join_info) == 7:
+                (
+                    right_uri,
+                    left_key,
+                    right_key,
+                    how,
+                    left_alias,
+                    right_alias,
+                    join_condition,
+                ) = join_info
+            else:
+                return None
+            left_keys = tuple(column for column in left_key.split(",") if column)
+            right_keys = tuple(column for column in right_key.split(",") if column)
+            if how == "cross":
+                if left_keys or right_keys or join_condition:
+                    return None
+                on_clause = ""
+            elif join_condition:
+                if left_keys or right_keys:
+                    return None
+                on_clause = f" ON {join_condition}"
+            elif len(left_keys) != len(right_keys) or not left_keys:
+                return None
+            else:
+                on_clause = " ON " + " AND ".join(
+                    f"{left_alias}.{left_column} = {right_alias}.{right_column}"
+                    for left_column, right_column in zip(left_keys, right_keys)
+                )
+            if aggregate_list is not None:
+                if projection_list is not None or literal_columns or window_expressions:
+                    return None
+                if group_by_list is not None:
+                    select_clause = ",".join((*group_by_list, *aggregate_list))
+                    group_by_clause = f" GROUP BY {','.join(group_by_list)}"
+                else:
+                    select_clause = ",".join(aggregate_list)
+                    group_by_clause = ""
+            else:
+                if (
+                    projection_list is None
+                    or group_by_list is not None
+                    or having is not None
+                    or window_expressions
+                ):
+                    return None
+                select_values = list(projection_list)
+                select_values.extend(
+                    f"{literal} AS {column}" for column, literal in literal_columns
+                )
+                select_clause = ",".join(select_values)
+                group_by_clause = ""
+            order_by_clause = ""
+            if sort_key is not None:
+                direction, columns, null_ordering = sort_key
+                order_by_clause = _format_order_by_clause(
+                    columns,
+                    direction,
+                    null_ordering,
+                )
+            source_uri = _quote_sql_local_source_path(self.source.uri)
+            right_source_uri = _quote_sql_local_source_path(right_uri)
+            join_keyword = _sql_join_keyword(how)
+            select_keyword = "SELECT DISTINCT" if distinct_requested else "SELECT"
+            return (
+                f"{select_keyword} {select_clause} FROM {source_uri} AS {left_alias} "
+                f"{join_keyword} {right_source_uri} AS {right_alias}"
+                f"{on_clause}"
+                f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
+                f"{_optional_sql_having_clause(having)}{order_by_clause}{limit_clause}"
+            )
+        if projection_list is not None:
+            if aggregate_list is not None or group_by_list is not None:
+                return None
+            select_values = list(projection_list)
+            select_values.extend(
+                f"{literal} AS {column}" for column, literal in literal_columns
+            )
+            select_values.extend(window_expressions)
+            select_clause = ",".join(select_values)
+            group_by_clause = ""
+        elif aggregate_list is not None:
+            if literal_columns or window_expressions:
+                return None
+            if group_by_list is not None:
+                select_clause = ",".join((*group_by_list, *aggregate_list))
+                group_by_clause = f" GROUP BY {','.join(group_by_list)}"
+            else:
+                select_clause = ",".join(aggregate_list)
+                group_by_clause = ""
+        else:
+            if having is not None:
+                return None
+            if literal_columns or window_expressions:
+                select_values = ["*"]
+                select_values.extend(
+                    f"{literal} AS {column}" for column, literal in literal_columns
+                )
+                select_values.extend(window_expressions)
+                select_clause = ",".join(select_values)
+            else:
+                select_clause = "*"
+            group_by_clause = ""
+        order_by_clause = ""
+        if sort_key is not None:
+            direction, columns, null_ordering = sort_key
+            order_by_clause = _format_order_by_clause(columns, direction, null_ordering)
+        source_uri = _quote_sql_local_source_path(self.source.uri)
+        select_keyword = "SELECT DISTINCT" if distinct_requested else "SELECT"
+        return (
+            f"{select_keyword} {select_clause} FROM {source_uri}"
+            f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
+            f"{_optional_sql_having_clause(having)}{order_by_clause}{limit_clause}"
+        )
 
     def _sql_local_source_union_branch_statement(self) -> str | None:
-        from ._query_statement import LazyFrame__sql_local_source_union_branch_statement as _impl
-        return _impl(self)
+        from ._relational_sql import flat_order_is_safe
+
+        if not flat_order_is_safe(self.operations):
+            return None
+        if any(operation.kind in {"limit", "sort"} for operation in self.operations):
+            return None
+        statement = self._sql_local_source_statement(default_limit=1, allow_native_source=True)
+        suffix = " LIMIT 1"
+        if statement is None or not statement.endswith(suffix):
+            return None
+        return statement[: -len(suffix)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -4499,8 +7366,47 @@ class GroupedLazyFrame:
         **named_expressions: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped grouped aggregate workflow when admitted."""
-        from ._query_composition_methods import GroupedLazyFrame_agg as _impl
-        return _impl(self, *expressions, check=check, **named_expressions)
+
+        values = list(_normalize_columns(expressions)) if expressions else []
+        target_values = list(values)
+        target_values.extend(
+            f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        values.extend(
+            _format_named_aggregate(name, expression)
+            for name, expression in named_expressions.items()
+        )
+        if not values:
+            raise ValueError("aggregate expressions must not be empty")
+        target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
+        source_bindings = (*self.source_bindings, *_predicate_sources(expressions, named_expressions))
+        resource_limits = merge_resource_limits(
+            self.resource_limits, _predicate_limits(expressions, named_expressions),
+        )
+        if self.workflow._can_append_group_by_aggregate(self.columns):
+            return self.workflow._append_group_by_aggregate(
+                self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
+                grouping_clause=self.grouping_clause,
+            )
+        if self.workflow.source.source_format == "vortex":
+            return self.workflow._append_group_by_aggregate(
+                self.columns, tuple(values), source_bindings=source_bindings,
+                resource_limits=resource_limits,
+                grouping_clause=self.grouping_clause,
+            )
+        envelope = self.workflow.client.workflow_unsupported_plan(
+            "agg",
+            self.operation_summary,
+            target,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self.workflow,
+            operation="agg",
+            envelope=envelope,
+        )
 
     def aggregate(
         self,
@@ -4524,8 +7430,19 @@ class GroupedLazyFrame:
 
 
 def _grouping_frame(frame: LazyFrame, kind: str, units: tuple[object, ...], *, distinct: bool = False) -> GroupedLazyFrame:
-    from ._query_expression_builders import _grouping_frame as _impl
-    return _impl(frame, kind, units, distinct=distinct)
+    if not isinstance(distinct, bool):
+        raise TypeError("distinct must be a Boolean")
+    if kind == "GROUPING SETS" and not units:
+        raise ValueError("grouping_sets requires at least one set; use [] for the total")
+    keys: list[str] = []
+    rendered: list[str] = []
+    for unit in units:
+        values = (unit,) if isinstance(unit, (str, ColumnExpression)) else tuple(unit)
+        normalized = tuple(dict.fromkeys(_normalize_columns(values))) if values else ()
+        keys.extend(name for name in normalized if name not in keys)
+        rendered.append("(" + ",".join(normalized) + ")" if kind == "GROUPING SETS" or len(normalized) != 1 else normalized[0])
+    clause = ("DISTINCT " if distinct else "") + f"{kind}({','.join(rendered)})"
+    return GroupedLazyFrame(frame, tuple(keys), _predicate_sources(units), _predicate_limits(units), clause)
 
 
 def read_vortex(
@@ -4621,8 +7538,16 @@ def typed_scalar_udf(udf_id: object, column: object) -> ColumnExpression:
     dtype/null/effect metadata. This helper does not execute Python code; it
     lowers the declared fixture into the native expression-project route.
     """
-    from ._query_expression_builders import typed_scalar_udf as _impl
-    return _impl(udf_id, column)
+
+    normalized_id = _require_non_empty("typed scalar UDF id", udf_id).strip()
+    source_column = _normalize_expression_column(
+        column.sql if isinstance(column, ColumnExpression) else column
+    )
+    if normalized_id != "sl_fixture_double_i64":
+        raise ValueError(
+            "typed scalar UDF must be the admitted built-in sl_fixture_double_i64 fixture"
+        )
+    return ColumnExpression(f"{source_column} * 2", _predicate_sources(column), resource_limits=_predicate_limits(column))
 
 
 def fixture_double_i64(column: object) -> ColumnExpression:
@@ -4710,8 +7635,20 @@ def row_in_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped bounded row-value local-source `IN (SELECT ...)` predicate."""
-    from ._query_expression_builders import row_in_source as _impl
-    return _impl(columns, source, source_columns, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _row_value_in_source_predicate(
+        columns,
+        source,
+        source_columns,
+        source_alias=source_alias,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=False,
+    )
 
 
 def row_not_in_source(
@@ -4728,8 +7665,20 @@ def row_not_in_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped bounded row-value local-source `NOT IN (SELECT ...)` predicate."""
-    from ._query_expression_builders import row_not_in_source as _impl
-    return _impl(columns, source, source_columns, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _row_value_in_source_predicate(
+        columns,
+        source,
+        source_columns,
+        source_alias=source_alias,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=True,
+    )
 
 
 def any_source(
@@ -4747,8 +7696,21 @@ def any_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped bounded local-source `ANY (SELECT ...)` predicate."""
-    from ._query_expression_builders import any_source as _impl
-    return _impl(column, comparison, source, source_column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _quantified_source_predicate(
+        _normalize_expression_column(column),
+        comparison,
+        "ANY",
+        source,
+        source_column,
+        source_alias=source_alias,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
 
 
 def all_source(
@@ -4766,8 +7728,21 @@ def all_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped bounded local-source `ALL (SELECT ...)` predicate."""
-    from ._query_expression_builders import all_source as _impl
-    return _impl(column, comparison, source, source_column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _quantified_source_predicate(
+        _normalize_expression_column(column),
+        comparison,
+        "ALL",
+        source,
+        source_column,
+        source_alias=source_alias,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
 
 
 def exists_source(
@@ -4783,8 +7758,19 @@ def exists_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped local-source `EXISTS (SELECT ... FROM ...)` predicate."""
-    from ._query_expression_builders import exists_source as _impl
-    return _impl(source, source_alias=source_alias, select=select, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _exists_source_predicate(
+        source,
+        source_alias=source_alias,
+        select=select,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=False,
+    )
 
 
 def not_exists_source(
@@ -4800,8 +7786,19 @@ def not_exists_source(
     limit: int | None = None,
 ) -> PredicateExpression:
     """Return a scoped local-source `NOT EXISTS (SELECT ... FROM ...)` predicate."""
-    from ._query_expression_builders import not_exists_source as _impl
-    return _impl(source, source_alias=source_alias, select=select, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+
+    return _exists_source_predicate(
+        source,
+        source_alias=source_alias,
+        select=select,
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        negated=True,
+    )
 
 
 def row_number(
@@ -4867,8 +7864,24 @@ def _ranking_window_expression(
     alias: object,
 ) -> WindowExpression | ColumnExpression:
     """Return a scoped ranking window expression."""
-    from ._query_expression_builders import _ranking_window_expression as _impl
-    return _impl(function_name, order_by=order_by, partition_by=partition_by, descending=descending, alias=alias)
+
+    if order_by is None:
+        if partition_by is not None or descending or alias != function_name.lower():
+            raise ValueError("ranking options require order_by; otherwise use over(WindowSpec).alias(name)")
+        return ColumnExpression(f"{function_name}()")
+    order_columns = _normalize_columns((order_by,))
+    partition_columns = _normalize_optional_columns(partition_by)
+    direction = "DESC" if descending else "ASC"
+    order_clause = ",".join(f"{column} {direction}" for column in order_columns)
+    partition_clause = (
+        "" if not partition_columns else f"PARTITION BY {','.join(partition_columns)} "
+    )
+    output_alias = _normalize_output_column_name(alias)
+    return WindowExpression(
+        f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}",
+        _predicate_sources(order_by, partition_by),
+        resource_limits=_predicate_limits(order_by, partition_by),
+    )
 
 
 def case_when(predicate: object, then_value: object, else_value: object) -> ColumnExpression:
@@ -4922,8 +7935,20 @@ def length(column_expression: object) -> ColumnExpression:
 
 def concat(*parts: object) -> ColumnExpression:
     """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
-    from ._query_expression_builders import concat as _impl
-    return _impl(*parts)
+
+    if len(parts) < 2:
+        raise ValueError("concat requires at least two arguments")
+    sql_parts: list[str] = []
+    has_source_column = False
+    for index, part in enumerate(parts):
+        sql, is_source_column = _sql_string_function_text_arg(
+            part, f"concat argument {index + 1}"
+        )
+        sql_parts.append(sql)
+        has_source_column = has_source_column or is_source_column
+    if not has_source_column:
+        raise ValueError("concat requires at least one shardloom column expression")
+    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})", _predicate_sources(parts), resource_limits=_predicate_limits(parts))
 
 
 def substr(column_expression: object, start: object, length: object) -> ColumnExpression:
@@ -5001,8 +8026,17 @@ def array(*values: object) -> ComplexProjectionExpression:
 
 def struct(*columns: object) -> ComplexProjectionExpression:
     """Return a scoped `STRUCT(...)` projection over source columns."""
-    from ._query_expression_builders import struct as _impl
-    return _impl(*columns)
+
+    if len(columns) == 1 and _is_non_string_sequence(columns[0]):
+        raw_columns = tuple(columns[0])
+    else:
+        raw_columns = columns
+    if not raw_columns:
+        raise ValueError("struct projection requires at least one source column")
+    normalized = tuple(_normalize_expression_column(column) for column in raw_columns)
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("struct projection source columns must be unique")
+    return ComplexProjectionExpression(f"STRUCT({', '.join(normalized)})")
 
 
 def abs(column_expression: object) -> ColumnExpression:
@@ -5044,14 +8078,45 @@ def column(name: object) -> ColumnExpression:
 
 
 def _source_kind_from_path(uri: str | os.PathLike[str]) -> str:
-    from ._query_expression_builders import _source_kind_from_path as _impl
-    return _impl(uri)
+    suffix = _source_suffix_for_local_ref(uri)
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".tsv":
+        return "tsv"
+    if suffix in {".json", ".jsonl", ".ndjson"}:
+        return "json"
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix in {".arrow", ".ipc", ".feather"}:
+        return "arrow-ipc"
+    if suffix == ".avro":
+        return "avro"
+    if suffix == ".orc":
+        return "orc"
+    if suffix in {".vortex", ".vtx", ".vortex-manifest"}:
+        return "vortex"
+    admitted = ".csv, .tsv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex, .vtx, .vortex-manifest"
+    raise ValueError(
+        f"ShardLoom cannot infer a local source adapter for {uri!s}; "
+        f"admitted local source extensions are {admitted}"
+    )
 
 
 def _source_suffix_for_local_ref(uri: str | os.PathLike[str]) -> str:
     """Return the local source suffix, stripping only admitted text compression."""
-    from ._query_sources import _source_suffix_for_local_ref as _impl
-    return _impl(uri)
+
+    value = os.fspath(uri).lower()
+    if "://" in value or value.startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return Path(value).suffix.lower()
+    compression_suffixes = (".gz", ".zst", ".zstd")
+    text_suffixes = {".csv", ".tsv", ".json", ".jsonl", ".ndjson"}
+    for compression in compression_suffixes:
+        if value.endswith(compression):
+            base_suffix = Path(value[: -len(compression)]).suffix.lower()
+            if base_suffix in text_suffixes:
+                return base_suffix
+            break
+    return Path(value).suffix.lower()
 
 
 def read(
@@ -5077,8 +8142,54 @@ def read(
     query admission freezes the current table state. Source declaration does
     not read data.
     """
-    from ._query_sources import read as _impl
-    return _impl(uri, input_format=input_format, schema=schema, snapshot_id=snapshot_id, version=version, instant=instant, client=client, engine_mode=engine_mode, **client_config)
+
+    source_kind = _source_kind_from_path(uri) if input_format is None else input_format
+    source_kind = source_kind.strip().lower().replace("_", "-")
+    if source_kind in {"iceberg", "delta", "hudi"}:
+        selectors = {"snapshot_id": snapshot_id, "version": version, "instant": instant}
+        expected = {"iceberg": "snapshot_id", "delta": "version", "hudi": "instant"}[source_kind]
+        if schema is not None:
+            raise ValueError("table sources use their authoritative schema; schema= is unsupported")
+        if any(value is not None and name != expected for name, value in selectors.items()):
+            raise ValueError(f"{source_kind} sources accept only {expected}= as a snapshot selector")
+        selected = selectors[expected]
+        if expected == "snapshot_id" and selected is not None:
+            if isinstance(selected, bool) or not isinstance(selected, int):
+                raise TypeError("snapshot_id must be an integer")
+            if selected < -(1 << 63) or selected >= (1 << 63):
+                raise ValueError("snapshot_id must fit in a signed 64-bit integer")
+        if expected == "version" and selected is not None:
+            if isinstance(selected, bool) or not isinstance(selected, int):
+                raise TypeError("version must be an integer")
+            if selected < 0 or selected >= (1 << 64):
+                raise ValueError("version must fit in an unsigned 64-bit integer")
+        if expected == "instant" and selected is not None:
+            if not isinstance(selected, str):
+                raise TypeError("instant must be a string")
+            if not selected or len(selected) > 32 or not selected.isascii() or not selected.isdigit():
+                raise ValueError("instant must contain 1 to 32 ASCII digits")
+        table_snapshot = () if selected is None else ((expected, selected),)
+    else:
+        if any(value is not None for value in (snapshot_id, version, instant)):
+            raise ValueError("snapshot selectors require input_format='iceberg', 'delta', or 'hudi'")
+        table_snapshot = ()
+    if source_kind == "vortex":
+        return read_vortex(
+            uri,
+            schema=schema,
+            client=client,
+            engine_mode=engine_mode,
+            **client_config,
+        )
+    return _read_source(
+        source_kind,
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        table_snapshot=table_snapshot,
+        **client_config,
+    )
 
 
 def read_csv(
@@ -5288,8 +8399,25 @@ def from_batches(
     Results remain provisional until every producer ends and final validation
     succeeds.
     """
-    from ._query_sources import from_batches as _impl
-    return _impl(batches, schema=schema, streaming=streaming, client=client, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+    from ._batches import BatchInput
+    from ._input_schema import normalize_schema, schema_hints, wire_schema
+    from uuid import uuid4
+
+    if not isinstance(streaming, bool):
+        raise TypeError("streaming must be a bool")
+    fields = normalize_schema(schema)
+    if not fields:
+        raise ValueError("batch schema requires nonempty distinct fields")
+    declared = wire_schema(fields)
+    source = BatchInput(batches, declared, types=fields)
+    return LazyFrame(
+        source=WorkflowSource("memory", "memory://batches/" + uuid4().hex, schema_hints(fields),
+                              (("kind", "batches"), ("schema", declared), ("streaming", streaming)), source),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def from_rows(
@@ -5300,8 +8428,15 @@ def from_rows(
     **client_config: object,
 ) -> LazyFrame:
     """Declare native rows; use an explicit schema for rich types or empty columns."""
-    from ._query_sources import from_rows as _impl
-    return _impl(rows, client=client, schema=schema, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+
+    return _memory_rows_source(
+        rows,
+        client=resolved_client,
+        schema=schema,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def literal_table(
@@ -5355,8 +8490,16 @@ def dataframe_generated_with_column(
     execution; source-backed native rows and range expressions still use
     `from_rows(...).with_column(...)` and `range(...).with_column(...)`.
     """
-    from ._query_sources import dataframe_generated_with_column as _impl
-    return _impl(name, expression, client=client, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+
+    column = _require_non_empty("generated DataFrame column name", name)
+    literal = _generated_literal_expression(expression)
+    return _memory_rows_source(
+        [{column: literal}],
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def range(
@@ -5369,8 +8512,22 @@ def range(
     **client_config: object,
 ) -> LazyFrame:
     """Declare a native integer input with an exclusive end for the shared engine."""
-    from ._query_sources import range as _impl
-    return _impl(start, end, step=step, column=column, client=client, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+
+    normalized_start = _require_range_int("start", start)
+    normalized_end = _require_range_int("end", end)
+    normalized_step = _require_range_int("step", step)
+    if normalized_step == 0:
+        raise ValueError("range step must not be zero")
+    normalized_column = _require_non_empty("range column", column)
+    return _native_memory_frame(
+        {"kind": "range", "start": normalized_start, "end": normalized_end,
+         "step": normalized_step, "column": normalized_column, "inclusive": False},
+        schema=((normalized_column, "int64"),),
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def sequence(
@@ -5394,8 +8551,15 @@ def sql_values(
     **client_config: object,
 ) -> LazyFrame:
     """Declare SQL VALUES for the shared native engine."""
-    from ._query_sources import sql_values as _impl
-    return _impl(values_clause, client=client, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+
+    statement = _require_non_empty("SQL VALUES clause", values_clause)
+    return LazyFrame.from_sql(
+        statement=statement,
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def sql_literal_select(
@@ -5405,8 +8569,15 @@ def sql_literal_select(
     **client_config: object,
 ) -> LazyFrame:
     """Declare a source-free SQL projection for the shared native engine."""
-    from ._query_sources import sql_literal_select as _impl
-    return _impl(expression, client=client, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+
+    statement = _require_non_empty("SQL literal SELECT expression", expression)
+    return LazyFrame.from_sql(
+        statement=statement,
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def sql(
@@ -5420,8 +8591,21 @@ def sql(
     **client_config: object,
 ) -> LazyFrame:
     """Create a scoped SQL workflow over currently admitted ShardLoom SQL paths."""
-    from ._query_sources import sql as _impl
-    return _impl(statement, input=input, input_format=input_format, client=client, parameters=parameters, relations=relations, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+
+    input_uri, normalized_input_format = _normalize_sql_workflow_input(
+        input,
+        input_format,
+    )
+    return LazyFrame.from_sql(
+        statement=_require_non_empty("SQL statement", statement),
+        client=resolved_client,
+        input_uri=input_uri,
+        input_format=normalized_input_format,
+        parameters=parameters, relations=relations,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def _normalize_sql_workflow_input(
@@ -5429,14 +8613,48 @@ def _normalize_sql_workflow_input(
     input_format: str | None,
 ) -> tuple[str | None, str | None]:
     """Normalize optional input binding for SQL workflows."""
-    from ._query_sources import _normalize_sql_workflow_input as _impl
-    return _impl(input_ref, input_format)
+
+    if input_ref is None:
+        if input_format is not None:
+            raise ValueError("input_format requires input")
+        return None, None
+    input_uri = _require_non_empty("SQL input", os.fspath(input_ref))
+    if input_format is None:
+        inferred = _source_format_for_sql_input_ref(input_uri)
+        if inferred is None:
+            raise ValueError(
+                "input_format is required when SQL input format cannot be inferred"
+            )
+        return input_uri, inferred
+    normalized = input_format.strip().lower().replace("_", "-")
+    admitted_formats = set(SUPPORTED_SOURCE_FORMATS) | {"jsonl", "ndjson"}
+    if normalized not in admitted_formats:
+        raise ValueError(
+            f"input_format must be one of {tuple(sorted(admitted_formats))}; got {input_format!r}"
+        )
+    return input_uri, normalized
 
 
 def _source_format_for_sql_input_ref(value: str) -> str | None:
     """Infer source format from a normal Python path or SQL source literal."""
-    from ._query_sources import _source_format_for_sql_input_ref as _impl
-    return _impl(value)
+
+    if _is_local_vortex_source_ref(value):
+        return "vortex"
+    # Keep path punctuation intact for local inputs: in particular, ``?`` can
+    # be a glob wildcard and is not a URL query delimiter here. The local
+    # suffix helper recognizes compressed text suffixes while refusing to
+    # strip compression wrappers from columnar formats. Remote URI handling
+    # remains outside local SQL input inference.
+    local_format = _source_format_for_local_source_ref(value)
+    if local_format is not None:
+        if local_format == "json":
+            suffix = _source_suffix_for_local_ref(value)
+            if suffix in {".jsonl", ".ndjson"}:
+                return suffix[1:]
+        return local_format
+    if "://" in value or value.lower().startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return None
+    return _source_format_for_local_source_ref(repr(value))
 
 
 def calendar(
@@ -5455,8 +8673,34 @@ def calendar(
     selected local output. No input dataset is read, so the execution details
     contain no source-read validation report.
     """
-    from ._query_sources import calendar as _impl
-    return _impl(start, end, column=column, include_parts=include_parts, client=client, **client_config)
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    start_date = _normalize_date("calendar start", start)
+    end_date = _normalize_date("calendar end", end)
+    if start_date >= end_date:
+        raise ValueError("calendar start must be before end")
+    column_name = _require_non_empty("calendar column", column)
+    rows = []
+    current = start_date
+    while current < end_date:
+        row: dict[str, object] = {column_name: current.isoformat()}
+        if include_parts:
+            row.update(
+                {
+                    "year": current.year,
+                    "month": current.month,
+                    "day": current.day,
+                    "day_of_week": current.isoweekday(),
+                }
+            )
+        rows.append(row)
+        current += timedelta(days=1)
+    return from_rows(
+        rows,
+        client=resolved_client,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def from_pandas(
@@ -5469,13 +8713,45 @@ def from_pandas(
     **client_config: object,
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from a pandas DataFrame-like object."""
-    from ._query_sources import from_pandas as _impl
-    return _impl(dataframe, schema=schema, client=client, engine_mode=engine_mode, check=check, **client_config)
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    workflow = _materialized_boundary_workflow(
+        "pandas",
+        _python_object_boundary_ref("pandas", dataframe),
+        client=resolved_client,
+        engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
+    rows = _pandas_like_records(dataframe)
+    if rows is None:
+        return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
+    try:
+        return _memory_rows_source(
+            rows,
+            client=resolved_client,
+            schema=schema,
+            engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-pandas", workflow.uri, check=check)
 
 
 def _native_input_frame(owner, *, client, engine_mode, resources, resource_limits, schema=None):
-    from ._query_sources import _native_input_frame as _impl
-    return _impl(owner, client=client, engine_mode=engine_mode, resources=resources, resource_limits=resource_limits, schema=schema)
+    from ._input_schema import normalize_schema, schema_hints
+    from uuid import uuid4
+
+    fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
+    if schema is not None and normalize_schema(schema) != fields:
+        raise ValueError("declared schema differs from the native columnar input schema")
+    return LazyFrame(
+        source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
+                              schema_hints(fields), native_input=owner),
+        client=client, engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources, resource_limits=resource_limits,
+    )
 
 
 def from_vortex_ipc(
@@ -5493,8 +8769,19 @@ def from_vortex_ipc(
     and encoding tree, discards wire statistics and copies into the receiving
     allocation. The resulting source can serve multiple native queries.
     """
-    from ._query_sources import from_vortex_ipc as _impl
-    return _impl(array_message, dtype_message=dtype_message, client=client, engine_mode=engine_mode, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    if resolved_client.transport != "native":
+        raise ValueError("from_vortex_ipc requires transport='native'; use read_vortex for a native file")
+    if type(array_message) is not bytes or type(dtype_message) is not bytes:
+        raise TypeError("from_vortex_ipc requires complete array_message and dtype_message bytes")
+    mode = _normalize_engine_mode(engine_mode)
+    owner = resolved_client._native_backend_for(resources).from_vortex_ipc(
+        array_message, dtype_message, resources,
+    )
+    return _native_input_frame(
+        owner, client=resolved_client, engine_mode=mode,
+        resources=resources, resource_limits=resource_limits,
+    )
 
 
 def from_result(
@@ -5510,8 +8797,31 @@ def from_result(
     boundary. Moving a process result uses an explicit typed Python payload
     conversion; no cross-process zero-copy claim is made.
     """
-    from ._query_sources import from_result as _impl
-    return _impl(result, client=client, engine_mode=engine_mode, **client_config)
+    from ._batches import ResultBatch
+    from ._native_backend import NativeResultBatch
+    from .session import SessionSqlResult
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    mode = _normalize_engine_mode(engine_mode)
+    if type(result) is SessionSqlResult:
+        result = result.report
+    if resolved_client.transport == "native":
+        backend = resolved_client._native_backend_for(resources)
+        if type(result) is backend.module.Result or type(result) is backend.module.ColumnarBatch:
+            owner = backend.from_arrow(result, resources)
+            return _native_input_frame(owner, client=resolved_client, engine_mode=mode,
+                                       resources=resources, resource_limits=resource_limits)
+        if (type(result) is Result or type(result) is NativeResultBatch) and result.native_result is not None:
+            owner = backend.from_arrow(result, resources)
+            return _native_input_frame(owner, client=resolved_client, engine_mode=mode,
+                                       resources=resources, resource_limits=resource_limits)
+    if not any(type(result) is candidate for candidate in (Result, ResultBatch, NativeResultBatch)):
+        raise TypeError("from_result requires a completed ShardLoom Result or result batch")
+    if isinstance(result, Result) and (result.is_error or result.operation != "collect"):
+        raise ValueError("from_result requires successful collected data, not a write or error receipt")
+    schema = dict(result.result_schema)
+    return _memory_rows_source(result.python_objects, schema=schema, client=resolved_client,
+                               engine_mode=mode, resources=resources, resource_limits=resource_limits)
 
 
 def from_arrow_table(
@@ -5528,8 +8838,37 @@ def from_arrow_table(
     Native transport preserves columnar ownership through the shared input
     adapter; subprocess transport uses the explicit bounded row conversion.
     """
-    from ._query_sources import from_arrow_table as _impl
-    return _impl(table, schema=schema, client=client, engine_mode=engine_mode, check=check, **client_config)
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    if getattr(resolved_client, "transport", "subprocess") == "native":
+        owner = resolved_client._native_backend_for(resources).from_arrow(table, resources)
+        return _native_input_frame(
+            owner, schema=schema,
+            client=resolved_client, engine_mode=_normalize_engine_mode(engine_mode),
+            resources=resources, resource_limits=resource_limits,
+        )
+    workflow = _materialized_boundary_workflow(
+        "arrow_table",
+        _python_object_boundary_ref("arrow_table", table),
+        client=resolved_client,
+        engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
+    rows = _arrow_table_like_records(table)
+    if rows is None:
+        return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
+    try:
+        return _memory_rows_source(
+            rows,
+            client=resolved_client,
+            schema=schema,
+            engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-arrow-table", workflow.uri, check=check)
 
 
 def from_arrow_ipc(
@@ -5542,8 +8881,45 @@ def from_arrow_ipc(
     **client_config: object,
 ) -> LazyFrame | UnsupportedWorkflowOperationReport:
     """Create a scoped generated-row source from an Arrow IPC stream/file."""
-    from ._query_sources import from_arrow_ipc as _impl
-    return _impl(source, schema=schema, client=client, engine_mode=engine_mode, check=check, **client_config)
+
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=True)
+    target = (
+        str(source)
+        if isinstance(source, (str, os.PathLike))
+        else _python_object_boundary_ref("arrow_ipc", source)
+    )
+    workflow = _materialized_boundary_workflow(
+        "arrow_ipc",
+        target,
+        client=resolved_client,
+        engine_mode=engine_mode,
+        resources=resources,
+        resource_limits=resource_limits,
+    )
+    pyarrow = _optional_module("pyarrow")
+    if pyarrow is None:
+        return workflow._unsupported_operation(
+            "from-arrow-ipc",
+            "missing optional dependency: pyarrow",
+            check=check,
+        )
+    try:
+        rows = _arrow_table_like_records(_read_arrow_ipc_table(source, pyarrow))
+    except Exception:
+        rows = None
+    if rows is None:
+        return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
+    try:
+        return _memory_rows_source(
+            rows,
+            client=resolved_client,
+            schema=schema,
+            engine_mode=engine_mode,
+            resources=resources,
+            resource_limits=resource_limits,
+        )
+    except (TypeError, ValueError):
+        return workflow._unsupported_operation("from-arrow-ipc", workflow.uri, check=check)
 
 
 def _memory_rows_source(
@@ -5556,8 +8932,61 @@ def _memory_rows_source(
     resource_limits: ExecutionResourceLimits | None = None,
 ) -> LazyFrame:
     """Declare bounded native rows without executing any expressions."""
-    from ._query_sources import _memory_rows_source as _impl
-    return _impl(rows, client=client, schema=schema, engine_mode=engine_mode, resources=resources, resource_limits=resource_limits)
+    limits = merge_resource_limits(resource_limits, getattr(client, "resource_limits", None))
+    resources = resolve_resources(
+        resources=resources, inherited=getattr(client, "resources", None), limits=limits,
+    )
+    limits = merge_resource_limits(limits, resources.limits)
+    if getattr(client, "transport", "subprocess") == "native":
+        owner = client._native_backend_for(resources).from_rows(rows, schema, resources)
+        from ._input_schema import schema_hints
+        from uuid import uuid4
+        fields = schema_fields(owner.schema_json, "vortex.dtype.serde.v1")
+        return LazyFrame(
+            source=WorkflowSource("memory", "memory://native/" + uuid4().hex,
+                                  schema_hints(fields), native_input=owner),
+            client=client, engine_mode=_normalize_engine_mode(engine_mode),
+            resources=resources, resource_limits=limits,
+        )
+    from ._input_schema import encode_cell, normalize_schema, schema_hints, wire_schema
+    from ._result_schema import ResultType
+    if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
+        raise TypeError("rows must be a sequence of mappings")
+    if len(rows) > 65_536:
+        raise ValueError("native row input exceeds 65,536 rows")
+    declared = normalize_schema(schema)
+    if declared:
+        columns = tuple(name for name, _ in declared)
+    elif rows and isinstance(rows[0], Mapping):
+        columns = tuple(rows[0])
+    elif rows:
+        raise TypeError("rows must contain mappings")
+    else:
+        raise ValueError("empty row input requires an explicit schema")
+    if not columns:
+        raise ValueError("native row input requires at least one column")
+    if any(not isinstance(name, str) for name in columns):
+        raise TypeError("row column names must be strings")
+    if any(not name or len(name.encode("utf-8")) > 256 for name in columns):
+        raise ValueError("row column names must contain 1..=256 UTF8 bytes")
+    keys = set(columns)
+    for index, row in enumerate(rows):
+        if not isinstance(row, Mapping):
+            raise TypeError(f"row {index} is not a mapping")
+        if set(row) != keys:
+            raise ValueError("all rows must match the declared column names")
+    if declared:
+        fields = declared
+    else:
+        fields = tuple((name, ResultType(_infer_memory_column_type(row[name] for row in rows), True))
+                       for name in columns)
+    declared_fields = wire_schema(fields)
+    encoded_rows = tuple(tuple(encode_cell(dtype, row[name]) for name, dtype in fields) for row in rows)
+    return _native_memory_frame(
+        {"kind": "rows", "schema": declared_fields, "rows": encoded_rows},
+        schema=schema_hints(fields), client=client, engine_mode=engine_mode, resources=resources,
+        resource_limits=limits,
+    )
 
 
 def _infer_memory_column_type(values: Iterable[object]) -> str:
@@ -5577,45 +9006,191 @@ def _native_memory_frame(
     resources: ExecutionResources | None = None,
     resource_limits: ExecutionResourceLimits | None = None,
 ) -> LazyFrame:
-    from ._query_sources import _native_memory_frame as _impl
-    return _impl(declaration, schema=schema, client=client, engine_mode=engine_mode, resources=resources, resource_limits=resource_limits)
+    payload = json.dumps(declaration, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    if len(payload) > 8 * 1024 * 1024:
+        raise ValueError("native memory declaration exceeds 8 MiB")
+    uri = "memory://input/" + hashlib.sha256(payload).hexdigest()
+    return LazyFrame(
+        source=WorkflowSource("memory", uri, schema, tuple(declaration.items())),
+        client=client, engine_mode=_normalize_engine_mode(engine_mode), resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def _memory_value_type(value: object) -> str:
-    from ._query_sources import _memory_value_type as _impl
-    return _impl(value)
+    if value is None or isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        if not -(1 << 63) <= value < (1 << 63):
+            raise ValueError("native row integers must fit int64")
+        return "int64"
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("float native row values must be finite")
+        return "float64"
+    if isinstance(value, str):
+        return "utf8"
+    raise TypeError(
+        "native row values must be None, bool, int, float, or str"
+    )
 
 
 def _memory_value(value_type: str, value: object) -> str:
-    from ._query_sources import _memory_value as _impl
-    return _impl(value_type, value)
+    if value_type == "bool":
+        if not isinstance(value, bool):
+            raise TypeError("native bool columns must contain only bool values")
+        return "true" if value else "false"
+    if value_type == "int64":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError("native int64 columns must contain only int values")
+        if not -(1 << 63) <= value < (1 << 63):
+            raise ValueError("native row integers must fit int64")
+        return str(value)
+    if value_type == "float64":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError("native float64 columns must contain only numeric values")
+        if isinstance(value, int) and builtins.abs(value) > (1 << 53):
+            raise ValueError("integer-to-float row conversion exceeds the exact integer range")
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            raise ValueError("float native row values must be finite")
+        return str(numeric)
+    if value_type == "utf8":
+        if not isinstance(value, str):
+            raise TypeError("native utf8 columns must contain only str values")
+        return value
+    raise ValueError(f"unsupported native input value type {value_type!r}")
 
 
 def _dataframe_source_free_projection_row(
     expressions: tuple[object, ...],
 ) -> dict[str, object]:
-    from ._query_sources import _dataframe_source_free_projection_row as _impl
-    return _impl(expressions)
+    if not expressions:
+        raise ValueError("DataFrame source-free projection must include at least one expression")
+    if len(expressions) == 1 and isinstance(expressions[0], Mapping):
+        row: dict[str, object] = {}
+        for raw_name, raw_value in expressions[0].items():
+            name = _normalize_output_column_name(raw_name)
+            if name in row:
+                raise ValueError("DataFrame source-free projection aliases must be unique")
+            _memory_value_type(raw_value)
+            row[name] = raw_value
+        if not row:
+            raise ValueError("DataFrame source-free projection mapping must not be empty")
+        return row
+
+    row = {}
+    for expression in expressions:
+        name, value = _dataframe_source_free_projection_item(expression)
+        if name in row:
+            raise ValueError("DataFrame source-free projection aliases must be unique")
+        row[name] = value
+    return row
 
 
 def _dataframe_source_free_projection_item(expression: object) -> tuple[str, object]:
-    from ._query_sources import _dataframe_source_free_projection_item as _impl
-    return _impl(expression)
+    if (
+        isinstance(expression, Sequence)
+        and not isinstance(expression, (str, bytes, bytearray))
+        and len(expression) == 2
+    ):
+        name = _normalize_output_column_name(expression[0])
+        value = expression[1]
+        if isinstance(value, str) and value.strip().startswith("lit("):
+            value = _generated_literal_expression(value)
+        else:
+            _memory_value_type(value)
+        return name, value
+    if isinstance(expression, str):
+        return _parse_dataframe_literal_alias_expression(expression)
+    raise TypeError(
+        "DataFrame source-free projection expressions must be mappings, "
+        "(alias, literal) pairs, or lit(...).alias(...) strings"
+    )
 
 
 def _parse_dataframe_literal_alias_expression(expression: str) -> tuple[str, object]:
-    from ._query_sources import _parse_dataframe_literal_alias_expression as _impl
-    return _impl(expression)
+    text = expression.strip()
+    if not text:
+        raise ValueError("DataFrame source-free projection expression must not be empty")
+    try:
+        parsed = ast.parse(text, mode="eval").body
+    except SyntaxError as exc:
+        raise ValueError(
+            "DataFrame source-free projection strings must use lit(...).alias('name')"
+        ) from exc
+    if not (
+        isinstance(parsed, ast.Call)
+        and isinstance(parsed.func, ast.Attribute)
+        and parsed.func.attr == "alias"
+        and isinstance(parsed.func.value, ast.Call)
+        and isinstance(parsed.func.value.func, ast.Name)
+        and parsed.func.value.func.id == "lit"
+        and len(parsed.func.value.args) == 1
+        and not parsed.func.value.keywords
+        and len(parsed.args) == 1
+        and not parsed.keywords
+    ):
+        raise ValueError(
+            "DataFrame source-free projection strings must use lit(...).alias('name')"
+        )
+    alias_node = parsed.args[0]
+    if not isinstance(alias_node, ast.Constant) or not isinstance(alias_node.value, str):
+        raise ValueError("DataFrame source-free projection alias must be a string literal")
+    try:
+        value = ast.literal_eval(parsed.func.value.args[0])
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError(
+            "DataFrame source-free projection lit(...) must contain a bool, int, float, or string literal"
+        ) from exc
+    _memory_value_type(value)
+    return _normalize_output_column_name(alias_node.value), value
 
 
 def _generated_literal_expression(expression: object) -> object:
-    from ._query_sources import _generated_literal_expression as _impl
-    return _impl(expression)
+    if isinstance(expression, str):
+        text = expression.strip()
+        if not text:
+            raise ValueError("literal with_column expression must not be empty")
+        if not (text.startswith("lit(") and text.endswith(")")):
+            raise ValueError(
+                "literal with_column currently supports only lit(...) expressions "
+                "or direct Python bool/int/float literals"
+            )
+        inner = text[4:-1].strip()
+        if not inner:
+            raise ValueError("lit(...) expression must include a value")
+        lowered = inner.lower()
+        if lowered in {"true", "false"}:
+            return lowered == "true"
+        if lowered in {"null", "none"}:
+            return None
+        try:
+            parsed = ast.literal_eval(inner)
+        except (SyntaxError, ValueError) as exc:
+            raise ValueError(
+                "lit(...) expression must contain a bool, int, float, or quoted string"
+            ) from exc
+        _memory_value_type(parsed)
+        return parsed
+    _memory_value_type(expression)
+    return expression
 
 
 def _normalize_date(name: str, value: str | date) -> date:
-    from ._query_sources import _normalize_date as _impl
-    return _impl(name, value)
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a date or ISO date string")
+    text = value.strip()
+    if not text:
+        raise ValueError(f"{name} must not be empty")
+    try:
+        return date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an ISO date string like YYYY-MM-DD") from exc
 
 
 def _require_range_int(name: str, value: object) -> int:
@@ -5634,14 +9209,30 @@ def _normalize_non_negative_int(name: str, value: object) -> int:
 
 def _normalize_limit_range(count: object, offset: object) -> tuple[int, int]:
     """Validate a DataFrame LIMIT range against the native 64-bit usize bound."""
-    from ._query_sources import _normalize_limit_range as _impl
-    return _impl(count, offset)
+
+    normalized_count = _normalize_non_negative_int("limit count", count)
+    normalized_offset = _normalize_non_negative_int("limit offset", offset)
+    if (
+        normalized_count > _NATIVE_USIZE_MAX
+        or normalized_offset > _NATIVE_USIZE_MAX
+        or normalized_offset > _NATIVE_USIZE_MAX - normalized_count
+    ):
+        raise ValueError("limit offset + count must fit in a 64-bit native usize")
+    return normalized_count, normalized_offset
 
 
 def _limit_operation_parts(values: Sequence[str]) -> tuple[str, str] | None:
     """Return canonical count/offset strings for one- or two-field limit ops."""
-    from ._query_sources import _limit_operation_parts as _impl
-    return _impl(values)
+
+    if len(values) not in {1, 2}:
+        return None
+    try:
+        count, offset = _normalize_limit_range(
+            int(values[0]), int(values[1]) if len(values) == 2 else 0,
+        )
+    except (TypeError, ValueError):
+        return None
+    return str(count), str(offset)
 
 
 def _workflow_has_offset(frame: LazyFrame) -> bool:
@@ -5662,13 +9253,30 @@ def _normalize_positive_int(name: str, value: object) -> int:
 
 
 def _first_string_field(envelope: OutputEnvelope, keys: Sequence[str]) -> str | None:
-    from ._query_sources import _first_string_field as _impl
-    return _impl(envelope, keys)
+    for key in keys:
+        value = envelope.field(key)
+        if value is None:
+            continue
+        normalized = value.strip()
+        if not normalized or normalized.lower() in {"none", "unknown"}:
+            continue
+        return normalized
+    return None
 
 
 def _first_int_field(envelope: OutputEnvelope, keys: Sequence[str]) -> int | None:
-    from ._query_sources import _first_int_field as _impl
-    return _impl(envelope, keys)
+    for key in keys:
+        value = envelope.field(key)
+        if value is None:
+            continue
+        normalized = value.strip().lower()
+        if not normalized or normalized in {"none", "unknown"}:
+            continue
+        try:
+            return int(normalized)
+        except ValueError:
+            continue
+    return None
 
 
 def _any_true_field(envelope: OutputEnvelope, keys: Sequence[str]) -> bool:
@@ -5714,8 +9322,26 @@ def _read_source(
     table_snapshot: tuple[tuple[str, object], ...] = (),
     **client_config: object,
 ) -> LazyFrame:
-    from ._query_sources import _read_source as _impl
-    return _impl(source_format, uri, schema=schema, client=client, engine_mode=engine_mode, table_snapshot=table_snapshot, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+    normalized = source_format.strip().lower().replace("_", "-")
+    if normalized == "ndjson":
+        normalized = "jsonl"
+    if normalized not in SUPPORTED_SOURCE_FORMATS:
+        raise ValueError(
+            f"source_format must be one of {SUPPORTED_SOURCE_FORMATS}; got {source_format!r}"
+        )
+    return LazyFrame(
+        source=WorkflowSource(
+            source_format=normalized,
+            uri=str(uri),
+            schema=_normalize_schema(schema),
+            table_snapshot=table_snapshot,
+        ),
+        client=resolved_client,
+        engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def _materialized_boundary_workflow(
@@ -5726,8 +9352,17 @@ def _materialized_boundary_workflow(
     engine_mode: str,
     **client_config: object,
 ) -> LazyFrame:
-    from ._query_sources import _materialized_boundary_workflow as _impl
-    return _impl(source_format, uri, client=client, engine_mode=engine_mode, **client_config)
+    resolved_client, resources, resource_limits = _source_configuration(client, client_config, required=False)
+    return LazyFrame(
+        source=WorkflowSource(
+            source_format=source_format,
+            uri=uri,
+        ),
+        client=resolved_client,
+        engine_mode=_normalize_engine_mode(engine_mode),
+        resources=resources,
+        resource_limits=resource_limits,
+    )
 
 
 def _python_object_boundary_ref(kind: str, value: object) -> str:
@@ -5741,16 +9376,62 @@ def _source_configuration(
     *, required: bool,
 ) -> tuple[ShardLoomClient, ExecutionResources | None, ExecutionResourceLimits | None]:
     """Resolve plan-bound configuration without modifying a shared transport."""
-    from ._query_sources import _source_configuration as _impl
-    return _impl(client, client_config, required=required)
+
+    config = dict(client_config)
+    allocation = {name: config.pop(name, None) for name in (
+        "resources", "memory_gb", "memory_bytes", "max_parallelism",
+    )}
+    limits = config.pop("resource_limits", None)
+    resolved_client = _client_from_config(client, config)
+    limits = merge_resource_limits(limits, getattr(resolved_client, "resource_limits", None))
+    resolver = resolve_resources if required else optional_resources
+    resources = resolver(
+        **allocation, limits=limits, inherited=getattr(resolved_client, "resources", None),
+    )
+    limits = merge_resource_limits(limits, resources.limits if resources is not None else None)
+    return resolved_client, resources, limits
 
 
 def _client_from_config(
     client: ShardLoomClient | None,
     client_config: Mapping[str, object],
 ) -> ShardLoomClient:
-    from ._query_transform_arguments import _client_from_config as _impl
-    return _impl(client, client_config)
+    if client is not None:
+        if client_config:
+            raise ValueError("client cannot be combined with client configuration arguments")
+        if isinstance(client, ShardLoomClient):
+            client._ensure_open()
+        return client
+    config = dict(client_config)
+    binary = config.pop("binary", None)
+    env = config.pop("env", None)
+    cwd = config.pop("cwd", None)
+    repo_root = config.pop("repo_root", None)
+    profile_order = config.pop("profile_order", None)
+    timeout = config.pop("timeout", None)
+    from ._native_backend import application_transport
+    transport = application_transport(config.pop("transport", None), binary=binary, repo_root=repo_root, env=env)
+    if config:
+        unknown = ", ".join(sorted(str(key) for key in config))
+        raise TypeError(f"unknown client configuration argument(s): {unknown}")
+    if repo_root is not None:
+        return ShardLoomClient.from_repo(
+            repo_root,
+            binary=_optional_binary(binary),
+            env=_optional_env(env),
+            cwd=_optional_path(cwd),
+            profile_order=_optional_profile_order(profile_order) or DEFAULT_PROFILE_ORDER,
+            timeout=_optional_timeout(timeout),
+            transport=transport,
+        )
+    return ShardLoomClient.from_env(
+        env=_optional_env(env),
+        binary=_optional_binary(binary),
+        cwd=_optional_path(cwd),
+        profile_order=_optional_profile_order(profile_order),
+        timeout=_optional_timeout(timeout),
+        transport=transport,
+    )
 
 
 def _normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, str], ...]:
@@ -5765,8 +9446,20 @@ def _prepared_vortex_target_path(
     target_vortex_path: str | os.PathLike[str] | None,
     workspace: str | os.PathLike[str] | None,
 ) -> str | os.PathLike[str]:
-    from ._query_transform_arguments import _prepared_vortex_target_path as _impl
-    return _impl(source_uri, target_vortex_path=target_vortex_path, workspace=workspace)
+    if target_vortex_path is not None and workspace is not None:
+        raise ValueError(
+            "prepare_vortex accepts either target_vortex_path or workspace, not both"
+        )
+    if target_vortex_path is not None:
+        return target_vortex_path
+    if workspace is None:
+        raise ValueError(
+            "prepare_vortex requires target_vortex_path or workspace=... so the "
+            "caller-owned VortexPreparedState artifact location is explicit"
+        )
+    source_name = Path(source_uri).name or "source"
+    stem = Path(source_name).stem or "source"
+    return Path(workspace).expanduser() / f"{stem}.vortex"
 
 
 
@@ -5779,8 +9472,18 @@ def _generated_prepared_vortex_target_path(
     target_vortex_path: str | os.PathLike[str] | None,
     workspace: str | os.PathLike[str] | None,
 ) -> str | os.PathLike[str]:
-    from ._query_transform_arguments import _generated_prepared_vortex_target_path as _impl
-    return _impl(stem, target_vortex_path=target_vortex_path, workspace=workspace)
+    if target_vortex_path is not None and workspace is not None:
+        raise ValueError(
+            "generated prepare_vortex accepts either target_vortex_path or workspace, not both"
+        )
+    if target_vortex_path is not None:
+        return target_vortex_path
+    if workspace is None:
+        raise ValueError(
+            "generated prepare_vortex requires target_vortex_path or workspace=... so the "
+            "caller-owned VortexPreparedState artifact location is explicit"
+        )
+    return Path(workspace).expanduser() / f"{_safe_generated_vortex_stem(stem)}.vortex"
 
 
 def _safe_generated_vortex_stem(stem: str) -> str:
@@ -5816,8 +9519,36 @@ def _normalize_named_projection_items(
     named_expressions: Mapping[str, object],
 ) -> tuple[tuple[str, object], ...]:
     """Normalize ordered alias/expression pairs for multi-column projection helpers."""
-    from ._query_transform_arguments import _normalize_named_projection_items as _impl
-    return _impl(context, columns, named_expressions)
+
+    raw_items: list[tuple[object, object]] = []
+    if columns is not None:
+        if isinstance(columns, Mapping):
+            raw_items.extend(columns.items())
+        elif _is_non_string_sequence(columns):
+            for item in columns:
+                if not _is_non_string_sequence(item) or len(item) != 2:
+                    raise ValueError(
+                        f"{context} sequence entries must be (name, expression) pairs"
+                    )
+                name, expression = item
+                raw_items.append((name, expression))
+        else:
+            raise TypeError(
+                f"{context} columns must be a mapping or sequence of (name, expression) pairs"
+            )
+    raw_items.extend(named_expressions.items())
+    if not raw_items:
+        raise ValueError(f"{context} expressions must not be empty")
+
+    normalized: list[tuple[str, object]] = []
+    seen: set[str] = set()
+    for name, expression in raw_items:
+        column_name = _normalize_output_column_name(name)
+        if column_name in seen:
+            raise ValueError(f"{context} output column names must be unique")
+        seen.add(column_name)
+        normalized.append((column_name, expression))
+    return tuple(normalized)
 
 
 def _normalize_rename_items(
@@ -5826,16 +9557,62 @@ def _normalize_rename_items(
     named_columns: Mapping[str, object],
 ) -> tuple[tuple[str, str], ...]:
     """Normalize ordered source/target column pairs for rename diagnostics."""
-    from ._query_transform_arguments import _normalize_rename_items as _impl
-    return _impl(context, columns, named_columns)
+
+    raw_items: list[tuple[object, object]] = []
+    if columns is not None:
+        if isinstance(columns, Mapping):
+            raw_items.extend(columns.items())
+        elif _is_non_string_sequence(columns):
+            for item in columns:
+                if not _is_non_string_sequence(item) or len(item) != 2:
+                    raise ValueError(f"{context} sequence entries must be (source, target) pairs")
+                source, target = item
+                raw_items.append((source, target))
+        else:
+            raise TypeError(
+                f"{context} columns must be a mapping or sequence of (source, target) pairs"
+            )
+    raw_items.extend(named_columns.items())
+    if not raw_items:
+        raise ValueError(f"{context} columns must not be empty")
+
+    normalized: list[tuple[str, str]] = []
+    seen_sources: set[str] = set()
+    seen_targets: set[str] = set()
+    for source, target in raw_items:
+        source_name = _require_non_empty("source column name", source)
+        target_name = _normalize_output_column_name(target)
+        if source_name in seen_sources:
+            raise ValueError(f"{context} source column names must be unique")
+        if target_name in seen_targets:
+            raise ValueError(f"{context} target column names must be unique")
+        seen_sources.add(source_name)
+        seen_targets.add(target_name)
+        normalized.append((source_name, target_name))
+    return tuple(normalized)
 
 
 def _normalize_drop_columns(
     labels: Sequence[object],
     columns: object | None,
 ) -> tuple[str, ...]:
-    from ._query_transform_arguments import _normalize_drop_columns as _impl
-    return _impl(labels, columns)
+    raw_columns: list[object] = []
+    if len(labels) == 1 and _is_non_string_sequence(labels[0]):
+        raw_columns.extend(labels[0])
+    else:
+        raw_columns.extend(labels)
+    if columns is not None:
+        if _is_non_string_sequence(columns):
+            raw_columns.extend(columns)
+        else:
+            raw_columns.append(columns)
+    values = [_require_non_empty("drop column", column) for column in raw_columns]
+    if not values:
+        raise ValueError("drop columns must not be empty")
+    duplicates = [column for column in dict.fromkeys(values) if values.count(column) > 1]
+    if duplicates:
+        raise ValueError("drop columns must be unique")
+    return tuple(values)
 
 
 def _normalize_sample_target(
@@ -5846,8 +9623,31 @@ def _normalize_sample_target(
     weights: object | None = None,
     replace: bool = False,
 ) -> str:
-    from ._query_transform_arguments import _normalize_sample_target as _impl
-    return _impl(n=n, fraction=fraction, seed=seed, weights=weights, replace=replace)
+    if n is not None and fraction is not None:
+        raise ValueError("sample accepts either n or fraction, not both")
+    if not isinstance(replace, bool):
+        raise TypeError("sample replace must be boolean")
+    parts: list[str] = []
+    if fraction is None:
+        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
+        parts.append(f"n={sample_n}")
+    else:
+        if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
+            raise TypeError("sample fraction must be numeric")
+        fraction_value = float(fraction)
+        if not math.isfinite(fraction_value) or fraction_value <= 0:
+            raise ValueError("sample fraction must be positive and finite")
+        parts.append(f"fraction={fraction_value:.12g}")
+    if seed is not None:
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            parts.append(f"seed={_stable_target_value(seed)}")
+        else:
+            parts.append(f"seed={_normalize_non_negative_int('sample seed', seed)}")
+    if weights is not None:
+        parts.append(f"weights={_stable_target_value(weights)}")
+    if replace:
+        parts.append("replace=true")
+    return ",".join(parts)
 
 
 def _normalize_sample_fraction_alias(
@@ -5884,8 +9684,95 @@ def _sample_operation_parts(
     values: tuple[str, ...],
 ) -> tuple[int | None, float | None, int, bool, str | None] | None:
     """One declaration parser for standalone and composed native sampling."""
-    from ._query_transform_arguments import _sample_operation_parts as _impl
-    return _impl(values)
+    sample_count = None
+    sample_fraction = None
+    sample_seed = 0
+    sample_with_replacement = False
+    sample_weight_column = None
+    try:
+        if any("=" in value for value in values):
+            parsed_sample: int | None = None
+            parsed_fraction: float | None = None
+            parsed_seed = 0
+            parsed_replacement = False
+            parsed_weight_column: str | None = None
+            for value in values:
+                if value in {"replacement", "replace=true"}:
+                    if parsed_replacement:
+                        return None
+                    parsed_replacement = True
+                elif value.startswith("n="):
+                    if parsed_sample is not None:
+                        return None
+                    parsed_sample = int(value.removeprefix("n="))
+                elif value.startswith("fraction=") or value.startswith("frac="):
+                    if parsed_fraction is not None:
+                        return None
+                    _, raw_fraction = value.split("=", 1)
+                    parsed_fraction = float(raw_fraction)
+                elif value.startswith("seed=") or value.startswith("random_state="):
+                    _, raw_seed = value.split("=", 1)
+                    parsed_seed = int(raw_seed)
+                elif value.startswith("weights=") or value.startswith("weight="):
+                    if parsed_weight_column is not None:
+                        return None
+                    _, raw_weight_column = value.split("=", 1)
+                    if not _is_sql_identifier(raw_weight_column):
+                        return None
+                    parsed_weight_column = raw_weight_column
+                else:
+                    return None
+            if (parsed_sample is None) == (parsed_fraction is None):
+                return None
+            if parsed_sample is not None and parsed_sample <= 0:
+                return None
+            if parsed_fraction is not None and (
+                not math.isfinite(parsed_fraction)
+                or parsed_fraction <= 0
+                or parsed_fraction > 1
+            ):
+                return None
+            if parsed_seed < 0:
+                return None
+            sample_count = parsed_sample
+            sample_fraction = parsed_fraction
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+            sample_weight_column = parsed_weight_column
+        elif values and values[0] == "fraction":
+            if len(values) < 2:
+                return None
+            parsed_fraction = float(values[1])
+            parsed_seed = int(values[2]) if len(values) > 2 else 0
+            parsed_replacement = (
+                len(values) > 3 and values[3] == "replacement"
+            )
+            if len(values) > (4 if parsed_replacement else 3):
+                return None
+            if (
+                not math.isfinite(parsed_fraction)
+                or parsed_fraction <= 0
+                or parsed_fraction > 1
+                or parsed_seed < 0
+            ):
+                return None
+            sample_fraction = parsed_fraction
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+        else:
+            parsed_sample = int(values[0])
+            parsed_seed = int(values[1]) if len(values) > 1 else 0
+            parsed_replacement = len(values) > 2 and values[2] == "replacement"
+            if len(values) > (3 if parsed_replacement else 2):
+                return None
+            if parsed_sample <= 0 or parsed_seed < 0:
+                return None
+            sample_count = parsed_sample
+            sample_seed = parsed_seed
+            sample_with_replacement = parsed_replacement
+    except (ValueError, TypeError, IndexError):
+        return None
+    return sample_count, sample_fraction, sample_seed, sample_with_replacement, sample_weight_column
 
 
 def _normalize_sample_seed_alias(
@@ -5893,8 +9780,18 @@ def _normalize_sample_seed_alias(
     seed: int | None,
     random_state: int | None,
 ) -> int | None:
-    from ._query_transform_arguments import _normalize_sample_seed_alias as _impl
-    return _impl(seed=seed, random_state=random_state)
+    if seed is None:
+        return random_state
+    if random_state is None:
+        return seed
+    normalized_seed = _normalize_non_negative_int("sample seed", seed)
+    normalized_random_state = _normalize_non_negative_int(
+        "sample random_state",
+        random_state,
+    )
+    if normalized_seed != normalized_random_state:
+        raise ValueError("sample seed and random_state must match when both are provided")
+    return normalized_seed
 
 
 def _normalize_merge_target(
@@ -5906,8 +9803,22 @@ def _normalize_merge_target(
     how: str,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_merge_target as _impl
-    return _impl(other, on=on, left_on=left_on, right_on=right_on, how=how, kwargs=kwargs)
+    normalized_how = _normalize_join_how(how)
+    if on is not None and (left_on is not None or right_on is not None):
+        raise ValueError("merge accepts either on= or left_on=/right_on=, not both")
+    parts = [f"how={normalized_how}"]
+    if on is not None:
+        parts.append(f"on={_join_columns_for_target('merge on', on)}")
+    elif left_on is not None or right_on is not None:
+        if left_on is None or right_on is None:
+            raise ValueError("merge requires both left_on and right_on when using sided keys")
+        parts.append(f"left_on={_join_columns_for_target('merge left_on', left_on)}")
+        parts.append(f"right_on={_join_columns_for_target('merge right_on', right_on)}")
+    else:
+        parts.append("on=implicit_common_columns")
+    parts.extend(_normalize_extra_kwargs("merge", kwargs))
+    parts.append(_workflow_target_summary(other))
+    return ";".join(parts)
 
 
 def _normalize_concat_target(
@@ -5917,8 +9828,16 @@ def _normalize_concat_target(
     join: str,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_concat_target as _impl
-    return _impl(others, axis=axis, join=join, kwargs=kwargs)
+    if isinstance(axis, bool) or axis not in (0, 1):
+        raise ValueError("concat axis must be 0 or 1")
+    normalized_join = _require_non_empty("concat join", join).lower()
+    if normalized_join not in {"inner", "outer"}:
+        raise ValueError("concat join must be inner or outer")
+    targets = _normalize_workflow_targets(others)
+    parts = [f"axis={axis}", f"join={normalized_join}"]
+    parts.extend(_normalize_extra_kwargs("concat", kwargs))
+    parts.extend(targets)
+    return ";".join(parts)
 
 
 def _normalize_pivot_target(
@@ -5964,8 +9883,17 @@ def _normalize_melt_target(
     ignore_index: bool,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_melt_target as _impl
-    return _impl(id_vars=id_vars, value_vars=value_vars, var_name=var_name, value_name=value_name, ignore_index=ignore_index, kwargs=kwargs)
+    parts = [
+        f"id_vars={_optional_columns_for_target(id_vars)}",
+        f"value_vars={_optional_columns_for_target(value_vars)}",
+        f"ignore_index={str(bool(ignore_index)).lower()}",
+    ]
+    if var_name is not None:
+        parts.append(f"var_name={_require_non_empty('melt var_name', var_name)}")
+    if value_name is not None:
+        parts.append(f"value_name={_require_non_empty('melt value_name', value_name)}")
+    parts.extend(_normalize_extra_kwargs("melt", kwargs))
+    return ";".join(parts)
 
 
 def _normalize_rolling_target(
@@ -6050,8 +9978,17 @@ def _normalize_fillna_target(
     limit: object | None,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_fillna_target as _impl
-    return _impl(value, axis=axis, inplace=inplace, method=method, limit=limit, kwargs=kwargs)
+    parts = [
+        f"value={_stable_target_value(value)}",
+        f"axis={_normalize_dropna_axis(axis)}",
+        f"inplace={str(bool(inplace)).lower()}",
+    ]
+    if method is not None:
+        parts.append(f"method={_stable_target_value(method)}")
+    if limit is not None:
+        parts.append(f"limit={_stable_target_value(limit)}")
+    parts.extend(_normalize_extra_kwargs("fillna", kwargs))
+    return ";".join(parts)
 
 
 def _normalize_fill_method(method: object | None) -> str | None:
@@ -6099,8 +10036,23 @@ def _normalize_dropna_axis(value: object | None) -> str:
 
 
 def _dropna_threshold_predicate(columns: tuple[str, ...], threshold: int) -> str | None:
-    from ._query_transform_arguments import _dropna_threshold_predicate as _impl
-    return _impl(columns, threshold)
+    if not columns:
+        return None
+    if threshold > len(columns):
+        column = columns[0]
+        return f"{column} IS NOT NULL AND {column} IS NULL"
+    if threshold == 1:
+        return " OR ".join(f"{column} IS NOT NULL" for column in columns)
+    if threshold == len(columns):
+        return " AND ".join(f"{column} IS NOT NULL" for column in columns)
+    if math.comb(len(columns), threshold) > 128:
+        return None
+    clauses = []
+    for group in combinations(columns, threshold):
+        clauses.append(
+            "(" + " AND ".join(f"{column} IS NOT NULL" for column in group) + ")"
+        )
+    return " OR ".join(clauses)
 
 
 def _normalize_dropna_target(
@@ -6111,8 +10063,15 @@ def _normalize_dropna_target(
     thresh: int | None,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_dropna_target as _impl
-    return _impl(subset=subset, how=how, axis=axis, thresh=thresh, kwargs=kwargs)
+    parts = [
+        f"subset={_optional_columns_for_target(subset)}",
+        f"how={_normalize_dropna_how(how)}",
+        f"axis={_normalize_dropna_axis(axis)}",
+    ]
+    if thresh is not None:
+        parts.append(f"thresh={_normalize_non_negative_int('dropna thresh', thresh)}")
+    parts.extend(_normalize_extra_kwargs("dropna", kwargs))
+    return ";".join(parts)
 
 
 def _normalize_astype_errors(value: str) -> str:
@@ -6126,8 +10085,18 @@ def _normalize_astype_dtype_map(
     dtype: object,
     projection_columns: tuple[str, ...],
 ) -> dict[str, str] | None:
-    from ._query_transform_arguments import _normalize_astype_dtype_map as _impl
-    return _impl(dtype, projection_columns)
+    if isinstance(dtype, Mapping):
+        if not dtype:
+            return None
+        dtype_map: dict[str, str] = {}
+        for raw_column, raw_dtype in dtype.items():
+            column = _require_non_empty("astype column", raw_column)
+            if not _is_sql_identifier(column):
+                raise ValueError("astype column names admit only bare SQL identifiers")
+            dtype_map[column] = _normalize_cast_dtype(raw_dtype)
+        return dtype_map
+    normalized_dtype = _normalize_cast_dtype(dtype)
+    return {column: normalized_dtype for column in projection_columns}
 
 
 def _normalize_astype_target(
@@ -6202,8 +10171,15 @@ def _normalize_mask_target(
     level: object | None,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_mask_target as _impl
-    return _impl(cond=cond, other=other, axis=axis, inplace=inplace, level=level, kwargs=kwargs)
+    parts = [
+        f"cond={_require_non_empty('mask condition', cond)}",
+        f"other={_stable_target_value(other)}",
+        f"axis={_normalize_dropna_axis(axis)}",
+        f"inplace={str(bool(inplace)).lower()}",
+        f"level={_stable_target_value(level)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("mask", kwargs))
+    return ";".join(parts)
 
 
 def _normalize_replace_target(
@@ -6216,8 +10192,16 @@ def _normalize_replace_target(
     limit: object | None,
     kwargs: Mapping[str, object],
 ) -> str:
-    from ._query_transform_arguments import _normalize_replace_target as _impl
-    return _impl(to_replace=to_replace, value=value, regex=regex, inplace=inplace, method=method, limit=limit, kwargs=kwargs)
+    parts = [
+        f"to_replace={_stable_target_value(to_replace)}",
+        f"value={_stable_target_value(value)}",
+        f"regex={str(bool(regex)).lower()}",
+        f"inplace={str(bool(inplace)).lower()}",
+        f"method={_stable_target_value(method)}",
+        f"limit={_stable_target_value(limit)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("replace", kwargs))
+    return ";".join(parts)
 
 
 def _normalize_index_target(
@@ -6301,16 +10285,57 @@ def _eval_numeric_scalar_assignment_rewrites(
     *,
     allow_zero_division: bool = False,
 ) -> tuple[dict[str, object], ...] | None:
-    from ._query_transform_arguments import _eval_numeric_scalar_assignment_rewrites as _impl
-    return _impl(expr, allow_zero_division=allow_zero_division)
+    if not isinstance(expr, str):
+        return None
+    try:
+        parsed = ast.parse(_require_non_empty("eval expression", expr), mode="exec")
+    except SyntaxError:
+        return None
+    if not parsed.body:
+        return None
+    rewrites: list[dict[str, object]] = []
+    target_columns: set[str] = set()
+    for statement in parsed.body:
+        if not isinstance(statement, ast.Assign):
+            return None
+        if len(statement.targets) != 1 or not isinstance(statement.targets[0], ast.Name):
+            return None
+        target_column = _normalize_output_column_name(statement.targets[0].id)
+        if target_column in target_columns:
+            return None
+        target_columns.add(target_column)
+        value = statement.value
+        if not isinstance(value, ast.BinOp) or not isinstance(value.left, ast.Name):
+            return None
+        if _normalize_output_column_name(value.left.id) != target_column:
+            return None
+        rewrite = _numeric_scalar_assignment_rewrite_from_binop(
+            target_column, value, allow_zero_division=allow_zero_division
+        )
+        if rewrite is None:
+            return None
+        rewrites.append(rewrite)
+    return tuple(rewrites) if rewrites else None
 
 
 def _numeric_scalar_assignment_rewrite_from_expression(
     target_column: str,
     expression_sql: str,
 ) -> dict[str, object] | None:
-    from ._query_transform_arguments import _numeric_scalar_assignment_rewrite_from_expression as _impl
-    return _impl(target_column, expression_sql)
+    target_column = _normalize_output_column_name(target_column)
+    try:
+        parsed = ast.parse(
+            _require_non_empty("numeric assignment expression", expression_sql),
+            mode="eval",
+        )
+    except SyntaxError:
+        return None
+    value = parsed.body
+    if not isinstance(value, ast.BinOp) or not isinstance(value.left, ast.Name):
+        return None
+    if _normalize_output_column_name(value.left.id) != target_column:
+        return None
+    return _numeric_scalar_assignment_rewrite_from_binop(target_column, value)
 
 
 def _numeric_scalar_assignment_rewrite_from_binop(
@@ -6319,23 +10344,61 @@ def _numeric_scalar_assignment_rewrite_from_binop(
     *,
     allow_zero_division: bool = False,
 ) -> dict[str, object] | None:
-    from ._query_transform_arguments import _numeric_scalar_assignment_rewrite_from_binop as _impl
-    return _impl(target_column, value, allow_zero_division=allow_zero_division)
+    operator = _eval_numeric_scalar_operator(value.op)
+    if operator is None:
+        return None
+    operand = _eval_numeric_scalar_literal(value.right)
+    if operand is None:
+        return None
+    if operator == "/" and float(operand) == 0.0 and not allow_zero_division:
+        return None
+    return {
+        "kind": "numeric_scalar_arithmetic",
+        "target_column": target_column,
+        "operator": operator,
+        "operand": operand,
+    }
 
 
 def _eval_numeric_scalar_operator(operator: ast.operator) -> str | None:
-    from ._query_transform_arguments import _eval_numeric_scalar_operator as _impl
-    return _impl(operator)
+    if isinstance(operator, ast.Add):
+        return "+"
+    if isinstance(operator, ast.Sub):
+        return "-"
+    if isinstance(operator, ast.Mult):
+        return "*"
+    if isinstance(operator, ast.Div):
+        return "/"
+    return None
 
 
 def _eval_numeric_scalar_literal(node: ast.AST) -> int | float | None:
-    from ._query_transform_arguments import _eval_numeric_scalar_literal as _impl
-    return _impl(node)
+    if isinstance(node, ast.Constant) and not isinstance(node.value, bool):
+        if isinstance(node.value, (int, float)) and math.isfinite(float(node.value)):
+            return node.value
+        return None
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and not isinstance(node.operand.value, bool)
+        and isinstance(node.operand.value, (int, float))
+    ):
+        value = -node.operand.value
+        return value if math.isfinite(float(value)) else None
+    return None
 
 
 def _stable_callable_name(function: object) -> str:
-    from ._query_transform_arguments import _stable_callable_name as _impl
-    return _impl(function)
+    if isinstance(function, str):
+        return _require_non_empty("callable expression", function)
+    name = getattr(function, "__name__", None)
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    type_name = type(function).__name__
+    if type_name:
+        return type_name
+    return _require_non_empty("callable", function)
 
 
 def _stable_target_value(value: object | None) -> str:
@@ -6368,8 +10431,15 @@ def _optional_columns_for_target(value: object | None) -> str:
 def _normalize_workflow_targets(
     value: "LazyFrame | str | Sequence[LazyFrame | str]",
 ) -> tuple[str, ...]:
-    from ._query_transform_arguments import _normalize_workflow_targets as _impl
-    return _impl(value)
+    if isinstance(value, LazyFrame) or isinstance(value, (str, os.PathLike)):
+        targets = (_workflow_target_summary(value),)
+    elif _is_non_string_sequence(value):
+        targets = tuple(_workflow_target_summary(item) for item in value)
+    else:
+        raise TypeError("concat others must be a workflow, path, or sequence of workflows/paths")
+    if not targets:
+        raise ValueError("concat others must not be empty")
+    return targets
 
 
 def _single_lazyframe_target(
@@ -6414,8 +10484,29 @@ def _normalize_window_expressions(expressions: Sequence[object]) -> tuple[str, .
 
 
 def _normalize_join_how(value: object) -> str:
-    from ._query_transform_arguments import _normalize_join_how as _impl
-    return _impl(value)
+    normalized = _require_non_empty("join how", value).lower().replace("-", "_")
+    aliases = {
+        "inner": "inner",
+        "inner_equi": "inner",
+        "left": "left",
+        "left_outer": "left",
+        "right": "right",
+        "right_outer": "right",
+        "full": "full",
+        "full_outer": "full",
+        "outer": "full",
+        "semi": "semi",
+        "left_semi": "semi",
+        "anti": "anti",
+        "left_anti": "anti",
+        "cross": "cross",
+    }
+    try:
+        return aliases[normalized]
+    except KeyError as exc:
+        raise ValueError(
+            "join how must be one of inner, left, right, full, semi, anti, or cross"
+        ) from exc
 
 
 def _require_non_empty(name: str, value: object) -> str:
@@ -6443,8 +10534,23 @@ def _normalize_output_column_name(value: object) -> str:
 
 
 def _normalize_temporal_grid_keys(by: object, time_column: str) -> tuple[str, ...]:
-    from ._query_transform_arguments import _normalize_temporal_grid_keys as _impl
-    return _impl(by, time_column)
+    if isinstance(by, str):
+        raw_keys: tuple[object, ...] = (by,)
+    elif by is None:
+        raise TypeError("temporal grid partition keys must be a string or iterable of strings")
+    else:
+        try:
+            raw_keys = tuple(cast(Iterable[object], by))
+        except TypeError as exc:
+            raise TypeError(
+                "temporal grid partition keys must be a string or iterable of strings"
+            ) from exc
+    keys = tuple(_normalize_temporal_grid_column(key, "partition key") for key in raw_keys)
+    if len(set(keys)) != len(keys):
+        raise ValueError("temporal grid partition keys must be unique")
+    if time_column in keys:
+        raise ValueError("temporal grid partition keys must not include the time column")
+    return keys
 
 
 def _normalize_temporal_grid_column(value: object, name: str) -> str:
@@ -6476,8 +10582,15 @@ def _normalize_temporal_grid_unit(unit: object) -> str:
 def _normalize_temporal_grid_policies(
     month_end: object, ambiguity: object,
 ) -> tuple[str, str]:
-    from ._query_transform_arguments import _normalize_temporal_grid_policies as _impl
-    return _impl(month_end, ambiguity)
+    if not isinstance(month_end, str):
+        raise TypeError("temporal month_end must be a string literal")
+    if month_end not in {"reject", "clamp"}:
+        raise ValueError("temporal month_end must be 'reject' or 'clamp'")
+    if not isinstance(ambiguity, str):
+        raise TypeError("temporal ambiguity must be a string literal")
+    if ambiguity not in {"reject", "earlier", "later"}:
+        raise ValueError("temporal ambiguity must be 'reject', 'earlier', or 'later'")
+    return month_end, ambiguity
 
 
 def _format_named_aggregate(name: object, expression: object) -> str:
@@ -6487,13 +10600,59 @@ def _format_named_aggregate(name: object, expression: object) -> str:
 
 
 def _normalize_cast_dtype(value: object) -> str:
-    from ._query_transform_arguments import _normalize_cast_dtype as _impl
-    return _impl(value)
+    if isinstance(value, ResultType):
+        value = "boolean" if value.name == "bool" else value.label
+    raw_dtype = _require_non_empty("cast dtype", value)
+    temporal = parse_temporal_declaration(raw_dtype)
+    if temporal is not None:
+        return temporal
+    dtype = raw_dtype.lower()
+    if dtype == "timestamp":
+        dtype = "timestamp_micros"
+    if dtype in {"blob", "varbinary"}:
+        dtype = "binary"
+    decimal_dtype = _normalize_decimal_cast_dtype(dtype)
+    if decimal_dtype is not None:
+        return decimal_dtype
+    if dtype not in {
+        "int64",
+        "uint64",
+        "float64",
+        "utf8",
+        "boolean",
+        "date32",
+        "timestamp_micros",
+        "binary",
+    }:
+        raise ValueError(
+            "cast dtype must be one of ('int64', 'uint64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros', 'binary', 'decimal128(p,s)')"
+        )
+    return dtype
 
 
 def _normalize_decimal_cast_dtype(dtype: str) -> str | None:
-    from ._query_literals import _normalize_decimal_cast_dtype as _impl
-    return _impl(dtype)
+    compact = "".join(dtype.split())
+    names = ("decimal128", "decimal", "numeric")
+    name = compact.split("(", 1)[0]
+    if name not in names:
+        return None
+    if "(" not in compact:
+        return "decimal128(38,0)"
+    if not compact.endswith(")"):
+        raise ValueError("decimal cast dtype must use decimal128(precision,scale)")
+    args = compact[compact.find("(") + 1 : -1].split(",")
+    if len(args) != 2:
+        raise ValueError("decimal cast dtype must use decimal128(precision,scale)")
+    try:
+        precision = int(args[0])
+        scale = int(args[1])
+    except ValueError as exc:
+        raise ValueError("decimal cast precision and scale must be integers") from exc
+    if precision < 1 or precision > 38 or scale < 0 or scale > precision:
+        raise ValueError(
+            "decimal cast precision/scale must satisfy 1 <= precision <= 38 and 0 <= scale <= precision"
+        )
+    return f"decimal128({precision},{scale})"
 
 
 def _interval_literal(value: object, unit: str) -> IntervalLiteral:
@@ -6510,18 +10669,74 @@ def _normalize_interval_unit(unit: object) -> str:
 
 
 def _normalize_interval_integer(value: object) -> int:
-    from ._query_literals import _normalize_interval_integer as _impl
-    return _impl(value)
+    if isinstance(value, bool):
+        raise ValueError("interval literal value must be a signed integer literal")
+    if isinstance(value, int):
+        return value
+    text = _require_non_empty("interval literal value", value)
+    if text in {"+", "-"} or not all(
+        ch.isdigit() or (index == 0 and ch in {"+", "-"})
+        for index, ch in enumerate(text)
+    ):
+        raise ValueError("interval literal value must be a signed integer literal")
+    return int(text)
 
 
 def _normalize_date_arithmetic_days(value: object) -> str:
-    from ._query_literals import _normalize_date_arithmetic_days as _impl
-    return _impl(value)
+    if isinstance(value, ColumnExpression):
+        return _sql_computed_projection_expression(value)
+    interval = _coerce_interval_literal(value)
+    if interval is not None:
+        if interval.unit != "DAY":
+            raise ValueError("date arithmetic interval literals admit DAY units only")
+        if builtins.abs(interval.value) > MAX_DATE_ARITHMETIC_DAYS:
+            raise ValueError("date arithmetic days admits absolute values <= 366000")
+        return interval.sql
+    if isinstance(value, bool):
+        raise ValueError("date arithmetic days must be a signed integer literal")
+    if isinstance(value, int):
+        days = value
+    else:
+        text = _require_non_empty("date arithmetic days", value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError("date arithmetic days must be a signed integer literal")
+        days = int(text)
+    if not -(1 << 63) <= days < (1 << 64):
+        raise ValueError("date arithmetic days must fit int64 or uint64")
+    return str(days)
 
 
 def _normalize_timestamp_arithmetic_seconds(value: object) -> str:
-    from ._query_literals import _normalize_timestamp_arithmetic_seconds as _impl
-    return _impl(value)
+    if isinstance(value, ColumnExpression):
+        return _sql_computed_projection_expression(value)
+    interval = _coerce_interval_literal(value)
+    if interval is not None:
+        seconds = interval.value * _INTERVAL_SECOND_MULTIPLIERS[interval.unit]
+        if builtins.abs(seconds) > MAX_TIMESTAMP_ARITHMETIC_SECONDS:
+            raise ValueError(
+                "timestamp arithmetic seconds admits absolute values <= 31622400000"
+            )
+        return interval.sql
+    if isinstance(value, bool):
+        raise ValueError("timestamp arithmetic seconds must be a signed integer literal")
+    if isinstance(value, int):
+        seconds = value
+    else:
+        text = _require_non_empty("timestamp arithmetic seconds", value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError(
+                "timestamp arithmetic seconds must be a signed integer literal"
+            )
+        seconds = int(text)
+    if not -(1 << 63) <= seconds < (1 << 64):
+        raise ValueError("timestamp arithmetic seconds must fit int64 or uint64")
+    return str(seconds)
 
 
 def _coerce_interval_literal(value: object) -> IntervalLiteral | None:
@@ -6533,8 +10748,22 @@ def _coerce_interval_literal(value: object) -> IntervalLiteral | None:
 
 
 def _parse_interval_literal_sql(value: str) -> IntervalLiteral | None:
-    from ._query_literals import _parse_interval_literal_sql as _impl
-    return _impl(value)
+    text = value.strip()
+    lowered = text.lower()
+    if not lowered.startswith("interval"):
+        return None
+    if len(text) > len("interval") and not text[len("interval")].isspace():
+        return None
+    parts = text.split(maxsplit=2)
+    if len(parts) != 3 or parts[0].lower() != "interval":
+        raise ValueError(
+            "interval SQL literals must use INTERVAL '<signed integer>' DAY|HOUR|MINUTE|SECOND"
+        )
+    literal = parts[1]
+    if len(literal) < 3 or not literal.startswith("'") or not literal.endswith("'"):
+        raise ValueError("interval SQL literal value must be single quoted")
+    unit = _normalize_interval_unit(parts[2])
+    return _interval_literal(literal[1:-1], unit)
 
 
 def _normalize_interval_unit(value: object) -> str:
@@ -6558,8 +10787,19 @@ def _normalize_interval_unit(value: object) -> str:
 
 
 def _sql_temporal_difference_arg(value: object, dtype: str) -> str:
-    from ._query_literals import _sql_temporal_difference_arg as _impl
-    return _impl(value, dtype)
+    if isinstance(value, ColumnExpression):
+        return value.sql
+    if dtype == "date32":
+        if isinstance(value, datetime):
+            raise TypeError("date_diff_days arguments must be date values or columns")
+        if isinstance(value, date):
+            return f"DATE '{value.isoformat()}'"
+    elif dtype == "timestamp_micros":
+        if isinstance(value, datetime):
+            return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
+    else:
+        raise ValueError("temporal difference dtype must be date32 or timestamp_micros")
+    raise TypeError("temporal difference arguments must be shardloom columns or typed literals")
 
 
 def _sql_string_literal(value: object) -> str:
@@ -6567,8 +10807,19 @@ def _sql_string_literal(value: object) -> str:
 
 
 def _decimal_controls(precision, scale, rounding):
-    from ._query_literals import _decimal_controls as _impl
-    return _impl(precision, scale, rounding)
+    if type(precision) is not int:
+        raise TypeError("decimal precision must be an integer")
+    if not 1 <= precision <= 38:
+        raise ValueError("decimal precision must be between 1 and 38")
+    if type(scale) is not int:
+        raise TypeError("decimal scale must be an integer")
+    if not 0 <= scale <= precision:
+        raise ValueError("decimal scale must be between 0 and precision")
+    if type(rounding) is not str:
+        raise TypeError("decimal rounding must be a string")
+    if rounding not in {"exact", "half_even", "half_away", "toward_zero", "floor", "ceil"}:
+        raise ValueError("unsupported decimal rounding mode")
+    return precision, scale, rounding
 
 
 def _sql_string_function_literal(
@@ -6581,8 +10832,29 @@ def _sql_string_function_literal(
 
 
 def _sql_literal(value: object) -> str:
-    from ._query_literals import _sql_literal as _impl
-    return _impl(value)
+    if value is None:
+        raise ValueError("SQL NULL comparisons must use is_null() or is_not_null()")
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("SQL float literals must be finite")
+        return str(value)
+    if isinstance(value, Decimal):
+        return _sql_decimal_literal(value)
+    if isinstance(value, datetime):
+        return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
+    if isinstance(value, date):
+        return f"DATE '{value.isoformat()}'"
+    if isinstance(value, (bytes, bytearray)):
+        return f"X'{bytes(value).hex()}'"
+    if isinstance(value, str):
+        return _sql_string_function_literal("predicate string literal", value, allow_empty=True)
+    raise TypeError(
+        "SQL predicate literals must be bool, int, float, Decimal, str, bytes, date, datetime, or None"
+    )
 
 
 def _temporal_control_literal(name: str, value: object) -> str:
@@ -6606,14 +10878,31 @@ def _sql_decimal_literal(value: Decimal) -> str:
 
 
 def _decimal_literal_metadata(value: Decimal) -> tuple[int, int]:
-    from ._query_literals import _decimal_literal_metadata as _impl
-    return _impl(value)
+    if not value.is_finite():
+        raise ValueError("Decimal literals must be finite")
+    _, digits, exponent = value.as_tuple()
+    assert isinstance(exponent, int)
+    scale = max(-exponent, 0)
+    precision = max(len(digits) + max(exponent, 0), scale, 1)
+    if precision > 38 or scale > 38:
+        raise ValueError("Decimal literals must fit decimal128 precision and scale <= 38")
+    # Check metadata first: formatting a huge exponent must never allocate a
+    # correspondingly huge SQL string. This formatted value is at most 41 bytes.
+    return precision, scale
 
 
 def _vortex_exact_scalar_payload(value: object) -> dict[str, object] | None:
     """Declare exact literal bytes or text; native binding owns all conversion."""
-    from ._query_literals import _vortex_exact_scalar_payload as _impl
-    return _impl(value)
+    if isinstance(value, Decimal):
+        precision, scale = _decimal_literal_metadata(value)
+        return {"type": f"decimal128({precision},{scale})", "value": format(value, "f")}
+    if isinstance(value, datetime):
+        return {"type": "timestamp_micros", "value": _normalize_timestamp_literal(value)}
+    if isinstance(value, date):
+        return {"type": "date32", "value": value.isoformat()}
+    if isinstance(value, (bytes, bytearray)):
+        return {"type": "binary", "value": bytes(value).hex()}
+    return None
 
 
 def _vortex_expression_scalar_payload(
@@ -6622,8 +10911,88 @@ def _vortex_expression_scalar_payload(
     target_dtype: str | None,
     allow_null: bool = True,
 ) -> dict[str, object] | None:
-    from ._query_literals import _vortex_expression_scalar_payload as _impl
-    return _impl(value, target_dtype=target_dtype, allow_null=allow_null)
+    if target_dtype is None:
+        # Literal typing is independent of input schema; native binding and
+        # checked coercion remain authoritative for the produced column.
+        if value is None:
+            return {"type": "null", "value": None} if allow_null else None
+        if isinstance(value, bool):
+            return {"type": "boolean", "value": value}
+        if isinstance(value, int) and -(1 << 63) <= value < (1 << 64):
+            return {"type": "int64" if value < (1 << 63) else "uint64", "value": value}
+        if isinstance(value, float) and math.isfinite(value):
+            return {"type": "float64", "value": value}
+        if isinstance(value, str):
+            return {"type": "utf8", "value": value}
+        return _vortex_exact_scalar_payload(value)
+    temporal = parse_temporal_declaration(target_dtype)
+    dtype = temporal or target_dtype.strip().lower().replace("-", "_")
+    decimal_dtype = _normalize_decimal_cast_dtype(dtype)
+    supported_dtype = dtype in {
+        "bool",
+        "boolean",
+        "int64",
+        "int",
+        "integer",
+        "uint64",
+        "uint",
+        "unsigned",
+        "float64",
+        "float",
+        "double",
+        "utf8",
+        "string",
+        "str",
+        "binary",
+        "date32",
+        "timestamp_micros",
+    } or decimal_dtype is not None or temporal is not None
+    if value is None:
+        if not allow_null:
+            return None
+        return {"type": "null", "value": None} if supported_dtype else None
+    if decimal_dtype is not None:
+        if isinstance(value, Decimal):
+            return _vortex_exact_scalar_payload(value)
+        if isinstance(value, int) and not isinstance(value, bool) and -(1 << 63) <= value < (1 << 64):
+            return {"type": "int64" if value < (1 << 63) else "uint64", "value": value}
+        return None
+    if temporal is not None:
+        if temporal in {"date32", "timestamp_micros"}:
+            literal = _vortex_exact_scalar_payload(value)
+            return literal if literal is not None and literal["type"] == temporal else None
+        from ._input_schema import temporal_input_value
+        try:
+            return {"type": temporal, "value": str(temporal_input_value(temporal, value))}
+        except (ValueError, TypeError):
+            return None
+    if dtype in {"binary", "date32", "timestamp_micros"}:
+        literal = _vortex_exact_scalar_payload(value)
+        return literal if literal is not None and literal["type"] == dtype else None
+    if dtype in {"bool", "boolean"}:
+        if isinstance(value, bool):
+            return {"type": "boolean", "value": value}
+        return None
+    if dtype in {"int64", "int", "integer"}:
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return {"type": "int64", "value": value}
+    if dtype in {"uint64", "uint", "unsigned"}:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return {"type": "uint64", "value": value}
+    if dtype in {"float64", "float", "double"}:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            return None
+        return {"type": "float64", "value": parsed}
+    if dtype in {"utf8", "string", "str"}:
+        if isinstance(value, str):
+            return {"type": "utf8", "value": value}
+        return None
+    return None
 
 
 
@@ -6635,18 +11004,66 @@ def _sql_complex_projection_literal(value: object) -> str:
 
 
 def _sql_numeric_literal(value: object) -> str:
-    from ._query_scalar_sql import _sql_numeric_literal as _impl
-    return _impl(value)
+    if isinstance(value, bool):
+        raise ValueError("numeric arithmetic literals must be int or finite float values")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("numeric arithmetic float literals must be finite")
+        return str(value)
+    if isinstance(value, Decimal):
+        return _sql_decimal_literal(value)
+    raise TypeError("numeric arithmetic literals must be int, finite float, or finite Decimal values")
 
 
 def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_numeric_arithmetic_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    parts = text.split()
+    if len(parts) != 3 or parts[1] not in {"+", "-", "*", "/"}:
+        raise ValueError(
+            "computed with_column currently admits sl.col(...) numeric arithmetic "
+            "expressions of the form column (+|-|*|/) literal"
+        )
+    _normalize_expression_column(parts[0])
+    literal = _parse_numeric_literal_token(parts[2])
+    _sql_numeric_literal(literal)
+    if parts[1] == "/" and literal == 0:
+        raise ValueError("numeric arithmetic projection division by zero is not admitted")
+    return text
 
 
 def _sql_generic_expression_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_generic_expression_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    function = text.split("(", 1)[0].strip().upper() if "(" in text else ""
+    scalar_call = function in {
+        "CAST", "TRY_CAST", "ABS", "FLOOR", "CEIL", "CEILING", "ROUND",
+        "LOWER", "UPPER", "TRIM", "LENGTH", "CONCAT", "SUBSTR", "SUBSTRING",
+        "LEFT", "RIGHT", "REPLACE", "BYTE_LENGTH", "OCTET_LENGTH", "UNHEX",
+        "FROM_BASE64", "COALESCE", "NULLIF", "DATE_YEAR", "DATE_MONTH", "DATE_DAY",
+        "YEAR", "MONTH", "DAY", "TIMESTAMP_YEAR", "TIMESTAMP_MONTH", "TIMESTAMP_DAY",
+        "TIMESTAMP_HOUR", "TIMESTAMP_MINUTE", "TIMESTAMP_SECOND", "DATE_ADD_DAYS",
+        "DATE_SUB_DAYS", "TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS",
+        "DATE_DIFF_DAYS", "TIMESTAMP_DIFF_SECONDS",
+        "TEMPORAL_BUCKET",
+        "EXTRACT_MINUTE", "MINUTE", "DATE_TRUNC_MINUTE", "TRUNCATE_MINUTE",
+        "URL_DOMAIN", "REGEX_DOMAIN", "REGEX_REPLACE_DOMAIN", "REGEXP_REPLACE", "REGEX_REPLACE",
+    }
+    if not (
+        _expression_has_numeric_operator(text)
+        or scalar_call
+        or _is_scalar_subquery_expression(text)
+        or text.upper().startswith(("-", "+", "CASE "))
+    ):
+        raise ValueError(
+            "computed with_column requires an admitted scalar expression"
+        )
+    _validate_balanced_expression_parentheses(text)
+    return text
 
 
 def _is_scalar_subquery_expression(text: str) -> bool:
@@ -6666,38 +11083,152 @@ def _parenthesize_numeric_operand(value: str) -> str:
 
 
 def _expression_has_numeric_operator(value: str) -> bool:
-    from ._query_scalar_sql import _expression_has_numeric_operator as _impl
-    return _impl(value)
+    in_quote = False
+    depth = 0
+    for index, char in enumerate(value):
+        if char == "'":
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if char == "(":
+            depth += 1
+            continue
+        if char == ")":
+            depth -= 1
+            continue
+        if char in {"*", "/"}:
+            return True
+        if char in {"+", "-"} and not _is_unary_numeric_sign(value, index, char):
+            return True
+    return False
 
 
 def _expression_has_temporal_difference_call(value: str) -> bool:
-    from ._query_scalar_sql import _expression_has_temporal_difference_call as _impl
-    return _impl(value)
+    text = value.strip()
+    while text.startswith("(") and text.endswith(")"):
+        inner = text[1:-1].strip()
+        if not inner:
+            return False
+        text = inner
+    upper = text.upper()
+    return upper.startswith("DATE_DIFF_DAYS(") or upper.startswith(
+        "TIMESTAMP_DIFF_SECONDS("
+    )
 
 
 def _is_unary_numeric_sign(value: str, index: int, char: str) -> bool:
-    from ._query_scalar_sql import _is_unary_numeric_sign as _impl
-    return _impl(value, index, char)
+    if char not in {"+", "-"}:
+        return False
+    before = next(
+        (candidate for candidate in reversed(value[:index]) if not candidate.isspace()),
+        None,
+    )
+    after = next(
+        (
+            candidate
+            for candidate in value[index + len(char) :]
+            if not candidate.isspace()
+        ),
+        None,
+    )
+    return (before is None or before in "(,+-*/") and (
+        after is not None and (after.isdigit() or after == ".")
+    )
 
 
 def _validate_balanced_expression_parentheses(value: str) -> None:
-    from ._query_scalar_sql import _validate_balanced_expression_parentheses as _impl
-    return _impl(value)
+    in_quote = False
+    depth = 0
+    for char in value:
+        if char == "'":
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                raise ValueError("computed with_column expression has unbalanced parentheses")
+    if in_quote:
+        raise ValueError("computed with_column expression has an unclosed string literal")
+    if depth != 0:
+        raise ValueError("computed with_column expression has unbalanced parentheses")
 
 
 def _sql_numeric_abs_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_numeric_abs_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits ABS column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "ABS":
+        raise ValueError("computed with_column currently admits ABS column expressions")
+    column = text[open_index + 1 : -1].strip()
+    normalized = _normalize_expression_column(column)
+    return f"ABS({normalized})"
 
 
 def _sql_numeric_rounding_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_numeric_rounding_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits numeric rounding column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"FLOOR", "CEIL", "ROUND"}:
+        raise ValueError(
+            "computed with_column currently admits numeric rounding column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    normalized = _normalize_expression_column(column)
+    return f"{function}({normalized})"
 
 
 def _sql_computed_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_computed_projection_expression as _impl
-    return _impl(expression)
+    if isinstance(expression, ColumnExpression):
+        if expression.source_bindings:
+            return expression.sql
+        try:
+            return _normalize_expression_column(expression.sql)
+        except (TypeError, ValueError):
+            pass
+    parsers = (
+        _sql_complex_projection_expression,
+        _sql_cast_projection_expression,
+        _sql_null_coalesce_projection_expression,
+        _sql_nullif_projection_expression,
+        _sql_conditional_projection_expression,
+        _sql_predicate_projection_expression,
+        _sql_numeric_arithmetic_projection_expression,
+        _sql_numeric_abs_projection_expression,
+        _sql_numeric_rounding_projection_expression,
+        _sql_generic_expression_projection_expression,
+        _sql_date_arithmetic_projection_expression,
+        _sql_timestamp_arithmetic_projection_expression,
+        _sql_string_length_projection_expression,
+        _sql_string_transform_projection_expression,
+        _sql_string_function_projection_expression,
+        _sql_binary_helper_projection_expression,
+        _sql_binary_byte_length_projection_expression,
+        _sql_temporal_extract_projection_expression,
+    )
+    last_error: TypeError | ValueError | None = None
+    for parser in parsers:
+        try:
+            return parser(expression)
+        except (TypeError, ValueError) as error:
+            last_error = error
+    if last_error is None:
+        raise ValueError("computed with_column expression is not admitted")
+    raise last_error
 
 
 def _sql_complex_projection_expression(expression: object) -> str:
@@ -6730,80 +11261,407 @@ def _split_cast_source_and_dtype(inner: str, syntax_error: str) -> tuple[str, st
 
 
 def _sql_cast_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_cast_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    upper_text = text.upper()
+    if not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits CAST/TRY_CAST column expressions"
+        )
+    if upper_text.startswith("TRY_CAST("):
+        function = "TRY_CAST"
+        inner = text[len("TRY_CAST(") : -1].strip()
+    elif upper_text.startswith("CAST("):
+        function = "CAST"
+        inner = text[len("CAST(") : -1].strip()
+    else:
+        raise ValueError(
+            "computed with_column currently admits CAST/TRY_CAST column expressions"
+        )
+    source, dtype = _split_cast_source_and_dtype(
+        inner,
+        "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax",
+    )
+    _validate_balanced_expression_parentheses(source)
+    return f"{function}({source} AS {dtype})"
 
 
 def _sql_null_coalesce_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_null_coalesce_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits COALESCE column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "COALESCE":
+        raise ValueError("computed with_column currently admits COALESCE column expressions")
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError("COALESCE with_column expressions require exactly two arguments")
+    column = _normalize_nullable_projection_column(args[0])
+    fallback = args[1].strip()
+    if fallback.upper() == "NULL":
+        raise ValueError("COALESCE with_column expressions require a non-NULL fallback")
+    return f"COALESCE({column}, {fallback})"
 
 
 def _sql_nullif_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_nullif_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits NULLIF column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "NULLIF":
+        raise ValueError("computed with_column currently admits NULLIF column expressions")
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError("NULLIF with_column expressions require exactly two arguments")
+    column = _normalize_nullable_projection_column(args[0])
+    sentinel = args[1].strip()
+    if sentinel.upper() == "NULL":
+        raise ValueError("NULLIF with_column expressions require a non-NULL sentinel")
+    return f"NULLIF({column}, {sentinel})"
 
 
 def _sql_conditional_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_conditional_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    upper = text.upper()
+    if not upper.startswith("CASE "):
+        raise ValueError("computed with_column currently admits CASE WHEN expressions")
+    when_marker = "WHEN "
+    then_marker = " THEN "
+    else_marker = " ELSE "
+    end_marker = " END"
+    when_index = upper.find(when_marker)
+    then_index = upper.find(then_marker)
+    else_index = upper.find(else_marker)
+    end_index = upper.rfind(end_marker)
+    if not (0 <= when_index < then_index < else_index < end_index):
+        raise ValueError(
+            "CASE with_column expressions must use CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END"
+        )
+    if upper[:when_index].strip() != "CASE" or upper[end_index + len(end_marker) :].strip():
+        raise ValueError(
+            "CASE with_column expressions must be a single CASE WHEN expression"
+        )
+    predicate = _predicate_sql(text[when_index + len(when_marker) : then_index].strip())
+    then_literal = text[then_index + len(then_marker) : else_index].strip()
+    else_literal = text[else_index + len(else_marker) : end_index].strip()
+    if not then_literal or not else_literal:
+        raise ValueError("CASE with_column expressions require THEN and ELSE branches")
+    return f"CASE WHEN {predicate} THEN {then_literal} ELSE {else_literal} END"
 
 
 def _sql_case_branch(value: object) -> str:
-    from ._query_scalar_sql import _sql_case_branch as _impl
-    return _impl(value)
+    if value is None:
+        return "NULL"
+    if isinstance(value, (ColumnExpression, PredicateExpression)):
+        text = value.sql.strip()
+        if not text:
+            kind = "column" if isinstance(value, ColumnExpression) else "predicate"
+            raise ValueError(f"CASE branch {kind} expression must not be empty")
+        return text
+    return _sql_literal(value)
 
 
 def _sql_date_arithmetic_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_date_arithmetic_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits DATE_ADD_DAYS/DATE_SUB_DAYS expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"DATE_ADD_DAYS", "DATE_SUB_DAYS"}:
+        raise ValueError(
+            "computed with_column currently admits DATE_ADD_DAYS/DATE_SUB_DAYS expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError(
+            "date arithmetic with_column expressions require exactly two arguments"
+        )
+    column = _normalize_temporal_extract_column(args[0], "date32")
+    days = _normalize_date_arithmetic_days(args[1])
+    return f"{function}({column}, {days})"
 
 
 def _sql_timestamp_arithmetic_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_timestamp_arithmetic_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS"}:
+        raise ValueError(
+            "computed with_column currently admits TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError(
+            "timestamp arithmetic with_column expressions require exactly two arguments"
+        )
+    column = _normalize_temporal_extract_column(args[0], "timestamp_micros")
+    seconds = _normalize_timestamp_arithmetic_seconds(args[1])
+    return f"{function}({column}, {seconds})"
 
 
 def _sql_string_transform_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_string_transform_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits LOWER/UPPER/TRIM column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"LOWER", "UPPER", "TRIM"}:
+        raise ValueError(
+            "computed with_column currently admits LOWER/UPPER/TRIM column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    normalized, has_source_column = _normalize_string_scalar_expression_sql(column)
+    if not has_source_column:
+        raise ValueError(
+            "string transform with_column expressions require at least one source column"
+        )
+    return f"{function}({normalized})"
 
 
 def _sql_string_length_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_string_length_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits LENGTH column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "LENGTH":
+        raise ValueError("computed with_column currently admits LENGTH column expressions")
+    column = text[open_index + 1 : -1].strip()
+    normalized, has_source_column = _normalize_string_scalar_expression_sql(column)
+    if not has_source_column:
+        raise ValueError("LENGTH with_column expressions require at least one source column")
+    return f"LENGTH({normalized})"
 
 
 def _sql_string_function_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_string_function_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits CONCAT/SUBSTR/LEFT/RIGHT/REPLACE expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"CONCAT", "SUBSTR", "SUBSTRING", "LEFT", "RIGHT", "REPLACE"}:
+        raise ValueError(
+            "computed with_column currently admits CONCAT/SUBSTR/LEFT/RIGHT/REPLACE expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if function == "CONCAT":
+        if len(args) < 2:
+            raise ValueError("CONCAT with_column expressions require at least two arguments")
+        normalized_args: list[str] = []
+        has_source_column = False
+        for arg in args:
+            normalized, is_source_column = _normalize_string_scalar_expression_sql(arg)
+            normalized_args.append(normalized)
+            has_source_column = has_source_column or is_source_column
+        if not has_source_column:
+            raise ValueError(
+                "CONCAT with_column expressions require at least one source column"
+            )
+        return f"CONCAT({', '.join(normalized_args)})"
+    if function in {"SUBSTR", "SUBSTRING"}:
+        if len(args) != 3:
+            raise ValueError(
+                "SUBSTR/SUBSTRING with_column expressions require exactly three arguments"
+            )
+        value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not is_source_column:
+            raise ValueError(
+                "SUBSTR/SUBSTRING with_column expressions require a source column argument"
+            )
+        start = _normalize_substring_bound("substring start", args[1], minimum=1)
+        length = _normalize_substring_bound("substring length", args[2], minimum=0)
+        return f"SUBSTR({value_arg}, {start}, {length})"
+    if function in {"LEFT", "RIGHT"}:
+        if len(args) != 2:
+            raise ValueError(
+                "LEFT/RIGHT with_column expressions require exactly two arguments"
+            )
+        value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not is_source_column:
+            raise ValueError(
+                "LEFT/RIGHT with_column expressions require a source column argument"
+            )
+        count = _normalize_substring_bound("left/right count", args[1], minimum=0)
+        return f"{function}({value_arg}, {count})"
+    if len(args) != 3:
+        raise ValueError("REPLACE with_column expressions require exactly three arguments")
+    value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
+    if not is_source_column:
+        raise ValueError("REPLACE with_column expressions require a source column argument")
+    needle = _parse_sql_string_literal_token(args[1])
+    if needle == "":
+        raise ValueError("REPLACE with_column expressions require a non-empty search literal")
+    replacement = _parse_sql_string_literal_token(args[2])
+    return (
+        f"REPLACE({value_arg}, "
+        f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
+        f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})"
+    )
 
 
 def _vortex_string_replace_expression_parts(
     expression_sql: str,
 ) -> tuple[str, str, str] | None:
-    from ._query_scalar_sql import _vortex_string_replace_expression_parts as _impl
-    return _impl(expression_sql)
+    text = expression_sql.strip()
+    upper = text.upper()
+    if not upper.startswith("REPLACE(") or not text.endswith(")"):
+        return None
+    args = _split_projection_function_args(text[len("REPLACE(") : -1].strip())
+    if len(args) != 3:
+        return None
+    try:
+        column, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not has_source_column or not _is_sql_identifier(column):
+            return None
+        needle = _parse_sql_string_literal_token(args[1])
+        replacement = _parse_sql_string_literal_token(args[2])
+    except (TypeError, ValueError):
+        return None
+    if needle == "":
+        return None
+    return column, needle, replacement
 
 
 def _sql_binary_helper_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_binary_helper_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits UNHEX/FROM_BASE64 binary helper expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"UNHEX", "FROM_BASE64"}:
+        raise ValueError(
+            "computed with_column currently admits UNHEX/FROM_BASE64 binary helper expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 1:
+        raise ValueError("binary helper with_column expressions require exactly one argument")
+    expression_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+    if not has_source_column:
+        raise ValueError("binary helper with_column expressions require a source column argument")
+    return f"{function}({expression_sql})"
 
 
 def _sql_binary_byte_length_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_binary_byte_length_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits BYTE_LENGTH/OCTET_LENGTH binary expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"BYTE_LENGTH", "OCTET_LENGTH"}:
+        raise ValueError(
+            "computed with_column currently admits BYTE_LENGTH/OCTET_LENGTH binary expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 1:
+        raise ValueError("binary byte length with_column expressions require exactly one argument")
+    expression_sql, has_source_column = _normalize_binary_scalar_expression_sql(args[0])
+    if not has_source_column:
+        raise ValueError(
+            "binary byte length with_column expressions require a source-backed binary expression"
+        )
+    return f"{function}({expression_sql})"
 
 
 def _sql_temporal_extract_projection_expression(expression: object) -> str:
-    from ._query_scalar_sql import _sql_temporal_extract_projection_expression as _impl
-    return _impl(expression)
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits DATE/TIMESTAMP extract column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {
+        "DATE_YEAR",
+        "DATE_MONTH",
+        "DATE_DAY",
+        "TIMESTAMP_YEAR",
+        "TIMESTAMP_MONTH",
+        "TIMESTAMP_DAY",
+        "TIMESTAMP_HOUR",
+        "TIMESTAMP_MINUTE",
+        "TIMESTAMP_SECOND",
+    }:
+        raise ValueError(
+            "computed with_column currently admits DATE/TIMESTAMP extract column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    if function.startswith("DATE_"):
+        normalized = _normalize_temporal_extract_column(column, "date32")
+    else:
+        normalized = _normalize_temporal_extract_column(column, "timestamp_micros")
+    return f"{function}({normalized})"
 
 
 def _split_projection_function_args(expression: str) -> tuple[str, ...]:
-    from ._query_scalar_sql import _split_projection_function_args as _impl
-    return _impl(expression)
+    args: list[str] = []
+    start = 0
+    depth = 0
+    in_quote = False
+    index = 0
+    while index < len(expression):
+        char = expression[index]
+        if char == "'":
+            if in_quote and index + 1 < len(expression) and expression[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+        elif char == "(" and not in_quote:
+            depth += 1
+        elif char == ")" and not in_quote:
+            depth -= 1
+            if depth < 0:
+                raise ValueError("computed with_column expression has unbalanced parentheses")
+        elif char == "," and not in_quote and depth == 0:
+            args.append(expression[start:index].strip())
+            start = index + 1
+        index += 1
+    if in_quote:
+        raise ValueError("computed with_column expression has an unclosed string literal")
+    if depth != 0:
+        raise ValueError("computed with_column expression has unbalanced parentheses")
+    args.append(expression[start:].strip())
+    if any(not arg for arg in args):
+        raise ValueError("computed with_column expression has an empty argument")
+    return tuple(args)
 
 
 def _sql_string_function_text_arg(value: object, name: str) -> tuple[str, bool]:
@@ -6813,43 +11671,215 @@ def _sql_string_function_text_arg(value: object, name: str) -> tuple[str, bool]:
 
 
 def _normalize_string_function_text_arg_sql(raw: str) -> tuple[str, bool]:
-    from ._query_scalar_sql import _normalize_string_function_text_arg_sql as _impl
-    return _impl(raw)
+    text = _require_non_empty("string function argument", raw)
+    if text.startswith("'"):
+        value = _parse_sql_string_literal_token(text)
+        return (
+            _sql_string_function_literal(
+                "string function literal", value, allow_empty=True
+            ),
+            False,
+        )
+    return _normalize_string_scalar_expression_sql(text)
 
 
 def _normalize_string_scalar_expression_sql(raw: str) -> tuple[str, bool]:
-    from ._query_scalar_sql import _normalize_string_scalar_expression_sql as _impl
-    return _impl(raw)
+    text = _require_non_empty("string expression", raw)
+    if _is_scalar_subquery_expression(text):
+        # The native binder admits the inner query and its output dtype.
+        return text, True
+    if text.startswith("'"):
+        value = _parse_sql_string_literal_token(text)
+        return (
+            _sql_string_function_literal(
+                "string function literal", value, allow_empty=True
+            ),
+            False,
+        )
+    open_index = text.find("(")
+    if open_index < 0:
+        return _normalize_expression_column(text), True
+    if not text.endswith(")"):
+        raise ValueError("string expression function call must be closed")
+    function = text[:open_index].strip().upper()
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if function in {"LOWER", "UPPER", "TRIM"}:
+        if len(args) != 1:
+            raise ValueError("string transform expressions require exactly one argument")
+        arg_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        return f"{function}({arg_sql})", has_source_column
+    if function == "CONCAT":
+        if len(args) < 2:
+            raise ValueError("CONCAT string expressions require at least two arguments")
+        normalized_args: list[str] = []
+        has_source_column = False
+        for arg in args:
+            arg_sql, arg_has_source = _normalize_string_scalar_expression_sql(arg)
+            normalized_args.append(arg_sql)
+            has_source_column = has_source_column or arg_has_source
+        return f"CONCAT({', '.join(normalized_args)})", has_source_column
+    if function in {"SUBSTR", "SUBSTRING"}:
+        if len(args) != 3:
+            raise ValueError("SUBSTR/SUBSTRING string expressions require exactly three arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        start = _normalize_substring_bound("substring start", args[1], minimum=1)
+        length = _normalize_substring_bound("substring length", args[2], minimum=0)
+        return f"SUBSTR({value_arg}, {start}, {length})", has_source_column
+    if function in {"LEFT", "RIGHT"}:
+        if len(args) != 2:
+            raise ValueError("LEFT/RIGHT string expressions require exactly two arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        count = _normalize_substring_bound("left/right count", args[1], minimum=0)
+        return f"{function}({value_arg}, {count})", has_source_column
+    if function == "REPLACE":
+        if len(args) != 3:
+            raise ValueError("REPLACE string expressions require exactly three arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        needle = _parse_sql_string_literal_token(args[1])
+        if needle == "":
+            raise ValueError("REPLACE string expressions require a non-empty search literal")
+        replacement = _parse_sql_string_literal_token(args[2])
+        return (
+            f"REPLACE({value_arg}, "
+            f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
+            f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})",
+            has_source_column,
+        )
+    raise ValueError(
+        "string expressions currently admit columns, string literals, LOWER/UPPER/TRIM, CONCAT, SUBSTR/SUBSTRING, LEFT/RIGHT, and REPLACE"
+    )
 
 
 def _normalize_binary_scalar_expression_sql(raw: str) -> tuple[str, bool]:
-    from ._query_scalar_sql import _normalize_binary_scalar_expression_sql as _impl
-    return _impl(raw)
+    text = _require_non_empty("binary expression", raw)
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "binary byte length expressions admit UNHEX(...), FROM_BASE64(...), or CAST(... AS binary)"
+        )
+    function = text[:open_index].strip().upper()
+    inner = text[open_index + 1 : -1].strip()
+    if function in {"UNHEX", "FROM_BASE64"}:
+        args = _split_projection_function_args(inner)
+        if len(args) != 1:
+            raise ValueError("binary helper expressions require exactly one argument")
+        expression_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not has_source_column:
+            raise ValueError(
+                "binary helper expressions require a source-backed string expression"
+            )
+        return f"{function}({expression_sql})", True
+    if function in {"CAST", "TRY_CAST"}:
+        source, dtype = _split_cast_source_and_dtype(
+            inner,
+            "binary byte length CAST expressions must use CAST(expression AS binary)",
+        )
+        if dtype != "binary":
+            raise ValueError(
+                "binary byte length CAST expressions must target binary, blob, or varbinary"
+            )
+        expression_sql, has_source_column = _normalize_string_scalar_expression_sql(source)
+        if not has_source_column:
+            raise ValueError(
+                "binary byte length CAST expressions require a source-backed string expression"
+            )
+        return f"{function}({expression_sql} AS {dtype})", True
+    raise ValueError(
+        "binary byte length expressions admit UNHEX(...), FROM_BASE64(...), or CAST(... AS binary)"
+    )
 
 
 def _parse_sql_string_literal_token(raw: str) -> str:
-    from ._query_scalar_sql import _parse_sql_string_literal_token as _impl
-    return _impl(raw)
+    text = raw.strip()
+    if not text.startswith("'") or not text.endswith("'") or len(text) < 2:
+        raise ValueError("string function literals must be single quoted")
+    body = text[1:-1]
+    output: list[str] = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char == "'":
+            if index + 1 < len(body) and body[index + 1] == "'":
+                output.append("'")
+                index += 2
+                continue
+            raise ValueError(
+                "single quotes inside string function literals must be escaped as doubled quotes"
+            )
+        output.append(char)
+        index += 1
+    return "".join(output)
 
 
 def _normalize_substring_bound(name: str, value: object, *, minimum: int) -> int:
-    from ._query_predicate_sql import _normalize_substring_bound as _impl
-    return _impl(name, value, minimum=minimum)
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer literal")
+    if isinstance(value, int):
+        parsed = value
+    else:
+        text = _require_non_empty(name, value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError(f"{name} must be an integer literal")
+        parsed = int(text)
+    if parsed < minimum:
+        raise ValueError(f"{name} must be >= {minimum}")
+    return parsed
 
 
 def _normalize_temporal_extract_column(expression: str, dtype: str) -> str:
-    from ._query_predicate_sql import _normalize_temporal_extract_column as _impl
-    return _impl(expression, dtype)
+    text = _require_non_empty("temporal extract column expression", expression)
+    if text.upper().startswith("CAST("):
+        if not text.endswith(")"):
+            raise ValueError("temporal extract CAST expression must be closed")
+        inner = text[5:-1].strip()
+        upper_inner = inner.upper()
+        marker = " AS "
+        marker_index = upper_inner.find(marker)
+        if marker_index < 0:
+            raise ValueError("temporal extract CAST expression must use CAST(column AS dtype)")
+        column = inner[:marker_index].strip()
+        target = inner[marker_index + len(marker) :].strip().lower()
+        if target == "timestamp":
+            target = "timestamp_micros"
+        if target != dtype:
+            raise ValueError(f"temporal extract CAST target must be {dtype}")
+        return f"CAST({_normalize_expression_column(column)} AS {dtype})"
+    return _normalize_expression_column(text)
 
 
 def _normalize_nullable_projection_column(expression: str) -> str:
-    from ._query_predicate_sql import _normalize_nullable_projection_column as _impl
-    return _impl(expression)
+    text = _require_non_empty("COALESCE column expression", expression)
+    if text.upper().startswith("CAST("):
+        if not text.endswith(")"):
+            raise ValueError("COALESCE CAST expression must be closed")
+        inner = text[5:-1].strip()
+        upper_inner = inner.upper()
+        marker = " AS "
+        marker_index = upper_inner.find(marker)
+        if marker_index < 0:
+            raise ValueError("COALESCE CAST expression must use CAST(column AS dtype)")
+        column = _normalize_expression_column(inner[:marker_index].strip())
+        dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+        if dtype not in {"date32", "timestamp_micros"}:
+            raise ValueError("COALESCE CAST target must be date32 or timestamp_micros")
+        return f"CAST({column} AS {dtype})"
+    return _normalize_expression_column(text)
 
 
 def _parse_numeric_literal_token(value: str) -> int | float:
-    from ._query_predicate_sql import _parse_numeric_literal_token as _impl
-    return _impl(value)
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            parsed = float(value)
+        except ValueError as exc:
+            raise ValueError("numeric arithmetic projection literal must be numeric") from exc
+        if not math.isfinite(parsed):
+            raise ValueError("numeric arithmetic projection float literal must be finite")
+        return parsed
 
 
 def _sql_in_literal(value: object) -> str:
@@ -6859,8 +11889,16 @@ def _sql_in_literal(value: object) -> str:
 
 
 def _normalize_timestamp_literal(value: datetime) -> str:
-    from ._query_predicate_sql import _normalize_timestamp_literal as _impl
-    return _impl(value)
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(
+            "SQL predicate datetime literals must be timezone-aware; scoped timestamp_micros admits UTC ISO timestamps only"
+        )
+    value = value.astimezone(timezone.utc)
+    if value.microsecond:
+        text = value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    else:
+        text = value.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return text
 
 
 def _predicate_sql(value: object) -> str:
@@ -6870,8 +11908,21 @@ def _predicate_sql(value: object) -> str:
 
 
 def _predicate_sources(*values: object) -> tuple[WorkflowSource, ...]:
-    from ._query_predicate_sql import _predicate_sources as _impl
-    return _impl(*values)
+    from ._window import WindowSpec
+    sources: list[WorkflowSource] = []
+    for value in values:
+        if isinstance(value, (tuple, list)):
+            sources.extend(_predicate_sources(*value))
+        elif isinstance(value, Mapping):
+            sources.extend(_predicate_sources(*value.values()))
+        elif isinstance(value, (PredicateExpression, ColumnExpression, WindowExpression, WindowSpec)):
+            sources.extend(value.source_bindings)
+        elif isinstance(value, LazyFrame):
+            if value.client.transport == "native":
+                sources.append(value._bound_relation_source())
+            else:
+                sources.extend(value._declared_sources())
+    return tuple(sources)
 
 
 def _predicate_limits(*values: object) -> ExecutionResourceLimits | None:
@@ -6881,8 +11932,18 @@ def _predicate_limits(*values: object) -> ExecutionResourceLimits | None:
     inheritance. This also covers source-free scalar subqueries, which carry no
     source bindings but still have an execution policy.
     """
-    from ._query_predicate_sql import _predicate_limits as _impl
-    return _impl(*values)
+
+    from ._window import WindowSpec
+    limits = []
+    for value in values:
+        if isinstance(value, (tuple, list)):
+            limits.append(_predicate_limits(*value))
+        elif isinstance(value, Mapping):
+            limits.append(_predicate_limits(*value.values()))
+        elif isinstance(value, (PredicateExpression, ColumnExpression, WindowExpression,
+                                WindowSpec, WorkflowOperation, LazyFrame)):
+            limits.append(value.resource_limits)
+    return merge_resource_limits(*limits)
 
 
 def _normalize_raw_or_typed_predicate(name: str, value: object) -> str:
@@ -6902,8 +11963,27 @@ def _validate_raw_sql_fragment(
     allowed_keywords: tuple[str, ...] = (),
     allow_nested_queries: bool = False,
 ) -> None:
-    from ._query_predicate_sql import _validate_raw_sql_fragment as _impl
-    return _impl(name, value, allowed_keywords=allowed_keywords, allow_nested_queries=allow_nested_queries)
+    _validate_sql_fragment_quotes(name, value)
+    if allow_nested_queries:
+        _validate_balanced_expression_parentheses(value)
+    for token in _RAW_SQL_FRAGMENT_BREAKOUT_TOKENS:
+        if _contains_sql_token_outside_quotes(value, token):
+            raise ValueError(
+                f"{name} must stay inside a scoped expression; SQL statement separators "
+                "and comments are not admitted"
+            )
+    for keyword in _RAW_SQL_FRAGMENT_BREAKOUT_KEYWORDS:
+        if keyword in allowed_keywords:
+            continue
+        found = (
+            _find_top_level_sql_keyword_outside_quotes(value, keyword) is not None
+            if allow_nested_queries else _contains_sql_keyword_outside_quotes(value, keyword)
+        )
+        if found:
+            raise ValueError(
+                f"{name} must stay inside a scoped expression; SQL clause keyword "
+                f"{keyword!r} is not admitted in raw fragments"
+            )
 
 
 def _sql_fragment_admitted_for_local_source_statement(
@@ -6912,18 +11992,50 @@ def _sql_fragment_admitted_for_local_source_statement(
     *,
     allowed_keywords: tuple[str, ...] = (),
 ) -> bool:
-    from ._query_predicate_sql import _sql_fragment_admitted_for_local_source_statement as _impl
-    return _impl(name, value, allowed_keywords=allowed_keywords)
+    try:
+        _validate_raw_sql_fragment(
+            name,
+            value,
+            allowed_keywords=allowed_keywords,
+            # Scalar SELECTs are bounded expression children. Clause breakouts,
+            # separators and comments remain denied before native SQL binding.
+            allow_nested_queries=True,
+        )
+    except ValueError:
+        return False
+    return True
 
 
 def _validate_sql_fragment_quotes(name: str, value: str) -> None:
-    from ._query_predicate_sql import _validate_sql_fragment_quotes as _impl
-    return _impl(name, value)
+    in_quote = False
+    index = 0
+    while index < len(value):
+        if value[index] == "'":
+            if in_quote and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+        index += 1
+    if in_quote:
+        raise ValueError(f"{name} SQL string literal is not closed")
 
 
 def _contains_sql_token_outside_quotes(statement: str, token: str) -> bool:
-    from ._query_predicate_sql import _contains_sql_token_outside_quotes as _impl
-    return _impl(statement, token)
+    in_quote = False
+    index = 0
+    while index <= len(statement) - len(token):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and statement.startswith(token, index):
+            return True
+        index += 1
+    return False
 
 
 def _like_needle(name: str, value: object) -> str:
@@ -6945,15 +12057,29 @@ def _like_escape_clause(escape: object | None) -> str:
 
 
 def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
-    from ._query_predicate_sql import _normalize_in_values as _impl
-    return _impl(values)
+    if len(values) == 1 and _is_non_string_sequence(values[0]):
+        normalized = tuple(values[0])
+    else:
+        normalized = values
+    if not normalized:
+        raise ValueError("IN predicates require at least one value")
+    if len(normalized) > 32:
+        raise ValueError("IN predicates admit at most 32 values")
+    return normalized
 
 
 def _row_value_in_predicate(
     columns: object, rows: object, *, negated: bool
 ) -> PredicateExpression:
-    from ._query_predicate_sql import _row_value_in_predicate as _impl
-    return _impl(columns, rows, negated=negated)
+    normalized_columns = _normalize_row_value_columns(columns)
+    normalized_rows = _normalize_row_value_in_rows(rows, arity=len(normalized_columns))
+    column_sql = ",".join(normalized_columns)
+    row_sql = ",".join(
+        "(" + ",".join(_sql_in_literal(value) for value in row) + ")"
+        for row in normalized_rows
+    )
+    operator = "NOT IN" if negated else "IN"
+    return PredicateExpression(f"({column_sql}) {operator} ({row_sql})")
 
 
 def _row_value_in_source_predicate(
@@ -6970,8 +12096,29 @@ def _row_value_in_source_predicate(
     limit: int | None,
     negated: bool,
 ) -> PredicateExpression:
-    from ._query_predicate_sql import _row_value_in_source_predicate as _impl
-    return _impl(columns, source, source_columns, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit, negated=negated)
+    normalized_columns = _normalize_row_value_columns(columns)
+    normalized_source_columns = _normalize_row_value_columns(source_columns)
+    if len(normalized_source_columns) != len(normalized_columns):
+        raise ValueError(
+            "row-value IN subquery selected-column arity must match the source column count"
+        )
+    column_sql = ",".join(normalized_columns)
+    source_column_sql = ",".join(normalized_source_columns)
+    source_ref = _sql_in_subquery_source(source, source_alias=source_alias)
+    tail = _sql_in_subquery_tail(
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+    )
+    operator = "NOT IN" if negated else "IN"
+    return PredicateExpression(
+        f"({column_sql}) {operator} (SELECT {source_column_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
+    )
 
 
 def _exists_source_predicate(
@@ -6987,8 +12134,26 @@ def _exists_source_predicate(
     limit: int | None,
     negated: bool,
 ) -> PredicateExpression:
-    from ._query_predicate_sql import _exists_source_predicate as _impl
-    return _impl(source, source_alias=source_alias, select=select, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit, negated=negated)
+    projection_sql = _normalize_exists_subquery_projection(select)
+    source_ref = _sql_local_subquery_source(
+        source, "EXISTS subquery source", source_alias=source_alias
+    )
+    tail = _sql_local_subquery_tail(
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="EXISTS subquery limit",
+        positive_limit=False,
+    )
+    operator = "NOT EXISTS" if negated else "EXISTS"
+    return PredicateExpression(
+        f"{operator} (SELECT {projection_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
+    )
 
 
 def _quantified_source_predicate(
@@ -7006,30 +12171,109 @@ def _quantified_source_predicate(
     descending: bool,
     limit: int | None,
 ) -> PredicateExpression:
-    from ._query_predicate_sql import _quantified_source_predicate as _impl
-    return _impl(column_sql, comparison, quantifier, source, source_column, source_alias=source_alias, where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+    operator = _normalize_quantified_comparison_operator(comparison)
+    source_column_sql = _normalize_expression_column(source_column)
+    source_ref = _sql_local_subquery_source(
+        source, "ANY/ALL subquery source", source_alias=source_alias
+    )
+    tail = _sql_local_subquery_tail(
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="ANY/ALL subquery limit",
+        positive_limit=True,
+    )
+    return PredicateExpression(
+        f"{column_sql} {operator} {quantifier} "
+        f"(SELECT {source_column_sql} FROM {source_ref}{tail})",
+        _predicate_sources(source, where, having),
+        resource_limits=_predicate_limits(source, where, having),
+    )
 
 
 def _normalize_quantified_comparison_operator(operator: object) -> str:
-    from ._query_predicate_sql import _normalize_quantified_comparison_operator as _impl
-    return _impl(operator)
+    text = _require_non_empty("ANY/ALL comparison operator", operator).lower()
+    operators = {
+        "=": "=",
+        "==": "=",
+        "eq": "=",
+        "!=": "!=",
+        "<>": "!=",
+        "ne": "!=",
+        "neq": "!=",
+        "<": "<",
+        "lt": "<",
+        "<=": "<=",
+        "le": "<=",
+        "lte": "<=",
+        ">": ">",
+        "gt": ">",
+        ">=": ">=",
+        "ge": ">=",
+        "gte": ">=",
+    }
+    try:
+        return operators[text]
+    except KeyError as exc:
+        raise ValueError(
+            "ANY/ALL comparison operator must be one of =, !=, <>, <, <=, >, >=, "
+            "eq, ne, lt, le, gt, or ge"
+        ) from exc
 
 
 def _normalize_exists_subquery_projection(select: object) -> str:
-    from ._query_predicate_sql import _normalize_exists_subquery_projection as _impl
-    return _impl(select)
+    if isinstance(select, str) and select.strip() == "*":
+        return "*"
+    if isinstance(select, ColumnExpression):
+        return _normalize_expression_column(select.sql)
+    if _is_non_string_sequence(select):
+        columns = tuple(_normalize_expression_column(item) for item in select)
+        if not columns:
+            raise ValueError("EXISTS subquery projection columns must not be empty")
+        if len(set(columns)) != len(columns):
+            raise ValueError("EXISTS subquery projection columns must be unique")
+        return ",".join(columns)
+    if isinstance(select, str):
+        return _normalize_expression_column(select)
+    return _sql_literal(select)
 
 
 def _normalize_row_value_columns(columns: object) -> tuple[str, ...]:
-    from ._query_predicate_sql import _normalize_row_value_columns as _impl
-    return _impl(columns)
+    if _is_non_string_sequence(columns):
+        raw_columns = tuple(columns)
+    else:
+        raw_columns = (columns,)
+    normalized = tuple(_normalize_expression_column(column) for column in raw_columns)
+    if len(normalized) < 2:
+        raise ValueError("row-value IN predicates require at least two columns")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("row-value IN predicate columns must be unique")
+    return normalized
 
 
 def _normalize_row_value_in_rows(
     rows: object, *, arity: int
 ) -> tuple[tuple[object, ...], ...]:
-    from ._query_predicate_sql import _normalize_row_value_in_rows as _impl
-    return _impl(rows, arity=arity)
+    if not _is_non_string_sequence(rows):
+        raise TypeError("row-value IN predicates require a sequence of literal rows")
+    normalized_rows: list[tuple[object, ...]] = []
+    for row in rows:
+        if not _is_non_string_sequence(row):
+            raise TypeError("row-value IN literal rows must be sequences")
+        normalized_row = tuple(row)
+        if len(normalized_row) != arity:
+            raise ValueError(
+                "row-value IN literal row arity must match the source column count"
+            )
+        normalized_rows.append(normalized_row)
+    if not normalized_rows:
+        raise ValueError("row-value IN predicates require at least one literal row")
+    if len(normalized_rows) > 32:
+        raise ValueError("row-value IN predicates admit at most 32 literal rows")
+    return tuple(normalized_rows)
 
 
 def _sql_in_subquery_source(
@@ -7043,8 +12287,26 @@ def _sql_in_subquery_source(
 def _sql_local_subquery_source(
     source: object, name: str, *, source_alias: object | None = None
 ) -> str:
-    from ._query_predicate_sql import _sql_local_subquery_source as _impl
-    return _impl(source, name, source_alias=source_alias)
+    if isinstance(source, LazyFrame):
+        if source.client.transport == "native":
+            source_ref = source._bound_relation_source().uri
+        elif source.operations or source.source.relation is not None:
+            statement = source._relation_statement()
+            if statement is None:
+                raise ValueError("source subquery contains an operation without native relational lowering")
+            source_ref = f"({statement})"
+            if source_alias is None:
+                source_alias = "_sl_subquery"
+        else:
+            source_ref = _quote_sql_local_source_path(source.source.uri)
+    else:
+        source_ref = _quote_sql_local_source_path(_require_non_empty(name, source))
+    if source_alias is None:
+        return source_ref
+    alias = _normalize_output_column_name(source_alias)
+    if alias.lower() == "outer":
+        raise ValueError("local subquery source alias 'outer' is reserved")
+    return f"{source_ref} AS {alias}"
 
 
 def _sql_in_subquery_tail(
@@ -7056,8 +12318,16 @@ def _sql_in_subquery_tail(
     descending: bool,
     limit: int | None,
 ) -> str:
-    from ._query_predicate_sql import _sql_in_subquery_tail as _impl
-    return _impl(where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit)
+    return _sql_local_subquery_tail(
+        where=where,
+        group_by=group_by,
+        having=having,
+        order_by=order_by,
+        descending=descending,
+        limit=limit,
+        limit_name="IN subquery limit",
+        positive_limit=True,
+    )
 
 
 def _sql_local_subquery_tail(
@@ -7071,8 +12341,27 @@ def _sql_local_subquery_tail(
     limit_name: str,
     positive_limit: bool,
 ) -> str:
-    from ._query_predicate_sql import _sql_local_subquery_tail as _impl
-    return _impl(where=where, group_by=group_by, having=having, order_by=order_by, descending=descending, limit=limit, limit_name=limit_name, positive_limit=positive_limit)
+    tail = ""
+    if where is not None:
+        tail = f"{tail} WHERE {_predicate_sql(where)}"
+    group_columns = _normalize_in_subquery_order_by(group_by)
+    if having is not None and not group_columns:
+        raise ValueError("source subquery HAVING requires group_by in this scoped helper")
+    if group_columns:
+        tail = f"{tail} GROUP BY {','.join(group_columns)}"
+    if having is not None:
+        tail = f"{tail} HAVING {_predicate_sql(having)}"
+    order_columns = _normalize_in_subquery_order_by(order_by)
+    if order_columns:
+        direction = "desc" if descending else "asc"
+        tail = f"{tail}{_format_order_by_clause(order_columns, direction)}"
+    if limit is not None:
+        if positive_limit:
+            normalized_limit = _normalize_positive_int(limit_name, limit)
+        else:
+            normalized_limit = _normalize_non_negative_int(limit_name, limit)
+        tail = f"{tail} LIMIT {normalized_limit}"
+    return tail
 
 
 def _normalize_in_subquery_order_by(value: object | None) -> tuple[str, ...]:
@@ -7086,13 +12375,41 @@ def _normalize_in_subquery_order_by(value: object | None) -> tuple[str, ...]:
 
 
 def _is_source_free_sql_statement(statement: str) -> bool:
-    from ._query_predicate_sql import _is_source_free_sql_statement as _impl
-    return _impl(statement)
+    normalized = statement.strip().rstrip(";").strip()
+    if _starts_with_sql_keyword(normalized, "values"):
+        return True
+    if _is_source_free_sql_generator_statement(normalized):
+        return True
+    return _starts_with_sql_keyword(normalized, "select") and not _contains_sql_keyword_outside_quotes(
+        normalized,
+        "from",
+    )
 
 
 def _is_source_free_sql_generator_statement(statement: str) -> bool:
-    from ._query_predicate_sql import _is_source_free_sql_generator_statement as _impl
-    return _impl(statement)
+    if not _starts_with_sql_keyword(statement, "select"):
+        return False
+    select_body = statement[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return False
+    source_ref = select_body[from_position + len("from") :].strip().lower()
+    clause_positions = tuple(
+        position
+        for position in (
+            _find_sql_keyword_outside_quotes(source_ref, "where"),
+            _find_sql_keyword_outside_quotes(source_ref, "limit"),
+        )
+        if position is not None
+    )
+    if clause_positions:
+        source_ref = source_ref[: min(clause_positions)].strip()
+    return (
+        source_ref.startswith("generate_series(")
+        or source_ref.startswith("generate_series (")
+        or source_ref.startswith("range(")
+        or source_ref.startswith("range (")
+    ) and source_ref.endswith(")")
 
 
 def _is_local_source_sql_statement(statement: str) -> bool:
@@ -7118,8 +12435,18 @@ def _sql_statement_with_limit(statement: str, count: int) -> str:
 
 
 def _cap_top_level_sql_limit(statement: str, limit_index: int, count: int) -> str:
-    from ._query_sql_text import _cap_top_level_sql_limit as _impl
-    return _impl(statement, limit_index, count)
+    limit_end = limit_index + len("limit")
+    tail = statement[limit_end:].lstrip()
+    if not tail:
+        return statement
+    digit_count = 0
+    while digit_count < len(tail) and tail[digit_count].isdigit():
+        digit_count += 1
+    if digit_count == 0:
+        return statement
+    existing_limit = int(tail[:digit_count])
+    capped_limit = min(existing_limit, count)
+    return f"{statement[:limit_index].rstrip()} LIMIT {capped_limit}{tail[digit_count:]}"
 
 
 def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
@@ -7146,8 +12473,20 @@ def _workflow_index_columns(operations: Sequence[WorkflowOperation]) -> tuple[st
 def _duplicate_mask_operation_parts(
     values: Sequence[str],
 ) -> tuple[tuple[str, ...] | None, str]:
-    from ._query_sql_text import _duplicate_mask_operation_parts as _impl
-    return _impl(values)
+    if not values:
+        return None, "first"
+    keep = "first"
+    columns: list[str] = []
+    for value in values:
+        if value.startswith("keep="):
+            keep = value.removeprefix("keep=")
+        else:
+            columns.append(value)
+    if keep not in {"first", "last", "false"}:
+        return None, "first"
+    if not columns or (columns != ["*"] and any(not _is_sql_identifier(column) for column in columns)):
+        return None, keep
+    return tuple(columns), keep
 
 
 def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
@@ -7201,18 +12540,64 @@ _VORTEX_TINY_COMPACT_RE = re.compile(
 
 def _vortex_tiny_predicate_from_sql(predicate: str) -> str | None:
     """Lower a scoped SQL predicate into the native Vortex primitive predicate format."""
-    from ._query_sql_text import _vortex_tiny_predicate_from_sql as _impl
-    return _impl(predicate)
+
+    text = predicate.strip()
+    if not text:
+        return None
+    if _VORTEX_TINY_COMPACT_RE.fullmatch(text):
+        return text
+    null_match = _VORTEX_TINY_NULL_PREDICATE_RE.fullmatch(text)
+    if null_match:
+        column = null_match.group(1)
+        return f"is_not_null:{column}" if null_match.group(2) else f"is_null:{column}"
+    compare_match = _VORTEX_TINY_INT_COMPARE_RE.fullmatch(text)
+    if compare_match is None:
+        return None
+    column, operator, value = compare_match.groups()
+    op = {
+        "=": "eq",
+        ">": "gt",
+        ">=": "gte",
+        "<": "lt",
+        "<=": "lte",
+    }[operator]
+    return f"{op}:{column}:{value}"
 
 
 def _vortex_tiny_predicate_column(predicate: str | None) -> str | None:
-    from ._query_sql_text import _vortex_tiny_predicate_column as _impl
-    return _impl(predicate)
+    if predicate is None:
+        return None
+    text = predicate.strip()
+    null_match = _VORTEX_TINY_NULL_PREDICATE_RE.fullmatch(text)
+    if null_match:
+        return null_match.group(1)
+    compact_match = _VORTEX_TINY_COMPACT_RE.fullmatch(text)
+    if compact_match:
+        return compact_match.group(2) or compact_match.group(4)
+    compare_match = _VORTEX_TINY_INT_COMPARE_RE.fullmatch(text)
+    if compare_match:
+        return compare_match.group(1)
+    return None
 
 
 def _is_local_source_sql_ref(value: str) -> bool:
-    from ._query_sql_text import _is_local_source_sql_ref as _impl
-    return _impl(value)
+    lower = value.strip().lower()
+    if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
+        return False
+    suffix = _source_suffix_for_local_ref(lower)
+    return suffix in {
+            ".csv",
+            ".tsv",
+            ".json",
+            ".jsonl",
+            ".ndjson",
+            ".parquet",
+            ".arrow",
+            ".ipc",
+            ".feather",
+            ".avro",
+            ".orc",
+        }
 
 
 def _is_local_vortex_source_ref(value: str) -> bool:
@@ -7240,8 +12625,60 @@ def _find_top_level_sql_phrase_span_outside_quotes(
     statement: str,
     phrase: str,
 ) -> tuple[int, int] | None:
-    from ._query_sql_text import _find_top_level_sql_phrase_span_outside_quotes as _impl
-    return _impl(statement, phrase)
+    tokens = phrase.lower().split()
+    if not tokens:
+        return None
+    lower = statement.lower()
+    in_quote = False
+    depth = 0
+    index = 0
+    first = tokens[0]
+    while index <= len(statement) - len(first):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote:
+            if char == "(":
+                depth += 1
+                index += 1
+                continue
+            if char == ")" and depth > 0:
+                depth -= 1
+                index += 1
+                continue
+            if depth == 0 and lower.startswith(first, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(first)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if _is_identifier_char(before) or _is_identifier_char(after):
+                    index += 1
+                    continue
+                cursor = after_index
+                matched = True
+                for token in tokens[1:]:
+                    if cursor >= len(statement) or not statement[cursor].isspace():
+                        matched = False
+                        break
+                    while cursor < len(statement) and statement[cursor].isspace():
+                        cursor += 1
+                    if not lower.startswith(token, cursor):
+                        matched = False
+                        break
+                    token_end = cursor + len(token)
+                    next_char = statement[token_end] if token_end < len(statement) else ""
+                    if _is_identifier_char(next_char):
+                        matched = False
+                        break
+                    cursor = token_end
+                if matched:
+                    return index, cursor
+        index += 1
+    return None
 
 
 
@@ -7263,20 +12700,59 @@ def _is_local_csv_source_ref(value: str) -> bool:
 
 
 def _source_format_for_local_source_ref(value: str) -> str | None:
-    from ._query_bindings import _source_format_for_local_source_ref as _impl
-    return _impl(value)
+    if not _is_local_source_sql_ref(value):
+        return None
+    suffix = _source_suffix_for_local_ref(value)
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".tsv":
+        return "tsv"
+    if suffix in {".json", ".jsonl", ".ndjson"}:
+        return "json"
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix in {".arrow", ".ipc", ".feather"}:
+        return "arrow-ipc"
+    if suffix == ".avro":
+        return "avro"
+    if suffix == ".orc":
+        return "orc"
+    return None
 
 
 def _public_workflow_input_format(source: WorkflowSource) -> str | None:
     """Return the input format to pass to the public workflow CLI facade."""
-    from ._query_bindings import _public_workflow_input_format as _impl
-    return _impl(source)
+
+    if source.relation is not None:
+        return None
+    if source.source_format == "json":
+        suffix = _source_suffix_for_local_ref(source.uri)
+        if suffix == ".jsonl":
+            return "jsonl"
+        if suffix == ".ndjson":
+            return "ndjson"
+    return source.source_format
 
 
 def _workflow_source_bindings(sources: Sequence[WorkflowSource]) -> dict[str, dict[str, object]]:
     """Retain each source's adapter contract across relational SQL lowering."""
-    from ._query_bindings import _workflow_source_bindings as _impl
-    return _impl(sources)
+    bindings: dict[str, dict[str, object]] = {}
+    for source in sources:
+        if source._bound_frame is not None:
+            continue
+        binding: dict[str, object] = {"input_format": _public_workflow_input_format(source)}
+        if source.source_format in {"iceberg", "delta", "hudi"}:
+            binding["table_snapshot"] = dict(source.table_snapshot)
+        if source.native_input is not None:
+            binding["native_input"] = source.native_input
+        elif source.memory_input:
+            binding["memory_input"] = dict(source.memory_input)
+        elif schema := _prepare_vortex_schema_hints(source):
+            binding["source_schema"] = schema
+        previous = bindings.setdefault(source.uri, binding)
+        if previous != binding:
+            raise ValueError(f"conflicting format or schema declarations for source {source.uri!r}")
+    return bindings
 
 
 def _workflow_batch_inputs(sources: Sequence[WorkflowSource]) -> dict[str, object]:
@@ -7335,8 +12811,30 @@ def _is_declared_local_source(source: WorkflowSource) -> bool:
 
 
 def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
-    from ._query_bindings import _single_quoted_sql_strings as _impl
-    return _impl(statement)
+    values: list[str] = []
+    in_quote = False
+    current: list[str] = []
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char != "'":
+            if in_quote:
+                current.append(char)
+            index += 1
+            continue
+        if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+            current.append("'")
+            index += 2
+            continue
+        if in_quote:
+            values.append("".join(current))
+            current = []
+            in_quote = False
+        else:
+            current = []
+            in_quote = True
+        index += 1
+    return tuple(values)
 
 
 
@@ -7354,13 +12852,29 @@ def _terminal_resource_kwargs(
     limits: ExecutionResourceLimits | None = None, required: bool = True,
 ) -> dict[str, object]:
     """Validate allocation before dispatch; keep descriptions resource-free."""
-    from ._query_bindings import _terminal_resource_kwargs as _impl
-    return _impl(memory_gb, max_parallelism, spill, memory_bytes=memory_bytes, resources=resources, inherited=inherited, limits=limits, required=required)
+
+    resolver = resolve_resources if required else optional_resources
+    allocation = resolver(memory_gb=memory_gb, memory_bytes=memory_bytes,
+                          max_parallelism=max_parallelism, resources=resources,
+                          inherited=inherited, limits=limits)
+    kwargs: dict[str, object] = {
+        "resources": allocation,
+    }
+    if spill is not None:
+        kwargs["spill"] = spill
+    return kwargs
 
 
 def _frame_action(frame, operation, execute, *, reuse=True):
-    from ._query_bindings import _frame_action as _impl
-    return _impl(frame, operation, execute, reuse=reuse)
+    if not isinstance(reuse, bool):
+        raise TypeError("reuse must be a bool")
+    session = frame.source._session
+    if session is not None:
+        session._ensure_open()
+        return session._sql_result(operation=operation, execute=execute, reuse=reuse)
+    if not reuse:
+        frame.client.release_prepared()
+    return execute()
 
 
 def _native_plan_kwargs(workflow) -> dict[str, object]:
@@ -7381,13 +12895,71 @@ def _collect_native_relational(
     native_plan: NativePlanState | None = None,
     native_frame: LazyFrame | None = None,
 ) -> OutputEnvelope:
-    from ._query_bindings import _collect_native_relational as _impl
-    return _impl(client, statement, surface=surface, plan_summary=plan_summary, input_kwargs=input_kwargs, check=check, memory_gb=memory_gb, max_parallelism=max_parallelism, memory_bytes=memory_bytes, resources=resources, inherited=inherited, limits=limits, spill=spill, input_batches=input_batches, native_plan=native_plan, native_frame=native_frame)
+    return client.public_workflow_run(
+        surface, sql_statement=statement, plan_summary=plan_summary,
+        requested_output="collect", execution_policy="vortex_middle",
+        materialization_policy="bounded", evidence_level="production_admitted_local_workflow",
+        bounded=True,
+        **_terminal_resource_kwargs(memory_gb, max_parallelism, spill,
+                                    memory_bytes=memory_bytes, resources=resources,
+                                    inherited=inherited, limits=limits),
+        check=check, **input_kwargs,
+        input_batches=input_batches,
+        **({"_native_plan": native_plan, "_native_frame": native_frame} if getattr(client, "transport", "subprocess") == "native" else {}),
+    ).envelope
 
 
 def _sql_source_refs(statement: str) -> tuple[str, ...]:
-    from ._query_sql_text import _sql_source_refs as _impl
-    return _impl(statement)
+    refs: list[str] = []
+    lower = statement.lower()
+    in_quote = False
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if in_quote:
+            index += 1
+            continue
+        keyword_len = 0
+        for keyword in ("from", "join"):
+            if lower.startswith(keyword, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(keyword)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if not _is_identifier_char(before) and not _is_identifier_char(after):
+                    keyword_len = len(keyword)
+                    break
+        if keyword_len == 0:
+            index += 1
+            continue
+        ref_start = index + keyword_len
+        while ref_start < len(statement) and statement[ref_start].isspace():
+            ref_start += 1
+        if ref_start < len(statement) and statement[ref_start] == "'":
+            ref_end = ref_start + 1
+            current: list[str] = []
+            while ref_end < len(statement):
+                if statement[ref_end] == "'":
+                    if ref_end + 1 < len(statement) and statement[ref_end + 1] == "'":
+                        current.append("'")
+                        ref_end += 2
+                        continue
+                    refs.append("".join(current))
+                    index = ref_end + 1
+                    break
+                current.append(statement[ref_end])
+                ref_end += 1
+            else:
+                index = ref_end
+        else:
+            index = ref_start
+    return tuple(refs)
 
 
 def _starts_with_sql_keyword(statement: str, keyword: str) -> bool:
@@ -7405,13 +12977,61 @@ def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
 
 
 def _find_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
-    from ._query_sql_text import _find_sql_keyword_outside_quotes as _impl
-    return _impl(statement, keyword)
+    lower = statement.lower()
+    needle = keyword.lower()
+    in_quote = False
+    index = 0
+    while index <= len(statement) - len(needle):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and lower.startswith(needle, index):
+            before = statement[index - 1] if index > 0 else ""
+            after_index = index + len(needle)
+            after = statement[after_index] if after_index < len(statement) else ""
+            if not _is_identifier_char(before) and not _is_identifier_char(after):
+                return index
+        index += 1
+    return None
 
 
 def _find_top_level_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
-    from ._query_sql_text import _find_top_level_sql_keyword_outside_quotes as _impl
-    return _impl(statement, keyword)
+    lower = statement.lower()
+    needle = keyword.lower()
+    in_quote = False
+    depth = 0
+    index = 0
+    while index <= len(statement) - len(needle):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote:
+            if char == "(":
+                depth += 1
+                index += 1
+                continue
+            if char == ")" and depth > 0:
+                depth -= 1
+                index += 1
+                continue
+            if depth == 0 and lower.startswith(needle, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(needle)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if not _is_identifier_char(before) and not _is_identifier_char(after):
+                    return index
+        index += 1
+    return None
 
 
 def _is_identifier_char(char: str) -> bool:
@@ -7440,8 +13060,16 @@ def _normalize_join_condition(value: object) -> str:
 
 
 def _normalize_sort_nulls(value: object | None) -> str | None:
-    from ._query_sql_text import _normalize_sort_nulls as _impl
-    return _impl(value)
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("sort nulls must be one of 'first' or 'last'")
+    normalized = value.strip().lower().replace("_", "-")
+    if normalized in {"first", "nulls-first"}:
+        return "first"
+    if normalized in {"last", "nulls-last"}:
+        return "last"
+    raise ValueError("sort nulls must be one of 'first' or 'last'")
 
 
 def _format_sort_operation_values(
@@ -7493,8 +13121,15 @@ def _format_order_by_clause(
 
 
 def _sql_join_keyword(how: str) -> str:
-    from ._query_sql_text import _sql_join_keyword as _impl
-    return _impl(how)
+    return {
+        "inner": "INNER JOIN",
+        "left": "LEFT JOIN",
+        "right": "RIGHT JOIN",
+        "full": "FULL JOIN",
+        "semi": "LEFT SEMI JOIN",
+        "anti": "LEFT ANTI JOIN",
+        "cross": "CROSS JOIN",
+    }[how]
 
 
 def _optional_sql_where_clause(predicate: str | None) -> str:
@@ -7507,8 +13142,25 @@ def _rewrite_predicate_with_computed_columns(
     predicate: str,
     computed_columns: tuple[tuple[str, str], ...],
 ) -> str:
-    from ._query_sql_text import _rewrite_predicate_with_computed_columns as _impl
-    return _impl(predicate, computed_columns)
+    expanded_columns: dict[str, str] = {}
+    for alias, expression in computed_columns:
+        expanded = expression
+        for prior_alias, prior_expression in expanded_columns.items():
+            expanded = _replace_sql_identifier_outside_quotes(
+                expanded,
+                prior_alias,
+                f"({prior_expression})",
+            )
+        expanded_columns[alias] = expanded
+
+    rewritten = predicate
+    for alias, expression in expanded_columns.items():
+        rewritten = _replace_sql_identifier_outside_quotes(
+            rewritten,
+            alias,
+            f"({expression})",
+        )
+    return rewritten
 
 
 def _replace_sql_identifier_outside_quotes(
@@ -7516,8 +13168,33 @@ def _replace_sql_identifier_outside_quotes(
     identifier: str,
     replacement: str,
 ) -> str:
-    from ._query_sql_text import _replace_sql_identifier_outside_quotes as _impl
-    return _impl(statement, identifier, replacement)
+    if not identifier or identifier not in statement:
+        return statement
+    rewritten: list[str] = []
+    in_quote = False
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char == "'":
+            rewritten.append(char)
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                rewritten.append(statement[index + 1])
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if (
+            not in_quote
+            and statement.startswith(identifier, index)
+            and _sql_identifier_rewrite_boundary(statement, index, len(identifier))
+        ):
+            rewritten.append(replacement)
+            index += len(identifier)
+            continue
+        rewritten.append(char)
+        index += 1
+    return "".join(rewritten)
 
 
 def _sql_identifier_rewrite_boundary(
@@ -7525,8 +13202,15 @@ def _sql_identifier_rewrite_boundary(
     start: int,
     length: int,
 ) -> bool:
-    from ._query_report_values import _sql_identifier_rewrite_boundary as _impl
-    return _impl(statement, start, length)
+    before = statement[start - 1] if start > 0 else ""
+    after_index = start + length
+    after = statement[after_index] if after_index < len(statement) else ""
+    return (
+        not _is_identifier_char(before)
+        and not _is_identifier_char(after)
+        and before != "."
+        and after != "."
+    )
 
 
 def _optional_sql_having_clause(predicate: str | None) -> str:
@@ -7539,76 +13223,338 @@ def _workflow_schema_report(
     workflow: LazyFrame,
     smoke_report: Result,
 ) -> WorkflowSchemaReport:
-    from ._query_report_values import _workflow_schema_report as _impl
-    return _impl(workflow, smoke_report)
+    rows = smoke_report.result_rows
+    declared = dict(workflow.source.schema)
+    fields = tuple(
+        WorkflowSchemaField(
+            name=name, dtype=dtype.label, nullable=dtype.nullable,
+            declared_dtype=declared.get(name),
+            observed_non_null_count=builtins.sum(row[name] is not None for row in rows),
+            null_count=builtins.sum(row[name] is None for row in rows),
+        ) for name, dtype in smoke_report.result_schema
+    )
+    return WorkflowSchemaReport(workflow=workflow, smoke_report=smoke_report, fields=fields)
 
 
 
 
 def _infer_python_scalar_dtype(value: object) -> str:
-    from ._query_report_values import _infer_python_scalar_dtype as _impl
-    return _impl(value)
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int64"
+    if isinstance(value, float):
+        return "float64"
+    if isinstance(value, str):
+        return "utf8"
+    if value is None:
+        return "null"
+    return "json"
 
 
 
 
 def _normalize_schema_dtype_token(value: str | None) -> str | None:
-    from ._query_report_values import _normalize_schema_dtype_token as _impl
-    return _impl(value)
+    if value is None:
+        return None
+    if temporal := parse_temporal_declaration(value):
+        return temporal
+    normalized = value.strip().lower().replace("-", "_")
+    aliases = {
+        "boolean": "bool",
+        "bool": "bool",
+        "int": "int64",
+        "integer": "int64",
+        "i64": "int64",
+        "int64": "int64",
+        "long": "int64",
+        "float": "float64",
+        "double": "float64",
+        "f64": "float64",
+        "float64": "float64",
+        "str": "utf8",
+        "string": "utf8",
+        "utf8": "utf8",
+        "date": "date32",
+        "date32": "date32",
+        "timestamp": "timestamp_micros",
+        "timestamp_micros": "timestamp_micros",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _validate_workflow_schema(
     report: WorkflowSchemaReport,
     expected_schema: tuple[tuple[str, str], ...],
 ) -> WorkflowSchemaValidationReport:
-    from ._query_report_values import _validate_workflow_schema as _impl
-    return _impl(report, expected_schema)
+    observed = report.schema_map
+    expected = {
+        name: _normalize_schema_dtype_token(dtype) or dtype
+        for name, dtype in expected_schema
+    }
+    missing_fields = tuple(name for name in expected if name not in observed)
+    unexpected_fields = tuple(name for name in observed if name not in expected)
+    mismatches: list[WorkflowSchemaMismatch] = []
+    for name, expected_dtype in expected.items():
+        observed_dtype = observed.get(name)
+        if observed_dtype is not None and observed_dtype != expected_dtype:
+            mismatches.append(
+                WorkflowSchemaMismatch(
+                    field=name,
+                    expected_dtype=expected_dtype,
+                    observed_dtype=observed_dtype,
+                )
+            )
+    return WorkflowSchemaValidationReport(
+        schema_report=report,
+        expected_schema=expected_schema,
+        missing_fields=missing_fields,
+        unexpected_fields=unexpected_fields,
+        dtype_mismatches=tuple(mismatches),
+    )
 
 
 def _parse_data_quality_checks(
     checks: tuple[str, ...],
 ) -> tuple[_WorkflowDataQualityCheckSpec, ...] | None:
-    from ._query_report_values import _parse_data_quality_checks as _impl
-    return _impl(checks)
+    if not checks:
+        raise ValueError("data-quality checks must not be empty")
+    parsed: list[_WorkflowDataQualityCheckSpec] = []
+    for check in checks:
+        parts = check.split(":", 2)
+        if len(parts) < 2:
+            return None
+        kind = parts[0].strip().lower().replace("-", "_").replace(" ", "_")
+        column = parts[1].strip()
+        if not column:
+            return None
+        if kind in {"not_null", "non_null", "required"}:
+            if len(parts) != 2:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("not_null", column, check))
+        elif kind == "unique":
+            if len(parts) != 2:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("unique", column, check))
+        elif kind in {"regex", "matches"}:
+            if len(parts) != 3:
+                return None
+            pattern = parts[2].strip()
+            if not pattern:
+                return None
+            try:
+                re.compile(pattern)
+            except re.error:
+                return None
+            parsed.append(_WorkflowDataQualityCheckSpec("regex", column, check, pattern))
+        else:
+            return None
+    return tuple(parsed)
 
 
 def _workflow_data_quality_report(
     schema_report: WorkflowSchemaReport,
     checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> WorkflowDataQualityReport:
-    from ._query_report_values import _workflow_data_quality_report as _impl
-    return _impl(schema_report, checks)
+    rows = schema_report.smoke_report.result_rows
+    field_names = set(schema_report.field_names)
+    schema_map = schema_report.schema_map
+    results: list[WorkflowDataQualityCheckResult] = []
+    for spec in checks:
+        kind = spec.kind
+        column = spec.column
+        raw_check = spec.raw
+        if column not in field_names:
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=False,
+                    failing_row_count=len(rows),
+                    message=f"column {column!r} was not observed",
+                )
+            )
+            continue
+        if kind == "not_null":
+            failing = sum(1 for row in rows if row.get(column) is None)
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=failing == 0,
+                    failing_row_count=failing,
+                    message="all rows are non-null" if failing == 0 else "null values observed",
+                )
+            )
+            continue
+        if kind == "unique":
+            seen: set[str] = set()
+            duplicate_count = 0
+            for row in rows:
+                key = _stable_quality_value_key(row.get(column))
+                if key in seen:
+                    duplicate_count += 1
+                else:
+                    seen.add(key)
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=duplicate_count == 0,
+                    failing_row_count=duplicate_count,
+                    message="all values are unique"
+                    if duplicate_count == 0
+                    else "duplicate values observed",
+                )
+            )
+            continue
+        if kind == "regex":
+            if schema_map.get(column) != "utf8":
+                results.append(
+                    WorkflowDataQualityCheckResult(
+                        check=raw_check,
+                        column=column,
+                        passed=False,
+                        failing_row_count=len(rows),
+                        message="regex data-quality checks require utf8 values",
+                    )
+                )
+                continue
+            pattern = re.compile(spec.pattern or "")
+            failing = sum(
+                1
+                for row in rows
+                if not isinstance(row.get(column), str) or pattern.search(row[column]) is None
+            )
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=failing == 0,
+                    failing_row_count=failing,
+                    message="all values match regex"
+                    if failing == 0
+                    else "regex mismatches or null values observed",
+                )
+            )
+    return WorkflowDataQualityReport(
+        schema_report=schema_report,
+        checks=tuple(results),
+    )
 
 
 def _workflow_quarantine_checks(
     schema_report: WorkflowSchemaReport,
     checks: tuple[object, ...],
 ) -> tuple[_WorkflowDataQualityCheckSpec, ...]:
-    from ._query_conversion import _workflow_quarantine_checks as _impl
-    return _impl(schema_report, checks)
+    if checks:
+        normalized_checks = _normalize_columns(checks)
+        parsed = _parse_data_quality_checks(normalized_checks)
+        if parsed is None:
+            raise ValueError(
+                "quarantine checks must use supported data-quality forms such as "
+                "'not_null:column', 'unique:column', or 'regex:column:pattern'"
+            )
+        return parsed
+    return tuple(
+        _WorkflowDataQualityCheckSpec("not_null", field.name, f"not_null:{field.name}")
+        for field in schema_report.fields
+    )
 
 
 def _workflow_quarantine_rows(
     schema_report: WorkflowSchemaReport,
     checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> tuple[Mapping[str, Any], ...]:
-    from ._query_conversion import _workflow_quarantine_rows as _impl
-    return _impl(schema_report, checks)
+    rows = schema_report.smoke_report.result_rows
+    if not rows or not checks:
+        return ()
+    field_names = set(schema_report.field_names)
+    unique_value_counts: dict[str, dict[str, int]] = {}
+    regex_patterns = {
+        spec.raw: re.compile(spec.pattern or "")
+        for spec in checks
+        if spec.kind == "regex" and spec.pattern is not None
+    }
+    for spec in checks:
+        if spec.kind != "unique" or spec.column not in field_names:
+            continue
+        counts: dict[str, int] = {}
+        for row in rows:
+            key = _stable_quality_value_key(row.get(spec.column))
+            counts[key] = counts.get(key, 0) + 1
+        unique_value_counts[spec.column] = counts
+
+    quarantined: list[Mapping[str, Any]] = []
+    for row in rows:
+        failed = False
+        for spec in checks:
+            kind = spec.kind
+            column = spec.column
+            if column not in field_names:
+                failed = True
+            elif kind == "not_null":
+                failed = row.get(column) is None
+            elif kind == "unique":
+                key = _stable_quality_value_key(row.get(column))
+                failed = unique_value_counts.get(column, {}).get(key, 0) > 1
+            elif kind == "regex":
+                pattern = regex_patterns.get(spec.raw)
+                value = row.get(column)
+                failed = (
+                    not isinstance(value, str)
+                    or pattern is None
+                    or pattern.search(value) is None
+                )
+            if failed:
+                quarantined.append(row)
+                break
+    return tuple(quarantined)
 
 
 def _quarantine_pushdown_predicate(
     checks: tuple[_WorkflowDataQualityCheckSpec, ...],
 ) -> str | None:
-    from ._query_conversion import _quarantine_pushdown_predicate as _impl
-    return _impl(checks)
+    if not checks or any(spec.kind not in {"not_null", "regex"} for spec in checks):
+        return None
+    predicates = []
+    for spec in checks:
+        column = spec.column
+        if not _is_sql_identifier(column):
+            return None
+        if spec.kind == "not_null":
+            predicates.append(f"{column} IS NULL")
+        elif spec.kind == "regex" and spec.pattern is not None:
+            predicates.append(
+                f"({column} IS NULL OR {column} NOT RLIKE {_sql_string_literal(spec.pattern)})"
+            )
+        else:
+            return None
+    return " OR ".join(predicates) if predicates else None
 
 
 def _normalize_optional_quarantine_output_format(
     target_uri: str | os.PathLike[str] | None,
     output_format: str | None,
 ) -> str | None:
-    from ._query_conversion import _normalize_optional_quarantine_output_format as _impl
-    return _impl(target_uri, output_format)
+    if output_format is not None:
+        return _normalize_local_output_format(output_format)
+    if target_uri is None:
+        return None
+    suffix = Path(str(target_uri)).suffix.lower()
+    if suffix in {".vortex", ".vtx"}:
+        return "vortex"
+    if suffix == ".csv":
+        return "csv"
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix in {".arrow", ".ipc", ".feather"}:
+        return "arrow-ipc"
+    if suffix == ".avro":
+        return "avro"
+    if suffix == ".orc":
+        return "orc"
+    return "jsonl"
 
 
 def _optional_module(module_name: str) -> object | None:
@@ -7691,8 +13637,19 @@ def _read_arrow_ipc_table(source: object, pyarrow: object) -> object:
 
 
 def _read_arrow_ipc_from_seekable(source: object, ipc: object) -> object:
-    from ._query_conversion import _read_arrow_ipc_from_seekable as _impl
-    return _impl(source, ipc)
+    try:
+        return ipc.open_stream(source).read_all()
+    except Exception as stream_error:
+        seek = getattr(source, "seek", None)
+        if callable(seek):
+            seek(0)
+        open_file = getattr(ipc, "open_file", None)
+        if not callable(open_file):
+            raise stream_error
+        try:
+            return open_file(source).read_all()
+        except Exception:
+            raise stream_error
 
 
 def _is_mapping_sequence(value: object) -> bool:
@@ -7714,20 +13671,71 @@ def _stable_quality_value_key(value: object) -> str:
 
 
 def _normalize_local_output_format(value: str) -> str:
-    from ._query_conversion import _normalize_local_output_format as _impl
-    return _impl(value)
+    normalized = value.strip().lower()
+    if normalized in {"json", "json-array"}:
+        return "json"
+    if normalized in {"jsonl", "json-lines", "ndjson", "inline-jsonl"}:
+        return "jsonl"
+    if normalized == "csv":
+        return "csv"
+    if normalized == "parquet":
+        return "parquet"
+    if normalized in {"arrow", "arrow-ipc", "arrow_ipc", "ipc", "feather"}:
+        return "arrow-ipc"
+    if normalized == "avro":
+        return "avro"
+    if normalized == "orc":
+        return "orc"
+    if normalized in {"vortex", "vtx"}:
+        return "vortex"
+    raise ValueError(
+        "scoped local writes currently support local JSON arrays, JSONL, CSV, and feature-gated "
+        "Parquet/Arrow IPC/Avro/ORC/Vortex only"
+    )
 
 
 def _public_write_request_for_format(output_format: str) -> str:
-    from ._query_conversion import _public_write_request_for_format as _impl
-    return _impl(output_format)
+    normalized = _normalize_local_output_format(output_format)
+    return {
+        "json": "write_json",
+        "jsonl": "write_jsonl",
+        "csv": "write_csv",
+        "parquet": "write_parquet",
+        "arrow-ipc": "write_arrow_ipc",
+        "avro": "write_avro",
+        "orc": "write_orc",
+        "vortex": "write_vortex",
+    }[normalized]
 
 
 def _normalize_fanout_outputs(
     outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
 ) -> tuple[tuple[str, CommandPart], ...]:
-    from ._query_conversion import _normalize_fanout_outputs as _impl
-    return _impl(outputs)
+    if isinstance(outputs, Mapping):
+        items = outputs.items()
+    elif _is_non_string_sequence(outputs):
+        items = outputs
+    else:
+        raise TypeError("fanout outputs must be a mapping or sequence of (format, path) pairs")
+
+    normalized: list[tuple[str, CommandPart]] = []
+    for item in items:
+        if not _is_non_string_sequence(item) or len(item) != 2:
+            raise ValueError("fanout outputs must contain (format, path) pairs")
+        output_format, output_path = item
+        if not isinstance(output_format, str):
+            raise TypeError("fanout output format names must be strings")
+        if not isinstance(output_path, (str, os.PathLike)):
+            raise TypeError("fanout output paths must be strings or path-like objects")
+        normalized.append(
+            (
+                _normalize_local_output_format(output_format),
+                _require_non_empty("fanout output path", output_path),
+            )
+        )
+    if not normalized:
+        raise ValueError("fanout outputs must not be empty")
+    return tuple(normalized)
 
 
 def _is_non_string_sequence(value: object) -> bool:

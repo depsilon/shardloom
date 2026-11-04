@@ -9,26 +9,19 @@ use super::{
     vortex_error,
 };
 pub(super) use crate::native_payload_schema::metadata_bytes;
-use crate::{native_payload_work::Counter, resident_session::NativeExecutionContext};
+use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
 use std::cell::Cell;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
     arrays::struct_::StructArrayExt as _,
-    arrays::{
-        ChunkedArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray, VarBinView,
-    },
+    arrays::{ChunkedArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray},
     builtins::ArrayBuiltins as _,
     dtype::{DType, Nullability, PType},
     memory::{HostAllocatorRef, HostMemorySessionExt as _},
     validity::Validity,
 };
-
-#[path = "native_payload_selection.rs"]
-mod selection;
-use selection::Rows;
-pub(super) use selection::Selection;
 
 #[path = "native_payload_storage.rs"]
 mod storage;
@@ -65,10 +58,6 @@ mod typed_validation_tests;
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_validation_text_tests.rs"]
 mod text_validation_tests;
-
-#[cfg(all(test, feature = "vortex-write"))]
-#[path = "native_payload_selection_tests.rs"]
-mod selection_tests;
 
 /// Private window records can retain measures that no frame ever observes.
 /// Moving them must not evaluate them. Public result construction still validates.
@@ -227,7 +216,6 @@ pub(super) fn take_record_with_policy(
 
 /// Check exactly the selected payload in its existing visitation order while
 /// retaining no values. The source and selection keep their native owners.
-#[cfg(test)]
 pub(super) fn validate_selection(
     source: &ArrayRef,
     indices: &ArrayRef,
@@ -244,54 +232,6 @@ pub(super) fn validate_selection(
         metadata,
     )
     .map(drop)
-}
-
-/// Reuse the batch owner's native coordinates while preserving per-field checks.
-pub(super) fn validate_prepared_selection(
-    source: &ArrayRef,
-    selection: &Selection,
-    dtype: &DType,
-    context: &NativeExecutionContext<'_>,
-) -> Result<()> {
-    copy_prepared_selection::<false>(
-        source,
-        selection,
-        dtype,
-        CopyPolicy::ValidateValues,
-        context,
-    )
-    .map(drop)
-}
-
-pub(super) fn take_prepared_selection(
-    source: &ArrayRef,
-    selection: &Selection,
-    dtype: &DType,
-    policy: CopyPolicy,
-    context: &NativeExecutionContext<'_>,
-) -> Result<ArrayRef> {
-    copy_prepared_selection::<true>(source, selection, dtype, policy, context)
-}
-
-fn copy_prepared_selection<const RETAIN: bool>(
-    source: &ArrayRef,
-    selection: &Selection,
-    dtype: &DType,
-    policy: CopyPolicy,
-    context: &NativeExecutionContext<'_>,
-) -> Result<ArrayRef> {
-    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
-    selection.check_field(source, dtype)?;
-    let allocator =
-        crate::owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
-    copy_rows::<RETAIN>(
-        Some(source),
-        Rows::Selected(selection),
-        dtype,
-        CopyState::unmeasured(policy),
-        context,
-        &allocator,
-    )
 }
 
 fn take_admitted<const RETAIN: bool>(
@@ -314,10 +254,6 @@ fn take_admitted<const RETAIN: bool>(
     rows.reserve(indices.len())?;
     for row in 0..indices.len() {
         check(row, context)?;
-        #[cfg(all(test, debug_assertions))]
-        super::native_relational_observation::record(|counts| {
-            counts.payload_selection_scalar_coordinates += 1;
-        });
         let scalar = indices
             .execute_scalar(row, &mut execution)
             .map_err(vortex_error)?;
@@ -339,15 +275,7 @@ fn take_admitted<const RETAIN: bool>(
         };
         rows.values.push(index);
     }
-    context.record_payload_work(&[(Counter::ScalarCoordinates, indices.len() as u64)])?;
-    copy_rows::<RETAIN>(
-        Some(source),
-        Rows::Values(&rows.values),
-        dtype,
-        copy,
-        context,
-        &allocator,
-    )
+    copy_rows::<RETAIN>(Some(source), &rows.values, dtype, copy, context, &allocator)
 }
 
 /// Typed empty/null output, including a missing outer-join side. Nonnullable
@@ -359,46 +287,6 @@ pub(super) fn defaults(
 ) -> Result<ArrayRef> {
     let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
     defaults_admitted(dtype, rows, context, metadata)
-}
-
-/// Missing outer-join payload keeps declaration checks separate from retention.
-pub(super) fn missing_column(
-    dtype: &DType,
-    rows: usize,
-    retained: bool,
-    context: &NativeExecutionContext<'_>,
-) -> Result<Option<ArrayRef>> {
-    context.check_cancelled()?;
-    if retained {
-        return if is_nested(dtype) {
-            defaults(dtype, rows, context)
-        } else {
-            result_batch::build_column_with_float_policy(
-                dtype,
-                rows,
-                &context.native_session().host_allocator(),
-                context.float_policy(),
-                |_| Ok(Value::Null),
-            )
-        }
-        .map(Some);
-    }
-    if is_nested(dtype) {
-        // Schema admission covers each type-correct default below the absent
-        // parent. No physical child value is observable at this boundary.
-        let _metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
-    } else {
-        result_batch::validate_null_column(dtype, rows)?;
-    }
-    #[cfg(all(test, debug_assertions))]
-    super::native_relational_observation::record(|counts| {
-        counts.payload_missing_validation_rows += rows as u64;
-    });
-    context.record_payload_work(&[
-        (Counter::MissingFields, 1),
-        (Counter::MissingRows, rows as u64),
-    ])?;
-    Ok(None)
 }
 
 /// A typed empty row record keeps the same width policy as nonempty delivery.
@@ -423,7 +311,7 @@ fn defaults_admitted(
     indices.values.resize(rows, None);
     copy_rows::<true>(
         None,
-        Rows::Values(&indices.values),
+        &indices.values,
         dtype,
         CopyState::unmeasured(CopyPolicy::ValidateValues),
         context,
@@ -526,18 +414,13 @@ fn validity<const RETAIN: bool>(
 #[allow(clippy::too_many_lines)] // Copying and validation share one field-major visitation order.
 fn copy_rows<const RETAIN: bool>(
     source: Option<&ArrayRef>,
-    rows: Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     copy: CopyState<'_>,
     context: &NativeExecutionContext<'_>,
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
-    if !RETAIN && rows.len() != 0 && rows.iter().all(|row| row.is_none()) {
-        // All coordinates are hidden below an absent parent. Schema admission
-        // has already checked the defaults; only the empty result owner remains.
-        return copy_rows::<false>(None, Rows::Values(&[]), dtype, copy, context, allocator);
-    }
     if matches!(dtype, DType::Decimal(..)) {
         let array =
             storage::decimal::<RETAIN>(source, rows, dtype, copy.policy, context, allocator)?;
@@ -558,43 +441,27 @@ fn copy_rows<const RETAIN: bool>(
         None
     };
     let mut execution = context.native_session().create_execution_ctx();
-    let selected = if rows.iter().any(|row| row.is_some()) {
+    let selected = if rows.iter().any(Option::is_some) {
         let source = source.ok_or_else(|| failed("payload source is absent"))?;
         if !RETAIN
-            && rows.is_identity(source.len())
-            && (!matches!(dtype, DType::Utf8(_) | DType::Binary(_)) || source.is::<VarBinView>())
+            && rows.len() == source.len()
+            && rows
+                .iter()
+                .enumerate()
+                .all(|(row, index)| *index == Some(row))
         {
             // Complete validation already has the entire source domain. Keep
             // selection for any masked/nonidentity child so hidden values do
             // not reach a provider's canonicalization or validation boundary.
-            // Encoded variable-width leaves keep the original take route, whose
-            // checked accessors retain selected-row UTF-8 error coordinates.
             Some(source.clone())
         } else {
-            let indices = if let Some(indices) = rows.native_indices() {
-                indices
-            } else {
-                let nullable = rows.iter().any(|row| row.is_none());
-                #[cfg(all(test, debug_assertions))]
-                super::native_relational_observation::record(|counts| {
-                    counts.payload_selection_arrays += 1;
-                });
-                let indices = result_batch::build_column(
-                    &DType::Primitive(PType::U64, Nullability::from(nullable)),
-                    rows.len(),
-                    allocator,
-                    |row| {
-                        Ok(rows
-                            .get(row)
-                            .map_or(Value::Null, |index| Value::UInt(index as u64)))
-                    },
-                )?;
-                context.record_payload_work(&[
-                    (Counter::RebuiltSelections, 1),
-                    (Counter::RebuiltCoordinates, rows.len() as u64),
-                ])?;
-                indices
-            };
+            let nullable = rows.iter().any(Option::is_none);
+            let indices = result_batch::build_column(
+                &DType::Primitive(PType::U64, Nullability::from(nullable)),
+                rows.len(),
+                allocator,
+                |row| Ok(rows[row].map_or(Value::Null, |index| Value::UInt(index as u64))),
+            )?;
             Some(source.take(indices).map_err(vortex_error)?)
         }
     } else {
@@ -646,12 +513,12 @@ fn copy_rows<const RETAIN: bool>(
                 .transpose()?;
             if !RETAIN
                 && copy.policy == CopyPolicy::ValidateValues
+                && rows.iter().all(Option::is_some)
                 && let Some(selected) = &selected
                 && validation::validate_typed_column(
                     selected,
                     dtype,
                     rows.len(),
-                    Some(rows),
                     numeric.as_ref(),
                     &mut execution,
                     context,
@@ -660,7 +527,7 @@ fn copy_rows<const RETAIN: bool>(
                 // Selection, parent masks and field order belong to this
                 // recursive owner. Reuse typed validation only after those
                 // obligations have produced a complete observed leaf domain.
-                // Missing coordinates retain the admitted default semantics.
+                // Missing coordinates still use the existing placeholder path.
                 #[cfg(all(test, debug_assertions))]
                 super::native_relational_observation::record(|counts| {
                     counts.payload_recursive_typed_validation_columns += 1;
@@ -680,7 +547,7 @@ fn copy_rows<const RETAIN: bool>(
                         counts.payload_validation_scalar_calls += 1;
                     });
                 }
-                let value = if rows.get(row).is_none() {
+                let value = if rows[row].is_none() {
                     default_value(dtype)
                 } else if let Some(numeric) = &numeric {
                     numeric.stat_value(row).map(Value::from)
@@ -714,7 +581,7 @@ fn copy_rows<const RETAIN: bool>(
 
 fn copy_struct<const RETAIN: bool>(
     selected: Option<ArrayRef>,
-    rows: Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     fields: &vortex::array::dtype::StructFields,
     copy: CopyState<'_>,
@@ -755,7 +622,7 @@ fn copy_struct<const RETAIN: bool>(
     for (index, child) in fields.fields().enumerate() {
         children.values.push(copy_rows::<RETAIN>(
             selected.as_ref().map(|array| array.unmasked_field(index)),
-            Rows::Values(&active.values),
+            &active.values,
             &child,
             copy,
             context,
@@ -777,7 +644,7 @@ fn copy_struct<const RETAIN: bool>(
 
 fn copy_list<const RETAIN: bool>(
     selected: Option<ArrayRef>,
-    rows: Rows<'_>,
+    rows: &[Option<usize>],
     dtype: &DType,
     element: &DType,
     copy: CopyState<'_>,
@@ -830,7 +697,7 @@ fn copy_list<const RETAIN: bool>(
     }
     let child = copy_rows::<RETAIN>(
         selected.as_ref().map(|column| &column.elements),
-        Rows::Values(&children.values),
+        &children.values,
         element,
         copy,
         context,

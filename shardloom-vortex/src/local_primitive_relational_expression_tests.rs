@@ -11,9 +11,6 @@ use vortex::array::arrays::{BoolArray, VarBinViewArray};
 #[path = "local_primitive_relational_identity_project_tests.rs"]
 mod identity_project_tests;
 
-#[path = "local_primitive_relational_projection_prefix_tests.rs"]
-mod projection_prefix_tests;
-
 fn expression(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("test").unwrap(), kind)
 }

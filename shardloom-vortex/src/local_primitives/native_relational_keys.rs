@@ -956,26 +956,11 @@ impl VariableColumn {
     /// Borrow only within the prepared native owner. The expression result
     /// builder copies any returned text into its independently credited output.
     pub(super) fn utf8_at(&self, row: usize) -> Result<Option<&str>> {
-        Ok(self.utf8_entry_at(row)?.map(|(_, value)| value))
-    }
-
-    pub(super) fn dictionary_domain_len(&self) -> Option<usize> {
-        self.codes.as_ref().map(|_| self.values.len())
-    }
-
-    /// The index belongs only to this prepared owner, after the same ordered
-    /// code, bounds and domain-validity checks as ordinary UTF8 access.
-    pub(super) fn utf8_entry_at(&self, row: usize) -> Result<Option<(usize, &str)>> {
         if self.binary || row >= self.rows {
             return Err(failed("UTF8 value access exceeds its prepared text domain"));
         }
         self.index(row)?
-            .map(|index| {
-                self.values
-                    .utf8_slice_at(index)
-                    .map(|value| (index, value))
-                    .map_err(vortex_error)
-            })
+            .map(|index| self.values.utf8_slice_at(index).map_err(vortex_error))
             .transpose()
     }
 

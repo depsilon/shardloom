@@ -446,7 +446,6 @@ fn ranking_spec(
         DType::Primitive(PType::U64, Nullability::NonNullable),
     ));
     native_relational_sort::Spec {
-        retained: None,
         fields,
         keys: spec.keys.clone(),
         names: spec.names.clone(),

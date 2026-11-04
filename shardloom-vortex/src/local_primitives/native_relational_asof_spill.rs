@@ -47,7 +47,6 @@ pub(in crate::local_primitives) fn run(
             .ok_or_else(|| super::failed("as-of sort metadata overflow"))?,
     )?;
     let sort_spec = native_relational_sort::Spec {
-        retained: None,
         fields: right_fields.to_vec(),
         keys: spec
             .right_keys

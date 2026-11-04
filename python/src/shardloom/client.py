@@ -143,8 +143,26 @@ class _ShardLoomWorkerStartupError(RuntimeError):
 
 def _split_field_list(value: str | None) -> tuple[str, ...]:
     """Split comma-separated evidence values while preserving parenthesized dtype args."""
-    from ._client_report_values import _split_field_list as _impl
-    return _impl(value)
+
+    if not value or value == "not_applicable":
+        return ()
+    parts: list[str] = []
+    start = 0
+    depth = 0
+    for index, char in enumerate(value):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(0, depth - 1)
+        elif char == "," and depth == 0:
+            part = value[start:index]
+            if part:
+                parts.append(part)
+            start = index + 1
+    tail = value[start:]
+    if tail:
+        parts.append(tail)
+    return tuple(parts)
 
 
 def _env_truthy(value: str) -> bool:
@@ -1177,8 +1195,16 @@ class CompatibilitySourceSmokeReport:
     @property
     def all_plan_only(self) -> bool:
         """Whether every source plan stayed side-effect-free and report-only."""
-        from ._client_report_views import CompatibilitySourceSmokeReport_all_plan_only as _impl
-        return _impl(self)
+
+        return all(
+            source.plan.field_bool("plan_only", False) is True
+            and source.plan.field_bool("data_read", True) is False
+            and source.plan.field_bool("data_materialized", True) is False
+            and source.plan.field_bool("write_io", True) is False
+            and source.plan.field_bool("native_vortex", True) is False
+            and source.plan.field_bool("fallback_execution_allowed", True) is False
+            for source in self.sources
+        )
 
     @property
     def compatibility_source_names(self) -> tuple[str, ...]:
@@ -1799,8 +1825,16 @@ class EvidenceAwareOptimizerTraceReport:
     @property
     def no_fallback_no_external_engine(self) -> bool:
         """Whether the trace preserves no fallback and no external engine execution."""
-        from ._client_report_views import EvidenceAwareOptimizerTraceReport_no_fallback_no_external_engine as _impl
-        return _impl(self)
+
+        return (
+            self.envelope.field_bool("fallback_attempted", True) is False
+            and self.envelope.field_bool("fallback_execution_allowed", True) is False
+            and self.envelope.field_bool("external_engine_invoked", True) is False
+            and (
+                self.envelope.field_bool("all_no_fallback_no_external_engine", False)
+                is True
+            )
+        )
 
     def rule_status(self, rule_id: str) -> str:
         """Return one optimizer rule status by ID."""
@@ -2231,8 +2265,29 @@ class PublicWorkflowRoute:
 
     def as_dict(self) -> dict[str, Any]:
         """Return a compact dictionary for notebooks and simple integrations."""
-        from ._client_report_views import PublicWorkflowRoute_as_dict as _impl
-        return _impl(self)
+
+        return {
+            "schema_version": self.schema_version,
+            "route_id": self.route_id,
+            "route_status": self.route_status,
+            "resolved_internal_command": self.resolved_internal_command,
+            "surface": self.surface,
+            "start_state": self.start_state,
+            "vortex_normalization_point": self.vortex_normalization_point,
+            "execution_mode": self.execution_mode,
+            "preparation_included": self.preparation_included,
+            "query_timing_starts_after_preparation": self.query_timing_starts_after_preparation,
+            "fanout_output_count": self.fanout_output_count,
+            "fanout_outputs": self.fanout_outputs,
+            "vortex_primitive": self.vortex_primitive,
+            "vortex_predicate": self.vortex_predicate,
+            "vortex_columns": self.vortex_columns,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "blocker_id": self.blocker_id,
+            "side_effect_free": self.side_effect_free,
+            "activation_summary": self.activation_summary.as_dict(),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -2385,8 +2440,32 @@ class PublicWorkflowExecution:
 
     def as_dict(self) -> dict[str, Any]:
         """Return a compact dictionary for notebooks and simple integrations."""
-        from ._client_report_views import PublicWorkflowExecution_as_dict as _impl
-        return _impl(self)
+
+        return {
+            "schema_version": self.schema_version,
+            "facade_command": self.facade_command,
+            "route_attached": self.route_attached,
+            "route_id": self.route_id,
+            "route_status": self.route_status,
+            "resolved_internal_command": self.resolved_internal_command,
+            "vortex_normalization_point": self.vortex_normalization_point,
+            "execution_mode": self.execution_mode,
+            "runtime_execution": self.runtime_execution,
+            "preparation_included": self.preparation_included,
+            "fanout_output_count": self.fanout_output_count,
+            "fanout_outputs": self.fanout_outputs,
+            "vortex_primitive": self.vortex_primitive,
+            "vortex_predicate": self.vortex_predicate,
+            "vortex_columns": self.vortex_columns,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "public_workflow_fallback_attempted": self.public_workflow_fallback_attempted,
+            "public_workflow_external_engine_invoked": (
+                self.public_workflow_external_engine_invoked
+            ),
+            "blocker_id": self.blocker_id,
+            "activation_summary": self.activation_summary.as_dict(),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -2857,8 +2936,49 @@ class RunsTodaySupportMatrix:
     @property
     def rows(self) -> tuple[RunsTodaySupportRow, ...]:
         """Return typed support rows in declared order."""
-        from ._client_report_views import RunsTodaySupportMatrix_rows as _impl
-        return _impl(self)
+
+        rows: list[RunsTodaySupportRow] = []
+        for row_id in self.row_ids:
+            prefix = f"runs_today_row_{row_id}_"
+            rows.append(
+                RunsTodaySupportRow(
+                    row_id=row_id,
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    surface=_csv_values(self.envelope.field(f"{prefix}surface")),
+                    support_state=_required_field(self.envelope, f"{prefix}support_state"),
+                    feature_gate=_required_field(self.envelope, f"{prefix}feature_gate"),
+                    evidence_refs=_csv_values(
+                        self.envelope.field(f"{prefix}evidence_refs")
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_boundary",
+                    ),
+                    runtime_execution=self.envelope.field_bool(
+                        f"{prefix}runtime_execution",
+                        False,
+                    )
+                    is True,
+                    data_read=self.envelope.field_bool(f"{prefix}data_read", False) is True,
+                    write_io=self.envelope.field_bool(f"{prefix}write_io", False) is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def executable_row_count(self) -> int:
@@ -2942,14 +3062,83 @@ class RunsTodaySupportMatrix:
         self,
     ) -> tuple[ProductionUnsupportedDiagnosticRow, ...]:
         """Return production unsupported diagnostics in declared order."""
-        from ._client_report_views import RunsTodaySupportMatrix_production_unsupported_diagnostic_rows as _impl
-        return _impl(self)
+
+        rows: list[ProductionUnsupportedDiagnosticRow] = []
+        for row_id in self.production_unsupported_diagnostic_row_ids:
+            prefix = f"production_unsupported_diagnostic_row_{row_id}_"
+            rows.append(
+                ProductionUnsupportedDiagnosticRow(
+                    row_id=row_id,
+                    production_family=_required_field(
+                        self.envelope,
+                        f"{prefix}production_family",
+                    ),
+                    user_surface=_csv_values(
+                        self.envelope.field(f"{prefix}user_surface")
+                    ),
+                    entrypoint_kind=_required_field(
+                        self.envelope,
+                        f"{prefix}entrypoint_kind",
+                    ),
+                    support_status=_required_field(
+                        self.envelope,
+                        f"{prefix}support_status",
+                    ),
+                    diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    message=_required_field(self.envelope, f"{prefix}message"),
+                    next_action=_required_field(self.envelope, f"{prefix}next_action"),
+                    required_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    route_scope=_required_field(self.envelope, f"{prefix}route_scope"),
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                    side_effects_performed=self.envelope.field_bool(
+                        f"{prefix}side_effects_performed",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def production_unsupported_diagnostic_all_rows_safe(self) -> bool:
         """Whether every production unsupported diagnostic is no-fallback/no-effect."""
-        from ._client_report_views import RunsTodaySupportMatrix_production_unsupported_diagnostic_all_rows_safe as _impl
-        return _impl(self)
+
+        return (
+            self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_fallback_attempted_false",
+                False,
+            )
+            is True
+            and self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_external_engine_invoked_false",
+                False,
+            )
+            is True
+            and self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_side_effects_performed_false",
+                False,
+            )
+            is True
+        )
 
     def production_unsupported_diagnostic_row(
         self,
@@ -3003,14 +3192,80 @@ class ComputeCapabilityMatrix:
     @property
     def rows(self) -> tuple[ComputeCapabilityRow, ...]:
         """Return matrix rows in declared order."""
-        from ._client_report_views import ComputeCapabilityMatrix_rows as _impl
-        return _impl(self)
+
+        rows: list[ComputeCapabilityRow] = []
+        for row_id in _csv_values(self.envelope.field("compute_row_order")):
+            prefix = f"compute_row_{row_id}_"
+            rows.append(
+                ComputeCapabilityRow(
+                    row_id=row_id,
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    engine_mode=_required_field(self.envelope, f"{prefix}engine_mode"),
+                    execution_mode=_required_field(self.envelope, f"{prefix}execution_mode"),
+                    provider_kind=_required_field(self.envelope, f"{prefix}provider_kind"),
+                    semantic_profile=_required_field(self.envelope, f"{prefix}semantic_profile"),
+                    materialization_decode_requirement=_required_field(
+                        self.envelope,
+                        f"{prefix}materialization_decode_requirement",
+                    ),
+                    memory_spill_requirement=_required_field(
+                        self.envelope,
+                        f"{prefix}memory_spill_requirement",
+                    ),
+                    correctness_refs=_csv_values(self.envelope.field(f"{prefix}correctness_refs")),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    vortex_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}vortex_native_claim_allowed",
+                        False,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def operator_families(self) -> tuple[OperatorFamilyCoverageRow, ...]:
         """Return operator-family ladder rows in declared order."""
-        from ._client_report_views import ComputeCapabilityMatrix_operator_families as _impl
-        return _impl(self)
+
+        rows: list[OperatorFamilyCoverageRow] = []
+        for family_id in _csv_values(self.envelope.field("operator_family_order")):
+            prefix = f"operator_family_{family_id}_"
+            rows.append(
+                OperatorFamilyCoverageRow(
+                    family_id=family_id,
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    next_evidence=_csv_values(self.envelope.field(f"{prefix}next_evidence")),
+                )
+            )
+        return tuple(rows)
 
     @property
     def native_vortex_admission_status(self) -> str:
@@ -3021,8 +3276,85 @@ class ComputeCapabilityMatrix:
     @property
     def native_vortex_admission_lanes(self) -> tuple[NativeVortexAdmissionLane, ...]:
         """Return scoped native Vortex provider-admission lanes."""
-        from ._client_report_views import ComputeCapabilityMatrix_native_vortex_admission_lanes as _impl
-        return _impl(self)
+
+        rows: list[NativeVortexAdmissionLane] = []
+        for lane_id in _csv_values(self.envelope.field("native_vortex_admission_lane_order")):
+            prefix = f"native_vortex_admission_lane_{lane_id}_"
+            rows.append(
+                NativeVortexAdmissionLane(
+                    lane_id=lane_id,
+                    source_surface=_required_field(self.envelope, f"{prefix}source_surface"),
+                    operator_surface=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_surface",
+                    ),
+                    sink_surface=_required_field(self.envelope, f"{prefix}sink_surface"),
+                    admission_status=_required_field(
+                        self.envelope,
+                        f"{prefix}admission_status",
+                    ),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    execution_mode=_required_field(self.envelope, f"{prefix}execution_mode"),
+                    provider_kind=_required_field(self.envelope, f"{prefix}provider_kind"),
+                    provider_api_surface=_csv_values(
+                        self.envelope.field(f"{prefix}provider_api_surface")
+                    ),
+                    provider_crate=_required_field(self.envelope, f"{prefix}provider_crate"),
+                    provider_version=_required_field(self.envelope, f"{prefix}provider_version"),
+                    feature_gate=_required_field(self.envelope, f"{prefix}feature_gate"),
+                    shardloom_admission_policy=_required_field(
+                        self.envelope,
+                        f"{prefix}shardloom_admission_policy",
+                    ),
+                    compute_row_ref=_required_field(self.envelope, f"{prefix}compute_row_ref"),
+                    benchmark_ref=_required_field(self.envelope, f"{prefix}benchmark_ref"),
+                    correctness_refs=_csv_values(
+                        self.envelope.field(f"{prefix}correctness_refs")
+                    ),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    policy_refs=_csv_values(self.envelope.field(f"{prefix}policy_refs")),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    residual_executor=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_executor",
+                    ),
+                    vortex_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}vortex_native_claim_allowed",
+                        False,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                    object_store_io=self.envelope.field_bool(
+                        f"{prefix}object_store_io",
+                        True,
+                    )
+                    is True,
+                    write_io=self.envelope.field_bool(f"{prefix}write_io", True) is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def prepared_vortex_scan_pushdown_status(self) -> str:
@@ -3033,8 +3365,92 @@ class ComputeCapabilityMatrix:
     @property
     def prepared_vortex_scan_pushdown_rows(self) -> tuple[PreparedVortexScanPushdownRow, ...]:
         """Return prepared/native Vortex Scan pushdown capability rows."""
-        from ._client_report_views import ComputeCapabilityMatrix_prepared_vortex_scan_pushdown_rows as _impl
-        return _impl(self)
+
+        rows: list[PreparedVortexScanPushdownRow] = []
+        for row_id in _csv_values(self.envelope.field("prepared_vortex_scan_pushdown_row_order")):
+            prefix = f"prepared_vortex_scan_pushdown_row_{row_id}_"
+            rows.append(
+                PreparedVortexScanPushdownRow(
+                    row_id=row_id,
+                    scenario=_required_field(self.envelope, f"{prefix}scenario"),
+                    pushdown_status=_required_field(
+                        self.envelope,
+                        f"{prefix}pushdown_status",
+                    ),
+                    filter_required=self.envelope.field_bool(
+                        f"{prefix}filter_required",
+                        False,
+                    )
+                    is True,
+                    projection_required=self.envelope.field_bool(
+                        f"{prefix}projection_required",
+                        False,
+                    )
+                    is True,
+                    limit_required=self.envelope.field_bool(
+                        f"{prefix}limit_required",
+                        False,
+                    )
+                    is True,
+                    filter_pushed_down=self.envelope.field_bool(
+                        f"{prefix}filter_pushed_down",
+                        False,
+                    )
+                    is True,
+                    projection_pushed_down=self.envelope.field_bool(
+                        f"{prefix}projection_pushed_down",
+                        False,
+                    )
+                    is True,
+                    limit_pushed_down=self.envelope.field_bool(
+                        f"{prefix}limit_pushed_down",
+                        False,
+                    )
+                    is True,
+                    filter_status=_required_field(self.envelope, f"{prefix}filter_status"),
+                    projection_status=_required_field(
+                        self.envelope,
+                        f"{prefix}projection_status",
+                    ),
+                    limit_status=_required_field(self.envelope, f"{prefix}limit_status"),
+                    residual_limit_status=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_limit_status",
+                    ),
+                    residual_limit_executor=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_limit_executor",
+                    ),
+                    filter_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}filter_columns_read")
+                    ),
+                    output_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}output_columns_read")
+                    ),
+                    filter_only_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}filter_only_columns_read")
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    blocker_reason=_required_field(self.envelope, f"{prefix}blocker_reason"),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def prepared_vortex_scan_pushdown_all_rows_no_fallback(self) -> bool:
@@ -3069,8 +3485,47 @@ class ComputeCapabilityMatrix:
     @property
     def native_unsupported_coverage_rows(self) -> tuple[NativeUnsupportedCoverageRow, ...]:
         """Return deterministic unsupported source/sink/operator/workload rows."""
-        from ._client_report_views import ComputeCapabilityMatrix_native_unsupported_coverage_rows as _impl
-        return _impl(self)
+
+        rows: list[NativeUnsupportedCoverageRow] = []
+        for row_id in _csv_values(self.envelope.field("native_unsupported_coverage_row_order")):
+            prefix = f"native_unsupported_coverage_row_{row_id}_"
+            rows.append(
+                NativeUnsupportedCoverageRow(
+                    row_id=row_id,
+                    category=_required_field(self.envelope, f"{prefix}category"),
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    source_refs=_csv_values(self.envelope.field(f"{prefix}source_refs")),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    execution_attempted=self.envelope.field_bool(
+                        f"{prefix}execution_attempted",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def native_unsupported_coverage_complete(self) -> bool:
@@ -3087,8 +3542,64 @@ class ComputeCapabilityMatrix:
     @property
     def predicate_dtype_coverage_rows(self) -> tuple[PredicateDtypeCoverageRow, ...]:
         """Return predicate, DType, null, nested, and statistics coverage rows."""
-        from ._client_report_views import ComputeCapabilityMatrix_predicate_dtype_coverage_rows as _impl
-        return _impl(self)
+
+        rows: list[PredicateDtypeCoverageRow] = []
+        for row_id in _csv_values(self.envelope.field("predicate_dtype_coverage_row_order")):
+            prefix = f"predicate_dtype_coverage_row_{row_id}_"
+            rows.append(
+                PredicateDtypeCoverageRow(
+                    row_id=row_id,
+                    category=_required_field(self.envelope, f"{prefix}category"),
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    surface=_required_field(self.envelope, f"{prefix}surface"),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    runtime_surface=_csv_values(self.envelope.field(f"{prefix}runtime_surface")),
+                    statistics_required=_csv_values(
+                        self.envelope.field(f"{prefix}statistics_required")
+                    ),
+                    fixture_status=_required_field(self.envelope, f"{prefix}fixture_status"),
+                    correctness_refs=_csv_values(
+                        self.envelope.field(f"{prefix}correctness_refs")
+                    ),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    execution_certificate_refs=_csv_values(
+                        self.envelope.field(f"{prefix}execution_certificate_refs")
+                    ),
+                    native_io_refs=_csv_values(self.envelope.field(f"{prefix}native_io_refs")),
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    execution_attempted=self.envelope.field_bool(
+                        f"{prefix}execution_attempted",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def predicate_dtype_coverage_complete(self) -> bool:
@@ -3108,8 +3619,84 @@ class ComputeCapabilityMatrix:
     @property
     def materialization_policy_rows(self) -> tuple[MaterializationPolicyRow, ...]:
         """Return shared materialization/decode policy rows."""
-        from ._client_report_views import ComputeCapabilityMatrix_materialization_policy_rows as _impl
-        return _impl(self)
+
+        rows: list[MaterializationPolicyRow] = []
+        for row_id in _csv_values(self.envelope.field("materialization_policy_row_order")):
+            prefix = f"materialization_policy_row_{row_id}_"
+            rows.append(
+                MaterializationPolicyRow(
+                    row_id=row_id,
+                    operator_execution_class=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_execution_class",
+                    ),
+                    support_status=_required_field(self.envelope, f"{prefix}support_status"),
+                    data_decoded=self.envelope.field_bool(f"{prefix}data_decoded", True) is True,
+                    data_materialized=self.envelope.field_bool(
+                        f"{prefix}data_materialized",
+                        True,
+                    )
+                    is True,
+                    stayed_encoded=self.envelope.field_bool(
+                        f"{prefix}stayed_encoded",
+                        False,
+                    )
+                    is True,
+                    materialization_boundary_required=self.envelope.field_bool(
+                        f"{prefix}materialization_boundary_required",
+                        False,
+                    )
+                    is True,
+                    materialization_boundary_emitted=self.envelope.field_bool(
+                        f"{prefix}materialization_boundary_emitted",
+                        False,
+                    )
+                    is True,
+                    materialized_temporary_path=self.envelope.field_bool(
+                        f"{prefix}materialized_temporary_path",
+                        False,
+                    )
+                    is True,
+                    encoded_native_claim_allowed=self.envelope.field_bool(
+                        f"{prefix}encoded_native_claim_allowed",
+                        False,
+                    )
+                    is True,
+                    materialization_decode_refs=_csv_values(
+                        self.envelope.field(f"{prefix}materialization_decode_refs")
+                    ),
+                    policy_refs=_csv_values(self.envelope.field(f"{prefix}policy_refs")),
+                    unsupported_diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}unsupported_diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    runtime_execution=self.envelope.field_bool(
+                        f"{prefix}runtime_execution",
+                        True,
+                    )
+                    is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def materialization_policy_all_rows_classified(self) -> bool:
@@ -3182,8 +3769,44 @@ class SemanticConformanceSuite:
     @property
     def rows(self) -> tuple[SemanticConformanceRow, ...]:
         """Return semantic rows in declared order."""
-        from ._client_report_views import SemanticConformanceSuite_rows as _impl
-        return _impl(self)
+
+        rows: list[SemanticConformanceRow] = []
+        for row_id in _csv_values(self.envelope.field("row_order")):
+            prefix = f"semantic_row_{row_id}_"
+            rows.append(
+                SemanticConformanceRow(
+                    row_id=row_id,
+                    dimension=_required_field(self.envelope, f"{prefix}dimension"),
+                    operator_family=_required_field(
+                        self.envelope,
+                        f"{prefix}operator_family",
+                    ),
+                    fixture_status=_required_field(self.envelope, f"{prefix}fixture_status"),
+                    current_support=_required_field(self.envelope, f"{prefix}current_support"),
+                    assertion=_required_field(self.envelope, f"{prefix}assertion"),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    required_future_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_future_evidence")
+                    ),
+                    fixture_executed=self.envelope.field_bool(
+                        f"{prefix}fixture_executed",
+                        False,
+                    )
+                    is True,
+                    passed=self.envelope.field_bool(f"{prefix}passed", False) is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_oracle_used=self.envelope.field_bool(
+                        f"{prefix}external_oracle_used",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
 
     @property
     def executed_fixture_count(self) -> int:
@@ -3319,20 +3942,106 @@ class ExecutionResultEnvelopeView:
     @property
     def execution_mode_selection_fields(self) -> Mapping[str, str]:
         """Return the typed execution-mode selection report fields when present."""
-        from ._client_report_views import ExecutionResultEnvelopeView_execution_mode_selection_fields as _impl
-        return _impl(self)
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "execution_mode_selection_report"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        keys = (
+            "execution_mode_selection_schema_version",
+            "requested_execution_mode",
+            "selected_execution_mode",
+            "execution_mode",
+            "mode_selection_reason",
+            "execution_mode_family",
+            "source_format",
+            "workload_constitution_id",
+            "compatibility_import_included",
+            "vortex_prepare_included",
+            "vortex_write_reopen_included",
+            "direct_transient_execution",
+            "vortex_native_claim_allowed",
+            "certification_requested",
+            "result_sink_requested",
+            "prepared_artifact_available",
+            "native_vortex_provider_available",
+            "mode_supported",
+            "support_status",
+            "unsupported_diagnostic_code",
+            "blocker_id",
+            "required_future_evidence",
+            "claim_gate_status",
+            "claim_gate_reason",
+            "fallback_attempted",
+            "external_engine_invoked",
+        )
+        return {
+            key: value
+            for key in keys
+            if (value := self.envelope.field(key)) is not None
+        }
 
     @property
     def compute_flow_evidence_fields(self) -> Mapping[str, str]:
         """Return typed compute-flow evidence fields when present."""
-        from ._client_report_views import ExecutionResultEnvelopeView_compute_flow_evidence_fields as _impl
-        return _impl(self)
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "compute_flow_evidence"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        return {}
 
     @property
     def facade_compatibility_matrix_fields(self) -> Mapping[str, str]:
         """Return typed GAR-0038 facade compatibility matrix fields when present."""
-        from ._client_report_views import ExecutionResultEnvelopeView_facade_compatibility_matrix_fields as _impl
-        return _impl(self)
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "facade_compatibility_matrix"
+            ),
+            None,
+        )
+        if artifact is not None:
+            fields = _artifact_payload_field_map(artifact)
+            if fields:
+                return fields
+        keys = (
+            "facade_compatibility_matrix_report_id",
+            "facade_compatibility_matrix_gar_id",
+            "facade_compatibility_matrix_support_status",
+            "facade_compatibility_matrix_claim_gate_status",
+            "facade_compatibility_matrix_row_order",
+            "facade_executable_surface_count",
+            "facade_report_only_surface_count",
+            "facade_unsupported_surface_count",
+            "facade_legacy_boundary_count",
+            "facade_prohibited_surface_count",
+            "facade_legacy_boundary_status",
+            "facade_all_rows_no_fallback_no_external_engine",
+        )
+        return {
+            key: value
+            for key in keys
+            if (value := self.envelope.field(key)) is not None
+        }
 
     def _execution_mode_field(self, key: str) -> str | None:
         return self.execution_mode_selection_fields.get(key) or self.envelope.field(key)
@@ -3355,8 +4064,15 @@ class ExecutionResultEnvelopeView:
         return self.envelope.field_bool(key, default) is True
 
     def _facade_matrix_field(self, key: str) -> str | None:
-        from ._client_report_views import ExecutionResultEnvelopeView__facade_matrix_field as _impl
-        return _impl(self, key)
+        fields = self.facade_compatibility_matrix_fields
+        return (
+            fields.get(key)
+            or fields.get(f"facade_compatibility_matrix_{key}")
+            or fields.get(f"facade_{key}")
+            or self.envelope.field(f"facade_compatibility_matrix_{key}")
+            or self.envelope.field(f"facade_{key}")
+            or self.envelope.field(key)
+        )
 
     def _facade_matrix_bool(self, key: str, default: bool = False) -> bool:
         value = self._facade_matrix_field(key)
@@ -3597,8 +4313,30 @@ class ExecutionResultEnvelopeView:
     @property
     def evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
         """Return explicit present/not-required/evidence-incomplete slot statuses."""
-        from ._client_report_views import ExecutionResultEnvelopeView_evidence_slots as _impl
-        return _impl(self)
+
+        artifact = next(
+            (
+                artifact
+                for artifact in self.envelope.artifacts
+                if artifact.get("artifact_kind") == "execution_evidence_slots"
+            ),
+            None,
+        )
+        if artifact is None:
+            return ()
+        fields = _artifact_payload_field_map(artifact)
+        slots: list[ExecutionEvidenceSlot] = []
+        for kind in _csv_values(fields.get("evidence_slot_order")):
+            prefix = f"evidence_slot_{kind}_"
+            slots.append(
+                ExecutionEvidenceSlot(
+                    kind=kind,
+                    status=fields.get(f"{prefix}status", ""),
+                    refs=_csv_values(fields.get(f"{prefix}refs")),
+                    detail=fields.get(f"{prefix}detail", ""),
+                )
+            )
+        return tuple(slots)
 
     @property
     def incomplete_evidence_slots(self) -> tuple[ExecutionEvidenceSlot, ...]:
@@ -4835,8 +5573,17 @@ class LiveFixtureRunReport:
     @property
     def all_certified(self) -> bool:
         """Whether live, execution, and Native I/O certificates are all certified."""
-        from ._client_report_views import LiveFixtureRunReport_all_certified as _impl
-        return _impl(self)
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "freshness_certificate_status",
+                "state_certificate_status",
+                "continuous_view_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
 
     @property
     def runtime_execution(self) -> bool:
@@ -4914,8 +5661,17 @@ class HybridOverlayRunReport:
     @property
     def all_certified(self) -> bool:
         """Whether overlay, flush, freshness, execution, and Native I/O evidence is certified."""
-        from ._client_report_views import HybridOverlayRunReport_all_certified as _impl
-        return _impl(self)
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "delta_overlay_certificate_status",
+                "micro_segment_flush_evidence_status",
+                "freshness_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
 
     @property
     def layout_health_status(self) -> str | None:
@@ -5318,8 +6074,16 @@ class LiveHybridDurableCheckpointReport:
     @property
     def all_certified(self) -> bool:
         """Whether freshness, state, execution, and Native I/O evidence is certified."""
-        from ._client_report_views import LiveHybridDurableCheckpointReport_all_certified as _impl
-        return _impl(self)
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "freshness_certificate_status",
+                "state_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
 
     @property
     def runtime_execution(self) -> bool:
@@ -5611,8 +6375,24 @@ class PythonClientSmokeReport:
     @property
     def feature_gates(self) -> tuple[str, ...]:
         """Return feature-gate-like runtime fields exposed by smoke envelopes."""
-        from ._client_report_views import PythonClientSmokeReport_feature_gates as _impl
-        return _impl(self)
+
+        values: list[str] = []
+        for envelope in (
+            self.status,
+            self.python_capabilities,
+            self.deployment_capabilities,
+            self.input_adapters,
+        ):
+            for key in (
+                "feature_gates",
+                "enabled_feature_gates",
+                "disabled_feature_gates",
+                "surface_components",
+            ):
+                value = envelope.field(key)
+                if value:
+                    values.extend(part.strip() for part in value.split(",") if part.strip())
+        return tuple(dict.fromkeys(values))
 
 
 class ShardLoomClient:
@@ -5642,8 +6422,38 @@ class ShardLoomClient:
         float_policy: str = "strict",
         recursion_limit: int = 1000,
     ) -> None:
-        from ._client_session import ShardLoomClient___init__ as _impl
-        return _impl(self, binary, env=env, cwd=cwd, repo_root=repo_root, profile_order=profile_order, timeout=timeout, use_persistent_worker=use_persistent_worker, transport=transport, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, resource_limits=resource_limits, float_policy=float_policy, recursion_limit=recursion_limit)
+        from ._native_backend import normalize_float_policy, normalize_recursion_limit, normalize_transport, validate_timeout
+        self._float_policy = normalize_float_policy(float_policy)
+        self._recursion_limit = normalize_recursion_limit(recursion_limit)
+        self._transport = normalize_transport(transport)
+        if self._transport == "native" and use_persistent_worker is True:
+            raise ValueError("a persistent subprocess worker cannot use transport='native'")
+        self._native_backend = None
+        self._native_backend_lock = threading.Lock()
+        self._native_closed = False
+        self._resources = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, limits=resource_limits,
+        )
+        self._resource_limits = merge_resource_limits(
+            resource_limits, self._resources.limits if self._resources is not None else None,
+        )
+        self._binary = binary
+        self._env = dict(env) if env is not None else None
+        self._cwd = Path(cwd) if cwd is not None else None
+        self._repo_root = Path(repo_root) if repo_root is not None else None
+        self._profile_order = tuple(profile_order)
+        self._timeout = validate_timeout(timeout) if self._transport == "native" else timeout
+        self._resolved_binary_cache: Binary | None = None
+        self._use_persistent_worker = use_persistent_worker
+        self._worker_process: subprocess.Popen[str] | None = None
+        self._worker_stdout_buffer = b""
+        self._worker_disabled = False
+        self._worker_lock = threading.Lock()
+        self._active_processes: set[subprocess.Popen] = set()
+        self._cancelled_processes: set[subprocess.Popen] = set()
+        import weakref
+        self._batch_streams = weakref.WeakSet()
 
     @property
     def resources(self) -> ExecutionResources | None:
@@ -5684,8 +6494,22 @@ class ShardLoomClient:
             raise ShardLoomClosedError()
 
     def _native_backend_for(self, allocation: ExecutionResources | None = None):
-        from ._client_session import ShardLoomClient__native_backend_for as _impl
-        return _impl(self, allocation)
+        from ._native_backend import NativeBackend
+        if self.transport != "native":
+            raise ValueError("this operation requires transport='native'")
+        if allocation is not None:
+            resolve_resources(
+                resources=allocation, inherited=self.resources, limits=self.resource_limits,
+            )
+        with self._native_backend_lock:
+            self._ensure_open()
+            if self._native_backend is None:
+                self._native_backend = NativeBackend(
+                    self.resources, self.resource_limits, self._timeout,
+                    float_policy=self.float_policy,
+                    recursion_limit=self.recursion_limit,
+                )
+            return self._native_backend
 
     @classmethod
     def from_repo(
@@ -5719,8 +6543,20 @@ class ShardLoomClient:
         `SHARDLOOM_TIMEOUT_SECONDS`. The method only reads configuration; it
         does not run the CLI or inspect datasets.
         """
-        from ._client_session import ShardLoomClient_from_env as _impl
-        return _impl(cls, env, profile_order=profile_order, **kwargs)
+
+        effective_env = dict(os.environ)
+        if env is not None:
+            effective_env.update(env)
+        repo_root = effective_env.get(ENV_REPO_ROOT)
+        configured_profile_order = profile_order or _profile_order_from_env(effective_env)
+        timeout = kwargs.pop("timeout", _timeout_from_env(effective_env))
+        return cls(
+            env=effective_env,
+            repo_root=repo_root,
+            profile_order=configured_profile_order,
+            timeout=timeout,
+            **kwargs,
+        )
 
     def status(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CLI status envelope."""
@@ -5910,8 +6746,61 @@ class ShardLoomClient:
         check: bool = True,
     ) -> PublicWorkflowRoute:
         """Return the side-effect-free public route envelope for a declared workflow."""
-        from ._client_workflow import ShardLoomClient_public_workflow_route as _impl
-        return _impl(self, surface, input_uri=input_uri, input_format=input_format, source_schema=source_schema, source_bindings=source_bindings, sql_statement=sql_statement, plan_summary=plan_summary, requested_output=requested_output, output_ref=output_ref, execution_policy=execution_policy, materialization_policy=materialization_policy, evidence_level=evidence_level, bounded=bounded, fanout_outputs=fanout_outputs, native_vortex_operation_family=native_vortex_operation_family, native_vortex_right_input=native_vortex_right_input, vortex_primitive=vortex_primitive, vortex_predicate=vortex_predicate, vortex_columns=vortex_columns, vortex_source_order_limit=vortex_source_order_limit, vortex_sample_seed=vortex_sample_seed, vortex_sample_fraction=vortex_sample_fraction, vortex_sample_replacement=vortex_sample_replacement, vortex_sample_weight_column=vortex_sample_weight_column, vortex_duplicate_keep=vortex_duplicate_keep, vortex_deduplicate_key_columns=vortex_deduplicate_key_columns, vortex_expression_projection=vortex_expression_projection, vortex_melt_projection=vortex_melt_projection, vortex_explode_projection=vortex_explode_projection, vortex_pivot_projection=vortex_pivot_projection, vortex_rolling_window=vortex_rolling_window, vortex_sort_rows=vortex_sort_rows, vortex_aggregate=vortex_aggregate, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check)
+
+        resources = optional_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        args: list[CommandPart] = ["route", surface]
+        if input_uri is not None:
+            args.extend(["--input", str(input_uri)])
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        source_schema_arg = _schema_command_arg(source_schema)
+        if source_schema_arg is not None:
+            args.extend(["--source-schema", source_schema_arg])
+        source_bindings_arg = _source_bindings_command_arg(source_bindings)
+        if source_bindings_arg is not None:
+            args.extend(["--source-bindings", source_bindings_arg])
+        if sql_statement is not None:
+            args.extend(["--sql", sql_statement])
+        if plan_summary is not None:
+            args.extend(["--plan", plan_summary])
+        args.extend(["--request", requested_output])
+        if output_ref is not None:
+            args.extend(["--output", str(output_ref)])
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            args.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
+        args.extend(["--execution-policy", execution_policy])
+        args.extend(["--materialization-policy", materialization_policy])
+        args.extend(["--evidence-level", evidence_level])
+        if bounded is not None:
+            args.extend(["--bounded", "true" if bounded else "false"])
+        _append_public_vortex_payload_args(
+            args,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_right_input=native_vortex_right_input,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
+            vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
+            resources=resources,
+            spill=spill,
+        )
+        return PublicWorkflowRoute(self.run(args, check=check))
 
     def public_workflow_run(
         self,
@@ -5961,8 +6850,66 @@ class ShardLoomClient:
         _native_frame: object | None = None,
     ) -> PublicWorkflowExecution:
         """Run an admitted public workflow through the shared route facade."""
-        from ._client_workflow import ShardLoomClient_public_workflow_run as _impl
-        return _impl(self, surface, input_uri=input_uri, input_format=input_format, source_schema=source_schema, source_bindings=source_bindings, input_batches=input_batches, sql_statement=sql_statement, plan_summary=plan_summary, requested_output=requested_output, output_ref=output_ref, execution_policy=execution_policy, materialization_policy=materialization_policy, evidence_level=evidence_level, bounded=bounded, allow_overwrite=allow_overwrite, fanout_outputs=fanout_outputs, native_vortex_operation_family=native_vortex_operation_family, native_vortex_right_input=native_vortex_right_input, vortex_primitive=vortex_primitive, vortex_predicate=vortex_predicate, vortex_columns=vortex_columns, vortex_source_order_limit=vortex_source_order_limit, vortex_sample_seed=vortex_sample_seed, vortex_sample_fraction=vortex_sample_fraction, vortex_sample_replacement=vortex_sample_replacement, vortex_sample_weight_column=vortex_sample_weight_column, vortex_duplicate_keep=vortex_duplicate_keep, vortex_deduplicate_key_columns=vortex_deduplicate_key_columns, vortex_expression_projection=vortex_expression_projection, vortex_melt_projection=vortex_melt_projection, vortex_explode_projection=vortex_explode_projection, vortex_pivot_projection=vortex_pivot_projection, vortex_rolling_window=vortex_rolling_window, vortex_sort_rows=vortex_sort_rows, vortex_aggregate=vortex_aggregate, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill, check=check, _native_plan=_native_plan, _native_frame=_native_frame)
+
+        if self.transport == "native":
+            request = dict(locals())
+            request.pop("self")
+            allocation = resolve_resources(
+                memory_gb=memory_gb, memory_bytes=memory_bytes,
+                max_parallelism=max_parallelism, resources=resources,
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            return self._native_backend_for(allocation).execute(request, allocation, check=check)
+        args = self._public_workflow_facade_args(
+            "run",
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            source_schema=source_schema,
+            source_bindings=source_bindings,
+            sql_statement=sql_statement,
+            plan_summary=plan_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy=execution_policy,
+            materialization_policy=materialization_policy,
+            evidence_level=evidence_level,
+            bounded=bounded,
+            allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_right_input=native_vortex_right_input,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
+            vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            spill=spill,
+        )
+        if input_batches:
+            from ._batches import ResultBatchIterator, validate_inputs
+            validate_inputs(source_bindings, input_batches)
+            with ResultBatchIterator(self, args, inputs=input_batches, stream_results=False, check=check) as batches:
+                for _ in batches:
+                    raise ShardLoomProtocolError("non-streaming transaction emitted a result batch")
+                if batches._terminal_envelope is None:
+                    raise ShardLoomProtocolError("native batch transaction omitted its final report")
+                return PublicWorkflowExecution(batches._terminal_envelope)
+        return PublicWorkflowExecution(self.run(args, check=check))
 
     def public_workflow_batches(
         self, surface: str, *, batch_rows: int = 2048,
@@ -5970,8 +6917,35 @@ class ShardLoomClient:
         output_window_bytes: int = 0, **kwargs: Any,
     ):
         """Iterate native result batches; use a context manager for early close."""
-        from ._client_workflow import ShardLoomClient_public_workflow_batches as _impl
-        return _impl(self, surface, batch_rows=batch_rows, input_batches=input_batches, output_window_bytes=output_window_bytes, **kwargs)
+        self._ensure_open()
+        from ._native_backend import validate_output_window_bytes
+        output_window_bytes = validate_output_window_bytes(output_window_bytes)
+        if self.transport == "native":
+            request = dict(kwargs, surface=surface, input_batches=input_batches)
+            if output_window_bytes:
+                request["output_window_bytes"] = output_window_bytes
+            allocation = resolve_resources(
+                memory_gb=kwargs.get("memory_gb"), memory_bytes=kwargs.get("memory_bytes"),
+                max_parallelism=kwargs.get("max_parallelism"), resources=kwargs.get("resources"),
+                inherited=self.resources, limits=self.resource_limits,
+            )
+            iterator = self._native_backend_for(allocation).batches(request, allocation, batch_rows)
+            with self._native_backend_lock:
+                self._ensure_open()
+                iterator._client = self
+                self._batch_streams.add(iterator)
+            return iterator
+        if output_window_bytes:
+            raise ValueError("output_window_bytes requires transport='native'")
+        kwargs.pop("_native_plan", None)
+        kwargs.pop("_native_frame", None)
+        from ._batches import ResultBatchIterator, validate_inputs
+        if kwargs.get("requested_output", "collect") != "collect":
+            raise ValueError("incremental result consumption requires collect output")
+        kwargs.setdefault("bounded", True)
+        args = self._public_workflow_facade_args("run", surface, **kwargs)
+        validate_inputs(kwargs.get("source_bindings"), input_batches)
+        return ResultBatchIterator(self, args, inputs=input_batches, batch_rows=batch_rows)
 
     def public_workflow_prepare(
         self,
@@ -5990,8 +6964,24 @@ class ShardLoomClient:
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Prepare an admitted public workflow input through the shared route facade."""
-        from ._client_workflow import ShardLoomClient_public_workflow_prepare as _impl
-        return _impl(self, surface, input_uri=input_uri, output_ref=output_ref, input_format=input_format, source_schema=source_schema, plan_summary=plan_summary, evidence_level=evidence_level, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        args = self._public_workflow_facade_args(
+            "prepare",
+            surface,
+            input_uri=input_uri,
+            input_format=input_format,
+            source_schema=source_schema,
+            plan_summary=plan_summary,
+            requested_output="prepare",
+            output_ref=output_ref,
+            execution_policy="prepare_once",
+            materialization_policy="bounded",
+            evidence_level=evidence_level,
+            bounded=True,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+        )
+        return PublicWorkflowExecution(self.run(args, check=check))
 
     def _public_workflow_facade_args(
         self,
@@ -6037,8 +7027,62 @@ class ShardLoomClient:
         max_parallelism: int | None = None,
         spill: Mapping[str, object] | str | None = None,
     ) -> list[CommandPart]:
-        from ._client_workflow import ShardLoomClient__public_workflow_facade_args as _impl
-        return _impl(self, command, surface, input_uri=input_uri, input_format=input_format, source_schema=source_schema, source_bindings=source_bindings, sql_statement=sql_statement, plan_summary=plan_summary, requested_output=requested_output, output_ref=output_ref, execution_policy=execution_policy, materialization_policy=materialization_policy, evidence_level=evidence_level, bounded=bounded, allow_overwrite=allow_overwrite, fanout_outputs=fanout_outputs, native_vortex_operation_family=native_vortex_operation_family, native_vortex_right_input=native_vortex_right_input, vortex_primitive=vortex_primitive, vortex_predicate=vortex_predicate, vortex_columns=vortex_columns, vortex_source_order_limit=vortex_source_order_limit, vortex_sample_seed=vortex_sample_seed, vortex_sample_fraction=vortex_sample_fraction, vortex_sample_replacement=vortex_sample_replacement, vortex_sample_weight_column=vortex_sample_weight_column, vortex_duplicate_keep=vortex_duplicate_keep, vortex_deduplicate_key_columns=vortex_deduplicate_key_columns, vortex_expression_projection=vortex_expression_projection, vortex_melt_projection=vortex_melt_projection, vortex_explode_projection=vortex_explode_projection, vortex_pivot_projection=vortex_pivot_projection, vortex_rolling_window=vortex_rolling_window, vortex_sort_rows=vortex_sort_rows, vortex_aggregate=vortex_aggregate, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, spill=spill)
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        args: list[CommandPart] = [command, surface]
+        if input_uri is not None:
+            args.extend(["--input", str(input_uri)])
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        source_schema_arg = _schema_command_arg(source_schema)
+        if source_schema_arg is not None:
+            args.extend(["--source-schema", source_schema_arg])
+        source_bindings_arg = _source_bindings_command_arg(source_bindings)
+        if source_bindings_arg is not None:
+            args.extend(["--source-bindings", source_bindings_arg])
+        if sql_statement is not None:
+            args.extend(["--sql", sql_statement])
+        if plan_summary is not None:
+            args.extend(["--plan", plan_summary])
+        args.extend(["--request", requested_output])
+        if output_ref is not None:
+            args.extend(["--output", str(output_ref)])
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            args.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
+        args.extend(["--execution-policy", execution_policy])
+        args.extend(["--materialization-policy", materialization_policy])
+        args.extend(["--evidence-level", evidence_level])
+        if bounded is not None:
+            args.extend(["--bounded", "true" if bounded else "false"])
+        if allow_overwrite:
+            args.append("--allow-overwrite")
+        _append_public_vortex_payload_args(
+            args,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_right_input=native_vortex_right_input,
+            vortex_primitive=vortex_primitive,
+            vortex_predicate=vortex_predicate,
+            vortex_columns=vortex_columns,
+            vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
+            vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
+            vortex_expression_projection=vortex_expression_projection,
+            vortex_melt_projection=vortex_melt_projection,
+            vortex_explode_projection=vortex_explode_projection,
+            vortex_pivot_projection=vortex_pivot_projection,
+            vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
+            vortex_aggregate=vortex_aggregate,
+            resources=resources,
+            spill=spill,
+        )
+        return args
 
     def engine_selection_plan(
         self,
@@ -6050,8 +7094,19 @@ class ShardLoomClient:
         check: bool = True,
     ) -> EngineSelectionPlan:
         """Return the CG-22 report-only engine-selection plan."""
-        from ._client_commands import ShardLoomClient_engine_selection_plan as _impl
-        return _impl(self, engine, boundedness=boundedness, update_mode=update_mode, output_mode=output_mode, check=check)
+
+        return EngineSelectionPlan(
+            self.run(
+                [
+                    "engine-selection-plan",
+                    engine,
+                    boundedness,
+                    update_mode,
+                    output_mode,
+                ],
+                check=check,
+            )
+        )
 
     def engine_capability_matrix(self, *, check: bool = True) -> EngineCapabilityMatrix:
         """Return the CG-22 report-only per-engine capability matrix."""
@@ -6102,8 +7157,20 @@ class ShardLoomClient:
         check: bool = True,
     ) -> LiveFixtureRunReport:
         """Run the explicit CG-22 in-memory live fixture command."""
-        from ._client_commands import ShardLoomClient_live_fixture_run as _impl
-        return _impl(self, operator, argument, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        args = ["live-fixture-run", operator]
+        if argument is not None:
+            args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        args.extend(resource_command_args(allocation))
+        return LiveFixtureRunReport(self.run(args, check=check))
 
     def hybrid_overlay_run(
         self,
@@ -6117,8 +7184,20 @@ class ShardLoomClient:
         check: bool = True,
     ) -> HybridOverlayRunReport:
         """Run the explicit CG-22 in-memory hybrid overlay fixture command."""
-        from ._client_commands import ShardLoomClient_hybrid_overlay_run as _impl
-        return _impl(self, operator, argument, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        args = ["hybrid-overlay-run", operator]
+        if argument is not None:
+            args.append(str(argument) if isinstance(argument, str) else _columns_arg(argument))
+        args.extend(resource_command_args(allocation))
+        return HybridOverlayRunReport(self.run(args, check=check))
 
     def live_hybrid_state_transition_smoke(
         self,
@@ -6130,8 +7209,18 @@ class ShardLoomClient:
         check: bool = True,
     ) -> LiveHybridStateTransitionReport:
         """Run the bounded CG-22 state-transition retry/cancel/cleanup fixture."""
-        from ._client_commands import ShardLoomClient_live_hybrid_state_transition_smoke as _impl
-        return _impl(self, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        return LiveHybridStateTransitionReport(
+            self.run(["live-hybrid-state-transition-smoke", *resource_command_args(allocation)], check=check)
+        )
 
     def live_hybrid_durable_checkpoint_smoke(
         self,
@@ -6144,8 +7233,21 @@ class ShardLoomClient:
         check: bool = True,
     ) -> LiveHybridDurableCheckpointReport:
         """Run the bounded CG-22 local checkpoint/changelog fixture."""
-        from ._client_commands import ShardLoomClient_live_hybrid_durable_checkpoint_smoke as _impl
-        return _impl(self, checkpoint_dir, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        return LiveHybridDurableCheckpointReport(
+            self.run(
+                ["live-hybrid-durable-checkpoint-smoke", str(checkpoint_dir), *resource_command_args(allocation)],
+                check=check,
+            )
+        )
 
     def distributed_local_fixture_run(
         self,
@@ -6159,8 +7261,21 @@ class ShardLoomClient:
         check: bool = True,
     ) -> LocalDistributedFixtureRunReport:
         """Run the scoped local distributed fixture command."""
-        from ._client_commands import ShardLoomClient_distributed_local_fixture_run as _impl
-        return _impl(self, worker_count, fault_mode, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        return LocalDistributedFixtureRunReport(
+            self.run(
+                ["distributed-local-fixture-run", str(worker_count), fault_mode, *resource_command_args(allocation)],
+                check=check,
+            )
+        )
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only explain envelope for an operation summary."""
@@ -6220,8 +7335,33 @@ class ShardLoomClient:
         check: bool = True,
     ) -> VortexIngestSmokeReport:
         """Prepare local compatibility input as a Vortex artifact."""
-        from ._client_commands import ShardLoomClient_vortex_prepare as _impl
-        return _impl(self, source_path, target_vortex_path, input_format=input_format, schema=schema, allow_overwrite=allow_overwrite, certification_level=certification_level, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, delta_source_path=delta_source_path, delta_target_vortex_path=delta_target_vortex_path, delta_update_mode=delta_update_mode, check=check)
+
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        command: list[CommandPart] = [
+            "vortex-prepare",
+            str(source_path),
+            str(target_vortex_path),
+        ]
+        if input_format is not None:
+            command.extend(["--input-format", input_format])
+        schema_arg = _schema_command_arg(schema)
+        if schema_arg is not None:
+            command.extend(["--schema", schema_arg])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        if certification_level != "ingest_certified":
+            command.extend(["--certification-level", certification_level])
+        command.extend(resource_command_args(resources))
+        if delta_source_path is not None:
+            command.extend(["--delta-source", str(delta_source_path)])
+        if delta_target_vortex_path is not None:
+            command.extend(["--delta-target", str(delta_target_vortex_path)])
+        if delta_update_mode != "append-only":
+            command.extend(["--delta-update-mode", delta_update_mode])
+        return VortexIngestSmokeReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""
@@ -6245,8 +7385,25 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit `vortex-run` CLI command and parse its envelope."""
-        from ._client_commands import ShardLoomClient_vortex_run as _impl
-        return _impl(self, dataset_uri, primitive, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        if primitive.strip().lower() not in {"count", "count_all"}:
+            allocation = resolve_resources(
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
+            )
+            return self.run(
+                ["vortex-run", str(dataset_uri), primitive, *resource_command_args(allocation)],
+                check=check,
+            )
+        return self.public_workflow_run(
+            "cli", input_uri=dataset_uri, input_format="vortex",
+            requested_output="collect", execution_policy="native_vortex",
+            materialization_policy="zero_decode", evidence_level="runtime_smoke",
+            bounded=True, vortex_primitive=primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+            check=check,
+        ).envelope
 
     def vortex_count(
         self,
@@ -6260,8 +7417,16 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-count` with optional explicit local encoded execution."""
-        from ._client_commands import ShardLoomClient_vortex_count as _impl
-        return _impl(self, dataset_uri, execute_local_encoded_count=execute_local_encoded_count, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        args = ["vortex-count", str(dataset_uri)]
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism, inherited=self.resources, limits=self.resource_limits,
+        )
+        if execute_local_encoded_count:
+            args.append("--execute-local-encoded-count")
+        args.extend(resource_command_args(allocation))
+        return self.run(args, check=check)
 
     def vortex_count_where(
         self,
@@ -6276,8 +7441,32 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-count-where` with optional explicit local execution."""
-        from ._client_commands import ShardLoomClient_vortex_count_where as _impl
-        return _impl(self, dataset_uri, predicate, execute_local_primitive=execute_local_primitive, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        if execute_local_primitive:
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="count_where",
+                vortex_predicate=predicate,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
+        args = ["vortex-count-where", str(dataset_uri), predicate]
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
 
     def vortex_filter(
         self,
@@ -6293,8 +7482,40 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-filter` with optional explicit local execution."""
-        from ._client_commands import ShardLoomClient_vortex_filter as _impl
-        return _impl(self, dataset_uri, predicate, source_order_limit=source_order_limit, execute_local_primitive=execute_local_primitive, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        if execute_local_primitive:
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="filter",
+                vortex_predicate=predicate,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
+        args = ["vortex-filter", str(dataset_uri), predicate]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
 
     def vortex_project(
         self,
@@ -6310,8 +7531,40 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-project` with optional explicit local execution."""
-        from ._client_commands import ShardLoomClient_vortex_project as _impl
-        return _impl(self, dataset_uri, columns, source_order_limit=source_order_limit, execute_local_primitive=execute_local_primitive, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        if execute_local_primitive:
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="project",
+                vortex_columns=columns,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
+        args = ["vortex-project", str(dataset_uri), _columns_arg(columns)]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
 
     def vortex_filter_project(
         self,
@@ -6328,8 +7581,46 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run `vortex-filter-project` with optional explicit local execution."""
-        from ._client_commands import ShardLoomClient_vortex_filter_project as _impl
-        return _impl(self, dataset_uri, predicate, columns, source_order_limit=source_order_limit, execute_local_primitive=execute_local_primitive, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        if execute_local_primitive:
+            return self.public_workflow_run(
+                "cli",
+                input_uri=dataset_uri,
+                input_format="vortex",
+                requested_output="collect",
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                vortex_primitive="filter_project",
+                vortex_predicate=predicate,
+                vortex_columns=columns,
+                vortex_source_order_limit=source_order_limit,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ).envelope
+        args = [
+            "vortex-filter-project",
+            str(dataset_uri),
+            predicate,
+            _columns_arg(columns),
+        ]
+        if source_order_limit is not None:
+            args.extend(
+                [
+                    "--limit",
+                    str(_positive_int("source_order_limit", source_order_limit)),
+                ]
+            )
+        _append_resource_execution_args(
+            args,
+            option="--execute-local-primitive",
+            enabled=execute_local_primitive,
+            memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+            max_parallelism=max_parallelism,
+        )
+        return self.run(args, check=check)
 
     def local_vortex_primitive_smoke(
         self,
@@ -6344,8 +7635,53 @@ class ShardLoomClient:
         check: bool = True,
     ) -> LocalVortexPrimitiveSmokeReport:
         """Run the certified local Vortex primitive workflow through explicit CLI flags."""
-        from ._client_commands import ShardLoomClient_local_vortex_primitive_smoke as _impl
-        return _impl(self, dataset_uri, predicate=predicate, columns=columns, memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources, max_parallelism=max_parallelism, check=check)
+
+        resources = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        return LocalVortexPrimitiveSmokeReport(
+            count=self.vortex_run(
+                dataset_uri,
+                "count",
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            count_where=self.vortex_count_where(
+                dataset_uri,
+                predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            filter=self.vortex_filter(
+                dataset_uri,
+                predicate,
+                execute_local_primitive=True,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            project=self.vortex_project(
+                dataset_uri,
+                columns,
+                execute_local_primitive=True,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+            filter_project=self.vortex_filter_project(
+                dataset_uri,
+                predicate,
+                columns,
+                execute_local_primitive=True,
+                memory_gb=memory_gb, memory_bytes=memory_bytes, resources=resources,
+                max_parallelism=max_parallelism,
+                check=check,
+            ),
+        )
 
 
 
@@ -6472,8 +7808,16 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Return Vortex output payload readiness without writing an artifact."""
-        from ._client_commands import ShardLoomClient_vortex_output_payload_plan as _impl
-        return _impl(self, target_uri, workspace_path, signals, check=check)
+
+        return self.run(
+            [
+                "vortex-output-payload-plan",
+                str(target_uri),
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
 
     def vortex_staged_manifest_file_plan(
         self,
@@ -6535,8 +7879,17 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Return Vortex commit protocol state transition readiness."""
-        from ._client_commands import ShardLoomClient_vortex_commit_protocol_plan as _impl
-        return _impl(self, target_uri, current_state, transition, signals, check=check)
+
+        return self.run(
+            [
+                "vortex-commit-protocol-plan",
+                str(target_uri),
+                current_state,
+                transition,
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
 
     def vortex_local_commit_recovery_plan(
         self,
@@ -6547,8 +7900,16 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Return local commit recovery readiness without cleanup or rollback effects."""
-        from ._client_commands import ShardLoomClient_vortex_local_commit_recovery_plan as _impl
-        return _impl(self, target_uri, workspace_path, signals, check=check)
+
+        return self.run(
+            [
+                "vortex-local-commit-recovery-plan",
+                str(target_uri),
+                str(workspace_path),
+                _signals_arg(signals),
+            ],
+            check=check,
+        )
 
     def table_compat_plan(
         self,
@@ -6600,8 +7961,17 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the scoped local-manifest table metadata read smoke."""
-        from ._client_commands import ShardLoomClient_local_table_metadata_read_smoke as _impl
-        return _impl(self, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = ["local-table-metadata-read-smoke"]
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def object_store_runtime_gate(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CG-10 object-store/distributed runtime promotion gate."""
@@ -6665,8 +8035,24 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run an explicit object-store read smoke for an admitted fixture profile."""
-        from ._client_commands import ShardLoomClient_object_store_read_smoke as _impl
-        return _impl(self, local_object_path, profile=profile, byte_range=byte_range, public_fixture_path=public_fixture_path, fixture_listing=fixture_listing, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = ["object-store-read-smoke", str(local_object_path), "--profile", profile]
+        if public_fixture_path is not None:
+            command.extend(["--public-fixture-path", str(public_fixture_path)])
+        if fixture_listing:
+            command.append("--fixture-listing")
+        if byte_range is not None:
+            offset, length = byte_range
+            command.extend(["--range", f"{offset}:{length}"])
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def object_store_partition_discovery_smoke(
         self,
@@ -6681,8 +8067,30 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run scoped local-emulator key=value partition discovery."""
-        from ._client_commands import ShardLoomClient_object_store_partition_discovery_smoke as _impl
-        return _impl(self, local_partition_root, profile=profile, partition_columns=partition_columns, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = [
+            "object-store-partition-discovery-smoke",
+            str(local_partition_root),
+            "--profile",
+            profile,
+        ]
+        if partition_columns is not None:
+            columns = [
+                str(column).strip()
+                for column in partition_columns
+                if str(column).strip()
+            ]
+            if columns:
+                command.extend(["--partition-columns", ",".join(columns)])
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def object_store_write_smoke(
         self,
@@ -6700,8 +8108,29 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the explicit local-emulator staged object-store write smoke."""
-        from ._client_commands import ShardLoomClient_object_store_write_smoke as _impl
-        return _impl(self, source_path, target_object_path, profile=profile, idempotency_key=idempotency_key, allow_overwrite=allow_overwrite, rollback_after_commit=rollback_after_commit, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = [
+            "object-store-write-smoke",
+            str(source_path),
+            str(target_object_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        if rollback_after_commit:
+            command.append("--rollback-after-commit")
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def local_table_append_commit_rehearsal_smoke(
         self,
@@ -6718,8 +8147,28 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local-manifest table append commit rehearsal smoke."""
-        from ._client_commands import ShardLoomClient_local_table_append_commit_rehearsal_smoke as _impl
-        return _impl(self, target_manifest_path, profile=profile, idempotency_key=idempotency_key, allow_overwrite=allow_overwrite, rollback_after_commit=rollback_after_commit, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = [
+            "local-table-append-commit-rehearsal-smoke",
+            str(target_manifest_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        if rollback_after_commit:
+            command.append("--rollback-after-commit")
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def object_store_write_recovery_smoke(
         self,
@@ -6734,8 +8183,24 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run local-emulator object-store write recovery replay."""
-        from ._client_commands import ShardLoomClient_object_store_write_recovery_smoke as _impl
-        return _impl(self, target_object_path, profile=profile, idempotency_key=idempotency_key, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = [
+            "object-store-write-recovery-smoke",
+            str(target_object_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def local_table_commit_recovery_smoke(
         self,
@@ -6750,8 +8215,24 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local-manifest table commit recovery smoke."""
-        from ._client_commands import ShardLoomClient_local_table_commit_recovery_smoke as _impl
-        return _impl(self, target_manifest_path, profile=profile, idempotency_key=idempotency_key, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command = [
+            "local-table-commit-recovery-smoke",
+            str(target_manifest_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the correctness evidence planning surface."""
@@ -6770,8 +8251,162 @@ class ShardLoomClient:
         check: bool = True,
     ) -> WorkflowReadinessSmokeReport:
         """Preview output, remote-data, and evidence readiness without side effects."""
-        from ._client_commands import ShardLoomClient_workflow_readiness_smoke as _impl
-        return _impl(self, target_uri=target_uri, workspace_path=workspace_path, compatibility_target_uri=compatibility_target_uri, remote_sources=remote_sources, check=check)
+
+        remote_items = _workflow_remote_source_items(remote_sources)
+        output_commit = (
+            WorkflowReadinessPlan(
+                "vortex_output_target",
+                self.vortex_output_plan(target_uri, check=check),
+            ),
+            WorkflowReadinessPlan(
+                "compatibility_export_target",
+                self.translation_plan(compatibility_target_uri, check=check),
+            ),
+            WorkflowReadinessPlan(
+                "native_plan_export",
+                self.plan_export("native", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_write_intent",
+                self.vortex_write_intent_plan(
+                    target_uri,
+                    DEFAULT_VORTEX_WRITE_INTENT_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_output_payload",
+                self.vortex_output_payload_plan(
+                    target_uri,
+                    workspace_path,
+                    DEFAULT_VORTEX_OUTPUT_PAYLOAD_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_staged_manifest",
+                self.vortex_staged_manifest_file_plan(
+                    workspace_path,
+                    DEFAULT_VORTEX_STAGED_MANIFEST_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_marker",
+                self.vortex_commit_marker_plan(
+                    workspace_path,
+                    DEFAULT_VORTEX_COMMIT_MARKER_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_intent",
+                self.vortex_commit_intent_plan(
+                    target_uri,
+                    DEFAULT_VORTEX_COMMIT_INTENT_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_commit_protocol",
+                self.vortex_commit_protocol_plan(
+                    target_uri,
+                    "not-started",
+                    "validate-intent",
+                    DEFAULT_VORTEX_COMMIT_PROTOCOL_SIGNALS,
+                    check=check,
+                ),
+            ),
+            WorkflowReadinessPlan(
+                "vortex_local_commit_recovery",
+                self.vortex_local_commit_recovery_plan(
+                    target_uri,
+                    workspace_path,
+                    DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS,
+                    check=check,
+                ),
+            ),
+        )
+        table_remote = (
+            WorkflowReadinessPlan(
+                "table_intelligence",
+                self.table_intelligence_plan(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "table_compat_iceberg",
+                self.table_compat_plan("iceberg", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "table_compat_delta",
+                self.table_compat_plan("delta", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "layout_health",
+                self.layout_health_plan("healthy", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "compaction",
+                self.compaction_plan("small-files", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "catalog_metadata_gate",
+                self.catalog_metadata_gate(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_request",
+                self.object_store_request_plan("ready", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_range",
+                self.object_store_range_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_coalesce",
+                self.object_store_coalesce_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_schedule",
+                self.object_store_schedule_plan("s3-ranges", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_checkpoint_retry",
+                self.object_store_checkpoint_retry_plan("ready", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "object_store_commit",
+                self.object_store_commit_plan("ready", check=check),
+            ),
+            *(
+                WorkflowReadinessPlan(
+                    f"remote_input_{name}",
+                    self.input_plan(uri, check=check),
+                )
+                for name, uri in remote_items
+            ),
+        )
+        evidence = (
+            WorkflowReadinessPlan(
+                "migration_capabilities",
+                self.capabilities("migration", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "correctness_plan",
+                self.correctness_plan(check=check),
+            ),
+            WorkflowReadinessPlan(
+                "benchmark_claim_evidence",
+                self.benchmark_claim_evidence_plan("foundation", check=check),
+            ),
+            WorkflowReadinessPlan(
+                "world_class_sufficiency",
+                self.world_class_sufficiency_plan(check=check),
+            ),
+        )
+        return WorkflowReadinessSmokeReport(
+            output_commit=output_commit,
+            table_remote=table_remote,
+            evidence=evidence,
+        )
 
     def input_adapters(self, *, check: bool = True) -> OutputEnvelope:
         """Return the universal input adapter registry snapshot."""
@@ -6834,8 +8469,17 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the built-in deterministic nullable-int64 scalar UDF fixture."""
-        from ._client_commands import ShardLoomClient_udf_local_scalar_fixture_smoke as _impl
-        return _impl(self, values, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+
+        if isinstance(values, str):
+            encoded_values = values
+        else:
+            encoded_values = ",".join("null" if value is None else str(value) for value in values)
+        return self.run(["udf-local-scalar-fixture-smoke", encoded_values, *resource_command_args(allocation)], check=check)
 
     def embedding_vector_local_fixture_smoke(
         self,
@@ -6849,8 +8493,21 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the built-in deterministic embedding/vector fixture."""
-        from ._client_commands import ShardLoomClient_embedding_vector_local_fixture_smoke as _impl
-        return _impl(self, texts, query=query, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+
+        if isinstance(texts, str):
+            encoded_texts = texts
+        else:
+            encoded_texts = ";".join(str(text) for text in texts)
+        command: list[CommandPart] = ["embedding-vector-local-fixture-smoke", encoded_texts]
+        if query is not None:
+            command.extend(["--query", query])
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def sqlite_local_import_export_smoke(
         self,
@@ -6868,8 +8525,30 @@ class ShardLoomClient:
         check: bool = True,
     ) -> OutputEnvelope:
         """Run the local SQLite file import/export fixture smoke."""
-        from ._client_commands import ShardLoomClient_sqlite_local_import_export_smoke as _impl
-        return _impl(self, database_path, table=table, export_jsonl=export_jsonl, roundtrip_db=roundtrip_db, order_by=order_by, allow_overwrite=allow_overwrite, memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism, resources=resources, check=check)
+        allocation = resolve_resources(
+            memory_gb=memory_gb,
+            memory_bytes=memory_bytes,
+            max_parallelism=max_parallelism,
+            resources=resources,
+            inherited=self.resources, limits=self.resource_limits,
+        )
+
+        command: list[CommandPart] = [
+            "sqlite-local-import-export-smoke",
+            str(database_path),
+            "--table",
+            table,
+            "--export-jsonl",
+            str(export_jsonl),
+            "--roundtrip-db",
+            str(roundtrip_db),
+        ]
+        if order_by is not None:
+            command.extend(["--order-by", order_by])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        command.extend(resource_command_args(allocation))
+        return self.run(command, check=check)
 
     def input_plan(
         self,
@@ -6892,8 +8571,20 @@ class ShardLoomClient:
         check: bool = True,
     ) -> CompatibilitySourceSmokeReport:
         """Plan compatibility file sources without reading, writing, or materializing data."""
-        from ._client_commands import ShardLoomClient_compatibility_source_smoke as _impl
-        return _impl(self, sources, check=check)
+
+        source_items = _compatibility_source_items(sources)
+        return CompatibilitySourceSmokeReport(
+            input_adapters=self.input_adapters(check=check),
+            native_io_envelope=self.native_io_envelope_plan(check=check),
+            sources=tuple(
+                CompatibilitySourcePlan(
+                    source_name=name,
+                    dataset_uri=str(uri),
+                    plan=self.input_plan(uri, check=check),
+                )
+                for name, uri in source_items
+            ),
+        )
 
     def vortex_input_plan(
         self, dataset_uri: str | os.PathLike[str], *, check: bool = True
@@ -6911,8 +8602,17 @@ class ShardLoomClient:
 
     def smoke_check(self, *, check: bool = True) -> PythonClientSmokeReport:
         """Run no-dataset commands that verify the Python client can reach ShardLoom."""
-        from ._client_transport import ShardLoomClient_smoke_check as _impl
-        return _impl(self, check=check)
+
+        binary_command = tuple(self._binary_parts())
+        return PythonClientSmokeReport(
+            binary_command=binary_command,
+            python_package_version=__version__,
+            platform=platform.platform(),
+            status=self.status(check=check),
+            python_capabilities=self.capabilities("python", check=check),
+            deployment_capabilities=self.capabilities("deployment", check=check),
+            input_adapters=self.input_adapters(check=check),
+        )
 
     def binary_command(self) -> tuple[str, ...]:
         """Resolve the CLI binary command without running a ShardLoom command."""
@@ -6921,8 +8621,25 @@ class ShardLoomClient:
 
     def run(self, args: Sequence[CommandPart], *, check: bool = True) -> OutputEnvelope:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
-        from ._client_transport import ShardLoomClient_run as _impl
-        return _impl(self, args, check=check)
+
+        self._ensure_open()
+        if any(str(arg) == "--float-policy" or str(arg).startswith("--float-policy=") for arg in args):
+            raise ValueError("--float-policy is fixed by the ShardLoomClient configuration")
+        if self.transport == "native":
+            command = [str(arg) for arg in args]
+            payload = self._native_backend_for().command(command)
+            envelope = OutputEnvelope.from_json(json.loads(payload))
+            if check and envelope.is_error:
+                raise ShardLoomCommandError(("shardloom._native", *command), 2, envelope, "")
+            return envelope
+        if self._worker_enabled():
+            try:
+                return self._run_worker(args, check=check)
+            except _ShardLoomWorkerStartupError:
+                self._worker_disabled = True
+                self._close_worker()
+                return self._run_subprocess(args, check=check)
+        return self._run_subprocess(args, check=check)
 
     def cancel(self) -> None:
         """Cancel current calls; later calls remain usable.
@@ -6940,8 +8657,43 @@ class ShardLoomClient:
         self._stop_active_work(closing=True)
 
     def _stop_active_work(self, *, closing: bool) -> None:
-        from ._client_transport import ShardLoomClient__stop_active_work as _impl
-        return _impl(self, closing=closing)
+        errors = []
+        with self._native_backend_lock:
+            if closing:
+                self._native_closed = True
+            else:
+                self._ensure_open()
+            if self._native_backend is not None:
+                try:
+                    if closing:
+                        self._native_backend.close()
+                    else:
+                        self._native_backend.cancel()
+                except Exception as error:
+                    errors.append(error)
+            processes = tuple(self._active_processes)
+            self._cancelled_processes.update(processes)
+            streams = tuple(self._batch_streams)
+            # An active worker's caller owns its pipes and reaping. Closing a
+            # TextIOWrapper from here can block behind its reader's lock.
+            worker_active = self._worker_process in self._active_processes
+        for stream in streams:
+            try:
+                stream.cancel()
+            except Exception as error:
+                errors.append(error)
+        for process in processes:
+            try:
+                if process.poll() is None:
+                    process.kill()
+            except ProcessLookupError:
+                pass  # The caller still owns the completed process and reaps it.
+            except Exception as error:
+                errors.append(error)
+        if closing and not worker_active:
+            self._close_worker()
+        if errors:
+            raise errors[0]
 
     def release_prepared(self) -> None:
         """Discard preparation, retaining this client's sources, results and lifetime."""
@@ -6979,14 +8731,104 @@ class ShardLoomClient:
     def _run_subprocess(
         self, args: Sequence[CommandPart], *, check: bool = True
     ) -> OutputEnvelope:
-        from ._client_transport import ShardLoomClient__run_subprocess as _impl
-        return _impl(self, args, check=check)
+        command = self._command(args)
+        redacted_command = _redact_command_for_error(command)
+        try:
+            with self._native_backend_lock:
+                self._ensure_open()
+                process = subprocess.Popen(
+                    command, cwd=self._cwd, env=self._effective_env(), text=True,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                self._active_processes.add(process)
+        except FileNotFoundError as exc:
+            raise ShardLoomBinaryNotFoundError(
+                "ShardLoom CLI binary was not found while running "
+                f"{command[0]!r}. Install the ShardLoom CLI package, put "
+                "`shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
+            ) from exc
+        try:
+            try:
+                stdout, stderr = process.communicate(timeout=self._timeout)
+            except subprocess.TimeoutExpired as error:
+                process.kill()
+                process.communicate()
+                raise ShardLoomTimeoutError(
+                    redacted_command, self._timeout, error.output, error.stderr,
+                ) from error
+            except BaseException:
+                # KeyboardInterrupt, cancellation and communication failures
+                # must not leave a detached child running an output operation.
+                if process.poll() is None:
+                    process.kill()
+                process.communicate()
+                raise
+            self._check_process_cancelled(process, redacted_command)
+            envelope = self._parse_stdout(stdout, redacted_command)
+            if check and (process.returncode != 0 or envelope.is_error):
+                raise ShardLoomCommandError(redacted_command, process.returncode, envelope, stderr)
+            return envelope
+        finally:
+            self._release_process(process)
+            for pipe in (process.stdout, process.stderr):
+                if pipe is not None:
+                    pipe.close()
 
     def _run_worker(
         self, args: Sequence[CommandPart], *, check: bool = True
     ) -> OutputEnvelope:
-        from ._client_transport import ShardLoomClient__run_worker as _impl
-        return _impl(self, args, check=check)
+        command_args = self._command_args(args)
+        redacted_command = _redact_command_for_error(
+            [*self._binary_parts(), *command_args]
+        )
+        with self._worker_lock:
+            self._ensure_open()
+            process = self._ensure_worker()
+            if process.stdin is None or process.stdout is None:
+                self._worker_disabled = True
+                raise _ShardLoomWorkerStartupError("worker pipes were not available")
+            request = json.dumps({"args": command_args}, separators=(",", ":"))
+            deadline = (
+                time.monotonic() + self._timeout
+                if self._timeout is not None and os.name != "nt"
+                else None
+            )
+            try:
+                self._register_process(process)
+                try:
+                    # From this point on the request may have reached the engine.
+                    # A missing response never authorizes replay, even on call one.
+                    self._write_worker_request(process, request + "\n", redacted_command, deadline)
+                    response_line = self._read_worker_response_line(process, redacted_command, deadline)
+                    self._check_process_cancelled(process, redacted_command)
+                    if not response_line:
+                        raise ShardLoomProtocolError(
+                            "ShardLoom worker exited without a response; execution may have begun. No request was replayed."
+                        )
+                    envelope = self._parse_stdout(response_line, redacted_command)
+                    expected_command = command_args[0] if command_args else ""
+                    if expected_command and envelope.command == "python-worker":
+                        raise ShardLoomProtocolError(
+                            "ShardLoom worker returned a startup envelope instead of the requested command; no request was replayed. "
+                            "For an older CLI, explicitly configure use_persistent_worker=False."
+                        )
+                except ShardLoomTimeoutError:
+                    # The compatibility timeout also inherits OSError through
+                    # TimeoutError; preserve its type and structured diagnostic.
+                    raise
+                except (BrokenPipeError, OSError, ValueError) as exc:
+                    self._check_process_cancelled(process, redacted_command)
+                    raise ShardLoomProtocolError(
+                        "ShardLoom worker communication failed after request admission; no request was replayed."
+                    ) from exc
+                if check and envelope.is_error:
+                    raise ShardLoomCommandError(redacted_command, 2, envelope, "")
+                return envelope
+            except BaseException:
+                self._close_worker()
+                raise
+            finally:
+                self._release_process(process)
 
     def _write_worker_request(
         self,
@@ -7010,8 +8852,42 @@ class ShardLoomClient:
         redacted_command: Sequence[str],
         deadline: float,
     ) -> None:
-        from ._client_transport import ShardLoomClient__write_worker_request_with_timeout as _impl
-        return _impl(self, process, payload, redacted_command, deadline)
+        if process.stdin is None:
+            return
+        fd = process.stdin.fileno()
+        data = payload.encode("utf-8")
+        view = memoryview(data)
+        offset = 0
+        selector = selectors.DefaultSelector()
+        previous_blocking = os.get_blocking(fd)
+        timed_out = False
+        try:
+            os.set_blocking(fd, False)
+            selector.register(fd, selectors.EVENT_WRITE)
+            while offset < len(view):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
+                try:
+                    written = os.write(fd, view[offset:])
+                except BlockingIOError:
+                    written = 0
+                if written:
+                    offset += written
+                    continue
+                events = selector.select(remaining)
+                if not events:
+                    timed_out = True
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
+        finally:
+            selector.close()
+            try:
+                os.set_blocking(fd, previous_blocking)
+            except OSError:
+                pass
+            if timed_out:
+                self._close_worker()
 
     def _read_worker_response_line(
         self,
@@ -7019,8 +8895,22 @@ class ShardLoomClient:
         redacted_command: Sequence[str],
         deadline: float | None,
     ) -> str:
-        from ._client_transport import ShardLoomClient__read_worker_response_line as _impl
-        return _impl(self, process, redacted_command, deadline)
+        if process.stdout is None:
+            return ""
+        if deadline is None:
+            buffered_line = self._pop_worker_stdout_buffered_line()
+            if buffered_line is not None:
+                return buffered_line
+            if self._worker_stdout_buffer:
+                prefix = self._decode_worker_stdout(self._worker_stdout_buffer)
+                self._worker_stdout_buffer = b""
+                return prefix + process.stdout.readline()
+            return process.stdout.readline()
+        return self._read_worker_response_line_with_timeout(
+            process,
+            redacted_command,
+            deadline,
+        )
 
     def _read_worker_response_line_with_timeout(
         self,
@@ -7028,8 +8918,33 @@ class ShardLoomClient:
         redacted_command: Sequence[str],
         deadline: float,
     ) -> str:
-        from ._client_transport import ShardLoomClient__read_worker_response_line_with_timeout as _impl
-        return _impl(self, process, redacted_command, deadline)
+        selector = selectors.DefaultSelector()
+        try:
+            if process.stdout is None:
+                return ""
+            selector.register(process.stdout, selectors.EVENT_READ)
+            while True:
+                buffered_line = self._pop_worker_stdout_buffered_line()
+                if buffered_line is not None:
+                    return buffered_line
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._close_worker()
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
+                events = selector.select(remaining)
+                if not events:
+                    self._close_worker()
+                    raise ShardLoomTimeoutError(redacted_command, self._timeout)
+                chunk = os.read(process.stdout.fileno(), 8192)
+                if not chunk:
+                    if self._worker_stdout_buffer:
+                        line = self._decode_worker_stdout(self._worker_stdout_buffer)
+                        self._worker_stdout_buffer = b""
+                        return line
+                    return ""
+                self._worker_stdout_buffer += chunk
+        finally:
+            selector.close()
 
     def _pop_worker_stdout_buffered_line(self) -> str | None:
         if not self._worker_stdout_buffer:
@@ -7050,20 +8965,86 @@ class ShardLoomClient:
         return command
 
     def _command_args(self, args: Sequence[CommandPart]) -> list[str]:
-        from ._client_transport import ShardLoomClient__command_args as _impl
-        return _impl(self, args)
+        command_args = [str(arg) for arg in args]
+        if any(arg == "--float-policy" or arg.startswith("--float-policy=") for arg in command_args):
+            raise ValueError("--float-policy is fixed by the ShardLoomClient configuration")
+        if any(arg == "--recursion-limit" or arg.startswith("--recursion-limit=") for arg in command_args):
+            raise ValueError("--recursion-limit is fixed by the ShardLoomClient configuration")
+        if self.float_policy != "strict":
+            command_args.extend(("--float-policy", self.float_policy))
+        if self.recursion_limit != 1000:
+            command_args.extend(("--recursion-limit", str(self.recursion_limit)))
+        self._append_json_format(command_args)
+        return command_args
 
     def _worker_enabled(self) -> bool:
-        from ._client_transport import ShardLoomClient__worker_enabled as _impl
-        return _impl(self)
+        if self._worker_disabled:
+            return False
+        if self._timeout is not None and os.name == "nt":
+            return False
+        configured = self._effective_env().get(ENV_PERSISTENT_WORKER)
+        if configured is not None:
+            return _env_truthy(configured)
+        if self._use_persistent_worker is not None:
+            return self._use_persistent_worker
+        return True
 
     def _ensure_worker(self) -> subprocess.Popen[str]:
-        from ._client_transport import ShardLoomClient__ensure_worker as _impl
-        return _impl(self)
+        if self._worker_process is not None and self._worker_process.poll() is None:
+            return self._worker_process
+        command = self._binary_parts()
+        command.append("python-worker")
+        try:
+            self._worker_process = subprocess.Popen(
+                command,
+                cwd=self._cwd,
+                env=self._effective_env(),
+                text=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=1,
+            )
+        except FileNotFoundError as exc:
+            raise ShardLoomBinaryNotFoundError(
+                "ShardLoom CLI binary was not found while starting the "
+                "persistent Python worker. Install the ShardLoom CLI package, "
+                "put `shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
+            ) from exc
+        except OSError as exc:
+            raise _ShardLoomWorkerStartupError(
+                f"ShardLoom persistent worker could not be started: {exc}"
+            ) from exc
+        self._worker_stdout_buffer = b""
+        return self._worker_process
 
     def _close_worker(self) -> None:
-        from ._client_transport import ShardLoomClient__close_worker as _impl
-        return _impl(self)
+        process = self._worker_process
+        self._worker_process = None
+        self._worker_stdout_buffer = b""
+        if process is None:
+            return
+        if process.stdin is not None:
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+        if process.poll() is None:
+            try:
+                process.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                try:
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=0.5)
+        for pipe in (process.stdout, process.stderr):
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
 
     @staticmethod
     def _worker_stderr_preview(process: subprocess.Popen[str]) -> str:
@@ -7085,8 +9066,42 @@ class ShardLoomClient:
         return [str(part) for part in binary]
 
     def _resolved_binary(self) -> Binary:
-        from ._client_transport import ShardLoomClient__resolved_binary as _impl
-        return _impl(self)
+        if self._binary is not None:
+            return self._binary
+        if self._resolved_binary_cache is not None:
+            return self._resolved_binary_cache
+
+        effective_env = self._effective_env()
+        env_binary = effective_env.get(ENV_BINARY)
+        if env_binary:
+            self._resolved_binary_cache = self._resolve_configured_binary(
+                env_binary, effective_env
+            )
+            return self._resolved_binary_cache
+
+        if self._repo_root is not None:
+            candidate = self._repo_binary_candidate()
+            if candidate is not None:
+                self._resolved_binary_cache = candidate
+                return self._resolved_binary_cache
+
+        bundled_binary = self._bundled_binary_candidate()
+        if bundled_binary is not None:
+            self._resolved_binary_cache = bundled_binary
+            return self._resolved_binary_cache
+
+        path_binary = shutil.which("shardloom", path=effective_env.get("PATH"))
+        if path_binary is not None:
+            self._resolved_binary_cache = path_binary
+            return self._resolved_binary_cache
+
+        raise ShardLoomBinaryNotFoundError(
+            "ShardLoom CLI binary could not be resolved. Install a supported "
+            "ShardLoom wheel with a bundled CLI, install the ShardLoom CLI "
+            "package, put `shardloom` on PATH, set SHARDLOOM_BIN to a valid "
+            "binary, or set SHARDLOOM_REPO_ROOT to a checkout with "
+            "target/release or target/debug binaries."
+        )
 
     def _effective_env(self) -> Mapping[str, str]:
         if self._env is None:
@@ -7096,8 +9111,28 @@ class ShardLoomClient:
         return effective_env
 
     def _resolve_configured_binary(self, value: str, env: Mapping[str, str]) -> str:
-        from ._client_transport import ShardLoomClient__resolve_configured_binary as _impl
-        return _impl(self, value, env)
+        configured = value.strip()
+        if configured == "":
+            raise ShardLoomBinaryNotFoundError(f"{ENV_BINARY} must not be empty")
+        if _looks_like_path(configured):
+            candidate = Path(configured).expanduser()
+            if not candidate.is_absolute():
+                candidate = (self._cwd or Path.cwd()) / candidate
+            if candidate.is_file():
+                return str(candidate)
+            raise ShardLoomBinaryNotFoundError(
+                f"{ENV_BINARY} points to {configured!r}, but that file does "
+                "not exist. Set SHARDLOOM_BIN to the compiled ShardLoom CLI "
+                "binary or remove it to use PATH discovery."
+            )
+        resolved = shutil.which(configured, path=env.get("PATH"))
+        if resolved is not None:
+            return resolved
+        raise ShardLoomBinaryNotFoundError(
+            f"{ENV_BINARY}={configured!r} was not found on PATH. Install the "
+            "ShardLoom CLI package, put the binary on PATH, or set "
+            "SHARDLOOM_BIN to an absolute binary path."
+        )
 
     def _repo_binary_candidate(self) -> Path | None:
         suffixes = (".exe", "") if os.name == "nt" else ("",)
@@ -7109,18 +9144,56 @@ class ShardLoomClient:
         return None
 
     def _bundled_binary_candidate(self) -> str | None:
-        from ._client_transport import ShardLoomClient__bundled_binary_candidate as _impl
-        return _impl(self)
+        executable = "shardloom.exe" if os.name == "nt" else "shardloom"
+        for tag in _bundled_cli_platform_tags():
+            resource = importlib_resources.files("shardloom").joinpath(
+                BUNDLED_CLI_RESOURCE_DIR,
+                tag,
+                executable,
+            )
+            try:
+                if not resource.is_file():
+                    continue
+                with importlib_resources.as_file(resource) as candidate:
+                    candidate_path = Path(candidate)
+                    if _is_executable_file(candidate_path):
+                        return str(candidate_path)
+            except (FileNotFoundError, ModuleNotFoundError, OSError):
+                continue
+        return None
 
     @staticmethod
     def _append_json_format(command: list[str]) -> None:
-        from ._client_transport import ShardLoomClient__append_json_format as _impl
-        return _impl(command)
+        if "--format" not in command:
+            command.extend(["--format", "json"])
+            return
+        index = command.index("--format")
+        try:
+            value = command[index + 1]
+        except IndexError as exc:
+            raise ValueError("--format requires a value") from exc
+        if value != "json":
+            raise ValueError("ShardLoom Python client requires --format json")
 
     @staticmethod
     def _parse_stdout(stdout: str, command: Sequence[str]) -> OutputEnvelope:
-        from ._client_transport import ShardLoomClient__parse_stdout as _impl
-        return _impl(stdout, command)
+        first_line = stdout.splitlines()[0] if stdout else ""
+        if not first_line:
+            raise ShardLoomProtocolError(
+                f"ShardLoom command emitted no JSON output: {' '.join(command)}"
+            )
+        try:
+            payload = json.loads(first_line)
+        except json.JSONDecodeError as exc:
+            raise ShardLoomProtocolError(
+                f"ShardLoom command emitted invalid JSON: {exc}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise ShardLoomProtocolError("ShardLoom JSON output envelope must be an object")
+        try:
+            return OutputEnvelope.from_json(payload)
+        except ValueError as exc:
+            raise ShardLoomProtocolError(str(exc)) from exc
 
 
 def _redact_command_for_error(command: Sequence[str]) -> tuple[str, ...]:
@@ -7174,27 +9247,109 @@ def _required_field(envelope: OutputEnvelope, key: str, *, allow_empty: bool = F
 def _iter_fanout_outputs(
     fanout_outputs: FanoutOutputs | None,
 ) -> tuple[tuple[str, str], ...]:
-    from ._client_arguments import _iter_fanout_outputs as _impl
-    return _impl(fanout_outputs)
+    if fanout_outputs is None:
+        return ()
+    if isinstance(fanout_outputs, Mapping):
+        items = fanout_outputs.items()
+    else:
+        items = fanout_outputs
+    normalized: list[tuple[str, str]] = []
+    for item in items:
+        fanout_format, fanout_path = item
+        normalized.append((str(fanout_format), str(fanout_path)))
+    return tuple(normalized)
 
 
 def _schema_command_arg(
     schema: Mapping[str, object] | Sequence[tuple[str, object]] | str | None,
 ) -> str | None:
-    from ._client_arguments import _schema_command_arg as _impl
-    return _impl(schema)
+    if schema is None:
+        return None
+    if isinstance(schema, str):
+        value = schema.strip()
+        return value or None
+    items = schema.items() if isinstance(schema, Mapping) else schema
+    parts: list[str] = []
+    for name, dtype in items:
+        name_text = str(name).strip()
+        dtype_text = str(dtype).strip()
+        if not name_text or not dtype_text:
+            raise ValueError("schema entries must have non-empty column names and dtype values")
+        parts.append(f"{name_text}:{dtype_text}")
+    return ",".join(parts) if parts else None
 
 
 def _source_bindings_command_arg(
     source_bindings: Mapping[str, Mapping[str, object]] | None,
 ) -> str | None:
-    from ._client_arguments import _source_bindings_command_arg as _impl
-    return _impl(source_bindings)
+    if source_bindings is None:
+        return None
+    if not isinstance(source_bindings, Mapping):
+        raise TypeError("source_bindings must be a mapping")
+    if not source_bindings:
+        return None
+    if len(source_bindings) > 128:
+        raise ValueError("source_bindings must contain at most 128 entries")
+
+    normalized: dict[str, dict[str, object]] = {}
+    for uri, binding in source_bindings.items():
+        if not isinstance(uri, str):
+            raise TypeError("source binding URI must be a string")
+        if not isinstance(binding, Mapping):
+            raise TypeError("each source binding must be a mapping")
+        keys = set(binding)
+        if keys - {"input_format", "source_schema", "memory_input", "table_snapshot"} or "input_format" not in keys:
+            raise ValueError(
+                "each source binding requires input_format and optional source_schema, memory_input or table_snapshot"
+            )
+        input_format = binding["input_format"]
+        if not isinstance(input_format, str) or not input_format.strip():
+            raise ValueError("source binding input_format must be a non-empty string")
+        entry: dict[str, object] = {"input_format": input_format}
+        if "table_snapshot" in binding:
+            selection = binding["table_snapshot"]
+            if input_format not in {"iceberg", "delta", "hudi"} or not isinstance(selection, Mapping):
+                raise ValueError("table_snapshot requires an Iceberg, Delta or Hudi selection mapping")
+            if set(selection) - {"snapshot_id", "version", "instant"}:
+                raise ValueError("unknown table snapshot selector")
+            entry["table_snapshot"] = dict(selection)
+        schema_arg = _schema_command_arg(binding.get("source_schema"))
+        if schema_arg is not None:
+            entry["source_schema"] = schema_arg
+        memory_input = binding.get("memory_input")
+        if input_format == "memory":
+            if not uri.startswith("memory://") or schema_arg is not None or not isinstance(memory_input, Mapping):
+                raise ValueError("memory sources require a memory URI and a typed memory_input declaration")
+            entry["memory_input"] = dict(memory_input)
+        elif memory_input is not None:
+            raise ValueError("memory_input cannot be attached to a file source")
+        normalized[uri] = entry
+
+    value = json.dumps(normalized, separators=(",", ":"), ensure_ascii=False)
+    limit = 8 * 1024 * 1024 if any("memory_input" in entry for entry in normalized.values()) else 256 * 1024
+    if len(value.encode("utf-8")) > limit:
+        raise ValueError(f"serialized source_bindings exceed the {limit}-byte input bound")
+    return value
 
 
 def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any], ...]:
-    from ._client_report_values import _jsonl_object_rows as _impl
-    return _impl(value, field_name=field_name)
+    rows: list[Mapping[str, Any]] = []
+    for line_number, line in enumerate(value.splitlines(), start=1):
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ShardLoomProtocolError(
+                f"ShardLoom field {field_name} contains invalid JSONL at line {line_number}"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise ShardLoomProtocolError(
+                f"ShardLoom field {field_name} line {line_number} is not a JSON object"
+            )
+        rows.append(dict(payload))
+    return tuple(rows)
 
 
 def _csv_values(value: str | None) -> tuple[str, ...]:
@@ -7224,8 +9379,15 @@ def _csv_present_values(value: str | None) -> tuple[str, ...]:
 
 
 def _csv_output_plan_required_columns(value: str | None) -> tuple[str, ...]:
-    from ._client_report_values import _csv_output_plan_required_columns as _impl
-    return _impl(value)
+    return tuple(
+        part
+        for part in _csv_values(value)
+        if part.strip().lower()
+        not in {
+            *ABSENT_REFERENCE_VALUES,
+            "not_applicable_inline_result",
+        }
+    )
 
 
 def _csv_reference_values(value: str | None) -> tuple[str, ...]:
@@ -7412,8 +9574,18 @@ def _workflow_remote_source_items(
 
 
 def _signals_arg(signals: str | Sequence[str]) -> str:
-    from ._client_arguments import _signals_arg as _impl
-    return _impl(signals)
+    if isinstance(signals, str):
+        value = signals
+    else:
+        values = [str(signal).strip() for signal in signals]
+        if not values:
+            raise ValueError("signals must not be empty")
+        value = ",".join(values)
+    if value.strip() == "":
+        raise ValueError("signals must not be empty")
+    if any(part.strip() == "" for part in value.split(",")):
+        raise ValueError("signals must not contain empty tokens")
+    return value
 
 
 
@@ -7439,13 +9611,32 @@ def _envelope_is_report_only_or_planned(envelope: OutputEnvelope) -> bool:
 
 
 def _envelope_reports_blocked_or_incomplete(envelope: OutputEnvelope) -> bool:
-    from ._client_arguments import _envelope_reports_blocked_or_incomplete as _impl
-    return _impl(envelope)
+    if envelope.is_error or envelope.has_error_diagnostics:
+        return True
+    for key in BLOCKER_FIELDS:
+        if envelope.field(key) is None:
+            continue
+        value = envelope.field_bool(key)
+        if key.endswith("_allowed"):
+            if value is False:
+                return True
+        elif value is True:
+            return True
+    status = envelope.field("claim_evidence_status") or envelope.field("claim_gate_status")
+    return status in {"needs_evidence", "evidence_missing", "blocked"}
 
 
 def _columns_arg(columns: str | Sequence[str]) -> str:
-    from ._client_arguments import _columns_arg as _impl
-    return _impl(columns)
+    if isinstance(columns, str):
+        value = columns
+    else:
+        values = [str(column) for column in columns]
+        if not values:
+            raise ValueError("columns must not be empty")
+        value = ",".join(values)
+    if value.strip() == "":
+        raise ValueError("columns must not be empty")
+    return value
 
 
 def _append_resource_execution_args(
@@ -7458,8 +9649,18 @@ def _append_resource_execution_args(
     memory_bytes: int | None = None,
     resources: ExecutionResources | None = None,
 ) -> None:
-    from ._client_arguments import _append_resource_execution_args as _impl
-    return _impl(args, option=option, enabled=enabled, memory_gb=memory_gb, max_parallelism=max_parallelism, memory_bytes=memory_bytes, resources=resources)
+    if enabled:
+        allocation = resolve_resources(
+            memory_gb=memory_gb, memory_bytes=memory_bytes, max_parallelism=max_parallelism,
+            resources=resources,
+        )
+        args.append(option)
+        args.extend(resource_command_args(allocation))
+        return
+    if any(value is not None for value in (memory_gb, memory_bytes, max_parallelism, resources)):
+        raise ValueError(
+            "memory_gb and max_parallelism require explicit local execution"
+        )
 
 
 def _append_public_vortex_payload_args(
@@ -7487,8 +9688,91 @@ def _append_public_vortex_payload_args(
     resources: ExecutionResources | None,
     spill: Mapping[str, object] | str | None = None,
 ) -> None:
-    from ._client_arguments import _append_public_vortex_payload_args as _impl
-    return _impl(args, native_vortex_operation_family=native_vortex_operation_family, native_vortex_right_input=native_vortex_right_input, vortex_primitive=vortex_primitive, vortex_predicate=vortex_predicate, vortex_columns=vortex_columns, vortex_source_order_limit=vortex_source_order_limit, vortex_sample_seed=vortex_sample_seed, vortex_sample_fraction=vortex_sample_fraction, vortex_sample_replacement=vortex_sample_replacement, vortex_sample_weight_column=vortex_sample_weight_column, vortex_duplicate_keep=vortex_duplicate_keep, vortex_deduplicate_key_columns=vortex_deduplicate_key_columns, vortex_expression_projection=vortex_expression_projection, vortex_melt_projection=vortex_melt_projection, vortex_explode_projection=vortex_explode_projection, vortex_pivot_projection=vortex_pivot_projection, vortex_rolling_window=vortex_rolling_window, vortex_sort_rows=vortex_sort_rows, vortex_aggregate=vortex_aggregate, resources=resources, spill=spill)
+    if spill is not None:
+        args.extend(["--spill", json.dumps(dict(spill)) if isinstance(spill, Mapping) else spill])
+    if native_vortex_operation_family is not None:
+        args.extend(["--native-vortex-operation-family", native_vortex_operation_family])
+    if native_vortex_right_input is not None:
+        args.extend(["--native-vortex-right-input", str(native_vortex_right_input)])
+    if vortex_primitive is not None:
+        args.extend(["--vortex-primitive", vortex_primitive])
+    if vortex_predicate is not None:
+        args.extend(["--vortex-predicate", vortex_predicate])
+    if vortex_columns is not None:
+        args.extend(["--vortex-columns", _columns_arg(vortex_columns)])
+    if vortex_source_order_limit is not None:
+        args.extend(
+            [
+                "--vortex-source-order-limit",
+                str(_positive_int("vortex_source_order_limit", vortex_source_order_limit)),
+            ]
+        )
+    if vortex_sample_seed is not None:
+        args.extend(
+            [
+                "--vortex-sample-seed",
+                str(_non_negative_int("vortex_sample_seed", vortex_sample_seed)),
+            ]
+        )
+    if vortex_sample_fraction is not None:
+        args.extend(
+            [
+                "--vortex-sample-fraction",
+                _sample_fraction_arg(vortex_sample_fraction),
+            ]
+        )
+    if vortex_sample_replacement:
+        args.append("--vortex-sample-replacement")
+    if vortex_sample_weight_column is not None:
+        column = str(vortex_sample_weight_column).strip()
+        if not column:
+            raise ValueError("vortex_sample_weight_column must not be empty")
+        args.extend(["--vortex-sample-weight-column", column])
+    if vortex_duplicate_keep is not None:
+        args.extend(["--vortex-duplicate-keep", _duplicate_keep_arg(vortex_duplicate_keep)])
+    if vortex_deduplicate_key_columns is not None:
+        args.extend(
+            [
+                "--vortex-deduplicate-key-columns",
+                _columns_arg(vortex_deduplicate_key_columns),
+            ]
+        )
+    if vortex_expression_projection is not None:
+        payload = str(vortex_expression_projection).strip()
+        if not payload:
+            raise ValueError("vortex_expression_projection must not be empty")
+        args.extend(["--vortex-expression-projection", payload])
+    if vortex_melt_projection is not None:
+        payload = str(vortex_melt_projection).strip()
+        if not payload:
+            raise ValueError("vortex_melt_projection must not be empty")
+        args.extend(["--vortex-melt-projection", payload])
+    if vortex_explode_projection is not None:
+        payload = str(vortex_explode_projection).strip()
+        if not payload:
+            raise ValueError("vortex_explode_projection must not be empty")
+        args.extend(["--vortex-explode-projection", payload])
+    if vortex_pivot_projection is not None:
+        payload = str(vortex_pivot_projection).strip()
+        if not payload:
+            raise ValueError("vortex_pivot_projection must not be empty")
+        args.extend(["--vortex-pivot-projection", payload])
+    if vortex_rolling_window is not None:
+        payload = str(vortex_rolling_window).strip()
+        if not payload:
+            raise ValueError("vortex_rolling_window must not be empty")
+        args.extend(["--vortex-rolling-window", payload])
+    if vortex_sort_rows is not None:
+        payload = str(vortex_sort_rows).strip()
+        if not payload:
+            raise ValueError("vortex_sort_rows must not be empty")
+        args.extend(["--vortex-sort-rows", payload])
+    if vortex_aggregate is not None:
+        payload = str(vortex_aggregate).strip()
+        if not payload:
+            raise ValueError("vortex_aggregate must not be empty")
+        args.extend(["--vortex-aggregate", payload])
+    args.extend(resource_command_args(resources))
 
 
 def _positive_int(name: str, value: int) -> int:
@@ -7524,8 +9808,15 @@ def _duplicate_keep_arg(value: str) -> str:
 
 
 def _bundled_cli_platform_tags() -> tuple[str, ...]:
-    from ._client_transport import _bundled_cli_platform_tags as _impl
-    return _impl()
+    system = _normalized_bundled_cli_system_tag()
+    arch = _normalized_bundled_cli_arch_tag()
+    primary = f"{system}-{arch}"
+    aliases: list[str] = [primary]
+    if system == "macos" and arch == "aarch64":
+        aliases.append("macos-arm64")
+    if system == "windows":
+        aliases.append(f"win-{arch}")
+    return tuple(dict.fromkeys(aliases))
 
 
 def _normalized_bundled_cli_system_tag() -> str:

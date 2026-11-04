@@ -211,11 +211,8 @@ impl PlanCore {
                 if !reused {
                     let (operation, reusable) = if !self.statement.is_empty() {
                         (
-                            native::prepare_declared_sql_operation(
+                            native::prepare_sql_operation(
                                 &self.statement,
-                                self.relation
-                                    .as_deref()
-                                    .ok_or_else(|| failed("SQL relation declaration is absent"))?,
                                 resources,
                                 session,
                                 &bindings,

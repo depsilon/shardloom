@@ -251,16 +251,19 @@ the ledger.
 
 Current autonomous execution order:
 
-**November 4 selection and public-construction continuation.** The maintainer
-promotes a coordinated follow-up from merged #1656 before item 19. Begin with
-shared join coordinates and sorted payload validation/retention, alongside
-archived public-clock verification and a bounded construction-only profile.
-Window spans and peer requirements have their own semantic checks. Retained
-native declarations and a compatible lightweight Python facade extend the
-existing public request path. The first targeted controls use existing case
-IDs and explicit correctness counterexamples. Complete-cohort acceptance keeps
-the 1,513.095098453-second engine baseline and separate public-request clocks.
-[Scope and contracts](native-selection-retention-2026-11-04.md).
+**November 4 selection and public-construction disposition: dropped.** The
+coordinated follow-up from merged #1656 completed one isolated original 10,000-
+request pass. All results passed, but engine time increased from 1,513.095098453
+to 1,613.587599075 seconds. Setup decreased while complete-request time increased,
+so both acceptance rules fail. The join-selection, sort-retention, window,
+expression and public-facade changes were restored to the accepted source.
+Preserve their exact rejected diff, bounded diagnostics, complete results and
+regressions. The accepted engine baseline remains 1,513.095098453 seconds;
+no individual component is promoted from this combined observation. Item 19
+remains the next lifecycle item after this investigation's evidence closeout.
+RFC 0044, item 20 and CG-1 through CG-23 retain their independent obligations.
+[Scope and contracts](native-selection-retention-2026-11-04.md) ·
+[Complete outcome](../benchmarks/native-selection-retention-2026-11-04.md).
 
 **November 4 shared-work source checkpoint.** All six promoted investigations
 have retained or dropped dispositions in the completed ledger. One authorized

@@ -214,7 +214,6 @@ fn native_payload_validation_keeps_large_nested_text_out_of_the_retained_grant()
 
 fn order_spec(array: &ArrayRef, nulls: Option<VortexRelationalNullOrder>) -> Spec {
     Spec {
-        retained: None,
         fields: fields(array),
         keys: vec![VortexRelationalOrderKey {
             column: ColumnRef::new("key").unwrap(),
@@ -474,7 +473,7 @@ fn recursive_payload_validation_uses_only_selected_list_and_dictionary_domains()
 }
 
 #[test]
-fn recursive_payload_validation_checks_missing_parent_coordinates_without_scalar_defaults() {
+fn recursive_payload_validation_keeps_missing_parent_coordinates_on_original_path() {
     let child = record(
         vec![(
             "hidden",
@@ -499,8 +498,8 @@ fn recursive_payload_validation_checks_missing_parent_coordinates_without_scalar
     #[cfg(debug_assertions)]
     {
         let counts = observe_validation(&array);
-        assert_eq!(counts.payload_recursive_typed_validation_columns, 3);
-        assert_eq!(counts.payload_numeric_validation_rows, 8);
-        assert_eq!(counts.payload_validation_scalar_calls, 0);
+        assert_eq!(counts.payload_recursive_typed_validation_columns, 1);
+        assert_eq!(counts.payload_numeric_validation_rows, 2);
+        assert_eq!(counts.payload_validation_scalar_calls, 6);
     }
 }

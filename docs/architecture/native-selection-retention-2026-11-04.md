@@ -1,4 +1,4 @@
-# Shared selection, retention and public construction
+# Shared selection, retention and public construction investigation
 
 ## Status and scope
 
@@ -9,12 +9,23 @@ complete-cohort baseline is 1,513.095098453 engine seconds for the existing
 explicit sequencing update. RFC 0044, item 20 and CG-1 through CG-23 keep their
 independent obligations.
 
-The first execution work unit combines shared join coordinates with sorted
+**Disposition: dropped after the complete cohort.** The combined candidate
+`ea5fc5988b0453a5b64289bed82e9440c0a2e04c` returned all 10,000 expected results,
+but engine time increased to 1,613.587599075 seconds. Setup decreased, while
+complete-request time also increased. Both acceptance rules fail. The 98 changed
+product, product-test and generated-reference paths were restored exactly to
+`ac20b82118a4626bc5f47b530842318ed006f0d7`; the accepted engine baseline remains
+1,513.095098453 seconds. The source diff, unsuccessful preparation/check attempts,
+bounded diagnostics and complete observation remain in the portable evidence.
+[Outcome and limitations](../benchmarks/native-selection-retention-2026-11-04.md).
+
+The investigated execution work unit combined shared join coordinates with sorted
 payload validation and retention. A coordinated public-request workstream starts
 with construction-only attribution and preserves the existing Python contracts.
 Window partition spans and peer discovery have a separate correctness boundary.
 Computed projection proofs and dictionary unary-expression reuse follow the
-first work unit. Every candidate remains pending measurement and acceptance.
+first work unit. The sections below describe the rejected implementation and its
+contracts; they do not describe changes retained in the accepted engine.
 
 ## Existing owners and Vortex provider check
 
@@ -222,12 +233,23 @@ instrumented collection attribution; those observations are not scored controls.
 
 Before the combined release build, strict formatting and both lint configurations
 passed. Native-feature workspace tests passed 6,926 tests, with 36 ignored; the
-default workspace passed 3,319, with none ignored. The Python core shard ran
-1,145 tests, with 57 environment-dependent skips. Its two remaining errors came
+default workspace passed 3,319, with none ignored. The Python core shard log
+reported 817 tests run and 57 skip entries. Its JSON receipt's 1,145 is a planned
+test count, and the original inferred pass count is withdrawn in the outcome
+report while the original receipt remains preserved. Its two remaining failures came
 from historical evidence files excluded by the sparse checkout; after restoring
 those files, both affected tests passed without a product change. Eleven public
-compatibility tests passed. Installed-package validation and complete-cohort
-acceptance remain pending.
+compatibility tests passed. The installed package passed 314 tests with no failures,
+errors or skips. The combined 24-control set passed all 671 expected rows in
+48.104409003 engine seconds against 53.692952583 for those same saved requests.
+The separately instrumented two-request collection diagnostic preserved complete
+reports and rows. Neither diagnostic establishes complete-cohort acceptance.
+
+The complete cohort subsequently failed performance acceptance despite correct
+results. No individual component receives a retained disposition from the
+combined observation. The cold construction profile and operation counters
+remain investigative evidence; they do not establish a component's isolated
+contribution to the full-cohort difference.
 
 ## Applied work observations
 

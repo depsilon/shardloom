@@ -217,7 +217,6 @@ fn evaluate_group<'s>(
     let rows =
         usize::try_from(ordered.rows()).map_err(|_| failed("window partition count overflow"))?;
     let mut start = 0;
-    let mut partitions = 0;
     while start < rows {
         let mut scan = Lookup::<2>::new(&ordered, &layout.group_names, context)?;
         let mut end = start + 1;
@@ -248,17 +247,10 @@ fn evaluate_group<'s>(
         add(&mut report.lookup_blocks, input.lookup.blocks)?;
         add(&mut report.partitions, 1)?;
         start = end;
-        partitions += 1;
     }
     ordered.finish(context)?;
     add(&mut report.groups, 1)?;
-    let result = results.retain(context)?;
-    context.record_window_work(crate::native_window_work::Report::partitions(
-        partitions,
-        rows,
-        group.requires_peers(spec),
-    ))?;
-    Ok(result)
+    results.retain(context)
 }
 
 fn same(

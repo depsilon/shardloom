@@ -223,14 +223,10 @@ def native_declaration(backend, frame, spill=None):
     while pending:
         current, ready = pending.pop()
         state = current._native_plan
-        def source_key():
-            return tuple((source.uri, source.source_format, source.table_snapshot)
-                         for source in current._declared_sources())
-        # The frame's immutable declaration cannot change between actions. File
-        # generations and resources are still checked by every native admission.
-        from .query import LazyFrame
-        declared_key = state.describe("source_key", source_key) if type(current) is LazyFrame else source_key()
-        key = (id(backend), spill, declared_key)
+        key = (id(backend), spill, tuple(
+            (source.uri, source.source_format, source.table_snapshot)
+            for source in current._declared_sources()
+        ))
         with state.lock:
             cached = state.key == key and state.plan is not None
         if cached:

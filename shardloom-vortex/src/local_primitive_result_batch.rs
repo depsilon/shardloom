@@ -389,33 +389,6 @@ pub(super) fn width(dtype: &DType) -> Result<usize> {
     }
 }
 
-pub(super) fn validate_null(dtype: &DType) -> Result<()> {
-    if dtype.is_nullable() {
-        Ok(())
-    } else {
-        Err(failed("null in a nonnullable output column"))
-    }
-}
-
-/// An omitted all-NULL column needs its declaration checked, with no buffers.
-#[cfg(unix)]
-pub(super) fn validate_null_column(dtype: &DType, rows: usize) -> Result<()> {
-    let stride = width(dtype)?;
-    if !matches!(dtype, DType::Bool(_)) {
-        multiply(
-            add(
-                rows,
-                usize::from(matches!(dtype, DType::Utf8(_) | DType::Binary(_))),
-            )?,
-            stride,
-        )?;
-    }
-    if rows != 0 {
-        validate_null(dtype)?;
-    }
-    Ok(())
-}
-
 /// Compute the logical buffer footprint before allocating any payload, including
 /// the conservative metadata grant needed by native heterogeneous scalar columns.
 /// The repeatable accessor reads completed state only; UTF8 bytes are copied
@@ -626,7 +599,6 @@ pub(super) fn validate_numeric_column(
     valid: &vortex::mask::Mask,
     allocator: &HostAllocatorRef,
     float_policy: shardloom_core::FloatPolicy,
-    observed: impl Fn(usize) -> bool,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<()> {
     numeric::validate_column(
@@ -635,7 +607,6 @@ pub(super) fn validate_numeric_column(
         valid,
         allocator,
         float_policy,
-        observed,
         check_cancelled,
     )
 }
@@ -732,7 +703,9 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
         let value = value(row)?;
         let keep = !PREFIX || row < retained;
         if matches!(value, Value::Null) {
-            validate_null(dtype)?;
+            if !dtype.is_nullable() {
+                return Err(failed("null in a nonnullable output column"));
+            }
         } else {
             if keep && let Some(validity) = validity.as_mut() {
                 set_bit(validity, row);

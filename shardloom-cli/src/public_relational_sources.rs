@@ -102,29 +102,11 @@ pub(crate) fn prepare_in_session_with_reuse(
     ) -> Result<(), ShardLoomError>,
     cancellation: &CancellationToken,
 ) -> Result<(PreparedVortexRelational, bool), ShardLoomError> {
-    prepare_declared_in_session(statement, None, request, session, inputs, cancellation)
-}
-
-/// Retain syntax only after the existing typed-statement normalization. Each
-/// action still reserves metadata and validates source bindings and generations.
-pub(crate) fn prepare_declared_in_session(
-    statement: &str,
-    declaration: Option<&crate::native::NativeRelationDeclaration>,
-    request: &PublicWorkflowRouteRequest,
-    session: &shardloom_vortex::resident_session::ResidentVortexSession,
-    inputs: impl FnOnce(
-        &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<
-            '_,
-        >,
-    ) -> Result<(), ShardLoomError>,
-    cancellation: &CancellationToken,
-) -> Result<(PreparedVortexRelational, bool), ShardLoomError> {
     cancellation.check()?;
     let statement = super::super::resident_sql::typed_statement(statement, request, false);
     let statement = statement.as_ref();
     prepare_sql_in_session(
         statement,
-        declaration,
         request,
         session,
         inputs,
@@ -136,7 +118,6 @@ pub(crate) fn prepare_declared_in_session(
 
 fn prepare_sql_in_session(
     statement: &str,
-    declaration: Option<&crate::native::NativeRelationDeclaration>,
     request: &PublicWorkflowRouteRequest,
     session: &shardloom_vortex::resident_session::ResidentVortexSession,
     inputs: impl FnOnce(
@@ -155,18 +136,10 @@ fn prepare_sql_in_session(
         .ok_or_else(|| failed("SQL parser metadata size overflow"))?;
     let mut metadata = session.reserve_input_scratch(bytes as u64)?;
     validate_bindings(statement, request)?;
-    let fresh;
-    let declaration = if let Some(declaration) =
-        declaration.filter(|declaration| declaration.matches_statement(statement))
-    {
-        declaration
-    } else {
-        fresh = crate::native::NativeRelationDeclaration::sql(statement, Vec::new())?;
-        &fresh
-    };
+    let declaration = crate::native::NativeRelationDeclaration::sql(statement, Vec::new())?;
     metadata.resize((bytes.max(declaration.metadata_bytes)) as u64)?;
     typed::prepare_native_with_sources(
-        declaration,
+        &declaration,
         request,
         session,
         inputs,
@@ -200,7 +173,6 @@ pub(super) fn prepare_with_source_in_session(
     let statement = statement.as_ref();
     let (operation, _, normalized) = prepare_sql_in_session(
         statement,
-        None,
         request,
         session,
         |schemas| {
@@ -287,7 +259,6 @@ pub(super) fn prepare_with_input_adapter_and_policies(
     cancellation.check()?;
     let (operation, _, normalized) = prepare_sql_in_session(
         statement,
-        None,
         request,
         &session,
         |schemas| {

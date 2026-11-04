@@ -4,7 +4,7 @@ use super::{
     CopyPolicy, CopyState, NativeNumericOwner, ReservedVec, Value, check, copy_rows, result_batch,
     vortex_error,
 };
-use crate::{native_payload_work::Counter, resident_session::NativeExecutionContext};
+use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
     ArrayRef, Columnar, ExecutionCtx, IntoArray, VortexSessionExecute as _, arrays::PrimitiveArray,
@@ -40,7 +40,7 @@ pub(in crate::local_primitives) fn validate_record(
         }
         drop(copy_rows::<false>(
             Some(array),
-            super::Rows::Values(&rows.values),
+            &rows.values,
             array.dtype(),
             CopyState::unmeasured(CopyPolicy::ValidateValues),
             context,
@@ -69,7 +69,6 @@ pub(in crate::local_primitives) fn validate_record(
             &column,
             dtype,
             array.len(),
-            None,
             numeric.as_ref(),
             &mut execution,
             context,
@@ -106,36 +105,23 @@ pub(super) fn validate_typed_column(
     column: &ArrayRef,
     dtype: &DType,
     rows: usize,
-    presence: Option<super::Rows<'_>>,
     numeric: Option<&NativeNumericOwner>,
     execution: &mut ExecutionCtx,
     context: &NativeExecutionContext<'_>,
 ) -> Result<bool> {
-    if column.len() != rows
-        || column.dtype().as_nonnullable() != dtype.as_nonnullable()
-        || (presence.is_none() && column.dtype() != dtype)
-    {
+    if column.dtype() != dtype || column.len() != rows {
         return Ok(false);
     }
-    let validated = if let Some(numeric) = numeric {
+    if let Some(numeric) = numeric {
         result_batch::validate_numeric_column(
             dtype,
             numeric.primitive(),
             numeric.validity(),
             &context.native_session().host_allocator(),
             context.float_policy(),
-            |row| presence.is_none_or(|rows| rows.get(row).is_some()),
             || context.check_cancelled(),
         )?;
-        true
-    } else {
-        typed::validate(column, dtype, presence, execution, context)?
-    };
-    if validated {
-        context.record_payload_work(&[
-            (Counter::TypedValidationColumns, 1),
-            (Counter::TypedValidationRows, rows as u64),
-        ])?;
+        return Ok(true);
     }
-    Ok(validated)
+    typed::validate(column, execution, context)
 }

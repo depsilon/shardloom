@@ -44,7 +44,6 @@ fn fixture() -> ArrayRef {
 fn binding(array: &ArrayRef) -> super::super::Spec {
     let fields = array.dtype().as_struct_fields();
     super::super::Spec {
-        retained: None,
         fields: fields
             .names()
             .iter()
@@ -217,12 +216,9 @@ fn adaptive_sort_keeps_unvalidated_payload_error_windows_under_pressure() {
         Validity::NonNullable,
     )
     .into_array();
+    let spec = binding(&input);
     let mut errors = Vec::new();
-    for (pressured, omitted) in [(false, false), (true, false), (false, true), (true, true)] {
-        let mut spec = binding(&input);
-        if omitted {
-            spec.retained = Some(vec![true, false, false, false]);
-        }
+    for pressured in [false, true] {
         let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
         session
             .with_native_execution_context(&CancellationToken::default(), |context| {
@@ -246,174 +242,5 @@ fn adaptive_sort_keeps_unvalidated_payload_error_windows_under_pressure() {
             .unwrap();
         assert_eq!(session.memory().snapshot().reserved_bytes, 0);
     }
-    assert!(errors.iter().all(|error| error == &errors[0]));
-}
-
-#[test]
-fn unvalidated_sort_retains_only_the_requested_nested_and_decimal_prefix() {
-    let wide = fixture();
-    let input = StructArray::new(
-        FieldNames::from(["key", "id", "wide", "decimal"]),
-        vec![
-            logical_field_from_native_array(&wide, "key").unwrap(),
-            logical_field_from_native_array(&wide, "id").unwrap(),
-            logical_field_from_native_array(&wide, "wide").unwrap(),
-            DecimalArray::from_option_iter(
-                (0..ROWS).map(|row| (row % 7 != 0).then_some(row as i128)),
-                DecimalDType::new(3, 0),
-            )
-            .into_array(),
-        ],
-        ROWS,
-        Validity::NonNullable,
-    )
-    .into_array();
-    let spec = binding(&input);
-    let mut expected = (0..ROWS as u64).collect::<Vec<_>>();
-    expected.sort_by_key(|row| ((ROWS as u64 - row) % 7, *row));
-    for cap in [0, 1, 7, 31, 32, 33, ROWS, ROWS + 1] {
-        let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
-        session.with_native_execution_context(&CancellationToken::default(), |context| {
-            let mut sort = Sort::new(&spec, context.memory())?;
-            sort.build(input.clone(), context)?;
-            let mut actual = Vec::new();
-            #[cfg(debug_assertions)]
-            let observation = crate::local_primitives::native_relational_observation::Session::start();
-            sort.finish_prefix(context, 32, Some(cap), false, &mut |array| {
-                let ids = verify_rows(&array, context)?;
-                let decimals = logical_field_from_native_array(&array, "decimal")?;
-                let mut execution = context.native_session().create_execution_ctx();
-                for (row, id) in ids.iter().enumerate() {
-                    let value = result_batch::scalar_value(&decimals, row, &mut execution)?;
-                    if id % 7 == 0 {
-                        assert!(matches!(value, result_batch::Value::Null));
-                    } else {
-                        assert!(matches!(value, result_batch::Value::Decimal(value, _) if value == i128::from(*id)));
-                    }
-                }
-                actual.extend(ids);
-                Ok(())
-            })?;
-            assert_eq!(actual, expected[..cap.min(ROWS)]);
-            #[cfg(debug_assertions)]
-            {
-                let counts = observation.finish();
-                assert_eq!(counts.sort_output_rows_constructed, cap.min(ROWS) as u64);
-                assert_eq!(counts.sort_payload_rows_validated, ROWS as u64);
-            }
-            Ok(())
-        }).unwrap();
-        assert_eq!(session.memory().snapshot().reserved_bytes, 0);
-    }
-}
-
-#[test]
-fn sort_delivery_omits_keys_and_wide_payloads_after_complete_validation() {
-    let mut expected = (0..ROWS as u64).collect::<Vec<_>>();
-    expected.sort_by_key(|row| ((ROWS as u64 - row) % 7, *row));
-    for validated in [false, true] {
-        for cap in [0, 1, 7, 31, 32, 33, ROWS, ROWS + 1] {
-            let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
-            let memory = session.memory().clone();
-            let held = session
-                .with_native_execution_context(&CancellationToken::default(), |context| {
-                    let input = native_payload::detach(&fixture(), context)?;
-                    let mut spec = binding(&input);
-                    spec.retained = Some(vec![false, true, false]);
-                    let mut sort = Sort::new(&spec, context.memory())?;
-                    sort.build(input, context)?;
-                    // Internal compaction keeps ordering keys and all payloads.
-                    let record = sort.gather_rows(&[0, 1], context)?;
-                    assert_eq!(record.dtype().as_struct_fields().names().len(), 3);
-                    drop(record);
-                    let mut actual = Vec::new();
-                    let mut held = None;
-                    #[cfg(debug_assertions)]
-                    let observation =
-                        crate::local_primitives::native_relational_observation::Session::start();
-                    sort.finish_prefix(context, 32, Some(cap), validated, &mut |array| {
-                        assert_eq!(
-                            array.dtype().as_struct_fields().names(),
-                            &FieldNames::from(["id"])
-                        );
-                        let ids = logical_field_from_native_array(&array, "id")?;
-                        let mut execution = context.native_session().create_execution_ctx();
-                        for row in 0..array.len() {
-                            let result_batch::Value::UInt(id) =
-                                result_batch::scalar_value(&ids, row, &mut execution)?
-                            else {
-                                panic!("id must remain unsigned")
-                            };
-                            actual.push(id);
-                        }
-                        held = Some(array);
-                        Ok(())
-                    })?;
-                    assert_eq!(actual, expected[..cap.min(ROWS)]);
-                    #[cfg(debug_assertions)]
-                    {
-                        let counts = observation.finish();
-                        let observed = if validated { cap.min(ROWS) } else { ROWS };
-                        assert_eq!(counts.sort_output_cells_constructed, cap.min(ROWS) as u64);
-                        assert_eq!(
-                            counts.sort_payload_validation_only_cells,
-                            observed as u64 * 2
-                        );
-                    }
-                    Ok(held)
-                })
-                .unwrap();
-            drop(session);
-            if cap != 0 {
-                assert!(memory.snapshot().reserved_bytes > 0);
-            }
-            drop(held);
-            assert_eq!(memory.snapshot().reserved_bytes, 0);
-        }
-    }
-}
-
-#[test]
-fn streaming_prefix_keeps_internal_fields_until_masked_delivery() {
-    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
-    session
-        .with_native_execution_context(&CancellationToken::default(), |context| {
-            let input = fixture();
-            let mut spec = binding(&input);
-            spec.retained = Some(vec![false, true, false]);
-            let mut sort =
-                super::super::StreamingPrefix::try_new(&spec, Some(7), context)?.unwrap();
-            for start in (0..ROWS).step_by(13) {
-                sort.build(
-                    input
-                        .slice(start..(start + 13).min(ROWS))
-                        .map_err(vortex_error)?,
-                    context,
-                )?;
-            }
-            let mut actual = Vec::new();
-            sort.finish(context, 3, &mut |array| {
-                assert_eq!(
-                    array.dtype().as_struct_fields().names(),
-                    &FieldNames::from(["id"])
-                );
-                let ids = logical_field_from_native_array(&array, "id")?;
-                let mut execution = context.native_session().create_execution_ctx();
-                for row in 0..array.len() {
-                    let result_batch::Value::UInt(id) =
-                        result_batch::scalar_value(&ids, row, &mut execution)?
-                    else {
-                        panic!("id must remain unsigned")
-                    };
-                    actual.push(id);
-                }
-                Ok(())
-            })?;
-            let mut expected = (0..ROWS as u64).collect::<Vec<_>>();
-            expected.sort_by_key(|row| ((ROWS as u64 - row) % 7, *row));
-            assert_eq!(actual, expected[..7]);
-            Ok(())
-        })
-        .unwrap();
-    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+    assert_eq!(errors[0], errors[1]);
 }
