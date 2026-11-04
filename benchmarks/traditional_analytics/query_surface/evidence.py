@@ -115,7 +115,7 @@ def _checked_receipt(path, frozen):
     return record, strict_json(Path(record["stdout"]).read_text())
 
 
-def validate_prepared(path, dataset, manifest):
+def validate_prepared(path, dataset, manifest, *, parquet_sources=None):
     """Require one exact hashed source and complete readback for every input part.
 
     Receipts are local reproducibility evidence, not authenticated signatures.
@@ -128,6 +128,40 @@ def validate_prepared(path, dataset, manifest):
             or set(prepared["sources"]) != set(manifest["tables"])):
         raise ValueError("prepared inputs do not have the selected logical identity/readback")
     frozen = [identity(path)]
+    physical = prepared.get("physical_sources")
+    if physical is not None:
+        if parquet_sources is None or not isinstance(physical, dict) or not isinstance(parquet_sources, dict):
+            raise ValueError("Parquet prepared inputs require their source mapping")
+        if set(physical) != set(manifest["tables"]) or set(parquet_sources) != set(manifest["tables"]):
+            raise ValueError("Parquet source tables differ from the manifest")
+        seen_physical, seen_physical_files = set(), set()
+        for table, record in manifest["tables"].items():
+            recorded = physical[table]
+            candidates = parquet_sources[table]
+            if (not isinstance(recorded, list) or not isinstance(candidates, list)
+                    or len(recorded) != len(record["files"]) or len(candidates) != len(record["files"])):
+                raise ValueError("Parquet source parts differ from the manifest layout")
+            for item, candidate in zip(recorded, candidates):
+                if not isinstance(candidate, str):
+                    raise ValueError("Parquet sources must be absolute path strings")
+                candidate_path = Path(candidate)
+                if (not candidate_path.is_absolute() or candidate_path.suffix != ".parquet"
+                        or candidate_path.is_symlink() or not candidate_path.is_file()
+                        or str(candidate_path) in seen_physical):
+                    raise ValueError("Parquet sources must be unique absolute regular .parquet files")
+                seen_physical.add(str(candidate_path))
+                if not isinstance(item, dict) or item.get("path") != str(candidate_path):
+                    raise ValueError("prepared Parquet source path differs from the selected source")
+                actual = identity(candidate_path)
+                if actual != item:
+                    raise ValueError("frozen Parquet source identity changed")
+                file_key = (actual["generation"]["device"], actual["generation"]["inode"])
+                if file_key in seen_physical_files:
+                    raise ValueError("Parquet sources must identify distinct regular files")
+                seen_physical_files.add(file_key)
+                frozen.append(actual)
+    elif parquet_sources is not None:
+        raise ValueError("selected Parquet sources are absent from prepared inputs")
     paths = [name for members in prepared["sources"].values() for name in members]
     input_paths = [item["path"] for item in prepared["inputs"]]
     if len(set(paths)) != len(paths) or len(set(input_paths)) != len(input_paths) or set(paths) != set(input_paths):
@@ -138,10 +172,15 @@ def validate_prepared(path, dataset, manifest):
     for table, record in manifest["tables"].items():
         if len(prepared["sources"][table]) != len(record["files"]):
             raise ValueError("prepared table parts differ from the source layout")
-        for native, source in zip(prepared["sources"][table], record["files"]):
+        for index, (native, source) in enumerate(zip(prepared["sources"][table], record["files"])):
             if not Path(native).is_absolute():
                 raise ValueError("prepared source must be an absolute path")
-            expected[native] = (str(dataset / source["path"]), source["rows"], record["schema"])
+            readback_source = str(dataset / source["path"])
+            if physical is None:
+                expected[native] = (readback_source, readback_source, "arrow-ipc", source["rows"], record["schema"])
+            else:
+                physical_item = physical[table][index]
+                expected[native] = (physical_item["path"], readback_source, "parquet", source["rows"], record["schema"])
     for item in prepared["inputs"]:
         if identity(Path(item["path"])) != item:
             raise ValueError("frozen prepared input changed")
@@ -166,8 +205,12 @@ def validate_prepared(path, dataset, manifest):
         native = job["native_path"]
         if native not in expected or native in checked or job["kind"] != "readback":
             raise ValueError("readback has a duplicate or unrelated native source")
-        source, rows, schema = expected[native]
-        if (job["source_paths"] != [source] or prep["command"][1:4] != ["vortex-prepare", source, native]
+        source, readback_source, input_format, rows, schema = expected[native]
+        command = prep["command"]
+        format_index = command.index("--input-format") if "--input-format" in command else -1
+        format_ok = format_index >= 0 and format_index + 1 < len(command) and command[format_index + 1] == input_format
+        if (job["source_paths"] != [readback_source] or command[1:4] != ["vortex-prepare", source, native]
+                or (physical is not None and not format_ok)
                 or fields.get("source_path") != source or fields.get("reopen_row_count") != str(rows)
                 or result.get("status") != "passed" or type(result.get("checked_rows")) is not int
                 or result.get("checked_rows") != rows or result.get("source_rows") != rows

@@ -1,0 +1,610 @@
+{
+  "status": "verified",
+  "primary_input": "existing 1M prepared generation with historical complete readback",
+  "new_source": "equivalent Parquet, each persisted part checked against its original Arrow IPC",
+  "primary_rows": 1000000,
+  "parts": [
+    {
+      "profile": "smoke",
+      "table": "fact",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/smoke/parquet/fact-00000.parquet",
+      "input_bytes": 40840,
+      "prepared_bytes": 96214,
+      "reopened_rows": 257,
+      "preparation_process_seconds": 0.03163104201667011,
+      "peak_rss_bytes": 35487744,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/smoke-logs/prepare-fact-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833793,
+          "bytes": 1455,
+          "mtime_ns": 1793725156971083762,
+          "ctime_ns": 1793725156971083762
+        },
+        "sha256": "2fabc6b037a5369dd05473a8936515a4af0ce5bd933ba27b874f8c315dea331c"
+      },
+      "observed_work": {
+        "source_bytes": "40840",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "40",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "37333",
+        "vortex_ingest_stream_projection_work_nanos": "9209",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "350458",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "38501",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "708",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "107708"
+      }
+    },
+    {
+      "profile": "smoke",
+      "table": "entities",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/smoke/parquet/entities-00000.parquet",
+      "input_bytes": 2027,
+      "prepared_bytes": 7446,
+      "reopened_rows": 31,
+      "preparation_process_seconds": 0.01081862486898899,
+      "peak_rss_bytes": 28884992,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/smoke-logs/prepare-entities-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833808,
+          "bytes": 1473,
+          "mtime_ns": 1793725157311486789,
+          "ctime_ns": 1793725157311486789
+        },
+        "sha256": "75de4b6fa331ee5d7e6e6c282a8e83023c0f507e499237d636e49982cd92c38f"
+      },
+      "observed_work": {
+        "source_bytes": "2027",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "5",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "2792",
+        "vortex_ingest_stream_projection_work_nanos": "1292",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "32542",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "12334",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "541",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "12042"
+      }
+    },
+    {
+      "profile": "smoke",
+      "table": "products",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/smoke/parquet/products-00000.parquet",
+      "input_bytes": 1283,
+      "prepared_bytes": 4942,
+      "reopened_rows": 11,
+      "preparation_process_seconds": 0.010582166956737638,
+      "peak_rss_bytes": 26853376,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/smoke-logs/prepare-products-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833824,
+          "bytes": 1474,
+          "mtime_ns": 1793725157523098818,
+          "ctime_ns": 1793725157523098818
+        },
+        "sha256": "e93b3f086a7c35b89a34d117b946b288c071ff3a5d09d064b8f1340b150a8551"
+      },
+      "observed_work": {
+        "source_bytes": "1283",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "1041",
+        "vortex_ingest_stream_projection_work_nanos": "917",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "33416",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "9917",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "834",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "11375"
+      }
+    },
+    {
+      "profile": "smoke",
+      "table": "relationships",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/smoke/parquet/relationships-00000.parquet",
+      "input_bytes": 2077,
+      "prepared_bytes": 7291,
+      "reopened_rows": 79,
+      "preparation_process_seconds": 0.009941333904862404,
+      "peak_rss_bytes": 25296896,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/smoke-logs/prepare-relationships-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833838,
+          "bytes": 1482,
+          "mtime_ns": 1793725157731910547,
+          "ctime_ns": 1793725157731910547
+        },
+        "sha256": "2a1cf88f3581c202fcd888df76b1f64fc4ffba1e7e9bbd7de51e69903c277044"
+      },
+      "observed_work": {
+        "source_bytes": "2077",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "4",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "833",
+        "vortex_ingest_stream_projection_work_nanos": "1208",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "34875",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "7625",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "583",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "15542"
+      }
+    },
+    {
+      "profile": "smoke",
+      "table": "calendar",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/smoke/parquet/calendar-00000.parquet",
+      "input_bytes": 1297,
+      "prepared_bytes": 4442,
+      "reopened_rows": 37,
+      "preparation_process_seconds": 0.009897666983306408,
+      "peak_rss_bytes": 25493504,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/smoke-logs/prepare-calendar-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833852,
+          "bytes": 1462,
+          "mtime_ns": 1793725157945029372,
+          "ctime_ns": 1793725157945029372
+        },
+        "sha256": "0146f08d6d685ecd872f6812857465198ad829099296d030606ff5d8d9a097ea"
+      },
+      "observed_work": {
+        "source_bytes": "1297",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "667",
+        "vortex_ingest_stream_projection_work_nanos": "916",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "34875",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "10292",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "583",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "13083"
+      }
+    },
+    {
+      "profile": "holdout",
+      "table": "fact",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/holdout/parquet/fact-00000.parquet",
+      "input_bytes": 10882405,
+      "prepared_bytes": 12548104,
+      "reopened_rows": 100003,
+      "preparation_process_seconds": 0.2565982909873128,
+      "peak_rss_bytes": 75268096,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/holdout-logs/prepare-fact-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833869,
+          "bytes": 1450,
+          "mtime_ns": 1793725158415267442,
+          "ctime_ns": 1793725158415267442
+        },
+        "sha256": "50a1ae226568438b42fd517babf1d5635fe73d710420cb1d67e656f90a00e7d1"
+      },
+      "observed_work": {
+        "source_bytes": "10882405",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "40",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "1125541",
+        "vortex_ingest_stream_projection_work_nanos": "6208",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "3869250",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "20318584",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "22904333",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "3606458"
+      }
+    },
+    {
+      "profile": "holdout",
+      "table": "entities",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/holdout/parquet/entities-00000.parquet",
+      "input_bytes": 156234,
+      "prepared_bytes": 127696,
+      "reopened_rows": 12101,
+      "preparation_process_seconds": 0.01784183387644589,
+      "peak_rss_bytes": 32260096,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/holdout-logs/prepare-entities-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833891,
+          "bytes": 1493,
+          "mtime_ns": 1793725159061712479,
+          "ctime_ns": 1793725159061712479
+        },
+        "sha256": "20d836fa469a2fefd018bb0f0541202419a5b9f88c5f555b6d07aff9a08a4519"
+      },
+      "observed_work": {
+        "source_bytes": "156234",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "5",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "7584",
+        "vortex_ingest_stream_projection_work_nanos": "1374",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "76125",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "1762291",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "2074166",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "51999"
+      }
+    },
+    {
+      "profile": "holdout",
+      "table": "products",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/holdout/parquet/products-00000.parquet",
+      "input_bytes": 8616,
+      "prepared_bytes": 9504,
+      "reopened_rows": 997,
+      "preparation_process_seconds": 0.010048208991065621,
+      "peak_rss_bytes": 27230208,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/holdout-logs/prepare-products-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833905,
+          "bytes": 1470,
+          "mtime_ns": 1793725159271275002,
+          "ctime_ns": 1793725159271275002
+        },
+        "sha256": "570aadd6db750d1ea6adf190a0ea3fdb5d9b829269228b4708e116e88c4b98af"
+      },
+      "observed_work": {
+        "source_bytes": "8616",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "1542",
+        "vortex_ingest_stream_projection_work_nanos": "958",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "53125",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "10459",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "625",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "34625"
+      }
+    },
+    {
+      "profile": "holdout",
+      "table": "relationships",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/holdout/parquet/relationships-00000.parquet",
+      "input_bytes": 257127,
+      "prepared_bytes": 172477,
+      "reopened_rows": 24117,
+      "preparation_process_seconds": 0.012312916805967689,
+      "peak_rss_bytes": 27312128,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/holdout-logs/prepare-relationships-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833920,
+          "bytes": 1501,
+          "mtime_ns": 1793725159475671177,
+          "ctime_ns": 1793725159475671177
+        },
+        "sha256": "dcd64906db6a920f61735b245694d7798f5a0e5c34c1666651663c2f18bdb119"
+      },
+      "observed_work": {
+        "source_bytes": "257127",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "4",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "1208",
+        "vortex_ingest_stream_projection_work_nanos": "1500",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "44250",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "208542",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "664459",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "21334"
+      }
+    },
+    {
+      "profile": "holdout",
+      "table": "calendar",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/holdout/parquet/calendar-00000.parquet",
+      "input_bytes": 6484,
+      "prepared_bytes": 7892,
+      "reopened_rows": 731,
+      "preparation_process_seconds": 0.009283917024731636,
+      "peak_rss_bytes": 25051136,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/holdout-logs/prepare-calendar-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833934,
+          "bytes": 1469,
+          "mtime_ns": 1793725159680844521,
+          "ctime_ns": 1793725159680844521
+        },
+        "sha256": "e1a872250110f23dff3ed826c14ebd4a3d583b35e6c18ec8b7ca9960f4e2d9ff"
+      },
+      "observed_work": {
+        "source_bytes": "6484",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "584",
+        "vortex_ingest_stream_projection_work_nanos": "1042",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "36000",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "10333",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "1000",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "14083"
+      }
+    },
+    {
+      "profile": "scale",
+      "table": "fact",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/scale/parquet/fact-00000.parquet",
+      "input_bytes": 542171434,
+      "prepared_bytes": 608932302,
+      "reopened_rows": 5000000,
+      "preparation_process_seconds": 11.746525791939348,
+      "peak_rss_bytes": 233783296,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/scale-logs/prepare-fact-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156833983,
+          "bytes": 1446,
+          "mtime_ns": 1793725171828886097,
+          "ctime_ns": 1793725171828886097
+        },
+        "sha256": "6bfc8bc542980d7c705c1af78ac4368bdb789a370926a1bb668cee692e98980d"
+      },
+      "observed_work": {
+        "source_bytes": "542171434",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "40",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "53272553",
+        "vortex_ingest_stream_projection_work_nanos": "177253",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "168317629",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "2138201",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "21485697",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "158478724"
+      }
+    },
+    {
+      "profile": "scale",
+      "table": "entities",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/scale/parquet/entities-00000.parquet",
+      "input_bytes": 4757153,
+      "prepared_bytes": 4017222,
+      "reopened_rows": 500000,
+      "preparation_process_seconds": 0.2848926670849323,
+      "peak_rss_bytes": 41025536,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/scale-logs/prepare-entities-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156834017,
+          "bytes": 1461,
+          "mtime_ns": 1793725192747092639,
+          "ctime_ns": 1793725192747092639
+        },
+        "sha256": "03fa67c7dddacfe19cad7546ee99c697a3e0efe8e7f66959dc61f910ae3ac9ef"
+      },
+      "observed_work": {
+        "source_bytes": "4757153",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "5",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "188380",
+        "vortex_ingest_stream_projection_work_nanos": "16829",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "2124583",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "398786",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "473373",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "1521249"
+      }
+    },
+    {
+      "profile": "scale",
+      "table": "products",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/scale/parquet/products-00000.parquet",
+      "input_bytes": 371971,
+      "prepared_bytes": 162766,
+      "reopened_rows": 50000,
+      "preparation_process_seconds": 0.019307208014652133,
+      "peak_rss_bytes": 31031296,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/scale-logs/prepare-products-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156834031,
+          "bytes": 1475,
+          "mtime_ns": 1793725192993735478,
+          "ctime_ns": 1793725192993735478
+        },
+        "sha256": "23a3a25c4d0ca8f21334c75aa10263b290ebe417c4afb2fa95af8d96d11ad456"
+      },
+      "observed_work": {
+        "source_bytes": "371971",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "5624",
+        "vortex_ingest_stream_projection_work_nanos": "1749",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "157084",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "128583",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "3668",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "116792"
+      }
+    },
+    {
+      "profile": "scale",
+      "table": "relationships",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/scale/parquet/relationships-00000.parquet",
+      "input_bytes": 13475717,
+      "prepared_bytes": 6360171,
+      "reopened_rows": 1000000,
+      "preparation_process_seconds": 0.1340714159887284,
+      "peak_rss_bytes": 32735232,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/scale-logs/prepare-relationships-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156834046,
+          "bytes": 1504,
+          "mtime_ns": 1793725193326270607,
+          "ctime_ns": 1793725193326270607
+        },
+        "sha256": "2ea93d2dda1ef169c87f8c86738258d9f629043cb49ca607399c41ac5b7687be"
+      },
+      "observed_work": {
+        "source_bytes": "13475717",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "4",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "25542",
+        "vortex_ingest_stream_projection_work_nanos": "17084",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "383414",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "1668835",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "745665",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "219671"
+      }
+    },
+    {
+      "profile": "scale",
+      "table": "calendar",
+      "source": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/scale/parquet/calendar-00000.parquet",
+      "input_bytes": 6166,
+      "prepared_bytes": 5186,
+      "reopened_rows": 731,
+      "preparation_process_seconds": 0.009389708982780576,
+      "peak_rss_bytes": 25591808,
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/scale-logs/prepare-calendar-00000.receipt.json",
+        "generation": {
+          "device": 16777233,
+          "inode": 156834061,
+          "bytes": 1475,
+          "mtime_ns": 1793725193558672322,
+          "ctime_ns": 1793725193558672322
+        },
+        "sha256": "1d884c4931543d17a2a86b12c22016749db5e6252922c1c507fa13ec5c6fcf31"
+      },
+      "observed_work": {
+        "source_bytes": "6166",
+        "source_state_materialization_layout": "streaming_arrow_record_batch_columnar_source_state",
+        "source_state_materialized_column_count": "3",
+        "vortex_ingest_text_active_nanos": "0",
+        "vortex_ingest_stream_validation_work_nanos": "833",
+        "vortex_ingest_stream_projection_work_nanos": "1125",
+        "vortex_ingest_stream_arrow_conversion_work_nanos": "43667",
+        "vortex_ingest_stream_reader_lock_wait_work_nanos": "8458",
+        "vortex_ingest_stream_ordered_handoff_wait_work_nanos": "625",
+        "vortex_ingest_text_canonicalize_work_nanos": "0",
+        "vortex_ingest_text_compact_work_nanos": "0",
+        "vortex_ingest_text_zstd_work_nanos": "0",
+        "vortex_ingest_numeric_probe_work_nanos": "0",
+        "vortex_ingest_numeric_compress_work_nanos": "0",
+        "vortex_ingest_numeric_preserve_work_nanos": "0",
+        "vortex_ingest_text_dictionary_preserve_work_nanos": "0",
+        "vortex_ingest_stream_arrow_ownership_work_nanos": "24000"
+      }
+    }
+  ],
+  "clock": "one CLI preparation process per part; complete readback, hashing and subsequent queries are separate",
+  "work_scope": "reported owner work counters may overlap; they do not sum to end-to-end elapsed time"
+}

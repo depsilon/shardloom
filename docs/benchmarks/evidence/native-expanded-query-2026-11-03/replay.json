@@ -1,0 +1,23 @@
+{
+  "status": "passed_portable_replay",
+  "index_sha256": "10f0420d0d627fefee23a5275c8fcaa49ffcbb35c6da8bb59d5f60b499f0829d",
+  "cases": 10000,
+  "outcomes": {
+    "polars": {
+      "passed": 10000
+    },
+    "native": {
+      "passed": 9995,
+      "engine_error": 3,
+      "harness_error": 2
+    },
+    "alternate": {
+      "passed": 10,
+      "guard_failed": 1,
+      "engine_error": 1
+    }
+  },
+  "preparation_parts": 15,
+  "query_executions": 0,
+  "external_inputs_reopened": false
+}

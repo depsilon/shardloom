@@ -353,7 +353,7 @@ impl<'a> Subquery<'a> {
                 continue;
             }
             let value = self.compare(left, row, right)?;
-            if value == Some(!all) {
+            if self.spec.decides_reduction(value) {
                 return Ok(value);
             }
             unknown |= value.is_none();
@@ -374,6 +374,16 @@ impl<'a> Subquery<'a> {
 }
 
 impl Spec {
+    fn decides_reduction(&self, value: Option<bool>) -> bool {
+        match value {
+            Some(value) => value != self.empty(),
+            // IN checks its complete-key index first. The remaining candidates
+            // contain a null on at least one side, so none can compare TRUE.
+            // Once one compares UNKNOWN, later rows cannot change that result.
+            None => matches!(self.kind, Kind::In),
+        }
+    }
+
     fn empty(&self) -> bool {
         matches!(
             self.kind,

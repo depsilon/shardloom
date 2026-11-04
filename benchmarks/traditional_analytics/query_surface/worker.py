@@ -58,7 +58,7 @@ def readback(job, native):
         actual = None
         offset = 0
         for path in job["source_paths"]:
-            with pa.memory_map(path, "r") as file:
+            with pa.OSFile(path, "rb") as file:
                 reader = pa.ipc.open_file(file)
                 if source_schema is None:
                     source_schema = reader.schema
