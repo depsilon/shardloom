@@ -46,6 +46,7 @@ pub(super) fn order(
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(native_relational_sort::Spec {
+        retained: None,
         fields,
         keys,
         names,

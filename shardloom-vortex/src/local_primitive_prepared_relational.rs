@@ -1578,6 +1578,8 @@ impl PreparedVortexRelational {
         report::append_composition(&mut certificate, &composition, context.recursion_limit());
         context
             .append_adaptive_work_certificate(&mut certificate.source_pushdown_report.proof_basis);
+        context
+            .append_payload_work_certificate(&mut certificate.source_pushdown_report.proof_basis)?;
         context.append_capability_decisions(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
         let (observations, observation_metadata) =

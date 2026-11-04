@@ -11,6 +11,7 @@ use super::{
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
+use std::cell::OnceCell;
 use std::hash::Hasher as _;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray as _, VortexSessionExecute as _,
@@ -543,6 +544,8 @@ impl Table {
             table: self,
             segments,
             indices,
+            source_rows: end,
+            selection: OnceCell::new(),
         })
     }
 }
@@ -551,6 +554,8 @@ pub(super) struct Gather<'a> {
     table: &'a Table,
     segments: ReservedVec<usize>,
     indices: ArrayRef,
+    source_rows: usize,
+    selection: OnceCell<native_payload::Selection>,
 }
 
 impl Gather<'_> {
@@ -561,14 +566,23 @@ impl Gather<'_> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         if self.segments.values.is_empty() {
-            return self.column(name, dtype, context).map(drop);
+            return native_payload::missing_column(dtype, self.indices.len(), false, context)
+                .map(drop);
         }
-        native_payload::validate_selection(
-            &self.source_column(name, context)?,
-            &self.indices,
+        let source = self.source_column(name, context)?;
+        native_payload::validate_prepared_selection(
+            &source,
+            self.selection(context)?,
             dtype,
             context,
         )
+    }
+
+    fn selection(
+        &self,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<&native_payload::Selection> {
+        prepare_selection(&self.selection, &self.indices, self.source_rows, context)
     }
 
     pub(super) fn column(
@@ -593,22 +607,21 @@ impl Gather<'_> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         if self.segments.values.is_empty() {
-            if native_payload::is_nested(dtype) {
-                return native_payload::defaults(dtype, self.indices.len(), context);
-            }
-            return result_batch::build_column_with_float_policy(
-                dtype,
-                self.indices.len(),
-                &context.native_session().host_allocator(),
-                context.float_policy(),
-                |_| Ok(result_batch::Value::Null),
-            );
+            return native_payload::missing_column(dtype, self.indices.len(), true, context)
+                .map(|array| array.expect("retained missing column"));
         }
         let array = self.source_column(name, context)?;
-        take_column_with_policy(&array, &self.indices, dtype, policy, context)
+        take_column_with_policy(
+            &array,
+            &self.indices,
+            dtype,
+            policy,
+            Some(&self.selection),
+            context,
+        )
     }
 
-    /// Full selection still reaches the shared scalar validator. Only its
+    /// Full selection still reaches the shared payload validator. Only its
     /// retained prefix receives output buffers; no omitted value is skipped.
     pub(super) fn column_prefix(
         &self,
@@ -619,20 +632,13 @@ impl Gather<'_> {
     ) -> Result<ArrayRef> {
         context.check_cancelled()?;
         let array = self.source_column(name, context)?;
-        let mut execution = context.native_session().create_execution_ctx();
-        let selected = select_column(&array, &self.indices, dtype, &mut execution)?;
-        result_batch::build_column_prefix_with_float_policy(
+        take_column_prefix(
+            &array,
+            &self.indices,
             dtype,
-            self.indices.len(),
             retained,
-            &context.native_session().host_allocator(),
-            context.float_policy(),
-            |row| {
-                if row.is_multiple_of(1024) {
-                    context.check_cancelled()?;
-                }
-                result_batch::scalar_value(&selected, row, &mut execution)
-            },
+            &self.selection,
+            context,
         )
     }
 
@@ -654,6 +660,55 @@ impl Gather<'_> {
             .map_err(vortex_error)?
             .into_array())
     }
+}
+
+pub(super) fn prepare_selection<'a>(
+    cache: &'a OnceCell<native_payload::Selection>,
+    indices: &ArrayRef,
+    source_rows: usize,
+    context: &NativeExecutionContext<'_>,
+) -> Result<&'a native_payload::Selection> {
+    if cache.get().is_none() {
+        let selection = native_payload::Selection::new(indices, source_rows, context)?;
+        // Each cache stays with one scoped, immutable gather/table or record.
+        assert!(cache.set(selection).is_ok());
+    }
+    Ok(cache.get().expect("prepared payload selection"))
+}
+
+fn take_column_prefix(
+    source: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    retained: usize,
+    selection: &OnceCell<native_payload::Selection>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    if native_payload::is_nested(dtype) || matches!(dtype, DType::Decimal(..)) {
+        native_payload::validate_prepared_selection(
+            source,
+            prepare_selection(selection, indices, source.len(), context)?,
+            dtype,
+            context,
+        )?;
+        let indices = indices.slice(0..retained).map_err(vortex_error)?;
+        return native_payload::take(source, &indices, dtype, context);
+    }
+    let mut execution = context.native_session().create_execution_ctx();
+    let selected = select_column(source, indices, dtype, &mut execution)?;
+    result_batch::build_column_prefix_with_float_policy(
+        dtype,
+        indices.len(),
+        retained,
+        &context.native_session().host_allocator(),
+        context.float_policy(),
+        |row| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            result_batch::scalar_value(&selected, row, &mut execution)
+        },
+    )
 }
 
 pub(super) fn index_array(
@@ -695,25 +750,34 @@ pub(super) fn take_column(
         indices,
         dtype,
         native_payload::CopyPolicy::ValidateValues,
+        None,
         context,
     )
 }
 
-fn take_column_with_policy(
+pub(super) fn take_column_with_policy(
     array: &ArrayRef,
     indices: &ArrayRef,
     dtype: &DType,
     policy: native_payload::CopyPolicy,
+    selection: Option<&OnceCell<native_payload::Selection>>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
-    if matches!(dtype, DType::Decimal(..))
+    if native_payload::is_nested(dtype)
+        || matches!(dtype, DType::Decimal(..))
         || (policy == native_payload::CopyPolicy::PreserveUnobserved
             && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _)))
     {
-        return native_payload::take_with_policy(array, indices, dtype, policy, context);
-    }
-    if native_payload::is_nested(dtype) {
+        if let Some(selection) = selection {
+            return native_payload::take_prepared_selection(
+                array,
+                prepare_selection(selection, indices, array.len(), context)?,
+                dtype,
+                policy,
+                context,
+            );
+        }
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
     if let Some(output) = numeric_gather::try_copy(array, indices, dtype, context)? {
@@ -815,26 +879,54 @@ pub(super) fn take_batch_with_policy(
     policy: native_payload::CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    take_batch_output(array, fields, rows, policy, None, None, context)
+}
+
+/// Internal records retain every field. Final sort delivery can discard a field
+/// or row prefix only after its original selected-value validation completes.
+pub(super) fn take_batch_output(
+    array: &ArrayRef,
+    fields: &[(String, DType)],
+    rows: &[usize],
+    policy: native_payload::CopyPolicy,
+    prefix: Option<usize>,
+    retained: Option<&[bool]>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
+    let selection = OnceCell::new();
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
-    for (name, dtype) in fields {
-        columns.values.push(take_column_with_policy(
-            &logical_field_from_native_array(array, name)?,
-            &indices,
-            dtype,
-            policy,
-            context,
-        )?);
+    for (index, (name, dtype)) in fields.iter().enumerate() {
+        let source = logical_field_from_native_array(array, name)?;
+        if retained.is_some_and(|retained| !retained[index]) {
+            native_payload::validate_prepared_selection(
+                &source,
+                prepare_selection(&selection, &indices, array.len(), context)?,
+                dtype,
+                context,
+            )?;
+            continue;
+        }
+        columns.values.push(if let Some(prefix) = prefix {
+            take_column_prefix(&source, &indices, dtype, prefix, &selection, context)?
+        } else {
+            take_column_with_policy(&source, &indices, dtype, policy, Some(&selection), context)?
+        });
     }
     let (columns, _ownership) = columns.into_parts();
     StructArray::try_new(
         fields
             .iter()
-            .map(|(name, _)| name.as_str())
+            .enumerate()
+            .filter_map(|(index, (name, _))| {
+                retained
+                    .is_none_or(|retained| retained[index])
+                    .then_some(name.as_str())
+            })
             .collect::<FieldNames>(),
         columns,
-        rows.len(),
+        prefix.unwrap_or(rows.len()),
         Validity::NonNullable,
     )
     .map_err(vortex_error)

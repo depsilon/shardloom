@@ -12,6 +12,7 @@ fn spec(array: &ArrayRef, names: &[&str]) -> Spec {
         panic!("expected struct")
     };
     Spec {
+        retained: None,
         fields: fields
             .names()
             .iter()
@@ -121,7 +122,7 @@ fn native_relational_sort_validates_payload_after_the_consumer_has_enough_rows()
             #[cfg(debug_assertions)]
             let observation = super::super::native_relational_observation::Session::start();
             let error = sort
-                .finish(context, 1, &mut |batch| {
+                .finish_prefix(context, 1, None, false, &mut |batch| {
                     // A downstream LIMIT has no remaining output demand after
                     // this row, but the next payload must still be validated.
                     assert_eq!(batch.len(), 1);
@@ -433,7 +434,7 @@ fn native_relational_sort_prefix_validates_discarded_payload_in_original_output_
 }
 
 #[test]
-fn native_relational_sort_prefix_retains_full_gather_for_resident_nested_and_decimal_payloads() {
+fn native_relational_sort_prefix_validates_full_rich_payloads_and_retains_only_the_prefix() {
     use vortex::array::{arrays::DecimalArray, dtype::DecimalDType};
 
     let payloads = [
@@ -465,11 +466,19 @@ fn native_relational_sort_prefix_retains_full_gather_for_resident_nested_and_dec
                 let mut sort = Sort::new(&binding, context.memory())?;
                 sort.build(array, context)?;
                 let mut emitted = 0;
+                #[cfg(debug_assertions)]
+                let observation = super::super::native_relational_observation::Session::start();
                 sort.finish_prefix(context, 7, Some(1), false, &mut |batch| {
                     emitted += batch.len();
                     Ok(())
                 })?;
-                assert_eq!(emitted, 33);
+                assert_eq!(emitted, 1);
+                #[cfg(debug_assertions)]
+                {
+                    let counts = observation.finish();
+                    assert_eq!(counts.sort_payload_rows_validated, 33);
+                    assert_eq!(counts.sort_output_rows_constructed, 1);
+                }
                 Ok(())
             })
             .unwrap();

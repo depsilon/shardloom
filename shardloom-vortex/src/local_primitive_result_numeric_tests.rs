@@ -42,6 +42,7 @@ fn compare_copy(source: &ArrayRef, dtype: &DType) {
                 owner.validity(),
                 &allocator,
                 shardloom_core::FloatPolicy::Strict,
+                |_| true,
                 || {
                     validation_checks += 1;
                     Ok(())

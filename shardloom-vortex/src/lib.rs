@@ -125,6 +125,8 @@ mod native_provider_memory;
 pub mod output_window_observation;
 // Session memory configuration is portable; spill I/O keeps its own Unix admission.
 pub mod application_batch;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+mod native_payload_work;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_spill_session;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]

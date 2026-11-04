@@ -251,6 +251,17 @@ the ledger.
 
 Current autonomous execution order:
 
+**November 4 selection and public-construction continuation.** The maintainer
+promotes a coordinated follow-up from merged #1656 before item 19. Begin with
+shared join coordinates and sorted payload validation/retention, alongside
+archived public-clock verification and a bounded construction-only profile.
+Window spans and peer requirements have their own semantic checks. Retained
+native declarations and a compatible lightweight Python facade extend the
+existing public request path. The first targeted controls use existing case
+IDs and explicit correctness counterexamples. Complete-cohort acceptance keeps
+the 1,513.095098453-second engine baseline and separate public-request clocks.
+[Scope and contracts](native-selection-retention-2026-11-04.md).
+
 **November 4 shared-work source checkpoint.** All six promoted investigations
 have retained or dropped dispositions in the completed ledger. One authorized
 isolated pass returned all 10,000 expected results in 1,513.095098453 engine

@@ -49,6 +49,7 @@ impl Schema {
         Ok(Self {
             #[cfg(feature = "vortex-write")]
             spec: Spec {
+                retained: None,
                 fields: fields
                     .names()
                     .iter()

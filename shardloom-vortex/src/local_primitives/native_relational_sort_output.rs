@@ -31,7 +31,11 @@ pub(super) fn finish(
             },
         )?;
         let rows = usize::try_from(shape.units()).map_err(|_| overflow())?;
-        let output = sort.gather_rows(&ordinals[start..start + rows], context)?;
+        let output = sort.gather_selected(
+            &ordinals[start..start + rows],
+            sort.spec.retained.as_deref(),
+            context,
+        )?;
         let bytes = output.nbytes();
         #[cfg(all(test, debug_assertions))]
         super::super::native_relational_observation::record(|counts| {

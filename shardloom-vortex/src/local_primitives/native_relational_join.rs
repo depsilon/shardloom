@@ -3,13 +3,16 @@
 use super::{
     logical_field_from_native_array,
     native_capacity::ReservedVec,
-    native_relational_batch::{Batch, Table, failed, index_array, take_column},
+    native_relational_batch::{
+        Batch, Table, failed, index_array, prepare_selection, take_column, take_column_with_policy,
+    },
     native_relational_expression::Expression,
     native_relational_index::RowIndex,
     native_relational_set::RowSet,
-    result_batch, vortex_error,
+    vortex_error,
 };
 use crate::{
+    native_payload_work::{Counter, logical_cells},
     relational_query::{VortexRelationalJoinKind as Kind, VortexRelationalSide as Side},
     resident_session::NativeExecutionContext,
 };
@@ -19,9 +22,11 @@ use vortex::array::{
     ArrayRef, IntoArray as _,
     arrays::StructArray,
     dtype::{DType, FieldNames},
-    memory::HostMemorySessionExt as _,
     validity::Validity,
 };
+
+#[cfg(test)]
+use super::result_batch;
 
 pub(super) struct Spec {
     pub(super) kind: Kind,
@@ -391,6 +396,7 @@ impl Spec {
             .transpose()?;
         let mut columns = ReservedVec::new(context.memory())?;
         columns.reserve(self.fields.len())?;
+        let left_selection = std::cell::OnceCell::new();
         for (index, ((side, name), (_, dtype))) in self.columns.iter().zip(&self.fields).enumerate()
         {
             let retained = self.retains(index);
@@ -399,24 +405,25 @@ impl Spec {
                     (Some(left), Some(indices)) => {
                         let source = logical_field_from_native_array(left, name)?;
                         if retained {
-                            Some(take_column(&source, indices, dtype, context)?)
+                            Some(take_column_with_policy(
+                                &source,
+                                indices,
+                                dtype,
+                                super::native_payload::CopyPolicy::ValidateValues,
+                                Some(&left_selection),
+                                context,
+                            )?)
                         } else {
-                            super::native_payload::validate_selection(
-                                &source, indices, dtype, context,
+                            super::native_payload::validate_prepared_selection(
+                                &source,
+                                prepare_selection(&left_selection, indices, left.len(), context)?,
+                                dtype,
+                                context,
                             )?;
                             None
                         }
                     }
-                    _ if super::native_payload::is_nested(dtype) => {
-                        retained.then_some(super::native_payload::defaults(dtype, rows, context)?)
-                    }
-                    _ => retained.then_some(result_batch::build_column_with_float_policy(
-                        dtype,
-                        rows,
-                        &context.native_session().host_allocator(),
-                        context.float_policy(),
-                        |_| Ok(result_batch::Value::Null),
-                    )?),
+                    _ => super::native_payload::missing_column(dtype, rows, retained, context)?,
                 },
                 Side::Right => right_column(name, dtype, &pairs.right.values, retained)?,
             };
@@ -445,7 +452,18 @@ impl Spec {
             counts.join_payload_validation_only_cells +=
                 (rows * (self.fields.len() - output_width)) as u64;
         });
-        let _ = output_width;
+        context.record_payload_work(&[
+            (Counter::JoinBatches, 1),
+            (Counter::JoinRows, rows as u64),
+            (
+                Counter::JoinRetainedCells,
+                logical_cells(rows, output_width)?,
+            ),
+            (
+                Counter::JoinOmittedCells,
+                logical_cells(rows, self.fields.len() - output_width)?,
+            ),
+        ])?;
         consume(array)?;
         context.check_cancelled()?;
         *written = next;

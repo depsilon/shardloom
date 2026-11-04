@@ -36,6 +36,8 @@ use vortex::array::{
 
 pub(super) struct Spec {
     pub(super) fields: Vec<(String, DType)>,
+    /// Terminal delivery only. Ordering and stored records keep every field.
+    pub(super) retained: Option<Vec<bool>>,
     pub(super) keys: Vec<VortexRelationalOrderKey>,
     pub(super) names: Vec<String>,
     pub(super) copy_policy: CopyPolicy,
@@ -171,25 +173,27 @@ impl<'a> Sort<'a> {
         rows: &[usize],
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
+        self.gather_selected(rows, None, context)
+    }
+
+    fn gather_selected(
+        &self,
+        rows: &[usize],
+        retained: Option<&[bool]>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<ArrayRef> {
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(rows.len())?;
         selected.values.extend(rows.iter().map(|row| Some(*row)));
-        gather(
+        gather_with_prefix(
             &self.table,
             &selected.values,
             &self.spec.fields,
             self.spec.copy_policy,
+            None,
+            retained,
             context,
         )
-    }
-
-    pub(super) fn finish(
-        &self,
-        context: &NativeExecutionContext<'_>,
-        batch_rows: usize,
-        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-    ) -> Result<()> {
-        self.finish_prefix(context, batch_rows, None, false, consume)
     }
 
     /// `input_payloads_validated` is supplied only after the existing streaming
@@ -205,14 +209,7 @@ impl<'a> Sort<'a> {
         if batch_rows == 0 {
             return Err(failed("sort output batch rows must be positive"));
         }
-        let requested = requested.filter(|_| {
-            self.spec.copy_policy == CopyPolicy::ValidateValues
-                && (input_payloads_validated
-                    || self.spec.fields.iter().all(|(_, dtype)| {
-                        !matches!(dtype, DType::Decimal(..))
-                            && super::result_batch::width(dtype).is_ok()
-                    }))
-        });
+        let requested = requested.filter(|_| self.spec.copy_policy == CopyPolicy::ValidateValues);
         let bounded = requested.filter(|cap| {
             input_payloads_validated && *cap <= 16_384 && *cap <= self.table.rows() / 4
         });
@@ -239,29 +236,21 @@ impl<'a> Sort<'a> {
             context.check_cancelled()?;
             let retained = remaining.min(part.len());
             remaining -= retained;
-            if requested.is_some() && input_payloads_validated && retained == 0 {
-                break;
-            }
             rows.values.clear();
-            let selected = if requested.is_some() && input_payloads_validated {
-                &part[..retained]
-            } else {
-                part
-            };
-            rows.values.extend(selected.iter().map(|row| Some(*row)));
+            rows.values.extend(part.iter().map(|row| Some(*row)));
             let output = gather_with_prefix(
                 &self.table,
                 &rows.values,
                 &self.spec.fields,
                 self.spec.copy_policy,
-                (requested.is_some() && !input_payloads_validated && retained < part.len())
-                    .then_some(retained),
+                (requested.is_some() && retained < part.len()).then_some(retained),
+                self.spec.retained.as_deref(),
                 context,
             )?;
             #[cfg(all(test, debug_assertions))]
             super::native_relational_observation::record(|counts| {
                 counts.sort_output_rows_constructed += output.len() as u64;
-                counts.sort_payload_rows_validated += selected.len() as u64;
+                counts.sort_payload_rows_validated += part.len() as u64;
             });
             if !output.is_empty() {
                 consume(output)?;
@@ -296,7 +285,7 @@ pub(super) fn gather(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    gather_with_prefix(table, rows, fields, policy, None, context)
+    gather_with_prefix(table, rows, fields, policy, None, None, context)
 }
 
 fn gather_with_prefix(
@@ -305,28 +294,48 @@ fn gather_with_prefix(
     fields: &[(String, DType)],
     policy: CopyPolicy,
     prefix: Option<usize>,
+    retained: Option<&[bool]>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let gather = table.gather(rows, false, context)?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
-    for (name, dtype) in fields {
+    for (index, (name, dtype)) in fields.iter().enumerate() {
+        if retained.is_some_and(|retained| !retained[index]) {
+            gather.validate_column(name, dtype, context)?;
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.sort_payload_validation_only_cells += rows.len() as u64;
+            });
+            continue;
+        }
         columns.values.push(if let Some(retained) = prefix {
             gather.column_prefix(name, dtype, retained, context)?
         } else {
             gather.column_with_policy(name, dtype, policy, context)?
+        });
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.sort_output_cells_constructed += prefix.unwrap_or(rows.len()) as u64;
         });
     }
     let (columns, _ownership) = columns.into_parts();
     let array = StructArray::try_new(
         fields
             .iter()
-            .map(|(name, _)| name.as_str())
+            .enumerate()
+            .filter_map(|(index, (name, _))| {
+                retained
+                    .is_none_or(|retained| retained[index])
+                    .then_some(name.as_str())
+            })
             .collect::<FieldNames>(),
         columns,
         prefix.unwrap_or(rows.len()),
         Validity::NonNullable,
     )
     .map_err(vortex_error)?;
-    Ok(vortex::array::IntoArray::into_array(array))
+    let array = vortex::array::IntoArray::into_array(array);
+    crate::native_payload_work::record_sort_gather(context, rows.len(), fields.len(), &array)?;
+    Ok(array)
 }

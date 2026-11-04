@@ -2,7 +2,7 @@
 
 use super::{
     native_capacity::ReservedVec,
-    native_relational_batch::{Batch, Table, failed, take_batch_with_policy},
+    native_relational_batch::{Batch, Table, failed, take_batch_output, take_batch_with_policy},
     native_relational_sort::{self, Sort, Spec},
     query_run_store::{
         self, NativeQueryRun, QueryRunBlock, QueryRunReader, QueryRunSpec, QueryRunStore,
@@ -514,14 +514,29 @@ impl<'p, 's> Ordering<'p, 's> {
     }
 
     pub(super) fn finish(
-        mut self,
+        self,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
+        self.finish_prefix(context, batch_rows, None, consume)
+    }
+
+    pub(super) fn finish_prefix(
+        mut self,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        requested: Option<usize>,
+        consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    ) -> Result<()> {
         if self.runs.values.is_empty() {
-            return self.sort.finish(context, batch_rows, consume);
+            return self
+                .sort
+                .finish_prefix(context, batch_rows, requested, false, consume);
         }
+        let requested = requested
+            .filter(|_| self.spec.copy_policy == super::native_payload::CopyPolicy::ValidateValues);
+        let mut remaining = requested.unwrap_or(usize::MAX);
         let run = self.complete_run(context)?;
         let work = self.work(context)?;
         let mut reader = self.state.open(&run, self.spec, context, &work)?;
@@ -533,13 +548,26 @@ impl<'p, 's> Ordering<'p, 's> {
             rows.values.extend(0..block.array().len());
             // Do not detach the store's borrowed array from its work/path credits.
             // Compact into the shared allocator before a downstream node retains it.
-            consume(take_batch_with_policy(
+            let retained = remaining.min(rows.values.len());
+            remaining -= retained;
+            let output = take_batch_output(
                 block.array(),
                 &self.spec.fields,
                 &rows.values,
                 self.spec.copy_policy,
+                (requested.is_some() && retained < rows.values.len()).then_some(retained),
+                self.spec.retained.as_deref(),
                 context,
-            )?)?;
+            )?;
+            crate::native_payload_work::record_sort_gather(
+                context,
+                rows.values.len(),
+                self.spec.fields.len(),
+                &output,
+            )?;
+            if !output.is_empty() {
+                consume(output)?;
+            }
             context.check_cancelled()?;
         }
         reader.validate()?;

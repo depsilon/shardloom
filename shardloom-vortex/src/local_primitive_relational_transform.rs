@@ -250,7 +250,7 @@ impl PreparedVortexRelational {
                 parameter,
                 &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
             )?;
-            return sort.finish(context, batch_rows, consume);
+            return sort.finish_prefix(context, batch_rows, *output_prefix, consume);
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         if self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)? {

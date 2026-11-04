@@ -60,7 +60,7 @@ impl Binder<'_> {
         needed: impl IntoIterator<Item = &'name str>,
     ) -> Result<()> {
         if !self.scan_accepts_source_demand(input) {
-            return self.narrow_validated_join_payload(input, needed);
+            return self.narrow_validated_payload(input, needed);
         }
         match &mut input.kind {
             NodeKind::Filter {
@@ -158,23 +158,34 @@ impl Binder<'_> {
         Ok(())
     }
 
-    fn narrow_validated_join_payload<'name>(
+    fn narrow_validated_payload<'name>(
         &mut self,
         input: &mut Node,
         needed: impl IntoIterator<Item = &'name str>,
     ) -> Result<()> {
-        let NodeKind::Join { spec, .. } = &mut input.kind else {
-            return Ok(());
+        let (fields, prior) = match &mut input.kind {
+            NodeKind::Join { spec, .. } => (&spec.fields, &mut spec.retained),
+            NodeKind::Sort { spec, .. }
+                if spec.copy_policy == native::native_payload::CopyPolicy::ValidateValues =>
+            {
+                (&spec.fields, &mut spec.retained)
+            }
+            NodeKind::Limit { input: child, .. } => {
+                self.narrow_validated_payload(child, needed)?;
+                input.fields.clone_from(&child.fields);
+                return Ok(());
+            }
+            _ => return Ok(()),
         };
-        self.charge_named_fields(&spec.fields)?;
+        self.charge_named_fields(fields)?;
         let needed: BTreeSet<_> = needed.into_iter().collect();
-        let first = (0..spec.fields.len()).find(|&index| spec.retains(index));
-        let retained = spec
-            .fields
+        let retains = |index| prior.as_ref().is_none_or(|retained| retained[index]);
+        let first = (0..fields.len()).find(|&index| retains(index));
+        let retained = fields
             .iter()
             .enumerate()
             .map(|(index, (name, dtype))| {
-                spec.retains(index)
+                retains(index)
                     && (needed.contains(name.as_str())
                         || (needed.is_empty() && first == Some(index))
                         || native::native_payload::metadata_bytes(dtype).is_err())
@@ -183,15 +194,14 @@ impl Binder<'_> {
         if retained.iter().all(|retained| *retained) {
             return Ok(());
         }
-        input.fields = spec
-            .fields
+        input.fields = fields
             .iter()
             .zip(&retained)
             .filter_map(|(field, &retained)| retained.then_some(field.clone()))
             .collect();
-        spec.retained = Some(retained);
-        // Input scans, match population and column visitation stay with their
-        // original owners. Only validated selected output crosses this mask.
+        *prior = Some(retained);
+        // Scans, match/order populations, stored records and field visitation
+        // keep their original owners. The mask applies at terminal delivery.
         Ok(())
     }
 
@@ -272,6 +282,8 @@ impl Binder<'_> {
                     source: ScanSource::File(_) | ScanSource::Batch { .. },
                     ..
                 } | NodeKind::Join { .. }
+                    | NodeKind::Sort { .. }
+                    | NodeKind::Limit { .. }
             )
         {
             return Ok(());
@@ -301,7 +313,12 @@ impl Binder<'_> {
                 Ok(())
             })?;
         }
-        if demanded || matches!(input.kind, NodeKind::Join { .. }) {
+        if demanded
+            || matches!(
+                input.kind,
+                NodeKind::Join { .. } | NodeKind::Sort { .. } | NodeKind::Limit { .. }
+            )
+        {
             self.narrow_source_demand(input, needed.iter().map(String::as_str))
         } else {
             self.narrow_scan_columns(input, needed.iter().map(String::as_str))

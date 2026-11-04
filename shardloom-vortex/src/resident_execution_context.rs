@@ -51,6 +51,8 @@ pub struct NativeExecutionContext<'a> {
     gate: Gate<'a>,
     opened_sources: Mutex<OpenedSources>,
     adaptive_work: Mutex<crate::native_work_sizing::Reports>,
+    #[cfg(unix)]
+    payload_work: Mutex<crate::native_payload_work::Report>,
     capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
 }
 
@@ -98,12 +100,34 @@ impl RuntimeOwner {
             gate,
             opened_sources: Mutex::new(OpenedSources::default()),
             adaptive_work: Mutex::default(),
+            #[cfg(unix)]
+            payload_work: Mutex::default(),
             capability_decisions: Mutex::default(),
         })
     }
 }
 
 impl NativeExecutionContext<'_> {
+    #[cfg(unix)]
+    pub(crate) fn record_payload_work(
+        &self,
+        values: &[(crate::native_payload_work::Counter, u64)],
+    ) -> Result<()> {
+        self.payload_work
+            .lock()
+            .map_err(|_| resident_error("native payload work evidence poisoned"))?
+            .record(values)
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn append_payload_work_certificate(&self, proof: &mut String) -> Result<()> {
+        self.payload_work
+            .lock()
+            .map_err(|_| resident_error("native payload work evidence poisoned"))?
+            .append_certificate(proof);
+        Ok(())
+    }
+
     /// Aggregate at owner boundaries only. No input values or per-row trace survive.
     pub(crate) fn record_capability_decision(
         &self,
