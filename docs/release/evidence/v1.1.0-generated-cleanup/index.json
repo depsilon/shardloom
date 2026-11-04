@@ -1,0 +1,225 @@
+{
+  "status": "passed",
+  "schema_version": "shardloom.release_generated_retirement.v1",
+  "release": "v1.1.0",
+  "release_source": "4d11d4e9c2349f0dc63dc27288b432a351c1a962",
+  "cleanup_receipt": "release-110-generated-retirement-r2/receipt.json",
+  "cleanup_receipt_sha256": "be5eedc1b49202bc8b326d8a711dd9bb177fc4550ebc3de8e1b29e7a1c9e2143",
+  "retained_files": 277,
+  "release_roots": 40,
+  "retired_regular_files": 16160,
+  "retired_regular_bytes": 2515545957,
+  "previously_retired_ci_profile": {
+    "regular_files": 8102,
+    "regular_bytes": 7035878622,
+    "receipt_sha256": "7858d2be8eaeb179d242adc8ad7e98a3d67dd4df457117a2e4e9296e11e0bb7d"
+  },
+  "inputs_touched": false,
+  "precleanup_local_checks": 11,
+  "precleanup_receipt_sha256": "ae1cb51d7301fb2738948f93b1c0217a0d61b2f632af8139017c3a01fc8f89f7",
+  "archive": {
+    "path": "observations.tar.xz",
+    "sha256": "de93cdfe5b1b0592f4fcabcdfa4267bd528e6f6609c28c49fd2aede3923cd6e7",
+    "bytes": 1975616,
+    "members": {
+      "release-110-generated-retirement-r2/receipt.json": {
+        "bytes": 11547,
+        "sha256": "be5eedc1b49202bc8b326d8a711dd9bb177fc4550ebc3de8e1b29e7a1c9e2143"
+      },
+      "release-110-generated-retirement-r2/manifest.json.xz": {
+        "bytes": 935340,
+        "sha256": "5c6297089080f44de8b0f5f70a2fc1d68118eb6a053b76a2712ad49df7ffd06e"
+      },
+      "release-110-postdeploy-local-r1.json": {
+        "bytes": 7219,
+        "sha256": "ae1cb51d7301fb2738948f93b1c0217a0d61b2f632af8139017c3a01fc8f89f7"
+      },
+      "v110-final-retirement-r2.json": {
+        "bytes": 3252,
+        "sha256": "63e71a34d015f750992f05c71834d105dfbd16cb12795eb2e0340d1094805251"
+      },
+      "v110-final-retirement-r2.log": {
+        "bytes": 152,
+        "sha256": "c89e95d0b34e22c5e95e52979d63a613b9d4ebe5bc32a0babfec4e85b5d75370"
+      },
+      "compiler-retirement-110-r1/receipt.json": {
+        "bytes": 3896,
+        "sha256": "7858d2be8eaeb179d242adc8ad7e98a3d67dd4df457117a2e4e9296e11e0bb7d"
+      },
+      "compiler-retirement-110-r1/generations.json.xz": {
+        "bytes": 482468,
+        "sha256": "1712967079760e7107cda0f0f24eb10d422eb8ce7f883ecb01fd8b71ba5c22a3"
+      },
+      "v110-retire-ci-compiler-r1.json": {
+        "bytes": 2324,
+        "sha256": "ba947088582dca6e4abea3a19e52b7f3e1e7a37ed5849c4d512b76f4d5ce29e0"
+      },
+      "v110-retire-ci-compiler-r1.log": {
+        "bytes": 23,
+        "sha256": "325f42fff9e87520815028c9d9a474cf509bed4e3083c411771ec7648f6458f0"
+      },
+      "release-tools/retire_release_110.py": {
+        "bytes": 20307,
+        "sha256": "65dd9e4fe3071eb80df10ca58e8625391a152cced003c1775cd38af2effd5b1c"
+      },
+      "release-tools/retire_ci_profile_110.py": {
+        "bytes": 4987,
+        "sha256": "35979c49d45eae38eba37e18d561d6935756245dca146eea54799beaeb9abe6a"
+      },
+      "release-tools/retirement-inventory-110.json": {
+        "bytes": 4442330,
+        "sha256": "34c8ca7fa368a41fc6fe36991a97137111700410c5df83e27f32eaca0c3bd241"
+      },
+      "release-tools/registry-retention-map-110.json": {
+        "bytes": 58555,
+        "sha256": "ff4bc0140353924e4d37d13b75b0cfb6897c80987334086ba62a911fde23677b"
+      },
+      "release-tools/validate_release_finish_110.py": {
+        "bytes": 6261,
+        "sha256": "e2ab6faf23fa92891eba72e87d21b2cba604f38a746c4d1dd100560d19107a15"
+      },
+      "release-tools/package_retirement_110.py": {
+        "bytes": 6390,
+        "sha256": "34953cb19748a2b1cb4996e86e718a8e0c01e25d7d340cc171894d6722fd7350"
+      },
+      "release-110-generated-retirement-r1/receipt.json": {
+        "bytes": 8748,
+        "sha256": "bd4f89c845e01b87c83849b3101c10fb35cc2423ec6a6f82bbaf67816b6adbd3"
+      },
+      "release-110-generated-retirement-r1/manifest.json.xz": {
+        "bytes": 935340,
+        "sha256": "5c6297089080f44de8b0f5f70a2fc1d68118eb6a053b76a2712ad49df7ffd06e"
+      },
+      "v110-final-retirement-r1.json": {
+        "bytes": 3399,
+        "sha256": "3b778ec14099f241357c7e107fb47fc5ea6c5d38e2565067562cabb084909354"
+      },
+      "v110-final-retirement-r1.log": {
+        "bytes": 222,
+        "sha256": "e05ca22e8ad055dea2264008c11f0e66bc1fa40ef7bdfa4c8189744b08f1c177"
+      },
+      "release-tools/resume_retirement_110.py": {
+        "bytes": 14176,
+        "sha256": "98645e8ec03d2c1a266cc6ff534cc9433ea99c090ea83b42067f028df27211ea"
+      },
+      "release-110-retirement-resume-self-test-r1.json": {
+        "bytes": 89,
+        "sha256": "3469c47f1c3e4a982a904b597d8fc46ac359327909a6aca34b6a9c9a8e7f1733"
+      },
+      "release-110-postdeploy-local-r1/package-channels.log": {
+        "bytes": 102,
+        "sha256": "75f6bfad90ca2469156607dfd6885e14d9c98b91f071459c92666cd63fcf46fb"
+      },
+      "release-110-postdeploy-local-r1/package-channels.json": {
+        "bytes": 17634,
+        "sha256": "78b7549211cc458dc2e8d08367b68ed615afd1ba745c8b8ea1a8dce8c90903a8"
+      },
+      "release-110-postdeploy-local-r1/release-boundary.log": {
+        "bytes": 102,
+        "sha256": "e4d8cc3b60dd3b14fa288714e748d95aeeb6fd85e648937be025fe86dd8d6313"
+      },
+      "release-110-postdeploy-local-r1/release-boundary.json": {
+        "bytes": 3853,
+        "sha256": "927fd7059fecf0dcfb718205f94ebdb3fc7a583dd70394a1ae776aadfe7e15d8"
+      },
+      "release-110-postdeploy-local-r1/source-package.log": {
+        "bytes": 100,
+        "sha256": "c1a9bffcb48f8d406fc61184c70365210bcf4e5ef710a3910d822cbb9bac73e3"
+      },
+      "release-110-postdeploy-local-r1/source-package.json": {
+        "bytes": 2255,
+        "sha256": "b0326c952c1b414c40dce0a2ac107bd1f94e2435d466e434b4b1e15063ea846a"
+      },
+      "release-110-postdeploy-local-r1/final-approval.log": {
+        "bytes": 100,
+        "sha256": "14e56cee4578ed49d027f9ad90dd8b7e5544268c2e34a7e62c87b70604aae284"
+      },
+      "release-110-postdeploy-local-r1/final-approval.json": {
+        "bytes": 3523,
+        "sha256": "4de8a07ea42df99f38225ee855a46b688d80dd4f4cec60f3cf4e03e5b3347ab8"
+      },
+      "release-110-postdeploy-local-r1/public-status.log": {
+        "bytes": 99,
+        "sha256": "82a331fc39fc21b6d2e08dda043d7082537fdc7a9438499bfc43195e50b833f1"
+      },
+      "release-110-postdeploy-local-r1/public-status.json": {
+        "bytes": 93915,
+        "sha256": "abeddc65245cd342f3dbabddf090059272c52d4915773bf14e4965f87ac72809"
+      },
+      "release-110-postdeploy-local-r1/workspace-version.log": {
+        "bytes": 111,
+        "sha256": "5c1f87193c1e4106dcc7edd3f968cf7899debb64f2c88581d78c0101398145f0"
+      },
+      "release-110-postdeploy-local-r1/workspace-version.json": {
+        "bytes": 4063,
+        "sha256": "9e33e80499d3d9868743acc7968132d50a422ac19af90ac02bf347f4c097825e"
+      },
+      "release-110-postdeploy-local-r1/docs-productization.log": {
+        "bytes": 105,
+        "sha256": "c0dd24a87787291b9b391971ce8ef6485d01d5b3d5eca06219e90b7be452a4f9"
+      },
+      "release-110-postdeploy-local-r1/docs-productization.json": {
+        "bytes": 2876,
+        "sha256": "a02c25b812d4b126b90423fe5bf8ebddb9d1a665857f897ee87669c4f2ed3b81"
+      },
+      "release-110-postdeploy-local-r1/website-readiness.log": {
+        "bytes": 129,
+        "sha256": "1baa038adf163c1f90d199b27f8a052756ae98d180ac2bf10cee5992b432d0d0"
+      },
+      "release-110-postdeploy-local-r1/website-readiness.json": {
+        "bytes": 8202,
+        "sha256": "7f6d5c8d9854bf674f896b90034f66a039ee938f8d5cce1a8f753423041089a5"
+      },
+      "release-110-postdeploy-local-r1/website-links.log": {
+        "bytes": 1551,
+        "sha256": "ccc3a7323dd82d0d8d433fefcff37979013231012a2eaba5e86945dc01c89ab9"
+      },
+      "release-110-postdeploy-local-r1/whitespace.log": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "release-110-postdeploy-local-r1/release-doc-contracts.log": {
+        "bytes": 4849,
+        "sha256": "1c3abd47a0106df743de5b10f3d5b151b3c7a47a7b12294dab1a2303596e4340"
+      },
+      "previous-release/release-100-payload-cleanup-1.json": {
+        "bytes": 28859,
+        "sha256": "c7f65a6abbfc849aca0708da696b847b588ba7898b694cdd4e864334ae632006"
+      }
+    }
+  },
+  "recovery": "Rebuild disposable intermediates from the release sources and captured commands. The tested release runtime, published artifacts, current comparison runtime and source data are retained.",
+  "interrupted_attempt_and_recovery": {
+    "schema": "shardloom.release_retirement_resume.v1",
+    "original_failed_receipt": "/Users/dylan/LocalData/shardloom/release-v1.1.0/release-110-generated-retirement-r1/receipt.json",
+    "original_failed_receipt_sha256": "bd4f89c845e01b87c83849b3101c10fb35cc2423ec6a6f82bbaf67816b6adbd3",
+    "original_failed_removed": 12314,
+    "original_failed_error": "AssertionError: ",
+    "original_manifest_sha256": "5c6297089080f44de8b0f5f70a2fc1d68118eb6a053b76a2712ad49df7ffd06e",
+    "hardlink_ctime_audit": "ctime variance accepted only for regular-file inode groups with an earlier removed manifest alias; each remaining link count must equal the remaining plan aliases",
+    "hardlink_groups": [
+      {
+        "device": 16777233,
+        "inode": 156744917,
+        "removed_plan_aliases": 1,
+        "remaining_plan_aliases": 1,
+        "paths": [
+          "/Users/dylan/LocalData/shardloom/release-v1.1.0/workers-local-audit-r1/toolchain/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+          "/Users/dylan/LocalData/shardloom/release-v1.1.0/workers-local-audit-r1/toolchain/node_modules/workerd/bin/workerd"
+        ],
+        "current_link_count": 1
+      },
+      {
+        "device": 16777233,
+        "inode": 156744840,
+        "removed_plan_aliases": 1,
+        "remaining_plan_aliases": 1,
+        "paths": [
+          "/Users/dylan/LocalData/shardloom/release-v1.1.0/workers-local-audit-r1/toolchain/node_modules/@esbuild/darwin-arm64/bin/esbuild",
+          "/Users/dylan/LocalData/shardloom/release-v1.1.0/workers-local-audit-r1/toolchain/node_modules/esbuild/bin/esbuild"
+        ],
+        "current_link_count": 1
+      }
+    ]
+  }
+}

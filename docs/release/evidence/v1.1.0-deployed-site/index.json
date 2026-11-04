@@ -1,0 +1,434 @@
+{
+  "schema_version": "shardloom.release_deployed_site_evidence.v1",
+  "status": "passed",
+  "release_version": "1.1.0",
+  "merge_commit": "ad2ed5cb1da279413e93e402ee56d7bb24478d90",
+  "source_tree": "36779a9041c63238b64f50eb40d5be5c9740d0be",
+  "website_tree": "6d9d29997cd8af5adbbd08eed65a5cf9affdb814",
+  "publication_pr": 1652,
+  "premerge": {
+    "receipt": "release-110-publication-pr-review-2.json",
+    "head": "3f9463436c71a017eef5947ffc23a94d394d937a",
+    "base": "36e2a3d54057fd6bb16734ba586a5479e417ff9a",
+    "check_count": 58,
+    "check_names": [
+      "Build checked optimized native tests",
+      "Build native Python package (linux)",
+      "Build native Python package (macos)",
+      "CI gate matrix contract",
+      "CI work shaping plan",
+      "CodeQL",
+      "CodeQL python",
+      "CodeQL rust",
+      "Dependency and security gates",
+      "Native Python wheel (py310_ubuntu)",
+      "Native Python wheel (py313_macos)",
+      "Native Python wheel (py313_ubuntu)",
+      "Native Python wheel acceptance",
+      "Native release CLI build",
+      "Native test partition (0)",
+      "Native test partition (1)",
+      "Native test partition (2)",
+      "Native test partition (3)",
+      "Patched Vortex providers (arrays)",
+      "Patched Vortex providers (buffer)",
+      "Patched Vortex providers (formats)",
+      "Patched Vortex providers (io)",
+      "Python and package smoke",
+      "Python compatibility (macos-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.10)",
+      "Python compatibility (ubuntu-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.12)",
+      "Python compatibility (ubuntu-latest, 3.13)",
+      "Python compatibility (windows-latest, 3.11)",
+      "Python test shard (core)",
+      "Python test shard (front_door_benchmark_publication)",
+      "Python test shard (release_scripts)",
+      "Python tests",
+      "Release package and governance evidence",
+      "Release readiness reports",
+      "Release runtime core evidence",
+      "Release user-surface evidence",
+      "Rust MSRV validation",
+      "Rust baseline (clippy)",
+      "Rust baseline (fmt)",
+      "Rust baseline (test)",
+      "Rust feature matrix (all_features)",
+      "Rust feature matrix (default_features)",
+      "Rust feature matrix (native_public_surface_tests)",
+      "Rust feature matrix (native_release_clippy)",
+      "Rust feature matrix (native_vortex_observation)",
+      "Rust feature matrix (native_vortex_tests)",
+      "Rust feature matrix (no_default_features)",
+      "Rust feature matrix (packaging_deployment)",
+      "Rust feature matrix (preparation_resource_profile)",
+      "Rust feature matrix (release_user_surfaces)",
+      "Rust feature matrix (synthetic_spill_resources)",
+      "Rust feature matrix (upstream_vortex)",
+      "Rust feature matrix (vortex_encoded_read_spike)",
+      "Rust feature matrix (vortex_file_io)",
+      "Rust feature matrix (vortex_local_primitives)",
+      "Website and docs validation",
+      "Workers Builds: shardloom"
+    ]
+  },
+  "main": {
+    "receipt": "release-110-publication-main-r2.json",
+    "successful_repository_checks": 54,
+    "successful_hosted_checks": 55,
+    "required_hosted_check_names": [
+      "Build checked optimized native tests",
+      "Build native Python package (linux)",
+      "Build native Python package (macos)",
+      "CI gate matrix contract",
+      "CI work shaping plan",
+      "Dependency and security gates",
+      "Native Python wheel (py310_ubuntu)",
+      "Native Python wheel (py313_macos)",
+      "Native Python wheel (py313_ubuntu)",
+      "Native Python wheel acceptance",
+      "Native release CLI build",
+      "Native test partition (0)",
+      "Native test partition (1)",
+      "Native test partition (2)",
+      "Native test partition (3)",
+      "Patched Vortex providers (arrays)",
+      "Patched Vortex providers (buffer)",
+      "Patched Vortex providers (formats)",
+      "Patched Vortex providers (io)",
+      "Python and package smoke",
+      "Python compatibility (macos-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.10)",
+      "Python compatibility (ubuntu-latest, 3.11)",
+      "Python compatibility (ubuntu-latest, 3.12)",
+      "Python compatibility (ubuntu-latest, 3.13)",
+      "Python compatibility (windows-latest, 3.11)",
+      "Python test shard (core)",
+      "Python test shard (front_door_benchmark_publication)",
+      "Python test shard (release_scripts)",
+      "Python tests",
+      "Release package and governance evidence",
+      "Release readiness reports",
+      "Release runtime core evidence",
+      "Release user-surface evidence",
+      "Rust MSRV validation",
+      "Rust baseline (clippy)",
+      "Rust baseline (fmt)",
+      "Rust baseline (test)",
+      "Rust feature matrix (all_features)",
+      "Rust feature matrix (default_features)",
+      "Rust feature matrix (native_public_surface_tests)",
+      "Rust feature matrix (native_release_clippy)",
+      "Rust feature matrix (native_vortex_observation)",
+      "Rust feature matrix (native_vortex_tests)",
+      "Rust feature matrix (no_default_features)",
+      "Rust feature matrix (packaging_deployment)",
+      "Rust feature matrix (preparation_resource_profile)",
+      "Rust feature matrix (release_user_surfaces)",
+      "Rust feature matrix (synthetic_spill_resources)",
+      "Rust feature matrix (upstream_vortex)",
+      "Rust feature matrix (vortex_encoded_read_spike)",
+      "Rust feature matrix (vortex_file_io)",
+      "Rust feature matrix (vortex_local_primitives)",
+      "Website and docs validation",
+      "Workers Builds: shardloom"
+    ],
+    "raw_sources": {
+      "release-110-publication-main-r2-raw/checks.json": "220dc201ada4da905387190a1f9e14e767d9621f5a5557684199aab693191f44",
+      "release-110-publication-main-r2-raw/commit.json": "8eba6cb8167dd289416620b469b446d3f17173fd275cd48a0e34845a0c6a3dec",
+      "release-110-publication-main-r2-raw/workflows.json": "542e53ed81e287063790fa137f5b17e8fed546fd881e2fd71f08b483f0f2b72e"
+    }
+  },
+  "preview": {
+    "receipt": "publication-preview-r1.json",
+    "status": "passed",
+    "origin": "https://5306df26-shardloom.djheinrich.workers.dev",
+    "authored_assets": 66,
+    "browser_receipt": "publication-preview-browser-r2/browser.json",
+    "browser_status": "passed",
+    "screenshots": 6
+  },
+  "production_site_attempts": [
+    {
+      "receipt": "publication-production-r1.json",
+      "status": "passed",
+      "authored_assets": 66,
+      "matches": 66
+    }
+  ],
+  "production_browser_attempts": [
+    {
+      "receipt": "publication-production-browser-classified-r1.json",
+      "status": "passed",
+      "origin": "https://shardloom.io",
+      "screenshots": 6,
+      "pinned_optional_analytics_csp_blocks": 6
+    }
+  ],
+  "accepted_production_optional_analytics_csp_blocks": 6,
+  "repository_links": {
+    "receipt": "release-110-merged-repository-links-1.json",
+    "distinct": 40,
+    "occurrences": 54
+  },
+  "production_visual_review": {
+    "receipt": "production-visual-review-r1.json",
+    "resize_capture": "The three follow-up captures are byte-identical. The fresh mobile image has one header, readable install text and a complete first code block. Fresh navigation, immediate resize and settled resize each expose one 390×64 header at the top and code at the lower hit-test point. The original repeated strip did not persist or recur."
+  },
+  "known_prior_observations": [
+    {
+      "receipt": "pr1652-original-and-new-preview-r1.json",
+      "status": null,
+      "original": "2cd1167724b4866010ad16baeefdc6293891308b",
+      "updated": "3f9463436c71a017eef5947ffc23a94d394d937a"
+    },
+    {
+      "receipt": "publication-preview-browser-r1/browser.json",
+      "status": "failed",
+      "original": null,
+      "updated": null
+    },
+    {
+      "receipt": "release-110-publication-main-r1.json",
+      "status": "failed",
+      "original": null,
+      "updated": null
+    },
+    {
+      "receipt": "release-110-publication-main-terminal-attempt1-r1.json",
+      "status": "failed",
+      "original": null,
+      "updated": null
+    },
+    {
+      "receipt": "release-110-main-attempt1-terminal-jobs-r1.json",
+      "status": null,
+      "original": null,
+      "updated": null
+    },
+    {
+      "receipt": "release-110-main-macos-targeted-retry-r1.json",
+      "status": null,
+      "original": null,
+      "updated": null
+    }
+  ],
+  "archive": {
+    "path": "observations.tar.xz",
+    "member_count": 51,
+    "uncompressed_bytes": 7146266,
+    "members": {
+      "browser_110_preview_r2.cjs": {
+        "bytes": 7516,
+        "sha256": "fd8034ddeed250adc8f8081c3b984918b41c29f470d64f168d0bf1729fb8b5e6"
+      },
+      "pr1652-original-and-new-preview-r1.json": {
+        "bytes": 76364,
+        "sha256": "810e380f762ae633ad7b466d9010cc65260d762654ce351c98b0b72da87a2270"
+      },
+      "production-visual-review-r1.json": {
+        "bytes": 2750,
+        "sha256": "af4064f506774e18128d2aafa615038c65d90da9c738c1ba36b07a0cf61e8b66"
+      },
+      "publication-mobile-install-paint-r1/fresh-mobile.png": {
+        "bytes": 58902,
+        "sha256": "fde86ef06b0d590a1cf3afc1fb716d0c2a6fb264afd70bbc150b5ed04ffcf5c1"
+      },
+      "publication-mobile-install-paint-r1/immediate-resize.png": {
+        "bytes": 58902,
+        "sha256": "fde86ef06b0d590a1cf3afc1fb716d0c2a6fb264afd70bbc150b5ed04ffcf5c1"
+      },
+      "publication-mobile-install-paint-r1/observations.json": {
+        "bytes": 6197,
+        "sha256": "2e7476a7d4b07943698ae4af23676cfa29d47495637ccae0296293fb01b07c63"
+      },
+      "publication-mobile-install-paint-r1/settled-resize.png": {
+        "bytes": 58902,
+        "sha256": "fde86ef06b0d590a1cf3afc1fb716d0c2a6fb264afd70bbc150b5ed04ffcf5c1"
+      },
+      "publication-preview-browser-r1/browser.json": {
+        "bytes": 1601,
+        "sha256": "2e24a2a2db072f7f4f216aa80ffe4bc94c3f7a48aebb37845418d28bb9368a3b"
+      },
+      "publication-preview-browser-r2/browser.json": {
+        "bytes": 2858,
+        "sha256": "de2e4d0648ce14b8e7bff173831b3f01b8944813595bee482d9824b8942678ff"
+      },
+      "publication-preview-browser-r2/home-desktop.png": {
+        "bytes": 871867,
+        "sha256": "cb6dc730bbf15053904c1e0020932ae7648ce5b9aa9b25fc89206452db13f248"
+      },
+      "publication-preview-browser-r2/home-mobile.png": {
+        "bytes": 264413,
+        "sha256": "b892acbd36a1d0f0c222a31823773ebfff61c37b819191e1297aacf08961352f"
+      },
+      "publication-preview-browser-r2/install-desktop.png": {
+        "bytes": 164957,
+        "sha256": "6b106e0676bb26c6f8c875e82dcb58444281d38d35aab0bb0873f43155f043f7"
+      },
+      "publication-preview-browser-r2/install-mobile.png": {
+        "bytes": 59844,
+        "sha256": "abb7370f91c6a3849d77f1c78c31fd86f9010c0f9bf09d65fff7face5b83af1f"
+      },
+      "publication-preview-browser-r2/mobile-tables.png": {
+        "bytes": 80668,
+        "sha256": "c890fe97c03bd42be322b7b47cbceebd23f6368d76251f4763e3abae7b2a89e0"
+      },
+      "publication-preview-browser-r2/search-desktop.png": {
+        "bytes": 184611,
+        "sha256": "1fb88fa1b676b6c4ad27abca48c1abee2da5c0f790248b1b7e9ec43d48cb595b"
+      },
+      "publication-preview-r1.json": {
+        "bytes": 44853,
+        "sha256": "17e4cafdf5d0969f8cc696d0231b2be365b4d1c4ce86d5b84b7d3d3c7daa40c4"
+      },
+      "publication-production-browser-classified-r1.json": {
+        "bytes": 8121,
+        "sha256": "c7607b24a80ee7b59759c0356156329725c327ae08ce06c8ecf8583114975f92"
+      },
+      "publication-production-browser-r1-driver.log": {
+        "bytes": 2191,
+        "sha256": "075bedc48eab2b7e8c27c3e7443f1d2f3f8fa23de39254071bf673a0043523c4"
+      },
+      "publication-production-browser-r1/browser.json": {
+        "bytes": 7514,
+        "sha256": "84e0f92956bfc3eaece90db4082bc28d1bb60a389878d5e28ec6162162be014e"
+      },
+      "publication-production-browser-r1/home-desktop.png": {
+        "bytes": 872290,
+        "sha256": "7d4100cca7d496af49c9f2e83ca10a8cd4635fa9db221a16f5a490164fbca10d"
+      },
+      "publication-production-browser-r1/home-mobile.png": {
+        "bytes": 264455,
+        "sha256": "af70f0db74a0081192fce1960a5e84ea2653096fb382d5a101915720b33dcacc"
+      },
+      "publication-production-browser-r1/install-desktop.png": {
+        "bytes": 164957,
+        "sha256": "6b106e0676bb26c6f8c875e82dcb58444281d38d35aab0bb0873f43155f043f7"
+      },
+      "publication-production-browser-r1/install-mobile.png": {
+        "bytes": 59844,
+        "sha256": "abb7370f91c6a3849d77f1c78c31fd86f9010c0f9bf09d65fff7face5b83af1f"
+      },
+      "publication-production-browser-r1/mobile-tables.png": {
+        "bytes": 80668,
+        "sha256": "c890fe97c03bd42be322b7b47cbceebd23f6368d76251f4763e3abae7b2a89e0"
+      },
+      "publication-production-browser-r1/search-desktop.png": {
+        "bytes": 174457,
+        "sha256": "860275b4591e062018606d80916559ea98445d4e3d83aa2a18db48961e460928"
+      },
+      "publication-production-r1.json": {
+        "bytes": 44720,
+        "sha256": "620915c21ec179f4382917072e394a791fe9047d41c04b74aac6d56f5d2b4282"
+      },
+      "release-110-cloudflare-main-1.json": {
+        "bytes": 4131,
+        "sha256": "81e0c41bd471c762a68257340afb53865d5823c8c65a7731b88c31c43472407c"
+      },
+      "release-110-main-attempt1-terminal-jobs-r1.json": {
+        "bytes": 19836,
+        "sha256": "eace29c6fc9492690b652791f312be29a7fc99edde31157b266ec4ff7885afdf"
+      },
+      "release-110-main-macos-targeted-retry-r1.json": {
+        "bytes": 820,
+        "sha256": "47e03d47792c392d2b9dea2c18d474d5f5e9ef766ab53226e2e1861f55a185ce"
+      },
+      "release-110-merged-repository-links-1.json": {
+        "bytes": 31180,
+        "sha256": "f604f129005eb0b3bd6c4db92678d1a342e4663be66a77aed6aa93a563fac7db"
+      },
+      "release-110-publication-main-r1-raw/checks.json": {
+        "bytes": 151241,
+        "sha256": "3c3caf9a50504b7966044f4c8eb12f937c6917f6d86d1022b5ade61ba462d6ea"
+      },
+      "release-110-publication-main-r1-raw/commit.json": {
+        "bytes": 918844,
+        "sha256": "8eba6cb8167dd289416620b469b446d3f17173fd275cd48a0e34845a0c6a3dec"
+      },
+      "release-110-publication-main-r1-raw/workflows.json": {
+        "bytes": 12328,
+        "sha256": "16541f2334a76b236ab19be8467d3e2378022de1965de47e13315dcff91d16c2"
+      },
+      "release-110-publication-main-r1.json": {
+        "bytes": 27313,
+        "sha256": "4bbd647d3ee0f989b6623b38824d7ddcf40e8d6b3d4ddc406c472d3818bc0d81"
+      },
+      "release-110-publication-main-r2-raw/checks.json": {
+        "bytes": 169900,
+        "sha256": "220dc201ada4da905387190a1f9e14e767d9621f5a5557684199aab693191f44"
+      },
+      "release-110-publication-main-r2-raw/commit.json": {
+        "bytes": 918844,
+        "sha256": "8eba6cb8167dd289416620b469b446d3f17173fd275cd48a0e34845a0c6a3dec"
+      },
+      "release-110-publication-main-r2-raw/workflows.json": {
+        "bytes": 12412,
+        "sha256": "542e53ed81e287063790fa137f5b17e8fed546fd881e2fd71f08b483f0f2b72e"
+      },
+      "release-110-publication-main-r2.json": {
+        "bytes": 27426,
+        "sha256": "d74cb1de237ba49556f9964b1b6b66ba5396f5401e81217fd3529eb431d06a78"
+      },
+      "release-110-publication-main-terminal-attempt1-r1-raw/checks.json": {
+        "bytes": 169902,
+        "sha256": "85086a7be04d202786a3900b0818768be431e657f92a070abf5cf2e1a2a18f5e"
+      },
+      "release-110-publication-main-terminal-attempt1-r1-raw/commit.json": {
+        "bytes": 918844,
+        "sha256": "8eba6cb8167dd289416620b469b446d3f17173fd275cd48a0e34845a0c6a3dec"
+      },
+      "release-110-publication-main-terminal-attempt1-r1-raw/workflows.json": {
+        "bytes": 12333,
+        "sha256": "6e1be9125fe22140dda223b0610f7f55920eecab85e6f9e8cc5e9769b81a2715"
+      },
+      "release-110-publication-main-terminal-attempt1-r1.json": {
+        "bytes": 28063,
+        "sha256": "cbd8fdadef477774d820c835bd15e057eea606f072d4b503afb2552e986efba1"
+      },
+      "release-110-publication-pr-review-2.json": {
+        "bytes": 19383,
+        "sha256": "174068500bf23341334132acab32ae3bf159b55bc08112df58495c0b6b6513c2"
+      },
+      "release-tools/audit_publication_links_110.py": {
+        "bytes": 3375,
+        "sha256": "d7e01f6ccaa376194d68691f3364a492553f627cb426b53f1a9966d2c6629e56"
+      },
+      "release-tools/browser_110.cjs": {
+        "bytes": 7490,
+        "sha256": "203767cd7c5a451b4a76adb02a774ca01dd1c1fd206262cf4d21bcae240ee67d"
+      },
+      "release-tools/check_mobile_install_paint_110.cjs": {
+        "bytes": 2600,
+        "sha256": "44b52c861f098324adc490644b3580e6d3c164495bdb8cbf9d168a026238f7ed"
+      },
+      "release-tools/classify_production_browser_110.py": {
+        "bytes": 2887,
+        "sha256": "20eef802ddc4bd2b525a50e36812573e780feedf5adb2f686488fa438c4cf86e"
+      },
+      "release-tools/observe_docs_main_110.py": {
+        "bytes": 13074,
+        "sha256": "c7816b2645f823e596c47a45db094b1bc2395abbec58fc626dfc9b65624a08e6"
+      },
+      "release-tools/observe_preview_original_110.py": {
+        "bytes": 7706,
+        "sha256": "3f85f3eac0f3aa78a4fd111e9c0e16d9e8f3e43c740d425b1d595fc52d6d0411"
+      },
+      "release-tools/observe_published_site_110.py": {
+        "bytes": 7783,
+        "sha256": "8a33106d1c5d0ba2ad43c0f3f3b647a680aca68db164f550b3599f31ff4b835c"
+      },
+      "release-tools/package_deployment_110.py": {
+        "bytes": 34129,
+        "sha256": "1e1777333d5eb88dd5b66dd278a7d752f6a166e89fc1a0e59227ebd642ab9d0d"
+      }
+    },
+    "bytes": 2844312,
+    "sha256": "10c99e25f559f4b13953548e8d73f100719139ef2aaed97d5ca31191cd451f32"
+  },
+  "claim_boundaries": [
+    "The browser recorded each policy block of the optional Cloudflare analytics beacon.",
+    "The HTTP comparisons cover the selected authored assets. The separate repository-link audit verifies Git objects and named fragments.",
+    "Release scope is technical-preview installation and documentation deployment."
+  ]
+}
