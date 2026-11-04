@@ -307,9 +307,10 @@ impl PreparedVortexRelational {
 
 fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> bool {
     match &input.before_column_projections().kind {
-        // The non-spilling window gathers passthrough values with ValidateValues
-        // and constructs its computed columns in the native allocator.
-        NodeKind::Window { .. } => true,
+        // These non-spilling owners validate every emitted payload before the
+        // consumer sees it. Aggregate keys and join output share native gather;
+        // computed aggregate/window values use the checked result builders.
+        NodeKind::Window { .. } | NodeKind::Aggregate { .. } | NodeKind::Join { .. } => true,
         // There is no payload-only field here. The original sort already
         // requires every integer key from every row. StreamingPrefix checks
         // the complete record and takes independent ownership before pruning.

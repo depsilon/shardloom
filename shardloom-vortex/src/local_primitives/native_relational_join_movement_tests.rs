@@ -143,6 +143,7 @@ fn join_spec(case: Case, first: bool) -> Spec {
     }
     columns.push((Side::Right, if products { "c" } else { "r" }.to_owned()));
     Spec {
+        retained: None,
         kind: if case.outer { Kind::Left } else { Kind::Inner },
         asof: None,
         condition: None,

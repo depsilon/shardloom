@@ -351,7 +351,31 @@ impl FileSegmentSource {
         handle: Handle,
         metrics: RequestMetrics,
     ) -> Self {
-        Self::open_source_segments(SourceSegments::new(segments, None), reader, handle, metrics)
+        Self::open_source_segments(
+            SourceSegments::new(segments, None),
+            reader,
+            handle,
+            metrics,
+            None,
+        )
+    }
+
+    /// Rebind an owned segment map with an explicit bound on additional
+    /// coalesced extent bytes per requested byte.
+    pub fn open_with_segments_and_coalescing_limit<R: VortexReadAt + Clone>(
+        segments: SegmentMap,
+        reader: R,
+        handle: Handle,
+        metrics: RequestMetrics,
+        limit: std::num::NonZeroU64,
+    ) -> Self {
+        Self::open_source_segments(
+            SourceSegments::new(segments, None),
+            reader,
+            handle,
+            metrics,
+            Some(limit),
+        )
     }
 
     pub(crate) fn open_source_segments<R: VortexReadAt + Clone>(
@@ -359,6 +383,7 @@ impl FileSegmentSource {
         reader: R,
         handle: Handle,
         metrics: RequestMetrics,
+        amplification_limit: Option<std::num::NonZeroU64>,
     ) -> Self {
         let (send, recv) = mpsc::unbounded();
 
@@ -389,6 +414,7 @@ impl FileSegmentSource {
             concurrency,
             metrics.clone(),
         )
+        .with_coalescing_amplification_limit(amplification_limit)
         .boxed();
 
         let drive_fut = ReadDriver::new(reader, stream, concurrency, metrics).collect::<()>();
@@ -651,6 +677,101 @@ mod tests {
     use vortex_metrics::DefaultMetricsRegistry;
 
     use super::*;
+
+    #[derive(Clone)]
+    struct CoalescingReadAt {
+        ranges: Arc<Mutex<Vec<(u64, usize)>>>,
+    }
+
+    impl VortexReadAt for CoalescingReadAt {
+        fn coalesce_config(&self) -> Option<vortex_io::CoalesceConfig> {
+            Some(vortex_io::CoalesceConfig {
+                distance: 2048,
+                max_size: 8192,
+            })
+        }
+
+        fn concurrency(&self) -> usize {
+            2
+        }
+
+        fn size(&self) -> BoxFuture<'static, VortexResult<u64>> {
+            async { Ok(2048) }.boxed()
+        }
+
+        fn read_at(
+            &self,
+            offset: u64,
+            length: usize,
+            alignment: Alignment,
+        ) -> BoxFuture<'static, VortexResult<BufferHandle>> {
+            let ranges = Arc::clone(&self.ranges);
+            async move {
+                ranges.lock().push((offset, length));
+                let bytes = (offset..offset + u64::try_from(length).unwrap())
+                    .map(|value| u8::try_from(value % 251).unwrap())
+                    .collect::<Vec<_>>();
+                Ok(BufferHandle::new_host(
+                    ByteBuffer::from(bytes).aligned(alignment),
+                ))
+            }
+            .boxed()
+        }
+    }
+
+    #[tokio::test]
+    async fn owned_segment_rebinding_applies_coalescing_limit_to_actual_reads() -> VortexResult<()>
+    {
+        for bounded in [false, true] {
+            let segments: Arc<[SegmentSpec]> = [0, 1024, 1032]
+                .map(|offset| SegmentSpec {
+                    offset,
+                    length: 8,
+                    alignment: Alignment::none(),
+                })
+                .into();
+            let ranges = Arc::new(Mutex::new(Vec::new()));
+            let reader = CoalescingReadAt {
+                ranges: Arc::clone(&ranges),
+            };
+            let registry = DefaultMetricsRegistry::default();
+            let metrics = RequestMetrics::new(&registry, vec![]);
+            let source = if bounded {
+                FileSegmentSource::open_with_segments_and_coalescing_limit(
+                    Arc::clone(&segments).into(),
+                    reader,
+                    TokioRuntime::current(),
+                    metrics,
+                    std::num::NonZeroU64::new(4).unwrap(),
+                )
+            } else {
+                FileSegmentSource::open_with_segments(
+                    Arc::clone(&segments).into(),
+                    reader,
+                    TokioRuntime::current(),
+                    metrics,
+                )
+            };
+            let buffers =
+                future::join_all((0..3).map(|id| source.request(SegmentId::from(id))))
+                    .await;
+            for (buffer, segment) in buffers.into_iter().zip(segments.iter()) {
+                let expected = (segment.offset..segment.offset + 8)
+                    .map(|value| u8::try_from(value % 251).unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(buffer?.as_host().as_ref(), expected.as_slice());
+            }
+            let mut actual = ranges.lock().clone();
+            actual.sort_unstable();
+            let expected = if bounded {
+                vec![(0, 8), (1024, 16)]
+            } else {
+                vec![(0, 1040)]
+            };
+            assert_eq!(actual, expected);
+        }
+        Ok(())
+    }
 
     #[test]
     fn source_segments_borrows_original_base_and_metadata_tables() {

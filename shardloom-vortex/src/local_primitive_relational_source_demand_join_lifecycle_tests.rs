@@ -348,6 +348,94 @@ fn parquet_join_demand_preserves_prepared_vortex_payload_validation_barrier() {
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }
 
+fn prepared_join_payload_fixture(keys: &[i64], values: &[f64]) -> Fixture {
+    Fixture::new(
+        StructArray::new(
+            FieldNames::from(["n", "other", "text"]),
+            vec![
+                PrimitiveArray::from_iter(keys.iter().copied()).into_array(),
+                PrimitiveArray::from_iter(keys.iter().map(|key| key + 100)).into_array(),
+                PrimitiveArray::from_iter(values.iter().copied()).into_array(),
+            ],
+            keys.len(),
+            Validity::NonNullable,
+        )
+        .into_array(),
+        1,
+    )
+}
+
+#[test]
+fn prepared_join_payload_mask_preserves_selected_and_build_validation_scopes() {
+    for mixed_inputs in [false, true] {
+        for kind in [
+            JoinKind::Inner,
+            JoinKind::Left,
+            JoinKind::Right,
+            JoinKind::Full,
+        ] {
+            for invalid_matches in [false, true] {
+                let left = ParquetFixture::new();
+                let native_left =
+                    prepared_join_payload_fixture(&(0..16).collect::<Vec<_>>(), &[1.0; 16]);
+                let right = prepared_join_payload_fixture(
+                    &[0, if invalid_matches { 1 } else { 99 }],
+                    &[1.0, f64::NAN],
+                );
+                let VortexRelationalPlan::Join(mut join) = joined(&left, &left, kind) else {
+                    unreachable!()
+                };
+                if !mixed_inputs {
+                    join.left = native_left.scan();
+                }
+                join.right = right.scan();
+                let fixtures = if mixed_inputs {
+                    vec![&left]
+                } else {
+                    Vec::new()
+                };
+                let prepared = prepare(
+                    &fixtures,
+                    &aggregate(VortexRelationalPlan::Join(join), false),
+                );
+                let initial = prepared.snapshot().memory.reserved_bytes;
+                #[cfg(debug_assertions)]
+                let observation = Observation::start();
+                let result = prepared.collect_jsonl(&CancellationToken::default());
+                // A mixed streaming operation validates its complete retained build
+                // through detach_join_build before matching. Pure prepared inputs
+                // keep selected-row validation at output construction.
+                if mixed_inputs
+                    || invalid_matches
+                    || matches!(kind, JoinKind::Right | JoinKind::Full)
+                {
+                    let error = result
+                        .err()
+                        .expect("a selected invalid hidden payload must fail");
+                    assert!(
+                        error.to_string().contains("finite declared dtype"),
+                        "{error}"
+                    );
+                    assert_eq!(prepared.snapshot().completed_executions, 0);
+                } else {
+                    let rows = if kind == JoinKind::Inner { 1 } else { 16 };
+                    let result = result.unwrap();
+                    assert_eq!(json_rows(&result), [json!({"rows": rows})]);
+                    assert!(result.execution.native_io_certificate.is_certified());
+                    #[cfg(debug_assertions)]
+                    {
+                        let counts = observation.finish();
+                        assert_eq!(counts.join_output_cells, rows);
+                        assert_eq!(counts.join_payload_validation_only_cells, rows * 5);
+                    }
+                    drop(result);
+                }
+                assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+            }
+        }
+    }
+}
+
 #[test]
 fn parquet_join_demand_keeps_caller_owned_arrow_outputs_as_a_barrier() {
     let left = ParquetFixture::new();
@@ -391,8 +479,9 @@ fn parquet_join_demand_keeps_caller_owned_arrow_outputs_as_a_barrier() {
         let counts = observation.finish();
         assert_eq!(
             (counts.join_output_rows, counts.join_output_cells),
-            (16, 96)
+            (16, 16)
         );
+        assert_eq!(counts.join_payload_validation_only_cells, 80);
     }
     assert_eq!(
         result

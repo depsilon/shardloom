@@ -53,6 +53,78 @@ fn aggregate(
     }))
 }
 
+#[test]
+fn prepared_grouped_set_results_admit_bounded_final_ordering() {
+    use crate::relational_query::{VortexRelationalLimit, VortexRelationalSetKind};
+
+    let fixture = Fixture::new(
+        StructArray::new(
+            FieldNames::from(["group", "value"]),
+            vec![
+                PrimitiveArray::from_iter((0..514_i64).map(|row| row % 257)).into_array(),
+                PrimitiveArray::from_iter((0..514_i64).map(|row| row % 257 - 100)).into_array(),
+            ],
+            514,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        17,
+    );
+    for set in [false, true] {
+        let input = if set {
+            VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+                left: fixture.scan(),
+                right: fixture.scan(),
+                kind: VortexRelationalSetKind::UnionAll,
+            }))
+        } else {
+            fixture.scan()
+        };
+        let grouped = aggregate(
+            input,
+            &["group"],
+            vec![
+                measure("sum_distinct", Some("value"), "total"),
+                measure("count", None, "rows"),
+            ],
+        );
+        let sorted = VortexRelationalPlan::Sort(Box::new(VortexRelationalSort {
+            input: grouped,
+            keys: vec![VortexRelationalOrderKey {
+                column: ColumnRef::new("total").unwrap(),
+                descending: true,
+                nulls: Some(VortexRelationalNullOrder::Last),
+            }],
+        }));
+        let plan = VortexRelationalPlan::Limit(Box::new(VortexRelationalLimit {
+            input: sorted,
+            offset: 2,
+            count: 3,
+        }));
+        let prepared = prepare_relational(&plan, policy()).unwrap();
+        let initial = prepared.snapshot().memory.reserved_bytes;
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(json_rows(&result), (252..=254).rev().map(|group| {
+            serde_json::json!({"group": group, "total": f64::from(group - 100), "rows": if set { 4 } else { 2 }})
+        }).collect::<Vec<_>>());
+        assert!(result.execution.input.is_none());
+        assert!(result.execution.native_io_certificate.is_certified());
+        assert!(
+            result
+                .execution
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis
+                .split_whitespace()
+                .any(|field| field == "streaming_ordering_prefix_rows_validated=257")
+        );
+        drop(result);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    }
+}
+
 fn fixture() -> Fixture {
     Fixture::new(
         StructArray::try_new(

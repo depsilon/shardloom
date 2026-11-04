@@ -251,6 +251,36 @@ the ledger.
 
 Current autonomous execution order:
 
+- [ ] **Shared work reduction after the updated analytical cohort**
+  - The November 3 maintainer request promotes six mechanisms under the existing
+    RFC 0044/item-20 program, ahead of item 19. The current native baseline passes
+    all 10,000 primary requests. Development proceeds in a separate worktree
+    while the preceding PR completes its checks.
+    [Governing contract and intake](native-shared-work-reduction-2026-11-03.md).
+  - Reuse existing typed key, grouping, gather, source-demand, read-observation,
+    allocator and public-export owners. This is a measured post-1.1 optimization
+    candidate. The six rows receive concrete retained or dropped dispositions.
+  - ShardLoom technique review covers capillary partition/batch work, metadata
+    proofs, dynamic memory/read admission, PulseWeave consumer eligibility and
+    separate engine/public timing evidence.
+  - **Execution checklist**
+    - [ ] Validate and measure stable partition-local window ordering.
+    - [ ] Attribute and reduce eligible gather-to-owned-output work.
+    - [ ] Separate prepared payload demand from required selected-value checks.
+    - [ ] Reduce ordinary public-client construction while preserving compatibility.
+    - [ ] Bind issued read extents to backing ownership and evaluate an admitted policy.
+    - [ ] Evaluate compact extrema and shared aggregation/set finalization.
+    - [ ] Complete the frozen affected-cohort, public/package and portable evidence.
+    - [ ] Record all six decisions and complete review, integration and ledger movement.
+  - The next outcome is one coherent implementation and investigation checkpoint
+    across the same five public interfaces. Required checks include focused
+    regressions, native feature checks, workspace fmt/Clippy/tests, independent
+    outputs, resource/lifetime controls and saved-result replay.
+  - Each performance claim is scoped to its declared clock and cohort. Current
+    Polars observations supply the external baseline. Vortex-native I/O and
+    explicit no-fallback evidence remain required. CG-1 through CG-23 retain
+    their independent status and completed work moves to the completed ledger.
+
 **November 3 source milestone.** The 1.1.0 source package builds from clean
 revision `ff84e23d` and passes all 303 installed native integration tests.
 The README, field guide and five-interface examples passed their checks before
@@ -295,7 +325,7 @@ uses offline replay. Assess further native changes against their affected
 cases and controls when independently justified.
 [Complete updated pass](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
-Next deliver item 19's rich-data lifecycle and add cases requiring those
+After the promoted shared-work batch, deliver item 19's rich-data lifecycle and add cases requiring those
 capabilities. Item 21's Foundry integration leads directly to item 22's AI
 workflows. The post-AI version checkpoint is currently planned as 1.3.0.
 

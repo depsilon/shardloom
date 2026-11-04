@@ -70,19 +70,20 @@
     "src/footer/postscript.rs": "13db5dc1209346462fe83e48bce06f1420eec98acdfb3d8ee841efdac03f410f",
     "src/footer/segment.rs": "75590b9474d658cb2a479d2bcb52cbbe969acd3908ea3435a3bfccdad4375bfc",
     "src/footer/serializer.rs": "6788f034a46949e3fba537c783395b69e4468506cac427d759fc65730b6506d1",
-    "src/open.rs": "217fba36ec17156cbb05253c5cb0ddcee33f602d2d804f7077afb3b55bc786df",
-    "src/segments/source.rs": "85b9e5adb7d1d2088f4ea1eb6d338436463314ddcbc9fe9f9b9b53176abe7629",
+    "src/open.rs": "5fe2b94cb69a4b513930de6a26ad896cc1dd3215745867c9dee37d32fe30073e",
+    "src/segments/source.rs": "812ba060941fc2665db93eef68e4556ecccdb6dcbc041de478df63e30ad70007",
     "src/tests.rs": "f48b31598687847300012ff039a597b489ffb06ca41ba346025b701d27c390dc",
-    "src/writer.rs": "f73f8fb0d3e37c6b8228e88993d06f2264c851e2a0b8fc5245102f09a32b6d84"
+    "src/writer.rs": "f73f8fb0d3e37c6b8228e88993d06f2264c851e2a0b8fc5245102f09a32b6d84",
+    "src/read/driver.rs": "08439c4e1ccc51e5335ae876aa1e4cd4ed49746e21b9e8ee1639da4704d0f4f2"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "168e12bcf326e89111c370e2e24836ebd7199852d918fbb2f70556b7395636c2",
+    "README.shardloom.md": "dc1b11d11a37d223f415fd5acc70cc5e78347a590bc5adeb8f5ba81f9a072f06",
     "src/footer/metadata.rs": "5f2a0594851736ca6d46010fc8392ce791ad531e3440865c3f0424ca7dc2678f"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "168e12bcf326e89111c370e2e24836ebd7199852d918fbb2f70556b7395636c2"
+    "sha256": "dc1b11d11a37d223f415fd5acc70cc5e78347a590bc5adeb8f5ba81f9a072f06"
   },
   "supplemental_test_files": {}
 }

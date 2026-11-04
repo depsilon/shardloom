@@ -27,6 +27,7 @@ fn add(total: &mut u64, value: u64) -> Result<()> {
 }
 
 #[allow(clippy::too_many_arguments)] // One bound join shares the admitted store, grant, inputs and consumer.
+#[allow(clippy::too_many_lines)] // Keep the two input lifetimes and shared output validation in one operation.
 pub(in crate::local_primitives) fn run(
     spec: &Spec,
     right_fields: &[(String, DType)],
@@ -112,7 +113,12 @@ pub(in crate::local_primitives) fn run(
                     &mut report.output_rows,
                     context,
                     &mut delivered,
-                    |name, dtype, rows| search.lookup.gather(rows, None, name, dtype, context),
+                    |name, dtype, rows, retained| {
+                        search
+                            .lookup
+                            .gather(rows, None, name, dtype, context)
+                            .map(|array| retained.then_some(array))
+                    },
                 )?;
             }
         }
@@ -122,7 +128,12 @@ pub(in crate::local_primitives) fn run(
             &mut report.output_rows,
             context,
             &mut delivered,
-            |name, dtype, rows| search.lookup.gather(rows, None, name, dtype, context),
+            |name, dtype, rows, retained| {
+                search
+                    .lookup
+                    .gather(rows, None, name, dtype, context)
+                    .map(|array| retained.then_some(array))
+            },
         )?;
         context.check_cancelled()
     })?;

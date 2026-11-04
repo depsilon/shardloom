@@ -816,6 +816,7 @@ impl<'a> Binder<'a> {
             }
         }
         let spec = native_relational_join::Spec {
+            retained: None,
             kind: join.kind,
             asof: None,
             left_keys,

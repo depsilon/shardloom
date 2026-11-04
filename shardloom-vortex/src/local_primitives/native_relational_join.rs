@@ -32,6 +32,9 @@ pub(super) struct Spec {
     pub(super) right_key_fields: Vec<(String, DType)>,
     pub(super) fields: Vec<(String, DType)>,
     pub(super) columns: Vec<(Side, String)>,
+    /// Prepared inputs preserve checks for every declared selected column.
+    /// This mask controls only which checked payloads reach the consumer.
+    pub(super) retained: Option<Vec<bool>>,
     pub(super) condition: Option<Condition>,
 }
 
@@ -293,6 +296,12 @@ impl<'a> Join<'a> {
 }
 
 impl Spec {
+    pub(super) fn retains(&self, index: usize) -> bool {
+        self.retained
+            .as_ref()
+            .is_none_or(|retained| retained[index])
+    }
+
     fn keep_unpaired_left(&self, matched: bool) -> bool {
         match self.kind {
             Kind::LeftSemi => matched,
@@ -332,12 +341,24 @@ impl Spec {
                 )
             })
             .transpose()?;
-        self.flush_with_right(left, pairs, written, context, consume, |name, dtype, _| {
-            right
-                .as_ref()
-                .ok_or_else(|| failed("right gather is absent"))?
-                .column(name, dtype, context)
-        })
+        self.flush_with_right(
+            left,
+            pairs,
+            written,
+            context,
+            consume,
+            |name, dtype, _, retained| {
+                let gather = right
+                    .as_ref()
+                    .ok_or_else(|| failed("right gather is absent"))?;
+                if retained {
+                    gather.column(name, dtype, context).map(Some)
+                } else {
+                    gather.validate_column(name, dtype, context)?;
+                    Ok(None)
+                }
+            },
+        )
     }
 
     /// Resident tables and stored native orders share output ownership and null extension.
@@ -348,7 +369,7 @@ impl Spec {
         written: &mut u64,
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
-        mut right_column: impl FnMut(&str, &DType, &[Option<usize>]) -> Result<ArrayRef>,
+        mut right_column: impl FnMut(&str, &DType, &[Option<usize>], bool) -> Result<Option<ArrayRef>>,
     ) -> Result<()> {
         let rows = pairs.left.values.len();
         if rows == 0 {
@@ -370,35 +391,46 @@ impl Spec {
             .transpose()?;
         let mut columns = ReservedVec::new(context.memory())?;
         columns.reserve(self.fields.len())?;
-        for ((side, name), (_, dtype)) in self.columns.iter().zip(&self.fields) {
+        for (index, ((side, name), (_, dtype))) in self.columns.iter().zip(&self.fields).enumerate()
+        {
+            let retained = self.retains(index);
             let array = match side {
                 Side::Left => match (left, &left_indices) {
-                    (Some(left), Some(indices)) => take_column(
-                        &logical_field_from_native_array(left, name)?,
-                        indices,
-                        dtype,
-                        context,
-                    )?,
-                    _ if super::native_payload::is_nested(dtype) => {
-                        super::native_payload::defaults(dtype, rows, context)?
+                    (Some(left), Some(indices)) => {
+                        let source = logical_field_from_native_array(left, name)?;
+                        if retained {
+                            Some(take_column(&source, indices, dtype, context)?)
+                        } else {
+                            super::native_payload::validate_selection(
+                                &source, indices, dtype, context,
+                            )?;
+                            None
+                        }
                     }
-                    _ => result_batch::build_column_with_float_policy(
+                    _ if super::native_payload::is_nested(dtype) => {
+                        retained.then_some(super::native_payload::defaults(dtype, rows, context)?)
+                    }
+                    _ => retained.then_some(result_batch::build_column_with_float_policy(
                         dtype,
                         rows,
                         &context.native_session().host_allocator(),
                         context.float_policy(),
                         |_| Ok(result_batch::Value::Null),
-                    )?,
+                    )?),
                 },
-                Side::Right => right_column(name, dtype, &pairs.right.values)?,
+                Side::Right => right_column(name, dtype, &pairs.right.values, retained)?,
             };
-            columns.values.push(array);
+            if let Some(array) = array {
+                columns.values.push(array);
+            }
         }
+        let output_width = columns.values.len();
         let (columns, _ownership) = columns.into_parts();
         let array = StructArray::try_new(
             self.fields
                 .iter()
-                .map(|(name, _)| name.as_str())
+                .enumerate()
+                .filter_map(|(index, (name, _))| self.retains(index).then_some(name.as_str()))
                 .collect::<FieldNames>(),
             columns,
             rows,
@@ -409,8 +441,11 @@ impl Spec {
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| {
             counts.join_output_rows += rows as u64;
-            counts.join_output_cells += (rows * self.fields.len()) as u64;
+            counts.join_output_cells += (rows * output_width) as u64;
+            counts.join_payload_validation_only_cells +=
+                (rows * (self.fields.len() - output_width)) as u64;
         });
+        let _ = output_width;
         consume(array)?;
         context.check_cancelled()?;
         *written = next;
