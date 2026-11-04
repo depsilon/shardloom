@@ -40,6 +40,8 @@ pub(crate) struct Counts {
     pub(crate) aggregate_float_extrema_admission_groups: u64,
     pub(crate) numeric_output_copy_batches: u64,
     pub(crate) numeric_output_copy_rows: u64,
+    pub(crate) numeric_gather_direct_batches: u64,
+    pub(crate) numeric_gather_direct_rows: u64,
     pub(crate) payload_numeric_validation_columns: u64,
     pub(crate) payload_numeric_validation_rows: u64,
     pub(crate) payload_variable_validation_columns: u64,
@@ -90,6 +92,7 @@ pub(crate) struct Counts {
     pub(crate) replay_captured_rows: u64,
     pub(crate) join_output_rows: u64,
     pub(crate) join_output_cells: u64,
+    pub(crate) join_payload_validation_only_cells: u64,
 }
 
 thread_local! {

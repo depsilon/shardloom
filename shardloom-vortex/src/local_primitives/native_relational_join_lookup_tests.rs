@@ -41,6 +41,7 @@ fn ordered_join_hash_collisions_still_compare_exact_keys_and_pack_across_blocks(
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let spec = Spec {
+                retained: None,
                 kind: Kind::Inner,
                 asof: None,
                 condition: None,

@@ -143,7 +143,7 @@ pub(super) fn take_record_with_scalar_count(
 ) -> Result<(ArrayRef, u64)> {
     let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
     let scalars = Cell::new(0);
-    let output = take_admitted(
+    let output = take_admitted::<true>(
         array,
         indices,
         dtype,
@@ -176,7 +176,7 @@ pub(super) fn take_with_policy(
     // A struct-valued column is one nested value, not a table schema. In
     // particular, sparse state may retain many independent one-row values.
     let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
-    take_admitted(
+    take_admitted::<true>(
         source,
         indices,
         dtype,
@@ -204,7 +204,7 @@ pub(super) fn take_record_with_policy(
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
-    take_admitted(
+    take_admitted::<true>(
         source,
         indices,
         dtype,
@@ -214,7 +214,27 @@ pub(super) fn take_record_with_policy(
     )
 }
 
-fn take_admitted(
+/// Check exactly the selected payload in its existing visitation order while
+/// retaining no values. The source and selection keep their native owners.
+pub(super) fn validate_selection(
+    source: &ArrayRef,
+    indices: &ArrayRef,
+    dtype: &DType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
+    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    take_admitted::<false>(
+        source,
+        indices,
+        dtype,
+        CopyState::unmeasured(CopyPolicy::ValidateValues),
+        context,
+        metadata,
+    )
+    .map(drop)
+}
+
+fn take_admitted<const RETAIN: bool>(
     source: &ArrayRef,
     indices: &ArrayRef,
     dtype: &DType,
@@ -255,7 +275,7 @@ fn take_admitted(
         };
         rows.values.push(index);
     }
-    copy_rows::<true>(Some(source), &rows.values, dtype, copy, context, &allocator)
+    copy_rows::<RETAIN>(Some(source), &rows.values, dtype, copy, context, &allocator)
 }
 
 /// Typed empty/null output, including a missing outer-join side. Nonnullable

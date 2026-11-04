@@ -22,15 +22,43 @@ pub(super) fn sort_with_order_evidence<T: Copy>(
     comparisons_prevalidated: bool,
     compare: impl FnMut(T, T) -> Result<Ordering>,
 ) -> Result<()> {
-    use shardloom_core::native_io_decisions::{
-        NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
-    };
     let outcome = sort_with_order_check(
         rows,
         context.cancellation(),
         comparisons_prevalidated,
         compare,
     )?;
+    record_order(context, outcome, rows.len())
+}
+
+/// Inspect a complete, prevalidated comparison domain before choosing another
+/// native ordering strategy. This leaves the original ordinals untouched.
+pub(super) fn preserve_order_with_evidence<T: Copy>(
+    rows: &[T],
+    context: &crate::resident_session::NativeExecutionContext<'_>,
+    compare: impl FnMut(T, T) -> Result<Ordering>,
+) -> Result<bool> {
+    let preserved = is_ordered(rows, context.cancellation(), compare)?;
+    record_order(
+        context,
+        if preserved {
+            ExistingOrder::Preserved
+        } else {
+            ExistingOrder::Disordered
+        },
+        rows.len(),
+    )?;
+    Ok(preserved)
+}
+
+fn record_order(
+    context: &crate::resident_session::NativeExecutionContext<'_>,
+    outcome: ExistingOrder,
+    rows: usize,
+) -> Result<()> {
+    use shardloom_core::native_io_decisions::{
+        NativeIoCapability, NativeIoDecisionOutcome, NativeIoDecisionReason, NativeIoObservedWork,
+    };
     let (outcome, reason) = match outcome {
         ExistingOrder::Preserved => (
             NativeIoDecisionOutcome::Executed,
@@ -50,7 +78,7 @@ pub(super) fn sort_with_order_evidence<T: Copy>(
         outcome,
         reason,
         NativeIoObservedWork {
-            input_rows: Some(rows.len() as u64),
+            input_rows: Some(rows as u64),
             ..NativeIoObservedWork::default()
         },
     )
@@ -69,6 +97,18 @@ pub(super) fn sort_with_order_check<T: Copy>(
         sort(rows, cancellation, compare)?;
         return Ok(ExistingOrder::UnprovenDomain);
     }
+    if is_ordered(rows, cancellation, &mut compare)? {
+        return Ok(ExistingOrder::Preserved);
+    }
+    sort(rows, cancellation, compare)?;
+    Ok(ExistingOrder::Disordered)
+}
+
+fn is_ordered<T: Copy>(
+    rows: &[T],
+    cancellation: &CancellationToken,
+    mut compare: impl FnMut(T, T) -> Result<Ordering>,
+) -> Result<bool> {
     cancellation.check()?;
     #[cfg(all(test, debug_assertions))]
     super::native_relational_observation::record(|counts| counts.order_checks += 1);
@@ -79,8 +119,7 @@ pub(super) fn sort_with_order_check<T: Copy>(
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| counts.order_check_comparisons += 1);
         if compare(pair[0], pair[1])?.is_gt() {
-            sort(rows, cancellation, compare)?;
-            return Ok(ExistingOrder::Disordered);
+            return Ok(false);
         }
     }
     cancellation.check()?;
@@ -89,7 +128,7 @@ pub(super) fn sort_with_order_check<T: Copy>(
         counts.ordered_input_sorts += 1;
         counts.ordered_input_rows += rows.len() as u64;
     });
-    Ok(ExistingOrder::Preserved)
+    Ok(true)
 }
 
 /// Heap ordering is unstable; callers include source ordinals as the final key

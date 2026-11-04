@@ -30,6 +30,9 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "native_relational_window_group_order.rs"]
+mod partition_order;
+
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct OrderKey {
     pub(super) key: usize,
@@ -199,20 +202,16 @@ impl<'a> Window<'a> {
         }
         // build() validates the full ordering-key prefix. The original loop
         // above validates this group's NULL policy before any comparisons.
-        native_relational_order::sort_with_order_evidence(
-            &mut ordinals.values,
-            context,
-            comparison_domains_prevalidated,
-            |left, right| {
-                let partition = self.compare_partition(group, left, right)?;
-                if partition != Ordering::Equal {
-                    return Ok(partition);
-                }
-                Ok(self
-                    .compare_order(group, left, right)?
-                    .then(left.cmp(&right)))
-            },
-        )?;
+        if !comparison_domains_prevalidated
+            || !partition_order::order(self, group, &mut ordinals, context)?
+        {
+            native_relational_order::sort_with_order_evidence(
+                &mut ordinals.values,
+                context,
+                comparison_domains_prevalidated,
+                |left, right| self.compare_row(group, left, right),
+            )?;
+        }
         let mut start = 0;
         while start < ordinals.values.len() {
             context.check_cancelled()?;
@@ -230,6 +229,16 @@ impl<'a> Window<'a> {
             start = end;
         }
         Ok(())
+    }
+
+    fn compare_row(&self, group: &Group, left: usize, right: usize) -> Result<Ordering> {
+        let partition = self.compare_partition(group, left, right)?;
+        if partition != Ordering::Equal {
+            return Ok(partition);
+        }
+        Ok(self
+            .compare_order(group, left, right)?
+            .then(left.cmp(&right)))
     }
 
     fn compare_partition(&self, group: &Group, left: usize, right: usize) -> Result<Ordering> {

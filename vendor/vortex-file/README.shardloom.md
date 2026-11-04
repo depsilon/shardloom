@@ -1,10 +1,21 @@
-# ShardLoom file metadata ownership patch
+# ShardLoom native file ownership and read policy
 
 This directory contains the reviewed Apache-2.0 `vortex-file` 0.90.0 registry
 source. `upstream-provenance.json` records the authoritative archive, all
 original member hashes, license and dirty upstream revision. The workspace
 lockfile owns production dependency resolution; the archive's crate-local
 lockfile is recorded but omitted.
+
+The November 3 read-policy extension adds an optional coalescing amplification
+limit to `VortexOpenOptions`. Each added request must justify the extra aligned
+extent bytes with its own useful byte length. Existing distance and maximum
+extent limits still apply. Adjacent and overlapping requests retain coalescing.
+ShardLoom's resident local-file opens select a factor of four. The allocator,
+operation admission and final backing-owner release continue to govern the
+resulting buffers. Provider callers select this policy explicitly through the
+opener. Sparse and broad sequential request tests cover its admission rule.
+The governing investigation is
+`docs/architecture/native-shared-work-reduction-2026-11-03.md`.
 
 The changes in `src/footer/deserializer.rs`, `src/open.rs` and
 `src/segments/source.rs` use the existing

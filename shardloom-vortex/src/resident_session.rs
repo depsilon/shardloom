@@ -13,6 +13,10 @@ use std::{
 };
 
 use futures::{FutureExt as _, future::BoxFuture};
+
+// Bound each added local extent by useful request bytes while preserving
+// adjacent reads. The allocator and operation grant own the resulting backing.
+const COALESCING_AMPLIFICATION_LIMIT: std::num::NonZeroU64 = std::num::NonZeroU64::new(4).unwrap();
 use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot};
@@ -715,6 +719,7 @@ impl ResidentVortexSession {
                 self.0
                     .session
                     .open_options()
+                    .with_coalescing_amplification_limit(COALESCING_AMPLIFICATION_LIMIT)
                     .with_layout_reader_cache()
                     .open(input),
             )

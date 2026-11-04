@@ -7,6 +7,7 @@
 // Modified by ShardLoom on 2026-10-21: pass existing segment-map owners to
 // native sources without allocating a concatenated segment table.
 
+use std::num::NonZeroU64;
 use std::sync::Arc;
 
 use futures::executor::block_on;
@@ -82,6 +83,8 @@ pub struct VortexOpenOptions {
     labels: Vec<Label>,
     /// Whether to cache file's LayoutReader between scans
     cache_layout_reader: bool,
+    /// Optional bound on the extra extent bytes admitted per added request.
+    coalescing_amplification_limit: Option<NonZeroU64>,
 }
 
 /// Extension trait for constructing [`VortexOpenOptions`] from a session.
@@ -101,6 +104,7 @@ pub trait OpenOptionsSessionExt:
             metrics_registry: None,
             labels: Vec::default(),
             cache_layout_reader: false,
+            coalescing_amplification_limit: None,
         }
     }
 }
@@ -110,6 +114,14 @@ impl<S: ArraySessionExt + LayoutSessionExt + RuntimeSessionExt + HostMemorySessi
 }
 
 impl VortexOpenOptions {
+    /// Bound additional coalesced extent bytes by this multiple of each added
+    /// request's useful bytes. Adjacent and overlapping requests still merge.
+    /// Existing distance, maximum-span and alignment limits also apply.
+    pub fn with_coalescing_amplification_limit(mut self, limit: NonZeroU64) -> Self {
+        self.coalescing_amplification_limit = Some(limit);
+        self
+    }
+
     /// Return the session this opener is bound to.
     pub fn session(&self) -> &VortexSession {
         &self.session
@@ -358,6 +370,7 @@ impl VortexOpenOptions {
                 reader,
                 self.session.handle(),
                 metrics,
+                self.coalescing_amplification_limit,
             ),
         ));
 

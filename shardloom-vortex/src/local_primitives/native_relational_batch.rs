@@ -21,6 +21,9 @@ use vortex::array::{
     validity::Validity,
 };
 
+#[path = "native_relational_numeric_gather.rs"]
+mod numeric_gather;
+
 pub(super) fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native relational execution: {reason}; no fallback execution was attempted"
@@ -551,6 +554,23 @@ pub(super) struct Gather<'a> {
 }
 
 impl Gather<'_> {
+    pub(super) fn validate_column(
+        &self,
+        name: &str,
+        dtype: &DType,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if self.segments.values.is_empty() {
+            return self.column(name, dtype, context).map(drop);
+        }
+        native_payload::validate_selection(
+            &self.source_column(name, context)?,
+            &self.indices,
+            dtype,
+            context,
+        )
+    }
+
     pub(super) fn column(
         &self,
         name: &str,
@@ -695,6 +715,9 @@ fn take_column_with_policy(
     }
     if native_payload::is_nested(dtype) {
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
+    }
+    if let Some(output) = numeric_gather::try_copy(array, indices, dtype, context)? {
+        return Ok(output);
     }
     let mut execution = context.native_session().create_execution_ctx();
     let selected = select_column(array, indices, dtype, &mut execution)?;

@@ -41,6 +41,14 @@ pin_project! {
 }
 
 impl<S> IoRequestStream<S> {
+    pub(crate) fn with_coalescing_amplification_limit(
+        mut self,
+        limit: Option<std::num::NonZeroU64>,
+    ) -> Self {
+        self.state.amplification_limit = limit;
+        self
+    }
+
     // FIXME(ngates): split this into coalesce_distance and max_read_size. We should keep
     //  expanding the request by coalesce_distance, but stop if we hit max_read_size.
     pub(crate) fn new(
@@ -129,6 +137,7 @@ struct State {
     // Metrics for tracking I/O request patterns
     metrics: RequestMetrics,
     coalesced_buffer_alignment: Alignment,
+    amplification_limit: Option<std::num::NonZeroU64>,
 }
 
 impl State {
@@ -139,6 +148,7 @@ impl State {
             requests_by_offset: BTreeSet::new(),
             metrics,
             coalesced_buffer_alignment,
+            amplification_limit: None,
         }
     }
 
@@ -279,7 +289,13 @@ impl State {
                     let aligned_start = new_start - (new_start % align);
                     let new_total_size = new_end - aligned_start;
 
-                    if new_total_size > window.max_size {
+                    let current_aligned_start = current_start - (current_start % align);
+                    let additional_bytes =
+                        new_total_size.saturating_sub(current_end - current_aligned_start);
+                    let excessive_gap = self.amplification_limit.is_some_and(|limit| {
+                        additional_bytes > (req.length as u64).saturating_mul(limit.get())
+                    });
+                    if new_total_size > window.max_size || excessive_gap {
                         // Skip it but keep it available for future coalescing operations.
                         continue;
                     }
@@ -366,6 +382,48 @@ mod tests {
             },
             rx,
         )
+    }
+
+    fn bounded_extents(ranges: &[(u64, usize)], amplification: Option<u64>) -> Vec<(u64, u64)> {
+        let registry = DefaultMetricsRegistry::default();
+        let mut state = State::new(RequestMetrics::new(&registry, vec![]), Alignment::none());
+        state.amplification_limit = amplification.and_then(std::num::NonZeroU64::new);
+        let mut receivers = Vec::new();
+        for (id, &(offset, length)) in ranges.iter().enumerate() {
+            let (request, receiver) = create_request(id, offset, length);
+            receivers.push(receiver);
+            state.on_event(ReadEvent::Request(request));
+            state.on_event(ReadEvent::Polled(id));
+        }
+        let config = CoalesceConfig {
+            distance: 2048,
+            max_size: 8192,
+        };
+        let mut extents = Vec::new();
+        while let Some(request) = state.next(Some(&config)) {
+            let range = request.range();
+            extents.push((range.start, range.end));
+        }
+        assert_eq!(receivers.len(), ranges.len());
+        assert!(state.polled_requests.is_empty());
+        assert!(state.requests.is_empty());
+        extents
+    }
+
+    #[test]
+    fn amplification_limit_splits_sparse_requests_and_keeps_adjacent_work() {
+        let ranges = [(0, 8), (1024, 8), (1032, 8)];
+        assert_eq!(bounded_extents(&ranges, None), [(0, 1040)]);
+        assert_eq!(bounded_extents(&ranges, Some(4)), [(0, 8), (1024, 1040)]);
+    }
+
+    #[test]
+    fn amplification_limit_preserves_broad_sequential_and_overlapping_reads() {
+        let sequential = (0..128).map(|index| (index * 32, 32)).collect::<Vec<_>>();
+        assert_eq!(bounded_extents(&sequential, None), [(0, 4096)]);
+        assert_eq!(bounded_extents(&sequential, Some(4)), [(0, 4096)]);
+        let overlap = [(0, 64), (8, 8), (64, 64), (32, 80)];
+        assert_eq!(bounded_extents(&overlap, Some(1)), [(0, 128)]);
     }
 
     async fn collect_outputs(

@@ -344,6 +344,7 @@ impl NativeExecutionContext<'_> {
             .owner
             .session
             .open_options()
+            .with_coalescing_amplification_limit(super::COALESCING_AMPLIFICATION_LIMIT)
             .with_layout_reader_cache()
             .open(input)
             .await?;
@@ -505,7 +506,7 @@ impl SegmentSource for DeferredFileSegments {
             // source handoff. Multiple readers of one segment share its read
             // and owned buffer; weak request entries do not cache answers.
             Ok(SharedSegmentSource::new(
-                FileSegmentSource::open_with_segments(
+                FileSegmentSource::open_with_segments_and_coalescing_limit(
                     self.segments.clone(),
                     reader,
                     self.reader.handle.clone(),
@@ -513,6 +514,7 @@ impl SegmentSource for DeferredFileSegments {
                         &vortex::metrics::DefaultMetricsRegistry::default(),
                         Vec::new(),
                     ),
+                    super::COALESCING_AMPLIFICATION_LIMIT,
                 ),
             ))
         });

@@ -60,7 +60,7 @@ impl Binder<'_> {
         needed: impl IntoIterator<Item = &'name str>,
     ) -> Result<()> {
         if !self.scan_accepts_source_demand(input) {
-            return Ok(());
+            return self.narrow_validated_join_payload(input, needed);
         }
         match &mut input.kind {
             NodeKind::Filter {
@@ -158,6 +158,43 @@ impl Binder<'_> {
         Ok(())
     }
 
+    fn narrow_validated_join_payload<'name>(
+        &mut self,
+        input: &mut Node,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        let NodeKind::Join { spec, .. } = &mut input.kind else {
+            return Ok(());
+        };
+        self.charge_named_fields(&spec.fields)?;
+        let needed: BTreeSet<_> = needed.into_iter().collect();
+        let first = (0..spec.fields.len()).find(|&index| spec.retains(index));
+        let retained = spec
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(index, (name, dtype))| {
+                spec.retains(index)
+                    && (needed.contains(name.as_str())
+                        || (needed.is_empty() && first == Some(index))
+                        || native::native_payload::metadata_bytes(dtype).is_err())
+            })
+            .collect::<Vec<_>>();
+        if retained.iter().all(|retained| *retained) {
+            return Ok(());
+        }
+        input.fields = spec
+            .fields
+            .iter()
+            .zip(&retained)
+            .filter_map(|(field, &retained)| retained.then_some(field.clone()))
+            .collect();
+        spec.retained = Some(retained);
+        // Input scans, match population and column visitation stay with their
+        // original owners. Only validated selected output crosses this mask.
+        Ok(())
+    }
+
     fn narrow_membership_inputs<'name>(
         &mut self,
         outer: &mut Node,
@@ -234,7 +271,7 @@ impl Binder<'_> {
                 NodeKind::Scan {
                     source: ScanSource::File(_) | ScanSource::Batch { .. },
                     ..
-                }
+                } | NodeKind::Join { .. }
             )
         {
             return Ok(());
@@ -264,7 +301,7 @@ impl Binder<'_> {
                 Ok(())
             })?;
         }
-        if demanded {
+        if demanded || matches!(input.kind, NodeKind::Join { .. }) {
             self.narrow_source_demand(input, needed.iter().map(String::as_str))
         } else {
             self.narrow_scan_columns(input, needed.iter().map(String::as_str))
