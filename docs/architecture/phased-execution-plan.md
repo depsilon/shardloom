@@ -251,35 +251,22 @@ the ledger.
 
 Current autonomous execution order:
 
-- [ ] **Shared work reduction after the updated analytical cohort**
-  - The November 3 maintainer request promotes six mechanisms under the existing
-    RFC 0044/item-20 program, ahead of item 19. The current native baseline passes
-    all 10,000 primary requests. Development proceeds in a separate worktree
-    while the preceding PR completes its checks.
-    [Governing contract and intake](native-shared-work-reduction-2026-11-03.md).
-  - Reuse existing typed key, grouping, gather, source-demand, read-observation,
-    allocator and public-export owners. This is a measured post-1.1 optimization
-    candidate. The six rows receive concrete retained or dropped dispositions.
-  - ShardLoom technique review covers capillary partition/batch work, metadata
-    proofs, dynamic memory/read admission, PulseWeave consumer eligibility and
-    separate engine/public timing evidence.
-  - **Execution checklist**
-    - [ ] Validate and measure stable partition-local window ordering.
-    - [ ] Attribute and reduce eligible gather-to-owned-output work.
-    - [ ] Separate prepared payload demand from required selected-value checks.
-    - [ ] Reduce ordinary public-client construction while preserving compatibility.
-    - [ ] Bind issued read extents to backing ownership and evaluate an admitted policy.
-    - [ ] Evaluate compact extrema and shared aggregation/set finalization.
-    - [ ] Complete the frozen affected-cohort, public/package and portable evidence.
-    - [ ] Record all six decisions and complete review, integration and ledger movement.
-  - The next outcome is one coherent implementation and investigation checkpoint
-    across the same five public interfaces. Required checks include focused
-    regressions, native feature checks, workspace fmt/Clippy/tests, independent
-    outputs, resource/lifetime controls and saved-result replay.
-  - Each performance claim is scoped to its declared clock and cohort. Current
-    Polars observations supply the external baseline. Vortex-native I/O and
-    explicit no-fallback evidence remain required. CG-1 through CG-23 retain
-    their independent status and completed work moves to the completed ledger.
+**November 4 shared-work source checkpoint.** All six promoted investigations
+have retained or dropped dispositions in the completed ledger. One authorized
+isolated pass returned all 10,000 expected results in 1,513.095098453 engine
+seconds, down from 1,825.631237664 seconds. That complete observation becomes
+the accepted native baseline. The source checkpoint includes the combined
+A/B/C/E/F implementation, the rejected public-model prototype, actual read
+ownership, all regressions and independent portable replay. Hosted review,
+PR checks and main checks gate integration of the enclosing change.
+[Acceptance and next attribution targets](../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md).
+
+The saved results prioritize ordinary joins, DataFrame prepared outer-join
+regressions, wide prepared ranking and compatible public construction for
+further performance investigation. Additional query captures require their
+own justification and authorization. Item 19 follows this source checkpoint
+under the existing lifecycle sequence. RFC 0044/item 20 and CG-1 through
+CG-23 retain their independent obligations.
 
 **November 3 source milestone.** The 1.1.0 source package builds from clean
 revision `ff84e23d` and passes all 303 installed native integration tests.
@@ -318,8 +305,8 @@ The maintainer initially closed both full-suite runs on November 3, then
 authorized one complete updated-state native pass after the investigation
 batch. That pass returned all 10,000 independent expected results in
 1,825.631 engine seconds. The 9,995 common-correct cases fell from
-3,192.079 to 1,822.598 engine seconds, a 42.9% reduction. It establishes
-the complete updated native baseline. The saved Polars pass and every
+3,192.079 to 1,822.598 engine seconds, a 42.9% reduction. It established
+the preceding complete native baseline. The saved Polars pass and every
 earlier native observation retain their original scope. Routine validation
 uses offline replay. Assess further native changes against their affected
 cases and controls when independently justified.
@@ -1732,5 +1719,26 @@ silently promote these extensions.
   - Acceptance/verification: the common contract and [NATIVE-ENCODED-EXCHANGE commands, acceptance records and evidence filenames](native-roadmap-verification-contracts-2026-10-18.md#native-encoded-exchange); preserve the family/protocol controls above and original experiment gates in the reconciliation.
 
 ## Completed
+
+- [x] **Shared-work source and complete analytical checkpoint, November 4**
+  - A/B/C/E/F are locally accepted as a combined native implementation at
+    `ecef3a10`. Stable window membership, direct numeric gathering, selected
+    validation without retained join payload, bounded aggregate/join final
+    ordering and the corrected read-coalescing factory reuse existing owners.
+  - D's lazy report-model prototype is dropped after actual type-hint and
+    source-inspection failures. Existing general typed state already supplies
+    compact extrema. Wide prepared ranking and compatible construction remain
+    explicit follow-up targets.
+  - All 10,000 requests pass in 1,513.095098453 engine seconds, 17.1193% below
+    the previous complete native cohort. The packet preserves 2,046 per-case
+    increases, outer-join regression strata, the original no-effect read
+    policy trial and every earlier observation.
+  - Native/default/provider checks pass 6,901/3,319/167 tests. The installed
+    package passes 303 tests. Portable replay reconstructs previous/current
+    native and saved Polars results against the original expectations, actual
+    read lifetimes, source/runtime identities and request-shape arithmetic.
+    PR review and hosted integration use this enclosing source checkpoint.
+    [Governing contract](native-shared-work-reduction-2026-11-03.md) ·
+    [Measured decisions and verification](../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md).
 
 Completed finite units and historical decisions live in [the completed ledger](phased-execution-completed-ledger.md). The [reconciliation record](native-roadmap-reconciliation-2026-10-18.md) retains the exact prior-plan identity and every old checkbox disposition.

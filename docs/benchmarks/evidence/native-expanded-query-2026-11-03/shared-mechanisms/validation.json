@@ -1,0 +1,184 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "measured_source": "ecef3a10a18e144c86eacb55ee680b3f89251362",
+  "unchanged_measured_source_files": 3349,
+  "new_evidence_tests": {
+    "tests": 12,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "query_surface_stdlib_suite": {
+    "tests": 113,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 9,
+    "skipped_observations": [
+      "test_all_layouts_read_back_with_complete_typed_identity (test_query_surface_datasets.QueryDatasetTests.test_all_layouts_read_back_with_complete_typed_identity) ... skipped 'optional PyArrow fixture writer is unavailable'",
+      "test_empty_input_keeps_typed_file_and_preflight_precedes_writes (test_query_surface_datasets.QueryDatasetTests.test_empty_input_keeps_typed_file_and_preflight_precedes_writes) ... skipped 'optional PyArrow fixture writer is unavailable'",
+      "test_polars_explode_and_membership_match_independent_sql_where_oracle (test_query_surface_expanded_nested.ExpandedNestedTests.test_polars_explode_and_membership_match_independent_sql_where_oracle) ... skipped 'Polars is an optional comparison dependency'",
+      "setUpClass (test_query_surface_expanded_oracle.ExpandedOracleCrossCheckTests) ... skipped 'PyArrow is an optional fixture dependency'",
+      "test_duplicate_primary_key_fails_and_keeps_partial_unadmitted (test_query_surface_expanded_reference_input.ExpandedReferenceInputTests.test_duplicate_primary_key_fails_and_keeps_partial_unadmitted) ... skipped 'IPC fixture controls require PyArrow'",
+      "test_null_negative_timestamp_decimal_and_nested_values_survive (test_query_surface_expanded_reference_input.ExpandedReferenceInputTests.test_null_negative_timestamp_decimal_and_nested_values_survive) ... skipped 'IPC fixture controls require PyArrow'",
+      "test_polars_plan_orders_rows_and_preserves_null_partition (test_query_surface_expanded_windows.ExpandedWindowTests.test_polars_plan_orders_rows_and_preserves_null_partition) ... skipped 'Polars is an optional comparison dependency'",
+      "setUpClass (test_query_surface_native.NativeQuerySurfaceTests) ... skipped 'optional shardloom._native extension is not installed'",
+      "setUpClass (test_query_surface_polars.PolarsQuerySurfaceTests) ... skipped 'optional Polars baseline is not installed'"
+    ]
+  },
+  "complete_replayed_cases": 10000,
+  "previous_native_replayed_cases": 10000,
+  "saved_polars_replayed_cases": 10000,
+  "read_diagnostic_routes_replayed": 6,
+  "receipts": {
+    "shared-mechanisms-portable-package-r4": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/package_shared_10k.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-portable-r4"
+      ],
+      "receipt_sha256": "16b98db9eb02e92e892e574058082bf8cf75012e80ec185f06db7a8c50af8683",
+      "log_sha256": "0e8c179fef42dfadb82cd147373347f7b3651c1aec2571fcad3e293cbb23aae8",
+      "status": "passed"
+    },
+    "shared-mechanisms-portable-controls-r2": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/bin/python",
+        "-B",
+        "-S",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_query_surface_shared_replay.py",
+        "-v"
+      ],
+      "receipt_sha256": "79939491a14998b4fe046e44b0d71c2677cf7f17f9c1b2a84b684ca0ddeb3cfd",
+      "log_sha256": "6712be4a88aa15ed9cfb6a2382185a059a2dea3390389e870c6aadd5b7b81556",
+      "status": "passed"
+    },
+    "shared-mechanisms-portable-replay-r2": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/bin/python",
+        "-B",
+        "-S",
+        "benchmarks/traditional_analytics/query_surface/expanded_shared_replay.py",
+        "--archive",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms",
+        "--baseline",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/packet",
+        "--previous",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/updated-native",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-portable-replay-result-r2.json"
+      ],
+      "receipt_sha256": "fd8659269efe73dc0ad01acef771c8eeb988affc12f33a7f47334d270ee3a1bc",
+      "log_sha256": "edc058f4f4a3c78a259020c7bcbba24be843ab7a787b76e22c6f4a2ad6487f04",
+      "status": "passed"
+    },
+    "shared-mechanisms-query-surface-tests-r1": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/bin/python",
+        "-B",
+        "-S",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_query_surface*.py",
+        "-v"
+      ],
+      "receipt_sha256": "369b0a9ea7b6e300dec1225c39c28dd153030b07b6b9dd2b7f49fd9b0acd8f4a",
+      "log_sha256": "5f19255311cab963cd9f13e640fbadabee69074b81013ab25d03fdd3d08609fb",
+      "status": "passed"
+    },
+    "shared-mechanisms-final-static-r1": {
+      "command": [
+        "sh",
+        "-c",
+        "cargo fmt --all -- --check && python3 -B scripts/check_python_license_bundle.py && git diff --check"
+      ],
+      "receipt_sha256": "b0991ef3e83020530f650aaa24d1445ed8016cfe9e4cef43e3fb1aae351451c8",
+      "log_sha256": "274b2d8f01cde79b4236c2427c17a8eba6c76289e520ee53bd1748d301a0f3f0",
+      "status": "passed"
+    },
+    "shared-mechanisms-sealed-replay-r1": {
+      "command": [
+        "/Users/dylan/.cache/shardloom/query-surface-polars-2.1.0/bin/python",
+        "-B",
+        "-S",
+        "benchmarks/traditional_analytics/query_surface/expanded_shared_replay.py",
+        "--archive",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms",
+        "--baseline",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/packet",
+        "--previous",
+        "docs/benchmarks/evidence/native-expanded-query-2026-11-03/updated-native"
+      ],
+      "receipt_sha256": "aaa54f83b70c761c3da6e860dd833e9be91b051d6ae5e3ab1ff5197c03c8be26",
+      "log_sha256": "edc058f4f4a3c78a259020c7bcbba24be843ab7a787b76e22c6f4a2ad6487f04",
+      "status": "passed"
+    }
+  },
+  "archive": {
+    "path": "validation.json.xz",
+    "bytes": 8564,
+    "sha256": "f2d6abf70de080ae367e170e21794e7434e42b01abd9324dfdd29e1ef88bd14e",
+    "members": {
+      "shared-mechanisms-portable-package-r4.json": {
+        "bytes": 14107,
+        "sha256": "16b98db9eb02e92e892e574058082bf8cf75012e80ec185f06db7a8c50af8683"
+      },
+      "shared-mechanisms-portable-package-r4.log": {
+        "bytes": 157,
+        "sha256": "0e8c179fef42dfadb82cd147373347f7b3651c1aec2571fcad3e293cbb23aae8"
+      },
+      "shared-mechanisms-portable-controls-r2.json": {
+        "bytes": 14134,
+        "sha256": "79939491a14998b4fe046e44b0d71c2677cf7f17f9c1b2a84b684ca0ddeb3cfd"
+      },
+      "shared-mechanisms-portable-controls-r2.log": {
+        "bytes": 2241,
+        "sha256": "6712be4a88aa15ed9cfb6a2382185a059a2dea3390389e870c6aadd5b7b81556"
+      },
+      "shared-mechanisms-portable-replay-r2.json": {
+        "bytes": 14622,
+        "sha256": "fd8659269efe73dc0ad01acef771c8eeb988affc12f33a7f47334d270ee3a1bc"
+      },
+      "shared-mechanisms-portable-replay-r2.log": {
+        "bytes": 155,
+        "sha256": "edc058f4f4a3c78a259020c7bcbba24be843ab7a787b76e22c6f4a2ad6487f04"
+      },
+      "shared-mechanisms-query-surface-tests-r1.json": {
+        "bytes": 14332,
+        "sha256": "369b0a9ea7b6e300dec1225c39c28dd153030b07b6b9dd2b7f49fd9b0acd8f4a"
+      },
+      "shared-mechanisms-query-surface-tests-r1.log": {
+        "bytes": 22570,
+        "sha256": "5f19255311cab963cd9f13e640fbadabee69074b81013ab25d03fdd3d08609fb"
+      },
+      "shared-mechanisms-final-static-r1.json": {
+        "bytes": 14238,
+        "sha256": "b0991ef3e83020530f650aaa24d1445ed8016cfe9e4cef43e3fb1aae351451c8"
+      },
+      "shared-mechanisms-final-static-r1.log": {
+        "bytes": 127,
+        "sha256": "274b2d8f01cde79b4236c2427c17a8eba6c76289e520ee53bd1748d301a0f3f0"
+      },
+      "shared-mechanisms-sealed-replay-r1.json": {
+        "bytes": 14699,
+        "sha256": "aaa54f83b70c761c3da6e860dd833e9be91b051d6ae5e3ab1ff5197c03c8be26"
+      },
+      "shared-mechanisms-sealed-replay-r1.log": {
+        "bytes": 155,
+        "sha256": "edc058f4f4a3c78a259020c7bcbba24be843ab7a787b76e22c6f4a2ad6487f04"
+      }
+    }
+  }
+}

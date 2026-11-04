@@ -26,6 +26,25 @@ of wrapper and delivery work. Each investigation must identify the work it
 actually changes.
 [Complete baseline](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
+## November 4 disposition
+
+The authorized isolated pass completed all 10,000 original requests correctly.
+Total engine time fell from 1,825.631237664 to 1,513.095098453 seconds,
+a 17.1193% reduction. Source and release-build identity are both `ecef3a10`.
+The binary complete-cohort rule retains the combined A/B/C/E/F implementation
+after native/default/provider tests, installed-package coverage, ownership
+checks and independent replay passed. D's observed compatibility failures
+drop that prototype. C's retained scope covers prepared join payloads, while
+general wide prepared ranking remains open.
+
+The complete result advances the accepted native baseline. It includes
+7,954 faster and 2,046 slower cases. Right and full outer grouped requests
+retain their increases, and the original wide prepared 5M alternate-route
+deadline remains open. Each mechanism's incremental timing effect remains
+unmeasured within the combined pass. Ordinary joins, prepared ranking and
+compatible public construction lead the resulting attribution targets.
+[Decisions, regressions and next targets](../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md).
+
 ## Workstreams and decisions
 
 | Workstream | Observed signal | Existing shared owner | Candidate and decision evidence |
@@ -153,9 +172,9 @@ owners. Production uses the existing Vortex-file feature boundary and the
 pinned 0.90 provider. The diagnostic instrumentation stays in its separate
 source and runtime.
 
-The candidate's resource trace, broad-read controls and complete native
-cohort must pass before retention. Instrumented observations establish work
-and ownership, while the ordinary release runtime supplies timing evidence.
+The resource trace, broad-read controls and complete native cohort passed
+the declared retention gates. Instrumented observations establish work and
+ownership, while the ordinary release runtime supplies timing evidence.
 
 ## Public construction compatibility
 
