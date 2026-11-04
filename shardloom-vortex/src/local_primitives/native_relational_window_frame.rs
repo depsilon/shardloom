@@ -84,6 +84,14 @@ pub(super) enum RangeOffset {
 }
 
 impl Frame {
+    pub(super) fn requires_peers(&self) -> bool {
+        self.unit != VortexRelationalFrameUnit::Rows
+            || matches!(
+                self.exclusion,
+                VortexRelationalFrameExclusion::Group | VortexRelationalFrameExclusion::Ties
+            )
+    }
+
     pub(super) fn can_rewind(&self) -> bool {
         [&self.start, &self.end].into_iter().any(|bound| {
             matches!(

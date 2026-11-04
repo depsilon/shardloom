@@ -196,6 +196,19 @@ fn native_window_frames_match_independent_membership_with_peers_exclusions_and_c
                             );
                             assert_eq!(collected.execution.runtime.completed_executions, call);
                             assert_eq!(collected.execution.runtime.prepared_source_opens, 1);
+                            let peers = unit != Unit::Rows
+                                || matches!(exclusion, Exclusion::Group | Exclusion::Ties);
+                            window_tests::assert_work(
+                                &collected.execution,
+                                &[
+                                    ("window_reused_partition_spans", 2),
+                                    ("window_reused_partition_rows", 10),
+                                    ("window_peer_scan_partitions", if peers { 2 } else { 0 }),
+                                    ("window_peer_scan_rows", if peers { 10 } else { 0 }),
+                                    ("window_position_only_partitions", if peers { 0 } else { 2 }),
+                                    ("window_position_only_rows", if peers { 0 } else { 10 }),
+                                ],
+                            );
                             assert!(
                                 !collected
                                     .execution

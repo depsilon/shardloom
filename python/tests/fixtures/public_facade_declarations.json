@@ -1,0 +1,9 @@
+{
+  "schema": "shardloom.public_facade_declarations.v1",
+  "source_revision": "7ee9e6673200affb165ddbe7fea0557172f1175a",
+  "contract": "Canonical module syntax with callable bodies replaced; signatures, annotations, documentation, class fields, decorators, defaults, aliases and module bindings retained.",
+  "modules": {
+    "shardloom.client": "3af05638376ff77ce22955bc4e0ddc972a5d84548eff96fa6c3d6043fc4287ea",
+    "shardloom.query": "cfca2b0c7191efafec2fd5d9328e0e047f21dd39384fb7a3d2fd81c540d4fb27"
+  }
+}

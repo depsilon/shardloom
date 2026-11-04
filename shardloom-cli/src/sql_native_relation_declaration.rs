@@ -22,6 +22,9 @@ pub(crate) struct NativeSqlLowering {
 
 pub(crate) struct NativeSqlDeclaration {
     query: ParsedRelationQuery,
+    // Exact syntax identity for ordinary SQL actions only. Bound declarations
+    // and observations must never stand in for an unbound statement.
+    statement: Option<Box<str>>,
     pub(crate) metadata_bytes: usize,
     pub(crate) sources: BTreeMap<ParsedRelationLeaf, u8>,
     pub(crate) input_uses: BTreeMap<usize, usize>,
@@ -33,6 +36,11 @@ pub(crate) struct NativeSqlDeclaration {
 }
 
 impl NativeSqlDeclaration {
+    #[cfg(test)]
+    pub(crate) fn declaration_parses() -> usize {
+        DECLARATION_PARSES.with(std::cell::Cell::get)
+    }
+
     pub(crate) fn parameter_names(raw: &str) -> NativeResult<Vec<String>> {
         relation_sources::validate_query_structure(raw)?;
         Ok(super::parameters::names(raw)?.into_iter().collect())
@@ -43,9 +51,13 @@ impl NativeSqlDeclaration {
         names: &[String],
         parameters: BTreeMap<String, Expression>,
     ) -> NativeResult<Self> {
+        #[cfg(test)]
+        DECLARATION_PARSES.with(|count| count.set(count.get() + 1));
         super::parameters::validate(raw, &parameters)?;
+        let statement = (names.is_empty() && parameters.is_empty()).then(|| raw.into());
         let mut declaration = Self {
             query: parsed_native_query(raw)?,
+            statement,
             metadata_bytes: 0,
             sources: BTreeMap::new(),
             input_uses: BTreeMap::new(),
@@ -58,7 +70,10 @@ impl NativeSqlDeclaration {
         relation_sources::scopes::bind_inputs(&mut declaration.query, names)?;
         let admission =
             visit::Admission::inspect(&declaration.query, &CancellationToken::default())?;
-        let metadata_bytes = admission.bytes;
+        let metadata_bytes = admission
+            .bytes
+            .checked_add(declaration.statement.as_ref().map_or(0, |text| text.len()))
+            .ok_or_else(|| unsupported_sql_error("SQL declaration metadata size overflow"))?;
         let sources = admission
             .source_uses
             .into_iter()
@@ -76,6 +91,10 @@ impl NativeSqlDeclaration {
         Ok(declaration)
     }
 
+    pub(crate) fn matches_statement(&self, statement: &str) -> bool {
+        self.statement.as_deref() == Some(statement) && self.observation.is_none()
+    }
+
     pub(crate) fn validate_inputs(&self, inputs: &BoundRelations) -> NativeResult<()> {
         super::retained::validate_query(&self.query, inputs)?;
         scalar::validate_bound_query(&self.query, inputs)
@@ -89,6 +108,7 @@ impl NativeSqlDeclaration {
         validate_sql_identifier(name)?;
         observation::validate(&self.query)?;
         self.observation = Some(name.to_ascii_lowercase());
+        self.statement = None;
         Ok(())
     }
 
@@ -128,6 +148,11 @@ impl NativeSqlDeclaration {
             None => lowerer.query(&self.query),
         }
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static DECLARATION_PARSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 impl Drop for NativeSqlDeclaration {

@@ -17,6 +17,9 @@ use vortex::array::{
     scalar::Scalar,
 };
 
+#[path = "native_relational_scalar_dictionary_tests.rs"]
+mod dictionary_tests;
+
 fn functions() -> Vec<Function> {
     vec![
         Function::Lower,
@@ -196,7 +199,11 @@ fn prepared_utf8_preserves_unreferenced_domain_and_observed_code_errors() {
 
 #[test]
 fn prepared_utf8_output_does_not_retain_source_credits_after_session_close() {
-    for function in functions() {
+    for (function, dictionary) in [false, true].into_iter().flat_map(|dictionary| {
+        functions()
+            .into_iter()
+            .map(move |function| (function, dictionary))
+    }) {
         let producer = ResidentVortexSession::new(1 << 20, 1).unwrap();
         let receiver = ResidentVortexSession::new(1 << 20, 1).unwrap();
         let producer_memory = producer.memory().clone();
@@ -217,6 +224,17 @@ fn prepared_utf8_output_does_not_retain_source_credits_after_session_close() {
                 )
             })
             .unwrap();
+        let source = if dictionary {
+            DictArray::try_new(
+                PrimitiveArray::from_iter([2u8, 0, 1, 2, 0, 1, 0, 2, 2]).into_array(),
+                source,
+            )
+            .unwrap()
+            .into_array()
+        } else {
+            source
+        };
+        let rows = source.len();
         let expression = expression(function, source.dtype());
         let input = StructArray::from_fields(&[("value", source)])
             .unwrap()
@@ -225,7 +243,7 @@ fn prepared_utf8_output_does_not_retain_source_credits_after_session_close() {
             .with_native_execution_context(&CancellationToken::default(), |context| {
                 let expected = original(&expression, &input, context)?;
                 let mut execution = context.native_session().create_execution_ctx();
-                let expected = (0..3)
+                let expected = (0..rows)
                     .map(|row| result_batch::scalar(&expected, row, &mut execution))
                     .collect::<Result<Vec<_>>>()?;
                 Ok((expression.evaluate(&input, context)?, expected))
@@ -233,7 +251,7 @@ fn prepared_utf8_output_does_not_retain_source_credits_after_session_close() {
             .unwrap();
         drop((input, producer));
         assert_eq!(producer_memory.snapshot().reserved_bytes, 0);
-        let retained = output.slice(0..3).unwrap();
+        let retained = output.slice(0..rows).unwrap();
         drop(output);
         drop(receiver);
         assert!(receiver_memory.snapshot().reserved_bytes > 0);

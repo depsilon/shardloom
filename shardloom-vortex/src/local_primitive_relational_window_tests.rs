@@ -116,6 +116,22 @@ pub(super) fn expected() -> Vec<serde_json::Value> {
     ]
 }
 
+pub(super) fn assert_work(report: &ExecutedVortexRelational, expected: &[(&str, u64)]) {
+    let proof = &report
+        .native_io_certificate
+        .source_pushdown_report
+        .proof_basis;
+    for &(name, count) in expected {
+        let token = format!("{name}={count}");
+        assert!(
+            proof
+                .split(|character: char| character.is_ascii_whitespace() || character == ';')
+                .any(|part| part == token),
+            "missing {token}: {proof}"
+        );
+    }
+}
+
 #[test]
 fn native_relational_windows_cover_all_functions_ties_null_partitions_and_source_order() {
     let fixture = fixture();
@@ -138,6 +154,17 @@ fn native_relational_windows_cover_all_functions_ties_null_partitions_and_source
         assert_eq!(json_rows(&collected), expected());
         assert_eq!(collected.execution.runtime.prepared_source_opens, 1);
         assert_eq!(collected.execution.runtime.completed_executions, call);
+        assert_work(
+            &collected.execution,
+            &[
+                ("window_reused_partition_spans", 6),
+                ("window_reused_partition_rows", 18),
+                ("window_peer_scan_partitions", 3),
+                ("window_peer_scan_rows", 9),
+                ("window_position_only_partitions", 3),
+                ("window_position_only_rows", 9),
+            ],
+        );
     }
     assert_eq!(
         root.fields[0].1,

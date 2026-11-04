@@ -23,6 +23,25 @@ struct Partitions {
     groups: ReservedVec<Partition>,
 }
 
+pub(super) enum Order {
+    Declined,
+    Existing,
+    Partitions(ReservedVec<usize>),
+}
+
+impl Order {
+    pub(super) fn is_admitted(&self) -> bool {
+        !matches!(self, Self::Declined)
+    }
+
+    pub(super) fn spans(&self) -> Option<&[usize]> {
+        match self {
+            Self::Partitions(ends) => Some(&ends.values),
+            Self::Declined | Self::Existing => None,
+        }
+    }
+}
+
 /// The caller has validated all keys and this group's complete NULL policy.
 /// Temporary membership is retired before the caller starts frame evaluation.
 pub(super) fn order(
@@ -30,20 +49,27 @@ pub(super) fn order(
     group: &Group,
     ordinals: &mut ReservedVec<usize>,
     context: &NativeExecutionContext<'_>,
-) -> Result<bool> {
+) -> Result<Order> {
     if group.partition.is_empty() || ordinals.values.len() < 2 {
-        return Ok(false);
+        return Ok(Order::Declined);
     }
     if native_relational_order::preserve_order_with_evidence(
         &ordinals.values,
         context,
         |left, right| window.compare_row(group, left, right),
     )? {
-        return Ok(true);
+        return Ok(Order::Existing);
     }
     let denied_before = context.memory().snapshot().denied_reservations;
-    let mut partitions = match collect(window, group, &ordinals.values, context) {
-        Ok(partitions) => partitions,
+    let collected = (|| {
+        let partitions = collect(window, group, &ordinals.values, context)?;
+        let mut ends = ReservedVec::new(context.memory())?;
+        // Admit every retained span before changing the original ordinals.
+        ends.reserve(partitions.groups.values.len())?;
+        Ok((partitions, ends))
+    })();
+    let (mut partitions, mut ends) = match collected {
+        Ok(collected) => collected,
         Err(ShardLoomError::InvalidOperation(message))
             if message.starts_with("memory reservation denied:")
                 && context.memory().snapshot().denied_reservations > denied_before =>
@@ -51,7 +77,7 @@ pub(super) fn order(
             // Collection has not changed the original ordinal workspace. Its
             // temporary leases drop before the original native sort is used.
             context.check_cancelled()?;
-            return Ok(false);
+            return Ok(Order::Declined);
         }
         Err(error) => return Err(error),
     };
@@ -90,10 +116,11 @@ pub(super) fn order(
                 },
             )?;
         }
+        ends.values.push(ordinals.values.len());
     }
     debug_assert_eq!(ordinals.values.len(), expected);
     context.check_cancelled()?;
-    Ok(true)
+    Ok(Order::Partitions(ends))
 }
 
 fn collect(

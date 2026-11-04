@@ -249,6 +249,12 @@ impl NativeRelationDeclaration {
         self.recursive_depth
     }
 
+    pub(crate) fn matches_statement(&self, statement: &str) -> bool {
+        self.inputs.is_empty()
+            && self.observation_names.is_empty()
+            && matches!(&self.body, Body::Sql(sql) if sql.matches_statement(statement))
+    }
+
     /// Bound input slots retained by this declaration. Unused supplied names
     /// retain neither declarations nor input owners.
     pub fn input_indices(&self) -> impl Iterator<Item = usize> + '_ {

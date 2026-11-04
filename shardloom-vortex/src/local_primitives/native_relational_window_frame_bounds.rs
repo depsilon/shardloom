@@ -27,6 +27,19 @@ pub(in super::super) struct Position {
     pub(in super::super) row: usize,
 }
 
+impl Position {
+    /// Only ROWS frames without peer exclusions admit this positional view.
+    pub(in super::super) fn row_only(rows: usize, row: usize) -> Self {
+        Self {
+            rows,
+            row,
+            peer_start: row,
+            peer_end: row + 1,
+            peer: row,
+        }
+    }
+}
+
 impl Cursor {
     pub(in super::super) fn advance(
         &mut self,

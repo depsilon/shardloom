@@ -140,6 +140,21 @@ class NativePlanState:
         self.key = None
         self.plan = None
         self.references = frozenset()
+        self._descriptions = {}
+
+    def describe(self, name, build):
+        """Retain inert facts of one immutable frame, independently of admission.
+
+        Builders may ask for another description. Keep them outside the plan
+        lock; concurrent builders publish one equivalent immutable value. Failed
+        builds are never retained. Releasing preparation leaves these facts valid.
+        """
+        with self.lock:
+            if name in self._descriptions:
+                return self._descriptions[name]
+        value = build()
+        with self.lock:
+            return self._descriptions.setdefault(name, value)
 
 
 def execution_envelope(fields, *, result=None, operation="collect"):

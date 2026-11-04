@@ -367,24 +367,73 @@ fn partition_membership_denial_preserves_original_ordinals_and_releases_temporar
             }
             let before = memory.snapshot();
             let pressure = memory.reserve(before.limit_bytes - before.reserved_bytes)?;
-            assert!(!super::order(
-                &window,
-                &spec.groups[0],
-                &mut ordinals,
-                context
-            )?);
+            assert!(!super::order(&window, &spec.groups[0], &mut ordinals, context)?.is_admitted());
             assert_eq!(ordinals.values, [0, 1, 2, 3]);
             assert_eq!(memory.snapshot().reserved_bytes, before.limit_bytes);
             assert!(memory.snapshot().denied_reservations > before.denied_reservations);
             drop(pressure);
             assert_eq!(memory.snapshot().reserved_bytes, before.reserved_bytes);
-            assert!(super::order(
-                &window,
-                &spec.groups[0],
-                &mut ordinals,
-                context
-            )?);
+            let ordered = super::order(&window, &spec.groups[0], &mut ordinals, context)?;
+            assert!(ordered.is_admitted());
+            assert_eq!(ordered.spans(), Some([2, 4].as_slice()));
             assert_eq!(ordinals.values, [3, 1, 2, 0]);
+            assert!(memory.snapshot().reserved_bytes > before.reserved_bytes);
+            drop(ordered);
+            assert_eq!(memory.snapshot().reserved_bytes, before.reserved_bytes);
+            Ok(())
+        })
+        .unwrap();
+    drop(session);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn retained_span_denial_leaves_original_ordinals_and_membership_credits_intact() {
+    use crate::local_primitives::native_capacity::ReservedVec;
+
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let spec = window_spec(true, true, false, Some(NullOrder::First));
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut window = Window::new(&spec, context.memory())?;
+            window.build(
+                nullable_input(
+                    &[0, 1, 2, 3],
+                    &[Some(1), Some(0), Some(1), Some(0)],
+                    &[Some(3), Some(2), Some(1), Some(0)],
+                ),
+                context,
+            )?;
+            let mut ordinals = ReservedVec::new(context.memory())?;
+            for row in 0..4 {
+                ordinals.push(row)?;
+            }
+            let before = memory.snapshot();
+            let membership = super::collect(&window, &spec.groups[0], &ordinals.values, context)?;
+            let membership_bytes = memory.snapshot().reserved_bytes - before.reserved_bytes;
+            drop(membership);
+            assert_eq!(memory.snapshot().reserved_bytes, before.reserved_bytes);
+            let pressure =
+                memory.reserve(before.limit_bytes - before.reserved_bytes - membership_bytes)?;
+            // Prove membership itself still fits; only the retained spans do not.
+            let control = super::collect(&window, &spec.groups[0], &ordinals.values, context)?;
+            assert_eq!(memory.snapshot().reserved_bytes, before.limit_bytes);
+            assert_eq!(
+                memory.snapshot().denied_reservations,
+                before.denied_reservations
+            );
+            drop(control);
+            let pressured = memory.snapshot().reserved_bytes;
+            let order = super::order(&window, &spec.groups[0], &mut ordinals, context)?;
+            assert!(!order.is_admitted());
+            assert_eq!(ordinals.values, [0, 1, 2, 3]);
+            assert_eq!(memory.snapshot().reserved_bytes, pressured);
+            assert_eq!(
+                memory.snapshot().denied_reservations,
+                before.denied_reservations + 1
+            );
+            drop(pressure);
             assert_eq!(memory.snapshot().reserved_bytes, before.reserved_bytes);
             Ok(())
         })
@@ -412,13 +461,14 @@ fn partition_membership_preserves_lexicographic_visitation_for_every_distinct_gr
                 ordinals.push(row)?;
             }
             let before = memory.snapshot().reserved_bytes;
-            assert!(super::order(
-                &window,
-                &spec.groups[0],
-                &mut ordinals,
-                context
-            )?);
+            let ordered = super::order(&window, &spec.groups[0], &mut ordinals, context)?;
+            assert!(ordered.is_admitted());
+            assert_eq!(
+                ordered.spans(),
+                Some((1..=source.len()).collect::<Vec<_>>().as_slice())
+            );
             assert_eq!(ordinals.values, (0..source.len()).rev().collect::<Vec<_>>());
+            drop(ordered);
             assert_eq!(memory.snapshot().reserved_bytes, before);
             Ok(())
         })
@@ -505,12 +555,9 @@ fn globally_ordered_partitions_require_no_membership_reservations() {
             }
             let before = memory.snapshot();
             let pressure = memory.reserve(before.limit_bytes - before.reserved_bytes)?;
-            assert!(super::order(
-                &window,
-                &spec.groups[0],
-                &mut ordinals,
-                context
-            )?);
+            let ordered = super::order(&window, &spec.groups[0], &mut ordinals, context)?;
+            assert!(ordered.is_admitted());
+            assert!(ordered.spans().is_none());
             assert_eq!(ordinals.values, [0, 1, 2, 3]);
             assert_eq!(
                 memory.snapshot().denied_reservations,

@@ -184,6 +184,14 @@ fn ordered_window_pressure_denies_resident_and_completes_with_shared_native_spil
     assert_eq!(report.ordered_window_input_rows, ROWS as u64);
     assert_eq!(report.ordered_window_partitions, 1);
     assert_eq!(report.ordered_window_bounds_rows, 3 * ROWS as u64);
+    assert_eq!(report.ordered_window_peer_records, 0);
+    window_tests::assert_work(
+        &report,
+        &[
+            ("window_peer_scan_rows", 0),
+            ("window_position_only_rows", ROWS as u64),
+        ],
+    );
     assert!(report.ordered_window_distinct_intervals > 0);
     assert_eq!(
         report.ordered_window_distinct_events,

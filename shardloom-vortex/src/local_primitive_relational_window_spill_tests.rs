@@ -79,6 +79,14 @@ fn ordered_window_ranking_navigation_groups_and_original_order_match_complete_re
         assert_eq!(report.ordered_window_bounds_rows, 0);
         assert!(report.ordered_window_peer_records > 0);
         assert!(report.ordered_window_lookup_blocks > 0);
+        window_tests::assert_work(
+            &report,
+            &[
+                ("window_reused_partition_spans", 0),
+                ("window_peer_scan_rows", 9),
+                ("window_position_only_rows", 9),
+            ],
+        );
         drop(report);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
@@ -117,11 +125,89 @@ fn ordered_window_all_frame_units_exclusions_directions_and_nulls_match_membersh
                             assert_eq!(report.ordered_window_groups, 1);
                             assert_eq!(report.ordered_window_partitions, 2);
                             assert_eq!(report.ordered_window_bounds_rows, 30);
+                            let peers = unit != Unit::Rows
+                                || matches!(exclusion, Exclusion::Group | Exclusion::Ties);
+                            assert_eq!(report.ordered_window_peer_records > 0, peers);
+                            window_tests::assert_work(
+                                &report,
+                                &[
+                                    ("window_reused_partition_spans", 0),
+                                    ("window_peer_scan_partitions", if peers { 2 } else { 0 }),
+                                    ("window_peer_scan_rows", if peers { 10 } else { 0 }),
+                                    ("window_position_only_partitions", if peers { 0 } else { 2 }),
+                                    ("window_position_only_rows", if peers { 0 } else { 10 }),
+                                ],
+                            );
                             drop(report);
                             assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn positional_windows_omit_peers_and_mixed_groups_keep_ties_in_both_strategies() {
+    let fixture = window_tests::fixture();
+    for ranked in [false, true] {
+        let mut plan = window_tests::plan(fixture.scan());
+        let VortexRelationalPlan::Window(window) = &mut plan else {
+            unreachable!()
+        };
+        if !ranked {
+            window.expressions.retain(|expression| {
+                matches!(
+                    expression.function,
+                    VortexRelationalWindowFunction::RowNumber
+                        | VortexRelationalWindowFunction::Lag { .. }
+                        | VortexRelationalWindowFunction::Lead { .. }
+                        | VortexRelationalWindowFunction::Ntile { .. }
+                )
+            });
+        }
+        let names = window
+            .expressions
+            .iter()
+            .map(|expression| expression.output_column.clone())
+            .chain(std::iter::once("value".into()))
+            .collect::<Vec<_>>();
+        let mut expected = window_tests::expected();
+        for row in &mut expected {
+            row.as_object_mut()
+                .unwrap()
+                .retain(|name, _| names.contains(name));
+        }
+        for stored in [false, true] {
+            let prepared = if stored {
+                ordered(&fixture, &plan)
+            } else {
+                prepare_relational(&plan, policy()).unwrap()
+            };
+            let baseline = prepared.snapshot().memory.reserved_bytes;
+            for batch_rows in [1, 7, 2048] {
+                let (rows, report) = if stored {
+                    complete(&prepared, batch_rows)
+                } else {
+                    let collected = prepared
+                        .collect_jsonl(&CancellationToken::default())
+                        .unwrap();
+                    (json_rows(&collected), collected.execution)
+                };
+                assert_eq!(rows, expected, "ranked={ranked} stored={stored}");
+                window_tests::assert_work(
+                    &report,
+                    &[
+                        ("window_peer_scan_rows", if ranked { 9 } else { 0 }),
+                        ("window_position_only_rows", if ranked { 9 } else { 18 }),
+                    ],
+                );
+                if stored {
+                    assert_eq!(report.ordered_window_peer_records > 0, ranked);
+                }
+                drop(report);
+                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
             }
         }
     }

@@ -58,6 +58,28 @@ pub(super) struct Spec {
     pub(super) ordering_keys: usize,
 }
 
+impl Group {
+    /// One peer-aware consumer keeps the original path for the entire group.
+    pub(super) fn requires_peers(&self, spec: &Spec) -> bool {
+        self.functions
+            .iter()
+            .any(|&index| match &spec.functions[index] {
+                Function::RowNumber
+                | Function::Lag { .. }
+                | Function::Lead { .. }
+                | Function::Ntile { .. } => false,
+                Function::Framed(_) => spec.frames[index]
+                    .as_ref()
+                    .is_none_or(|frame| frame.frame.requires_peers()),
+                Function::Rank
+                | Function::DenseRank
+                | Function::PercentRank
+                | Function::CumeDist
+                | Function::Fill { .. } => true,
+            })
+    }
+}
+
 pub(super) fn input_key(
     spec: &Spec,
     array: &ArrayRef,
@@ -202,9 +224,12 @@ impl<'a> Window<'a> {
         }
         // build() validates the full ordering-key prefix. The original loop
         // above validates this group's NULL policy before any comparisons.
-        if !comparison_domains_prevalidated
-            || !partition_order::order(self, group, &mut ordinals, context)?
-        {
+        let order = if comparison_domains_prevalidated {
+            partition_order::order(self, group, &mut ordinals, context)?
+        } else {
+            partition_order::Order::Declined
+        };
+        if !order.is_admitted() {
             native_relational_order::sort_with_order_evidence(
                 &mut ordinals.values,
                 context,
@@ -212,7 +237,34 @@ impl<'a> Window<'a> {
                 |left, right| self.compare_row(group, left, right),
             )?;
         }
+        if let Some(ends) = order.spans() {
+            let mut start = 0;
+            for &end in ends {
+                context.check_cancelled()?;
+                if end <= start || end > ordinals.values.len() {
+                    return Err(failed(
+                        "retained window partition span exceeds its ordinal domain",
+                    ));
+                }
+                self.evaluate_partition(group, &ordinals.values[start..end], values, context)?;
+                start = end;
+            }
+            if start != ordinals.values.len() {
+                return Err(failed(
+                    "retained window partition spans do not cover their ordinal domain",
+                ));
+            }
+            let mut work =
+                crate::native_window_work::Report::spans(ends.len(), ordinals.values.len());
+            work.record(crate::native_window_work::Report::partitions(
+                ends.len(),
+                ordinals.values.len(),
+                group.requires_peers(self.spec),
+            ))?;
+            return context.record_window_work(work);
+        }
         let mut start = 0;
+        let mut partitions = 0;
         while start < ordinals.values.len() {
             context.check_cancelled()?;
             let mut end = start + 1;
@@ -227,8 +279,13 @@ impl<'a> Window<'a> {
             }
             self.evaluate_partition(group, &ordinals.values[start..end], values, context)?;
             start = end;
+            partitions += 1;
         }
-        Ok(())
+        context.record_window_work(crate::native_window_work::Report::partitions(
+            partitions,
+            ordinals.values.len(),
+            group.requires_peers(self.spec),
+        ))
     }
 
     fn compare_row(&self, group: &Group, left: usize, right: usize) -> Result<Ordering> {
@@ -302,11 +359,17 @@ impl<'a> Window<'a> {
             .functions
             .iter()
             .any(|&index| self.spec.frames[index].is_some());
+        let requires_peers = group.requires_peers(self.spec);
         let mut peers = ReservedVec::new(context.memory())?;
         while peer_start < rows.len() {
             context.check_cancelled()?;
-            let mut peer_end = peer_start + 1;
-            while peer_end < rows.len()
+            let mut peer_end = if requires_peers {
+                peer_start + 1
+            } else {
+                rows.len()
+            };
+            while requires_peers
+                && peer_end < rows.len()
                 && self.compare_order(group, rows[peer_start], rows[peer_end])? == Ordering::Equal
             {
                 if peer_end.is_multiple_of(1024) {
@@ -317,7 +380,7 @@ impl<'a> Window<'a> {
             dense_rank = dense_rank
                 .checked_add(1)
                 .ok_or_else(|| failed("window dense rank overflow"))?;
-            if has_frames {
+            if has_frames && requires_peers {
                 peers.push(peer_start)?;
             }
             for position in peer_start..peer_end {
@@ -345,13 +408,15 @@ impl<'a> Window<'a> {
             peer_start = peer_end;
         }
         if has_frames {
-            peers.push(rows.len())?;
+            if requires_peers {
+                peers.push(rows.len())?;
+            }
             for &function in &group.functions {
                 if let Some(frame) = &self.spec.frames[function] {
                     self.evaluate_frame(
                         frame,
                         rows,
-                        &peers.values,
+                        requires_peers.then_some(peers.values.as_slice()),
                         &mut values[function],
                         context,
                     )?;
@@ -386,7 +451,7 @@ impl<'a> Window<'a> {
         &self,
         spec: &frame::Spec,
         rows: &[usize],
-        peers: &[usize],
+        peers: Option<&[usize]>,
         values: &mut Values,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
@@ -396,21 +461,29 @@ impl<'a> Window<'a> {
             rows,
             table: &self.table,
         };
-        let mut peer_edge = |index| Ok(peers.get(index).copied().unwrap_or(rows.len()));
+        let mut peer_edge = |index| {
+            peers
+                .map(|peers| peers.get(index).copied().unwrap_or(rows.len()))
+                .ok_or_else(|| failed("position-only window frame requested a peer boundary"))
+        };
         let mut peer = 0;
         for position in 0..rows.len() {
             if position.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            while peers[peer + 1] <= position {
-                peer += 1;
-            }
-            let at = frame::Position {
-                rows: rows.len(),
-                peer_start: peers[peer],
-                peer_end: peers[peer + 1],
-                peer,
-                row: position,
+            let at = if let Some(peers) = peers {
+                while peers[peer + 1] <= position {
+                    peer += 1;
+                }
+                frame::Position {
+                    rows: rows.len(),
+                    peer_start: peers[peer],
+                    peer_end: peers[peer + 1],
+                    peer,
+                    row: position,
+                }
+            } else {
+                frame::Position::row_only(rows.len(), position)
             };
             let range = cursor.advance(&spec.frame, &at, &mut input, &mut peer_edge, context)?;
             let ranges = frame::intervals(range, &at, spec.frame.exclusion);

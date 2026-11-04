@@ -22,7 +22,7 @@ use vortex::array::{
 };
 
 pub(super) struct Peers<'a, 's> {
-    pub(super) lookup: Lookup<'a, 's>,
+    lookup: Option<Lookup<'a, 's>>,
     rows: usize,
     peer: usize,
     start: usize,
@@ -31,11 +31,20 @@ pub(super) struct Peers<'a, 's> {
 
 impl<'a, 's> Peers<'a, 's> {
     pub(super) fn new(
-        store: &'a StoredOrder<'s>,
+        store: Option<&'a StoredOrder<'s>>,
         names: &'a [String],
         rows: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
+        let Some(store) = store else {
+            return Ok(Self {
+                lookup: None,
+                rows,
+                peer: 0,
+                start: 0,
+                end: rows,
+            });
+        };
         let mut lookup = Lookup::new(store, names, context)?;
         if lookup.rows()? < 2
             || lookup.unsigned(0, 0, context)? != 0
@@ -48,7 +57,7 @@ impl<'a, 's> Peers<'a, 's> {
             return Err(failed("window peer boundary exceeds its partition"));
         }
         Ok(Self {
-            lookup,
+            lookup: Some(lookup),
             rows,
             peer: 0,
             start: 0,
@@ -66,10 +75,14 @@ impl<'a, 's> Peers<'a, 's> {
                 "window peer position moved backwards or exceeded its partition",
             ));
         }
+        let Some(lookup) = &mut self.lookup else {
+            self.start = row;
+            return Ok(frame::Position::row_only(self.rows, row));
+        };
         while row >= self.end {
             self.start = self.end;
             self.peer += 1;
-            self.end = self.lookup.unsigned(self.peer + 1, 0, context)?;
+            self.end = lookup.unsigned(self.peer + 1, 0, context)?;
             if self.end <= self.start || self.end > self.rows {
                 return Err(failed("window peer boundaries are not increasing"));
             }
@@ -88,10 +101,18 @@ impl<'a, 's> Peers<'a, 's> {
         index: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<usize> {
-        if index >= self.lookup.rows()? {
+        let lookup = self
+            .lookup
+            .as_mut()
+            .ok_or_else(|| failed("position-only stored window frame requested a peer boundary"))?;
+        if index >= lookup.rows()? {
             return Ok(self.rows);
         }
-        self.lookup.unsigned(index, 0, context)
+        lookup.unsigned(index, 0, context)
+    }
+
+    fn blocks(&self) -> u64 {
+        self.lookup.as_ref().map_or(0, |lookup| lookup.blocks)
     }
 }
 
@@ -138,7 +159,7 @@ pub(super) fn run<'s>(
         }
         if let Some(frame) = &spec.frames[function] {
             let mut output = Values::new(&layout.results[function], spill, limit, context)?;
-            let mut peer = Peers::new(&peers, &layout.peers.names, rows, context)?;
+            let mut peer = Peers::new(peers.as_ref(), &layout.peers.names, rows, context)?;
             match frame.function {
                 frame::Function::Aggregate(
                     Aggregate::CountDistinct
@@ -194,7 +215,7 @@ pub(super) fn run<'s>(
                 }
                 _ => fixed(frame, input, &mut peer, &mut output, context)?,
             }
-            add(&mut report.lookup_blocks, peer.lookup.blocks)?;
+            add(&mut report.lookup_blocks, peer.blocks())?;
             stored.values[slot] = Some(output.finish(rows, context)?);
         }
     }
@@ -215,7 +236,10 @@ pub(super) fn run<'s>(
             .ok_or_else(|| failed("window partition result is absent"))?
             .finish(context)?;
     }
-    peers.finish(context)
+    if let Some(peers) = peers {
+        peers.finish(context)?;
+    }
+    Ok(())
 }
 
 fn fill_values<'s>(
@@ -249,7 +273,7 @@ fn rank<'s>(
     limit: usize,
     stored: &mut [Option<StoredOrder<'s>>],
     report: &mut Report,
-) -> Result<StoredOrder<'s>> {
+) -> Result<Option<StoredOrder<'s>>> {
     let rows = input.range.len();
     let mut ranking = ReservedVec::new(context.memory())?;
     ranking.reserve(group.functions.len())?;
@@ -261,13 +285,16 @@ fn rank<'s>(
             ));
         }
     }
-    let mut peers = records::Ordinals::new(&layout.peers, spill, limit, context)?;
+    let requires_peers = group.requires_peers(spec);
+    let mut peers = requires_peers
+        .then(|| records::Ordinals::new(&layout.peers, spill, limit, context))
+        .transpose()?;
     let mut start = 0;
     let mut dense_rank = 0u64;
     while start < rows {
         context.check_cancelled()?;
-        let mut end = start + 1;
-        while end < rows && same_order(input, group, start, end, context)? {
+        let mut end = if requires_peers { start + 1 } else { rows };
+        while requires_peers && end < rows && same_order(input, group, start, end, context)? {
             if end.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
@@ -276,8 +303,10 @@ fn rank<'s>(
         dense_rank = dense_rank
             .checked_add(1)
             .ok_or_else(|| failed("window dense rank overflow"))?;
-        peers.push(start, context)?;
-        add(&mut report.peer_records, 1)?;
+        if let Some(peers) = &mut peers {
+            peers.push(start, context)?;
+            add(&mut report.peer_records, 1)?;
+        }
         for position in start..end {
             if position.is_multiple_of(1024) {
                 context.check_cancelled()?;
@@ -300,9 +329,11 @@ fn rank<'s>(
         }
         start = end;
     }
-    peers.push(rows, context)?;
-    add(&mut report.peer_records, 1)?;
-    let peers = peers.finish(context)?;
+    if let Some(peers) = &mut peers {
+        peers.push(rows, context)?;
+        add(&mut report.peer_records, 1)?;
+    }
+    let peers = peers.map(|peers| peers.finish(context)).transpose()?;
     for (slot, output) in ranking.values {
         stored[slot] = Some(output.finish(rows, context)?);
     }

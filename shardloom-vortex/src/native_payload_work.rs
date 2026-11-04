@@ -22,10 +22,15 @@ pub(crate) enum Counter {
     SortBufferBytes,
     TypedValidationColumns,
     TypedValidationRows,
+    DictionaryBatches,
+    DictionaryRows,
+    DictionaryValues,
+    DictionaryHits,
+    DictionaryDeclines,
 }
 
 impl Counter {
-    const ALL: [Self; 18] = [
+    const ALL: [Self; 23] = [
         Self::PreparedSelections,
         Self::PreparedCoordinates,
         Self::ScalarCoordinates,
@@ -44,6 +49,11 @@ impl Counter {
         Self::SortBufferBytes,
         Self::TypedValidationColumns,
         Self::TypedValidationRows,
+        Self::DictionaryBatches,
+        Self::DictionaryRows,
+        Self::DictionaryValues,
+        Self::DictionaryHits,
+        Self::DictionaryDeclines,
     ];
 
     const fn name(self) -> &'static str {
@@ -66,6 +76,11 @@ impl Counter {
             Self::SortBufferBytes => "sort_payload_buffer_bytes",
             Self::TypedValidationColumns => "payload_typed_validation_columns",
             Self::TypedValidationRows => "payload_typed_validation_rows",
+            Self::DictionaryBatches => "expression_dictionary_completed_batches",
+            Self::DictionaryRows => "expression_dictionary_completed_rows",
+            Self::DictionaryValues => "expression_dictionary_computed_values",
+            Self::DictionaryHits => "expression_dictionary_cache_hits",
+            Self::DictionaryDeclines => "expression_dictionary_resource_declines",
         }
     }
 }

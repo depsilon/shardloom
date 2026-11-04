@@ -86,6 +86,25 @@ impl Expression {
         self.recipe.as_deref()
     }
 
+    /// A computed neighbour does not validate a borrowed payload. Admit only
+    /// kernels whose completed result builder validates every emitted value.
+    pub(super) fn validates_output_payload(&self, input_validated: bool) -> bool {
+        match &self.kind {
+            Kind::Column(_) => input_validated,
+            Kind::Unary(..)
+            | Kind::Binary(..)
+            | Kind::Compare(..)
+            | Kind::Cast { .. }
+            | Kind::Function { .. } => true,
+            Kind::Literal(_)
+            | Kind::List(_)
+            | Kind::Struct(_)
+            | Kind::Conditional(..)
+            | Kind::Coalesce(_)
+            | Kind::NullIf(..) => false,
+        }
+    }
+
     pub(super) fn visit_columns(&self, visit: &mut impl FnMut(&str) -> Result<()>) -> Result<()> {
         match &self.kind {
             Kind::Column(name) => visit(name),

@@ -75,6 +75,57 @@ only when every function sharing that order permits it. Ranking, RANGE, GROUPS
 and peer-aware exclusions retain their required peer information. Stored and
 resident paths require independent checks.
 
+The resident candidate retains a credited vector of partition ends from the
+existing membership orderer. It reserves that vector before changing the input
+ordinals, releases the membership index before evaluation and keeps the original
+global-order fast path. A denied membership or span reservation leaves the
+original ordinals intact and declines to the existing native sort.
+
+Peer omission is admitted for a whole shared ordering group. Row number,
+lag, lead, tile and ROWS frames with no exclusion or current-row exclusion
+can use row positions. Rank, dense rank, percent rank, cumulative distribution,
+RANGE, GROUPS, group/ties exclusion and fill keep the existing peer work.
+Mixed groups keep the full peer path. All ordering keys and NULL policies are
+still validated at their original boundaries. Resident and stored execution
+share this admission rule; stored execution omits the peer run only when no
+consumer can request a peer edge.
+
+Operation-local window counters distinguish reused partition spans from peer
+scans and position-only partitions. They accumulate only at completed group
+boundaries, with no lock for each row or partition. Rows count visited partition rows, not comparator calls or
+inferred time savings. Original stored peer-record and lookup counters remain.
+
+## Projection validation and dictionary unary reuse
+
+The existing `StreamingPrefix` owner remains the bounded ordering implementation.
+Computed projection admission is a proof about emitted values, not merely the
+presence of a computed column. Unary, binary, comparison, cast and scalar-function
+outputs pass through checked native result builders. A borrowed column needs a
+validated upstream producer; a projection over an unvalidated file does not gain
+that proof from an unrelated computed field. Projection-only chains propagate
+the proof. Constants, nested constructors and lazy selection expressions remain
+conservative until their full output contract is admitted separately. Evaluation
+order, batch boundaries, source draining and error visibility stay unchanged.
+
+The pinned provider's `DictionaryScalarFnValuesPushDownRule` already models
+strictness, sparse domains and dictionary identity. Its domain-wide rewrite is
+not a substitute for ShardLoom's ordered code diagnostics and first-reference
+string scratch admission. The admitted extension uses the existing
+`VariableColumn` owner: complete domain and argument preparation stay in place,
+then LOWER, UPPER, TRIM and character LENGTH cache by that owner's dictionary
+index on first reference. Null codes and null domain values remain null. Byte
+length and regex retain their current paths. No new codes, dictionary owner or
+external evaluator is introduced.
+
+The cache reserves its slot storage and retains credits for transformed strings.
+Immutable cached values are borrowed only during the independent output builder.
+An optional cache that hits memory admission releases its entries and partial
+output, then uses the existing pure native loop over the already prepared
+arguments. Cancellation and value errors never trigger that decline. Completed
+batch counters record referenced values, hits and resource declines, without
+row traces. Semantic, memory, ownership and complete-cohort evidence remain
+required before acceptance.
+
 ## Compatible public request ownership
 
 First recompute the supplied setup, collection and delivery attribution from
@@ -99,6 +150,45 @@ installation without the optional native extension. Full report access retains
 its complete response. Profile remaining collection adaptation before changing
 that boundary.
 
+Ordinary SQL declarations retain their exact original syntax, accounted in
+declaration metadata. The Python plan passes that owner to shared Rust
+preparation. Complete-statement file-provider selection still runs first. The
+relational route reuses syntax only after its original alias normalization and
+only for an exact unbound, unparameterized, unobserved statement. A changed or
+normalized statement constructs its own declaration. Source-binding validation,
+current source-generation checks, metadata reservation and lowering still run
+for each preparation. This removes one repeated relational declaration parse;
+it does not claim to eliminate every provider or source-discovery parse.
+
+Each exact immutable `LazyFrame` retains its rendered statement, source tuple,
+logical summary and binding description in its existing plan state. Collection,
+streaming, writing and connected native admission reuse these descriptions.
+Binding dictionaries returned to callers are fresh container copies, preserving
+native source and producer identity. Failed description builds are not cached;
+subclass rendering remains dynamic. The descriptions perform no I/O and survive
+`release_prepared()`, while the prepared native plan is released and must obtain
+fresh admission. Child frames receive independent state. The ordinary complete-
+statement route and bound-child composition remain the existing provider choices.
+
+The facade keeps the existing 76 canonical classes and 73 dataclass decorators.
+The construction profile attributed about 80–100 ms of the two cold requests to
+source compilation, versus about 3–4 ms to the repeated envelope wrappers.
+Accordingly, the first facade candidate extracts substantial method and helper
+bodies into ordinary modules by capability. Canonical functions keep their real
+signatures, decorators, defaults, annotations and documentation, with explicit
+local imports. Small accessors remain inline. Deferred modules are individually
+bounded; collection does not load one replacement monolith.
+
+Extracted implementations resolve shared names through their original module,
+preserving monkeypatches and class identity. The one-time migration uses compiler
+scope information, preserves comprehension-local bindings and leaves nested
+callables inline. There is no runtime source compiler, class generator or
+function rebinding. Original and restored implementation ASTs are checked in
+full, and the canonical declaration AST remains equivalent. Dataclass generation
+is deliberately unchanged pending a compatible, measured reason to change it.
+The scope analysis follows the [Python symbol-table contract](https://docs.python.org/3.13/library/symtable.html)
+and is checked against the installed CPython 3.13 implementation.
+
 ## Evidence and acceptance
 
 Start with existing outer-join and wide-ranking case IDs plus semantic and
@@ -120,6 +210,24 @@ after correctness, resource and no-fallback checks. Engine clocks and public
 construction clocks stay separate. Population coverage and arithmetic savings
 scenarios do not establish avoidable work or causal speedups. Preserve every
 observation, including regressions and failed diagnostics.
+
+The first selection-only control set returned all 224 expected rows across 13
+existing requests and five public surfaces. Its engine sum was 46.675851664
+seconds against 50.622956124 for those same archived requests. Both named ranking
+controls were slower, so this bounded observation does not establish acceptance.
+The combined candidate adds the independently checked window, expression and
+public-request changes. Its control set preserves those 13 requests and adds
+11 existing window/expression requests. Two separate smoke requests provide
+instrumented collection attribution; those observations are not scored controls.
+
+Before the combined release build, strict formatting and both lint configurations
+passed. Native-feature workspace tests passed 6,926 tests, with 36 ignored; the
+default workspace passed 3,319, with none ignored. The Python core shard ran
+1,145 tests, with 57 environment-dependent skips. Its two remaining errors came
+from historical evidence files excluded by the sparse checkout; after restoring
+those files, both affected tests passed without a product change. Eleven public
+compatibility tests passed. Installed-package validation and complete-cohort
+acceptance remain pending.
 
 ## Applied work observations
 

@@ -131,6 +131,8 @@ mod native_payload_work;
 mod native_spill_session;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_temporal;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+mod native_window_work;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 mod native_work_sizing;
 pub mod output_payload;

@@ -9,6 +9,9 @@ use std::sync::Arc;
 #[path = "native_runtime_application_tests.rs"]
 mod application_tests;
 
+#[path = "native_runtime_declaration_reuse_tests.rs"]
+mod declaration_reuse_tests;
+
 fn allocation() -> ExecutionResources {
     ExecutionResources::from_declaration(
         64 << 20,
