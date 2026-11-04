@@ -8,6 +8,11 @@ failure. The release and Polars observations for the original 10,000 cases
 remain the corpus baseline. [Original study](native-expanded-query-2026-11-03.md) ·
 [Nine investigation dossiers](https://github.com/depsilon/shardloom/pull/1653#issuecomment-6615541800).
 
+A later authorized complete-cohort run passed all 10,000 primary requests
+on this same candidate runtime. Its full engine total is 1,825.631 s.
+The 9,995 cases with valid release and candidate timings improved by 42.9%.
+[Complete updated observation](native-expanded-updated-cohort-2026-11-03.md).
+
 | Matched investigation | Requests | Parent engine s | Candidate engine s | Faster / slower |
 |---|---:|---:|---:|---:|
 | Membership demand | 33 | 17.932 | 6.272 | 26 / 7 |

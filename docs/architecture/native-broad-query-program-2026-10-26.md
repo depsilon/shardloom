@@ -70,6 +70,15 @@ separate operator profiles. Carry the file-validation contract, partition
 ordering, join gather ownership and read-range measurements into the next
 engineering checkpoint. [Measured decisions](../benchmarks/native-expanded-work-investigations-2026-11-03.md).
 
+The maintainer subsequently authorized one complete native pass on that
+updated state. All 10,000 original primary requests passed, including the
+five original deadlines. Total engine time was 1,825.631 s. On the 9,995
+common-correct cases it fell from 3,192.079 to 1,822.598 s. This complete
+updated observation advances the native comparison baseline. The original
+Polars pass supplies the external comparison. The twelve separately declared
+alternate routes keep their previous observations.
+[Updated results and replay](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
+
 Following 1.1.0 publication, bring the campaign for existing analytical
 capabilities forward ahead of item 19. Freeze a separately versioned corpus
 of **10,000 distinct query cases** including the original 347 and 9,653 new
