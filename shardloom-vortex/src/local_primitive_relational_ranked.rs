@@ -40,9 +40,7 @@ impl PreparedVortexRelational {
         if *prefix > 16_384 || parameter.is_some() {
             return Ok(false);
         }
-        let Some(scan) = source_scan(input) else {
-            return Ok(false);
-        };
+        let scan = input.before_column_projections();
         let NodeKind::Scan {
             source: ScanSource::Batch { index, .. },
             predicate,
@@ -146,36 +144,6 @@ fn source_has_ranked_payload(
                 .any(|key| source_column(input, key) == Some(name))
                 || predicate.is_some_and(|predicate| predicate_uses_column(predicate, name))
         })
-    })
-}
-
-fn source_scan(mut node: &Node) -> Option<&Node> {
-    loop {
-        match &node.kind {
-            NodeKind::Project { input, expressions } => {
-                if !direct(expressions) {
-                    return None;
-                }
-                node = input;
-            }
-            NodeKind::Pipeline { input, stages } => {
-                if !stages.iter().all(|stage| matches!(&stage.kind, PipelineKind::Project(expressions) if direct(expressions))) {
-                    return None;
-                }
-                node = input;
-            }
-            NodeKind::Scan { .. } => return Some(node),
-            _ => return None,
-        }
-    }
-}
-
-fn direct(expressions: &[native_relational_expression::Expression]) -> bool {
-    expressions.iter().all(|expression| {
-        matches!(
-            expression.kind,
-            native_relational_expression::Kind::Column(_)
-        )
     })
 }
 

@@ -274,17 +274,26 @@ preview completed the GitHub, TestPyPI, PyPI and Homebrew channel sequence.
 The frozen 10,000-case campaign ran Polars first and ShardLoom second.
 Polars passed 10,000 and the release runtime passed 9,995. The native
 membership change recovered all five deadlines in a separate 392-case pass.
-Two additional 5M prepared-source cases remain open. High-cardinality grouping
-reached the memory guard and unfiltered wide top-k reached the deadline.
+Two additional 5M prepared-source cases failed on the release. The later
+operator investigation recovered high-cardinality grouping under the original
+memory guard. Unfiltered wide top-k still has an open deadline failure.
+The combined membership, grouping and window changes passed 55 matched
+requests on each build, reducing total engine time from 82.719 to 49.195 s.
+[Matched results](../benchmarks/native-expanded-operator-investigations-2026-11-03.md).
 The scale preparation receipt locates most elapsed time inside the provider
 encode/write stage. Keep the original results and follow-up denominators
 separate. [Campaign observations](../benchmarks/native-expanded-query-2026-11-03.md).
 
-The maintainer closed both full-suite runs on November 3. The saved Polars
-pass is the standing comparison baseline. Use the existing packets for
-investigations and keep the full ShardLoom cohort parked. Assess a concrete
-native change against its affected cases and controls when independently
-justified.
+The maintainer initially closed both full-suite runs on November 3, then
+authorized one complete updated-state native pass after the investigation
+batch. That pass returned all 10,000 independent expected results in
+1,825.631 engine seconds. The 9,995 common-correct cases fell from
+3,192.079 to 1,822.598 engine seconds, a 42.9% reduction. It establishes
+the complete updated native baseline. The saved Polars pass and every
+earlier native observation retain their original scope. Routine validation
+uses offline replay. Assess further native changes against their affected
+cases and controls when independently justified.
+[Complete updated pass](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
 Next deliver item 19's rich-data lifecycle and add cases requiring those
 capabilities. Item 21's Foundry integration leads directly to item 22's AI

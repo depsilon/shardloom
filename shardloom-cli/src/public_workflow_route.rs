@@ -3979,6 +3979,10 @@ pub(crate) fn append_local_primitive_result_summary_evidence_fields(
         ),
         ("candidate_groups", "local_primitive_candidate_groups"),
         (
+            "peak_buffered_order_candidates",
+            "local_primitive_peak_buffered_order_candidates",
+        ),
+        (
             "retained_candidate_groups",
             "local_primitive_retained_candidate_groups",
         ),
@@ -13650,6 +13654,28 @@ mod tests {
                     "local_primitive_aggregate_encoded_numeric_reduction_child_rows"
                 ),
                 "8"
+            );
+        }
+    }
+
+    #[test]
+    fn local_primitive_group_candidate_peak_is_conditional() {
+        for observed in [None, Some(0), Some(62)] {
+            let payload = observed.map_or_else(
+                || serde_json::json!({}),
+                |peak| serde_json::json!({"peak_buffered_order_candidates": peak}),
+            );
+            let mut fields = Vec::new();
+            append_local_primitive_result_summary_evidence_fields(
+                &mut fields,
+                Some(&payload.to_string()),
+            );
+            let reported = fields
+                .iter()
+                .find(|(k, _)| k == "local_primitive_peak_buffered_order_candidates");
+            assert_eq!(
+                reported.map(|(_, value)| value.clone()),
+                observed.map(|n| n.to_string())
             );
         }
     }

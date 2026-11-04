@@ -1,0 +1,146 @@
+{
+  "status": "passed",
+  "measured_head": "dc54b60ec1a7aa3378b802b6b2e0b2facf2313f9",
+  "native_query_executions": 0,
+  "source": {
+    "verifier_sha256": "4ab01c871df3d8ca045cce3c79a81cd6ad4fce02cef4cd9068bfd2f6b7ecda31",
+    "regression_tests_sha256": "b3a35d93d46294c855a1a7d3831885d09929d9f373c0f49cb26c950ce8fb4717"
+  },
+  "index_sha256": "20fc5342071d32721a1cbcbfe282d48b2d9eaf1c4de287ec4da496eb8406c238",
+  "workspace_tests_passed": 3319,
+  "focused_python_tests_passed": 6,
+  "negative_controls": {
+    "status": "passed",
+    "query_executions": 0,
+    "controls": [
+      {
+        "case": "changed-complete-value",
+        "status": "rejected",
+        "error": "offline complete-result comparator disagrees for projection_narrow"
+      },
+      {
+        "case": "changed-request-identity",
+        "status": "rejected",
+        "error": "result is not bound to the completed public request"
+      },
+      {
+        "case": "changed-native-clock",
+        "status": "rejected",
+        "error": "engine clock differs from its native nanosecond counters"
+      },
+      {
+        "case": "fallback-claimed",
+        "status": "rejected",
+        "error": "missing or unsafe native evidence: fallback_attempted"
+      },
+      {
+        "case": "reordered-cases",
+        "status": "rejected",
+        "error": "updated case order or request inventory differs"
+      },
+      {
+        "case": "rehashed-published-total",
+        "status": "rejected",
+        "error": "published results differ"
+      }
+    ],
+    "packet_index_sha256": "20fc5342071d32721a1cbcbfe282d48b2d9eaf1c4de287ec4da496eb8406c238",
+    "reader_sha256": "4ab01c871df3d8ca045cce3c79a81cd6ad4fce02cef4cd9068bfd2f6b7ecda31",
+    "driver_sha256": "660dfed5c0fe976436d819b871ee430728213d8b28283d8ad406edf58d0c329a"
+  },
+  "checks": [
+    {
+      "name": "updated-native-10k-python-r1",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "python.tests.test_query_surface_updated_replay",
+        "python.tests.test_query_surface_expanded_packet"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "2269d24b97297f45ae04a7935894e266a7fc6f79a149e1c8c0569ef7e3ef06ff",
+      "log_sha256": "bcbfc1ff3e488cf8f6920b255f6f6d55ea75f75fb9e4f0cce654354f82445882"
+    },
+    {
+      "name": "updated-native-10k-fmt-r1",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "f456740eb588f8dc8ac8530e06f6bb79f3a6789779c79e46eef00eb3132fc085",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "updated-native-10k-clippy-r1",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "7212522854e46243a8fef0d5cd29187043b5a6b82cb46d876de4cc0831de5b47",
+      "log_sha256": "1f5852af1ed7025b5728e842e3c3c2f5d2f720d25557d84c38f1ffda99719c59"
+    },
+    {
+      "name": "updated-native-10k-workspace-r1",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--offline",
+        "--workspace",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "e6fe4bae6a49ad8d91a94b1a0cecb857fce799faab15d3af92610039c222b761",
+      "log_sha256": "2b644fb899b5fa8f279fbf3bfbdc1a7cc51116a3409b63e73743fb3d0a4365f1"
+    },
+    {
+      "name": "updated-native-10k-integrated-replay-r1",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-S",
+        "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/benchmarks/traditional_analytics/query_surface/expanded_updated_replay.py",
+        "--archive",
+        "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/docs/benchmarks/evidence/native-expanded-query-2026-11-03/updated-native",
+        "--baseline",
+        "/Users/dylan/.codex/worktrees/native-expanded-investigations/shardloom-local-repo/docs/benchmarks/evidence/native-expanded-query-2026-11-03/packet"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "c592bdec60f20995205ad75269a938689a0cd76bfe0b5404bc1484057ffcd1c8",
+      "log_sha256": "c9951615e29a9c8defac573b6690a29649cbec500e9efcdc0455c06b0b7ae3e6"
+    },
+    {
+      "name": "updated-native-10k-negative-r1",
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-S",
+        "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/check_updated_10k_rejections.py"
+      ],
+      "returncode": 0,
+      "process_group_drained": true,
+      "receipt_sha256": "abac02c3c11bdc004f7fd287ce29d22a66b1c3a15773b084eaf3bfd46259266b",
+      "log_sha256": "9272142e33475251773b6e65f4d384ebfa47a341704b59aaf478c10ced347291"
+    }
+  ]
+}

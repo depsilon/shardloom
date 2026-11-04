@@ -462,6 +462,9 @@ jobs:
           packet=docs/benchmarks/evidence/native-expanded-query-2026-11-03
           python -B benchmarks/traditional_analytics/query_surface/expanded_replay.py --packet "$packet/packet" --reports "$packet"
           python -B benchmarks/traditional_analytics/query_surface/expanded_membership_replay.py --baseline "$packet/packet" --candidate "$packet/membership"
+          python -B -S benchmarks/traditional_analytics/query_surface/expanded_operator_replay.py --repo . --archive "$packet/operator-investigations"
+          python -B -S benchmarks/traditional_analytics/query_surface/expanded_batch_replay.py --archive "$packet/batch-investigations"
+          python -B -S benchmarks/traditional_analytics/query_surface/expanded_updated_replay.py --baseline "$packet/packet" --archive "$packet/updated-native"
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7

@@ -110,7 +110,31 @@ python -B benchmarks/traditional_analytics/query_surface/expanded_replay.py \
   --packet "$PACKET/packet" --reports "$PACKET"
 python -B benchmarks/traditional_analytics/query_surface/expanded_membership_replay.py \
   --baseline "$PACKET/packet" --candidate "$PACKET/membership"
+python -B -S benchmarks/traditional_analytics/query_surface/expanded_operator_replay.py \
+  --repo . --archive "$PACKET/operator-investigations"
+python -B -S benchmarks/traditional_analytics/query_surface/expanded_batch_replay.py \
+  --archive "$PACKET/batch-investigations"
+python -B -S benchmarks/traditional_analytics/query_surface/expanded_updated_replay.py \
+  --baseline "$PACKET/packet" --archive "$PACKET/updated-native"
 ```
+
+The operator replay checks the 55 matched case-route pairs, the separate
+prepared-group challenge, fresh declaration evidence and the unscored
+reservation capture against the original requests. It uses Python's standard
+library and the saved worker packets.
+
+The batch replay verifies 33 pairs of public declarations on one runtime and
+four separate sampled requests. It reads archived worker packets, checks
+complete results against the independent expectations and reconstructs the
+main-thread call-path counts from the saved samples.
+
+The updated replay checks the later maintainer-authorized complete native
+pass. It binds all 10,000 original declarations and independent expectations
+to the accepted investigation runtime, verifies every complete result, and
+recomputes the full updated engine total and the 9,995-case common-correct
+comparison. Its source, resource and isolation proofs are portable. It also
+retains the five recovered requests and all individual timing increases.
+[Updated complete-cohort results](../../../docs/benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
 To package a new completed local run, first write its offline report to
 `$EXPANSION/report`, then run `expanded_packet.py --root "$EXPANSION" --output NEW_DIRECTORY`.

@@ -1,6 +1,7 @@
 //! Narrow fully bound operator inputs and normalize safe predicates into the
 //! native file/batch scan. Expressions keep their original evaluation order.
 
+use super::super::SubqueryRelation;
 use super::{Binder, Node, NodeKind, Result, Side, failed, field};
 use crate::local_primitives::{
     self as native,
@@ -142,9 +143,53 @@ impl Binder<'_> {
                 input.fields.clone_from(&spec.fields);
                 self.narrow_join_inputs(left, right, spec)?;
             }
+            NodeKind::Subquery {
+                input: outer,
+                relation: SubqueryRelation::Bound(inner),
+                spec,
+                ..
+            } => {
+                self.narrow_membership_inputs(outer, inner, spec, needed)?;
+                input.fields.clone_from(&spec.fields);
+            }
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
         }
+        Ok(())
+    }
+
+    fn narrow_membership_inputs<'name>(
+        &mut self,
+        outer: &mut Node,
+        inner: &mut Node,
+        spec: &mut native::native_relational_subquery::Spec,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        // The caller admits only bound, owned inputs. Both batch keys and
+        // guard expressions address logical fields by name. The final
+        // subquery field is synthesized after probing, never scanned.
+        self.charge_named_fields(&spec.fields)?;
+        let marker = spec
+            .fields
+            .last()
+            .ok_or_else(|| failed("missing subquery result field"))?
+            .clone();
+        let mut columns: BTreeSet<String> = needed
+            .into_iter()
+            .filter(|name| *name != marker.0)
+            .map(str::to_owned)
+            .chain(spec.left_keys.iter().cloned())
+            .collect();
+        if let Some(guard) = &spec.guard {
+            guard.visit_columns(&mut |name| {
+                columns.insert(name.to_owned());
+                Ok(())
+            })?;
+        }
+        self.narrow_source_demand(outer, columns.iter().map(String::as_str))?;
+        self.narrow_source_demand(inner, spec.right_keys.iter().map(String::as_str))?;
+        spec.fields.clone_from(&outer.fields);
+        spec.fields.push(marker);
         Ok(())
     }
 
@@ -160,6 +205,15 @@ impl Binder<'_> {
             | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
             NodeKind::Join { left, right, .. } => {
                 self.scan_accepts_source_demand(left) && self.scan_accepts_source_demand(right)
+            }
+            NodeKind::Subquery {
+                input: outer,
+                relation: SubqueryRelation::Bound(inner),
+                spec,
+                parameterized: false,
+                initialize_on_demand: false,
+            } if matches!(spec.kind, native::native_relational_subquery::Kind::In) => {
+                self.scan_accepts_source_demand(outer) && self.scan_accepts_source_demand(inner)
             }
             _ => false,
         }

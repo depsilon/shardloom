@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "controls": [
+    {
+      "case": "changed-complete-value",
+      "status": "rejected",
+      "error": "offline complete-result comparator disagrees for projection_narrow"
+    },
+    {
+      "case": "changed-request-identity",
+      "status": "rejected",
+      "error": "result is not bound to the completed public request"
+    },
+    {
+      "case": "changed-native-clock",
+      "status": "rejected",
+      "error": "engine clock differs from its native nanosecond counters"
+    },
+    {
+      "case": "fallback-claimed",
+      "status": "rejected",
+      "error": "missing or unsafe native evidence: fallback_attempted"
+    },
+    {
+      "case": "reordered-cases",
+      "status": "rejected",
+      "error": "updated case order or request inventory differs"
+    },
+    {
+      "case": "rehashed-published-total",
+      "status": "rejected",
+      "error": "published results differ"
+    }
+  ],
+  "packet_index_sha256": "20fc5342071d32721a1cbcbfe282d48b2d9eaf1c4de287ec4da496eb8406c238",
+  "reader_sha256": "4ab01c871df3d8ca045cce3c79a81cd6ad4fce02cef4cd9068bfd2f6b7ecda31",
+  "driver_sha256": "660dfed5c0fe976436d819b871ee430728213d8b28283d8ad406edf58d0c329a"
+}

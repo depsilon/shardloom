@@ -127,13 +127,13 @@ fn native_utf8_access_keeps_dtype_and_physical_null_boundaries() {
 fn native_utf8_access_rejects_unvalidated_builder_values_in_release() {
     for bytes in [&b"\xff"[..], &b"\xc3"[..], &b"bad outlined value \xff"[..]] {
         let raw = VarBinViewArray::from_iter([Some(bytes)], DType::Utf8(Nullability::NonNullable));
-        assert!(
-            raw.utf8_slice_at(0)
-                .unwrap_err()
-                .to_string()
-                .contains("invalid UTF-8")
-        );
-        assert!(raw.utf8_buffer_at(0).is_err());
+        for diagnostic in [
+            raw.utf8_slice_at(0).unwrap_err().to_string(),
+            raw.utf8_buffer_at(0).unwrap_err().to_string(),
+        ] {
+            assert!(diagnostic.contains("invalid utf-8:"), "{diagnostic}");
+            assert!(diagnostic.contains("at index 0"), "{diagnostic}");
+        }
     }
 }
 

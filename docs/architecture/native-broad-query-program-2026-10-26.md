@@ -50,7 +50,11 @@ The first expanded pass is complete. All 10,000 Polars requests and 9,995
 ShardLoom release requests matched their independent expectations. A
 post-release change to native membership recovered all five deadlines and
 passed the complete affected cohort. The separate prepared-Vortex 5M group
-and wide top-k failures remain in the record. The next corpus extension adds
+and wide top-k failures remain in the record. A later candidate recovered the
+prepared group and lowered engine time across 55 matched requests. The wide
+top-k deadline remains open.
+[Operator investigation](../benchmarks/native-expanded-operator-investigations-2026-11-03.md).
+The next corpus extension adds
 the capabilities that require item 19.
 [Measurements and controls](../benchmarks/native-expanded-query-2026-11-03.md).
 
@@ -59,6 +63,21 @@ baseline for this corpus. Both full measured passes are closed. Further
 investigation uses the saved case IDs, complete worker output, preparation
 receipts and native follow-up evidence. The commands in the harness guide
 document the original experiment. Routine validation uses offline replay.
+
+The next investigation batch grouped the work across 18 families in one
+review. The existing runtime completed 33 paired declaration probes and four
+separate operator profiles. Carry the file-validation contract, partition
+ordering, join gather ownership and read-range measurements into the next
+engineering checkpoint. [Measured decisions](../benchmarks/native-expanded-work-investigations-2026-11-03.md).
+
+The maintainer subsequently authorized one complete native pass on that
+updated state. All 10,000 original primary requests passed, including the
+five original deadlines. Total engine time was 1,825.631 s. On the 9,995
+common-correct cases it fell from 3,192.079 to 1,822.598 s. This complete
+updated observation advances the native comparison baseline. The original
+Polars pass supplies the external comparison. The twelve separately declared
+alternate routes keep their previous observations.
+[Updated results and replay](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
 Following 1.1.0 publication, bring the campaign for existing analytical
 capabilities forward ahead of item 19. Freeze a separately versioned corpus

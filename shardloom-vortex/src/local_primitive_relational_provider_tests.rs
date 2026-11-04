@@ -83,6 +83,63 @@ fn range(input: VortexRelationalPlan, count: usize, offset: usize) -> VortexRela
         count,
     }))
 }
+
+#[test]
+fn prepared_file_prefix_requires_every_projected_integer_to_be_a_sort_key() {
+    let fixture = Fixture::new(
+        StructArray::new(
+            ["rank", "payload"].into(),
+            vec![
+                PrimitiveArray::from_iter([4i64, 2, 5, 1, 3, 0]).into_array(),
+                PrimitiveArray::from_iter([14i64, 12, 15, 11, 13, 10]).into_array(),
+            ],
+            6,
+            Validity::NonNullable,
+        )
+        .into_array(),
+        2,
+    );
+    for keep_payload in [false, true] {
+        let mut fields = vec![("k", column("rank"))];
+        if keep_payload {
+            fields.push(("payload", column("payload")));
+        }
+        // The outer sort consumes the completed inner range. A specialized
+        // single-sort file request cannot represent this composition.
+        let inner = range(sort(project(fixture.scan(), fields), "k"), 2, 1);
+        let prepared = prepare_relational(&sort(inner, "k"), policy()).unwrap();
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        let rows = json_rows(&result);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row["k"].as_i64().unwrap())
+                .collect::<Vec<_>>(),
+            [1, 2]
+        );
+        if keep_payload {
+            assert_eq!(
+                rows.iter()
+                    .map(|row| row["payload"].as_i64().unwrap())
+                    .collect::<Vec<_>>(),
+                [11, 12]
+            );
+        }
+        let proof = &result
+            .execution
+            .native_io_certificate
+            .source_pushdown_report
+            .proof_basis;
+        let expected = if keep_payload { 0 } else { 6 };
+        assert!(
+            proof.split_whitespace().any(
+                |field| field == format!("streaming_ordering_prefix_rows_validated={expected}")
+            ),
+            "expected the prefix to validate {expected} fixture rows"
+        );
+    }
+}
 fn fixture() -> Fixture {
     Fixture::new(
         keyed(&[Some(2), None, Some(1), Some(2), None], &[7, 8, 9, 10, 11]),
