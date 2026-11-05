@@ -10,7 +10,10 @@ use shardloom_exec::{
 use std::io::Write;
 use vortex::array::{
     ArrayRef, Columnar, ExecutionCtx, IntoArray as _,
-    arrays::{StructArray, struct_::StructArrayExt as _},
+    arrays::{
+        ExtensionArray, StructArray, extension::ExtensionArrayExt as _,
+        struct_::StructArrayExt as _,
+    },
     dtype::{DType, FieldNames},
     validity::Validity,
 };
@@ -86,6 +89,13 @@ impl Column {
 impl Node {
     fn new(array: &ArrayRef, execution: &mut ExecutionCtx) -> Result<Self> {
         Ok(match array.dtype() {
+            DType::Extension(_) if crate::native_embedding::storage(array.dtype()).is_some() => {
+                let array = array
+                    .clone()
+                    .execute::<ExtensionArray>(execution)
+                    .map_err(vortex_error)?;
+                Self::new(array.storage_array(), execution)?
+            }
             DType::Struct(..) => {
                 let array = array
                     .clone()

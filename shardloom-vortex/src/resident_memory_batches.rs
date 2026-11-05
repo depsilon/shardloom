@@ -70,6 +70,12 @@ impl MemoryBatchSourceBuilder {
         self.session.memory().reserve(bytes)
     }
 
+    /// Immutable caller-selected floating admission used by boundary converters.
+    #[must_use]
+    pub fn float_policy(&self) -> shardloom_core::FloatPolicy {
+        self.session.float_policy()
+    }
+
     /// Interpret the same pinned native field declarations used by object and
     /// batch inputs as an explicit Arrow construction boundary. Only schema
     /// metadata crosses JSON; values are constructed directly by the adapter.
@@ -82,7 +88,7 @@ impl MemoryBatchSourceBuilder {
         &self,
         fields: &[(String, String)],
     ) -> Result<shardloom_exec::live_memory::Budgeted<arrow_schema::SchemaRef>> {
-        use arrow_schema::{Field, Schema};
+        use arrow_schema::Schema;
         use shardloom_exec::live_memory::Budgeted;
         self.cancellation.check()?;
         let memory = self.session.memory();
@@ -100,10 +106,10 @@ impl MemoryBatchSourceBuilder {
                 .checked_mul(4)
                 .ok_or_else(|| memory_error("object schema conversion metadata overflow"))?;
             credit.resize(bytes)?;
-            let data_type = crate::native_arrow_conversion::data_type(&dtype).ok_or_else(|| {
+            let field = crate::native_arrow_conversion::field(name, &dtype).ok_or_else(|| {
                 memory_error("native object input type has no admitted columnar representation")
             })?;
-            converted.push(Field::new(name, data_type, dtype.is_nullable()));
+            converted.push(field);
             metadata.absorb(&mut credit)?;
         }
         Ok(Budgeted::new(Arc::new(Schema::new(converted)), metadata))

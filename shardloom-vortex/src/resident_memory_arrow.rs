@@ -23,8 +23,8 @@ impl ResidentMemorySource {
     /// Every referenced Arrow buffer is copied because its visible capacity does
     /// not establish its producer's complete retained allocation or immutability.
     /// The native `DType` retains field names, nullability and admitted logical types;
-    /// arbitrary Arrow application metadata is not retained. Only the declared
-    /// `ShardLoom` duration extension marker is admitted on an Arrow duration field.
+    /// arbitrary Arrow application metadata is not retained. Admitted duration
+    /// and dense embedding extension identity is preserved through native dtypes.
     /// # Errors
     /// Rejects unsupported schemas, malformed arrays, values outside the session's
     /// floating policy, cancellation, overflow or shared-memory denial before
@@ -88,12 +88,12 @@ impl ResidentMemorySource {
         origin: Origin,
     ) -> Result<Self> {
         session.validate_execution_context(context)?;
+        let memory = context.memory();
         let schema = batch.schema();
-        let mut metadata = crate::native_payload_schema::reserve_names(
-            context.memory(),
-            schema.fields().len(),
-            |index| schema.field(index).name().as_str(),
-        )?;
+        let mut metadata =
+            crate::native_payload_schema::reserve_names(memory, schema.fields().len(), |index| {
+                schema.field(index).name().as_str()
+            })?;
         let mut metadata_bytes = metadata.bytes();
         for field in schema.fields() {
             context.check_cancelled()?;
@@ -103,6 +103,8 @@ impl ResidentMemorySource {
                 ));
             }
             metadata_bytes = metadata_bytes
+                .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
+                .ok_or_else(|| memory_error("columnar extension metadata overflow"))?
                 .checked_add(schema_metadata_bytes(field.data_type(), origin)?)
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
@@ -127,6 +129,7 @@ impl ResidentMemorySource {
         for (field, column) in schema.fields().iter().zip(batch.columns()) {
             context.check_cancelled()?;
             let data = column.to_data();
+            let _validation = memory.reserve(nested::validation_workspace_bytes(&data)?)?;
             data.validate_full().map_err(native_error)?;
             if matches!(origin, Origin::LocalFile)
                 && matches!(field.data_type(), arrow_schema::DataType::Dictionary(..))
@@ -160,6 +163,7 @@ impl ResidentMemorySource {
             allocator.as_ref(),
             ownership,
         )?;
+        let retained = nested::provider_batch(retained, Some(memory))?;
         context.check_cancelled()?;
         let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context

@@ -4,16 +4,26 @@ use crate::local_primitives::{usize_to_u64, vortex_error};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use shardloom_core::{Result, ShardLoomError};
 use std::sync::Arc;
+use vortex::array::arrays::extension::ExtensionArrayExt as _;
 use vortex::array::{
     ArrayRef, Columnar, ExecutionCtx, IntoArray,
     arrays::fixed_size_list::{FixedSizeListArrayExt as _, FixedSizeListArraySlotsExt as _},
     arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _},
     arrays::struct_::StructArrayExt as _,
     arrays::{
-        FixedSizeListArray, ListViewArray, Struct, StructArray, VarBin, VarBinView, VarBinViewArray,
+        ExtensionArray, FixedSizeListArray, ListViewArray, Struct, StructArray, VarBin, VarBinView,
+        VarBinViewArray,
     },
     dtype::{DType, PType},
 };
+
+pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
+    if crate::native_embedding::storage(dtype).is_some() {
+        return crate::native_embedding::arrow::field(name, dtype).ok();
+    }
+    crate::native_temporal::arrow::field(&Field::new(name, data_type(dtype)?, dtype.is_nullable()))
+        .ok()
+}
 
 /// Callers choose representation/work admission and supply their cancellation
 /// check. Native result export uses its shared grant; compatibility writers keep
@@ -38,6 +48,9 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             DataType::Decimal128(decimal.precision(), decimal.scale())
         }
+        DType::Extension(_) if crate::native_embedding::storage(dtype).is_some() => {
+            data_type(crate::native_embedding::storage(dtype)?)?
+        }
         DType::Extension(_) => {
             crate::native_temporal::arrow_dtype(&crate::native_temporal::temporal_dtype(dtype)?)
         }
@@ -54,17 +67,9 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
             PType::F64 => DataType::Float64,
             PType::F16 => return None,
         },
-        DType::List(element, _) => DataType::List(Arc::new(Field::new(
-            "item",
-            data_type(element)?,
-            element.is_nullable(),
-        ))),
+        DType::List(element, _) => DataType::List(Arc::new(field("item", element)?)),
         DType::FixedSizeList(element, size, _) => DataType::FixedSizeList(
-            Arc::new(Field::new(
-                "item",
-                data_type(element)?,
-                element.is_nullable(),
-            )),
+            Arc::new(field("item", element)?),
             i32::try_from(*size).ok()?,
         ),
         DType::Struct(fields, _) => DataType::Struct(
@@ -74,7 +79,7 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
                 .zip(fields.fields())
                 .map(|(name, dtype)| {
                     let name: &str = name.as_ref();
-                    Some(Field::new(name, data_type(&dtype)?, dtype.is_nullable()))
+                    field(name, &dtype)
                 })
                 .collect::<Option<Vec<_>>>()?
                 .into(),
@@ -85,6 +90,7 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
 
 pub(crate) fn field_count(dtype: &DType) -> usize {
     1 + match dtype {
+        DType::Extension(extension) => field_count(extension.storage_dtype()),
         DType::Struct(fields, _) => fields.fields().map(|child| field_count(&child)).sum(),
         DType::List(element, _) | DType::FixedSizeList(element, _, _) => field_count(element),
         _ => 0,
@@ -217,6 +223,9 @@ pub(crate) fn canonical(
         limits,
     )?;
     match array.dtype() {
+        DType::Extension(_) if crate::native_embedding::storage(array.dtype()).is_some() => {
+            canonical_embedding(array, ctx, limits, expanded)
+        }
         DType::Struct(_, _) => {
             let structure = array
                 .clone()
@@ -306,6 +315,22 @@ pub(crate) fn canonical(
         }
         _ => Err(error("canonical field changed its admitted dtype")),
     }
+}
+
+fn canonical_embedding(
+    array: &ArrayRef,
+    ctx: &mut ExecutionCtx,
+    limits: &ConversionLimits<'_>,
+    expanded: &mut u64,
+) -> Result<ArrayRef> {
+    let extension = array
+        .clone()
+        .execute::<ExtensionArray>(ctx)
+        .map_err(vortex_error)?;
+    let storage = canonical(extension.storage_array(), ctx, limits, expanded)?;
+    ExtensionArray::try_new(extension.ext_dtype().clone(), storage)
+        .map(IntoArray::into_array)
+        .map_err(vortex_error)
 }
 
 fn canonical_text(

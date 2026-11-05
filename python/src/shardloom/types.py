@@ -38,6 +38,7 @@ __all__ = (
     "decimal128",
     "list_",
     "fixed_size_list",
+    "embedding",
     "struct",
     "scalar",
 )
@@ -166,6 +167,17 @@ def list_(item: object, *, nullable: bool = True) -> ResultType:
 
 def fixed_size_list(item: object, size: int, *, nullable: bool = True) -> ResultType:
     return _type({"type": "fixed_size_list", "item": item, "size": size, "nullable": nullable})
+
+
+def embedding(item: object, size: int, *, metadata: Mapping[str, object] | None = None,
+              nullable: bool = True) -> ResultType:
+    """Declare dense Float32/Float64 values with versioned embedding identity.
+
+    Component nullability comes from item; nullable controls the whole vector.
+    Identity is carried unchanged and does not authorize vector comparison.
+    """
+    return _type({"type": "embedding", "item": item, "size": size,
+                  "metadata": metadata, "nullable": nullable})
 
 
 def struct(fields: Mapping[str, object], *, nullable: bool = True) -> ResultType:

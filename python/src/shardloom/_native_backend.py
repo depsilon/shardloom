@@ -508,10 +508,13 @@ def _batch_schema(fields):
         name = value["type"]
         if name == "decimal128":
             parameters = (value["precision"], value["scale"])
-        elif name in {"list", "fixed_size_list"}:
+        elif name in {"list", "fixed_size_list", "embedding"}:
             parameters = (dtype(value["item"]),)
-            if name == "fixed_size_list":
+            if name != "list":
                 parameters += (value["size"],)
+            if name == "embedding":
+                from ._embedding import decode_metadata
+                parameters += (decode_metadata(value["metadata"]),)
         elif name == "struct":
             parameters = tuple((name, dtype(field)) for name, field in value["fields"])
         else:

@@ -3,9 +3,10 @@
 //! Vortex 0.90 session clones share a mutable configuration cell. Changing an
 //! allocator on a clone also changes existing query contexts and sibling spill
 //! sessions. Start with an independent cell and inherit the native registries,
-//! writer policy and runtime handle explicitly. Registry contents remain shared;
-//! memory configuration does not. This is the finite local spill environment,
-//! not a general fork of arbitrary extension or external-I/O session state.
+//! writer policy and runtime handle explicitly. Most registries remain shared;
+//! allocator-bound dtype plugins and memory configuration do not. This is the
+//! finite local spill environment, not a general fork of arbitrary extension or
+//! external-I/O session state.
 
 use std::sync::Arc;
 
@@ -23,8 +24,17 @@ use vortex::{
 };
 
 pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> VortexSession {
+    use vortex::array::dtype::{extension::ExtVTable as _, session::DTypeSessionExt as _};
     let child = VortexSession::empty();
-    inherit::<DTypeSession>(parent, &child);
+    // Dtype plugins may carry allocator admission. Copy the registry contents
+    // into an independent cell before rebinding a receiving metadata owner.
+    if let Some(parent) = parent.get_opt::<DTypeSession>() {
+        let dtypes = DTypeSession::default();
+        for (id, plugin) in parent.registry().snapshot().iter() {
+            dtypes.registry().insert(*id, Arc::clone(plugin));
+        }
+        child.register(dtypes);
+    }
     inherit::<ArraySession>(parent, &child);
     inherit::<KernelSession>(parent, &child);
     inherit::<LayoutSession>(parent, &child);
@@ -44,9 +54,17 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     {
         crate::native_provider_memory::install(&child, memory.clone());
     }
-    child.with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
-        memory,
-    )))
+    let child = child.with_host_allocator(Arc::new(
+        crate::owned_buffers::ReservedHostAllocator::new(memory),
+    ));
+    if child
+        .dtypes()
+        .registry()
+        .contains_key(&crate::native_embedding::Embedding::default().id())
+    {
+        crate::native_embedding::register_dtype(&child);
+    }
+    child
 }
 
 fn inherit<T: VortexSessionVar + Clone>(parent: &VortexSession, child: &VortexSession) {
@@ -71,6 +89,50 @@ mod tests {
             session::RuntimeSessionExt as _,
         },
     };
+
+    #[test]
+    fn dense_embedding_spill_metadata_reserves_only_the_receiving_pool() {
+        use vortex::array::dtype::{
+            DType, PType, extension::ExtVTable as _, session::DTypeSessionExt as _,
+        };
+        let parent_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let parent = VortexSession::default().with_host_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(parent_pool.clone()),
+        ));
+        crate::native_embedding::register(&parent);
+        let child_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let child = with_memory(&parent, child_pool.clone());
+        let id = crate::native_embedding::Embedding::default().id();
+        let storage = DType::FixedSizeList(
+            DType::Primitive(PType::F32, false.into()).into(),
+            3,
+            true.into(),
+        );
+        let dtype = child
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(br#"{"version":1}"#, storage.clone())
+            .unwrap();
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        let parent_dtype = parent
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(br#"{"version":1}"#, storage.clone())
+            .unwrap();
+        assert!(parent_pool.snapshot().reserved_bytes > 0);
+        assert_eq!(dtype, parent_dtype);
+        let clone = dtype.clone();
+        drop((dtype, child, parent_dtype, parent));
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        drop(clone);
+        assert_eq!(child_pool.snapshot().reserved_bytes, 0);
+    }
 
     #[test]
     fn native_spill_session_preserves_registries_and_writer_policy_without_memory_aliasing() {

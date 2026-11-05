@@ -1,5 +1,13 @@
 # Structured Format And Regex Dependency Review
 
+## November 5, 2026 Arrow validation correction
+
+The [run-end validation correction](arrow-run-end-validation-2026-11-05.md)
+raises `arrow-data`, `arrow-buffer` and `arrow-schema` to 59.3.2 within the
+existing single Arrow type graph. All other provider versions and local patches
+remain pinned. The dated dependency observations below preserve the versions
+used for their original validation.
+
 ## Purpose
 
 This document records the current Arrow, Parquet, and regex dependency posture for ShardLoom's

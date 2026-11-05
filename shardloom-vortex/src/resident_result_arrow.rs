@@ -175,13 +175,8 @@ impl OwnedVortexResultBatch {
             .iter()
             .zip(fields.fields())
             .map(|(name, dtype)| {
-                let kind = conversion::data_type(&dtype)
-                    .ok_or_else(|| failed("result field has no admitted Arrow representation"))?;
-                crate::native_temporal::arrow::field(&Field::new(
-                    name.as_ref(),
-                    kind,
-                    dtype.is_nullable(),
-                ))
+                conversion::field(name.as_ref(), &dtype)
+                    .ok_or_else(|| failed("result field has no admitted Arrow representation"))
             })
             .collect::<Result<Vec<_>>>()?;
         cancellation.check()?;

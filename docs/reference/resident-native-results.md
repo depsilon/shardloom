@@ -45,6 +45,12 @@ worker attempts do not cancel the parent.
 
 ## Python Batch Input and Results
 
+The [dense embedding and rich-column guide](rich-columns.md) describes the
+post-1.1.0 source-build addition: Float32/Float64 vectors and versioned identity
+through shared payload, streaming, spill and output owners. It distinguishes
+native/Arrow fidelity, the Parquet reader limitation and unsupported vector
+operations from the historical adapter milestones below.
+
 Current source exposes `shardloom.from_batches` / `ShardLoomContext.from_batches`
 and `LazyFrame.iter_batches` / `SqlWorkflow.iter_batches`, merged in PR #1526
 after local and hosted checks. Published v0.4.0 predates those adapters. The

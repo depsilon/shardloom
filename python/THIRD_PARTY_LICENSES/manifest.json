@@ -350,11 +350,11 @@
     },
     {
       "name": "arrow-buffer",
-      "version": "59.3.1",
+      "version": "59.3.2",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/apache/arrow-rs",
-      "crate_checksum_sha256": "1fe9cd0064f2d7cf8ecfaf77cd70e67a980bc71aea92b63102bd37a7d3379a09",
+      "crate_checksum_sha256": "b5d687afc6c927965a8a759f3b68de91933d9dfa2e1bb6e156bac84b85665e92",
       "files": [
         {
           "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
@@ -416,11 +416,11 @@
     },
     {
       "name": "arrow-data",
-      "version": "59.3.1",
+      "version": "59.3.2",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/apache/arrow-rs",
-      "crate_checksum_sha256": "54f128c73bb7fe9f7137218f910edd5b436f390e0f040b1956f5028390787897",
+      "crate_checksum_sha256": "bb0a031c7ff5e2bdb443117054fb466af1d4df5b7f0ecbe197713dc8b113b1ba",
       "files": [
         {
           "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
@@ -548,11 +548,11 @@
     },
     {
       "name": "arrow-schema",
-      "version": "59.3.1",
+      "version": "59.3.2",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "Apache-2.0",
       "repository": "https://github.com/apache/arrow-rs",
-      "crate_checksum_sha256": "37b6c8a6b12cf3869d299ce36ed8e1cd6fe9836264b68fb6c6538473a36124a1",
+      "crate_checksum_sha256": "e87acb0c6bf6237fca7a50d7b51e801c98a18a5fe6f3bb34f7d77b85ca165388",
       "files": [
         {
           "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",

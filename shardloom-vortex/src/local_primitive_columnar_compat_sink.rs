@@ -206,6 +206,15 @@ pub(super) fn prepare_plan(
     if plan.limit.is_some_and(|limit| limit > limits.output_rows) {
         return Err(error("requested output limit exceeds row admission"));
     }
+    if matches!(
+        format,
+        VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
+    ) && crate::native_embedding::contains(&plan.dtype)
+    {
+        return Err(error(
+            "this output format cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     // Check type eligibility without constructing Arrow metadata. Reserve the
     // growing root schema before its field vectors, names or lookup index.
     let Some(fields) = plan.dtype.as_struct_fields_opt() else {
@@ -264,15 +273,7 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
         {
             return None;
         }
-        let kind = nested::data_type(&dtype)?;
-        arrow_fields.push(
-            crate::native_temporal::arrow::field(&Field::new(
-                name.as_ref(),
-                kind,
-                dtype.is_nullable(),
-            ))
-            .ok()?,
-        );
+        arrow_fields.push(nested::field(name.as_ref(), &dtype)?);
     }
     Some(Arc::new(Schema::new(arrow_fields)))
 }

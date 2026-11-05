@@ -3,6 +3,112 @@
 use arrow_array::{Array, GenericListArray, OffsetSizeTrait, cast::AsArray as _};
 use arrow_schema::{DataType, Field};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError};
+use shardloom_exec::live_memory::LiveMemoryPool;
+
+/// Arrow 59 validates a nonnullable fixed-list child by expanding the parent's
+/// validity bitmap. Its recursive validation releases each bitmap before the
+/// next child, so reserve the largest aligned scratch buffer, not their sum.
+pub(crate) fn validation_workspace_bytes(data: &arrow_data::ArrayData) -> Result<u64> {
+    let own = match (data.data_type(), data.nulls()) {
+        (DataType::FixedSizeList(field, width), Some(nulls)) if !field.is_nullable() => {
+            u64::try_from(*width)
+                .ok()
+                .and_then(|width| (nulls.len() as u64).checked_mul(width))
+                .and_then(|bits| bits.checked_add(511))
+                .map(|bits| (bits / 512) * 64)
+                .and_then(|bytes| bytes.checked_add(256))
+                .ok_or_else(|| ShardLoomError::InvalidOperation(
+                    "native Arrow validity workspace overflow; no fallback execution was attempted".into()
+                ))?
+        }
+        _ => 0,
+    };
+    data.child_data().iter().try_fold(own, |maximum, child| {
+        validation_workspace_bytes(child).map(|bytes| maximum.max(bytes))
+    })
+}
+
+/// Arrow permits null storage below null Struct/FixedSizeList parents even when
+/// their child field is nonnullable. Vortex 0.90 imports each child independently.
+/// After original Arrow validation, discard only these unreachable child masks;
+/// keep parent validity, logical nullability and all value buffers unchanged.
+/// Call after buffer ownership admission: the existing schema grant covers the
+/// reconstructed descriptors and every shared buffer retains its credited owner.
+pub(crate) fn provider_batch(
+    batch: arrow_array::RecordBatch,
+    memory: Option<&LiveMemoryPool>,
+) -> Result<arrow_array::RecordBatch> {
+    fn required(dtype: &DataType, index: usize) -> bool {
+        match dtype {
+            DataType::Struct(fields) => !fields[index].is_nullable(),
+            DataType::FixedSizeList(field, _) => !field.is_nullable(),
+            _ => false,
+        }
+    }
+    fn needs_normalization(data: &arrow_data::ArrayData) -> bool {
+        data.child_data().iter().enumerate().any(|(index, child)| {
+            (required(data.data_type(), index) && child.null_count() != 0)
+                || needs_normalization(child)
+        })
+    }
+    fn normalize(data: arrow_data::ArrayData) -> Result<arrow_data::ArrayData> {
+        let (dtype, length, nulls, offset, buffers, children) = data.into_parts();
+        let children = children
+            .into_iter()
+            .enumerate()
+            .map(|(index, child)| {
+                let child = normalize(child)?;
+                if required(&dtype, index) && child.null_count() != 0 {
+                    child
+                        .into_builder()
+                        .nulls(None)
+                        .build()
+                        .map_err(super::vortex_error)
+                } else {
+                    Ok(child)
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
+        arrow_data::ArrayData::builder(dtype)
+            .len(length)
+            .offset(offset)
+            .buffers(buffers)
+            .nulls(nulls)
+            .child_data(children)
+            .build()
+            .map_err(super::vortex_error)
+    }
+    let (schema, columns, rows) = batch.into_parts();
+    let columns = columns
+        .into_iter()
+        .map(|array| {
+            if !matches!(
+                array.data_type(),
+                DataType::Struct(_)
+                    | DataType::List(_)
+                    | DataType::LargeList(_)
+                    | DataType::FixedSizeList(..)
+            ) {
+                return Ok(array);
+            }
+            let data = array.to_data();
+            if !needs_normalization(&data) {
+                return Ok(array);
+            }
+            let _validation = memory
+                .map(|memory| memory.reserve(validation_workspace_bytes(&data)?))
+                .transpose()?;
+            data.validate_full().map_err(super::vortex_error)?;
+            normalize(data).map(arrow_array::make_array)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    arrow_array::RecordBatch::try_new_with_options(
+        schema,
+        columns,
+        &arrow_array::RecordBatchOptions::new().with_row_count(Some(rows)),
+    )
+    .map_err(super::vortex_error)
+}
 
 pub(super) fn family(dtype: &DataType) -> Result<Option<&'static str>> {
     let family = match dtype {
@@ -15,7 +121,8 @@ pub(super) fn family(dtype: &DataType) -> Result<Option<&'static str>> {
 }
 
 pub(super) fn validate_field(field: &Field) -> Result<()> {
-    if family(field.data_type())?.is_some() && field.metadata().contains_key("ARROW:extension:name")
+    if family(field.data_type())?.is_some()
+        && !crate::native_payload_schema::arrow_field_metadata_admitted(field)
     {
         return Err(ShardLoomError::InvalidOperation(
             "native nested intake does not admit Arrow extension fields; no fallback execution was attempted".into(),
@@ -129,6 +236,68 @@ mod tests {
     use super::*;
     use arrow_array::{Float64Array, ListArray, builder::Float64Builder, types::Float64Type};
     use std::sync::Arc;
+
+    #[test]
+    fn dense_embedding_provider_mask_bridge_preserves_parent_and_value_buffers() {
+        use arrow_array::{FixedSizeListArray, Float32Array, RecordBatch};
+        use arrow_schema::Schema;
+        let values = Arc::new(Float32Array::from(vec![
+            Some(-0.0),
+            Some(f32::from_bits(0xff80_0042)),
+            None,
+            None,
+        ]));
+        let pointer = values.values().as_ptr();
+        let vector = Arc::new(FixedSizeListArray::new(
+            Arc::new(Field::new("item", DataType::Float32, false)),
+            2,
+            values.clone(),
+            Some(arrow_buffer::NullBuffer::from(vec![true, false])),
+        ));
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "v",
+            vector.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema.clone(), vec![vector]).unwrap();
+        let denied = LiveMemoryPool::new(256).unwrap();
+        assert!(provider_batch(batch.clone(), Some(&denied)).is_err());
+        assert_eq!(denied.snapshot().reserved_bytes, 0);
+        let memory = LiveMemoryPool::new(64 << 10).unwrap();
+        let normalized = provider_batch(batch, Some(&memory)).unwrap();
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+        assert_eq!(memory.snapshot().peak_reserved_bytes, 320);
+        assert_eq!(normalized.schema(), schema);
+        let vector = normalized.column(0).as_fixed_size_list();
+        assert!(vector.is_valid(0) && vector.is_null(1));
+        let child = vector
+            .values()
+            .as_primitive::<arrow_array::types::Float32Type>();
+        assert_eq!(child.null_count(), 0);
+        assert_eq!(child.values().as_ptr(), pointer);
+        assert_eq!(child.value(0).to_bits(), (-0.0_f32).to_bits());
+        assert_eq!(child.value(1).to_bits(), 0xff80_0042);
+        // The producer's validity is immutable; only the private descriptor
+        // changed, and nullable component fields must never lose their masks.
+        assert_eq!(values.null_count(), 2);
+        let nullable = Arc::new(FixedSizeListArray::new(
+            Arc::new(Field::new("item", DataType::Float32, true)),
+            2,
+            values,
+            None,
+        ));
+        let nullable =
+            RecordBatch::try_from_iter(vec![("v", nullable as arrow_array::ArrayRef)]).unwrap();
+        let normalized = provider_batch(nullable, Some(&memory)).unwrap();
+        assert_eq!(
+            normalized
+                .column(0)
+                .as_fixed_size_list()
+                .values()
+                .null_count(),
+            2
+        );
+    }
 
     #[test]
     fn nested_intake_checks_the_shared_schema_budget_before_provider_conversion() {

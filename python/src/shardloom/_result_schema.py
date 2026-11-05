@@ -14,6 +14,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from .errors import ShardLoomProtocolError
+from ._embedding import EXTENSION_ID, decode_metadata, metadata_json
 from ._temporal import decode_temporal_dtype, temporal_parts, validate_temporal_ticks, arrow_temporal_type
 
 _PRIMITIVES = {
@@ -33,9 +34,9 @@ class ResultType:
     def label(self) -> str:
         if self.name == "decimal128":
             return f"decimal128({self.parameters[0]},{self.parameters[1]})"
-        if self.name in {"list", "fixed_size_list"}:
+        if self.name in {"list", "fixed_size_list", "embedding"}:
             child = self.parameters[0].label
-            return f"list<{child}>" if self.name == "list" else f"fixed_size_list<{child},{self.parameters[1]}>"
+            return f"list<{child}>" if self.name == "list" else f"{self.name}<{child},{self.parameters[1]}>"
         return self.name
 
 
@@ -67,6 +68,18 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
+        if payload.get("id") == EXTENSION_ID:
+            raw = payload.get("metadata")
+            if (set(payload) != {"id", "metadata", "storage_dtype"} or not isinstance(raw, list)
+                    or any(type(byte) is not int or not 0 <= byte <= 255 for byte in raw)):
+                raise ValueError("embedding metadata requires UTF8 bytes")
+            if (storage.name != "fixed_size_list" or storage.parameters[1] <= 0
+                    or storage.parameters[0].name not in {"float32", "float64"}):
+                raise ValueError("invalid embedding storage")
+            metadata = decode_metadata(bytes(raw).decode("utf-8"))
+            if list(metadata_json(metadata).encode("utf-8")) != raw:
+                raise ValueError("native embedding metadata requires its canonical encoding")
+            return ResultType("embedding", storage.nullable, (*storage.parameters, metadata))
         if name := decode_temporal_dtype(payload, storage.name, storage.nullable):
             return ResultType(name, storage.nullable)
         raise ValueError(f"unsupported result extension: {payload.get('id')!r}")
@@ -150,8 +163,8 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
             except (TypeError, ValueError) as error:
                 raise ValueError(f"temporal result requires an integer in its declared domain: {error}") from error
             return temporal_python_value(value, parts) if temporal else value
-        if dtype.name in {"list", "fixed_size_list"}:
-            if not isinstance(value, list) or (dtype.name == "fixed_size_list" and len(value) != dtype.parameters[1]):
+        if dtype.name in {"list", "fixed_size_list", "embedding"}:
+            if not isinstance(value, list) or (dtype.name != "list" and len(value) != dtype.parameters[1]):
                 raise ValueError("invalid native list payload")
             return [_python_value(item, dtype.parameters[0], temporal) for item in value]
         if dtype.name == "struct":
@@ -162,19 +175,27 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
 
 
 def arrow_table(rows: Sequence[Mapping[str, Any]], fields: Sequence[tuple[str, ResultType]], pyarrow: Any) -> Any:
-    schema = pyarrow.schema([pyarrow.field(name, _arrow_type(dtype, pyarrow), nullable=dtype.nullable)
+    schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow)
                              for name, dtype in fields])
     return pyarrow.Table.from_pylist(python_rows(rows, fields, temporal_objects=False), schema=schema)
 
 
+def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
+    metadata = None
+    if dtype.name == "embedding":
+        metadata = {b"ARROW:extension:name": EXTENSION_ID.encode("utf-8"),
+                    b"ARROW:extension:metadata": metadata_json(dtype.parameters[2]).encode("utf-8")}
+    return pyarrow.field(name, _arrow_type(dtype, pyarrow), nullable=dtype.nullable, metadata=metadata)
+
+
 def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
     if dtype.name == "struct":
-        return pyarrow.struct([pyarrow.field(name, _arrow_type(child, pyarrow), nullable=child.nullable)
+        return pyarrow.struct([_arrow_field(name, child, pyarrow)
                               for name, child in dtype.parameters])
-    if dtype.name in {"list", "fixed_size_list"}:
+    if dtype.name in {"list", "fixed_size_list", "embedding"}:
         child = dtype.parameters[0]
-        field = pyarrow.field("item", _arrow_type(child, pyarrow), nullable=child.nullable)
-        return pyarrow.list_(field, dtype.parameters[1]) if dtype.name == "fixed_size_list" else pyarrow.list_(field)
+        field = _arrow_field("item", child, pyarrow)
+        return pyarrow.list_(field, dtype.parameters[1]) if dtype.name != "list" else pyarrow.list_(field)
     if dtype.name == "decimal128":
         return pyarrow.decimal128(*dtype.parameters)
     if (temporal := arrow_temporal_type(dtype.name, pyarrow)) is not None:
