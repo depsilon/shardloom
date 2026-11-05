@@ -31,6 +31,7 @@ pub(super) struct Layout {
 
 impl Layout {
     pub(super) fn new(dtype: &DType) -> Self {
+        let dtype = crate::native_embedding::storage(dtype).unwrap_or(dtype);
         let children = match dtype {
             DType::Struct(fields, _) => fields.fields().map(|dtype| Self::new(&dtype)).collect(),
             DType::List(child, _) | DType::FixedSizeList(child, _, _) => vec![Self::new(child)],
@@ -45,6 +46,7 @@ impl Layout {
     }
 
     pub(super) fn observe(&mut self, dtype: &DType, value: Option<&Json>) -> Result<()> {
+        let dtype = crate::native_embedding::storage(dtype).unwrap_or(dtype);
         let Some(value) = value.filter(|value| !value.is_null()) else {
             if value.is_some() && !dtype.is_nullable() {
                 return Err(failed("null in a nonnullable typed input"));
@@ -99,6 +101,7 @@ impl Layout {
     }
 
     fn defaults(&mut self, dtype: &DType, count: usize) -> Result<()> {
+        let dtype = crate::native_embedding::storage(dtype).unwrap_or(dtype);
         self.rows = add(self.rows, count)?;
         match dtype {
             DType::Struct(fields, _) => {
@@ -117,6 +120,7 @@ impl Layout {
     }
 
     pub(super) fn bytes(&self, dtype: &DType) -> Result<usize> {
+        let dtype = crate::native_embedding::storage(dtype).unwrap_or(dtype);
         let validity = if dtype.is_nullable() {
             self.rows.div_ceil(8)
         } else {

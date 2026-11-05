@@ -60,7 +60,7 @@ universal-format-io = [
 ]
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
-vortex-write = ["vortex-file-io", "native-temporal", "dep:vortex-zstd", "dep:vortex-compressor", "dep:flatbuffers"]
+vortex-write = ["vortex-file-io", "native-temporal", "dep:serde", "dep:vortex-zstd", "dep:vortex-compressor", "dep:flatbuffers"]
 vortex-local-primitives = ["vortex-file-io", "native-temporal", "dep:hashbrown", "dep:lending-iterator", "dep:serde", "vortex/serde"]
 vortex-staged-output-fs = []
 vortex-metadata-executor = []

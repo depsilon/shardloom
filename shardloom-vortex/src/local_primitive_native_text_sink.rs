@@ -26,6 +26,11 @@ fn failed(reason: &str) -> ShardLoomError {
 }
 
 pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()> {
+    if crate::native_embedding::contains(dtype) {
+        return Err(failed(
+            "text output cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     if let Some(fields) = dtype.as_struct_fields_opt() {
         for dtype in fields.fields() {
             if super::native_payload::is_nested(&dtype) {

@@ -51,7 +51,20 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         DataType::FixedSizeList(child, size) => {
             result.set_item("item", descriptor(py, child)?)?;
             result.set_item("size", size)?;
-            "fixed_size_list"
+            if field
+                .metadata()
+                .get("ARROW:extension:name")
+                .is_some_and(|name| name == "shardloom.embedding.v1")
+            {
+                let metadata = field
+                    .metadata()
+                    .get("ARROW:extension:metadata")
+                    .ok_or_else(|| PyValueError::new_err("embedding result is missing metadata"))?;
+                result.set_item("metadata", metadata)?;
+                "embedding"
+            } else {
+                "fixed_size_list"
+            }
         }
         DataType::Struct(children) => {
             result.set_item("fields", fields(py, children)?)?;

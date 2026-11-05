@@ -5,7 +5,7 @@ use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{
     ArrayRef, VortexSessionExecute as _,
-    arrays::{FixedSizeListArray, ListArray, StructArray},
+    arrays::{ExtensionArray, FixedSizeListArray, ListArray, StructArray},
     dtype::{DType, Nullability, PType},
     memory::{HostAllocatorRef, HostMemorySessionExt as _},
     validity::Validity,
@@ -81,6 +81,12 @@ fn construct(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     match dtype {
+        DType::Extension(extension) if crate::native_embedding::storage(dtype).is_some() => {
+            let storage = construct(extension.storage_dtype(), cells, memory, allocator)?;
+            ExtensionArray::try_new(extension.clone(), storage)
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)
+        }
         DType::Struct(fields, _) => {
             let mut columns = ReservedVec::new(memory)?;
             columns.reserve(fields.nfields())?;

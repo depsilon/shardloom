@@ -11,6 +11,7 @@ import struct
 from typing import Mapping, Sequence
 
 from ._result_schema import ResultType
+from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
@@ -41,16 +42,24 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     """Inspect one level; ordinary parsing owns recursive depth/node admission."""
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
-    expected = {"list": 1, "fixed_size_list": 2, "decimal128": 2}.get(dtype.name)
+    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "decimal128": 2}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
     ):
         raise ValueError("ResultType has invalid parameters")
     value: dict[str, object] = {"type": dtype.name, "nullable": dtype.nullable}
-    if dtype.name in {"list", "fixed_size_list"}:
+    if dtype.name in {"list", "fixed_size_list", "embedding"}:
         value["item"] = dtype.parameters[0]
-        if dtype.name == "fixed_size_list":
+        if dtype.name != "list":
             value["size"] = dtype.parameters[1]
+        if dtype.name == "embedding":
+            metadata = dtype.parameters[2]
+            if (not isinstance(metadata, tuple) or
+                    any(not isinstance(pair, tuple) or len(pair) != 2 for pair in metadata)):
+                raise ValueError("ResultType embedding requires immutable metadata pairs")
+            value["metadata"] = dict(metadata)
+            if len(value["metadata"]) != len(metadata):
+                raise ValueError("duplicate embedding metadata field")
     elif dtype.name == "struct":
         fields = {}
         for pair in dtype.parameters:
@@ -86,10 +95,12 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
     if type(nullable) is not bool:
         raise TypeError("native input nullable must be a bool")
     allowed = {"type", "nullable"}
-    if token in {"list", "fixed_size_list"}:
+    if token in {"list", "fixed_size_list", "embedding"}:
         allowed.add("item")
-    if token == "fixed_size_list":
+    if token in {"fixed_size_list", "embedding"}:
         allowed.add("size")
+    if token == "embedding":
+        allowed.add("metadata")
     if token == "struct":
         allowed.add("fields")
     if set(parameters) - allowed:
@@ -104,7 +115,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         if not 1 <= precision <= 38 or not 0 <= scale <= precision:
             raise ValueError("decimal input requires precision 1..38 and scale 0..precision")
         return ResultType("decimal128", nullable, (precision, scale))
-    if token in {"list", "fixed_size_list"}:
+    if token in {"list", "fixed_size_list", "embedding"}:
         if "item" not in parameters:
             raise ValueError("native list input requires an item type")
         child = _parse_type(parameters["item"], depth + 1, budget)
@@ -113,6 +124,14 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         size = parameters.get("size")
         if type(size) is not int or not 0 <= size <= (1 << 32) - 1:
             raise ValueError("fixed-size list width must be a uint32")
+        if token == "embedding":
+            if not size or child.name not in {"float32", "float64"}:
+                raise ValueError("embedding requires a positive fixed-size Float32/Float64 list")
+            metadata = normalize_metadata(parameters.get("metadata"))
+            budget[1] += 8 * len(metadata_json(metadata).encode("utf-8"))
+            if budget[1] > _MAX_BYTES:
+                raise ValueError("nested input schema exceeds 8 MiB metadata")
+            return ResultType(token, nullable, (child, size, metadata))
         return ResultType(token, nullable, (child, size))
     if token == "struct":
         fields = parameters.get("fields")
@@ -146,6 +165,13 @@ def wire_schema(fields: Sequence[tuple[str, ResultType]]) -> tuple[tuple[str, ob
 
 def _wire_type(dtype: ResultType) -> object:
     name, nullable = dtype.name, dtype.nullable
+    if name == "embedding":
+        return {"Extension": {
+            "id": EXTENSION_ID,
+            "metadata": list(metadata_json(dtype.parameters[2]).encode("utf-8")),
+            "storage_dtype": {"FixedSizeList": [
+                _wire_type(dtype.parameters[0]), dtype.parameters[1], nullable]},
+        }}
     if name in _PRIMITIVES:
         prefix = "u" if name.startswith("uint") else name[0]
         return {"Primitive": [prefix + re.search(r"[0-9]+$", name).group(), nullable]}
@@ -267,10 +293,10 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         return _decimal(value, dtype)
     if temporal_parts(name) is not None:
         return temporal_input_value(name, value)
-    if name in {"list", "fixed_size_list"}:
+    if name in {"list", "fixed_size_list", "embedding"}:
         if isinstance(value, (str, bytes, bytearray, memoryview)) or not isinstance(value, Sequence):
             raise TypeError("native list input requires a sequence")
-        if name == "fixed_size_list" and len(value) != dtype.parameters[1]:
+        if name != "list" and len(value) != dtype.parameters[1]:
             raise ValueError("native fixed-size list input has the wrong width")
         if len(value) > _MAX_BYTES - budget[0]:
             raise ValueError("native input value exceeds 8 MiB")

@@ -2684,7 +2684,7 @@ fn local_vortex_session(
         .with_host_allocator(std::sync::Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory),
         ));
-    crate::native_temporal::register(&session);
+    crate::native_extensions::register(&session);
     Ok((session, control))
 }
 

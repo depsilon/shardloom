@@ -166,7 +166,7 @@ impl NativeIngestMemory {
             .with_host_allocator(Arc::new(crate::owned_buffers::ReservedHostAllocator::new(
                 pool.clone(),
             )));
-        crate::native_temporal::register(&session);
+        crate::native_extensions::register(&session);
         Self {
             pool,
             session,
@@ -12320,10 +12320,12 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     use vortex::VortexSessionDefault as _;
     use vortex::arrow::ArrowSessionExt as _;
 
+    // This legacy conversion keeps its caller's existing batch headroom.
+    let batch = nested::provider_batch(batch, None)?;
     let source_schema = batch.schema();
     let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
     let session = vortex::session::VortexSession::default();
-    crate::native_temporal::register(&session);
+    crate::native_extensions::register(&session);
     session
         .arrow()
         .from_arrow_record_batch(batch, &schema)
@@ -12434,6 +12436,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             memory.input_ownership,
         )?;
         timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
+        let retained = nested::provider_batch(retained, Some(&memory.pool))?;
         let source_schema = retained.schema();
         let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
         let result = memory
@@ -14532,7 +14535,7 @@ impl LocalVortexWriteContext {
         let open_start = Instant::now();
         let runtime = CurrentThreadRuntime::new();
         let session = VortexSession::default().with_handle(runtime.handle());
-        crate::native_temporal::register(&session);
+        crate::native_extensions::register(&session);
         Self {
             runtime,
             session,
@@ -14551,7 +14554,7 @@ impl LocalVortexWriteContext {
         let started = Instant::now();
         let runtime = runtime.runtime().clone();
         let session = vortex::session::VortexSession::default().with_handle(runtime.handle());
-        crate::native_temporal::register(&session);
+        crate::native_extensions::register(&session);
         Self {
             runtime,
             session,
@@ -15993,12 +15996,12 @@ fn read_prepared_vortex_artifact_layout_inventory_with_memory(
 
     let runtime = SingleThreadRuntime::default();
     let mut session = VortexSession::default().with_handle(runtime.handle());
-    crate::native_temporal::register(&session);
     if let Some(memory) = memory {
         session = session.with_host_allocator(Arc::new(
             crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
         ));
     }
+    crate::native_extensions::register(&session);
     let file = runtime
         .block_on(
             session

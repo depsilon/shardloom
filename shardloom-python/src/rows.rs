@@ -79,7 +79,10 @@ impl Conversion<'_> {
             DataType::UInt16 => scalar!(UInt16Array),
             DataType::UInt32 => scalar!(UInt32Array),
             DataType::UInt64 => scalar!(UInt64Array),
-            DataType::Float32 => scalar!(Float32Array),
+            DataType::Float32 => {
+                shardloom_core::float_policy::widen_f32(downcast::<Float32Array>(array)?.value(row))
+                    .into_py_any(py)
+            }
             DataType::Float64 => scalar!(Float64Array),
             DataType::Utf8 => scalar!(StringArray),
             DataType::Binary => {

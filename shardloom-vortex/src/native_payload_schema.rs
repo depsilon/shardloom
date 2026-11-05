@@ -199,6 +199,17 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
             DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
             DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
+            DType::Extension(extension) if crate::native_embedding::storage(dtype).is_some() => {
+                let metadata = extension
+                    .metadata_opt::<crate::native_embedding::Embedding>()
+                    .expect("admitted embedding metadata");
+                budget.add(
+                    (metadata.as_str().len() as u64)
+                        .checked_mul(8)
+                        .ok_or_else(|| failed("embedding metadata size overflow"))?,
+                )?;
+                visit(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            }
             DType::Extension(extension) if temporal_storage(dtype).is_some() => {
                 if let Some(metadata) =
                     extension.metadata_opt::<vortex::array::extension::datetime::Timestamp>()
@@ -232,6 +243,9 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         field.metadata().get("ARROW:extension:metadata"),
     ) {
         (None, None) => true,
+        (Some(name), _) if name == crate::native_embedding::ID => {
+            crate::native_embedding::arrow::admitted(field)
+        }
         (Some(name), metadata)
             if name == "shardloom.duration.v1"
                 && matches!(field.data_type(), arrow_schema::DataType::Duration(_))
@@ -243,13 +257,29 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
     }
 }
 
+/// Parsing/canonicalization workspace and retained copies of logical extension
+/// metadata. Inspect lengths before allocation; import performs full validation.
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn arrow_extension_metadata_bytes(field: &arrow_schema::Field) -> Result<u64> {
+    if !arrow_field_metadata_admitted(field) {
+        return Err(unsupported());
+    }
+    field
+        .metadata()
+        .get("ARROW:extension:metadata")
+        .map_or(Ok(0), |raw| {
+            u64::try_from(raw.len())
+                .ok()
+                .and_then(|n| n.checked_mul(128))
+                .ok_or_else(|| failed("Arrow extension metadata size overflow"))
+        })
+}
+
 #[cfg(feature = "universal-format-io")]
 pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64> {
     use arrow_schema::DataType as A;
     fn field(child: &arrow_schema::Field, depth: usize, budget: &mut Budget) -> Result<()> {
-        if !arrow_field_metadata_admitted(child) {
-            return Err(unsupported());
-        }
+        budget.add(arrow_extension_metadata_bytes(child)?)?;
         visit(child.data_type(), depth, budget)
     }
     fn visit(dtype: &A, depth: usize, budget: &mut Budget) -> Result<()> {

@@ -19,7 +19,10 @@ The November 2 sequencing update places the saved-envelope optimization
 investigation immediately after 1.1.0 and before this rich-data work. The
 expanded analytical coverage campaign follows item 19, before Foundry.
 [Post-bump investigation](native-post-110-optimization-investigation-2026-11-03.md).
-This is queued implementation, not a claim of complete rich-type support.
+The [November 5 first delivery](native-dense-embedding-lifecycle-2026-11-05.md)
+implements dense Float32/Float64 embedding identity and inline rich payload
+carriage through existing owners. Its acceptance is recorded separately; this
+plan does not claim complete rich-type support.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.
@@ -33,8 +36,8 @@ Model generation, OCR, transcription, media decoding and approximate indexes
 are separate optional capabilities. None is a prerequisite for storing or
 exporting caller-supplied values. A URI alone does not establish stored payloads.
 
-The supplied review targeted #1595 at `16ff752d`; the current worktree confirms
-these concrete foundations and gaps:
+The supplied review targeted #1595 at `16ff752d`; that reviewed worktree
+established these concrete foundations and gaps before the first delivery:
 
 - [`native_arrow_conversion.rs`](../../shardloom-vortex/src/native_arrow_conversion.rs)
   maps Binary, List, FixedSizeList and Struct recursively. Its `data_type`

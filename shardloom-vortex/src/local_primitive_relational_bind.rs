@@ -919,6 +919,11 @@ fn validate_payload(dtype: &DType) -> Result<()> {
 }
 
 fn validate_key(dtype: &DType) -> Result<()> {
+    if crate::native_embedding::contains(dtype) {
+        return Err(failed(
+            "embedding values are payload-only; compare, group, order or join on ordinary columns",
+        ));
+    }
     if super::super::native_payload::is_nested(dtype) {
         validate_payload(dtype)
     } else {

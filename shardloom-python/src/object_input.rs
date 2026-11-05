@@ -400,7 +400,7 @@ impl Conversion<'_, '_> {
                 } else if placeholder {
                     column.append_value(0.0);
                 } else {
-                    column.append_value(float32(value)?);
+                    column.append_value(float32(value, self.source.float_policy())?);
                 }
             }
             DataType::Float64 => {
@@ -410,7 +410,7 @@ impl Conversion<'_, '_> {
                 } else if placeholder {
                     column.append_value(0.0);
                 } else {
-                    column.append_value(float64(value)?);
+                    column.append_value(float64(value, self.source.float_policy())?);
                 }
             }
             DataType::Utf8 => {
@@ -721,7 +721,7 @@ fn require_integer(value: &Bound<'_, PyAny>) -> PyResult<()> {
     Ok(())
 }
 
-fn float64(value: &Bound<'_, PyAny>) -> PyResult<f64> {
+fn float64(value: &Bound<'_, PyAny>, policy: shardloom_core::FloatPolicy) -> PyResult<f64> {
     if value.is_instance_of::<PyBool>()
         || !(value.is_instance_of::<PyInt>() || value.is_instance_of::<PyFloat>())
     {
@@ -732,25 +732,21 @@ fn float64(value: &Bound<'_, PyAny>) -> PyResult<f64> {
     let number = value
         .extract::<f64>()
         .map_err(|_| invalid("native floating input exceeds its declared width"))?;
-    if !number.is_finite()
+    if !policy.admits(number)
         || (value.is_instance_of::<PyInt>()
             && !number.into_py_any(value.py())?.bind(value.py()).eq(value)?)
     {
         return Err(invalid(
-            "native floating input must be finite and exactly representable",
+            "native floating input must satisfy float_policy and be exactly representable",
         ));
     }
     Ok(number)
 }
 
-#[allow(clippy::cast_possible_truncation)] // Exact round-trip below is mandatory.
-fn float32(value: &Bound<'_, PyAny>) -> PyResult<f32> {
-    let wide = float64(value)?;
-    let narrow = wide as f32;
-    if f64::from(narrow).to_bits() != wide.to_bits() {
-        return Err(invalid("native float32 must be exactly representable"));
-    }
-    Ok(narrow)
+fn float32(value: &Bound<'_, PyAny>, policy: shardloom_core::FloatPolicy) -> PyResult<f32> {
+    let wide = float64(value, policy)?;
+    shardloom_core::float_policy::narrow_f32_exact(wide)
+        .ok_or_else(|| invalid("native float32 must be exactly representable"))
 }
 
 fn grow_credit(credit: &mut MemoryLease, logical: usize) -> PyResult<()> {

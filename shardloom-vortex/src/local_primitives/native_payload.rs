@@ -15,8 +15,11 @@ use shardloom_exec::live_memory::MemoryLease;
 use std::cell::Cell;
 use vortex::array::{
     ArrayRef, Columnar, IntoArray, VortexSessionExecute as _,
+    arrays::extension::ExtensionArrayExt,
     arrays::struct_::StructArrayExt as _,
-    arrays::{ChunkedArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray},
+    arrays::{
+        ChunkedArray, ExtensionArray, FixedSizeListArray, ListArray, PrimitiveArray, StructArray,
+    },
     builtins::ArrayBuiltins as _,
     dtype::{DType, Nullability, PType},
     memory::{HostAllocatorRef, HostMemorySessionExt as _},
@@ -98,7 +101,7 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
     matches!(
         dtype,
         DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..)
-    )
+    ) || crate::native_embedding::storage(dtype).is_some()
 }
 
 /// Copy one bounded native payload, retaining schema credits on every child.
@@ -421,6 +424,30 @@ fn copy_rows<const RETAIN: bool>(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
+    if let DType::Extension(extension) = dtype
+        && crate::native_embedding::storage(dtype).is_some()
+    {
+        let mut execution = context.native_session().create_execution_ctx();
+        let storage = source
+            .map(|source| {
+                source
+                    .clone()
+                    .execute::<ExtensionArray>(&mut execution)
+                    .map_err(vortex_error)
+            })
+            .transpose()?;
+        let copied = copy_rows::<RETAIN>(
+            storage.as_ref().map(ExtensionArrayExt::storage_array),
+            rows,
+            extension.storage_dtype(),
+            copy,
+            context,
+            allocator,
+        )?;
+        return ExtensionArray::try_new(extension.clone(), copied)
+            .map(IntoArray::into_array)
+            .map_err(vortex_error);
+    }
     if matches!(dtype, DType::Decimal(..)) {
         let array =
             storage::decimal::<RETAIN>(source, rows, dtype, copy.policy, context, allocator)?;

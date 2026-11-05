@@ -95,6 +95,11 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
+Current source builds after 1.1.0 also carry dense vectors, declared embedding
+identity, inline binary content and nested values through native data workflows.
+See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
+This addition is not in the published 1.1.0 wheels.
+
 ## Application batch functions
 
 Published 1.1.0 native Python wheels support explicitly trusted, deterministic, row-preserving

@@ -35,6 +35,47 @@ fn rows(source: &ResidentMemorySource) -> Json {
 }
 
 #[test]
+fn dense_embedding_typed_json_preserves_metadata_nested_values_and_nulls() {
+    let session = ResidentVortexSession::new(16 * 1024 * 1024, 1).unwrap();
+    for component in ["f32", "f64"] {
+        let metadata = br#"{"model_id":null,"space_id":"declared","version":1}"#;
+        let embedding = json!({"Extension":{"id":"shardloom.embedding.v1",
+            "metadata":metadata.as_slice(),
+            "storage_dtype":{"FixedSizeList":[{"Primitive":[component,true]},2,true]}}});
+        for (dtype, values) in [
+            (
+                embedding.clone(),
+                vec![json!([-0.0, 1.5]), Json::Null, json!([null, 2.0])],
+            ),
+            (
+                json!({"List":[embedding,true]}),
+                vec![
+                    json!([[-0.0, 1.5], null, [null, 2.0]]),
+                    json!([]),
+                    Json::Null,
+                ],
+            ),
+        ] {
+            let input = source(&session, &dtype, &values).unwrap();
+            assert_eq!(
+                serde_json::to_value(input.dtype().as_struct_fields().field("v").unwrap()).unwrap(),
+                dtype
+            );
+            assert_eq!(
+                rows(&input),
+                Json::Array(values.iter().map(|value| json!({"v":value})).collect())
+            );
+            drop(input);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+            let empty = source(&session, &dtype, &[]).unwrap();
+            assert_eq!(rows(&empty), json!([]));
+            drop(empty);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn typed_scalars_preserve_exact_native_types_and_all_values() {
     let session = ResidentVortexSession::new(16 * 1024 * 1024, 1).unwrap();
     let cases = [
