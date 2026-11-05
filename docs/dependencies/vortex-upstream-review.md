@@ -1,5 +1,13 @@
 # Vortex Upstream Dependency Review
 
+## November 5, 2026 Arrow validation correction
+
+The [run-end validation correction](arrow-run-end-validation-2026-11-05.md)
+updates only `arrow-data`, `arrow-buffer` and `arrow-schema` to 59.3.2 after
+RUSTSEC-2026-0442 fails the hosted dependency gate. The remaining provider graph
+stays pinned, including Vortex 0.90.0 and the existing 59.3.1 Arrow/Parquet
+components. The dated observations below retain their original versions.
+
 ## October 27, 2026 temporal fidelity corrections
 
 The [temporal provider review](temporal-calendar-provider-review.md) retains the

@@ -36,6 +36,44 @@ fn runs() -> ArrayRef {
     )
 }
 
+#[test]
+fn encoded_arrow_provider_rejects_run_ends_shorter_than_parent_extent() {
+    // RUSTSEC-2026-0442: checking the run-end child length is insufficient.
+    // The final run must cover the logical parent's offset plus length.
+    let run_ends: [ArrayRef; 3] = [
+        Arc::new(Int16Array::from(vec![2, 6])),
+        Arc::new(arrow_array::Int32Array::from(vec![2, 6])),
+        Arc::new(arrow_array::Int64Array::from(vec![2, 6])),
+    ];
+    let values = StringArray::from(vec!["first", "second"]).to_data();
+    for ends in run_ends {
+        let dtype = arrow_schema::DataType::RunEndEncoded(
+            Arc::new(Field::new("run_ends", ends.data_type().clone(), false)),
+            Arc::new(Field::new("values", values.data_type().clone(), true)),
+        );
+        let checked = |offset, length| {
+            arrow_data::ArrayData::builder(dtype.clone())
+                .offset(offset)
+                .len(length)
+                .add_child_data(ends.to_data())
+                .add_child_data(values.clone())
+                .build()
+        };
+        for (offset, length) in [(0, 7), (4, 3)] {
+            let error = checked(offset, length).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("last value in the run_ends array")
+            );
+        }
+        for (offset, length) in [(0, 6), (4, 2), (6, 0), (7, 0)] {
+            let data = checked(offset, length).unwrap();
+            assert_eq!((data.offset(), data.len()), (offset, length));
+        }
+    }
+}
+
 #[cfg(not(feature = "native-encoded-exchange-experiment"))]
 #[test]
 fn encoded_arrow_control_remains_opt_in() {

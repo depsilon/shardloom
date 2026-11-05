@@ -134,6 +134,23 @@ precise supported routes and remaining obligations.
 
 ## Local verification
 
+Hosted integration subsequently required the
+[Arrow run-end validation correction](../dependencies/arrow-run-end-validation-2026-11-05.md).
+The original observations below and their immutable packet describe the initial
+59.3.1 dependency graph. The correction's rebuilt runtime and installed-package
+proof are separate observations. CI also exposed package-qualified test imports;
+the corrected helpers pass all nine rich-column tests through both package and
+discovery loading against the initial release library.
+
+The [patched-provider acceptance](../release/evidence/native-dense-embedding-arrow-followup-2026-11-05.json)
+records 6,911 native workspace tests passing, zero failures and 36 existing
+opt-in tests ignored. This run includes the final Arrow validity-scratch
+reservation and the new run-end validation regression. Strict native lint,
+formatting, dependency/security and notice checks pass. The rebuilt CLI/native
+library and installed wheel pass all 312 integration tests without skips,
+including all nine rich-column cases, with install, identity and uninstall
+verification. These are separate observations from the initial graph below.
+
 The [acceptance record](../release/evidence/native-dense-embedding-lifecycle-2026-11-05.json)
 indexes the commands, exact build source identities, original failures and
 hash-verified compact observations. No performance result or package publication

@@ -1,5 +1,12 @@
 # Vortex Dependency Footprint
 
+## November 5, 2026 Arrow validation correction
+
+`arrow-data`, `arrow-buffer` and `arrow-schema` now resolve to 59.3.2 for the
+[run-end validation correction](arrow-run-end-validation-2026-11-05.md).
+All other provider versions and patches retain their existing identities. The
+dated footprint observations below retain the versions they measured.
+
 ## Purpose
 This ledger records ShardLoom's upstream Vortex dependency footprint and preserves prior
 version-specific reviews. The current candidate remains feature-gated and does not itself
