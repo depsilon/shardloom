@@ -466,6 +466,7 @@ jobs:
           python -B -S benchmarks/traditional_analytics/query_surface/expanded_batch_replay.py --archive "$packet/batch-investigations"
           python -B -S benchmarks/traditional_analytics/query_surface/expanded_updated_replay.py --baseline "$packet/packet" --archive "$packet/updated-native"
           python -B -S benchmarks/traditional_analytics/query_surface/expanded_shared_replay.py --baseline "$packet/packet" --previous "$packet/updated-native" --archive "$packet/shared-mechanisms"
+          python -B -S benchmarks/traditional_analytics/query_surface/expanded_selection_replay.py --baseline "$packet/packet" --previous "$packet/shared-mechanisms" --archive "$packet/selection-retention"
       - name: Merge Python test shard evidence
         run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
