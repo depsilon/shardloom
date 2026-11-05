@@ -9,8 +9,12 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from test_native_binding import _load_native
-from test_native_rich_binding import IDENTITY_BYTES, _field, _fixture, _rows
+if __package__:
+    from .test_native_binding import _load_native
+    from .test_native_rich_binding import IDENTITY_BYTES, _field, _fixture, _rows
+else:
+    from test_native_binding import _load_native
+    from test_native_rich_binding import IDENTITY_BYTES, _field, _fixture, _rows
 
 
 class NativeRichControlsTests(unittest.TestCase):
