@@ -13,6 +13,7 @@ from typing import Mapping, Sequence
 from ._result_schema import ResultType
 from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
 from . import _tensor
+from . import _variable_tensor
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
@@ -45,7 +46,8 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     """Inspect one level; ordinary parsing owns recursive depth/node admission."""
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
-    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3, "decimal128": 2,
+    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3,
+                "variable_shape_tensor": 2, "decimal128": 2,
                 "binary_object": 0}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
@@ -65,6 +67,15 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
             raise ValueError("tensor storage width differs from its shape product")
         value.update(dict(normalized))
         value["item"] = dtype.parameters[0]
+    elif dtype.name == "variable_shape_tensor":
+        storage, metadata = dtype.parameters
+        if (not isinstance(metadata, tuple) or any(not isinstance(pair, tuple) or len(pair) != 2
+                or not isinstance(pair[1], tuple) for pair in metadata)):
+            raise ValueError("ResultType variable tensor requires immutable metadata pairs and arrays")
+        fields = dict(metadata)
+        if len(fields) != len(metadata):
+            raise ValueError("duplicate variable tensor metadata field")
+        value.update({"storage": storage, "metadata": fields})
     elif dtype.name in {"list", "fixed_size_list", "embedding"}:
         value["item"] = dtype.parameters[0]
         if dtype.name != "list":
@@ -120,6 +131,8 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         allowed.add("metadata")
     if token == "fixed_shape_tensor":
         allowed.update(("shape", "dim_names", "permutation"))
+    if token == "variable_shape_tensor":
+        allowed.update(("storage", "metadata", "item", "ndim", "dim_names", "permutation", "uniform_shape"))
     if token == "struct":
         allowed.add("fields")
     if set(parameters) - allowed:
@@ -139,6 +152,37 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             raise ValueError("nested input schema exceeds 8 MiB metadata")
         size = _tensor.shape_size(dict(metadata)["shape"])
         return ResultType(token, nullable, (child, size, metadata))
+    if token == "variable_shape_tensor":
+        explicit = "storage" in parameters or "metadata" in parameters
+        simple = "item" in parameters or "ndim" in parameters or any(
+            key in parameters for key in ("dim_names", "permutation", "uniform_shape"))
+        if explicit == simple:
+            raise ValueError("variable tensor requires either storage and metadata or item and ndim")
+        if explicit:
+            if "storage" not in parameters or "metadata" not in parameters:
+                raise ValueError("variable tensor storage declarations require storage and metadata")
+            storage = _parse_type(parameters["storage"], depth + 1, budget)
+            if storage.nullable != nullable:
+                raise ValueError("variable tensor storage nullability must match the outer declaration")
+            rank = _variable_tensor.storage_rank(storage)
+            metadata_value = parameters["metadata"]
+        else:
+            if "item" not in parameters or "ndim" not in parameters:
+                raise ValueError("variable tensor input requires an item type and ndim")
+            rank = _variable_tensor.validate_rank(parameters["ndim"])
+            storage = _parse_type({"type": "struct", "nullable": nullable, "fields": {
+                "data": {"type": "list", "item": parameters["item"], "nullable": False},
+                "shape": {"type": "fixed_size_list", "item": {"type": "int32", "nullable": False},
+                          "size": rank, "nullable": False},
+            }}, depth + 1, budget)
+            _variable_tensor.storage_rank(storage)
+            metadata_value = {key: parameters[key] for key in (
+                "dim_names", "permutation", "uniform_shape") if key in parameters}
+        metadata = _variable_tensor.normalize_metadata(metadata_value, rank)
+        budget[1] += 128 * len(_variable_tensor.metadata_json(metadata).encode("utf-8"))
+        if budget[1] > _MAX_BYTES:
+            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        return ResultType(token, nullable, (storage, metadata))
     if match := re.fullmatch(r"decimal128\(([0-9]+),\s*([0-9]+)\)", token):
         # Bound text before integer conversion, including hostile giant digits.
         if any(len(part) > 2 for part in match.groups()):
@@ -203,6 +247,12 @@ def _wire_type(dtype: ResultType) -> object:
             "metadata": list(_tensor.metadata_json(dtype.parameters[2]).encode("utf-8")),
             "storage_dtype": {"FixedSizeList": [
                 _wire_type(dtype.parameters[0]), dtype.parameters[1], nullable]},
+        }}
+    if name == "variable_shape_tensor":
+        return {"Extension": {
+            "id": _variable_tensor.EXTENSION_ID,
+            "metadata": list(_variable_tensor.metadata_json(dtype.parameters[1]).encode("utf-8")),
+            "storage_dtype": _wire_type(dtype.parameters[0]),
         }}
     if name == "embedding":
         return {"Extension": {
@@ -350,6 +400,10 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         if len(value) > _MAX_BYTES - budget[0]:
             raise ValueError("native input value exceeds 8 MiB")
         return [_value(child, dtype.parameters[0], budget) for child in value]
+    if name == "variable_shape_tensor":
+        storage, metadata = dtype.parameters
+        _variable_tensor.validate_value(value, storage, metadata)
+        return _value(value, storage, budget)
     if name == "struct":
         if not isinstance(value, Mapping) or set(value) != {name for name, _ in dtype.parameters}:
             raise ValueError("native struct input must match its complete declared fields")

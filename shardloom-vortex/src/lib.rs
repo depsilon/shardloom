@@ -139,6 +139,8 @@ mod native_spill_session;
 mod native_temporal;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_tensor;
+#[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
+mod native_variable_tensor;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 mod native_work_sizing;
 pub mod output_payload;

@@ -30,6 +30,13 @@ use vortex::array::{
 mod storage;
 pub(super) use storage::decimal_key;
 
+#[path = "native_payload_tensor.rs"]
+mod tensor;
+
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_tensor_tests.rs"]
+mod tensor_tests;
+
 #[path = "native_payload_sizing.rs"]
 mod sizing;
 pub(super) use sizing::gather_scratch_per_row;
@@ -436,6 +443,18 @@ fn copy_rows<const RETAIN: bool>(
                     .map_err(vortex_error)
             })
             .transpose()?;
+        if copy.policy == CopyPolicy::ValidateValues
+            && let Some(metadata) =
+                extension.metadata_opt::<crate::native_variable_tensor::VariableShapeTensor>()
+        {
+            tensor::validate_selection(
+                storage.as_ref().map(ExtensionArrayExt::storage_array),
+                rows,
+                metadata,
+                context,
+                allocator,
+            )?;
+        }
         let copied = copy_rows::<RETAIN>(
             storage.as_ref().map(ExtensionArrayExt::storage_array),
             rows,

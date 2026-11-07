@@ -53,10 +53,15 @@ in one file. External references retain their external ownership. This is a
 source-native Linux/macOS capability; the guide defines retained-owner, Arrow
 and compatibility-output boundaries.
 
+Declare fixed-rank tensors with row-specific shapes using
+[`types.variable_shape_tensor`](../../python/src/shardloom/types.py); the
+[variable-shape tensor guide](variable-shape-tensors.md) describes its
+`{data, shape}` values, metadata, payload-only query behavior and output formats.
+
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `0d2b579ead6023f4101a73fdbfde2ccfdfccebd795b1574c6c3e540f676a40cc` (SHA-256 of the listed source inputs).
+Source identity: `f6d5b0e4807f56f92b1fc6e8bc70c4f29c5adddef32d92a7e49269063b5bc598` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -310,6 +315,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
 | [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float32/Float64 values with versioned embedding identity. |
 | [`shardloom.types.fixed_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat physical-order tensor values with a checked fixed shape. |
+| [`shardloom.types.variable_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat values with a row-specific shape and fixed rank. |
 | [`shardloom.types.struct`](../../python/src/shardloom/types.py) | function | Declare struct metadata for the native binder. |
 | [`shardloom.types.scalar`](../../python/src/shardloom/types.py) | function | Bind a scalar with an explicit native type, including typed nulls. |
 | [`adbc`](../../python/src/shardloom/adbc.py) | module | Local ADBC 1.1 access to an explicitly selected ShardLoom context. |

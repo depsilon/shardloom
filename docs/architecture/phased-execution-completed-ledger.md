@@ -17,6 +17,37 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Variable-shape tensor local and portable acceptance — hosted pending`
+  — the [scoped lifecycle contract](native-variable-tensor-lifecycle-2026-11-07.md)
+  and [portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
+  record fixed-rank, row-specific tensor storage and carriage. Default/native
+  suites pass 3,319/6,972 cases with 37 existing native ignores; all seven
+  feature configurations and 1,606 provider tests pass, with one existing
+  archive-disabled `Map` test ignored. The installed package passes 361 tests
+  without failures, errors or skips, including 11 variable-tensor and 19 context
+  tests. The Python core shard reports 845 runs among 1,210 discovered cases,
+  with 51 optional/environment skip records and no failures or errors. The
+  497-member packet binds 162 changed source files and 13 accepted stages,
+  preserves all 23 original failures, passes original and relocated replay, and
+  rejects nine controlled corruptions. PyArrow 25.0.1's dropped extension schema
+  and null-parent fixed-size-list Parquet limitation remain explicit. Hosted
+  review and integration are pending. This scoped acceptance does not complete
+  item 19 or alter CG-1 through CG-23; no performance claim or package
+  publication follows.
+
+- [x] `Item 19 fixed-shape tensor lifecycle — merged and locally/portably verified`
+  — PR [#1661](https://github.com/depsilon/shardloom/pull/1661) merges as
+  `740f682eb89191bdd5b85caec96cbb2e2c9abea6` after all 58 PR checks pass with no
+  review findings. All 55 required checks pass on the exact main merge. Default
+  and native workspace suites pass 3,319/6,955 cases; 37 existing opt-in native
+  tests remain ignored. The clean installed package passes all 350 tests without
+  skips, including 12 tensor and 19 context tests. Its portable packet binds 28
+  changed source files, 14 accepted stages and 230 archived evidence members;
+  original and relocated replay pass and five corruption controls are rejected.
+  Retirement removes 9,995 regular files and 3 symlinks, with post-retirement
+  replay passing. Item 19 and CG-1 through CG-23 retain their independent status;
+  no performance claim or package publication follows.
+
 - [x] `Compression and optional transport patch reconciliation — merged and verified`
   — [#1660](https://github.com/depsilon/shardloom/pull/1660) merges as
   `2df6460cae18eb55b2a0d680a55721d438bc495d` after all 58 PR checks pass with no

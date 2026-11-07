@@ -225,7 +225,8 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && crate::native_tensor::contains(&plan.dtype)
+    ) && (crate::native_tensor::contains(&plan.dtype)
+        || crate::native_variable_tensor::contains(&plan.dtype))
     {
         return Err(error(
             "this output format cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",

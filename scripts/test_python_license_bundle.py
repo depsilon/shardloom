@@ -98,6 +98,40 @@ class PythonLicenseBundleTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     notices.verify(root)
 
+    def test_additional_vendored_licenses_are_complete_and_identity_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vendor, provenance = self.vendored_fixture(root)
+            data = b"An additional original copyright and permission notice.\n"
+            extra = vendor / "LICENSE-MIT"
+            extra.write_bytes(data)
+            provenance["additional_license_files"] = [{
+                "path": extra.name, "sha256": hashlib.sha256(data).hexdigest(),
+                "url": "https://example.invalid/adapter/LICENSE-MIT",
+            }]
+            path = vendor / "upstream-provenance.json"
+            path.write_text(json.dumps(provenance))
+            notices.generate(root, root / "inventory.json", replace=True)
+            self.assertEqual(notices.verify(root)["license_file_records"], 4)
+            for mutation in ("modified", "missing", "outside", "duplicate", "missing_url"):
+                with self.subTest(mutation=mutation):
+                    extra.write_bytes(data)
+                    changed = json.loads(json.dumps(provenance))
+                    record = changed["additional_license_files"][0]
+                    if mutation == "modified":
+                        extra.write_text("changed permission notice")
+                    elif mutation == "missing":
+                        extra.unlink()
+                    elif mutation == "outside":
+                        record["path"] = "../LICENSE-MIT"
+                    elif mutation == "duplicate":
+                        changed["additional_license_files"].append(record.copy())
+                    else:
+                        del record["url"]
+                    path.write_text(json.dumps(changed))
+                    with self.assertRaises(ValueError):
+                        notices.vendored_components(root)
+
     def test_modified_missing_and_unattributed_texts_are_rejected(self):
         for mutation in ("modified", "missing", "unreferenced", "lock_changed", "component_missing"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:

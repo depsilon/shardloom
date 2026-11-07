@@ -90,7 +90,8 @@ impl Node {
     fn new(array: &ArrayRef, execution: &mut ExecutionCtx) -> Result<Self> {
         Ok(match array.dtype() {
             DType::Extension(_)
-                if crate::native_extensions::list_payload_storage(array.dtype()).is_some() =>
+                if crate::native_extensions::structured_payload_storage(array.dtype())
+                    .is_some() =>
             {
                 let array = array
                     .clone()

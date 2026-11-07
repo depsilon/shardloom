@@ -292,8 +292,32 @@ suites pass 3,319/6,955 cases; all 350 clean installed-package tests pass withou
 skips, including 12 tensor and 19 context tests. The
 [portable packet](../release/evidence/native-fixed-shape-tensor-2026-11-07/README.md)
 passes original and relocated replay and rejects all five corruption controls.
-Hosted integration remains pending. Variable shapes, additional
-representations and exact vector expressions remain separate item 19 work.
+PR #1661 merged as `740f682eb89191bdd5b85caec96cbb2e2c9abea6` after all 58 PR
+checks passed; all 55 required checks passed on its exact main merge. Retirement
+removed 9,995 regular files and 3 symlinks, and post-retirement replay passed.
+Additional representations and exact vector expressions remain separate item 19
+work.
+
+**November 7 variable-shape tensor local and portable acceptance passed.** The
+[second tensor contract](native-variable-tensor-lifecycle-2026-11-07.md) adds
+fixed-rank, row-specific shapes over existing Vortex struct/list storage and
+preserves dimension metadata, complete payloads and ownership across the same
+native workflows. The [user guide](../reference/variable-shape-tensors.md) records
+the exact storage and independent-reader boundaries. Default workspace tests
+pass 3,319 cases; native workspace tests pass 6,972 with 37 existing ignored.
+All seven feature configurations pass, as do 1,606 provider tests with one
+existing `Map` test ignored. The installed package passes 361 tests with zero
+failures, errors or skips, including 11 variable-tensor and 19 context tests.
+The Python core shard reports 845 test runs among 1,210 discovered cases, with
+51 optional/environment skip records and no failures or errors. The example
+predicate was corrected after the native build; runtime code is unchanged. The
+[portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
+binds 162 source files, 13 accepted stages and 497 evidence members, including
+all 23 original failed observations. Original and relocated replay pass, and
+nine controlled corruptions are rejected. Hosted review and integration remain
+pending. Sparse, quantized and lower-precision representations and exact vector
+expressions remain later item 19 work; this scoped acceptance does not complete
+item 19 or alter CG-1 through CG-23.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

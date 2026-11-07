@@ -100,6 +100,11 @@ identity, fixed-shape tensors, inline binary content and nested values through n
 See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
 This addition is not in the published 1.1.0 wheels.
 
+Variable-shape tensor declarations are a separate current-source addition with
+complete local lifecycle and installed-package verification. Hosted integration
+is pending; these declarations are not in the published wheels. See the
+[variable-shape tensor guide](https://github.com/depsilon/shardloom/blob/main/docs/reference/variable-shape-tensors.md).
+
 ## Application batch functions
 
 Published 1.1.0 native Python wheels support explicitly trusted, deterministic, row-preserving

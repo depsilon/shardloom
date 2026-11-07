@@ -164,7 +164,8 @@ impl ResidentMemorySource {
             allocator.as_ref(),
             ownership,
         )?;
-        let retained = nested::provider_batch(retained, Some(memory))?;
+        let retained =
+            nested::provider_batch(retained, Some(memory), &|| context.check_cancelled())?;
         context.check_cancelled()?;
         let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context

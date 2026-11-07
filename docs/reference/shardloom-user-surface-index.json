@@ -1437,16 +1437,16 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "0d2b579ead6023f4101a73fdbfde2ccfdfccebd795b1574c6c3e540f676a40cc",
+    "source_identity": "f6d5b0e4807f56f92b1fc6e8bc70c4f29c5adddef32d92a7e49269063b5bc598",
     "source_inputs": {
-      "Cargo.lock": "d13f131bf657e8ab45e36dfa76b75d8c31f7085ca50eb415213279489d1c6308",
-      "Cargo.toml": "92d79691c1a037f199eb64f100c4ec0ae83c541b8b6965f9b79c3bee7027e1e1",
+      "Cargo.lock": "9cafe7ca287be50faba717b13b39f3137fdc09c5682454f3c8f861f9f2bba1f4",
+      "Cargo.toml": "c61434702a77d9ee110d9c060f37668013572b76109caefd6afbaa5142f6d524",
       "docs/release/channel-proofs/pypi-v1.1.0-provenance.json": "56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282",
       "docs/release/package-channel-readiness-matrix.json": "dfff6eeb5014ea635c52f8efc7419bcda66fa11012b15507486ca18903fc7785",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "944dad59f8f4170d5051b1b3a9a42d07150f90dff3b8dc54f133962abd5c1775",
+      "python/src/shardloom/_result_schema.py": "938a334c3dccf54dc58765800f7bd8194c187c987fb686bdca6a1caf38a6c073",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
@@ -1462,7 +1462,7 @@
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
-      "python/src/shardloom/types.py": "7fc3dd0442f833ebe12138d0f57de339042b2c23e30ff55a036b6adc1e199196",
+      "python/src/shardloom/types.py": "ad101c7e707b0b4644c65d7a812a007a08ee27c16963fc065926ec1ad098c6b2",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "shardloom-vortex/Cargo.toml": "9b79b2cd5f93f2892f3a17a864c1fa21a3f5a28555a5a1ae0a4f8e054b34de41"
     },
@@ -5102,6 +5102,15 @@
         "source": "python/src/shardloom/types.py",
         "signature": "(item: 'object', shape: 'list[int] | tuple[int, ...]', *, dim_names: 'list[str] | tuple[str, ...] | None' = None, permutation: 'list[int] | tuple[int, ...] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
         "summary": "Declare flat physical-order tensor values with a checked fixed shape."
+      },
+      {
+        "name": "variable_shape_tensor",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(item: 'object', ndim: 'int', *, dim_names: 'list[str] | tuple[str, ...] | None' = None, permutation: 'list[int] | tuple[int, ...] | None' = None, uniform_shape: 'list[int | None] | tuple[int | None, ...] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare flat values with a row-specific shape and fixed rank."
       },
       {
         "name": "struct",

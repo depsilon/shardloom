@@ -12321,7 +12321,7 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     use vortex::arrow::ArrowSessionExt as _;
 
     // This legacy conversion keeps its caller's existing batch headroom.
-    let batch = nested::provider_batch(batch, None)?;
+    let batch = nested::provider_batch(batch, None, &|| Ok(()))?;
     let source_schema = batch.schema();
     let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
     let session = vortex::session::VortexSession::default();
@@ -12436,7 +12436,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
             memory.input_ownership,
         )?;
         timing.record_ownership(ownership_started.elapsed(), rows, ownership_counts);
-        let retained = nested::provider_batch(retained, Some(&memory.pool))?;
+        let retained = nested::provider_batch(retained, Some(&memory.pool), &|| Ok(()))?;
         let source_schema = retained.schema();
         let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
         let result = memory

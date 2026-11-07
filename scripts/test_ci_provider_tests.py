@@ -15,7 +15,7 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc")
+NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array")
 
 
 # Cargo commands as they appeared in the frozen workflow, before the intentional
@@ -69,7 +69,7 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 12)
+        self.assertEqual(len(assigned), 14)
         self.assertEqual(set(assigned), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
@@ -88,7 +88,8 @@ class ProviderCommandTests(unittest.TestCase):
         self.assertEqual(clippy_command, expected_clippy)
 
     def test_orc_provider_matches_admitted_runtime_features_and_checks_tests(self) -> None:
-        self.assertEqual(providers.GROUPS["formats"], ("orc-rust", "arrow-avro", "arrow-ipc"))
+        self.assertEqual(providers.GROUPS["formats"],
+                         ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array"))
         self.assertEqual(providers.commands("orc-rust"), [
             ["cargo", "test", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
              "--no-default-features", "--lib", "--", "--test-threads=2"],
@@ -136,6 +137,19 @@ class ProviderCommandTests(unittest.TestCase):
         ])
         self.assertNotIn("arrow_test_data", providers.CONFIGURATIONS["arrow-ipc"])
 
+    def test_arrow_array_and_data_run_complete_libraries_with_the_patched_slice_provider(self) -> None:
+        for crate in ("arrow-data", "arrow-array"):
+            with self.subTest(crate=crate):
+                arguments = ["--manifest-path", f"vendor/{crate}/Cargo.toml"]
+                if crate == "arrow-array":
+                    arguments += ["--config", 'patch.crates-io.arrow-data.path="vendor/arrow-data"']
+                arguments += ["--features", "ffi"]
+                self.assertEqual(providers.commands(crate), [
+                    ["cargo", "test", "--locked", *arguments, "--lib", "--", "--test-threads=2"],
+                    ["cargo", "clippy", "--locked", *arguments, "--lib", "--tests", "--", "-D", "warnings"],
+                ])
+                self.assertNotIn("arrow_test_data", providers.CONFIGURATIONS[crate])
+
 
 class RunGroupTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -182,7 +196,7 @@ class RunGroupTests(unittest.TestCase):
             with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
                 report = providers.run_group("formats", self.root / "out", root=self.root)
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(run.call_count, 6)
+        self.assertEqual(run.call_count, 10)
         for call, command in zip(run.call_args_list, report["commands"]):
             crate = command["crate"]
             expected = str(self.root / "vendor" / crate)

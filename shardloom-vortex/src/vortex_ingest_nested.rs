@@ -37,6 +37,7 @@ pub(crate) fn validation_workspace_bytes(data: &arrow_data::ArrayData) -> Result
 pub(crate) fn provider_batch(
     batch: arrow_array::RecordBatch,
     memory: Option<&LiveMemoryPool>,
+    check: &dyn Fn() -> Result<()>,
 ) -> Result<arrow_array::RecordBatch> {
     fn required(dtype: &DataType, index: usize) -> bool {
         match dtype {
@@ -78,6 +79,7 @@ pub(crate) fn provider_batch(
             .build()
             .map_err(super::vortex_error)
     }
+    crate::native_variable_tensor::arrow::validate_batch(&batch, memory, check)?;
     let (schema, columns, rows) = batch.into_parts();
     let columns = columns
         .into_iter()
@@ -261,10 +263,10 @@ mod tests {
         )]));
         let batch = RecordBatch::try_new(schema.clone(), vec![vector]).unwrap();
         let denied = LiveMemoryPool::new(256).unwrap();
-        assert!(provider_batch(batch.clone(), Some(&denied)).is_err());
+        assert!(provider_batch(batch.clone(), Some(&denied), &|| Ok(())).is_err());
         assert_eq!(denied.snapshot().reserved_bytes, 0);
         let memory = LiveMemoryPool::new(64 << 10).unwrap();
-        let normalized = provider_batch(batch, Some(&memory)).unwrap();
+        let normalized = provider_batch(batch, Some(&memory), &|| Ok(())).unwrap();
         assert_eq!(memory.snapshot().reserved_bytes, 0);
         assert_eq!(memory.snapshot().peak_reserved_bytes, 320);
         assert_eq!(normalized.schema(), schema);
@@ -288,7 +290,7 @@ mod tests {
         ));
         let nullable =
             RecordBatch::try_from_iter(vec![("v", nullable as arrow_array::ArrayRef)]).unwrap();
-        let normalized = provider_batch(nullable, Some(&memory)).unwrap();
+        let normalized = provider_batch(nullable, Some(&memory), &|| Ok(())).unwrap();
         assert_eq!(
             normalized
                 .column(0)

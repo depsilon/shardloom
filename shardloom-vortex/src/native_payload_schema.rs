@@ -226,6 +226,19 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
                 )?;
                 visit(extension.storage_dtype(), depth + 1, budget, allow_null)?;
             }
+            DType::Extension(extension)
+                if crate::native_variable_tensor::storage(dtype).is_some() =>
+            {
+                let metadata = extension
+                    .metadata_opt::<crate::native_variable_tensor::VariableShapeTensor>()
+                    .expect("admitted variable tensor metadata");
+                budget.add(
+                    (metadata.as_str().len() as u64)
+                        .checked_mul(128)
+                        .ok_or_else(|| failed("tensor metadata size overflow"))?,
+                )?;
+                visit(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            }
             DType::Extension(extension) if temporal_storage(dtype).is_some() => {
                 if let Some(metadata) =
                     extension.metadata_opt::<vortex::array::extension::datetime::Timestamp>()
@@ -268,6 +281,9 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         }
         (Some(name), _) if name == crate::native_tensor::ARROW_ID => {
             crate::native_tensor::arrow::admitted(field)
+        }
+        (Some(name), _) if name == crate::native_variable_tensor::ARROW_ID => {
+            crate::native_variable_tensor::arrow::admitted(field)
         }
         (Some(name), metadata)
             if name == "shardloom.duration.v1"

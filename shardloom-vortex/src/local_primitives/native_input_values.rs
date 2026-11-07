@@ -31,7 +31,7 @@ pub(super) struct Layout {
 
 impl Layout {
     pub(super) fn new(dtype: &DType) -> Self {
-        let dtype = crate::native_extensions::list_payload_storage(dtype).unwrap_or(dtype);
+        let dtype = crate::native_extensions::structured_payload_storage(dtype).unwrap_or(dtype);
         let children = match dtype {
             DType::Struct(fields, _) => fields.fields().map(|dtype| Self::new(&dtype)).collect(),
             DType::List(child, _) | DType::FixedSizeList(child, _, _) => vec![Self::new(child)],
@@ -46,7 +46,39 @@ impl Layout {
     }
 
     pub(super) fn observe(&mut self, dtype: &DType, value: Option<&Json>) -> Result<()> {
-        let dtype = crate::native_extensions::list_payload_storage(dtype).unwrap_or(dtype);
+        if let Some(value) = value.filter(|value| !value.is_null())
+            && let DType::Extension(extension) = dtype
+            && let Some(metadata) =
+                extension.metadata_opt::<crate::native_variable_tensor::VariableShapeTensor>()
+        {
+            let data = value
+                .get("data")
+                .and_then(Json::as_array)
+                .ok_or_else(|| failed("present variable tensor requires a data list"))?;
+            let shape = value
+                .get("shape")
+                .and_then(Json::as_array)
+                .ok_or_else(|| failed("present variable tensor requires a shape list"))?;
+            let rank = crate::native_variable_tensor::rank(extension.storage_dtype())
+                .map_err(super::vortex_error)?;
+            metadata
+                .validate_dimensions(
+                    rank as usize,
+                    shape.iter().map(|value| {
+                        value
+                            .as_i64()
+                            .and_then(|n| i32::try_from(n).ok())
+                            .ok_or_else(|| {
+                                vortex::error::vortex_err!(
+                                    "tensor dimensions require nonnull int32 values"
+                                )
+                            })
+                    }),
+                    data.len(),
+                )
+                .map_err(super::vortex_error)?;
+        }
+        let dtype = crate::native_extensions::structured_payload_storage(dtype).unwrap_or(dtype);
         let Some(value) = value.filter(|value| !value.is_null()) else {
             if value.is_some() && !dtype.is_nullable() {
                 return Err(failed("null in a nonnullable typed input"));
@@ -101,7 +133,7 @@ impl Layout {
     }
 
     fn defaults(&mut self, dtype: &DType, count: usize) -> Result<()> {
-        let dtype = crate::native_extensions::list_payload_storage(dtype).unwrap_or(dtype);
+        let dtype = crate::native_extensions::structured_payload_storage(dtype).unwrap_or(dtype);
         self.rows = add(self.rows, count)?;
         match dtype {
             DType::Struct(fields, _) => {
@@ -120,7 +152,7 @@ impl Layout {
     }
 
     pub(super) fn bytes(&self, dtype: &DType) -> Result<usize> {
-        let dtype = crate::native_extensions::list_payload_storage(dtype).unwrap_or(dtype);
+        let dtype = crate::native_extensions::structured_payload_storage(dtype).unwrap_or(dtype);
         let validity = if dtype.is_nullable() {
             self.rows.div_ceil(8)
         } else {

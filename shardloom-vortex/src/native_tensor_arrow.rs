@@ -34,7 +34,7 @@ pub(super) fn register(session: &VortexSession) {
     session.arrow().register_exporter(Arc::new(TensorArrow));
 }
 
-fn element(dtype: &DataType, nullable: bool) -> Option<DType> {
+pub(crate) fn element(dtype: &DataType, nullable: bool) -> Option<DType> {
     let ptype = match dtype {
         DataType::Boolean => return Some(DType::Bool(nullable.into())),
         DataType::Int8 => PType::I8,

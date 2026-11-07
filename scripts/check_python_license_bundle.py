@@ -73,6 +73,24 @@ def vendored_components(root: Path) -> list[dict]:
                     raise ValueError(f"vendored {name} needs its reviewed upstream URL")
                 files.append({"text": f"texts/{sha}.txt", "sha256": sha,
                               "bytes": len(data), "crate_path": name, "upstream_url": url})
+            for declaration in provenance.get("additional_license_files", []):
+                name = declaration["path"]
+                if (not isinstance(name, str) or not name.startswith("LICENSE-")
+                        or PurePosixPath(name).name != name
+                        or any(item["crate_path"] == name for item in files)):
+                    raise ValueError("additional vendored licenses require unique root filenames")
+                path = directory / name
+                if path.is_symlink() or not path.is_file():
+                    raise ValueError("additional vendored license must be a regular reviewed file")
+                data = path.read_bytes()
+                data.decode("utf-8")
+                sha, url = digest(data), declaration.get("url")
+                if declaration.get("sha256") != sha:
+                    raise ValueError("additional vendored license differs from reviewed provenance")
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    raise ValueError("additional vendored license needs its reviewed upstream URL")
+                files.append({"text": f"texts/{sha}.txt", "sha256": sha,
+                              "bytes": len(data), "crate_path": name, "upstream_url": url})
             components.append({"name": package["name"], "version": package["version"],
                                "path": str(relative), "license": package["license"],
                                "provenance": provenance, "files": files})

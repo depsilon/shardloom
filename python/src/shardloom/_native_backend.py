@@ -518,6 +518,17 @@ def _batch_schema(fields):
             elif name == "fixed_shape_tensor":
                 from ._tensor import decode_metadata
                 parameters += (decode_metadata(value["metadata"]),)
+        elif name == "variable_shape_tensor":
+            from . import _variable_tensor
+            storage = ResultType("struct", value["nullable"], tuple(
+                (field_name, dtype(field)) for field_name, field in value["fields"]))
+            rank = _variable_tensor.storage_rank(storage)
+            if not isinstance(value["metadata"], str):
+                raise ValueError("native variable tensor metadata must be canonical JSON text")
+            metadata = _variable_tensor.decode_metadata(value["metadata"], rank)
+            if _variable_tensor.metadata_json(metadata) != value["metadata"]:
+                raise ValueError("native variable tensor metadata requires its canonical encoding")
+            parameters = (storage, metadata)
         elif name == "struct":
             parameters = tuple((name, dtype(field)) for name, field in value["fields"])
         else:

@@ -2,8 +2,10 @@
 
 # Fixed-shape tensor lifecycle
 
-Status: implementation, local checks and portable evidence passed, November 7;
-hosted integration pending. This is the
+Status: local and portable verification passed, November 7. PR #1661 merged as
+`740f682eb89191bdd5b85caec96cbb2e2c9abea6` after 58 PR checks passed. All 55
+required checks then passed on that exact main merge. Generated-artifact retirement removed 9,995
+regular files and 3 symlinks; post-retirement replay passed. This is the
 first tensor delivery in item 19 of the [active queue](phased-execution-plan.md),
 after dense embeddings and managed binary objects. It implements the fixed-shape
 part of [rich-data step 3](native-rich-data-lifecycle-2026-10-24.md). Variable
@@ -154,9 +156,12 @@ binds all 28 changed source files, 14 accepted check stages, the tested runtime
 and installed wheel to 230 archived evidence members. Original and relocated
 offline replay pass. Five controlled corruptions are rejected, including failed
 checks and skipped installed tests whose archive hashes were recomputed. Original
-failed attempts and their corrections remain visible. Hosted review, integration
-and post-merge retirement remain pending; this acceptance does not complete
-item 19 or establish a performance result.
+failed attempts and their corrections remain visible. PR #1661 merged as
+`740f682eb89191bdd5b85caec96cbb2e2c9abea6` after all 58 PR checks passed; all 55
+required checks passed on its exact main merge. Generated-artifact retirement
+removed 9,995 regular files and 3 symlinks, and portable replay passed after
+retirement. This acceptance does not complete item 19 or establish a performance
+result.
 
 The first hosted Linux wheel jobs stopped in the package checker's isolated
 test fixture: it lacked the newly required public-context suite. The
@@ -164,6 +169,9 @@ test fixture: it lacked the newly required public-context suite. The
 preserves both full job logs, a local reproduction and the corrected 19-test
 harness pass. The fixture now includes context coverage and checks that missing
 or skipped context/adapter suites remain fatal. Runtime and package contents
-are unchanged; the original 350-test installed proof still applies. Hosted
-validation of the corrected head remains required. Replay this supplement with
+are unchanged; the original 350-test installed proof still applies. The
+corrected head subsequently passed all 58 PR checks, merged as
+`740f682eb89191bdd5b85caec96cbb2e2c9abea6`, and passed all 55 exact-main checks.
+Fixed-tensor artifact retirement completed with 9,995 regular files and 3
+symlinks retired. Replay this supplement with
 `python3 docs/release/evidence/native-fixed-shape-tensor-2026-11-07/verify_hosted_followup.py --repo-root .`.
