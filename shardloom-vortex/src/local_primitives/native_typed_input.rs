@@ -82,7 +82,7 @@ fn construct(
 ) -> Result<ArrayRef> {
     match dtype {
         DType::Extension(extension)
-            if crate::native_extensions::list_payload_storage(dtype).is_some() =>
+            if crate::native_extensions::structured_payload_storage(dtype).is_some() =>
         {
             let storage = construct(extension.storage_dtype(), cells, memory, allocator)?;
             ExtensionArray::try_new(extension.clone(), storage)

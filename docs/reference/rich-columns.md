@@ -172,9 +172,11 @@ apply their own extension rules. PyArrow 25.0.1 also rejects a shape when an
 intermediate dimension product overflows int64 before a later zero dimension;
 native storage accepts the valid zero-element tensor and Vortex remains available.
 
-Variable shapes and tensor arithmetic remain separate work. The
-[fixed tensor contract](../architecture/native-fixed-tensor-lifecycle-2026-11-07.md)
-records the representation, provider decision and verification requirements.
+Variable-shape tensors keep one rank per column and store each row's physical
+shape beside its flat data. See the [variable-shape tensor guide](variable-shape-tensors.md)
+for its declaration and metadata rules. Tensor arithmetic remains separate
+work. The [fixed tensor contract](../architecture/native-fixed-tensor-lifecycle-2026-11-07.md)
+records the fixed representation, provider decision and verification requirements.
 
 ## Managed binary objects
 

@@ -82,7 +82,22 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         }
         DataType::Struct(children) => {
             result.set_item("fields", fields(py, children)?)?;
-            "struct"
+            if field
+                .metadata()
+                .get("ARROW:extension:name")
+                .is_some_and(|name| name == "arrow.variable_shape_tensor")
+            {
+                let metadata = field
+                    .metadata()
+                    .get("ARROW:extension:metadata")
+                    .ok_or_else(|| {
+                        PyValueError::new_err("variable tensor result is missing metadata")
+                    })?;
+                result.set_item("metadata", metadata)?;
+                "variable_shape_tensor"
+            } else {
+                "struct"
+            }
         }
         dtype => {
             return Err(PyValueError::new_err(format!(

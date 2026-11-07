@@ -28,6 +28,9 @@ pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
     if crate::native_tensor::storage(dtype).is_some() {
         return crate::native_tensor::arrow::field(name, dtype).ok();
     }
+    if crate::native_variable_tensor::storage(dtype).is_some() {
+        return crate::native_variable_tensor::arrow::field(name, dtype).ok();
+    }
     crate::native_temporal::arrow::field(&Field::new(name, data_type(dtype)?, dtype.is_nullable()))
         .ok()
 }
@@ -59,8 +62,10 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             DataType::Decimal128(decimal.precision(), decimal.scale())
         }
-        DType::Extension(_) if crate::native_extensions::list_payload_storage(dtype).is_some() => {
-            data_type(crate::native_extensions::list_payload_storage(dtype)?)?
+        DType::Extension(_)
+            if crate::native_extensions::structured_payload_storage(dtype).is_some() =>
+        {
+            data_type(crate::native_extensions::structured_payload_storage(dtype)?)?
         }
         DType::Extension(_) => {
             crate::native_temporal::arrow_dtype(&crate::native_temporal::temporal_dtype(dtype)?)

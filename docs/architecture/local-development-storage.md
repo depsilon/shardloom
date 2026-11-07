@@ -2,17 +2,29 @@
 
 ## Current retention policy
 
-The November 7 managed-binary and dependency integration closeouts apply this
-policy after both exact merges pass all 55 required main checks, following 58
-checks on each PR. The [binary delivery](native-managed-binary-objects-2026-11-06.md)
+The November 7 managed-binary, dependency and fixed-tensor integration closeouts
+apply this policy after their exact merges pass all 55 required main checks,
+following 58 checks on each PR. The [binary delivery](native-managed-binary-objects-2026-11-06.md)
 retires 29,312 obsolete regular files and nine environment links. The subsequent
 [dependency intake](dependency-intake-2026-11-06.md) retires another 10,042 regular
 files and eight links, replacing the binary runtime/wheel with the accepted
-dependency runtime/wheel. Repeated identities, closed-handle checks, unchanged
-input generations and post-retirement evidence replay pass. All 88 retired raw
-dependency-intake files remain byte-exact in the committed archive. Compact
-results, original failures and the shared compiler outputs needed for current
-tensor work remain; no payload backups or storage-limit changes were made.
+dependency runtime/wheel. Fixed tensor PR #1661 merged as
+`740f682eb89191bdd5b85caec96cbb2e2c9abea6`; its 58 PR checks and 55 exact-main
+checks passed. Its retirement removed 9,995 regular files and 3 symlinks, and
+post-retirement replay passed. Repeated identities, closed-handle checks,
+unchanged input generations and post-retirement evidence replay pass. All 88
+retired raw dependency-intake files remain byte-exact in the committed archive.
+The variable-tensor portable packet has passed original and relocated replay;
+the current inputs, accepted runtime/wheel, compact packet and original failures
+remain retained. No payload backups or storage-limit changes were made.
+
+The variable-tensor native suite initially stopped at the unchanged free-space
+floor before executing tests. Verified retirement removed 22,392 reproducible
+debug compiler files after repeated identity and closed-handle checks. The
+release cache, current inputs and retained runtime/wheel stayed unchanged;
+the restarted native suite passed. The compact retirement inventory and stopped
+run remain in the
+[variable-tensor evidence packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md).
 
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched

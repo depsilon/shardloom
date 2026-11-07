@@ -17,7 +17,7 @@ GROUPS = {
                "vortex-datetime-parts"),
     "io": ("vortex-layout", "vortex-file", "vortex-io"),
     "buffer": ("vortex-buffer",),
-    "formats": ("orc-rust", "arrow-avro", "arrow-ipc"),
+    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array"),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": []},
@@ -39,6 +39,10 @@ CONFIGURATIONS = {
                    "arrow_test_data": "vendor/arrow-avro/test/arrow-testing/data"},
     "arrow-ipc": {"features": "lz4,zstd", "patches": [],
                   "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-ipc"},
+    "arrow-data": {"features": "ffi", "patches": [],
+                   "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-data"},
+    "arrow-array": {"features": "ffi", "patches": ["arrow-data"],
+                    "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-array"},
 }
 
 

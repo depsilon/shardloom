@@ -33,9 +33,14 @@ checks pass, and generated-artifact retirement is complete. The
 passes local verification, including all 350 clean installed-package tests with
 no skips. Its [portable packet](../release/evidence/native-fixed-shape-tensor-2026-11-07/README.md)
 passes original and relocated replay and rejects all five corruption controls.
-Hosted integration remains pending.
-Variable shapes, other representations and exact vector expressions retain
-separate acceptance requirements.
+PR #1661 merged as `740f682eb89191bdd5b85caec96cbb2e2c9abea6` after 58 PR checks
+passed; all 55 required exact-main checks passed, and retirement of 9,995 regular
+files and 3 symlinks completed with post-retirement replay. Variable-shape tensor
+local and portable acceptance now pass; hosted review and integration remain
+pending. The
+[portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
+preserves the scoped result and all original failures. Other representations
+and exact vector expressions retain separate acceptance requirements.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.
@@ -146,8 +151,9 @@ measured reads, copies, decoding and materialization, not a list of type names.
    references, and complete owned export must reopen after its source is gone.
    Establish the local contract before adding remote storage providers.
    The [managed-binary local acceptance](native-managed-binary-objects-2026-11-06.md#november-6-local-acceptance)
-   verifies that local contract. Hosted integration remains pending; this
-   acceptance does not close later tensor, representation or expression items.
+   verifies that local contract. PR #1659 passed all 55 required checks on its
+   exact main merge, and generated-artifact retirement completed. This acceptance
+   does not close later tensor, representation or expression items.
 3. **Tensor shape and interoperable export.** Preserve element type, shape,
    dimension order/names, nullability and values. Implement fixed-shape first,
    then variable-shape through the same type framework. Validate shape products,

@@ -2,7 +2,7 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb",
+    "README.shardloom.md": "78ba2a2086ed6da20ea6476f0b55dd2409040336df451466c77905461dccfcfd",
     "src/file/metadata/memory_reservation.rs": "4ae4141063aba87d2f857357eb50b2ad379d1ace70ace32a80d201ebf571e3a1"
   },
   "license": "Apache-2.0",
@@ -10,9 +10,9 @@
   "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.1.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "758f0a94b62419581397f976df76d6499c086ed57a5d22bf4f70e79b312b92cb"
+    "sha256": "78ba2a2086ed6da20ea6476f0b55dd2409040336df451466c77905461dccfcfd"
   },
-  "migration_status": "manifest_metadata_and_explicit_batch_limit_patches",
+  "migration_status": "variable_tensor_boundary_corrections; lifecycle_and_provider_acceptance_required",
   "modified_files_sha256": {
     "Cargo.toml": "7aff4b45ac6a99f4688a1686016c51a509bac632fe43519199bcf57e80340e8d",
     "src/arrow/array_reader/byte_array.rs": "b5d70e8726b74da6aa4e0c986b7760a612e08f8931ccf9c0299a362e62e1368c",
@@ -20,7 +20,7 @@
     "src/arrow/array_reader/byte_view_array.rs": "48c14678158140a5bec663c54e4161a57ccb9e361a6f6eab363138221a9f8125",
     "src/arrow/array_reader/cached_array_reader.rs": "2c018427ba1ba790d8505eb87b8894977c6db1ec45ebb20fa4c1db37ba5aa516",
     "src/arrow/array_reader/fixed_len_byte_array.rs": "0008b0d03634f054ba70b34bbc111c917a09d400354698c912f8edae16aa24d8",
-    "src/arrow/array_reader/fixed_size_list_array.rs": "20cb993054b38a6a72e4eeb7f7f483b966f1c7f429efbe81eeebe7093afc38d1",
+    "src/arrow/array_reader/fixed_size_list_array.rs": "464b3b4cdaae43f0edf7dec7c248c876f7774fe28aee6fcd0264fb3a39a9107c",
     "src/arrow/array_reader/list_array.rs": "de33819eb8d3a17d896591d6ccc53c9395743c62ab505943cdb1644fdbec5b42",
     "src/arrow/array_reader/list_view_array.rs": "87ecb94f3fdbb96852bb5ba06e473113e40ce88ca58d7f74d31da0c2b1b565c2",
     "src/arrow/array_reader/map_array.rs": "71ebb05d71d9f306c567729ddc0014852ae34570a752dbb23e45273c46f255f6",

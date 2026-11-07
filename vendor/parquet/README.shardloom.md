@@ -36,3 +36,12 @@ variable-length values. The ordinary iterator keeps its existing behavior when
 this optional control is unused. Engine-level controls exercise changing limits,
 real primitive buffer sizes, selection masks/selectors, nested nulls and empty
 inputs; complete integration acceptance is separate from this API.
+
+The November 7 variable-tensor integration preserves inherited null masks on
+required fixed-size-list fields beneath absent structs. The reader already
+inserts null child components for those absent rows; retaining their list mask
+keeps the components unobservable during recursive Arrow validation. Declared
+field nullability and present values are unchanged. The original regression
+writes and reads nullable structs containing required zero-width and positive-
+width lists, checks complete values and schema, and validates every returned
+Arrow array. Native tensor persistence exercises the same path.

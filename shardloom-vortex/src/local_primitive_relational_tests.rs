@@ -84,6 +84,9 @@ mod subquery_tests;
 mod typed_tests;
 #[path = "local_primitive_relational_unary_tests.rs"]
 mod unary_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_variable_tensor_tests.rs"]
+mod variable_tensor_tests;
 #[path = "local_primitive_relational_window_frame_tests.rs"]
 mod window_frame_tests;
 #[path = "local_primitive_relational_window_spill_tests.rs"]
@@ -109,7 +112,7 @@ impl Fixture {
         let fixture = Self(directory);
         let runtime = CurrentThreadRuntime::new();
         let session = VortexSession::default().with_handle(runtime.handle());
-        crate::native_temporal::register(&session);
+        crate::native_extensions::register(&session);
         let mut file = fs::File::create(fixture.path()).unwrap();
         let mut writer = session
             .write_options()

@@ -224,7 +224,7 @@ impl ExtVTable for FixedShapeTensor {
     }
 }
 
-fn element_admitted(dtype: &DType) -> bool {
+pub(crate) fn element_admitted(dtype: &DType) -> bool {
     matches!(dtype, DType::Bool(_))
         || matches!(dtype, DType::Primitive(ptype, _) if *ptype != PType::F16)
 }
@@ -264,7 +264,7 @@ pub(crate) fn register_dtype(session: &vortex::session::VortexSession) {
 pub(crate) mod arrow;
 
 #[path = "native_tensor_edition.rs"]
-mod edition;
+pub(crate) mod edition;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "native_tensor_tests.rs"]
 mod tests;

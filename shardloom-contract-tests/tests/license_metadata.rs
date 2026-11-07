@@ -125,6 +125,17 @@ fn cargo_workspace_and_crate_manifests_use_apache_2_metadata() {
 
         if manifest == root.join("Cargo.toml") {
             assert!(content.contains("license = \"Apache-2.0\""));
+        } else if manifest == root.join("vendor/arrow-array/Cargo.toml") {
+            // Preserve this reviewed provider's combined upstream obligations;
+            // it must not be relabeled with the workspace's license alone.
+            assert!(content.contains("license = \"Apache-2.0 AND MIT\""));
+            let provenance = read_repo_file("vendor/arrow-array/upstream-provenance.json");
+            assert!(provenance.contains("\"license\": \"Apache-2.0 AND MIT\""));
+            assert!(read_repo_file("vendor/arrow-array/LICENSE").contains("Apache License"));
+            assert!(
+                read_repo_file("vendor/arrow-array/LICENSE-MIT")
+                    .contains("Permission is hereby granted, free of charge")
+            );
         } else {
             assert!(
                 content.contains("license.workspace = true")

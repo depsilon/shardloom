@@ -41,6 +41,7 @@ __all__ = (
     "fixed_size_list",
     "embedding",
     "fixed_shape_tensor",
+    "variable_shape_tensor",
     "struct",
     "scalar",
 )
@@ -208,4 +209,26 @@ def fixed_shape_tensor(item: object, shape: list[int] | tuple[int, ...], *,
         declaration["dim_names"] = dim_names
     if permutation is not None:
         declaration["permutation"] = permutation
+    return _type(declaration)
+
+
+def variable_shape_tensor(item: object, ndim: int, *,
+                          dim_names: list[str] | tuple[str, ...] | None = None,
+                          permutation: list[int] | tuple[int, ...] | None = None,
+                          uniform_shape: list[int | None] | tuple[int | None, ...] | None = None,
+                          nullable: bool = True) -> ResultType:
+    """Declare flat values with a row-specific shape and fixed rank.
+
+    Dimension metadata describes physical row-major storage. Logical dimension
+    i refers to physical dimension permutation[i]; omitted metadata is retained
+    as omitted, including for rank zero.
+    """
+    declaration = {"type": "variable_shape_tensor", "item": item, "ndim": ndim,
+                   "nullable": nullable}
+    if dim_names is not None:
+        declaration["dim_names"] = dim_names
+    if permutation is not None:
+        declaration["permutation"] = permutation
+    if uniform_shape is not None:
+        declaration["uniform_shape"] = uniform_shape
     return _type(declaration)

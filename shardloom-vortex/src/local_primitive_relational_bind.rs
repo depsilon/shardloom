@@ -919,7 +919,7 @@ fn validate_payload(dtype: &DType) -> Result<()> {
 }
 
 fn validate_key(dtype: &DType) -> Result<()> {
-    if crate::native_tensor::contains(dtype) {
+    if crate::native_tensor::contains(dtype) || crate::native_variable_tensor::contains(dtype) {
         return Err(failed(
             "tensor values are payload-only; compare, group, order or join on ordinary columns",
         ));

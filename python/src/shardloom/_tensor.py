@@ -87,7 +87,7 @@ def restore_arrow_schema(table, fields, pyarrow):
     from .errors import ShardLoomProtocolError
 
     def contains(dtype):
-        if dtype.name == "fixed_shape_tensor":
+        if dtype.name in {"fixed_shape_tensor", "variable_shape_tensor"}:
             return True
         if dtype.name in {"list", "fixed_size_list"}:
             return contains(dtype.parameters[0])
@@ -99,6 +99,16 @@ def restore_arrow_schema(table, fields, pyarrow):
         if not contains(dtype):
             return value
         target = _arrow_field("item", dtype, pyarrow).type
+        if dtype.name == "variable_shape_tensor":
+            storage = dtype.parameters[0]
+            if isinstance(value.type, pyarrow.BaseExtensionType):
+                if value.type.extension_name != _variable_extension_id():
+                    raise ShardLoomProtocolError("unexpected variable tensor extension at Arrow export")
+                value = value.storage
+            if not pyarrow.types.is_struct(value.type):
+                raise ShardLoomProtocolError("variable tensor Arrow storage must be a struct")
+            return _restore_variable_storage(value, storage, target, pyarrow,
+                                            ShardLoomProtocolError)
         if dtype.name == "fixed_shape_tensor":
             if isinstance(value.type, pyarrow.BaseExtensionType):
                 if value.type.extension_name != ARROW_EXTENSION_ID:
@@ -132,3 +142,48 @@ def restore_arrow_schema(table, fields, pyarrow):
             output_fields.append(table.schema.field(index))
     return pyarrow.Table.from_arrays(arrays,
         schema=pyarrow.schema(output_fields, metadata=table.schema.metadata))
+
+
+def _variable_extension_id():
+    from ._variable_tensor import ARROW_EXTENSION_ID
+    return ARROW_EXTENSION_ID
+
+
+def _restore_variable_storage(value, dtype, target, pyarrow, error_type):
+    """Rebuild variable-tensor storage wrappers while retaining their buffers."""
+    name = dtype.name
+    if name == "struct":
+        if (not pyarrow.types.is_struct(value.type)
+                or len(value.type) != len(dtype.parameters)
+                or tuple(value.type.field(index).name for index in range(len(value.type)))
+                != tuple(field_name for field_name, _ in dtype.parameters)):
+            raise error_type("variable tensor struct storage differs from its schema")
+        children = [
+            _restore_variable_storage(value.field(index), child, target.field(index).type,
+                                      pyarrow, error_type)
+            for index, (_, child) in enumerate(dtype.parameters)
+        ]
+        # Struct.field() already applies its parent's offset. Rebuilding at
+        # offset zero avoids applying that offset twice; children keep buffers.
+        return pyarrow.StructArray.from_arrays(children, fields=list(target),
+            mask=value.is_null() if value.null_count else None)
+    if name == "list":
+        if not pyarrow.types.is_list(value.type):
+            raise error_type("variable tensor data storage must use an Arrow list")
+        child = _restore_variable_storage(value.values, dtype.parameters[0],
+                                          target.value_type, pyarrow, error_type)
+        return pyarrow.Array.from_buffers(
+            target, len(value), value.buffers()[:target.num_buffers],
+            null_count=value.null_count, offset=value.offset, children=[child])
+    if name == "fixed_size_list":
+        if (not pyarrow.types.is_fixed_size_list(value.type)
+                or value.type.list_size != dtype.parameters[1]):
+            raise error_type("variable tensor shape storage must use its declared fixed-size list")
+        child = _restore_variable_storage(value.values, dtype.parameters[0],
+                                          target.value_type, pyarrow, error_type)
+        return pyarrow.Array.from_buffers(
+            target, len(value), value.buffers()[:target.num_buffers],
+            null_count=value.null_count, offset=value.offset, children=[child])
+    if value.type != target:
+        raise error_type("variable tensor primitive storage differs from its schema")
+    return value

@@ -194,7 +194,10 @@ impl ArrayReader for FixedSizeListArrayReader {
             .len(list_len)
             .add_child_data(child_data);
 
-        if self.nullable {
+        // A required list can still be absent beneath a null containing struct.
+        // Preserve that inherited mask so inserted null components are hidden
+        // during recursive Arrow validation. Schema nullability is unchanged.
+        if self.nullable || boundary_defs.iter().any(|&d| d < self.def_level - 1) {
             let mut validity = BooleanBufferBuilder::new(list_len);
             build_filtered_validity_bitmap(
                 &boundary_defs,

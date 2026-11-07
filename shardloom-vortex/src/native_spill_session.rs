@@ -73,6 +73,13 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     {
         crate::native_tensor::register_dtype(&child);
     }
+    if child
+        .dtypes()
+        .registry()
+        .contains_key(&crate::native_variable_tensor::VariableShapeTensor::default().id())
+    {
+        crate::native_variable_tensor::register_dtype(&child);
+    }
     child
 }
 
@@ -135,6 +142,75 @@ mod tests {
             .deserialize(raw, storage)
             .unwrap();
         assert_eq!(received, original);
+        let clone = received.clone();
+        drop((received, child, original, parent));
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        drop(clone);
+        assert_eq!(child_pool.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn variable_tensor_spill_metadata_uses_receiving_pool_and_preserves_identity() {
+        use vortex::array::dtype::{
+            DType, FieldNames, PType, StructFields, extension::ExtVTable as _,
+            session::DTypeSessionExt as _,
+        };
+        let parent_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let parent = VortexSession::default().with_host_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(parent_pool.clone()),
+        ));
+        crate::native_variable_tensor::register(&parent);
+        let child_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let child = with_memory(&parent, child_pool.clone());
+        let id = crate::native_variable_tensor::VariableShapeTensor::default().id();
+        let storage = DType::Struct(
+            StructFields::new(
+                FieldNames::from(["data", "shape"].as_slice()),
+                vec![
+                    DType::List(
+                        DType::Primitive(PType::F32, true.into()).into(),
+                        false.into(),
+                    ),
+                    DType::FixedSizeList(
+                        DType::Primitive(PType::I32, false.into()).into(),
+                        3,
+                        false.into(),
+                    ),
+                ],
+            ),
+            true.into(),
+        );
+        let raw = br#"{"permutation":[2,0,1],"uniform_shape":[null,2,null]}"#;
+        let received = child
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(raw, storage.clone())
+            .unwrap();
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        let original = parent
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(raw, storage.clone())
+            .unwrap();
+        assert_eq!(received, original);
+        let denied_pool = LiveMemoryPool::new(256).unwrap();
+        let denied = with_memory(&parent, denied_pool.clone());
+        assert!(
+            denied
+                .dtypes()
+                .registry()
+                .get(&id)
+                .unwrap()
+                .deserialize(raw, storage)
+                .is_err()
+        );
+        assert_eq!(denied_pool.snapshot().reserved_bytes, 0);
         let clone = received.clone();
         drop((received, child, original, parent));
         assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
