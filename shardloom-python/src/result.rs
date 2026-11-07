@@ -85,7 +85,7 @@ impl NativeResult {
         let (rows, observation) = py
             .detach(|| {
                 self.controller
-                    .with_resources(resources, &cancellation, |_, _| {
+                    .with_resources(resources, &cancellation, |session, admitted| {
                         let rows = Python::attach(|py| PyList::empty(py).unbind());
                         let mut stream = self.data.arrow_batches(cancellation.clone())?;
                         while let Some(batch) = stream.next_batch()? {
@@ -97,6 +97,11 @@ impl NativeResult {
                                     temporal_objects,
                                     wire_values,
                                     &cancellation,
+                                    &super::binary_object::ObjectOwner {
+                                        controller: self.controller.clone(),
+                                        resources: admitted,
+                                        session: session.clone(),
+                                    },
                                 )
                             }) {
                                 return Ok(Err(error));

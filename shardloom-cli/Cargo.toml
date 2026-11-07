@@ -41,6 +41,7 @@ release-user-surfaces = [
     "vortex-local-primitives",
     "vortex-encoded-read-spike",
     "shardloom-vortex/vortex-staged-output-fs",
+    "shardloom-vortex/native-binary-objects",
 ]
 universal-format-io = ["dep:arrow-array", "shardloom-vortex/universal-format-io"]
 vortex-write = ["shardloom-vortex/vortex-write"]

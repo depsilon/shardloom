@@ -5220,6 +5220,27 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         claim_boundary="Complete admitted local workflows; unsupported semantics fail explicitly with no external execution.",
     ),
     _graduation_row(
+        "feature_gated_native_binary_objects",
+        "python_context",
+        "Managed binary ownership, external local ranges and explicit byte access",
+        "feature_gated",
+        "feature_gated",
+        context_methods=("binary_object", "binary_object_store", "external_binary_object",
+                         "import_binary_object", "binary_object_snapshot"),
+        runtime_route="native_vortex_query",
+        promotion_criteria=(
+            "native Unix sessions admit object owners under explicit memory, storage and I/O policy; "
+            "complete managed exports reopen independently of their source"
+        ),
+        evidence_refs=("python/tests/test_native_binary_object_binding.py",
+                       "docs/architecture/native-managed-binary-objects-2026-11-06.md"),
+        claim_boundary=(
+            "Requires the native-binary-objects feature. Construction/import and byte reads are explicit "
+            "operations; this matrix performs none of them. External references remain externally owned. "
+            "Remote storage and compatibility-file descriptor exports are not admitted."
+        ),
+    ),
+    _graduation_row(
         "context_construction",
         "python_context",
         "Context construction and environment/repo binding",
@@ -11855,6 +11876,48 @@ class ShardLoomContext:
         )
         return from_result(result, client=self.client, engine_mode=self.engine,
                            resources=allocation, resource_limits=self.resource_limits)
+
+    def binary_object(self, data: bytes, *, resources: ExecutionResources | None = None):
+        """Copy bytes into a managed native object with lazy explicit reads."""
+        return self._binary_object_call("binary_object", data, resources=resources)
+
+    def external_binary_object(
+        self, path: str | os.PathLike[str], *, start: int, end: int,
+        resources: ExecutionResources | None = None,
+    ):
+        """Reference [start, end) in a caller-owned local file without copying it."""
+        return self._binary_object_call("external_binary_object", path, start, end, resources=resources)
+
+    def binary_object_store(
+        self, directory: str | os.PathLike[str], *, max_bytes: int,
+        resources: ExecutionResources | None = None,
+    ):
+        """Create private temporary object storage with an explicit byte ceiling.
+
+        The existing parent directory remains caller-owned. Managed files are
+        retained by their session, results and readers until their final owner.
+        """
+        return self._binary_object_call("binary_object_store", directory, max_bytes, resources=resources)
+
+    def import_binary_object(self, value: object, *, resources: ExecutionResources | None = None):
+        """Admit another context's actual object owner under this allocation."""
+        return self._binary_object_call("import_binary_object", value, resources=resources)
+
+    def binary_object_snapshot(self, *, resources: ExecutionResources | None = None):
+        """Inspect object ownership and explicit payload-read counters."""
+        return self._binary_object_call("binary_object_snapshot", resources=resources)
+
+    def _binary_object_call(self, method, *args, resources=None):
+        from ._native_backend import _checked_native_call, native_resources
+
+        allocation = resolve_resources(
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        backend = self.client._native_backend_for(allocation)
+        options = {"resources": native_resources(backend.module, allocation)}
+        if method != "binary_object_snapshot":
+            options["timeout"] = backend.timeout
+        return _checked_native_call(getattr(backend.session, method), *args, **options)
 
     def from_rows(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,

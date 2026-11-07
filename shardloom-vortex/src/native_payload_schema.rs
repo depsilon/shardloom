@@ -199,6 +199,11 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
             DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
             DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
             DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
+            #[cfg(feature = "native-binary-objects")]
+            DType::Extension(extension) if crate::native_binary_type::storage(dtype).is_some() => {
+                budget.add(128)?;
+                visit(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            }
             DType::Extension(extension) if crate::native_embedding::storage(dtype).is_some() => {
                 let metadata = extension
                     .metadata_opt::<crate::native_embedding::Embedding>()
@@ -243,6 +248,10 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         field.metadata().get("ARROW:extension:metadata"),
     ) {
         (None, None) => true,
+        #[cfg(feature = "native-binary-objects")]
+        (Some(name), _) if name == crate::native_binary_type::ID => {
+            crate::native_binary_type::arrow::admitted(field)
+        }
         (Some(name), _) if name == crate::native_embedding::ID => {
             crate::native_embedding::arrow::admitted(field)
         }

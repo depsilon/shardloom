@@ -7,7 +7,7 @@ use arrow_array::{
     RecordBatch, StringArray, StructArray, TimestampMicrosecondArray, UInt8Array, UInt16Array,
     UInt32Array, UInt64Array,
 };
-use arrow_schema::{DataType, TimeUnit};
+use arrow_schema::{DataType, Field, TimeUnit};
 use pyo3::{
     IntoPyObjectExt as _,
     exceptions::{PyOverflowError, PyValueError},
@@ -23,6 +23,7 @@ pub(super) fn append_batch(
     temporal_objects: bool,
     wire_values: bool,
     cancellation: &CancellationToken,
+    owner: &super::binary_object::ObjectOwner,
 ) -> PyResult<()> {
     let conversion = Conversion {
         py,
@@ -33,6 +34,7 @@ pub(super) fn append_batch(
         temporal_to_python: PyModule::import(py, "shardloom._result_schema")?
             .getattr("temporal_python_value")?,
         cancellation,
+        owner,
     };
     for index in 0..batch.num_rows() {
         if index % 256 == 0 {
@@ -41,7 +43,10 @@ pub(super) fn append_batch(
         }
         let row = PyDict::new(py);
         for (field, column) in batch.schema().fields().iter().zip(batch.columns()) {
-            row.set_item(field.name(), conversion.value(column.as_ref(), index)?)?;
+            row.set_item(
+                field.name(),
+                conversion.value(field, column.as_ref(), index)?,
+            )?;
         }
         rows.append(row)?;
     }
@@ -56,10 +61,11 @@ struct Conversion<'py> {
     decimal: Bound<'py, PyAny>,
     temporal_to_python: Bound<'py, PyAny>,
     cancellation: &'py CancellationToken,
+    owner: &'py super::binary_object::ObjectOwner,
 }
 
 impl Conversion<'_> {
-    fn value(&self, array: &dyn Array, row: usize) -> PyResult<Py<PyAny>> {
+    fn value(&self, field: &Field, array: &dyn Array, row: usize) -> PyResult<Py<PyAny>> {
         let py = self.py;
         if array.is_null(row) {
             return Ok(py.None());
@@ -85,14 +91,7 @@ impl Conversion<'_> {
             }
             DataType::Float64 => scalar!(Float64Array),
             DataType::Utf8 => scalar!(StringArray),
-            DataType::Binary => {
-                let bytes = downcast::<BinaryArray>(array)?.value(row);
-                if self.wire_values {
-                    hexadecimal(bytes).into_py_any(py)
-                } else {
-                    Ok(PyBytes::new(py, bytes).into_any().unbind())
-                }
-            }
+            DataType::Binary => self.binary(field, downcast::<BinaryArray>(array)?.value(row)),
             DataType::Decimal128(precision, scale) => {
                 let coefficient = downcast::<Decimal128Array>(array)?.value(row);
                 if self.wire_values {
@@ -144,15 +143,18 @@ impl Conversion<'_> {
                     ))?
                     .unbind())
             }
-            DataType::List(_) => self.list(downcast::<ListArray>(array)?.value(row).as_ref()),
-            DataType::FixedSizeList(_, _) => {
-                self.list(downcast::<FixedSizeListArray>(array)?.value(row).as_ref())
+            DataType::List(child) => {
+                self.list(child, downcast::<ListArray>(array)?.value(row).as_ref())
             }
+            DataType::FixedSizeList(child, _) => self.list(
+                child,
+                downcast::<FixedSizeListArray>(array)?.value(row).as_ref(),
+            ),
             DataType::Struct(fields) => {
                 let structure = downcast::<StructArray>(array)?;
                 let result = PyDict::new(py);
                 for (field, column) in fields.iter().zip(structure.columns()) {
-                    result.set_item(field.name(), self.value(column.as_ref(), row)?)?;
+                    result.set_item(field.name(), self.value(field, column.as_ref(), row)?)?;
                 }
                 Ok(result.into_any().unbind())
             }
@@ -162,14 +164,41 @@ impl Conversion<'_> {
         }
     }
 
-    fn list(&self, array: &dyn Array) -> PyResult<Py<PyAny>> {
+    fn binary(&self, field: &Field, bytes: &[u8]) -> PyResult<Py<PyAny>> {
+        let py = self.py;
+        if super::binary_object::field_is_object(field) {
+            let object = self.owner.resolve(bytes, self.cancellation)?;
+            if self.wire_values {
+                let metadata = PyDict::new(py);
+                metadata.set_item("type", "binary_object")?;
+                metadata.set_item(
+                    "ownership",
+                    if object.value.is_managed() {
+                        "managed"
+                    } else {
+                        "external"
+                    },
+                )?;
+                metadata.set_item("byte_length", object.value.len())?;
+                return Ok(metadata.into_any().unbind());
+            }
+            return Ok(Py::new(py, object)?.into_any());
+        }
+        if self.wire_values {
+            hexadecimal(bytes).into_py_any(py)
+        } else {
+            Ok(PyBytes::new(py, bytes).into_any().unbind())
+        }
+    }
+
+    fn list(&self, field: &Field, array: &dyn Array) -> PyResult<Py<PyAny>> {
         let result = PyList::empty(self.py);
         for index in 0..array.len() {
             if index % 256 == 0 {
                 self.cancellation.check().map_err(super::native_error)?;
                 self.py.check_signals()?;
             }
-            result.append(self.value(array, index)?)?;
+            result.append(self.value(field, array, index)?)?;
         }
         Ok(result.into_any().unbind())
     }

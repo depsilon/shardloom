@@ -79,6 +79,7 @@ impl ResidentMemorySource {
         Self::from_arrow_admitted(session, batch, context, true, ownership, Origin::LocalFile)
     }
 
+    #[allow(clippy::too_many_lines)] // Keep allocation, validation and final owner publication together.
     fn from_arrow_admitted(
         session: &ResidentVortexSession,
         batch: RecordBatch,
@@ -171,6 +172,8 @@ impl ResidentMemorySource {
             .arrow()
             .from_arrow_record_batch(retained, &schema)
             .map_err(native_error)?;
+        #[cfg(feature = "native-binary-objects")]
+        crate::binary_object::validate_descriptors(&array, context)?;
         let input_logical_bytes = usize::try_from(array.nbytes()).map_err(native_error)?;
         context.check_cancelled()?;
         Ok(Self(Arc::new(MemorySourceOwner {

@@ -15,6 +15,8 @@ from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
+_BINARY_OBJECT_EXTENSION_ID = "shardloom.binary-object.v1"
+_BINARY_OBJECT_METADATA = b'{"version":1}'
 _MAX_BYTES = 8 << 20
 _LEGACY = {"int64", "float64", "bool", "utf8"}
 _ALIASES = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
@@ -42,7 +44,8 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     """Inspect one level; ordinary parsing owns recursive depth/node admission."""
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
-    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "decimal128": 2}.get(dtype.name)
+    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "decimal128": 2,
+                "binary_object": 0}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
     ):
@@ -105,7 +108,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         allowed.add("fields")
     if set(parameters) - allowed:
         raise ValueError("unknown native input type parameters")
-    if temporal is not None or token in _PRIMITIVES | {"bool", "utf8", "binary"}:
+    if temporal is not None or token in _PRIMITIVES | {"bool", "utf8", "binary", "binary_object"}:
         return ResultType(token, nullable)
     if match := re.fullmatch(r"decimal128\(([0-9]+),\s*([0-9]+)\)", token):
         # Bound text before integer conversion, including hostile giant digits.
@@ -172,6 +175,12 @@ def _wire_type(dtype: ResultType) -> object:
             "storage_dtype": {"FixedSizeList": [
                 _wire_type(dtype.parameters[0]), dtype.parameters[1], nullable]},
         }}
+    if name == "binary_object":
+        return {"Extension": {
+            "id": _BINARY_OBJECT_EXTENSION_ID,
+            "metadata": list(_BINARY_OBJECT_METADATA),
+            "storage_dtype": {"Binary": nullable},
+        }}
     if name in _PRIMITIVES:
         prefix = "u" if name.startswith("uint") else name[0]
         return {"Primitive": [prefix + re.search(r"[0-9]+$", name).group(), nullable]}
@@ -201,6 +210,8 @@ def encode_cell(dtype: ResultType, value: object) -> str | None:
         # Preserve existing declaration hashes, aliases and float promotion policy.
         from .query import _memory_value
         return _memory_value(dtype.name, value)
+    if dtype.name == "binary_object":
+        raise ValueError("managed binary object values require in-process native handles; JSON cell encoding is unavailable")
     converted = _value(value, dtype, [0])
     encoded = json.dumps(converted, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
     if len(encoded.encode("utf-8")) > _MAX_BYTES:
@@ -289,6 +300,8 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         size = value.nbytes if isinstance(value, memoryview) else len(value)
         _charge(budget, size * 2)
         return bytes(value).hex()
+    if name == "binary_object":
+        raise ValueError("managed binary object values require in-process native handles; JSON cell encoding is unavailable")
     if name == "decimal128":
         return _decimal(value, dtype)
     if temporal_parts(name) is not None:

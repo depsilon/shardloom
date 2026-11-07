@@ -432,6 +432,16 @@ impl Conversion<'_, '_> {
                     column.append_null();
                 } else if placeholder {
                     column.append_value([]);
+                } else if super::binary_object::field_is_object(field) {
+                    let object = value.extract::<PyRef<'_, super::binary_object::NativeBinaryObject>>()
+                        .map_err(|_| PyTypeError::new_err("binary_object input requires a native BinaryObject handle; inline bytes use binary"))?;
+                    self.source
+                        .validate_binary_object(&object.value)
+                        .map_err(native_error)?;
+                    let descriptor = object.value.descriptor();
+                    check_offset(column.values_slice().len(), descriptor.len())?;
+                    grow_credit(&mut self.credit, descriptor.len())?;
+                    column.append_value(descriptor);
                 } else {
                     let bytes = self.binary(value)?;
                     check_offset(column.values_slice().len(), bytes.as_bytes().len())?;

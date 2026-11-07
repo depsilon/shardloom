@@ -1,11 +1,14 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Dense vectors, embeddings and binary columns
+# Dense vectors, embeddings and binary objects
 
 This capability is in current source builds after 1.1.0. It is not included in
 the published 1.1.0 wheels. Use a matching native Python source build.
 Files containing embeddings require a reader that registers
 `shardloom.embedding.v1`; older wheels cannot read that logical type.
+Managed binary objects additionally require `shardloom.binary-object.v1` and
+the matching native object layout. The `native-binary-objects` feature is part
+of the native Python and release user-surface build.
 
 Store supplied dense Float32/Float64 vectors, inline bytes and nested values
 alongside ordinary columns. An embedding adds caller-supplied identity to a
@@ -118,11 +121,91 @@ null vector parents, and all nullable rows through Arrow IPC.
 
 This delivery carries rich payloads through projection, ordinary-column filters,
 joins, bounded input/output, native spill, write and reopen. It does not admit
-embedding values as comparison keys or vector arithmetic operands. Managed
-large-object storage, tensors, Float16/sparse/quantized representations and exact
+embedding values as comparison keys or vector arithmetic operands. Tensors,
+Float16/sparse/quantized representations and exact
 vector functions remain in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
 Existing nested-schema depth/node/metadata limits remain; replacing them requires
 the separately tracked resource-backed traversal work, not removal of checks.
 
 See the [implementation and acceptance contract](../architecture/native-dense-embedding-lifecycle-2026-11-05.md)
 for the native provider, ownership and verification boundaries.
+
+## Managed binary objects
+
+Use `t.binary()` for ordinary inline bytes. Use `t.binary_object()` when rows
+should retain a byte object while queries carry only its descriptor. Explicit
+reads return complete bytes or a bounded range; selecting or inspecting a
+handle does not read its payload. Null and a valid empty object are distinct.
+
+```python
+import tempfile
+import shardloom as sl
+from shardloom import types as t
+
+with tempfile.TemporaryDirectory(prefix="shardloom-objects-") as directory:
+    context = sl.context(transport="native", memory_bytes=64 << 20, max_parallelism=1)
+    try:
+        store = context.binary_object_store(directory, max_bytes=256 << 20)
+        image = store.import_file("image.bin")
+        empty = context.binary_object(b"")
+        frame = context.from_rows(
+            [{"id": 1, "payload": image}, {"id": 2, "payload": empty}],
+            schema={"id": "int64", "payload": t.binary_object(nullable=False)},
+        )
+        frame.write_vortex("images.vortex", check=True)
+        result = context.read_vortex("images.vortex").collect(check=True)
+        handle = result.python_objects[0]["payload"]
+        first_bytes = handle.read_range(0, min(128, handle.byte_length))
+        ownership = handle.ownership  # "managed"
+    finally:
+        context.close()
+        handle = result = frame = image = empty = store = None
+```
+
+The store copies a supplied file in bounded chunks into private temporary
+storage under the existing directory. `store.put_bytes(data)` puts supplied
+bytes there; `context.binary_object(data)` keeps a small managed object in
+memory. `max_bytes` limits the store's retained payloads. Retained results,
+readers and Arrow buffers can keep private files alive after the context closes;
+keep their parent directory available until those owners are released. A store
+never owns or deletes the original input. Its `snapshot` reports retained bytes
+and cleanup failures. `context.binary_object_snapshot()` reports managed
+identities and explicit payload reads; metadata/table reads have separate I/O
+accounting.
+
+`handle.read()` and `handle.read_range(start, end)` return Python `bytes`; ranges
+use an inclusive start and exclusive end. These are explicit copies into Python
+memory. The native operation first admits its buffers under the selected memory
+limit. A large full read can be refused; iterate bounded ranges instead. Managed
+file reads verify complete 64 KiB integrity chunks touched by the range. A short
+range can therefore read more file bytes than it returns. Changed, missing or
+damaged data raises an error, never a successful empty placeholder. Readers
+remain usable after `context.close()`. Finish or close an execution stream
+before reading its handles through the same context: the active stream owns
+that context's execution operation.
+
+`context.external_binary_object(path, start=0, end=length)` instead retains an
+explicit caller-owned local file range without importing its bytes. Its
+`ownership` is `"external"`. The file must retain the captured generation and
+remain available. Native export preserves that external reference; it does not
+copy it or make it portable.
+
+Native Vortex export copies each distinct selected managed payload once into
+the same file as its table. The resulting managed-only file can be moved and
+reopened by a matching reader without its original sources or temporary store.
+Queries and native spill retain the shared owner while carrying descriptors.
+Joins, filters and ordering use ordinary columns; binary objects are not admitted
+as comparison, grouping, ordering or arithmetic operands.
+
+Arrow export preserves the versioned extension and retains object owners in its
+buffers. Its Binary storage contains descriptors, not payload bytes. Bare Arrow
+descriptors do not transfer ownership to a new context. Use `context.from_result`
+for a native result, `context.import_binary_object` for an individual handle, or
+reopen a complete native Vortex export. Cross-context file imports share the
+immutable private file and its original cleanup quota; receiving arrays and
+directories have their own memory admission. Parquet, Arrow IPC, Avro, ORC, CSV
+and JSON/JSONL file exports currently reject object columns. Explicitly read
+objects into inline Binary values when a compatibility output needs actual bytes.
+
+See the [managed binary contract](../architecture/native-managed-binary-objects-2026-11-06.md)
+for persistent format, integrity, ownership and verification boundaries.

@@ -346,6 +346,10 @@ impl NativeArrowBatchStream {
         // buffers after the fact. Native shared buffers keep their own grants.
         work.resize(retained)?;
         let credit = Arc::new(ExportCredit {
+            #[cfg(feature = "native-binary-objects")]
+            _objects: crate::native_binary_type::contains(array.dtype())
+                .then(|| crate::binary_object::Arena::get(context.native_session()))
+                .transpose()?,
             _conversion: work,
             _schema: Arc::clone(&self.metadata),
         });
@@ -435,6 +439,8 @@ fn observe_buffers(
 // Payload drops before its grants. These wrappers change ownership only; their
 // addresses and bytes are identical to the provider's compatible Arrow buffers.
 struct ExportCredit {
+    #[cfg(feature = "native-binary-objects")]
+    _objects: Option<crate::binary_object::Arena>,
     _conversion: MemoryLease,
     _schema: Arc<MemoryLease>,
 }

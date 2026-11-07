@@ -186,6 +186,10 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
         });
     }
     if kind == "Extension" {
+        #[cfg(feature = "native-binary-objects")]
+        if value.get("id").and_then(Value::as_str) == Some(crate::native_binary_type::ID) {
+            return binary_object_dtype(value, depth + 1, nodes);
+        }
         if value.get("id").and_then(Value::as_str) == Some(crate::native_embedding::ID) {
             return embedding_dtype(value, depth + 1, nodes);
         }
@@ -257,6 +261,30 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
         }
         _ => return Err(failed("unsupported native input dtype")),
     })
+}
+
+#[cfg(feature = "native-binary-objects")]
+fn binary_object_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let fields = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let expected = b"{\"version\":1}";
+    let raw = fields["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("binary-object metadata requires UTF8 bytes"))?;
+    if raw.len() != expected.len()
+        || raw
+            .iter()
+            .zip(expected)
+            .any(|(value, byte)| value.as_u64() != Some(u64::from(*byte)))
+    {
+        return Err(failed("invalid binary-object metadata"));
+    }
+    let storage = dtype(&fields["storage_dtype"], depth, nodes)?;
+    ExtDType::<crate::native_binary_type::BinaryObjectType>::try_new(
+        crate::native_binary_type::Metadata,
+        storage,
+    )
+    .map(|dtype| DType::Extension(dtype.erased()))
+    .map_err(vortex_error)
 }
 
 fn embedding_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {

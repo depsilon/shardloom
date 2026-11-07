@@ -175,6 +175,76 @@ impl Drop for NativeIterator {
     }
 }
 
+#[cfg(feature = "native-binary-objects")]
+#[test]
+fn binary_object_legacy_ingest_rejects_unowned_descriptors_before_input_or_output_work() {
+    let DType::Extension(dtype) = crate::native_binary_type::dtype(false).unwrap() else {
+        panic!("binary object must be an extension");
+    };
+    let array = ExtensionArray::new(
+        dtype,
+        VarBinViewArray::from_iter_bin([&b"unowned descriptor"[..]]).into_array(),
+    )
+    .into_array();
+    let directory = Directory::new();
+    let existing = directory.0.join("existing.vortex");
+    let absent = directory.0.join("absent").join("new.vortex");
+    fs::write(&existing, b"existing caller output").unwrap();
+    let memory = NativeIngestMemory::new(16 << 20).unwrap();
+    LOCAL_VORTEX_WRITE_CONTEXT.with(|cell| {
+        let context = cell.borrow();
+        for path in [&existing, &absent] {
+            let decision = decision(Composition::Default, path);
+            let error = context
+                .write_array(path, &array, true, &decision, "test", &memory.pool, false)
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("SL-BINARY-OBJECT-OWNERSHIP"),
+                "{error}"
+            );
+            let pulls = Arc::new(AtomicUsize::new(0));
+            let dropped = Arc::new(AtomicUsize::new(0));
+            let iterator = NativeIterator {
+                dtype: array.dtype().clone(),
+                source: Some(array.clone()),
+                memory: memory.pool.clone(),
+                pressure: None,
+                cancellation: CancellationToken::default(),
+                action: Action::None,
+                pulls: Arc::clone(&pulls),
+                dropped: Arc::clone(&dropped),
+            };
+            let error = context
+                .write_array_iterator(
+                    path,
+                    iterator,
+                    true,
+                    &decision,
+                    Some(1),
+                    Some(&memory),
+                    &[],
+                    None,
+                    None,
+                    &CancellationToken::default(),
+                    false,
+                )
+                .err()
+                .unwrap();
+            assert!(
+                error.to_string().contains("SL-BINARY-OBJECT-OWNERSHIP"),
+                "{error}"
+            );
+            assert_eq!(pulls.load(Ordering::SeqCst), 0);
+            assert_eq!(dropped.load(Ordering::SeqCst), 1);
+            assert_eq!(memory.pool.snapshot().reserved_bytes, 0);
+            assert_eq!(fs::read(&existing).unwrap(), b"existing caller output");
+            assert!(!absent.parent().unwrap().exists());
+            assert_only_output(&directory, &existing);
+        }
+    });
+}
+
 #[test]
 #[allow(clippy::too_many_lines)] // Failure/reuse observations share the same real owner and output.
 fn full_domain_timestamp_stream_failures_release_owners_and_preserve_previous_output() {

@@ -76,6 +76,18 @@ impl MemoryBatchSourceBuilder {
         self.session.float_policy()
     }
 
+    /// Validate an explicitly supplied byte handle without reading its payload.
+    /// # Errors
+    /// Rejects another owner's handle, changed backing or cancellation.
+    #[cfg(feature = "native-binary-objects")]
+    pub fn validate_binary_object(
+        &self,
+        object: &crate::binary_object::BinaryObject,
+    ) -> Result<()> {
+        self.cancellation.check()?;
+        object.validate_owner(&self.session)
+    }
+
     /// Interpret the same pinned native field declarations used by object and
     /// batch inputs as an explicit Arrow construction boundary. Only schema
     /// metadata crosses JSON; values are constructed directly by the adapter.

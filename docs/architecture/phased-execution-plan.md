@@ -251,17 +251,26 @@ the ledger.
 
 Current autonomous execution order:
 
-**November 5 rich-data first delivery locally accepted.** Item 19's
+**November 5 rich-data first delivery accepted and merged in #1658.** Item 19's
 [dense embedding and inline rich-column contract](native-dense-embedding-lifecycle-2026-11-05.md)
 adds versioned identity over native fixed-size Float32/Float64 lists and carries
 it through existing selection, relational, spill and result owners. The
 [user guide](../reference/rich-columns.md) defines the admitted formats and
 payload-only boundary. The complete mixed lifecycle, resource/refusal controls
-and 312 installed-package tests pass locally; hosted checks and review gate
-integration. Managed objects, tensors,
+and 312 installed-package tests pass locally. Managed objects, tensors,
 lower precision, exact vector operations and resource-backed traversal beyond
 current nesting limits remain separate item 19 obligations. Item 20, RFC 0044
 and CG-1 through CG-23 retain their independent status.
+
+**November 6 managed binary objects are locally accepted; integration is pending.** The
+[local ownership and persistence contract](native-managed-binary-objects-2026-11-06.md)
+verifies lazy range reads, managed versus external ownership, one-file native
+export, retained results/Arrow views, and failure-safe cleanup. Native/default
+workspace tests pass 6,937/3,319 cases; the installed package passes all 319
+tests without skips, including portable writes through all five interfaces.
+Original failures and the final source/runtime identities remain preserved.
+Hosted review and integration precede tensor metadata. This does not complete
+item 19 or authorize package publication or a performance claim.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

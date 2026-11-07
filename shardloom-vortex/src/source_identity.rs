@@ -54,6 +54,32 @@ pub struct SourceIdentity {
 }
 
 impl SourceIdentity {
+    /// Bind an explicit external byte-range descriptor to this captured local
+    /// generation. This is metadata identity, not a content checksum.
+    #[cfg(all(feature = "native-binary-objects", unix))]
+    pub(crate) fn generation_fingerprint(&self) -> [u8; 32] {
+        use sha2::{Digest as _, Sha256};
+        let mut hash = Sha256::new();
+        hash.update(b"shardloom.local-file-generation.v1\0");
+        hash.update(self.generation.device.to_le_bytes());
+        hash.update(self.generation.inode.to_le_bytes());
+        hash.update(self.generation.len.to_le_bytes());
+        let modified = match self
+            .generation
+            .modified
+            .duration_since(SystemTime::UNIX_EPOCH)
+        {
+            Ok(value) => i128::try_from(value.as_nanos()).expect("system time fits i128"),
+            Err(value) => {
+                -i128::try_from(value.duration().as_nanos()).expect("system time fits i128")
+            }
+        };
+        hash.update(modified.to_le_bytes());
+        hash.update(self.generation.changed.0.to_le_bytes());
+        hash.update(self.generation.changed.1.to_le_bytes());
+        hash.finalize().into()
+    }
+
     #[cfg(feature = "universal-format-io")]
     pub(crate) fn path(&self) -> &std::path::Path {
         &self.path

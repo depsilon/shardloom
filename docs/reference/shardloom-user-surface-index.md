@@ -44,10 +44,19 @@ values with `to_rows()`, or inspect its typed `details`. Use
 Python-row conversion. `iter_batches()` supports close/cancel and reports final
 completion only after full drain. Writes return the actual writer receipt.
 
+[Managed binary objects](rich-columns.md#managed-binary-objects) use
+`ctx.binary_object`, `ctx.binary_object_store`, `ctx.external_binary_object` and
+`ctx.import_binary_object`, with `types.binary_object()` as the declaration.
+Handles expose ownership and byte length; `read()` and `read_range(start, end)`
+retrieve bytes explicitly. Native Vortex output includes selected managed bytes
+in one file. External references retain their external ownership. This is a
+source-native Linux/macOS capability; the guide defines retained-owner, Arrow
+and compatibility-output boundaries.
+
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `9ddf10b25df6feeeff3483984e4d75a8173ea64eddfcbeb09212bb84018245e0` (SHA-256 of the listed source inputs).
+Source identity: `50d97899c2a26738c6f54d7f05a177ed4489978524949b1f68a4b74122480923` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -289,6 +298,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.boolean`](../../python/src/shardloom/types.py) | function | Declare boolean metadata for the native binder. |
 | [`shardloom.types.string`](../../python/src/shardloom/types.py) | function | Declare string metadata for the native binder. |
 | [`shardloom.types.binary`](../../python/src/shardloom/types.py) | function | Declare binary metadata for the native binder. |
+| [`shardloom.types.binary_object`](../../python/src/shardloom/types.py) | function | Declare a managed or explicitly external object carried by native handles. |
 | [`shardloom.types.date32`](../../python/src/shardloom/types.py) | function | Declare date32 metadata for the native binder. |
 | [`shardloom.types.date64`](../../python/src/shardloom/types.py) | function | Whole epoch days stored as signed millisecond ticks. |
 | [`shardloom.types.time`](../../python/src/shardloom/types.py) | function | Time of day in s, ms, us or ns, without timezone inference. |

@@ -26,6 +26,13 @@ fn failed(reason: &str) -> ShardLoomError {
 }
 
 pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()> {
+    #[cfg(feature = "native-binary-objects")]
+    if crate::native_binary_type::contains(dtype) {
+        return Err(crate::binary_object::error(
+            "OUTPUT",
+            "text output cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
+        ));
+    }
     if crate::native_embedding::contains(dtype) {
         return Err(failed(
             "text output cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",

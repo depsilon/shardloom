@@ -340,22 +340,43 @@ impl NativeExecutionContext<'_> {
                     .map_err(|error| vortex_err!("{error}"))?,
             ),
         });
-        let file = self
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let footer = crate::binary_object::catalog::read_footer(Arc::clone(&identity), self)
+            .map_err(|error| vortex_err!("{error}"))?;
+        let options = self
             .owner
             .session
             .open_options()
             .with_coalescing_amplification_limit(super::COALESCING_AMPLIFICATION_LIMIT)
-            .with_layout_reader_cache()
-            .open(input)
-            .await?;
+            .with_layout_reader_cache();
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let options = options.with_footer(footer);
+        let file = options.open(input).await?;
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let objects = crate::binary_object::catalog::prepare(&file, &identity, self)
+            .map_err(|error| vortex_err!("{error}"))?;
         self.check_cancelled()
             .map_err(|error| vortex_err!("{error}"))?;
         identity
             .validate()
             .map_err(|error| vortex_err!("{error}"))?;
-        self.file_view(&file, Some(&identity))
+        let view = self
+            .file_view(&file, Some(&identity))
             .map(Cow::into_owned)
-            .map_err(|error| vortex_err!("{error}"))
+            .map_err(|error| vortex_err!("{error}"))?;
+        drop(file);
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        {
+            // Metadata reads completed synchronously. Keep this I/O scope live
+            // for the following table scan; the caller owns the final drain.
+            identity
+                .validate()
+                .map_err(|error| vortex_err!("{error}"))?;
+            crate::binary_object::Arena::get(self.native_session())
+                .and_then(|arena| arena.insert_batch(objects.value(), self.cancellation()))
+                .map_err(|error| vortex_err!("{error}"))?;
+        }
+        Ok(view)
     }
 
     pub(crate) fn finish_opened_sources(&self) -> Result<()> {
