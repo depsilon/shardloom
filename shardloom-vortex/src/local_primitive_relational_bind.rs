@@ -919,6 +919,11 @@ fn validate_payload(dtype: &DType) -> Result<()> {
 }
 
 fn validate_key(dtype: &DType) -> Result<()> {
+    if crate::native_tensor::contains(dtype) {
+        return Err(failed(
+            "tensor values are payload-only; compare, group, order or join on ordinary columns",
+        ));
+    }
     if crate::native_embedding::contains(dtype) {
         return Err(failed(
             "embedding values are payload-only; compare, group, order or join on ordinary columns",

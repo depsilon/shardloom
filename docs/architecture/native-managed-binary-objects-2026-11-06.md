@@ -2,13 +2,15 @@
 
 # Managed binary objects in native data workflows
 
-Status: locally accepted for item 19, step 2, following the accepted
+Status: accepted and merged in [#1659](https://github.com/depsilon/shardloom/pull/1659)
+as `08175079b050b2a618978884b4fdceaaf29f00d4`, for item 19, step 2, following the accepted
 [dense embedding delivery](native-dense-embedding-lifecycle-2026-11-05.md).
 The [acceptance record](../release/evidence/native-managed-binary-objects-2026-11-06.json)
 binds the original source, checks and installed package. The
 [surface follow-up](../release/evidence/native-managed-binary-surface-followup-2026-11-06.json)
-binds the corrected Python capability metadata and replacement wheel. Hosted
-integration is pending; local acceptance does not claim publication.
+binds the corrected Python capability metadata and replacement wheel. All 58
+final-head PR checks and 55 required main checks pass, with no review findings.
+Generated-artifact retirement is complete; acceptance does not claim publication.
 The remaining tensor, representation and vector-expression work keeps its
 order in the [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 CG-1 through CG-23 retain their independent obligations.
@@ -297,3 +299,13 @@ registry connection reset occurred before compilation. GitHub refused a retry
 while the workflow was active; the corrected revision receives new hosted
 checks. This network observation and the metadata failure are separate, and
 neither is counted as a passing hosted check.
+
+The corrected head `56902a0f6fece3e53cb42599c478d480e25188dd` subsequently
+passed all 58 PR checks and merged as `08175079b050b2a618978884b4fdceaaf29f00d4`.
+All 55 required main checks passed at that exact signed merge. The additional
+Dependabot workflow was verified separately against its commit and check suite.
+After acceptance, 29,312 obsolete regular files and nine environment links were
+retired with exact identities and closed-handle checks. The accepted runtime,
+wheel, current inputs and compact evidence were retained at that closeout;
+later accepted deliveries may replace the runtime and wheel under the same
+retention policy. Original failed observations remain unchanged.

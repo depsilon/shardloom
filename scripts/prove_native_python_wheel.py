@@ -56,7 +56,7 @@ import json, pathlib, sys, unittest
 patterns = ("test_native*binding.py", "test_connected_programming.py",
             "test_native_function_catalog.py", "test_native_observations.py",
             "test_native_standard_adapters.py", "test_query_surface_native.py",
-            "test_recursion_policy.py")
+            "test_recursion_policy.py", "test_public_context.py")
 suite = unittest.TestSuite()
 for pattern in patterns:
     selected = unittest.defaultTestLoader.discover(sys.argv[1], pattern=pattern)
@@ -99,7 +99,8 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
                         "current_host_native_wheel_install_and_binding_integration"),
               "installation_performed": False}
     env = dict(os.environ, PYTHONNOUSERSITE="1", PYTHONDONTWRITEBYTECODE="1",
-               PIP_DISABLE_PIP_VERSION_CHECK="1", SHARDLOOM_REQUIRE_NATIVE_PYTHON="1")
+               PIP_DISABLE_PIP_VERSION_CHECK="1", SHARDLOOM_REQUIRE_NATIVE_PYTHON="1",
+               SHARDLOOM_TEST_INSTALLED_QUICKSTART="1")
     for key in ("PYTHONPATH", "PYTHONHOME", "SHARDLOOM_NATIVE_TEST_LIBRARY", "SHARDLOOM_BIN",
                 "SHARDLOOM_SURFACE_TEST_BINARY",
                 "SHARDLOOM_REPO_ROOT", "SHARDLOOM_PROFILE_ORDER", "SHARDLOOM_WHEEL_PLAT_NAME"):

@@ -508,12 +508,15 @@ def _batch_schema(fields):
         name = value["type"]
         if name == "decimal128":
             parameters = (value["precision"], value["scale"])
-        elif name in {"list", "fixed_size_list", "embedding"}:
+        elif name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
             parameters = (dtype(value["item"]),)
             if name != "list":
                 parameters += (value["size"],)
             if name == "embedding":
                 from ._embedding import decode_metadata
+                parameters += (decode_metadata(value["metadata"]),)
+            elif name == "fixed_shape_tensor":
+                from ._tensor import decode_metadata
                 parameters += (decode_metadata(value["metadata"]),)
         elif name == "struct":
             parameters = tuple((name, dtype(field)) for name, field in value["fields"])
@@ -555,7 +558,9 @@ class NativeResultBatch:
 
     def to_arrow(self):
         import pyarrow
-        return pyarrow.RecordBatchReader.from_stream(self.native_result).read_all()
+        from ._tensor import restore_arrow_schema
+        table = pyarrow.RecordBatchReader.from_stream(self.native_result).read_all()
+        return restore_arrow_schema(table, self.result_schema, pyarrow)
 
     def to_pandas(self):
         from .query import _result_to_pandas

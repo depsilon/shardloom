@@ -12,6 +12,7 @@ from typing import Mapping, Sequence
 
 from ._result_schema import ResultType
 from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
+from . import _tensor
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
@@ -44,14 +45,27 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     """Inspect one level; ordinary parsing owns recursive depth/node admission."""
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
-    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "decimal128": 2,
+    expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3, "decimal128": 2,
                 "binary_object": 0}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
     ):
         raise ValueError("ResultType has invalid parameters")
     value: dict[str, object] = {"type": dtype.name, "nullable": dtype.nullable}
-    if dtype.name in {"list", "fixed_size_list", "embedding"}:
+    if dtype.name == "fixed_shape_tensor":
+        metadata = dtype.parameters[2]
+        if (not isinstance(metadata, tuple) or any(not isinstance(pair, tuple) or len(pair) != 2
+                or not isinstance(pair[1], tuple) for pair in metadata)):
+            raise ValueError("ResultType tensor requires immutable metadata pairs and arrays")
+        fields = dict(metadata)
+        if len(fields) != len(metadata):
+            raise ValueError("duplicate tensor metadata field")
+        normalized = _tensor.normalize_metadata(fields)
+        if type(dtype.parameters[1]) is not int or dtype.parameters[1] != _tensor.shape_size(fields["shape"]):
+            raise ValueError("tensor storage width differs from its shape product")
+        value.update(dict(normalized))
+        value["item"] = dtype.parameters[0]
+    elif dtype.name in {"list", "fixed_size_list", "embedding"}:
         value["item"] = dtype.parameters[0]
         if dtype.name != "list":
             value["size"] = dtype.parameters[1]
@@ -98,18 +112,33 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
     if type(nullable) is not bool:
         raise TypeError("native input nullable must be a bool")
     allowed = {"type", "nullable"}
-    if token in {"list", "fixed_size_list", "embedding"}:
+    if token in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
         allowed.add("item")
     if token in {"fixed_size_list", "embedding"}:
         allowed.add("size")
     if token == "embedding":
         allowed.add("metadata")
+    if token == "fixed_shape_tensor":
+        allowed.update(("shape", "dim_names", "permutation"))
     if token == "struct":
         allowed.add("fields")
     if set(parameters) - allowed:
         raise ValueError("unknown native input type parameters")
     if temporal is not None or token in _PRIMITIVES | {"bool", "utf8", "binary", "binary_object"}:
         return ResultType(token, nullable)
+    if token == "fixed_shape_tensor":
+        if "item" not in parameters:
+            raise ValueError("tensor input requires an item type")
+        child = _parse_type(parameters["item"], depth + 1, budget)
+        if child.name not in _tensor.ELEMENT_TYPES:
+            raise ValueError("tensor elements require Boolean, integer, Float32 or Float64")
+        metadata = _tensor.normalize_metadata({key: parameters[key]
+            for key in ("shape", "dim_names", "permutation") if key in parameters})
+        budget[1] += 128 * len(_tensor.metadata_json(metadata).encode("utf-8"))
+        if budget[1] > _MAX_BYTES:
+            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        size = _tensor.shape_size(dict(metadata)["shape"])
+        return ResultType(token, nullable, (child, size, metadata))
     if match := re.fullmatch(r"decimal128\(([0-9]+),\s*([0-9]+)\)", token):
         # Bound text before integer conversion, including hostile giant digits.
         if any(len(part) > 2 for part in match.groups()):
@@ -168,6 +197,13 @@ def wire_schema(fields: Sequence[tuple[str, ResultType]]) -> tuple[tuple[str, ob
 
 def _wire_type(dtype: ResultType) -> object:
     name, nullable = dtype.name, dtype.nullable
+    if name == "fixed_shape_tensor":
+        return {"Extension": {
+            "id": _tensor.EXTENSION_ID,
+            "metadata": list(_tensor.metadata_json(dtype.parameters[2]).encode("utf-8")),
+            "storage_dtype": {"FixedSizeList": [
+                _wire_type(dtype.parameters[0]), dtype.parameters[1], nullable]},
+        }}
     if name == "embedding":
         return {"Extension": {
             "id": EXTENSION_ID,
@@ -306,7 +342,7 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         return _decimal(value, dtype)
     if temporal_parts(name) is not None:
         return temporal_input_value(name, value)
-    if name in {"list", "fixed_size_list", "embedding"}:
+    if name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
         if isinstance(value, (str, bytes, bytearray, memoryview)) or not isinstance(value, Sequence):
             raise TypeError("native list input requires a sequence")
         if name != "list" and len(value) != dtype.parameters[1]:

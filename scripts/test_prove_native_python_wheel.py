@@ -17,7 +17,7 @@ class IntegrationSelectionTests(unittest.TestCase):
     def test_installed_proof_requires_connected_and_independent_client_suites(self):
         names = ("test_native_binding", "test_connected_programming", "test_native_function_catalog",
                  "test_native_observations", "test_native_standard_adapters", "test_query_surface_native",
-                 "test_recursion_policy")
+                 "test_recursion_policy", "test_public_context")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in names:
@@ -29,16 +29,21 @@ class IntegrationSelectionTests(unittest.TestCase):
             result = subprocess.run(command, text=True, capture_output=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(report.read_text())["tests"], len(names))
-            adapter = root / "test_native_standard_adapters.py"
-            adapter.write_text("import unittest\nclass Check(unittest.TestCase):\n"
-                "    @unittest.skip('missing optional client')\n    def test_loaded(self): pass\n")
-            result = subprocess.run(command, text=True, capture_output=True, check=False)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(json.loads(report.read_text())["status"], "failed")
-            adapter.unlink()
-            result = subprocess.run(command, text=True, capture_output=True, check=False)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("required native integration suite is absent", result.stderr)
+            for name in ("test_native_standard_adapters", "test_public_context"):
+                with self.subTest(required_suite=name):
+                    required = root / (name + ".py")
+                    original = required.read_text()
+                    required.write_text("import unittest\nclass Check(unittest.TestCase):\n"
+                        "    @unittest.skip('missing required coverage')\n    def test_loaded(self): pass\n")
+                    result = subprocess.run(command, text=True, capture_output=True, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(json.loads(report.read_text())["status"], "failed")
+                    required.unlink()
+                    result = subprocess.run(command, text=True, capture_output=True, check=False)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("required native integration suite is absent: " + name + ".py",
+                                  result.stderr)
+                    required.write_text(original)
 
 
 class WheelReuseTests(unittest.TestCase):

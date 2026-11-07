@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Dense vectors, embeddings and binary objects
+# Dense vectors, embeddings, tensors and binary objects
 
 This capability is in current source builds after 1.1.0. It is not included in
 the published 1.1.0 wheels. Use a matching native Python source build.
@@ -9,6 +9,7 @@ Files containing embeddings require a reader that registers
 Managed binary objects additionally require `shardloom.binary-object.v1` and
 the matching native object layout. The `native-binary-objects` feature is part
 of the native Python and release user-surface build.
+Fixed-shape tensors require a reader that registers `shardloom.fixed_shape_tensor.v1`.
 
 Store supplied dense Float32/Float64 vectors, inline bytes and nested values
 alongside ordinary columns. An embedding adds caller-supplied identity to a
@@ -121,7 +122,7 @@ null vector parents, and all nullable rows through Arrow IPC.
 
 This delivery carries rich payloads through projection, ordinary-column filters,
 joins, bounded input/output, native spill, write and reopen. It does not admit
-embedding values as comparison keys or vector arithmetic operands. Tensors,
+embedding or tensor values as comparison keys or arithmetic operands. Variable-shape tensors,
 Float16/sparse/quantized representations and exact
 vector functions remain in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
 Existing nested-schema depth/node/metadata limits remain; replacing them requires
@@ -129,6 +130,51 @@ the separately tracked resource-backed traversal work, not removal of checks.
 
 See the [implementation and acceptance contract](../architecture/native-dense-embedding-lifecycle-2026-11-05.md)
 for the native provider, ownership and verification boundaries.
+
+## Fixed-shape tensors
+
+Declare tensor shape with `t.fixed_shape_tensor`. Supply each value as a flat
+list in physical row-major order:
+
+```python
+from shardloom import types as t
+
+tensor_type = t.fixed_shape_tensor(
+    t.float32(nullable=False), [2, 3],
+    dim_names=["height", "width"], permutation=[1, 0], nullable=True,
+)
+# In an ordinary from_rows schema: {"id": t.int64(), "tensor": tensor_type}
+# Example tensor values: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0] or None.
+```
+
+`shape` and `dim_names` describe physical storage. Logical dimension `i` refers
+to physical dimension `permutation[i]`; the example has logical shape `[3, 2]`.
+Omitting `permutation` means the same physical and logical dimension order.
+The declaration never transposes values. Names retain their exact strings.
+The component and whole-tensor `nullable` flags remain independent.
+
+Elements may be Boolean, signed/unsigned 8/16/32/64-bit integers, Float32 or
+Float64. Shape dimensions are nonnegative int64 values; their checked product
+must fit the native uint32 list width. Arrow additionally requires a signed
+32-bit list width. Shape `[]` denotes one scalar element, supplied as `[value]`;
+a zero dimension denotes an empty tensor, supplied as `[]`, distinct from null.
+Float policy and JSON number rules are the same as for vectors above.
+
+Native results and files retain shape, optional names/permutation, element type
+and nullability through selection, ordinary-key joins, streaming and spill.
+Arrow IPC and Parquet use the canonical `arrow.fixed_shape_tensor` extension;
+text, Avro and ORC file writers refuse tensor columns before publication.
+Use `result.to_arrow()` or `batch.to_arrow()` for exact Python schema delivery.
+These helpers retain physical Arrow fields with canonical extension metadata:
+PyArrow's built-in tensor reader otherwise makes component fields nullable and
+normalizes supplied empty optional arrays. Direct third-party C-stream consumers
+apply their own extension rules. PyArrow 25.0.1 also rejects a shape when an
+intermediate dimension product overflows int64 before a later zero dimension;
+native storage accepts the valid zero-element tensor and Vortex remains available.
+
+Variable shapes and tensor arithmetic remain separate work. The
+[fixed tensor contract](../architecture/native-fixed-tensor-lifecycle-2026-11-07.md)
+records the representation, provider decision and verification requirements.
 
 ## Managed binary objects
 

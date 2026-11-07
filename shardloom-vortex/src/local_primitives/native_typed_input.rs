@@ -81,7 +81,9 @@ fn construct(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     match dtype {
-        DType::Extension(extension) if crate::native_embedding::storage(dtype).is_some() => {
+        DType::Extension(extension)
+            if crate::native_extensions::list_payload_storage(dtype).is_some() =>
+        {
             let storage = construct(extension.storage_dtype(), cells, memory, allocator)?;
             ExtensionArray::try_new(extension.clone(), storage)
                 .map(vortex::array::IntoArray::into_array)

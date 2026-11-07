@@ -66,6 +66,13 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     {
         crate::native_embedding::register_dtype(&child);
     }
+    if child
+        .dtypes()
+        .registry()
+        .contains_key(&crate::native_tensor::FixedShapeTensor::default().id())
+    {
+        crate::native_tensor::register_dtype(&child);
+    }
     child
 }
 
@@ -91,6 +98,50 @@ mod tests {
             session::RuntimeSessionExt as _,
         },
     };
+
+    #[test]
+    fn fixed_tensor_spill_metadata_uses_receiving_pool_and_preserves_identity() {
+        use vortex::array::dtype::{
+            DType, PType, extension::ExtVTable as _, session::DTypeSessionExt as _,
+        };
+        let parent_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let parent = VortexSession::default().with_host_allocator(Arc::new(
+            crate::owned_buffers::ReservedHostAllocator::new(parent_pool.clone()),
+        ));
+        crate::native_tensor::register(&parent);
+        let child_pool = LiveMemoryPool::new(64 << 10).unwrap();
+        let child = with_memory(&parent, child_pool.clone());
+        let id = crate::native_tensor::FixedShapeTensor::default().id();
+        let storage = DType::FixedSizeList(
+            DType::Primitive(PType::F32, true.into()).into(),
+            6,
+            true.into(),
+        );
+        let raw = br#"{"permutation":[1,0],"shape":[2,3]}"#;
+        let received = child
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(raw, storage.clone())
+            .unwrap();
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        let original = parent
+            .dtypes()
+            .registry()
+            .get(&id)
+            .unwrap()
+            .deserialize(raw, storage)
+            .unwrap();
+        assert_eq!(received, original);
+        let clone = received.clone();
+        drop((received, child, original, parent));
+        assert_eq!(parent_pool.snapshot().reserved_bytes, 0);
+        assert!(child_pool.snapshot().reserved_bytes > 0);
+        drop(clone);
+        assert_eq!(child_pool.snapshot().reserved_bytes, 0);
+    }
 
     #[test]
     fn dense_embedding_spill_metadata_reserves_only_the_receiving_pool() {

@@ -40,6 +40,7 @@ __all__ = (
     "list_",
     "fixed_size_list",
     "embedding",
+    "fixed_shape_tensor",
     "struct",
     "scalar",
 )
@@ -188,3 +189,23 @@ def embedding(item: object, size: int, *, metadata: Mapping[str, object] | None 
 
 def struct(fields: Mapping[str, object], *, nullable: bool = True) -> ResultType:
     return _type({"type": "struct", "fields": fields, "nullable": nullable})
+
+
+def fixed_shape_tensor(item: object, shape: list[int] | tuple[int, ...], *,
+                       dim_names: list[str] | tuple[str, ...] | None = None,
+                       permutation: list[int] | tuple[int, ...] | None = None,
+                       nullable: bool = True) -> ResultType:
+    """Declare flat physical-order tensor values with a checked fixed shape.
+
+    Shape and names describe physical row-major dimensions. Logical dimension i
+    refers to physical dimension permutation[i]; absent permutation is identity.
+    Component nullability comes from item; nullable controls the whole tensor.
+    Rank zero contains one value and a zero-sized dimension contains no values.
+    """
+    declaration = {"type": "fixed_shape_tensor", "item": item, "shape": shape,
+                   "nullable": nullable}
+    if dim_names is not None:
+        declaration["dim_names"] = dim_names
+    if permutation is not None:
+        declaration["permutation"] = permutation
+    return _type(declaration)

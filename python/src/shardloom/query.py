@@ -13584,7 +13584,9 @@ def _result_to_pandas(report: Result, pandas: object) -> object:
 
 def _result_to_arrow_table(report: Result, pyarrow: object) -> object:
     if getattr(report, "native_result", None) is not None:
-        return pyarrow.RecordBatchReader.from_stream(report.native_result).read_all()
+        from ._tensor import restore_arrow_schema
+        table = pyarrow.RecordBatchReader.from_stream(report.native_result).read_all()
+        return restore_arrow_schema(table, report.result_schema, pyarrow)
     return arrow_table(report.result_rows, report.result_schema, pyarrow)
 
 

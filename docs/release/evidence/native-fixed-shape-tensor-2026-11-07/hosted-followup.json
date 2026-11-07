@@ -1,0 +1,104 @@
+{
+  "status": "local_fixture_correction_passed",
+  "original_head": "28098a758e81cdeedbb62cd384d4a1bb7e2f5deb",
+  "original_failed_pr": "https://github.com/depsilon/shardloom/pull/1661",
+  "original_failed_jobs": [
+    128370598824,
+    128370598794
+  ],
+  "cause": "The isolated suite-selection test fixture omitted the newly required public-context suite. Both Linux wheel jobs stopped at this harness test before package integration.",
+  "correction": "Add the public-context fixture and verify both missing and skipped context/adapter suites remain fatal. No production or package-proof selection code changes.",
+  "source_path": "scripts/test_prove_native_python_wheel.py",
+  "source_before": {
+    "bytes": 7705,
+    "sha256": "bd63765b63cd8c88d1f01436b716d10486a26602adc475b827028880d2b858e0"
+  },
+  "source_after": {
+    "bytes": 8084,
+    "sha256": "4116279e6b9674cb166bcc262aafa0179be1dd9227b75a1bb9423015f89822e0"
+  },
+  "runtime_sources_changed": false,
+  "installed_wheel_rebuilt": false,
+  "local_harness_tests": 19,
+  "negative_cases": [
+    "missing adapter suite",
+    "skipped adapter suite",
+    "missing public-context suite",
+    "skipped public-context suite"
+  ],
+  "original_packet": {
+    "acceptance.json": {
+      "bytes": 61528,
+      "sha256": "4cff6ed1f8eb4d741093b8eb494dc2c97b131f943af805d02be97a5bd8e5b957"
+    },
+    "verification.tar.xz": {
+      "bytes": 3447000,
+      "sha256": "267939b4cbe1851b5eba2eaea6502647fa63e292f1ed5110b5eb07a05c1200a5"
+    },
+    "verify.py": {
+      "bytes": 16794,
+      "sha256": "5bdfa2f0d6088993800ef546ad0e03932c95d5e0df0fd1ce267bf632220f65c8"
+    }
+  },
+  "verifier": {
+    "bytes": 4694,
+    "sha256": "d7a9e7e9beda434b76dd26f09b2bdc949645c9287230692fdb4358c729129c62"
+  },
+  "archive": {
+    "bytes": 18188,
+    "sha256": "e376b77caff88b31764ceed1f4d8bf913a15bba36b94bf9794a02aac5c28ec6c"
+  },
+  "members": [
+    {
+      "path": "pr1661-job-128370598794-r1.log",
+      "bytes": 47171,
+      "sha256": "b80e16d9a6d77e363dc17a26c46627528e131cc227bc853d85e3f097a48a97c0"
+    },
+    {
+      "path": "pr1661-job-128370598824-r1.log",
+      "bytes": 46695,
+      "sha256": "401c12e43a9ef93025c3ce50ca4e4f4ccf62ed30135def5d007fb099c7c2e870"
+    },
+    {
+      "path": "seal_wheel_harness_followup.py",
+      "bytes": 3471,
+      "sha256": "a52011a8333ba6bae7663c69a77df0d0af9f71fbe6b8dea8afe392b97fa81f77"
+    },
+    {
+      "path": "source-after.py",
+      "bytes": 8084,
+      "sha256": "4116279e6b9674cb166bcc262aafa0179be1dd9227b75a1bb9423015f89822e0"
+    },
+    {
+      "path": "source-before.py",
+      "bytes": 7705,
+      "sha256": "bd63765b63cd8c88d1f01436b716d10486a26602adc475b827028880d2b858e0"
+    },
+    {
+      "path": "tensor-pr1661-r1.json",
+      "bytes": 18844,
+      "sha256": "8939122e12f8b5592c7d190d2012a0834e576f6ea6869960d37c3efe27afa3bd"
+    },
+    {
+      "path": "wheel-harness-regression-r1.json",
+      "bytes": 2172,
+      "sha256": "7f49a305f56aec30c52afd91876e5f8d0add9eb773aa9a37efec41b076a11e94"
+    },
+    {
+      "path": "wheel-harness-regression-r1.log",
+      "bytes": 4655,
+      "sha256": "e13fd38f9719b2f48fab67609cdacb5e2d29bdb2a7558516c4a43f2cdfbd9542"
+    },
+    {
+      "path": "wheel-harness-regression-r2.json",
+      "bytes": 2382,
+      "sha256": "b76faa043490eab0f3a1f94c51dfadb33f24196aec68f8791d9e4f46de69ba35"
+    },
+    {
+      "path": "wheel-harness-regression-r2.log",
+      "bytes": 3663,
+      "sha256": "ad9a786633a77632faf956fc7c92616d0a6dc9950eae7139cb82f170e21c983c"
+    }
+  ],
+  "validation_scope": "Existing 350-test installed proof and all runtime checks remain valid for unchanged sources; hosted validation must run on the corrected head. This report does not claim that hosted validation passed."
+}
