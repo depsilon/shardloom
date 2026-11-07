@@ -157,3 +157,13 @@ checks and skipped installed tests whose archive hashes were recomputed. Origina
 failed attempts and their corrections remain visible. Hosted review, integration
 and post-merge retirement remain pending; this acceptance does not complete
 item 19 or establish a performance result.
+
+The first hosted Linux wheel jobs stopped in the package checker's isolated
+test fixture: it lacked the newly required public-context suite. The
+[hosted follow-up](../release/evidence/native-fixed-shape-tensor-2026-11-07/hosted-followup.json)
+preserves both full job logs, a local reproduction and the corrected 19-test
+harness pass. The fixture now includes context coverage and checks that missing
+or skipped context/adapter suites remain fatal. Runtime and package contents
+are unchanged; the original 350-test installed proof still applies. Hosted
+validation of the corrected head remains required. Replay this supplement with
+`python3 docs/release/evidence/native-fixed-shape-tensor-2026-11-07/verify_hosted_followup.py --repo-root .`.
