@@ -157,6 +157,11 @@ pub struct ResidentSessionSnapshot {
 }
 
 impl ResidentVortexSession {
+    #[cfg(all(feature = "native-binary-objects", unix))]
+    pub(crate) fn binary_object_arena(&self) -> Result<crate::binary_object::Arena> {
+        crate::binary_object::Arena::get(&self.0.session)
+    }
+
     /// Immutable semantics shared by this owner's prepared plans and results.
     #[must_use]
     pub fn float_policy(&self) -> FloatPolicy {
@@ -645,6 +650,8 @@ impl ResidentVortexSession {
             .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
         crate::native_provider_memory::install(&session, memory.clone());
         crate::native_extensions::register(&session);
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        crate::binary_object::Arena::install(&session, memory.clone())?;
         Ok(Self(Arc::new(RuntimeOwner {
             session,
             float_policy,
@@ -712,22 +719,30 @@ impl ResidentVortexSession {
             context.cpu_lanes(),
             context.io_scope(),
         );
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let footer = crate::binary_object::catalog::read_footer(Arc::clone(&identity), &context)?;
+        let options = self
+            .0
+            .session
+            .open_options()
+            .with_coalescing_amplification_limit(COALESCING_AMPLIFICATION_LIMIT)
+            .with_layout_reader_cache();
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let options = options.with_footer(footer);
         let file = self
             .0
             .runtime
-            .block_on(
-                self.0
-                    .session
-                    .open_options()
-                    .with_coalescing_amplification_limit(COALESCING_AMPLIFICATION_LIMIT)
-                    .with_layout_reader_cache()
-                    .open(input),
-            )
+            .block_on(options.open(input))
             .map_err(native_error)?;
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        let objects = crate::binary_object::catalog::prepare(&file, &identity, &context)?;
         context.drain_io();
         context.check_cancelled()?;
         identity.validate()?;
         cancellation.check()?;
+        #[cfg(all(feature = "native-binary-objects", unix))]
+        self.binary_object_arena()?
+            .insert_batch(objects.value(), cancellation)?;
         self.0.opens.fetch_add(1, Ordering::Relaxed);
         Ok(PreparedVortexSource(Arc::new(PreparedSourceOwner {
             file,

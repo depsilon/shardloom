@@ -11856,6 +11856,48 @@ class ShardLoomContext:
         return from_result(result, client=self.client, engine_mode=self.engine,
                            resources=allocation, resource_limits=self.resource_limits)
 
+    def binary_object(self, data: bytes, *, resources: ExecutionResources | None = None):
+        """Copy bytes into a managed native object with lazy explicit reads."""
+        return self._binary_object_call("binary_object", data, resources=resources)
+
+    def external_binary_object(
+        self, path: str | os.PathLike[str], *, start: int, end: int,
+        resources: ExecutionResources | None = None,
+    ):
+        """Reference [start, end) in a caller-owned local file without copying it."""
+        return self._binary_object_call("external_binary_object", path, start, end, resources=resources)
+
+    def binary_object_store(
+        self, directory: str | os.PathLike[str], *, max_bytes: int,
+        resources: ExecutionResources | None = None,
+    ):
+        """Create private temporary object storage with an explicit byte ceiling.
+
+        The existing parent directory remains caller-owned. Managed files are
+        retained by their session, results and readers until their final owner.
+        """
+        return self._binary_object_call("binary_object_store", directory, max_bytes, resources=resources)
+
+    def import_binary_object(self, value: object, *, resources: ExecutionResources | None = None):
+        """Admit another context's actual object owner under this allocation."""
+        return self._binary_object_call("import_binary_object", value, resources=resources)
+
+    def binary_object_snapshot(self, *, resources: ExecutionResources | None = None):
+        """Inspect object ownership and explicit payload-read counters."""
+        return self._binary_object_call("binary_object_snapshot", resources=resources)
+
+    def _binary_object_call(self, method, *args, resources=None):
+        from ._native_backend import _checked_native_call, native_resources
+
+        allocation = resolve_resources(
+            resources=resources, inherited=self.resources, limits=self.resource_limits,
+        )
+        backend = self.client._native_backend_for(allocation)
+        options = {"resources": native_resources(backend.module, allocation)}
+        if method != "binary_object_snapshot":
+            options["timeout"] = backend.timeout
+        return _checked_native_call(getattr(backend.session, method), *args, **options)
+
     def from_rows(
         self, rows: Sequence[Mapping[str, object]], *, schema: Mapping[str, object] | None = None,
         memory_gb: int | None = None,

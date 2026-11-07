@@ -8,6 +8,8 @@ mod aggregate;
 mod application_batch;
 #[path = "batch_input.rs"]
 mod batch_input;
+#[path = "binary_object.rs"]
+mod binary_object;
 #[path = "capsules.rs"]
 mod capsules;
 #[path = "expression.rs"]
@@ -42,6 +44,8 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<resources::NativeResources>()?;
     module.add_class::<session::NativeSession>()?;
     module.add_class::<session::NativeSource>()?;
+    module.add_class::<binary_object::NativeBinaryObject>()?;
+    module.add_class::<binary_object::NativeBinaryObjectStore>()?;
     module.add_class::<plan::NativePlan>()?;
     module.add_class::<application_batch::NativeBatchFunction>()?;
     module.add_class::<application_batch::NativeBatchCall>()?;

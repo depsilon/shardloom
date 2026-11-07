@@ -101,7 +101,7 @@ pub(super) fn is_nested(dtype: &DType) -> bool {
     matches!(
         dtype,
         DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..)
-    ) || crate::native_embedding::storage(dtype).is_some()
+    ) || crate::native_extensions::payload_storage(dtype).is_some()
 }
 
 /// Copy one bounded native payload, retaining schema credits on every child.
@@ -425,7 +425,7 @@ fn copy_rows<const RETAIN: bool>(
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
     if let DType::Extension(extension) = dtype
-        && crate::native_embedding::storage(dtype).is_some()
+        && crate::native_extensions::payload_storage(dtype).is_some()
     {
         let mut execution = context.native_session().create_execution_ctx();
         let storage = source

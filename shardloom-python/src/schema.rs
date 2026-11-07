@@ -32,6 +32,7 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         DataType::Float32 => "float32",
         DataType::Float64 => "float64",
         DataType::Utf8 => "utf8",
+        DataType::Binary if super::binary_object::field_is_object(field) => "binary_object",
         DataType::Binary => "binary",
         DataType::Date32 => "date32",
         DataType::Timestamp(TimeUnit::Microsecond, None) => "timestamp_micros",

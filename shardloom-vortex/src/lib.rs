@@ -125,6 +125,10 @@ mod native_provider_memory;
 pub mod output_window_observation;
 // Session memory configuration is portable; spill I/O keeps its own Unix admission.
 pub mod application_batch;
+#[cfg(all(feature = "native-binary-objects", unix))]
+pub mod binary_object;
+#[cfg(feature = "native-binary-objects")]
+mod native_binary_type;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_embedding;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]

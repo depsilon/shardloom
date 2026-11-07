@@ -5,6 +5,39 @@
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "canonical_human_reference": "docs/reference/shardloom-user-surface-index.md",
+  "native_binary_objects": {
+    "reference": "docs/reference/rich-columns.md#managed-binary-objects",
+    "contract": "docs/architecture/native-managed-binary-objects-2026-11-06.md",
+    "availability": "source_native_linux_macos",
+    "feature": "native-binary-objects",
+    "logical_dtype": "shardloom.binary-object.v1",
+    "schema_declaration": "shardloom.types.binary_object(nullable=True)",
+    "context_constructors": [
+      "binary_object",
+      "binary_object_store",
+      "external_binary_object",
+      "import_binary_object"
+    ],
+    "object_methods": [
+      "read",
+      "read_range"
+    ],
+    "object_properties": [
+      "byte_length",
+      "ownership"
+    ],
+    "store_methods": [
+      "import_file",
+      "put_bytes"
+    ],
+    "observation": "Context.binary_object_snapshot(); BinaryObjectStore.snapshot",
+    "native_persistence": "one Vortex file contains all selected managed bytes; external references remain external",
+    "arrow_boundary": "extension storage is an owned descriptor, not payload bytes; bare descriptors do not transfer ownership",
+    "compatibility_outputs": "explicit inline-byte conversion required; object columns otherwise rejected",
+    "payload_comparison_or_arithmetic": false,
+    "fallback_attempted": false,
+    "external_engine_invoked": false
+  },
   "dynamic_sources": {
     "cli_command_registry_source": "shardloom-cli/src/command_registry.rs",
     "cli_registry_status_doc": "docs/status/cli-command-registry.md",
@@ -1404,7 +1437,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "9ddf10b25df6feeeff3483984e4d75a8173ea64eddfcbeb09212bb84018245e0",
+    "source_identity": "f1920b45bbb16612a15928cf8190eb8e583c61ddfeb1374cbb76d6279da6025c",
     "source_inputs": {
       "Cargo.lock": "cb188ba26d3471d0a03d8085ebb14f9505765659487d83c1e7357cfd254fbc3a",
       "Cargo.toml": "f8ec819c88be75bb87badcafae6ef57925e3a663977c0ee3a020ecaa8bf1591d",
@@ -1413,12 +1446,12 @@
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "a1f06c2dff96704a78ab1785f6ab5f3df90ea43c8c488a344625842080998a51",
+      "python/src/shardloom/_result_schema.py": "e0ee44f471599aaf0df238e473198e5f365762642b67848c2e8dea7596df3c8f",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
       "python/src/shardloom/client.py": "a2d90c758d341693f4031c711f297a1fd084d7e1fb55b93645c1d202d4feda4b",
-      "python/src/shardloom/context.py": "be57d5cac608e4ccf4a0cff88b4a1193b20c17aac60a1cfedbcaab35020d6cba",
+      "python/src/shardloom/context.py": "3cf09e5f772e1ef0c54fcf820e977a25e83ccd1f8e18e6ec32ab0dcb49ee3f38",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
@@ -1429,9 +1462,9 @@
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
-      "python/src/shardloom/types.py": "d35405e9a43a28a172afd37812077a62e156f2246326ebd0b69bceea5d546219",
+      "python/src/shardloom/types.py": "49c7960dc623ccfef37aaae77ede2b8989beed010135a1d1723bc96d2c90964e",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
-      "shardloom-vortex/Cargo.toml": "6be0cf365156234ab5f5e511d3422013ce9fdf72cc10a71240e0204adfc97152"
+      "shardloom-vortex/Cargo.toml": "3a5b9675f959842f223bca45ad1b781306be9c4aa80870b2dfe12fcd9bbea08c"
     },
     "python_symbols": [
       {
@@ -4961,6 +4994,15 @@
         "source": "python/src/shardloom/types.py",
         "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
         "summary": "Declare binary metadata for the native binder."
+      },
+      {
+        "name": "binary_object",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare a managed or explicitly external object carried by native handles."
       },
       {
         "name": "date32",

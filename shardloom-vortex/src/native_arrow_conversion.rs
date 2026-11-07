@@ -18,6 +18,10 @@ use vortex::array::{
 };
 
 pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
+    #[cfg(feature = "native-binary-objects")]
+    if crate::native_binary_type::storage(dtype).is_some() {
+        return crate::native_binary_type::arrow::field(name, dtype).ok();
+    }
     if crate::native_embedding::storage(dtype).is_some() {
         return crate::native_embedding::arrow::field(name, dtype).ok();
     }
@@ -45,6 +49,10 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Bool(_) => DataType::Boolean,
         DType::Utf8(_) => DataType::Utf8,
         DType::Binary(_) => DataType::Binary,
+        #[cfg(feature = "native-binary-objects")]
+        DType::Extension(_) if crate::native_binary_type::storage(dtype).is_some() => {
+            DataType::Binary
+        }
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             DataType::Decimal128(decimal.precision(), decimal.scale())
         }
@@ -223,8 +231,10 @@ pub(crate) fn canonical(
         limits,
     )?;
     match array.dtype() {
-        DType::Extension(_) if crate::native_embedding::storage(array.dtype()).is_some() => {
-            canonical_embedding(array, ctx, limits, expanded)
+        DType::Extension(_)
+            if crate::native_extensions::payload_storage(array.dtype()).is_some() =>
+        {
+            canonical_extension(array, ctx, limits, expanded)
         }
         DType::Struct(_, _) => {
             let structure = array
@@ -285,39 +295,44 @@ pub(crate) fn canonical(
         }
         DType::Utf8(_) | DType::Binary(_) => canonical_text(array, ctx, limits, expanded),
         DType::Bool(_) | DType::Primitive(..) | DType::Decimal(..) | DType::Extension(_) => {
-            let width = match array.dtype() {
-                DType::Bool(_) => 1,
-                DType::Primitive(ptype, _) => ptype.byte_width() as u64,
-                DType::Decimal(decimal, _)
-                    if crate::native_payload_schema::admitted_decimal(*decimal) =>
-                {
-                    16
-                }
-                DType::Extension(_) => {
-                    crate::native_payload_schema::temporal_storage(array.dtype())
-                        .ok_or_else(|| error("unsupported temporal Arrow output dtype"))?
-                        .byte_width() as u64
-                }
-                _ => return Err(error("unsupported fixed-width Arrow output dtype")),
-            };
-            charge(
-                expanded,
-                usize_to_u64(array.len())?
-                    .checked_mul(width)
-                    .ok_or_else(|| error("Arrow expansion overflow"))?,
-                limits,
-            )?;
-            array
-                .clone()
-                .execute::<Columnar>(ctx)
-                .map(IntoArray::into_array)
-                .map_err(vortex_error)
+            canonical_fixed(array, ctx, limits, expanded)
         }
         _ => Err(error("canonical field changed its admitted dtype")),
     }
 }
 
-fn canonical_embedding(
+fn canonical_fixed(
+    array: &ArrayRef,
+    ctx: &mut ExecutionCtx,
+    limits: &ConversionLimits<'_>,
+    expanded: &mut u64,
+) -> Result<ArrayRef> {
+    let width = match array.dtype() {
+        DType::Bool(_) => 1,
+        DType::Primitive(ptype, _) => ptype.byte_width() as u64,
+        DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
+            16
+        }
+        DType::Extension(_) => crate::native_payload_schema::temporal_storage(array.dtype())
+            .ok_or_else(|| error("unsupported temporal Arrow output dtype"))?
+            .byte_width() as u64,
+        _ => return Err(error("unsupported fixed-width Arrow output dtype")),
+    };
+    charge(
+        expanded,
+        usize_to_u64(array.len())?
+            .checked_mul(width)
+            .ok_or_else(|| error("Arrow expansion overflow"))?,
+        limits,
+    )?;
+    array
+        .clone()
+        .execute::<Columnar>(ctx)
+        .map(IntoArray::into_array)
+        .map_err(vortex_error)
+}
+
+fn canonical_extension(
     array: &ArrayRef,
     ctx: &mut ExecutionCtx,
     limits: &ConversionLimits<'_>,

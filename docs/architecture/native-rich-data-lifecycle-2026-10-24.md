@@ -23,6 +23,11 @@ The [November 5 first delivery](native-dense-embedding-lifecycle-2026-11-05.md)
 implements dense Float32/Float64 embedding identity and inline rich payload
 carriage through existing owners. Its acceptance is recorded separately; this
 plan does not claim complete rich-type support.
+The [November 6 managed-binary acceptance](native-managed-binary-objects-2026-11-06.md#november-6-local-acceptance)
+completes step 2's local descriptor, single-file native persistence, lazy reads
+and retained ownership checks. All 319 installed-package tests pass without
+skips, including all five native write interfaces. Hosted review and integration
+are pending; tensor and representation work remains ordered after integration.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.
@@ -132,6 +137,9 @@ measured reads, copies, decoding and materialization, not a list of type names.
    whether it includes bytes, requires a companion bundle or retains external
    references, and complete owned export must reopen after its source is gone.
    Establish the local contract before adding remote storage providers.
+   The [managed-binary local acceptance](native-managed-binary-objects-2026-11-06.md#november-6-local-acceptance)
+   verifies that local contract. Hosted integration remains pending; this
+   acceptance does not close later tensor, representation or expression items.
 3. **Tensor shape and interoperable export.** Preserve element type, shape,
    dimension order/names, nullability and values. Implement fixed-shape first,
    then variable-shape through the same type framework. Validate shape products,

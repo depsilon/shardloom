@@ -42,6 +42,10 @@ const METADATA_BYTES_PER_CHUNK: u64 = 8192;
 #[path = "local_primitive_native_sink_batches.rs"]
 mod batches;
 
+#[cfg(all(test, feature = "native-binary-objects"))]
+#[path = "local_primitive_native_sink_binary_object_tests.rs"]
+mod binary_object_tests;
+
 pub(super) struct NativeSinkPlan {
     pub(super) session: ResidentVortexSession,
     pub(super) source: NativeSinkInput,
@@ -716,6 +720,8 @@ impl NativeSinkPlan {
         let mut adapter_scalars = 0_u64;
         let mut matched_rows_observed = 0_u64;
         let mut stopped_at_limit = false;
+        #[cfg(feature = "native-binary-objects")]
+        let mut object_metadata_bytes = 0_u64;
         self.source.with_native_execution_or_admitted(
             cancellation,
             admitted,
@@ -735,6 +741,9 @@ impl NativeSinkPlan {
                 } else {
                     native_flat_layout::SequentialNativeFlatLayout::strategy(max_chunks)
                 };
+                #[cfg(feature = "native-binary-objects")]
+                let (strategy, objects) =
+                    crate::binary_object::writer::strategy(strategy, &self.dtype, execution)?;
                 let mut writer = super::native_writer::NativeWriter::persisted(
                     session,
                     runtime,
@@ -743,6 +752,10 @@ impl NativeSinkPlan {
                     strategy,
                     statistics,
                 );
+                #[cfg(feature = "native-binary-objects")]
+                if let Some(objects) = &objects {
+                    objects.watch_sink_failure(writer.failure_signal())?;
+                }
                 let mut batches =
                     batches::Batches::new(&self.dtype, self.source.is_produced(), execution)?;
                 let mut submit = |array| {
@@ -761,6 +774,10 @@ impl NativeSinkPlan {
                     native_bytes = native_bytes
                         .checked_add(array.nbytes())
                         .ok_or_else(|| sink_error("native sink logical byte overflow"))?;
+                    #[cfg(feature = "native-binary-objects")]
+                    if let Some(objects) = &objects {
+                        objects.observe(&array, execution)?;
+                    }
                     #[cfg(test)]
                     let started = overlap_timing::clock();
                     writer.push(array).map_err(vortex_error)?;
@@ -815,9 +832,19 @@ impl NativeSinkPlan {
                 batches.flush(execution, &mut submit)?;
                 (adapter_copied_bytes, adapter_scalars) = batches.copy_counts();
                 drop(batches);
+                #[cfg(feature = "native-binary-objects")]
+                if let Some(objects) = &objects {
+                    objects.complete_input();
+                }
                 #[cfg(test)]
                 let started = overlap_timing::clock();
                 let summary = writer.finish().map_err(vortex_error)?;
+                #[cfg(feature = "native-binary-objects")]
+                {
+                    object_metadata_bytes = objects
+                        .as_ref()
+                        .map_or(0, |objects| objects.metadata_bytes());
+                }
                 #[cfg(test)]
                 overlap_timing::record("writer_finish", started);
                 let metadata_bytes = metadata
@@ -826,6 +853,10 @@ impl NativeSinkPlan {
                     .bytes()
                     .checked_add(statistics_bytes)
                     .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?;
+                #[cfg(feature = "native-binary-objects")]
+                let metadata_bytes = metadata_bytes
+                    .checked_add(object_metadata_bytes)
+                    .ok_or_else(|| sink_error("native object footer reservation overflow"))?;
                 if summary.row_count() != rows_written
                     || summary.footer().approx_byte_size().is_none_or(|bytes| {
                         u64::try_from(bytes).unwrap_or(u64::MAX) > metadata_bytes
@@ -861,6 +892,8 @@ impl NativeSinkPlan {
             .lock()
             .map_err(|_| sink_error("metadata owner poisoned"))?
             .bytes();
+        #[cfg(feature = "native-binary-objects")]
+        let metadata_bytes = metadata_bytes.saturating_add(object_metadata_bytes);
         #[cfg(test)]
         overlap_timing::record("checksum_and_commit", started);
         // An unfiltered footer proves the pre-limit count without reading all
@@ -912,7 +945,7 @@ impl NativeSinkPlan {
             source_generation_validated: true,
             dtype_and_row_count_validated: true,
             output_sha256: checksum,
-            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output",
+            metadata_fidelity: "native_dtype_validity_preserved;native_serializer_selects_serializable_encodings;small_produced_fragments_use_bounded_credited_native_batching;source_layout_user_metadata_not_copied;supported_file_statistics_recomputed_from_output;admitted_binary_objects_copy_selected_managed_payloads_once_and_preserve_external_references",
             compatibility: None,
         });
         Ok(VortexLocalPrimitiveRowExportReport {

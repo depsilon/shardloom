@@ -22,7 +22,10 @@ use std::{
 };
 
 enum Event {
-    Batch { ordinal: usize, batch: RecordBatch },
+    Batch {
+        ordinal: usize,
+        batch: NativeColumnarBatch,
+    },
     Finished(Box<PyResult<Completed>>),
 }
 
@@ -79,6 +82,7 @@ pub(super) struct NativeExecutionStream {
 #[pyclass(name = "ColumnarBatch", module = "shardloom._native", frozen)]
 pub(super) struct NativeColumnarBatch {
     pub(super) batch: RecordBatch,
+    owner: super::binary_object::ObjectOwner,
 }
 
 impl NativeExecutionStream {
@@ -145,6 +149,9 @@ impl State {
                         let controller = plan
                             .controller(resources, &cancellation)
                             .map_err(native_error)?;
+                        let object_session = controller.with_resources(
+                            resources, &cancellation, |session, _| Ok(session.clone()),
+                        ).map_err(native_error)?;
                         plan.with_prepared(resources, &cancellation, |operation, reused, input| {
                             #[cfg(feature = "output-window-observation")]
                             let capture = observation_mode.map(|detailed| {
@@ -176,7 +183,10 @@ impl State {
                                 controller.with_consumer_wait(|| {
                                     cancellation.check()?;
                                     outgoing
-                                        .send(Event::Batch { ordinal, batch })
+                                        .send(Event::Batch { ordinal, batch: NativeColumnarBatch {
+                                            batch,
+                                            owner: super::binary_object::ObjectOwner { controller: controller.clone(), resources, session: object_session.clone() },
+                                        } })
                                         .map_err(|_| failed("columnar consumer closed"))?;
                                     #[cfg(feature = "output-window-observation")]
                                     shardloom_vortex::output_window_observation::sent();
@@ -308,7 +318,7 @@ impl State {
                         .next_ordinal
                         .checked_add(1)
                         .ok_or_else(|| native_error(failed("columnar batch ordinal overflowed")))?;
-                    return Ok(Some(NativeColumnarBatch { batch }));
+                    return Ok(Some(batch));
                 }
                 Ok(Event::Finished(outcome)) => {
                     self.closed = true;
@@ -567,6 +577,7 @@ impl NativeColumnarBatch {
         }
         Ok(Self {
             batch: self.batch.slice(offset, length),
+            owner: self.owner.clone(),
         })
     }
 
@@ -604,6 +615,7 @@ impl NativeColumnarBatch {
             temporal_objects,
             wire_values,
             &CancellationToken::default(),
+            &self.owner,
         )?;
         Ok(rows.unbind())
     }

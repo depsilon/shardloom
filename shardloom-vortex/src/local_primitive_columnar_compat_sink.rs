@@ -198,6 +198,13 @@ pub(super) fn prepare_plan(
     if !format.is_compatibility_binary() {
         return Ok(None);
     }
+    #[cfg(feature = "native-binary-objects")]
+    if crate::native_binary_type::contains(&plan.dtype) {
+        return Err(crate::binary_object::error(
+            "OUTPUT",
+            "this output format cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
+        ));
+    }
     if plan.filter.is_none() && plan.limit.is_none() && plan.row_count > limits.source_rows {
         return Err(error(
             "unlimited projection exceeds output row admission; supply an explicit limit",

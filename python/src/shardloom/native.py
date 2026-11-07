@@ -24,6 +24,7 @@ __all__ = [
     "Result", "ColumnarStream", "ExecutionStream", "ColumnarBatch", "col", "lit",
     "AggregateMeasure", "FrameOffset", "WindowFrame", "WindowExpression",
     "BatchFunction", "BatchFunctionContext",
+    "BinaryObject", "BinaryObjectStore",
 ]
 
 

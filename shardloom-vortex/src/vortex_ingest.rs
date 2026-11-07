@@ -14626,6 +14626,12 @@ impl LocalVortexWriteContext {
         retain_committed_artifact: bool,
     ) -> Result<LocalVortexWriteResult> {
         use vortex::array::memory::HostMemorySessionExt as _;
+        #[cfg(feature = "native-binary-objects")]
+        if crate::native_binary_type::contains(array.dtype()) {
+            return Err(vortex_error(
+                "SL-BINARY-OBJECT-OWNERSHIP: compatibility ingestion cannot persist unowned binary-object descriptors; use the resident native Vortex writer with admitted object owners",
+            ));
+        }
         let _writer_memory = memory
             .reserve(shardloom_core::WorkspaceSafeLocalStagingWriter::buffer_capacity_bytes())?;
         let _file_statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
@@ -14764,6 +14770,12 @@ impl LocalVortexWriteContext {
             + 'static,
     {
         cancellation.check()?;
+        #[cfg(feature = "native-binary-objects")]
+        if crate::native_binary_type::contains(iter.dtype()) {
+            return Err(vortex_error(
+                "SL-BINARY-OBJECT-OWNERSHIP: compatibility ingestion cannot persist unowned binary-object descriptors; use the resident native Vortex writer with admitted object owners",
+            ));
+        }
         let _writer_memory = native_memory
             .map(|memory| {
                 memory.pool.reserve(

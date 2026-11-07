@@ -9,7 +9,10 @@
 use crate::native_file_statistics::FileStatisticsReservation;
 use std::{
     io,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 use vortex::{
     array::{ArrayRef, dtype::DType},
@@ -21,14 +24,11 @@ use vortex::{
 };
 
 #[derive(Clone, Default)]
-struct SinkFailure(Arc<Mutex<Option<io::Error>>>);
+struct SinkFailure(Arc<Mutex<Option<io::Error>>>, Arc<AtomicBool>);
 
 impl SinkFailure {
     fn has_error(&self) -> bool {
-        self.0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .is_some()
+        self.1.load(Ordering::Acquire)
     }
 
     fn take(&self) -> Option<io::Error> {
@@ -45,6 +45,7 @@ impl SinkFailure {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         if failure.is_none() {
             *failure = Some(error);
+            self.1.store(true, Ordering::Release);
         }
     }
 }
@@ -72,6 +73,13 @@ impl NativeWriteSummary {
 }
 
 impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
+    /// Allow a payload-producing layout to stop its remaining reads while the
+    /// native writer still joins/drains already accepted work after sink failure.
+    #[cfg(all(feature = "native-binary-objects", unix))]
+    pub(super) fn failure_signal(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.failure.1)
+    }
+
     pub(super) fn new(
         session: &VortexSession,
         runtime: &'runtime B,

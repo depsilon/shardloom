@@ -39,7 +39,9 @@ release-user-surfaces = [
     "vortex-write",
     "vortex-local-primitives",
     "vortex-encoded-read-spike",
+    "native-binary-objects",
 ]
+native-binary-objects = ["universal-format-io", "vortex-write", "vortex-local-primitives"]
 upstream-vortex = ["dep:vortex", "dep:bytes"]
 native-temporal = ["shardloom-core/temporal-calendar"]
 universal-format-io = [

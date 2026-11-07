@@ -22,6 +22,8 @@ _PRIMITIVES = {
     "u8": "uint8", "u16": "uint16", "u32": "uint32", "u64": "uint64",
     "f16": "float16", "f32": "float32", "f64": "float64",
 }
+_BINARY_OBJECT_EXTENSION_ID = "shardloom.binary-object.v1"
+_BINARY_OBJECT_METADATA = b'{"version":1}'
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +70,16 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
+        if payload.get("id") == _BINARY_OBJECT_EXTENSION_ID:
+            raw = payload.get("metadata")
+            if (set(payload) != {"id", "metadata", "storage_dtype"}
+                    or not isinstance(raw, list)
+                    or any(type(byte) is not int for byte in raw)
+                    or raw != list(_BINARY_OBJECT_METADATA)):
+                raise ValueError("binary_object requires canonical version 1 metadata bytes")
+            if storage.name != "binary":
+                raise ValueError("binary_object storage must be Binary")
+            return ResultType("binary_object", storage.nullable)
         if payload.get("id") == EXTENSION_ID:
             raw = payload.get("metadata")
             if (set(payload) != {"id", "metadata", "storage_dtype"} or not isinstance(raw, list)
@@ -129,6 +141,8 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
             raise ShardLoomProtocolError("NULL value in a nonnullable native result field")
         return None
     try:
+        if dtype.name == "binary_object":
+            raise ValueError("managed binary object values are unavailable in diagnostic JSON rows; use typed native row export")
         if dtype.name == "null":
             raise ValueError("a null dtype requires a NULL value")
         if dtype.name == "bool" and type(value) is not bool:
@@ -185,6 +199,9 @@ def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
     if dtype.name == "embedding":
         metadata = {b"ARROW:extension:name": EXTENSION_ID.encode("utf-8"),
                     b"ARROW:extension:metadata": metadata_json(dtype.parameters[2]).encode("utf-8")}
+    elif dtype.name == "binary_object":
+        metadata = {b"ARROW:extension:name": _BINARY_OBJECT_EXTENSION_ID.encode("utf-8"),
+                    b"ARROW:extension:metadata": _BINARY_OBJECT_METADATA}
     return pyarrow.field(name, _arrow_type(dtype, pyarrow), nullable=dtype.nullable, metadata=metadata)
 
 
@@ -202,7 +219,7 @@ def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
         return temporal
     if dtype.name == "variant":
         raise ShardLoomProtocolError("Arrow conversion does not admit native variant result fields")
-    name = {"bool": "bool_", "utf8": "string"}.get(dtype.name, dtype.name)
+    name = {"bool": "bool_", "utf8": "string", "binary_object": "binary"}.get(dtype.name, dtype.name)
     return getattr(pyarrow, name)()
 
 

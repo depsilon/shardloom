@@ -18,7 +18,9 @@ impl ResidentMemorySource {
     /// Use immutable native input in another admitted session. Sources already
     /// owned by that session remain shared; admitted foreign physical encodings
     /// and generated ranges retain their compact representation.
-    /// The returned input has only the receiving session's allocation ownership.
+    /// Array buffers and object directories acquire receiving allocation
+    /// ownership. Managed file objects retain their immutable private file and
+    /// cleanup quota; this shared backing stays charged to its original owner.
     ///
     /// # Errors
     /// Rejects cancellation, unsupported native payloads or memory denial before
@@ -35,6 +37,13 @@ impl ResidentMemorySource {
         if let Some(range) = &self.0.generated_range {
             return range.in_session(&self.0, session);
         }
+        #[cfg(feature = "native-binary-objects")]
+        let objects = crate::binary_object::transfer::Transfer::prepare(
+            &self.0.session,
+            session,
+            std::slice::from_ref(&self.0.array),
+            cancellation,
+        )?;
         let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
         builder.push_native_copy(&self.0.array)?;
         let mut copied = builder.finish()?;
@@ -43,6 +52,8 @@ impl ResidentMemorySource {
                 super::memory_error("new native transfer owner was unexpectedly shared")
             })?
             .bounds = self.0.bounds;
+        #[cfg(feature = "native-binary-objects")]
+        objects.publish(session, cancellation)?;
         Ok(copied)
     }
 
@@ -61,6 +72,13 @@ impl ResidentMemorySource {
             return Self::from_completed_result(result, cancellation);
         }
         result.validate_schema_and_rows()?;
+        #[cfg(feature = "native-binary-objects")]
+        let objects = crate::binary_object::transfer::Transfer::prepare(
+            &result.retained_session(),
+            session,
+            result.arrays(),
+            cancellation,
+        )?;
         let mut builder = MemoryBatchSourceBuilder::new(session, cancellation.clone())?;
         if result.arrays().is_empty() {
             let empty = session.with_native_execution_context(cancellation, |context| {
@@ -70,6 +88,9 @@ impl ResidentMemorySource {
         } else {
             builder.push_native_copies(result.arrays())?;
         }
-        builder.finish()
+        let copied = builder.finish()?;
+        #[cfg(feature = "native-binary-objects")]
+        objects.publish(session, cancellation)?;
+        Ok(copied)
     }
 }

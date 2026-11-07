@@ -29,6 +29,7 @@ __all__ = (
     "boolean",
     "string",
     "binary",
+    "binary_object",
     "date32",
     "date64",
     "time",
@@ -120,6 +121,11 @@ def string(*, nullable: bool = True) -> ResultType:
 
 def binary(*, nullable: bool = True) -> ResultType:
     return _type({"type": "binary", "nullable": nullable})
+
+
+def binary_object(*, nullable: bool = True) -> ResultType:
+    """Declare a managed or explicitly external object carried by native handles."""
+    return _type({"type": "binary_object", "nullable": nullable})
 
 
 def date32(*, nullable: bool = True) -> ResultType:

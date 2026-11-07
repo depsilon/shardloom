@@ -44,6 +44,8 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     inherit::<EditionSession>(parent, &child);
     inherit::<EnabledEditions>(parent, &child);
     inherit::<RuntimeSession>(parent, &child);
+    #[cfg(all(feature = "native-binary-objects", unix))]
+    inherit::<crate::binary_object::Arena>(parent, &child);
     inherit::<crate::native_provider_memory::ProviderMemory>(parent, &child);
     if parent.allows_unknown() {
         child.allow_unknown();

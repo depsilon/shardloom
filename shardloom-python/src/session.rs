@@ -232,6 +232,168 @@ impl NativeSession {
         self.owner.runtime.recursion_limit().get()
     }
 
+    /// Copy immutable Python bytes into an admitted native managed object.
+    #[pyo3(signature = (data, *, resources=None, timeout=None))]
+    fn binary_object(
+        &self,
+        py: Python<'_>,
+        data: &Bound<'_, PyBytes>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<super::binary_object::NativeBinaryObject> {
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        let bytes = data.as_bytes();
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, resources, controller| {
+                    Ok(super::binary_object::NativeBinaryObject {
+                        value: session.binary_object(bytes, &cancellation)?,
+                        owner: super::binary_object::ObjectOwner {
+                            controller: controller.clone(),
+                            resources,
+                            session: session.clone(),
+                        },
+                    })
+                },
+            )
+        })
+        .map_err(|failure| failure.into_python(native_error))
+    }
+
+    /// Explicit local external ownership; row export never reads the payload.
+    #[pyo3(signature = (path, start, end, *, resources=None, timeout=None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts an owned path for the detached native call.
+    fn external_binary_object(
+        &self,
+        py: Python<'_>,
+        path: std::path::PathBuf,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<super::binary_object::NativeBinaryObject> {
+        let range = super::binary_object::unsigned(start, "start")?
+            ..super::binary_object::unsigned(end, "end")?;
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, resources, controller| {
+                    Ok(super::binary_object::NativeBinaryObject {
+                        value: session.external_binary_object(&path, range, &cancellation)?,
+                        owner: super::binary_object::ObjectOwner {
+                            controller: controller.clone(),
+                            resources,
+                            session: session.clone(),
+                        },
+                    })
+                },
+            )
+        })
+        .map_err(|failure| failure.into_python(native_error))
+    }
+
+    #[pyo3(signature = (directory, max_bytes, *, resources=None, timeout=None))]
+    #[allow(clippy::needless_pass_by_value)] // PyO3 extracts an owned path for the detached native call.
+    fn binary_object_store(
+        &self,
+        py: Python<'_>,
+        directory: std::path::PathBuf,
+        max_bytes: &Bound<'_, PyAny>,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<super::binary_object::NativeBinaryObjectStore> {
+        let max_bytes = super::binary_object::unsigned(max_bytes, "max_bytes")?;
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, resources, controller| {
+                    Ok(super::binary_object::NativeBinaryObjectStore {
+                        value: session.binary_object_store(&directory, max_bytes)?,
+                        owner: super::binary_object::ObjectOwner {
+                            controller: controller.clone(),
+                            resources,
+                            session: session.clone(),
+                        },
+                        session: Arc::clone(&self.owner),
+                    })
+                },
+            )
+        })
+        .map_err(|failure| failure.into_python(native_error))
+    }
+
+    #[pyo3(signature = (object, *, resources=None, timeout=None))]
+    fn import_binary_object(
+        &self,
+        py: Python<'_>,
+        object: &super::binary_object::NativeBinaryObject,
+        resources: Option<&NativeResources>,
+        timeout: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<super::binary_object::NativeBinaryObject> {
+        let cancellation = self.owner.begin_operation(timeout)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, resources, controller| {
+                    Ok(super::binary_object::NativeBinaryObject {
+                        value: session.import_binary_object(&object.value, &cancellation)?,
+                        owner: super::binary_object::ObjectOwner {
+                            controller: controller.clone(),
+                            resources,
+                            session: session.clone(),
+                        },
+                    })
+                },
+            )
+        })
+        .map_err(|failure| failure.into_python(native_error))
+    }
+
+    #[pyo3(signature = (*, resources=None))]
+    fn binary_object_snapshot(
+        &self,
+        py: Python<'_>,
+        resources: Option<&NativeResources>,
+    ) -> PyResult<std::collections::BTreeMap<&'static str, u64>> {
+        let cancellation = self.owner.begin().map_err(native_error)?;
+        let resources = self.owner.resources(resources).map_err(native_error)?;
+        py.detach(|| {
+            super::failure::with_resources(
+                &self.owner.runtime,
+                resources,
+                &cancellation,
+                |session, _, _| {
+                    let snapshot = session.binary_object_snapshot()?;
+                    Ok([
+                        ("managed_objects", snapshot.managed_objects as u64),
+                        ("managed_bytes", snapshot.managed_bytes),
+                        ("payload_read_requests", snapshot.payload_read_requests),
+                        ("payload_read_bytes", snapshot.payload_read_bytes),
+                        ("delivered_bytes", snapshot.delivered_bytes),
+                    ]
+                    .into_iter()
+                    .collect())
+                },
+            )
+        })
+        .map_err(|failure| failure.into_python(native_error))
+    }
+
     /// Invoke the shared command dispatcher with this session's ownership and
     /// cancellation. Each data handler parses and admits its own complete call.
     #[pyo3(signature = (args, *, timeout=None))]

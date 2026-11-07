@@ -74,6 +74,10 @@ pub(super) fn copy_dtype(dtype: &DType) -> Result<DType> {
         DType::FixedSizeList(child, size, nullability) => {
             DType::FixedSizeList(Arc::new(copy_dtype(child)?), *size, *nullability)
         }
+        #[cfg(feature = "native-binary-objects")]
+        DType::Extension(_) if crate::native_binary_type::storage(dtype).is_some() => {
+            crate::native_binary_type::dtype(dtype.is_nullable()).map_err(native_error)?
+        }
         DType::Extension(_) => native_temporal::vortex_dtype(
             &native_temporal::temporal_dtype(dtype)
                 .ok_or_else(|| memory_error("native transfer extension is not admitted"))?,
