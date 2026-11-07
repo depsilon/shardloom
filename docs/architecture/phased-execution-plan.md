@@ -314,10 +314,32 @@ predicate was corrected after the native build; runtime code is unchanged. The
 [portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
 binds 162 source files, 13 accepted stages and 497 evidence members, including
 all 23 original failed observations. Original and relocated replay pass, and
-nine controlled corruptions are rejected. Hosted review and integration remain
-pending. Sparse, quantized and lower-precision representations and exact vector
+nine controlled corruptions are rejected. PR #1662 merged as
+`c47eeefa05012cce32b053f53af18583041c9f19` after all 58 PR checks passed; all 55
+required checks passed on the exact main merge. Verified retirement removed
+9,996 obsolete regular files and three symlinks, and post-retirement replay
+passed. Sparse, quantized and lower-precision representations and exact vector
 expressions remain later item 19 work; this scoped acceptance does not complete
 item 19 or alter CG-1 through CG-23.
+
+**November 7 Float16 and vector-collection local and portable acceptance passed.**
+The [scoped contract](native-float16-lifecycle-2026-11-07.md) carries the existing
+primitive width through numeric owners, nested values, embeddings, tensors and
+capable persistence. All 65,536 representations are checked, including selected
+NaN bits and signed zero. Default/native workspace suites pass 3,321/6,976 cases,
+with 37 existing native ignores; strict lint, formatting and all seven feature
+configurations pass. All 375 clean installed-package tests pass without skips,
+including 14 Float16 tests and 19 context tests. The Python core shard reports
+850 runs among 1,229 discovered cases, 54 optional/environment skip records and
+no failures or errors. The
+[portable packet](../release/evidence/native-float16-lifecycle-2026-11-07/README.md)
+binds 71 changed runtime/test sources, 13 accepted stages and 442 evidence
+members, preserving all 20 original failed or interrupted observations.
+Original and relocated replay pass, and all nine corruption controls reject.
+Hosted review, PR/main checks and subsequent artifact retention remain pending.
+Sparse and quantized representations and exact vector expressions retain their
+later contracts. This scoped acceptance does not close item 19, item 20,
+RFC 0044 or CG-1 through CG-23, or authorize a benchmark or package publication.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

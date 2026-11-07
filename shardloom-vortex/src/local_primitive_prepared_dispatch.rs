@@ -5,7 +5,7 @@ use super::{
 };
 use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
 use shardloom_exec::compute_pool::CancellationToken;
-use vortex::array::dtype::DType;
+use vortex::array::dtype::{DType, PType};
 
 #[cfg(feature = "vortex-write")]
 #[path = "local_primitive_structured_plan.rs"]
@@ -152,7 +152,10 @@ pub fn requires_relational(
         super::native_payload::is_nested(dtype)
             || matches!(
                 dtype,
-                DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
+                DType::Binary(_)
+                    | DType::Decimal(..)
+                    | DType::Extension(_)
+                    | DType::Primitive(PType::F16, _)
             )
     };
     if let Some(columns) = columns {

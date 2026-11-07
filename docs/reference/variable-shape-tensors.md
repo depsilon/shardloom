@@ -25,7 +25,7 @@ measurement_type = t.variable_shape_tensor(
 ```
 
 The component type may be Boolean, signed or unsigned 8/16/32/64-bit integer,
-Float32 or Float64. Its nullability controls individual components;
+Float16, Float32 or Float64. Its nullability controls individual components;
 `nullable` controls whether the whole tensor may be `None`. The simple
 constructor uses nonnullable data and shape containers, and nonnullable Int32
 dimensions. A present value has exactly these keys:

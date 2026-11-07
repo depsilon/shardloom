@@ -58,8 +58,8 @@ def _value(array, row):
     if not array[row].is_valid:
         return None
     dtype = array.type
-    if pa.types.is_float32(dtype) or pa.types.is_float64(dtype):
-        code, width = ("I", 4) if pa.types.is_float32(dtype) else ("Q", 8)
+    if pa.types.is_floating(dtype):
+        code, width = {16: ("H", 2), 32: ("I", 4), 64: ("Q", 8)}[dtype.bit_width]
         return (str(dtype), struct.unpack_from("<" + code, array.buffers()[1], (array.offset + row) * width)[0])
     if pa.types.is_fixed_size_list(dtype) or pa.types.is_list(dtype):
         child = array[row].values

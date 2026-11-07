@@ -169,7 +169,7 @@ class NativeTensorControlsTests(unittest.TestCase):
         ):
             with self.subTest(query=query), self.assertRaisesRegex(Exception, "tensor values are payload-only"):
                 context.sql(query, relations={"tensors": frame}).collect(check=True)
-        with self.assertRaisesRegex(Exception, "arithmetic requires integer, F32/F64 or admitted decimal operands"):
+        with self.assertRaisesRegex(Exception, "arithmetic requires integer, F16/F32/F64 or admitted decimal operands"):
             context.sql("SELECT tensor + tensor AS total FROM tensors", relations={"tensors": frame}).collect(check=True)
         with tempfile.TemporaryDirectory(prefix="shardloom-tensor-refusal-") as directory:
             root = Path(directory)

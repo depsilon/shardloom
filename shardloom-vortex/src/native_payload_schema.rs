@@ -2,7 +2,7 @@
 
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
-use vortex::array::dtype::{DType, DecimalDType, PType};
+use vortex::array::dtype::{DType, DecimalDType};
 
 pub(crate) use crate::native_temporal::temporal_storage;
 
@@ -15,8 +15,7 @@ pub(crate) fn admitted_decimal(dtype: DecimalDType) -> bool {
 /// Flat values admitted by native keys and compact retained scalar state.
 pub(crate) fn admitted_scalar(dtype: &DType) -> bool {
     match dtype {
-        DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => true,
-        DType::Primitive(ptype, _) => *ptype != PType::F16,
+        DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) | DType::Primitive(_, _) => true,
         DType::Decimal(decimal, _) => admitted_decimal(*decimal),
         DType::Extension(_) => temporal_storage(dtype).is_some(),
         _ => false,
@@ -197,7 +196,7 @@ fn metadata_bytes_with_null(dtype: &DType, allow_null: bool) -> Result<u64> {
         match dtype {
             DType::Null if allow_null => {}
             DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
-            DType::Primitive(ptype, _) if *ptype != PType::F16 => {}
+            DType::Primitive(_, _) => {}
             DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
             #[cfg(feature = "native-binary-objects")]
             DType::Extension(extension) if crate::native_binary_type::storage(dtype).is_some() => {
@@ -333,6 +332,7 @@ pub(crate) fn arrow_metadata_bytes(dtype: &arrow_schema::DataType) -> Result<u64
             | A::UInt16
             | A::UInt32
             | A::UInt64
+            | A::Float16
             | A::Float32
             | A::Float64
             | A::Utf8
@@ -439,7 +439,7 @@ fn encoded_arrow_leaf(dtype: &arrow_schema::DataType) -> bool {
 
 fn unsupported() -> ShardLoomError {
     failed(
-        "payload requires bool, integer, F32/F64, UTF8, binary, decimal128(precision 1..38, scale 0..precision), admitted date/time/timestamp/duration metadata or static list/struct fields",
+        "payload requires bool, integer, F16/F32/F64, UTF8, binary, decimal128(precision 1..38, scale 0..precision), admitted date/time/timestamp/duration metadata or static list/struct fields",
     )
 }
 

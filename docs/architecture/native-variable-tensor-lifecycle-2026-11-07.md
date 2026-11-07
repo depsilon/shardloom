@@ -2,8 +2,8 @@
 
 # Variable-shape tensor lifecycle
 
-Status: local and portable acceptance passed, November 7, 2026; hosted review
-and integration remain pending.
+Status: local, portable and hosted acceptance passed, November 7, 2026; merged
+in PR #1662 with exact-main verification and generated-artifact retirement complete.
 This is the second tensor delivery in item 19 of the
 [active queue](phased-execution-plan.md), following the
 [fixed-shape contract](native-fixed-tensor-lifecycle-2026-11-07.md).
@@ -164,8 +164,12 @@ runtime code.
 The [portable acceptance packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
 binds 162 source files, 13 accepted check stages and 497 archived evidence
 members, including all 23 original failed observations. Original and relocated
-replay pass, and nine controlled corruptions are rejected. Hosted review and
-integration remain pending. PyArrow 25.0.1 has two documented limitations: its
+replay pass, and nine controlled corruptions are rejected. PR #1662 merged as
+`c47eeefa05012cce32b053f53af18583041c9f19` after all 58 PR checks passed. All 55
+required checks passed on that exact main merge. Verified retirement removed
+9,996 obsolete regular files and three environment links; inputs and retained
+runtime/wheel identities stayed unchanged, and post-retirement replay passed.
+PyArrow 25.0.1 has two documented limitations: its
 default reader drops the tensor extension from the returned schema, and its
 Parquet reader rejects fixed-size lists beneath null parents. The packet records
 present-parent comparisons and native full-result equality separately; it does

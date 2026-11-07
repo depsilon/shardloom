@@ -61,7 +61,7 @@ Declare fixed-rank tensors with row-specific shapes using
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `f6d5b0e4807f56f92b1fc6e8bc70c4f29c5adddef32d92a7e49269063b5bc598` (SHA-256 of the listed source inputs).
+Source identity: `95ca05857928fc197c5ac12e9ad150a6d5971adcfd79f246b644e070edf39d48` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -298,6 +298,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.uint16`](../../python/src/shardloom/types.py) | function | Declare uint16 metadata for the native binder. |
 | [`shardloom.types.uint32`](../../python/src/shardloom/types.py) | function | Declare uint32 metadata for the native binder. |
 | [`shardloom.types.uint64`](../../python/src/shardloom/types.py) | function | Declare uint64 metadata for the native binder. |
+| [`shardloom.types.float16`](../../python/src/shardloom/types.py) | function | Declare exactly represented binary16 values for native input. |
 | [`shardloom.types.float32`](../../python/src/shardloom/types.py) | function | Declare float32 metadata for the native binder. |
 | [`shardloom.types.float64`](../../python/src/shardloom/types.py) | function | Declare float64 metadata for the native binder. |
 | [`shardloom.types.boolean`](../../python/src/shardloom/types.py) | function | Declare boolean metadata for the native binder. |
@@ -313,7 +314,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.decimal128`](../../python/src/shardloom/types.py) | function | Declare decimal128 metadata for the native binder. |
 | [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |
 | [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
-| [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float32/Float64 values with versioned embedding identity. |
+| [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float16/Float32/Float64 values with versioned embedding identity. |
 | [`shardloom.types.fixed_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat physical-order tensor values with a checked fixed shape. |
 | [`shardloom.types.variable_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat values with a row-specific shape and fixed rank. |
 | [`shardloom.types.struct`](../../python/src/shardloom/types.py) | function | Declare struct metadata for the native binder. |

@@ -315,8 +315,10 @@ fn primitive(ptype: PType, value: &Json) -> Result<Value<'static>> {
         .map(i128::from)
         .or_else(|| value.as_u64().map(i128::from));
     if integer.is_some_and(|integer| numeric as i128 != integer)
+        || (ptype == PType::F16
+            && shardloom_core::float_policy::narrow_f16_bits_exact(numeric).is_none())
         || (ptype == PType::F32 && f64::from(numeric as f32).to_bits() != numeric.to_bits())
-        || !matches!(ptype, PType::F32 | PType::F64)
+        || !matches!(ptype, PType::F16 | PType::F32 | PType::F64)
     {
         return Err(failed(
             "floating input must be exactly representable in its declared width",

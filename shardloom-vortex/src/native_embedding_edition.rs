@@ -12,7 +12,7 @@ const ID: EditionId = EditionId::new("shardloomembedding", 2026, 11, 0);
 static FAMILY: EditionFamily = EditionFamily {
     name: "shardloomembedding",
     origin: "shardloom",
-    doc: "ShardLoom dense Float32/Float64 embedding identity over fixed-size Vortex lists. Readers require shardloom.embedding.v1.",
+    doc: "ShardLoom dense Float16/Float32/Float64 embedding identity over fixed-size Vortex lists. Readers require shardloom.embedding.v1.",
 };
 static DECLARATION: EditionDeclaration = EditionDeclaration {
     edition: Edition {

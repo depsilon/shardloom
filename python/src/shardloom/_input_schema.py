@@ -24,7 +24,7 @@ _LEGACY = {"int64", "float64", "bool", "utf8"}
 _ALIASES = {"int": "int64", "integer": "int64", "float": "float64", "double": "float64",
             "boolean": "bool", "str": "utf8", "string": "utf8"}
 _PRIMITIVES = {f"{kind}{bits}" for kind in ("int", "uint") for bits in (8, 16, 32, 64)} | {
-    "float32", "float64"}
+    "float16", "float32", "float64"}
 
 
 def normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, ResultType], ...]:
@@ -144,7 +144,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             raise ValueError("tensor input requires an item type")
         child = _parse_type(parameters["item"], depth + 1, budget)
         if child.name not in _tensor.ELEMENT_TYPES:
-            raise ValueError("tensor elements require Boolean, integer, Float32 or Float64")
+            raise ValueError("tensor elements require Boolean, integer, Float16, Float32 or Float64")
         metadata = _tensor.normalize_metadata({key: parameters[key]
             for key in ("shape", "dim_names", "permutation") if key in parameters})
         budget[1] += 128 * len(_tensor.metadata_json(metadata).encode("utf-8"))
@@ -201,8 +201,8 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         if type(size) is not int or not 0 <= size <= (1 << 32) - 1:
             raise ValueError("fixed-size list width must be a uint32")
         if token == "embedding":
-            if not size or child.name not in {"float32", "float64"}:
-                raise ValueError("embedding requires a positive fixed-size Float32/Float64 list")
+            if not size or child.name not in {"float16", "float32", "float64"}:
+                raise ValueError("embedding requires a positive fixed-size Float16/Float32/Float64 list")
             metadata = normalize_metadata(parameters.get("metadata"))
             budget[1] += 8 * len(metadata_json(metadata).encode("utf-8"))
             if budget[1] > _MAX_BYTES:
@@ -361,14 +361,15 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
     if name.startswith(("int", "uint")):
         signed = name.startswith("int")
         return _integer(value, int(name[3:] if signed else name[4:]), signed)
-    if name in {"float32", "float64"}:
+    if name in {"float16", "float32", "float64"}:
         if isinstance(value, bool) or not isinstance(value, (float, int)):
             raise TypeError("native floating input requires numeric values")
         try:
             numeric = float(value)
             exact = math.isfinite(numeric) and (not isinstance(value, int) or numeric == value)
-            if name == "float32":
-                narrowed = struct.unpack("!f", struct.pack("!f", numeric))[0]
+            if name in {"float16", "float32"}:
+                code = "!e" if name == "float16" else "!f"
+                narrowed = struct.unpack(code, struct.pack(code, numeric))[0]
                 exact = exact and narrowed == numeric
             if not exact:
                 raise ValueError("native floating input must be finite and exactly representable")

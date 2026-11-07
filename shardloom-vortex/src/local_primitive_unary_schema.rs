@@ -115,7 +115,7 @@ pub(super) fn bind(
         predicate_types(predicate, dtype)?;
     }
     if let Some(name) = &request.sample_weight_column
-        && !matches!(source_field(dtype, name.as_str())?, DType::Primitive(p, _) if p != vortex::array::dtype::PType::F16)
+        && !matches!(source_field(dtype, name.as_str())?, DType::Primitive(..))
     {
         return Err(failed(
             "sampling weights require an admitted primitive numeric field",
@@ -251,7 +251,7 @@ fn rolling_columns(
     }
     let input = source_field(dtype, &selected[0])?;
     if rolling.aggregate != "count"
-        && !matches!(input, DType::Primitive(p, _) if p != vortex::array::dtype::PType::F16)
+        && !matches!(input, DType::Primitive(..))
         && !matches!(input, DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(decimal))
     {
         return Err(failed("rolling numeric aggregate requires numeric input"));

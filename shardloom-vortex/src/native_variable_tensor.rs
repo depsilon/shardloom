@@ -298,7 +298,7 @@ pub(crate) fn rank(storage: &DType) -> VortexResult<u32> {
     let shape = children.next().expect("two fields");
     vortex_ensure!(
         matches!(&data, DType::List(child, _) if crate::native_tensor::element_admitted(child)),
-        "variable tensor data requires a Boolean/integer/Float32/Float64 list"
+        "variable tensor data requires a Boolean/integer/Float16/Float32/Float64 list"
     );
     let DType::FixedSizeList(child, rank, _) = shape else {
         return Err(vortex_err!(

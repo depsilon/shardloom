@@ -651,18 +651,20 @@ fn numeric(dtype: &DType) -> Result<()> {
     if matches!(
         dtype,
         DType::Primitive(_, _) | DType::Decimal(..) | DType::Null
-    ) && !matches!(dtype, DType::Primitive(PType::F16, _))
-    {
+    ) {
         Ok(())
     } else {
         Err(failed(
-            "arithmetic requires integer, F32/F64 or admitted decimal operands",
+            "arithmetic requires integer, F16/F32/F64 or admitted decimal operands",
         ))
     }
 }
 
 fn floating(dtype: &DType) -> bool {
-    matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
+    matches!(
+        dtype,
+        DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+    )
 }
 
 pub(in crate::local_primitives) fn arithmetic_dtype(
@@ -758,10 +760,10 @@ fn typed_function_dtype(
         T::FloatClassify => {
             if !matches!(
                 first,
-                DType::Null | DType::Primitive(PType::F32 | PType::F64, _)
+                DType::Null | DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
             ) {
                 return Err(failed(
-                    "floating classification requires Float32 or Float64",
+                    "floating classification requires Float16, Float32 or Float64",
                 ));
             }
             DType::Bool(nullable)

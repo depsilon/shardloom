@@ -119,9 +119,12 @@ pub(super) fn common_dtype(dtypes: &[DType]) -> Result<DType> {
     let unsigned = dtypes
         .iter()
         .all(|dtype| matches!(dtype, DType::Primitive(p, _) if p.is_unsigned_int()));
-    let float = dtypes
-        .iter()
-        .all(|dtype| matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _)));
+    let float = dtypes.iter().all(|dtype| {
+        matches!(
+            dtype,
+            DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+        )
+    });
     Ok(if signed {
         DType::Primitive(PType::I64, nullability)
     } else if unsigned {

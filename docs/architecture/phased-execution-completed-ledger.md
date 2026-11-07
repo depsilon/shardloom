@@ -17,7 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Variable-shape tensor local and portable acceptance — hosted pending`
+- [x] `Float16 and vector-collection lifecycle — local and portable acceptance`
+  — the [scoped contract](native-float16-lifecycle-2026-11-07.md) and
+  [portable packet](../release/evidence/native-float16-lifecycle-2026-11-07/README.md)
+  verify all 65,536 representations through native conversion and persistence,
+  with rich payloads carried across all five public interfaces. Default/native
+  suites pass 3,321/6,976 cases with 37 existing native ignores; strict lint,
+  formatting and all seven feature configurations pass. All 375 installed-package
+  tests pass without failures, errors or skips, including 14 Float16 and 19
+  context tests. Python core reports 850 runs among 1,229 discovered cases, with
+  54 optional/environment skip records and no failures or errors. The packet
+  binds 71 changed runtime/test sources, 13 accepted stages and 442 members,
+  preserves all 20 failed or interrupted observations, passes original and
+  relocated replay, and rejects nine controlled corruptions. Hosted integration
+  and subsequent retention remain pending. This row closes only local/portable
+  proof; item 19, item 20, RFC 0044 and CG-1 through CG-23 remain independent.
+
+- [x] `Variable-shape tensor lifecycle — merged and locally/portably verified`
   — the [scoped lifecycle contract](native-variable-tensor-lifecycle-2026-11-07.md)
   and [portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
   record fixed-rank, row-specific tensor storage and carriage. Default/native
@@ -30,8 +46,11 @@ phase plan first.
   497-member packet binds 162 changed source files and 13 accepted stages,
   preserves all 23 original failures, passes original and relocated replay, and
   rejects nine controlled corruptions. PyArrow 25.0.1's dropped extension schema
-  and null-parent fixed-size-list Parquet limitation remain explicit. Hosted
-  review and integration are pending. This scoped acceptance does not complete
+  and null-parent fixed-size-list Parquet limitation remain explicit. PR #1662
+  merged as `c47eeefa05012cce32b053f53af18583041c9f19` after all 58 PR checks passed;
+  all 55 required exact-main checks passed. Verified retirement removed 9,996
+  regular files and three links, with unchanged inputs and retained runtime/wheel
+  identities and passing post-retirement replay. This scoped acceptance does not complete
   item 19 or alter CG-1 through CG-23; no performance claim or package
   publication follows.
 

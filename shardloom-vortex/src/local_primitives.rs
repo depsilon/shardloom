@@ -16319,12 +16319,8 @@ fn sequence_kernel_input_from_vortex_array(
     let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
         return Ok(None);
     };
-    let Some(base) = vortex_pvalue_to_stat_value(sequence_array.base()) else {
-        return Ok(None);
-    };
-    let Some(mut multiplier) = vortex_pvalue_to_stat_value(sequence_array.multiplier()) else {
-        return Ok(None);
-    };
+    let base = vortex_pvalue_to_stat_value(sequence_array.base());
+    let mut multiplier = vortex_pvalue_to_stat_value(sequence_array.multiplier());
     // Vortex 0.90 normalizes every small positive step to i64, including
     // unsigned sequences. Our arithmetic contract keeps base and step in the
     // same domain; negative unsigned steps remain outside that contract.
@@ -16704,7 +16700,15 @@ fn selected_primitive_stat_values(
         PType::I64 => {
             selected_from_slice(primitive.as_slice::<i64>(), row_indices, StatValue::Int64)
         }
-        PType::F16 => None,
+        PType::F16 => selected_from_slice(
+            primitive.as_slice::<vortex::array::dtype::half::f16>(),
+            row_indices,
+            |value| {
+                StatValue::Float64(shardloom_core::float_policy::widen_f16_bits(
+                    value.to_bits(),
+                ))
+            },
+        ),
         PType::F32 => selected_from_slice(primitive.as_slice::<f32>(), row_indices, |value| {
             StatValue::Float64(f64::from(value))
         }),
@@ -16775,7 +16779,15 @@ fn primitive_stat_values_from_primitive_array(
             .iter()
             .map(|value| StatValue::Int64(*value))
             .collect(),
-        PType::F16 => return Ok(None),
+        PType::F16 => primitive
+            .as_slice::<vortex::array::dtype::half::f16>()
+            .iter()
+            .map(|value| {
+                StatValue::Float64(shardloom_core::float_policy::widen_f16_bits(
+                    value.to_bits(),
+                ))
+            })
+            .collect(),
         PType::F32 => primitive
             .as_slice::<f32>()
             .iter()
@@ -17111,8 +17123,7 @@ fn shardloom_logical_dtype_from_vortex_dtype(
         vortex::array::dtype::DType::Primitive(ptype, _) => match ptype {
             PType::U8 | PType::U16 | PType::U32 | PType::U64 => Some(LogicalDType::UInt64),
             PType::I8 | PType::I16 | PType::I32 | PType::I64 => Some(LogicalDType::Int64),
-            PType::F16 => None,
-            PType::F32 | PType::F64 => Some(LogicalDType::Float64),
+            PType::F16 | PType::F32 | PType::F64 => Some(LogicalDType::Float64),
         },
         vortex::array::dtype::DType::Utf8(_) => Some(LogicalDType::Utf8),
         vortex::array::dtype::DType::Null
@@ -17134,7 +17145,7 @@ fn vortex_scalar_to_stat_value(scalar: &vortex::array::scalar::Scalar) -> Option
 
     match scalar.value()? {
         ScalarValue::Bool(value) => Some(StatValue::Boolean(*value)),
-        ScalarValue::Primitive(value) => vortex_pvalue_to_stat_value(*value),
+        ScalarValue::Primitive(value) => Some(vortex_pvalue_to_stat_value(*value)),
         ScalarValue::Utf8(value) => Some(StatValue::Utf8(value.as_str().to_string())),
         ScalarValue::Decimal(_)
         | ScalarValue::Binary(_)
@@ -17145,23 +17156,23 @@ fn vortex_scalar_to_stat_value(scalar: &vortex::array::scalar::Scalar) -> Option
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> Option<StatValue> {
+fn vortex_pvalue_to_stat_value(value: vortex::array::scalar::PValue) -> StatValue {
     use vortex::array::scalar::PValue;
 
     match value {
-        PValue::U8(value) => Some(StatValue::UInt64(u64::from(value))),
-        PValue::U16(value) => Some(StatValue::UInt64(u64::from(value))),
-        PValue::U32(value) => Some(StatValue::UInt64(u64::from(value))),
-        PValue::U64(value) => Some(StatValue::UInt64(value)),
-        PValue::I8(value) => Some(StatValue::Int64(i64::from(value))),
-        PValue::I16(value) => Some(StatValue::Int64(i64::from(value))),
-        PValue::I32(value) => Some(StatValue::Int64(i64::from(value))),
-        PValue::I64(value) => Some(StatValue::Int64(value)),
-        PValue::F16(_) => None,
-        PValue::F32(value) => Some(StatValue::Float64(shardloom_core::float_policy::widen_f32(
-            value,
-        ))),
-        PValue::F64(value) => Some(StatValue::Float64(value)),
+        PValue::U8(value) => StatValue::UInt64(u64::from(value)),
+        PValue::U16(value) => StatValue::UInt64(u64::from(value)),
+        PValue::U32(value) => StatValue::UInt64(u64::from(value)),
+        PValue::U64(value) => StatValue::UInt64(value),
+        PValue::I8(value) => StatValue::Int64(i64::from(value)),
+        PValue::I16(value) => StatValue::Int64(i64::from(value)),
+        PValue::I32(value) => StatValue::Int64(i64::from(value)),
+        PValue::I64(value) => StatValue::Int64(value),
+        PValue::F16(value) => StatValue::Float64(shardloom_core::float_policy::widen_f16_bits(
+            value.to_bits(),
+        )),
+        PValue::F32(value) => StatValue::Float64(shardloom_core::float_policy::widen_f32(value)),
+        PValue::F64(value) => StatValue::Float64(value),
     }
 }
 
@@ -43798,12 +43809,7 @@ fn aggregate_column_accessor_in_context(
     ctx: &mut vortex::array::ExecutionCtx,
 ) -> Result<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)> {
     use vortex::array::arrays::PrimitiveArray;
-    if direct_host_primitive(array).is_some()
-        && !matches!(
-            array.dtype(),
-            vortex::array::dtype::DType::Primitive(vortex::array::dtype::PType::F16, _)
-        )
-    {
+    if direct_host_primitive(array).is_some() {
         let primitive = array
             .clone()
             .execute::<PrimitiveArray>(ctx)
@@ -44125,7 +44131,14 @@ fn aggregate_direct_numeric_dictionary_accessor_from_primitive(
             |value| value,
         )
         .map(Some),
-        PType::F16 => Ok(None),
+        PType::F16 => aggregate_direct_numeric_dictionary_f64_accessor(
+            row_ids,
+            code_nulls,
+            &value_nulls,
+            values.as_slice::<vortex::array::dtype::half::f16>(),
+            |value| shardloom_core::float_policy::widen_f16_bits(value.to_bits()),
+        )
+        .map(Some),
         PType::F32 => aggregate_direct_numeric_dictionary_f64_accessor(
             row_ids,
             code_nulls,

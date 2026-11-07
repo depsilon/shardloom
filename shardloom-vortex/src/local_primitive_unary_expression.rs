@@ -202,11 +202,14 @@ fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
                 return scalar::arithmetic_dtype(dtype, op, &right)
                     .map_err(|error| failed(&error.to_string()));
             }
-            if !matches!(dtype, DType::Primitive(p, _) if *p != PType::F16) {
+            if !matches!(dtype, DType::Primitive(..)) {
                 return Err(failed("arithmetic rewrite requires numeric input"));
             }
             if op == shardloom_core::BinaryOp::Divide
-                && !matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
+                && !matches!(
+                    dtype,
+                    DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+                )
             {
                 return Err(failed("primitive integer rewrite division is not admitted"));
             }

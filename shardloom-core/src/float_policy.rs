@@ -49,6 +49,69 @@ pub const CANONICAL_F64_NAN_BITS: u64 = 0x7ff8_0000_0000_0000;
 /// Canonical NaN for newly computed Float32 results, never for opaque carriage.
 pub const CANONICAL_F32_NAN_BITS: u32 = 0x7fc0_0000;
 
+/// Widen raw IEEE binary16 bits without quieting a carried signaling NaN.
+///
+/// Finite values widen exactly. NaN fraction bits occupy the corresponding
+/// high Float64 fraction positions, so exact narrowing recovers every bit.
+/// The raw-bit boundary keeps the provider's half type out of the core graph.
+#[must_use]
+pub fn widen_f16_bits(bits: u16) -> f64 {
+    let sign = u64::from(bits & 0x8000) << 48;
+    let exponent = u64::from((bits >> 10) & 0x1f);
+    let fraction = u64::from(bits & 0x03ff);
+    let magnitude = match (exponent, fraction) {
+        (0, 0) => 0,
+        (0, fraction) => {
+            // A binary16 subnormal is fraction * 2^-24. Normalize its leading
+            // bit without performing floating arithmetic on the representation.
+            let highest = fraction.ilog2();
+            ((999 + u64::from(highest)) << 52) | ((fraction - (1_u64 << highest)) << (52 - highest))
+        }
+        (31, fraction) => 0x7ff0_0000_0000_0000 | (fraction << 42),
+        (exponent, fraction) => ((exponent + 1008) << 52) | (fraction << 42),
+    };
+    f64::from_bits(sign | magnitude)
+}
+
+/// Recover exactly representable IEEE binary16 bits, including carried NaNs.
+///
+/// Rejects finite rounding, overflow and underflow, and NaN fraction bits that
+/// do not fit binary16. This is representation conversion; callers separately
+/// enforce the session's floating observation policy.
+#[must_use]
+pub fn narrow_f16_bits_exact(value: f64) -> Option<u16> {
+    let bits = value.to_bits();
+    let sign = (bits >> 48) & 0x8000;
+    let exponent = (bits >> 52) & 0x7ff;
+    let fraction = bits & 0x000f_ffff_ffff_ffff;
+    let discarded_fraction = (1_u64 << 42) - 1;
+    let narrowed = match exponent {
+        0 if fraction == 0 => sign,
+        999..=1008 => {
+            let shift = 1051 - exponent;
+            let significand = (1_u64 << 52) | fraction;
+            if significand & ((1_u64 << shift) - 1) != 0 {
+                return None;
+            }
+            sign | (significand >> shift)
+        }
+        1009..=1038 => {
+            if fraction & discarded_fraction != 0 {
+                return None;
+            }
+            sign | ((exponent - 1008) << 10) | (fraction >> 42)
+        }
+        2047 => {
+            if fraction & discarded_fraction != 0 {
+                return None;
+            }
+            sign | 0x7c00 | (fraction >> 42)
+        }
+        _ => return None,
+    };
+    u16::try_from(narrowed).ok()
+}
+
 /// Widen in a scalar register without quieting a carried signaling NaN.
 /// Finite values widen exactly; NaN payload bits occupy the corresponding high
 /// mantissa positions so an exact narrowing can recover the original F32 bits.
@@ -122,6 +185,82 @@ pub fn canonicalize_f32_result(value: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn register_widening_preserves_every_binary16_representation() {
+        for bits in u16::MIN..=u16::MAX {
+            let value = widen_f16_bits(bits);
+            assert_eq!(narrow_f16_bits_exact(value), Some(bits), "{bits:04x}");
+            assert_eq!(value.is_sign_negative(), bits & 0x8000 != 0);
+            assert_eq!(value.is_finite(), bits & 0x7c00 != 0x7c00);
+            if bits & 0x7c00 == 0x7c00 {
+                assert_eq!(
+                    value.to_bits(),
+                    (u64::from(bits & 0x8000) << 48)
+                        | 0x7ff0_0000_0000_0000
+                        | (u64::from(bits & 0x03ff) << 42)
+                );
+            }
+        }
+        for (bits, expected) in [
+            (0x0000, 0.0_f64),
+            (0x8000, -0.0),
+            (0x0001, 1.0 / 16_777_216.0),
+            (0x03ff, 1023.0 / 16_777_216.0),
+            (0x0400, 1.0 / 16_384.0),
+            (0x3c00, 1.0),
+            (0xbc00, -1.0),
+            (0x7bff, 65_504.0),
+            (0xfbff, -65_504.0),
+            (0x7c00, f64::INFINITY),
+            (0xfc00, f64::NEG_INFINITY),
+        ] {
+            assert_eq!(widen_f16_bits(bits).to_bits(), expected.to_bits());
+        }
+    }
+
+    #[test]
+    fn binary16_narrowing_rejects_rounding_and_unrepresentable_regions() {
+        for bits in u16::MIN..=u16::MAX {
+            let value = widen_f16_bits(bits);
+            if !value.is_finite() {
+                continue;
+            }
+            let wide = value.to_bits();
+            if wide.trailing_zeros() >= 63 {
+                assert!(narrow_f16_bits_exact(f64::from_bits(wide | 1)).is_none());
+            } else {
+                for adjacent in [wide - 1, wide + 1] {
+                    assert!(
+                        narrow_f16_bits_exact(f64::from_bits(adjacent)).is_none(),
+                        "adjacent to {bits:04x}: {adjacent:016x}"
+                    );
+                }
+            }
+        }
+        for sign in [0, 1_u64 << 63] {
+            for exponent in 0_u64..2047 {
+                if (999..=1038).contains(&exponent) {
+                    continue;
+                }
+                for fraction in [0, 1, 0x000f_ffff_ffff_ffff] {
+                    if exponent == 0 && fraction == 0 {
+                        continue;
+                    }
+                    let bits = sign | (exponent << 52) | fraction;
+                    assert!(narrow_f16_bits_exact(f64::from_bits(bits)).is_none());
+                }
+            }
+            for discarded in 0..42 {
+                let bits = sign | CANONICAL_F64_NAN_BITS | (1_u64 << discarded);
+                assert!(narrow_f16_bits_exact(f64::from_bits(bits)).is_none());
+            }
+        }
+        for value in [0.1, 65_520.0, 1.0 / 33_554_432.0] {
+            assert!(narrow_f16_bits_exact(value).is_none());
+            assert!(narrow_f16_bits_exact(-value).is_none());
+        }
+    }
 
     #[test]
     fn register_widening_preserves_every_special_f32_payload_bit() {

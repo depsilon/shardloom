@@ -29,7 +29,7 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
             vortex::array::dtype::DecimalDType::new(39, 0),
             Nullability::Nullable,
         ),
-        DType::Primitive(PType::F16, Nullability::Nullable),
+        DType::Variant(Nullability::Nullable),
     ] {
         assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
     }

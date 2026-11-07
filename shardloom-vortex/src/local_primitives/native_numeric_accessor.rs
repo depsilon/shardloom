@@ -16,11 +16,7 @@
 use std::{collections::BTreeSet, ops::Deref, time::Instant};
 
 use shardloom_core::{Result, ShardLoomError};
-use vortex::array::{
-    ArrayRef, ExecutionCtx,
-    arrays::PrimitiveArray,
-    dtype::{DType, PType},
-};
+use vortex::array::{ArrayRef, ExecutionCtx, arrays::PrimitiveArray, dtype::DType};
 
 use super::{AggregateDirectColumnAccessor, NativeNumericOwner, vortex_error};
 
@@ -195,7 +191,7 @@ pub(super) fn decode(
     array: &ArrayRef,
     ctx: &mut ExecutionCtx,
 ) -> Result<Option<(AggregateDirectColumnAccessor, NativeNumericAccessorWork)>> {
-    if !matches!(array.dtype(), DType::Primitive(ptype, _) if *ptype != PType::F16) {
+    if !matches!(array.dtype(), DType::Primitive(..)) {
         return Ok(None);
     }
     #[cfg(test)]

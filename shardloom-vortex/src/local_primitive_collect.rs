@@ -965,13 +965,13 @@ pub(super) fn write_scalar_json(
             serde_json::to_writer(writer, &text).map_err(collect_io_error)
         }
         Some(ScalarValue::Primitive(value)) => match super::vortex_pvalue_to_stat_value(*value) {
-            Some(StatValue::UInt64(value)) => {
+            StatValue::UInt64(value) => {
                 serde_json::to_writer(writer, &value).map_err(collect_io_error)
             }
-            Some(StatValue::Int64(value)) => {
+            StatValue::Int64(value) => {
                 serde_json::to_writer(writer, &value).map_err(collect_io_error)
             }
-            Some(StatValue::Float64(value)) if value.is_finite() => {
+            StatValue::Float64(value) if value.is_finite() => {
                 serde_json::to_writer(writer, &value).map_err(collect_io_error)
             }
             _ => Err(collect_error(

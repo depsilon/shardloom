@@ -82,7 +82,7 @@ fn transformed_dtype(dtype: DType, transform: AggregateValueTransform) -> Result
             DType::Primitive(ptype, _) if ptype.is_unsigned_int() => {
                 Ok(DType::Primitive(PType::U64, nullability))
             }
-            DType::Primitive(PType::F32 | PType::F64, _)
+            DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
                 if matches!(transform, AggregateValueTransform::AddOffset(_)) =>
             {
                 Ok(DType::Primitive(PType::F64, nullability))
@@ -560,6 +560,7 @@ impl CompletedRows<'_> {
                             | PType::U16
                             | PType::U32
                             | PType::U64
+                            | PType::F16
                             | PType::F32
                             | PType::F64,
                         _

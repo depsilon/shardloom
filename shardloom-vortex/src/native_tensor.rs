@@ -13,7 +13,7 @@ use std::{
 use vortex::{
     array::{
         dtype::{
-            DType, PType,
+            DType,
             extension::{ExtDType, ExtId, ExtVTable},
         },
         memory::{HostAllocatorRef, HostMemoryReservation},
@@ -212,7 +212,7 @@ impl ExtVTable for FixedShapeTensor {
         vortex_ensure!(
             matches!(dtype.storage_dtype(), DType::FixedSizeList(child, size, _)
             if element_admitted(child) && *size == dtype.metadata().elements),
-            "tensor storage requires a Boolean/integer/Float32/Float64 fixed-size list matching the shape product"
+            "tensor storage requires a Boolean/integer/Float16/Float32/Float64 fixed-size list matching the shape product"
         );
         Ok(())
     }
@@ -225,8 +225,7 @@ impl ExtVTable for FixedShapeTensor {
 }
 
 pub(crate) fn element_admitted(dtype: &DType) -> bool {
-    matches!(dtype, DType::Bool(_))
-        || matches!(dtype, DType::Primitive(ptype, _) if *ptype != PType::F16)
+    matches!(dtype, DType::Bool(_)) || matches!(dtype, DType::Primitive(_, _))
 }
 
 pub(crate) fn storage(dtype: &DType) -> Option<&DType> {

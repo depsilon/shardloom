@@ -14,9 +14,12 @@ checks passed. Its retirement removed 9,995 regular files and 3 symlinks, and
 post-retirement replay passed. Repeated identities, closed-handle checks,
 unchanged input generations and post-retirement evidence replay pass. All 88
 retired raw dependency-intake files remain byte-exact in the committed archive.
-The variable-tensor portable packet has passed original and relocated replay;
-the current inputs, accepted runtime/wheel, compact packet and original failures
-remain retained. No payload backups or storage-limit changes were made.
+Variable-tensor PR #1662 merged as `c47eeefa05012cce32b053f53af18583041c9f19`
+after all 58 PR checks and all 55 exact-main checks passed. Verified retirement
+removed 9,996 obsolete regular files and three environment links; post-retirement
+replay passed. The current inputs, accepted variable-tensor runtime/wheel,
+compact packet and original failures remain retained. No payload backups or
+storage-limit changes were made.
 
 The variable-tensor native suite initially stopped at the unchanged free-space
 floor before executing tests. Verified retirement removed 22,392 reproducible
@@ -25,6 +28,16 @@ release cache, current inputs and retained runtime/wheel stayed unchanged;
 the restarted native suite passed. The compact retirement inventory and stopped
 run remain in the
 [variable-tensor evidence packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md).
+
+During Float16 validation, verified retirement removed 14,909 reproducible debug
+compiler files after identity and closed-handle checks. Current inputs, the
+accepted variable-tensor runtime/wheel and the release cache remained unchanged.
+The [Float16 packet](../release/evidence/native-float16-lifecycle-2026-11-07/README.md)
+preserves that receipt, all 20 failed or interrupted observations and the final
+passing default/native, feature and installed-package checks. Its tested runtime
+and wheel remain retained alongside the preceding accepted artifacts until
+hosted integration and exact-main verification permit subsequent retirement.
+Storage limits are unchanged, and no payload backups were created.
 
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched

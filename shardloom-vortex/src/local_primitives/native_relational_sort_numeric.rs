@@ -8,7 +8,10 @@ use crate::local_primitives::{
     native_relational_order,
 };
 use shardloom_core::float_policy::float_key_bits;
-use vortex::{array::dtype::PType, mask::Mask};
+use vortex::{
+    array::dtype::{PType, half::f16},
+    mask::Mask,
+};
 
 #[derive(Clone, Copy)]
 struct Row {
@@ -26,6 +29,7 @@ enum Values<'a> {
     U16(&'a [u16]),
     U32(&'a [u32]),
     U64(&'a [u64]),
+    F16(&'a [f16]),
     F32(&'a [f32]),
     F64(&'a [f64]),
 }
@@ -49,7 +53,7 @@ impl<'a> Key<'a> {
             PType::U64 => Values::U64(array.as_slice()),
             PType::F32 => Values::F32(array.as_slice()),
             PType::F64 => Values::F64(array.as_slice()),
-            PType::F16 => unreachable!("numeric owner excludes f16"),
+            PType::F16 => Values::F16(array.as_slice()),
         };
         Self {
             values,
@@ -75,6 +79,10 @@ impl<'a> Key<'a> {
             (Values::U16(left), Values::U16(right)) => left[row].cmp(&right[other_row]),
             (Values::U32(left), Values::U32(right)) => left[row].cmp(&right[other_row]),
             (Values::U64(left), Values::U64(right)) => left[row].cmp(&right[other_row]),
+            (Values::F16(left), Values::F16(right)) => float_order(
+                shardloom_core::float_policy::widen_f16_bits(left[row].to_bits()),
+                shardloom_core::float_policy::widen_f16_bits(right[other_row].to_bits()),
+            ),
             (Values::F32(left), Values::F32(right)) => {
                 float_order(f64::from(left[row]), f64::from(right[other_row]))
             }

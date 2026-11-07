@@ -44,7 +44,7 @@ pub(crate) fn admitted(field: &Field) -> bool {
             .get(META)
             .is_some_and(|value| value.len() <= super::MAX_METADATA_BYTES)
         && matches!(field.data_type(), DataType::FixedSizeList(child, size)
-            if *size > 0 && matches!(child.data_type(), DataType::Float32 | DataType::Float64)
+            if *size > 0 && matches!(child.data_type(), DataType::Float16 | DataType::Float32 | DataType::Float64)
                 && !child.metadata().contains_key(NAME) && !child.metadata().contains_key(META))
 }
 
@@ -59,9 +59,14 @@ pub(crate) fn field(name: &str, dtype: &DType) -> VortexResult<Field> {
         return Err(vortex_err!("embedding requires fixed-size list storage"));
     };
     let child_type = match child.as_ref() {
+        DType::Primitive(PType::F16, _) => DataType::Float16,
         DType::Primitive(PType::F32, _) => DataType::Float32,
         DType::Primitive(PType::F64, _) => DataType::Float64,
-        _ => return Err(vortex_err!("embedding requires Float32/Float64 components")),
+        _ => {
+            return Err(vortex_err!(
+                "embedding requires Float16/Float32/Float64 components"
+            ));
+        }
     };
     let size = i32::try_from(*size)
         .map_err(|_| vortex_err!("embedding dimension exceeds Arrow's signed 32-bit list width"))?;
@@ -87,10 +92,11 @@ fn dtype(field: &Field) -> VortexResult<DType> {
     let DataType::FixedSizeList(child, size) = field.data_type() else {
         unreachable!("admitted shape");
     };
-    let ptype = if child.data_type() == &DataType::Float32 {
-        PType::F32
-    } else {
-        PType::F64
+    let ptype = match child.data_type() {
+        DataType::Float16 => PType::F16,
+        DataType::Float32 => PType::F32,
+        DataType::Float64 => PType::F64,
+        _ => unreachable!("admitted embedding component type"),
     };
     let storage = DType::FixedSizeList(
         DType::Primitive(ptype, child.is_nullable().into()).into(),

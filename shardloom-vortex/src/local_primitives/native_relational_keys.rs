@@ -258,9 +258,7 @@ impl KeyColumn {
         super::native_relational_observation::record(|counts| counts.key_columns += 1);
         let column = match array.dtype() {
             DType::Null => Self::Null(array.len()),
-            DType::Primitive(ptype, _) if *ptype != PType::F16 => {
-                Self::Numeric(numeric_owner(array, context, float_policy)?)
-            }
+            DType::Primitive(..) => Self::Numeric(numeric_owner(array, context, float_policy)?),
             DType::Bool(_) => {
                 let values = array
                     .clone()
@@ -442,12 +440,14 @@ impl KeyColumn {
     /// validity still come from the same owner; absent payload bits stay unread.
     pub(super) fn classification_value(&self, row: usize) -> Result<Option<f64>> {
         match self {
-            Self::Numeric(values) if matches!(values.ptype(), PType::F32 | PType::F64) => {
+            Self::Numeric(values)
+                if matches!(values.ptype(), PType::F16 | PType::F32 | PType::F64) =>
+            {
                 values.numeric_value(row)
             }
             Self::Null(rows) if row < *rows => Ok(None),
             _ => Err(failed(
-                "floating classification requires an in-bounds Float32 or Float64 value",
+                "floating classification requires an in-bounds Float16, Float32 or Float64 value",
             )),
         }
     }

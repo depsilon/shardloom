@@ -48,8 +48,8 @@ use crate::universal_format_io::owned_batch::LegacyReader;
 use crate::universal_format_io::owned_batch::{OwnedBatch, OwnedBatchReader};
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
-    Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Float32Array,
-    Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
+    Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Float16Array,
+    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
     LargeStringArray, RecordBatch, StringArray, StringViewArray, UInt8Array, UInt16Array,
     UInt32Array, UInt64Array, cast::AsArray as _,
 };
@@ -13392,12 +13392,19 @@ fn flat_columnar_source_to_vortex_struct(
         .iter()
         .zip(&source_shape.projected_columns)
         .map(|((column, family), projected_column)| {
-            if let Some(dtype) = projected_column.arrow_dtype_hint.as_ref()
-                && nested::family(dtype)?.is_some()
-            {
-                return Err(ShardLoomError::InvalidOperation(
-                    "empty nested columnar input requires an Arrow RecordBatch retaining field nullability; no fallback execution was attempted".into(),
-                ));
+            if let Some(dtype) = projected_column.arrow_dtype_hint.as_ref() {
+                if nested::family(dtype)?.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "empty nested columnar input requires an Arrow RecordBatch retaining field nullability; no fallback execution was attempted".into(),
+                    ));
+                }
+                if dtype == &ArrowDataType::Float16
+                    || matches!(dtype, ArrowDataType::Dictionary(_, values) if values.as_ref() == &ArrowDataType::Float16)
+                {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "empty Float16 columnar input requires an Arrow RecordBatch retaining field nullability and exact type; no fallback execution was attempted".into(),
+                    ));
+                }
             }
             let arrays = source
                 .batches
@@ -13563,7 +13570,9 @@ fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) ->
         | ArrowDataType::UInt16
         | ArrowDataType::UInt32
         | ArrowDataType::UInt64 => Ok("uint64".to_string()),
-        ArrowDataType::Float32 | ArrowDataType::Float64 => Ok("float64".to_string()),
+        ArrowDataType::Float16 | ArrowDataType::Float32 | ArrowDataType::Float64 => {
+            Ok("float64".to_string())
+        }
         ArrowDataType::Utf8 | ArrowDataType::LargeUtf8 | ArrowDataType::Utf8View => {
             Ok("utf8".to_string())
         }
@@ -13571,7 +13580,7 @@ fn columnar_family_from_arrow_dtype_hint(column: &str, dtype: &ArrowDataType) ->
             Ok("binary".to_string())
         }
         _ => Err(ShardLoomError::InvalidOperation(format!(
-            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted"
+            "streaming local vortex_ingest column '{column}' has unsupported Arrow type {dtype:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F16/F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted"
         ))),
     }
 }
@@ -13601,7 +13610,7 @@ fn columnar_family_from_dtype_hint(
             Ok(format!("decimal128({precision},{scale})"))
         }
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F16/F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -13609,7 +13618,15 @@ fn columnar_family_from_dtype_hint(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<()> {
-    if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
+    if let Some(array) = array.as_any().downcast_ref::<Float16Array>() {
+        for index in 0..array.len() {
+            if array.is_valid(index) && !array.value(index).is_finite() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest column '{column}' contains non-finite float16; no fallback execution was attempted"
+                )));
+            }
+        }
+    } else if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
         for index in 0..array.len() {
             if array.is_null(index) {
                 continue;
@@ -13679,7 +13696,10 @@ fn arrow_column_family_with_float_policy(
     {
         return Ok("uint64".to_string());
     }
-    if array.as_any().is::<Float32Array>() || array.as_any().is::<Float64Array>() {
+    if array.as_any().is::<Float16Array>()
+        || array.as_any().is::<Float32Array>()
+        || array.as_any().is::<Float64Array>()
+    {
         return Ok("float64".to_string());
     }
     if array.as_any().is::<StringArray>()
@@ -13695,7 +13715,7 @@ fn arrow_column_family_with_float_policy(
         return Ok("binary".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits supported nullable scalar/dictionary columns and bounded static list/struct payloads with bool, integer, F16/F32/F64, UTF8, binary, Decimal128, Date32 or timezone-free TimestampMicros leaves; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -13733,7 +13753,9 @@ pub(crate) fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static
         | ArrowDataType::UInt16
         | ArrowDataType::UInt32
         | ArrowDataType::UInt64 => Some("dictionary_uint64"),
-        ArrowDataType::Float32 | ArrowDataType::Float64 => Some("dictionary_float64"),
+        ArrowDataType::Float16 | ArrowDataType::Float32 | ArrowDataType::Float64 => {
+            Some("dictionary_float64")
+        }
         _ => None,
     }
 }
@@ -13747,6 +13769,13 @@ pub(crate) fn reject_dictionary_non_finite_float_values(
         return Ok(());
     };
     let values = dictionary.values();
+    if let Some(values) = values.as_any().downcast_ref::<Float16Array>() {
+        for index in 0..values.len() {
+            if values.is_valid(index) && !values.value(index).is_finite() {
+                return Err(dictionary_non_finite_float_error(column, index));
+            }
+        }
+    }
     if let Some(values) = values.as_any().downcast_ref::<Float32Array>() {
         for index in 0..values.len() {
             if values.is_valid(index) && !values.value(index).is_finite() {

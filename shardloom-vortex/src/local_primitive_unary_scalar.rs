@@ -42,7 +42,7 @@ pub(super) fn coerce(
             DType::Utf8(_) => StatValue::Utf8(String::new()),
             DType::Primitive(p, _) if p.is_signed_int() => StatValue::Int64(0),
             DType::Primitive(p, _) if p.is_unsigned_int() => StatValue::UInt64(0),
-            DType::Primitive(PType::F32 | PType::F64, _) => StatValue::Float64(0.0),
+            DType::Primitive(PType::F16 | PType::F32 | PType::F64, _) => StatValue::Float64(0.0),
             _ => return Err(failed("rewrite target requires an admitted scalar dtype")),
         };
         let literal = OwnedStat::from_scalar(value, memory)?;

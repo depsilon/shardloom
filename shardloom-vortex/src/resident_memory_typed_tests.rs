@@ -37,7 +37,7 @@ fn rows(source: &ResidentMemorySource) -> Json {
 #[test]
 fn dense_embedding_typed_json_preserves_metadata_nested_values_and_nulls() {
     let session = ResidentVortexSession::new(16 * 1024 * 1024, 1).unwrap();
-    for component in ["f32", "f64"] {
+    for component in ["f16", "f32", "f64"] {
         let metadata = br#"{"model_id":null,"space_id":"declared","version":1}"#;
         let embedding = json!({"Extension":{"id":"shardloom.embedding.v1",
             "metadata":metadata.as_slice(),
@@ -87,6 +87,7 @@ fn typed_scalars_preserve_exact_native_types_and_all_values() {
         (json!({"Primitive":["u16",true]}), json!(u16::MAX)),
         (json!({"Primitive":["u32",true]}), json!(u32::MAX)),
         (json!({"Primitive":["u64",true]}), json!(u64::MAX)),
+        (json!({"Primitive":["f16",true]}), json!(-0.0)),
         (json!({"Primitive":["f32",true]}), json!(-0.0)),
         (json!({"Primitive":["f64",true]}), json!(1.25)),
         (json!({"Bool":true}), json!(true)),
@@ -179,7 +180,8 @@ fn malformed_typed_schemas_and_values_fail_without_retained_credits() {
         ),
         (r#"{"Bool":true,"Bool":false}"#, "true"),
         (r#"{"Bool":1}"#, "true"),
-        (r#"{"Primitive":["f16",true]}"#, "1.0"),
+        (r#"{"Primitive":["f128",true]}"#, "1.0"),
+        (r#"{"Primitive":["f16",true]}"#, "0.1"),
         (r#"{"Decimal":[{"precision":39,"scale":0},true]}"#, "null"),
         (r#"{"Decimal":[{"precision":2,"scale":3},true]}"#, "null"),
         (r#"{"List":[{"Bool":true},true,true]}"#, "[]"),
@@ -273,7 +275,11 @@ fn buffered_typed_batches_preserve_empty_schema_and_reject_drift() {
 #[test]
 fn typed_float_json_preserves_subnormal_and_boundary_bits() {
     use vortex::array::arrays::Primitive;
+    use vortex::array::dtype::half::f16;
     let session = ResidentVortexSession::new(4 * 1024 * 1024, 1).unwrap();
+    let mut half = [0x8000, 1, 0x03ff, 0x0400, 0x7bff, 0xfbff]
+        .map(shardloom_core::float_policy::widen_f16_bits)
+        .to_vec();
     let mut values = vec![
         -0.0,
         f64::from(f32::from_bits(1)),
@@ -294,6 +300,10 @@ fn typed_float_json_preserves_subnormal_and_boundary_bits() {
     let mut bits = 0x972e_56f4_a319_bc07_u64;
     for _ in 0..128 {
         bits = bits.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        let smallest = f16::from_bits(u16::try_from(bits >> 48).unwrap());
+        if smallest.is_finite() {
+            half.push(smallest.to_f64());
+        }
         let narrow = f32::from_bits(u32::try_from(bits >> 32).unwrap());
         if narrow.is_finite() {
             values.push(f64::from(narrow));
@@ -303,7 +313,7 @@ fn typed_float_json_preserves_subnormal_and_boundary_bits() {
             wide.push(value);
         }
     }
-    for (kind, values) in [("f32", values), ("f64", wide)] {
+    for (kind, values) in [("f16", half), ("f32", values), ("f64", wide)] {
         let dtype = json!({"Primitive":[kind,true]});
         let expected = values
             .iter()
@@ -314,7 +324,9 @@ fn typed_float_json_preserves_subnormal_and_boundary_bits() {
         let field = input.0.array.slots()[1].as_ref().unwrap();
         let field = field.as_opt::<Primitive>().unwrap();
         for (index, expected) in values.iter().enumerate() {
-            let actual = if kind == "f32" {
+            let actual = if kind == "f16" {
+                field.as_slice::<f16>()[index].to_f64()
+            } else if kind == "f32" {
                 f64::from(field.as_slice::<f32>()[index])
             } else {
                 field.as_slice::<f64>()[index]

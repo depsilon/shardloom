@@ -11,7 +11,7 @@ use vortex::{
     array::{
         IntoArray as _, VortexSessionExecute as _,
         arrays::{BoolArray, ChunkedArray, ConstantArray, DictArray, ExtensionArray},
-        dtype::Nullability,
+        dtype::{Nullability, half::f16},
         extension::datetime::{Date, Time, TimeUnit, Timestamp},
         memory::HostMemorySessionExt as _,
         scalar::Scalar,
@@ -150,6 +150,7 @@ fn numeric_output_copy_matches_all_widths_empty_null_sliced_and_encoded_values()
     check!(i16, 1);
     check!(i32, 1);
     check!(i64, 1);
+    check!(f16, f16::NEG_ZERO);
     check!(f32, -0.0);
     check!(f64, -0.0);
     let constant = ConstantArray::new(Scalar::from(u64::MAX), 2051).into_array();
@@ -158,6 +159,26 @@ fn numeric_output_copy_matches_all_widths_empty_null_sliced_and_encoded_values()
 
 #[test]
 fn numeric_output_copy_validates_only_nonnull_values_and_preserves_float_bits() {
+    for bits in [
+        vec![0x8000, 0, 1, 0x8001],
+        vec![0x3c00, 0x7c00],
+        vec![0xfc00],
+        vec![0x7c01],
+    ] {
+        let array = PrimitiveArray::from_iter(bits.into_iter().map(f16::from_bits)).into_array();
+        compare_copy(&array, array.dtype());
+    }
+    let hidden_half = PrimitiveArray::new(
+        Buffer::copy_from([
+            f16::from_bits(0x7c01),
+            f16::NEG_ZERO,
+            f16::INFINITY,
+            f16::from_bits(1),
+        ]),
+        Validity::Array(BoolArray::from_iter([false, true, false, true]).into_array()),
+    )
+    .into_array();
+    compare_copy(&hidden_half, hidden_half.dtype());
     for values in [
         vec![-0.0_f64, 0.0, f64::from_bits(1), -f64::from_bits(1)],
         vec![1.0, f64::INFINITY],
@@ -178,6 +199,168 @@ fn numeric_output_copy_validates_only_nonnull_values_and_preserves_float_bits() 
         &array,
         &DType::Primitive(PType::I64, Nullability::NonNullable),
     );
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // One exhaustive source and owner lifecycle covers every bit pattern.
+fn float16_every_bit_pattern_survives_owned_register_copy_and_reordered_gather() {
+    use shardloom_core::{
+        FloatPolicy,
+        float_policy::{narrow_f16_bits_exact, widen_f16_bits},
+    };
+    let source = PrimitiveArray::from_iter((u16::MIN..=u16::MAX).map(f16::from_bits));
+    let session =
+        ResidentVortexSession::new_with_float_policy(16 << 20, 1, FloatPolicy::Extended).unwrap();
+    let memory = session.memory().clone();
+    let output = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let mut execution = context.native_session().create_execution_ctx();
+            let owner = NativeNumericOwner::new_with_float_policy(
+                source.clone(),
+                &mut execution,
+                FloatPolicy::Extended,
+            )?;
+            for bits in u16::MIN..=u16::MAX {
+                let provider = f16::from_bits(bits);
+                let wide = owner.numeric_value(usize::from(bits))?.unwrap();
+                if provider.is_finite() {
+                    // Independent pinned-provider numeric oracle; the core roundtrip
+                    // alone would not detect mutually consistent conversion errors.
+                    assert_eq!(wide.to_bits(), provider.to_f64().to_bits(), "{bits:04x}");
+                }
+                assert_eq!(wide.to_bits(), widen_f16_bits(bits).to_bits());
+                assert_eq!(narrow_f16_bits_exact(wide), Some(bits));
+            }
+            let allocator = context.native_session().host_allocator();
+            let copied = copy_column(
+                source.dtype(),
+                &source,
+                owner.validity(),
+                &allocator,
+                FloatPolicy::Extended,
+                || context.check_cancelled(),
+            )?;
+            let rebuilt = super::super::build_column_with_float_policy(
+                source.dtype(),
+                source.len(),
+                &allocator,
+                FloatPolicy::Extended,
+                |row| owner.stat_value(row).map(Value::from),
+            )?;
+            for array in [&copied, &rebuilt] {
+                let actual = array.as_opt::<vortex::array::arrays::Primitive>().unwrap();
+                assert_eq!(
+                    actual
+                        .as_slice::<f16>()
+                        .iter()
+                        .map(|v| v.to_bits())
+                        .collect::<Vec<_>>(),
+                    (u16::MIN..=u16::MAX).collect::<Vec<_>>()
+                );
+            }
+            let indices = index_array(source.len() + 1, true, context, |row| {
+                Ok((row < source.len()).then(|| source.len() - 1 - row))
+            })?;
+            let promoted = take_column(
+                &source.clone().into_array(),
+                &indices,
+                &DType::Primitive(PType::F64, Nullability::Nullable),
+                context,
+            )?;
+            let promoted_values = promoted
+                .as_opt::<vortex::array::arrays::Primitive>()
+                .unwrap();
+            for (value, bits) in promoted_values.as_slice::<f64>()[..source.len()]
+                .iter()
+                .zip((u16::MIN..=u16::MAX).rev())
+            {
+                assert_eq!(value.to_bits(), widen_f16_bits(bits).to_bits());
+            }
+            assert!(
+                !promoted
+                    .validity()
+                    .map_err(vortex_error)?
+                    .execute_is_valid(source.len(), &mut execution)
+                    .map_err(vortex_error)?
+            );
+            let output = take_column(
+                &source.clone().into_array(),
+                &indices,
+                &source.dtype().as_nullable(),
+                context,
+            )?;
+            let actual = output.as_opt::<vortex::array::arrays::Primitive>().unwrap();
+            assert_eq!(
+                actual.as_slice::<f16>()[..source.len()]
+                    .iter()
+                    .map(|v| v.to_bits())
+                    .collect::<Vec<_>>(),
+                (u16::MIN..=u16::MAX).rev().collect::<Vec<_>>()
+            );
+            assert!(
+                !output
+                    .validity()
+                    .map_err(vortex_error)?
+                    .execute_is_valid(source.len(), &mut execution)
+                    .map_err(vortex_error)?
+            );
+            Ok(output)
+        })
+        .unwrap();
+    drop(source);
+    drop(session);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    let retained = output.slice(17..23).unwrap();
+    drop(output);
+    assert!(memory.snapshot().reserved_bytes > 0);
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn float16_promotion_observes_only_selected_valid_values_under_strict_policy() {
+    let source = PrimitiveArray::new(
+        Buffer::copy_from([
+            f16::from_bits(0x7c01),
+            f16::ONE,
+            f16::from_bits(0xfc42),
+            f16::NEG_ZERO,
+        ]),
+        Validity::Array(BoolArray::from_iter([true, true, false, true]).into_array()),
+    )
+    .into_array();
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let target = DType::Primitive(PType::F64, Nullability::Nullable);
+            let selected = index_array(3, false, context, |row| Ok(Some([3, 2, 1][row])))?;
+            let output = take_column(&source, &selected, &target, context)?;
+            let mut execution = context.native_session().create_execution_ctx();
+            let values = NativeNumericOwner::new(
+                output
+                    .as_opt::<vortex::array::arrays::Primitive>()
+                    .unwrap()
+                    .into_owned(),
+                &mut execution,
+            )?;
+            assert_eq!(
+                values.numeric_value(0)?.unwrap().to_bits(),
+                (-0.0f64).to_bits()
+            );
+            assert_eq!(values.numeric_value(1)?, None);
+            assert_eq!(values.numeric_value(2)?, Some(1.0));
+            let observed = index_array(1, false, context, |_| Ok(Some(0)))?;
+            assert!(
+                take_column(&source, &observed, &target, context)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("finite declared dtype")
+            );
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

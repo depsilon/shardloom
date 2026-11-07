@@ -232,6 +232,15 @@ pub(super) fn prepare_plan(
             "this output format cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
         ));
     }
+    if matches!(
+        format,
+        VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
+    ) && contains_float16(&plan.dtype)
+    {
+        return Err(error(
+            "this output format has no admitted exact Float16 mapping; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     // Check type eligibility without constructing Arrow metadata. Reserve the
     // growing root schema before its field vectors, names or lookup index.
     let Some(fields) = plan.dtype.as_struct_fields_opt() else {
@@ -272,6 +281,15 @@ pub(super) fn prepare_plan(
         schema_fields,
         schema_metadata,
     }))
+}
+
+fn contains_float16(dtype: &DType) -> bool {
+    match dtype {
+        DType::Primitive(vortex::array::dtype::PType::F16, _) => true,
+        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains_float16(child),
+        DType::Struct(fields, _) => fields.fields().any(|child| contains_float16(&child)),
+        _ => false,
+    }
 }
 
 fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {

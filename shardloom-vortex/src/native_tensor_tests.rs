@@ -1,5 +1,5 @@
 use super::*;
-use vortex::array::dtype::Nullability;
+use vortex::array::dtype::{Nullability, PType};
 
 #[test]
 fn fixed_tensor_metadata_preserves_physical_shape_order_and_optional_presence() {
@@ -99,6 +99,7 @@ fn fixed_tensor_storage_checks_element_width_shape_and_nullability() {
                     PType::U64,
                     PType::F32,
                     PType::F64,
+                    PType::F16,
                 ]
                 .map(|p| DType::Primitive(p, component)),
             );
@@ -127,7 +128,7 @@ fn fixed_tensor_storage_checks_element_width_shape_and_nullability() {
     }
     for child in [
         DType::Utf8(false.into()),
-        DType::Primitive(PType::F16, false.into()),
+        DType::Binary(false.into()),
         DType::Null,
     ] {
         assert!(

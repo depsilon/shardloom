@@ -343,7 +343,7 @@ fn bind_offset(
         (DType::Primitive(ptype, _), Offset::Number(value)) if ptype.is_int() => {
             frame::RangeOffset::Integer(nonnegative_integer(value)?)
         }
-        (DType::Primitive(PType::F32 | PType::F64, _), Offset::Number(value)) => {
+        (DType::Primitive(PType::F16 | PType::F32 | PType::F64, _), Offset::Number(value)) => {
             let value = match value {
                 ScalarValue::Float64(value) => *value,
                 value => nonnegative_integer(value)? as f64,

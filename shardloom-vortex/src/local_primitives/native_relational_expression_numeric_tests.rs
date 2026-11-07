@@ -836,12 +836,14 @@ fn numeric_expression_decimal_and_temporal_stay_with_original_owners() {
 
 #[test]
 fn numeric_expression_left_preparation_precedes_right_evaluation_failure() {
-    // The existing key owner rejects F16 during preparation, before evaluation
+    // The existing key owner rejects Decimal256 during preparation, before evaluation
     // can discover the missing right-hand input column.
-    let left = PrimitiveArray::from_byte_buffer(
-        Buffer::from(vec![0x3c00_u16]).into_byte_buffer(),
-        PType::F16,
-        Validity::NonNullable,
+    let left = ConstantArray::new(
+        Scalar::null(DType::Decimal(
+            DecimalDType::new(39, 0),
+            Nullability::Nullable,
+        )),
+        1,
     )
     .into_array();
     let dtype = left.dtype().clone();
@@ -862,7 +864,7 @@ fn numeric_expression_left_preparation_precedes_right_evaluation_failure() {
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let expected = keys(&left, context)
                 .err()
-                .expect("left preparation must reject unsupported F16 keys");
+                .expect("left preparation must reject unsupported Decimal256 keys");
             assert!(expected.to_string().contains("key requires"));
             let actual = expression.evaluate(&input, context).unwrap_err();
             assert_eq!(actual.to_string(), expected.to_string());

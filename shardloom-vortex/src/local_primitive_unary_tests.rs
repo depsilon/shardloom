@@ -153,7 +153,7 @@ fn scalar_json(scalar: &vortex::array::scalar::Scalar) -> serde_json::Value {
         None => serde_json::Value::Null,
         Some(ScalarValue::Bool(value)) => (*value).into(),
         Some(ScalarValue::Primitive(value)) => {
-            Value::from(runtime::vortex_pvalue_to_stat_value(*value).unwrap())
+            Value::from(runtime::vortex_pvalue_to_stat_value(*value))
                 .into_json()
                 .unwrap()
         }

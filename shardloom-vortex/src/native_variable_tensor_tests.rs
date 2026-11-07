@@ -130,6 +130,7 @@ fn variable_tensor_storage_preserves_all_five_nullability_flags() {
                 PType::U64,
                 PType::F32,
                 PType::F64,
+                PType::F16,
             ]
             .map(|p| DType::Primitive(p, component)),
         );
@@ -153,7 +154,7 @@ fn variable_tensor_storage_preserves_all_five_nullability_flags() {
     }
     for element in [
         DType::Utf8(false.into()),
-        DType::Primitive(PType::F16, false.into()),
+        DType::Binary(false.into()),
         DType::Null,
     ] {
         assert!(

@@ -141,7 +141,7 @@ class TypedNativeInputTests(unittest.TestCase):
         deep = "int32"
         for _ in range(26):
             deep = {"type": "list", "item": deep}
-        for specification in ("float16", "decimal128(39,2)", "decimal128(2,3)",
+        for specification in ("float128", "decimal128(39,2)", "decimal128(2,3)",
                               {"type": "int32", "nullable": 1}, {"type": "int32", "extra": True},
                               {"type": "struct", "fields": {}}, {"type": "list"},
                               {"type": "fixed_size_list", "item": "int32", "size": True},

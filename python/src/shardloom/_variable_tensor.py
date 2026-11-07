@@ -25,7 +25,7 @@ def storage_rank(storage) -> int:
     data, shape = (child for _, child in storage.parameters)
     if (data.name != "list" or len(data.parameters) != 1
             or data.parameters[0].name not in ELEMENT_TYPES):
-        raise ValueError("variable tensor data requires a Boolean/integer/Float32/Float64 list")
+        raise ValueError("variable tensor data requires a Boolean/integer/Float16/Float32/Float64 list")
     if (shape.name != "fixed_size_list" or len(shape.parameters) != 2
             or shape.parameters[0].name != "int32"):
         raise ValueError("variable tensor shape requires a fixed-size Int32 list")

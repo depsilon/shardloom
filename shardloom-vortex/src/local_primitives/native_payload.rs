@@ -397,7 +397,7 @@ pub(super) fn default_value(dtype: &DType) -> Result<Value<'static>> {
         }
         DType::Primitive(ptype, _) if ptype.is_signed_int() => Value::Int(0),
         DType::Primitive(ptype, _) if ptype.is_unsigned_int() => Value::UInt(0),
-        DType::Primitive(PType::F32 | PType::F64, _) => Value::Float(0.0),
+        DType::Primitive(PType::F16 | PType::F32 | PType::F64, _) => Value::Float(0.0),
         _ => return Err(failed("payload default requires a scalar leaf")),
     })
 }
@@ -535,7 +535,10 @@ fn copy_rows<const RETAIN: bool>(
             if RETAIN
                 && (copy.policy == CopyPolicy::PreserveUnobserved
                     || context.float_policy() == shardloom_core::FloatPolicy::Extended)
-                && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _))
+                && matches!(
+                    dtype,
+                    DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+                )
                 && let Some(selected) = &selected
             {
                 return storage::copy(selected, rows, dtype, context, allocator);
