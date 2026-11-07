@@ -5220,6 +5220,27 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         claim_boundary="Complete admitted local workflows; unsupported semantics fail explicitly with no external execution.",
     ),
     _graduation_row(
+        "feature_gated_native_binary_objects",
+        "python_context",
+        "Managed binary ownership, external local ranges and explicit byte access",
+        "feature_gated",
+        "feature_gated",
+        context_methods=("binary_object", "binary_object_store", "external_binary_object",
+                         "import_binary_object", "binary_object_snapshot"),
+        runtime_route="native_vortex_query",
+        promotion_criteria=(
+            "native Unix sessions admit object owners under explicit memory, storage and I/O policy; "
+            "complete managed exports reopen independently of their source"
+        ),
+        evidence_refs=("python/tests/test_native_binary_object_binding.py",
+                       "docs/architecture/native-managed-binary-objects-2026-11-06.md"),
+        claim_boundary=(
+            "Requires the native-binary-objects feature. Construction/import and byte reads are explicit "
+            "operations; this matrix performs none of them. External references remain externally owned. "
+            "Remote storage and compatibility-file descriptor exports are not admitted."
+        ),
+    ),
+    _graduation_row(
         "context_construction",
         "python_context",
         "Context construction and environment/repo binding",

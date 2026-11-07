@@ -5,8 +5,10 @@
 Status: locally accepted for item 19, step 2, following the accepted
 [dense embedding delivery](native-dense-embedding-lifecycle-2026-11-05.md).
 The [acceptance record](../release/evidence/native-managed-binary-objects-2026-11-06.json)
-binds the source, checks and installed package. Hosted review and integration
-are pending; local acceptance does not claim publication.
+binds the original source, checks and installed package. The
+[surface follow-up](../release/evidence/native-managed-binary-surface-followup-2026-11-06.json)
+binds the corrected Python capability metadata and replacement wheel. Hosted
+integration is pending; local acceptance does not claim publication.
 The remaining tensor, representation and vector-expression work keeps its
 order in the [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md).
 CG-1 through CG-23 retain their independent obligations.
@@ -272,3 +274,26 @@ files reject object descriptors. Tensor metadata, other representations, vector
 expressions and resource-backed traversal remain separate item 19 work. No
 benchmark, performance claim, package publication or independent CG-gate closure
 follows from this acceptance.
+
+## Hosted surface correction
+
+The first PR #1659 Python check found that the five new Context methods lacked
+entries in the static user-surface graduation matrix. Their new row explicitly
+requires the native binary-object feature and Unix session, and distinguishes
+explicit object operations from inert capability inspection. The generated API
+source fingerprints are refreshed with that metadata change. An intervening
+local check caught those stale fingerprints; its failed result remains saved.
+
+The corrected core Python shard passes, reporting 833 tests and 47 existing
+opt-in/environment skip records. The rebuilt wheel passes all 319 installed
+integration tests without skips and passes uninstall. Its packaged context
+module matches the validated source. Native Rust source, CLI and library bytes
+are unchanged from the original acceptance; no native rebuild or benchmark
+was needed for the metadata correction.
+
+The [follow-up packet](../release/evidence/native-managed-binary-surface-followup-2026-11-06.tar.xz)
+also retains the original hosted minimum-Rust-version download failure: a
+registry connection reset occurred before compilation. GitHub refused a retry
+while the workflow was active; the corrected revision receives new hosted
+checks. This network observation and the metadata failure are separate, and
+neither is counted as a passing hosted check.

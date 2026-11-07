@@ -1,0 +1,281 @@
+{
+  "schema_version": "shardloom.managed_binary_surface_followup.v1",
+  "status": "locally_accepted",
+  "source_revision": "307c0543e317d0ed07ad42cd43bdfeaa74601c9f",
+  "source_inventory": {
+    "python/src/shardloom/context.py": {
+      "bytes": 489316,
+      "sha256": "b059c5578715f22fed5430691e5edd3345d15b27d80b28b347d4885111f0d4c1"
+    }
+  },
+  "original_acceptance_sha256": "1283bfc85142fad22a1e5e314efb8fdc9ed4f736e7f0c66017f774866f62ceee",
+  "original_archive_sha256": "4e4bf94508b814b066077f997520aa87d556568dfab57c10aff336f0805912bc",
+  "correction": "Classify five new native Context methods in the inert graduation matrix; regenerate the API source fingerprint.",
+  "checks": [
+    {
+      "receipt": "binary-graduation-tests-r1.json",
+      "receipt_sha256": "e97706668d10779d151365f615e8284e28ed9c1b0f9a969fec6be5aca43ed41a",
+      "log_sha256": "ba604ab7cb16aa7da32ed9a0d8b5941c459d8cda731e67754f29272b822e1071",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/test-env/bin/python",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "python.tests.test_user_surface_graduation_matrix"
+      ]
+    },
+    {
+      "receipt": "binary-python-core-r2.json",
+      "receipt_sha256": "d3e2a519c0d36f9e8c19b94b6a89554bf1c0d51e0721277562e618a04a7c6dae",
+      "log_sha256": "b1df8a56ac0d92ff09abb13d0be3f7f65a8e05981a11ceb72861add3d4edec21",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/test-env/bin/python",
+        "-B",
+        "scripts/run_python_test_shard.py",
+        "--shard",
+        "core",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/python-core-r2"
+      ]
+    },
+    {
+      "receipt": "installed-wheel-r2.json",
+      "receipt_sha256": "942b6bfa45b1abb1606a533ac6e5a03aedfc584e9c0418f3f4d542de93c96509",
+      "log_sha256": "95517ca8338af113b604225e21218d9962ef4fac094ef30fdcf4236b63c1c035",
+      "status": "passed",
+      "command": [
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/wheel-build-tools/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/installed-proof-r2",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/runtime-r2/lib_native.dylib",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/managed-binary-2026-11-06/runtime-r2/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/item20-completion-2026-10-28/installed-proof-wheelhouse"
+      ]
+    }
+  ],
+  "core_python": {
+    "reported_tests": 833,
+    "skip_records": 47,
+    "declared_test_count": 1175,
+    "failures": 0,
+    "errors": 0,
+    "status": "passed"
+  },
+  "installed_package": {
+    "tests": 319,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "wheel_sha256": "461392a653a3caf326326a5f85495778245488d670eff063a0ee77e0656d1abf",
+  "cli_sha256": "1da4308a09654466a8399499db540dc967076b0b43feaae9acd9f01ca695d25f",
+  "native_library_sha256": "13ce8c0b7c34770325d8711a8f9b8bbf89d6aabb3f70a951332d6a270baadcb2",
+  "native_runtime_rebuilt": false,
+  "native_runtime_unchanged": true,
+  "wheel_context_matches_validated_source": true,
+  "original_failures": [
+    {
+      "receipt": "pr1659-core-original.log",
+      "disposition": "Missing graduation classification corrected; no gate removed."
+    },
+    {
+      "receipt": "pr1659-msrv-original.log",
+      "disposition": "Registry connection reset before compilation. Initial retry rejected while run active; new revision receives fresh hosted checks."
+    },
+    {
+      "receipt": "binary-python-core-r1.json",
+      "disposition": "Two generated reference fingerprints were stale after metadata correction; regenerated and full core shard passed."
+    },
+    {
+      "receipt": "python-followup-sequence-r1.json",
+      "disposition": "Stopped on failed core reference check before building or installing a package."
+    }
+  ],
+  "hosted_integration": "pending",
+  "whole_item_19_complete": false,
+  "publication_attempted": false,
+  "performance_claim": false,
+  "archive": "native-managed-binary-surface-followup-2026-11-06.tar.xz",
+  "archive_sha256": "3e7ee8258ef846a545b6f2e712e4f46cd881ace37d177f2b278ab6827594500d",
+  "members": [
+    {
+      "path": "binary-graduation-tests-r1.json",
+      "bytes": 2369,
+      "sha256": "e97706668d10779d151365f615e8284e28ed9c1b0f9a969fec6be5aca43ed41a"
+    },
+    {
+      "path": "binary-graduation-tests-r1.log",
+      "bytes": 1209,
+      "sha256": "ba604ab7cb16aa7da32ed9a0d8b5941c459d8cda731e67754f29272b822e1071"
+    },
+    {
+      "path": "binary-pr1659-r1.json",
+      "bytes": 15292,
+      "sha256": "bb35501f301bd1470175ec6356549dfcd4a3a4ebcdbcf6cc1ab722d6782c021d"
+    },
+    {
+      "path": "binary-pr1659-r2.json",
+      "bytes": 15907,
+      "sha256": "656cf0ba994611c1c58960449273100ce793ac68b10b112aac634f40009dcb07"
+    },
+    {
+      "path": "binary-python-core-r1.json",
+      "bytes": 3072,
+      "sha256": "a9484d4913b360832b8750b6debb0799be48f0d699d41e05a6c9cc7077af5418"
+    },
+    {
+      "path": "binary-python-core-r1.log",
+      "bytes": 10824,
+      "sha256": "8e259424634489b01d415b5e6986e77880902f80d5912614ded9b0c36e57de14"
+    },
+    {
+      "path": "binary-python-core-r2.json",
+      "bytes": 3514,
+      "sha256": "d3e2a519c0d36f9e8c19b94b6a89554bf1c0d51e0721277562e618a04a7c6dae"
+    },
+    {
+      "path": "binary-python-core-r2.log",
+      "bytes": 8990,
+      "sha256": "b1df8a56ac0d92ff09abb13d0be3f7f65a8e05981a11ceb72861add3d4edec21"
+    },
+    {
+      "path": "installed-proof-r2/build.log",
+      "bytes": 701,
+      "sha256": "84e280be1c340b6015d3923c64e5057232acdd755977cd00b5494627da67a2cc"
+    },
+    {
+      "path": "installed-proof-r2/create_environment.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "installed-proof-r2/install.log",
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d"
+    },
+    {
+      "path": "installed-proof-r2/install_optional_consumer.log",
+      "bytes": 5927,
+      "sha256": "3e42c1c0ac75be0fa7572462df49b456d80445a317bdfce0e4d8dc78aaf99489"
+    },
+    {
+      "path": "installed-proof-r2/integration.json",
+      "bytes": 89,
+      "sha256": "5c06d1f6d5ecc109d4fe6d263583785eabf64ae0ccf7f663104684e101147ef5"
+    },
+    {
+      "path": "installed-proof-r2/integration.log",
+      "bytes": 63747,
+      "sha256": "93193e478f54b9d2d1c57cf70cb1ffe42fcd294cb00f9aba0893d89a08e9970b"
+    },
+    {
+      "path": "installed-proof-r2/load.log",
+      "bytes": 603,
+      "sha256": "f945b71760c5431afcbec2b36a1a46e2255b3cee97e6e114a57352de7e53e152"
+    },
+    {
+      "path": "installed-proof-r2/report.json",
+      "bytes": 10118,
+      "sha256": "95517ca8338af113b604225e21218d9962ef4fac094ef30fdcf4236b63c1c035"
+    },
+    {
+      "path": "installed-proof-r2/uninstall.log",
+      "bytes": 118,
+      "sha256": "7c8e8ce04e6137e77061d311de835802a2b2692fd61cd326b9e3df1a5d60e223"
+    },
+    {
+      "path": "installed-proof-r2/verify_uninstalled.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "installed-wheel-r2.json",
+      "bytes": 3975,
+      "sha256": "942b6bfa45b1abb1606a533ac6e5a03aedfc584e9c0418f3f4d542de93c96509"
+    },
+    {
+      "path": "installed-wheel-r2.log",
+      "bytes": 10118,
+      "sha256": "95517ca8338af113b604225e21218d9962ef4fac094ef30fdcf4236b63c1c035"
+    },
+    {
+      "path": "pr1659-core-original.log",
+      "bytes": 40196,
+      "sha256": "3e7766179d03bc64c4c7557e74940ae1b6c149c5d7b5443518ca0355bd040739"
+    },
+    {
+      "path": "pr1659-initial-review-r1.json",
+      "bytes": 1469,
+      "sha256": "eeec595455b952dc1a4c47efd2367f2a9bf03cbe6f74597525edef81b1b6d49a"
+    },
+    {
+      "path": "pr1659-msrv-original.log",
+      "bytes": 31474,
+      "sha256": "69710a9d089ae4b1a5a98df5d444ac241330d13f69b29ef2b32d90ad0cd19291"
+    },
+    {
+      "path": "pr1659-msrv-retry-request-r1.json",
+      "bytes": 1050,
+      "sha256": "5d669a2fbb482bbff404321fa315ab476e355e50057857c1654f307e25854803"
+    },
+    {
+      "path": "python-core-r1/core.json",
+      "bytes": 7172,
+      "sha256": "c956e9a00da500166d23b178af4487df10d4aab0dcb31a42147519421f544ba4"
+    },
+    {
+      "path": "python-core-r2/core.json",
+      "bytes": 7172,
+      "sha256": "d9f23bdc2247d2966985fa734e3c80cc044ec384608406db709baec8126b1799"
+    },
+    {
+      "path": "python-followup-sequence-r1.json",
+      "bytes": 127,
+      "sha256": "5ad63065b4322c27587e0c9cb169ace7c4fd0a5aef13aad1f66ed66aec5a6ca8"
+    },
+    {
+      "path": "python-followup-sequence-r2.json",
+      "bytes": 100,
+      "sha256": "8e0bb08d0723ca33fa45df1aab2ad9dad029d76693e2919eeeca34eee876ee86"
+    },
+    {
+      "path": "source-blobs/25d22ec908a0df25248dbc87f6e47c37f4fdb862c9f243fcaf63890f0b1e4a60",
+      "bytes": 49486,
+      "sha256": "25d22ec908a0df25248dbc87f6e47c37f4fdb862c9f243fcaf63890f0b1e4a60"
+    },
+    {
+      "path": "source-blobs/3a48f209d978b7021cb4412a90ba5f22fe75b34b86d24609c41f1d9a4cbc958f",
+      "bytes": 270958,
+      "sha256": "3a48f209d978b7021cb4412a90ba5f22fe75b34b86d24609c41f1d9a4cbc958f"
+    },
+    {
+      "path": "source-blobs/b059c5578715f22fed5430691e5edd3345d15b27d80b28b347d4885111f0d4c1",
+      "bytes": 489316,
+      "sha256": "b059c5578715f22fed5430691e5edd3345d15b27d80b28b347d4885111f0d4c1"
+    },
+    {
+      "path": "tools/finish_binary_python_followup.py",
+      "bytes": 2663,
+      "sha256": "e8404491689575c88816ffd5abd2fb5c7e9392e7bd5b18e72b6cc2faea4a1921"
+    },
+    {
+      "path": "tools/finish_binary_python_followup_r2.py",
+      "bytes": 2778,
+      "sha256": "b0cca35ad71f8e0c9565ca30e04e1894eec53f98a1c5d6845a71b92c23350ed1"
+    },
+    {
+      "path": "tools/package_binary_surface_followup.py",
+      "bytes": 7030,
+      "sha256": "d48ae27b23cd998d0667b6f05ce8e4ac549b22ba68ee440ebbbfe8c86510d8b0"
+    }
+  ]
+}
