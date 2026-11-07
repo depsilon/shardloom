@@ -2,7 +2,11 @@
 
 # Compression and transport patch updates
 
-Status: combined local acceptance passed; hosted review and integration pending.
+Status: merged in [#1660](https://github.com/depsilon/shardloom/pull/1660) as
+`2df6460cae18eb55b2a0d680a55721d438bc495d`, after all 58 PR checks passed with no
+review findings. All 55 required checks pass on that exact signed merge, and
+generated-artifact retirement is complete. The complete open-PR collection is
+empty at closeout.
 
 This maintenance batch reconciles three existing dependency proposals before
 the rich-data queue resumes. Preserve their original commits and validate one
@@ -64,8 +68,8 @@ the provider checks; the earlier failure is not acceptance evidence.
 The partial Arrow 60 proposal [#1642](https://github.com/depsilon/shardloom/pull/1642)
 remains deferred under the [coordinated provider review](dependency-intake-2026-11-02.md#deferred-arrow-major-upgrade).
 Do not introduce conversion bridges or a partial major-version upgrade to
-make that proposal pass. Close it as deferred when the open-PR reconciliation
-finishes.
+make that proposal pass. It was closed as deferred during the open-PR
+reconciliation; the three incorporated proposals were closed as superseded.
 
 ## Acceptance
 
@@ -103,7 +107,22 @@ claim follows from a passing command.
 - [x] Pass focused compression controls and default/native/optional-graph checks.
 - [x] Pass the supported Rust version, dependency audit and installed-wheel proof.
 - [x] Preserve original failures and validate portable evidence.
-- [ ] Pass final-head hosted checks and review, merge, then verify main.
-- [ ] Reconcile incorporated proposals and retire superseded generated artifacts.
+- [x] Pass final-head hosted checks and review, then merge.
+- [x] Close incorporated proposals as superseded and the partial Arrow proposal as deferred.
+- [x] Verify the exact merge on main and retire superseded generated artifacts.
+
+The main acceptance preserves the exact check IDs, source tree and signed merge
+parents. The three incorporated proposals remain in the accepted ancestry; all
+three were closed as superseded, and the partial Arrow 60 proposal was closed
+as deferred. The existing manual CodeQL workflow passed all three checks at the
+unchanged final PR head after retargeting the stacked proposal to main.
+
+After main acceptance, 10,042 obsolete regular files and eight environment links
+were removed with repeated identity and closed-handle checks. All 88 retired raw
+intake files remain byte-exact in the committed portable archive, and replay
+passes after retirement. The accepted dependency runtime/wheel, current inputs
+and compact original/final observations remain. Shared compiler outputs support
+the following authorized tensor work; no payload backup or storage-limit change
+was made.
 
 This maintenance work does not require a new benchmark or package publication.

@@ -55,6 +55,19 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
             if field
                 .metadata()
                 .get("ARROW:extension:name")
+                .is_some_and(|name| name == "arrow.fixed_shape_tensor")
+            {
+                let metadata = field
+                    .metadata()
+                    .get("ARROW:extension:metadata")
+                    .ok_or_else(|| PyValueError::new_err("tensor result is missing metadata"))?;
+                result.set_item("metadata", metadata)?;
+                result.set_item("type", "fixed_shape_tensor")?;
+                return Ok(result.unbind());
+            }
+            if field
+                .metadata()
+                .get("ARROW:extension:name")
                 .is_some_and(|name| name == "shardloom.embedding.v1")
             {
                 let metadata = field

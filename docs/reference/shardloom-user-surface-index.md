@@ -56,7 +56,7 @@ and compatibility-output boundaries.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `e3bd149f13b0f9a1df3c5b5ba84a6fdb6a3935707d2ad46690e2d7b19bdda4e2` (SHA-256 of the listed source inputs).
+Source identity: `0d2b579ead6023f4101a73fdbfde2ccfdfccebd795b1574c6c3e540f676a40cc` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -309,6 +309,7 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |
 | [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
 | [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float32/Float64 values with versioned embedding identity. |
+| [`shardloom.types.fixed_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat physical-order tensor values with a checked fixed shape. |
 | [`shardloom.types.struct`](../../python/src/shardloom/types.py) | function | Declare struct metadata for the native binder. |
 | [`shardloom.types.scalar`](../../python/src/shardloom/types.py) | function | Bind a scalar with an explicit native type, including typed nulls. |
 | [`adbc`](../../python/src/shardloom/adbc.py) | module | Local ADBC 1.1 access to an explicitly selected ShardLoom context. |

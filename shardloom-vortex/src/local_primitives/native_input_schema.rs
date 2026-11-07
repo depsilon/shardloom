@@ -193,6 +193,9 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
         if value.get("id").and_then(Value::as_str) == Some(crate::native_embedding::ID) {
             return embedding_dtype(value, depth + 1, nodes);
         }
+        if value.get("id").and_then(Value::as_str) == Some(crate::native_tensor::ID) {
+            return tensor_dtype(value, depth + 1, nodes);
+        }
         return temporal_dtype(value);
     }
     let size = if kind == "FixedSizeList" { 3 } else { 2 };
@@ -305,6 +308,29 @@ fn embedding_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DTy
         .map_err(vortex_error)?;
     Ok(DType::Extension(
         ExtDType::<crate::native_embedding::Embedding>::try_new(metadata, storage)
+            .map_err(vortex_error)?
+            .erased(),
+    ))
+}
+
+fn tensor_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let metadata = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("tensor metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|byte| {
+            byte.as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("tensor metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = crate::native_tensor::FixedShapeTensor::default()
+        .deserialize_metadata(&metadata)
+        .map_err(vortex_error)?;
+    Ok(DType::Extension(
+        ExtDType::<crate::native_tensor::FixedShapeTensor>::try_new(metadata, storage)
             .map_err(vortex_error)?
             .erased(),
     ))

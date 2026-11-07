@@ -17,6 +17,34 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Compression and optional transport patch reconciliation — merged and verified`
+  — [#1660](https://github.com/depsilon/shardloom/pull/1660) merges as
+  `2df6460cae18eb55b2a0d680a55721d438bc495d` after all 58 PR checks pass with no
+  review findings. All 55 required main checks pass on the exact signed merge.
+  The [combined intake](dependency-intake-2026-11-06.md) preserves all original
+  proposal commits, full published-source/legal comparisons and failed outcomes.
+  Flate2 1.1.10, tonic 0.14.9 and tonic-prost 0.14.8 pass the combined graph and
+  all 319 installed tests without skips; Arrow, Parquet, Vortex and runtime
+  implementation remain unchanged. The three incorporated proposals and deferred
+  partial Arrow proposal are closed. Retirement removes 10,042 obsolete regular
+  files and eight environment links; all 88 retired raw evidence files remain
+  byte-exact in the portable packet, which replays after cleanup. Current inputs,
+  the accepted runtime/wheel and three unchanged audit warnings remain recorded.
+  No benchmark or package publication was run.
+
+- [x] `Item 19 managed binary-object lifecycle — merged and verified`
+  — [#1659](https://github.com/depsilon/shardloom/pull/1659) merges as
+  `08175079b050b2a618978884b4fdceaaf29f00d4` after all 58 PR checks pass with no
+  review findings. All 55 required checks pass on the exact signed merge.
+  Lazy range reads, retained ownership, single-file Vortex persistence and all
+  five write interfaces pass the [lifecycle acceptance](native-managed-binary-objects-2026-11-06.md).
+  The corrected wheel passes all 319 installed tests without skips. Original
+  surface-metadata and registry-network failures remain preserved. Retirement
+  removes 29,312 obsolete regular files and nine environment links while retaining
+  the accepted runtime/wheel, current inputs and compact evidence. Item 19,
+  CG-1 through CG-23, performance claims and package publication retain their
+  independent requirements.
+
 - [x] `Items 18 and 23 scoped I/O, adaptive, documentation and 1.1.0 package acceptance`
   — the direct-source matrix replays all 9,633 observations, 10,878 value
   comparisons and 2,648 output readbacks. Its three historical 347-case

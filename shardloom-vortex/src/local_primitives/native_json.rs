@@ -89,7 +89,9 @@ impl Column {
 impl Node {
     fn new(array: &ArrayRef, execution: &mut ExecutionCtx) -> Result<Self> {
         Ok(match array.dtype() {
-            DType::Extension(_) if crate::native_embedding::storage(array.dtype()).is_some() => {
+            DType::Extension(_)
+                if crate::native_extensions::list_payload_storage(array.dtype()).is_some() =>
+            {
                 let array = array
                     .clone()
                     .execute::<ExtensionArray>(execution)

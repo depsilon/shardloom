@@ -222,6 +222,15 @@ pub(super) fn prepare_plan(
             "this output format cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
         ));
     }
+    if matches!(
+        format,
+        VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
+    ) && crate::native_tensor::contains(&plan.dtype)
+    {
+        return Err(error(
+            "this output format cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     // Check type eligibility without constructing Arrow metadata. Reserve the
     // growing root schema before its field vectors, names or lookup index.
     let Some(fields) = plan.dtype.as_struct_fields_opt() else {

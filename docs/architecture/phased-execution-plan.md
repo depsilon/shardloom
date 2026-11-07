@@ -262,24 +262,38 @@ lower precision, exact vector operations and resource-backed traversal beyond
 current nesting limits remain separate item 19 obligations. Item 20, RFC 0044
 and CG-1 through CG-23 retain their independent status.
 
-**November 6 managed binary objects are locally accepted; integration is pending.** The
+**November 6 managed binary objects are accepted and merged in #1659.** The
 [local ownership and persistence contract](native-managed-binary-objects-2026-11-06.md)
 verifies lazy range reads, managed versus external ownership, one-file native
 export, retained results/Arrow views, and failure-safe cleanup. Native/default
 workspace tests pass 6,937/3,319 cases; the installed package passes all 319
 tests without skips, including portable writes through all five interfaces.
 Original failures and the final source/runtime identities remain preserved.
-Hosted review and integration precede tensor metadata. This does not complete
-item 19 or authorize package publication or a performance claim.
+The exact merge `08175079b050b2a618978884b4fdceaaf29f00d4` passes all 55 required
+main checks after all 58 PR checks pass. Generated-artifact retirement is complete.
+This does not complete item 19 or authorize package publication or a performance claim.
 
-**November 6 dependency reconciliation is locally accepted; hosted acceptance is pending.**
+**November 6 dependency reconciliation is accepted and merged in #1660.**
 The [combined patch intake](dependency-intake-2026-11-06.md) incorporates the
 three existing flate2, tonic and tonic-prost proposals with complete notices,
 generated API identities, default/native checks and all 319 installed-package
 tests passing. Preserve the original failed checks and three unchanged audit
-warnings. Integrate the combined graph and reconcile the deferred partial
-Arrow 60 proposal before resuming tensor work; no new performance campaign or
-package publication is authorized.
+warnings. All 58 PR checks pass at the accepted head, merged as
+`2df6460cae18eb55b2a0d680a55721d438bc495d`. The incorporated proposals and deferred
+partial Arrow 60 proposal are closed. All 55 required checks pass on the exact
+signed merge; artifact retirement and complete open-PR reconciliation are done.
+No new performance campaign or package publication is authorized.
+
+**November 7 fixed-shape tensors pass local and portable verification.** The
+[scoped tensor contract](native-fixed-tensor-lifecycle-2026-11-07.md) preserves
+shape, names, permutation, component type and both nullability levels through
+native relational payloads, streams, spill and persistence. Default/native Rust
+suites pass 3,319/6,955 cases; all 350 clean installed-package tests pass without
+skips, including 12 tensor and 19 context tests. The
+[portable packet](../release/evidence/native-fixed-shape-tensor-2026-11-07/README.md)
+passes original and relocated replay and rejects all five corruption controls.
+Hosted integration remains pending. Variable shapes, additional
+representations and exact vector expressions remain separate item 19 work.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

@@ -2,6 +2,18 @@
 
 ## Current retention policy
 
+The November 7 managed-binary and dependency integration closeouts apply this
+policy after both exact merges pass all 55 required main checks, following 58
+checks on each PR. The [binary delivery](native-managed-binary-objects-2026-11-06.md)
+retires 29,312 obsolete regular files and nine environment links. The subsequent
+[dependency intake](dependency-intake-2026-11-06.md) retires another 10,042 regular
+files and eight links, replacing the binary runtime/wheel with the accepted
+dependency runtime/wheel. Repeated identities, closed-handle checks, unchanged
+input generations and post-retirement evidence replay pass. All 88 retired raw
+dependency-intake files remain byte-exact in the committed archive. Compact
+results, original failures and the shared compiler outputs needed for current
+tensor work remain; no payload backups or storage-limit changes were made.
+
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched
 the committed collection. Repeated identity checks and closed-handle checks

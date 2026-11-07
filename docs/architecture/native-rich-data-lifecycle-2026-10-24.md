@@ -26,8 +26,16 @@ plan does not claim complete rich-type support.
 The [November 6 managed-binary acceptance](native-managed-binary-objects-2026-11-06.md#november-6-local-acceptance)
 completes step 2's local descriptor, single-file native persistence, lazy reads
 and retained ownership checks. All 319 installed-package tests pass without
-skips, including all five native write interfaces. Hosted review and integration
-are pending; tensor and representation work remains ordered after integration.
+skips, including all five native write interfaces. PR #1659 is merged as
+`08175079b050b2a618978884b4fdceaaf29f00d4`; all 58 PR checks and 55 required main
+checks pass, and generated-artifact retirement is complete. The
+[fixed-shape tensor contract](native-fixed-tensor-lifecycle-2026-11-07.md) now
+passes local verification, including all 350 clean installed-package tests with
+no skips. Its [portable packet](../release/evidence/native-fixed-shape-tensor-2026-11-07/README.md)
+passes original and relocated replay and rejects all five corruption controls.
+Hosted integration remains pending.
+Variable shapes, other representations and exact vector expressions retain
+separate acceptance requirements.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.

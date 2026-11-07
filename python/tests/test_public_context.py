@@ -274,7 +274,8 @@ class PublicNativeContextTests(unittest.TestCase):
             source.write_text("id\n7\n8\n9\n", encoding="utf-8")
             with self.assertRaises(ShardLoomCommandError) as changed:
                 plan.collect()
-            self.assertIn("source generation changed", str(changed.exception))
+            self.assertEqual(changed.exception.diagnostics[0].code, "SL_INVALID_INPUT")
+            self.assertIn("prepared source changed; prepare the source again", str(changed.exception))
             self.assertFalse(changed.exception.envelope.fallback.attempted)
             prepared = Path(directory) / "generation-2.vortex"
             ctx.prepare_vortex(source, prepared)
