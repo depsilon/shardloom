@@ -77,7 +77,7 @@ shardloom-exec = { version = "1.1.0", path = "shardloom-exec" }
 shardloom-plan = { version = "1.1.0", path = "shardloom-plan" }
 shardloom-runtime = { package = "shardloom-cli", version = "1.1.0", path = "shardloom-cli" }
 shardloom-vortex = { version = "1.1.0", path = "shardloom-vortex" }
-vortex = { version = "=0.90.0", default-features = false, features = ["files", "zstd"] }
+vortex = { version = "=0.91.0", default-features = false, features = ["files", "zstd"] }
 vortex-zstd = "=0.90.0"
 
 [workspace.lints.rust]
