@@ -56,7 +56,7 @@ and compatibility-output boundaries.
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `50d97899c2a26738c6f54d7f05a177ed4489978524949b1f68a4b74122480923` (SHA-256 of the listed source inputs).
+Source identity: `e3bd149f13b0f9a1df3c5b5ba84a6fdb6a3935707d2ad46690e2d7b19bdda4e2` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports

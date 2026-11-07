@@ -2460,17 +2460,23 @@
     },
     {
       "name": "flate2",
-      "version": "1.1.9",
+      "version": "1.1.10",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/rust-lang/flate2-rs",
-      "crate_checksum_sha256": "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c",
+      "crate_checksum_sha256": "6e634e2e0ebac1ee034020da1ca582e17ffe4e0f5e985823721e168928136dcb",
       "files": [
         {
           "text": "texts/025436edff4cfcdde17a5811fdea78892d8482efd1abdec5a17872d07a4f2112.txt",
           "sha256": "025436edff4cfcdde17a5811fdea78892d8482efd1abdec5a17872d07a4f2112",
           "bytes": 1062,
           "crate_path": "LICENSE-MIT"
+        },
+        {
+          "text": "texts/163fbee5116a2725fdba8faa47a9fbf8006e0a7cbdb14ae5ecf62c8f9ccc00af.txt",
+          "sha256": "163fbee5116a2725fdba8faa47a9fbf8006e0a7cbdb14ae5ecf62c8f9ccc00af",
+          "bytes": 493,
+          "upstream_url": "https://github.com/rust-lang/flate2-rs/blob/ed93d4fc60eaf876c6aded741bf992d524551930/src/bufreader.rs"
         },
         {
           "text": "texts/a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2.txt",
@@ -4459,6 +4465,40 @@
       "license": "MIT OR Zlib OR Apache-2.0",
       "repository": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
       "crate_checksum_sha256": "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316",
+      "files": [
+        {
+          "text": "texts/0a54e647fe54104658b5e563c04c6f9edf251710e47bce692e0bd990a4ddaa39.txt",
+          "sha256": "0a54e647fe54104658b5e563c04c6f9edf251710e47bce692e0bd990a4ddaa39",
+          "bytes": 984,
+          "crate_path": "LICENSE-ZLIB.md"
+        },
+        {
+          "text": "texts/0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "bytes": 10174,
+          "crate_path": "LICENSE-APACHE.md"
+        },
+        {
+          "text": "texts/4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b.txt",
+          "sha256": "4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b",
+          "bytes": 1213,
+          "crate_path": "LICENSE"
+        },
+        {
+          "text": "texts/799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d.txt",
+          "sha256": "799e9ca9d179295ef372f25d3769cdda7d25bb2668add6a6a1e22d1e4c678b8d",
+          "bytes": 1212,
+          "crate_path": "LICENSE-MIT.md"
+        }
+      ]
+    },
+    {
+      "name": "miniz_oxide",
+      "version": "0.9.1",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "MIT OR Zlib OR Apache-2.0",
+      "repository": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
+      "crate_checksum_sha256": "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c",
       "files": [
         {
           "text": "texts/0a54e647fe54104658b5e563c04c6f9edf251710e47bce692e0bd990a4ddaa39.txt",
@@ -7194,12 +7234,18 @@
     },
     {
       "name": "tonic",
-      "version": "0.14.8",
+      "version": "0.14.9",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
       "repository": "https://github.com/grpc/grpc-rust",
-      "crate_checksum_sha256": "cd1fa9b1a51188f3266a823208078315811269d06d272c3a61be0b9a194194ff",
+      "crate_checksum_sha256": "e2cdfc673aabd30fe8fee92e65837b644c37c5d47f0f97ae6d5e0f1237d15e1b",
       "files": [
+        {
+          "text": "texts/44a626f7cf572fb5d30a97a3f7bf223ff05626a1c95094b0847ffe51d5c314d8.txt",
+          "sha256": "44a626f7cf572fb5d30a97a3f7bf223ff05626a1c95094b0847ffe51d5c314d8",
+          "bytes": 1120,
+          "upstream_url": "https://github.com/grpc/grpc-rust/blob/4c0f455c264fe2ec9f9ab5d0cc7fd2824d5daf70/tonic/benches/decode.rs"
+        },
         {
           "text": "texts/5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1.txt",
           "sha256": "5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1",
@@ -7210,17 +7256,23 @@
     },
     {
       "name": "tonic-prost",
-      "version": "0.14.6",
+      "version": "0.14.8",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT",
-      "repository": "https://github.com/hyperium/tonic",
-      "crate_checksum_sha256": "50849f68853be452acf590cde0b146665b8d507b3b8af17261df47e02c209ea0",
+      "repository": "https://github.com/grpc/grpc-rust",
+      "crate_checksum_sha256": "f63c616ffaa648f7c5dd5657e97d9a285fcb44ff3b70da761d436f5a13ff7be6",
       "files": [
         {
-          "text": "texts/e24a56698aa6feaf3a02272b3624f9dc255d982970c5ed97ac4525a95056a5b3.txt",
-          "sha256": "e24a56698aa6feaf3a02272b3624f9dc255d982970c5ed97ac4525a95056a5b3",
-          "bytes": 1056,
-          "upstream_url": "https://raw.githubusercontent.com/hyperium/tonic/6cb6056b5a748bc5a29bd48f4602dbc4e552bb7d/LICENSE"
+          "text": "texts/44a626f7cf572fb5d30a97a3f7bf223ff05626a1c95094b0847ffe51d5c314d8.txt",
+          "sha256": "44a626f7cf572fb5d30a97a3f7bf223ff05626a1c95094b0847ffe51d5c314d8",
+          "bytes": 1120,
+          "upstream_url": "https://github.com/grpc/grpc-rust/blob/541379959bf197057a7c04eeca7f1d976f5ba7c6/tonic-prost/src/codec.rs"
+        },
+        {
+          "text": "texts/5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1.txt",
+          "sha256": "5c686e0f7978412b49187ae0e9f77e9b52eea9d8d2e6c0de8694b35817d873b1",
+          "bytes": 1053,
+          "upstream_url": "https://github.com/grpc/grpc-rust/blob/541379959bf197057a7c04eeca7f1d976f5ba7c6/LICENSE"
         }
       ]
     },
