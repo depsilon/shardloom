@@ -1,0 +1,132 @@
+{
+  "status": "passed",
+  "baseline_passed": true,
+  "rejected_controls": 5,
+  "exact_fixture_mutations_verified": true,
+  "original_packet_unchanged": true,
+  "observation": {
+    "status": "COMPLETE",
+    "python": "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+    "python_version": "Python 3.13.13",
+    "repo": "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo",
+    "packet": "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06",
+    "verifier_command": [
+      "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+      "-B",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+      "--packet",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06"
+    ],
+    "fixture_command_template": [
+      "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+      "-B",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+      "--packet",
+      "<fixture-directory>"
+    ],
+    "timeout_seconds": 30,
+    "original_hashes_before": {
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/acceptance.json": "e732f4295fe6432893ea10fe783457ab47a48853d7569505f1a266b4eb17a043",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py": "a6802d37d266ed0e6d77eafa5d5a54056f6c5909510ea3f841145072b36324ab",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verification.tar.xz": "746bb5255c15dcf9fe266a2c30a7e50e4e4c89d5f2a8ed60264e4e3e72780e28"
+    },
+    "original_hashes_after": {
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/acceptance.json": "e732f4295fe6432893ea10fe783457ab47a48853d7569505f1a266b4eb17a043",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py": "a6802d37d266ed0e6d77eafa5d5a54056f6c5909510ea3f841145072b36324ab",
+      "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verification.tar.xz": "746bb5255c15dcf9fe266a2c30a7e50e4e4c89d5f2a8ed60264e4e3e72780e28"
+    },
+    "original_hashes_unchanged": true,
+    "baseline_and_controls": [
+      {
+        "label": "baseline",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06"
+        ],
+        "exit_code": 0,
+        "stdout": "{\"status\": \"passed\", \"archive_members\": 441, \"complete_source_comparisons\": 3, \"dependency_notices\": {\"status\": \"passed\", \"registry_packages\": 435, \"vendored_packages\": 13, \"license_file_records\": 833, \"unique_text_files\": 250}, \"installed_package\": {\"tests\": 319, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"status\": \"passed\"}, \"scope\": \"Offline archive, source-comparison, complete-notice and saved-check replay; no runtime tests or benchmarks rerun.\"}\n",
+        "stderr": "",
+        "timed_out": false
+      },
+      {
+        "label": "remove_last_check",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/dependency-followup-2026-11-06/packet-controls-r1/remove_last_check"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py\", line 48, in <module>\n    assert [check['receipt'] for check in report['checks']] == [name + '.json' for name in required]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "timed_out": false
+      },
+      {
+        "label": "increment_python_core_reported_test_runs",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/dependency-followup-2026-11-06/packet-controls-r1/increment_python_core_reported_test_runs"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py\", line 83, in <module>\n    assert report['python_core'][name] == expected_value\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "timed_out": false
+      },
+      {
+        "label": "set_installed_package_skipped_to_one",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/dependency-followup-2026-11-06/packet-controls-r1/set_installed_package_skipped_to_one"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py\", line 141, in <module>\n    assert installed['integration'] == report['installed_package']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "timed_out": false
+      },
+      {
+        "label": "increment_cargo_lock_snapshot_bytes",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/dependency-followup-2026-11-06/packet-controls-r1/increment_cargo_lock_snapshot_bytes"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py\", line 51, in <module>\n    assert graph['status'] == 'passed' and graph['build_sources'] == report['code_snapshot']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "timed_out": false
+      },
+      {
+        "label": "replace_archive_sha256_with_zeroes",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+          "-B",
+          "/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/dependency-followup-2026-11-06/packet-controls-r1/replace_archive_sha256_with_zeroes"
+        ],
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Traceback (most recent call last):\n  File \"/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06/verify.py\", line 25, in <module>\n    assert sha(raw) == report['archive_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+        "timed_out": false
+      }
+    ],
+    "all_controls_assertion_failures": true,
+    "notes": "Each fixture contains only a deep-copied acceptance.json and a symlink to the original verification.tar.xz; the verifier script is invoked from its untouched packet path."
+  },
+  "driver_source": "\"\"\"Mechanical offline corruption controls for the sealed dependency evidence packet.\"\"\"\nimport copy, hashlib, json, os, subprocess, sys\nfrom pathlib import Path\n\nPYTHON='/opt/homebrew/opt/python@3.13/libexec/bin/python3'\nREPO=Path('/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo')\nPACKET=REPO/'docs/benchmarks/evidence/dependency-followup-2026-11-06'\nVERIFY=PACKET/'verify.py'\nARCHIVE=PACKET/'verification.tar.xz'\nOUT=Path(__file__).resolve().parent\nTARGETS=[PACKET/'acceptance.json',VERIFY,ARCHIVE]\ndef sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()\ndef run(label,packet):\n cmd=[PYTHON,'-B',str(VERIFY),'--packet',str(packet)]\n try:\n  r=subprocess.run(cmd,cwd=REPO,text=True,capture_output=True,timeout=30)\n  result={'label':label,'command':cmd,'exit_code':r.returncode,'stdout':r.stdout,'stderr':r.stderr,'timed_out':False}\n except subprocess.TimeoutExpired as e:\n  result={'label':label,'command':cmd,'exit_code':None,'stdout':e.stdout or '', 'stderr':e.stderr or '', 'timed_out':True}\n return result\nbefore={str(p):sha(p) for p in TARGETS}\nresults=[run('baseline',PACKET)]\nmutations=[\n ('remove_last_check',lambda x:x['checks'].pop()),\n ('increment_python_core_reported_test_runs',lambda x:x['python_core'].__setitem__('reported_test_runs',x['python_core']['reported_test_runs']+1)),\n ('set_installed_package_skipped_to_one',lambda x:x['installed_package'].__setitem__('skipped',1)),\n ('increment_cargo_lock_snapshot_bytes',lambda x:x['code_snapshot']['Cargo.lock'].__setitem__('bytes',x['code_snapshot']['Cargo.lock']['bytes']+1)),\n ('replace_archive_sha256_with_zeroes',lambda x:x.__setitem__('archive_sha256','0'*64)),\n]\nfor name,mutate in mutations:\n fixture=OUT/name\n fixture.mkdir()\n report=copy.deepcopy(json.loads((PACKET/'acceptance.json').read_bytes()))\n mutate(report)\n (fixture/'acceptance.json').write_text(json.dumps(report,indent=2)+'\\n')\n (fixture/'verification.tar.xz').symlink_to(ARCHIVE)\n results.append(run(name,fixture))\nafter={str(p):sha(p) for p in TARGETS}\nfor row in results:\n prefix=OUT/row['label']\n Path(str(prefix)+'.stdout.txt').write_text(row['stdout'])\n Path(str(prefix)+'.stderr.txt').write_text(row['stderr'])\n# suffix handling yields e.g. baseline.stdout.txt and baseline.stderr.txt\nexpected=[]\nfor row in results[1:]:\n expected.append(row['exit_code'] not in (None,0) and not row['timed_out'] and 'AssertionError' in row['stderr'] and 'FileNotFoundError' not in row['stderr'] and 'TimeoutExpired' not in row['stderr'])\nstatus=(results[0]['exit_code']==0 and not results[0]['timed_out'] and all(expected) and before==after)\nreceipt={'status':'COMPLETE' if status else 'NEEDS_REASONING','python':PYTHON,'python_version':subprocess.run([PYTHON,'--version'],text=True,capture_output=True,check=True).stdout.strip(),'repo':str(REPO),'packet':str(PACKET),'verifier_command':[PYTHON,'-B',str(VERIFY),'--packet',str(PACKET)],'fixture_command_template':[PYTHON,'-B',str(VERIFY),'--packet','<fixture-directory>'],'timeout_seconds':30,'original_hashes_before':before,'original_hashes_after':after,'original_hashes_unchanged':before==after,'baseline_and_controls':results,'all_controls_assertion_failures':all(expected),'notes':'Each fixture contains only a deep-copied acceptance.json and a symlink to the original verification.tar.xz; the verifier script is invoked from its untouched packet path.'}\n(OUT/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\\n')\nprint(json.dumps({k:v for k,v in receipt.items() if k!='baseline_and_controls'},indent=2))\nfor row in results: print(json.dumps({k:row[k] for k in ('label','exit_code','timed_out')}))\nif not status: raise SystemExit(1)\n",
+  "driver_sha256": "513ca6dee74a9318320884067e5e1f3c3ae2552a9e62af1dbf1725c8c713c3e3",
+  "primary_verifier_source": "\"\"\"Verify exact corruption fixtures and preserve their compact observation.\"\"\"\nimport copy\nimport hashlib\nimport json\nfrom pathlib import Path\n\nOUT = Path(__file__).resolve().parents[1]\nCONTROL = OUT / 'packet-controls-r1'\nPACKET = Path('/Users/dylan/.codex/worktrees/dependency-compatibility-batch/shardloom-local-repo/docs/benchmarks/evidence/dependency-followup-2026-11-06')\noriginal = json.loads((PACKET / 'acceptance.json').read_bytes())\nreceipt = json.loads((CONTROL / 'receipt.json').read_bytes())\nassert receipt['status'] == 'COMPLETE' and receipt['original_hashes_unchanged']\nassert receipt['original_hashes_before'] == receipt['original_hashes_after']\nfor path, digest in receipt['original_hashes_before'].items():\n    assert Path(path).parent == PACKET\n    assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest\nmutations = [\n    ('remove_last_check', lambda value: value['checks'].pop()),\n    ('increment_python_core_reported_test_runs', lambda value: value['python_core'].__setitem__('reported_test_runs', value['python_core']['reported_test_runs'] + 1)),\n    ('set_installed_package_skipped_to_one', lambda value: value['installed_package'].__setitem__('skipped', 1)),\n    ('increment_cargo_lock_snapshot_bytes', lambda value: value['code_snapshot']['Cargo.lock'].__setitem__('bytes', value['code_snapshot']['Cargo.lock']['bytes'] + 1)),\n    ('replace_archive_sha256_with_zeroes', lambda value: value.__setitem__('archive_sha256', '0' * 64)),\n]\nrows = receipt['baseline_and_controls']\nassert len(rows) == 6 and rows[0]['label'] == 'baseline' and rows[0]['exit_code'] == 0\nassert json.loads(rows[0]['stdout'])['status'] == 'passed'\nfor row in rows:\n    assert row['timed_out'] is False\n    assert (CONTROL / (row['label'] + '.stdout.txt')).read_text() == row['stdout']\n    assert (CONTROL / (row['label'] + '.stderr.txt')).read_text() == row['stderr']\nfor (name, mutate), row in zip(mutations, rows[1:]):\n    expected = copy.deepcopy(original)\n    mutate(expected)\n    fixture = CONTROL / name\n    assert json.loads((fixture / 'acceptance.json').read_bytes()) == expected\n    assert (fixture / 'verification.tar.xz').is_symlink()\n    assert (fixture / 'verification.tar.xz').resolve() == PACKET / 'verification.tar.xz'\n    assert row['label'] == name and row['exit_code'] == 1\n    assert row['stderr'].endswith('AssertionError\\n')\n    assert row['command'] == [receipt['python'], '-B', str(PACKET / 'verify.py'), '--packet', str(fixture)]\ndriver = (CONTROL / 'control_driver.py').read_text()\nreport = dict(status='passed', baseline_passed=True, rejected_controls=5,\n    exact_fixture_mutations_verified=True, original_packet_unchanged=True,\n    observation=receipt, driver_source=driver,\n    driver_sha256=hashlib.sha256(driver.encode()).hexdigest(),\n    primary_verifier_source=Path(__file__).read_text(),\n    scope='Saved evidence consistency controls only; no engine execution, benchmark, build or installation.')\nwith (PACKET / 'corruption-controls.json').open('x') as stream:\n    json.dump(report, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps({key: report[key] for key in ('status', 'baseline_passed', 'rejected_controls', 'original_packet_unchanged')}))\n",
+  "scope": "Saved evidence consistency controls only; no engine execution, benchmark, build or installation."
+}

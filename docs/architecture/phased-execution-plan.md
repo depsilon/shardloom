@@ -272,6 +272,15 @@ Original failures and the final source/runtime identities remain preserved.
 Hosted review and integration precede tensor metadata. This does not complete
 item 19 or authorize package publication or a performance claim.
 
+**November 6 dependency reconciliation is locally accepted; hosted acceptance is pending.**
+The [combined patch intake](dependency-intake-2026-11-06.md) incorporates the
+three existing flate2, tonic and tonic-prost proposals with complete notices,
+generated API identities, default/native checks and all 319 installed-package
+tests passing. Preserve the original failed checks and three unchanged audit
+warnings. Integrate the combined graph and reconcile the deferred partial
+Arrow 60 proposal before resuming tensor work; no new performance campaign or
+package publication is authorized.
+
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-
 request pass. All results passed, but engine time increased from 1,513.095098453
