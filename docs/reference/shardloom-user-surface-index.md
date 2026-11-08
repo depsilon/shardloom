@@ -61,7 +61,7 @@ Declare fixed-rank tensors with row-specific shapes using
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `b33241f03ce24796210d96f1329ec2b7e45539f1073f54dc931a375d2bb28a4a` (SHA-256 of the listed source inputs).
+Source identity: `37f58fb818645907ff37fd59b1d5a420ae052a6f03e17a888e620a16f86e9b6c` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -277,6 +277,16 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.functions.timestamp_year`](../../python/src/shardloom/functions.py) | function | Return a scoped timestamp year-extract expression. |
 | [`shardloom.functions.try_cast`](../../python/src/shardloom/functions.py) | function | Declare native conversion that maps malformed values to null. |
 | [`shardloom.functions.try_strptime`](../../python/src/shardloom/functions.py) | function | Parse timestamp text with a native literal format, yielding null on parse failure. |
+| [`shardloom.functions.vector_dimension`](../../python/src/shardloom/functions.py) | function | Declare the native dimension inspector for a vector column or expression. |
+| [`shardloom.functions.tensor_shape`](../../python/src/shardloom/functions.py) | function | Declare tensor shape inspection in logical or physical dimension order. |
+| [`shardloom.functions.vector_values`](../../python/src/shardloom/functions.py) | function | Declare extraction of dense vector values without embedding identity. |
+| [`shardloom.functions.vector_element`](../../python/src/shardloom/functions.py) | function | Declare selection of one component by a zero-based or negative index. |
+| [`shardloom.functions.vector_slice`](../../python/src/shardloom/functions.py) | function | Declare a start-inclusive, end-exclusive dense vector slice. |
+| [`shardloom.functions.vector_dot`](../../python/src/shardloom/functions.py) | function | Declare native dot product between two dense vectors. |
+| [`shardloom.functions.vector_l2_distance`](../../python/src/shardloom/functions.py) | function | Declare native Euclidean distance between two dense vectors. |
+| [`shardloom.functions.vector_cosine_similarity`](../../python/src/shardloom/functions.py) | function | Declare native cosine similarity between two dense vectors. |
+| [`shardloom.functions.vector_norm`](../../python/src/shardloom/functions.py) | function | Declare the Euclidean norm of a dense vector. |
+| [`shardloom.functions.vector_normalize`](../../python/src/shardloom/functions.py) | function | Declare dense vector normalization to F64 components. |
 | [`shardloom.functions.sum_distinct`](../../python/src/shardloom/functions.py) | function | Declare native SUM over distinct non-null values. |
 | [`shardloom.functions.avg_distinct`](../../python/src/shardloom/functions.py) | function | Declare native AVG over distinct non-null values. |
 | [`shardloom.functions.trim`](../../python/src/shardloom/functions.py) | function | Declare native whitespace trimming. |

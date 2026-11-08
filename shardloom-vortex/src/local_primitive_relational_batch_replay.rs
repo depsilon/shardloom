@@ -58,6 +58,7 @@ impl Schema {
                 keys: Vec::new(),
                 names: Vec::new(),
                 copy_policy: native_payload::CopyPolicy::PreserveUnobserved,
+                unobserved_fields: Vec::new(),
             },
             _metadata: metadata,
         })

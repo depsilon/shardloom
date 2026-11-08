@@ -57,11 +57,18 @@ dimensions can vary; an explicit empty array remains present for rank zero.
 For example, a value with physical shape `[2, 3]` and permutation `[1, 0]` has
 logical shape `[3, 2]`. The six values remain in physical row-major order.
 
+Inspect these dimensions with `TENSOR_SHAPE(tensor)` in SQL or
+`functions.tensor_shape("tensor")` in Python. Both return logical shape by
+default; the second literal argument `'physical'` selects storage shape. A
+null tensor returns null and rank zero returns an empty shape list. The
+inspector validates the selected shape without reading data components; this
+alone establishes no file-I/O saving. See [vector and tensor expressions](vector-expressions.md).
+
 ## Query and persistence boundaries
 
-Tensor values are payload-only. Filter, sort, select and join using ordinary
-columns to carry tensor payloads through a workflow. Tensor comparison,
-grouping, ordering or arithmetic is unsupported and fails explicitly.
+Filter, sort, select and join using ordinary columns to carry tensor payloads
+through a workflow. `TENSOR_SHAPE` is an admitted shape inspector. Tensor
+comparison, grouping, ordering or arithmetic is unsupported and fails explicitly.
 
 Vortex is the highest-fidelity persistence target. Arrow IPC and Parquet use the
 canonical `arrow.variable_shape_tensor` extension name, canonical metadata and

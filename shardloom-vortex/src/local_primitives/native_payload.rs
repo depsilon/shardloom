@@ -71,8 +71,8 @@ mod typed_validation_tests;
 #[path = "native_payload_validation_text_tests.rs"]
 mod text_validation_tests;
 
-/// Private window records can retain measures that no frame ever observes.
-/// Moving them must not evaluate them. Public result construction still validates.
+/// Raw selection and private window movement do not numerically observe carried
+/// components. Intake and arithmetic retain their own value-validation rules.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum CopyPolicy {
     ValidateValues,
@@ -83,6 +83,9 @@ pub(super) enum CopyPolicy {
 struct CopyState<'a> {
     policy: CopyPolicy,
     scalars: Option<&'a Cell<u64>>,
+    // Only the outer record consumes this positional policy. A selected field
+    // then carries one ordinary policy through its own nested value tree.
+    unobserved_fields: &'a [usize],
 }
 
 impl CopyState<'_> {
@@ -90,6 +93,19 @@ impl CopyState<'_> {
         Self {
             policy,
             scalars: None,
+            unobserved_fields: &[],
+        }
+    }
+
+    fn field(self, index: usize) -> Self {
+        Self {
+            policy: if self.unobserved_fields.contains(&index) {
+                CopyPolicy::PreserveUnobserved
+            } else {
+                self.policy
+            },
+            unobserved_fields: &[],
+            ..self
         }
     }
 
@@ -130,6 +146,44 @@ pub(super) fn detach_with_policy(
     take_record_with_policy(array, &indices, array.dtype(), policy, context)
 }
 
+/// Carry explicitly unobserved output fields without exempting their siblings
+/// from the established validation, masking and allocator ownership contract.
+pub(super) fn detach_with_unobserved_fields(
+    array: &ArrayRef,
+    unobserved_fields: &[usize],
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    if unobserved_fields.is_empty() {
+        return detach(array, context);
+    }
+    let DType::Struct(fields, _) = array.dtype() else {
+        return Err(failed("field copy policy requires a record"));
+    };
+    if unobserved_fields
+        .iter()
+        .any(|index| *index >= fields.nfields())
+    {
+        return Err(failed("field copy policy exceeds its record"));
+    }
+    let indices =
+        super::native_relational_batch::index_array(array.len(), false, context, |row| {
+            Ok(Some(row))
+        })?;
+    let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+    take_admitted::<true>(
+        array,
+        &indices,
+        array.dtype(),
+        CopyState {
+            policy: CopyPolicy::ValidateValues,
+            scalars: None,
+            unobserved_fields,
+        },
+        context,
+        metadata,
+    )
+}
+
 /// Count actual adapter leaf-value construction, including repeated sizing
 /// passes and null/default leaves. Indices, offsets, validity and provider
 /// internals are excluded; raw floating buffer copies construct no scalars.
@@ -162,6 +216,7 @@ pub(super) fn take_record_with_scalar_count(
         CopyState {
             policy,
             scalars: Some(&scalars),
+            unobserved_fields: &[],
         },
         context,
         metadata,
@@ -686,7 +741,7 @@ fn copy_struct<const RETAIN: bool>(
             selected.as_ref().map(|array| array.unmasked_field(index)),
             &active.values,
             &child,
-            copy,
+            copy.field(index),
             context,
             allocator,
         )?);

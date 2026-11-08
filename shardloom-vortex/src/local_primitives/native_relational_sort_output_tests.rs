@@ -57,6 +57,7 @@ fn binding(array: &ArrayRef) -> super::super::Spec {
         }],
         names: vec!["key".into()],
         copy_policy: native_payload::CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     }
 }
 

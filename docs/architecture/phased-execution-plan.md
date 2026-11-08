@@ -401,10 +401,31 @@ passes all 386 integration tests with no skips. The
 [portable packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
 replays after relocation, rejects all 13 corruption controls and retains every
 original failure record, with the earlier small-dependency baseline kept separate.
-The active delivery step is hosted checks/review, merge and exact-main verification,
-then reconciliation of #1664–#1668 and guarded retirement. Shared exact vector
-expressions resume afterward. Arrow 60 remains a coordinated consumer migration;
-no capability or competitive gate closes from this dependency update.
+PR #1670 merged as `d29bff42c5b3aacf7a61463bf2c8f9cec2bdf216` after all 58 PR
+checks passed with review clear; all 55 required exact-main checks then passed.
+All five Dependabot proposals are resolved: #1665/#1667/#1668 are incorporated,
+#1664 is superseded by Vortex 0.93.0, and the freshly rebased #1666 was reviewed
+and deferred for a coordinated Arrow 60 consumer migration. Final search found
+no open Dependabot proposals. Verified retirement removed 35,766 superseded
+regular files and six environment links; current inputs/runtime/wheel remained
+unchanged and post-retirement replay passed.
+
+**Item 19 shared exact vector expressions: local runtime checks passed.** The
+[selected contract](native-vector-expressions-2026-11-08.md) covers dense-vector
+dimension, value projection, element access, slicing, dot product, norm, L2
+distance, cosine and normalization, plus tensor shape. Both SQL and Python use
+the existing shared registry and native evaluator. Default/native workspace
+checks pass 3,322/7,021 tests, with 37 reported native opt-in ignores; all 21
+selected public tests and 397 isolated installed-wheel tests pass with zero skips.
+Frozen numerical/rounding/identity references, wide constant retrieval,
+resource ownership, raw selection, actual spill and separate-process persistence
+are exercised. Feature and Rust 1.96 checks pass. The
+[portable packet](../release/evidence/native-vector-expressions-2026-11-08/README.md)
+retains the original failures and exact source/runtime bindings. Hosted review,
+PR/main checks and post-merge retirement remain subsequent closeout work. No
+performance run or package publication is part of this unit. Sparse/quantized
+arithmetic, ANN and implicit multi-vector reduction remain unadmitted. Item 19,
+item 20, RFC 0044 and CG-1 through CG-23 remain open at their existing boundaries.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

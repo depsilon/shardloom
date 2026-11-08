@@ -83,8 +83,10 @@ quantized scales must be finite and positive, and required coordinates and
 parameters must be present. Optional metadata can carry the same embedding
 identity fields (`space_id`, `model_id`, `model_version`,
 `representation_version`, `normalization`, `preprocessing_id` and
-`source_provenance`). These are carriage types: vector arithmetic, similarity
-search and ANN indexing remain separate capabilities.
+`source_provenance`). These representations support
+[`VECTOR_DIMENSION`](vector-expressions.md) inspection. Sparse/quantized
+arithmetic, densification, dequantization and ANN indexing remain separate
+capabilities.
 
 ## Shape, nullability and identity
 
@@ -147,11 +149,15 @@ null vector parents, and all nullable rows through Arrow IPC.
 ## Scope
 
 This delivery carries rich payloads through projection, ordinary-column filters,
-joins, bounded input/output, native spill, write and reopen. It does not admit
-embedding, tensor, sparse-vector or quantized-vector values as comparison keys or
-arithmetic operands. Fixed- and variable-shape tensors and Float16 components use
-the same payload lifecycle. Exact vector functions and ANN indexing remain
-separate work in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
+joins, bounded input/output, native spill, write and reopen. The
+[shared vector expressions](vector-expressions.md) additionally admit explicit
+dense-vector arithmetic and selection, dimension inspection for dense/sparse/
+quantized vectors, and tensor shape inspection. Embeddings require compatible
+identity for binary arithmetic, or explicit identity removal with
+`VECTOR_VALUES`. These functions do not admit tensor, sparse or quantized
+arithmetic, or make rich extensions comparison keys. Fixed- and variable-shape
+tensors and Float16 components use the same payload lifecycle. ANN indexing
+remains separate work in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
 Existing nested-schema depth/node/metadata limits remain; replacing them requires
 the separately tracked resource-backed traversal work, not removal of checks.
 
@@ -176,6 +182,9 @@ vectors = t.list_(t.fixed_size_list(t.float16(), 3))
 embeddings = t.list_(t.embedding(t.float16(), 3, metadata={"space_id": "passages"}))
 # A row value: [[0.5, -0.0, None], [1.0, 2.0, 3.0]]
 ```
+
+A collection is not implicitly one dense vector. Select or unnest an individual
+vector explicitly before applying the shared vector functions.
 
 Use the dedicated declarations when coordinates or quantization parameters carry
 meaning of their own:
@@ -230,6 +239,9 @@ to physical dimension `permutation[i]`; the example has logical shape `[3, 2]`.
 Omitting `permutation` means the same physical and logical dimension order.
 The declaration never transposes values. Names retain their exact strings.
 The component and whole-tensor `nullable` flags remain independent.
+`TENSOR_SHAPE(tensor)` or `f.tensor_shape("tensor")` returns logical dimensions;
+pass the literal `"physical"` as the second argument for storage dimensions.
+See the [shared inspector semantics](vector-expressions.md#inspect-tensor-shapes-and-other-vector-representations).
 
 Elements may be Boolean, signed/unsigned 8/16/32/64-bit integers, Float16, Float32 or
 Float64. Shape dimensions are nonnegative int64 values; their checked product

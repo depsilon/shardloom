@@ -50,6 +50,7 @@ pub(super) fn order(
         keys,
         names,
         copy_policy: native_payload::CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     })
 }
 

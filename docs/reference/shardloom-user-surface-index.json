@@ -1437,7 +1437,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "b33241f03ce24796210d96f1329ec2b7e45539f1073f54dc931a375d2bb28a4a",
+    "source_identity": "37f58fb818645907ff37fd59b1d5a420ae052a6f03e17a888e620a16f86e9b6c",
     "source_inputs": {
       "Cargo.lock": "8354a8f33c1a311a7aa92118c5b2a3e8e12d02c923b4015603fa3c45986dbcd3",
       "Cargo.toml": "df59a5e23fccbb508d0936782ed3d3c03e5b61cd6f798391de1acc3b3dadcf69",
@@ -1455,7 +1455,7 @@
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "4e5fb6a5d114f54de0ecccca209b04c8aa64a783dbedd6fc9acd4b36e2f0145f",
+      "python/src/shardloom/functions.py": "1d1ebd07d67b45c08bd9ca0ad1ecf27784dcc6af5323917ab3576f361281d1e0",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
       "python/src/shardloom/query.py": "bad6d96ea2d2b48dc12d5edc6b5252ca3d42c4580462fb035c7c2a6a27527d69",
@@ -4760,6 +4760,96 @@
         "source": "python/src/shardloom/functions.py",
         "signature": "(value, format) -> 'ColumnExpression'",
         "summary": "Parse timestamp text with a native literal format, yielding null on parse failure."
+      },
+      {
+        "name": "vector_dimension",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare the native dimension inspector for a vector column or expression."
+      },
+      {
+        "name": "tensor_shape",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, layout='logical') -> 'ColumnExpression'",
+        "summary": "Declare tensor shape inspection in logical or physical dimension order."
+      },
+      {
+        "name": "vector_values",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare extraction of dense vector values without embedding identity."
+      },
+      {
+        "name": "vector_element",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, index) -> 'ColumnExpression'",
+        "summary": "Declare selection of one component by a zero-based or negative index."
+      },
+      {
+        "name": "vector_slice",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, start, end=Ellipsis) -> 'ColumnExpression'",
+        "summary": "Declare a start-inclusive, end-exclusive dense vector slice."
+      },
+      {
+        "name": "vector_dot",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare native dot product between two dense vectors."
+      },
+      {
+        "name": "vector_l2_distance",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare native Euclidean distance between two dense vectors."
+      },
+      {
+        "name": "vector_cosine_similarity",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare native cosine similarity between two dense vectors."
+      },
+      {
+        "name": "vector_norm",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare the Euclidean norm of a dense vector."
+      },
+      {
+        "name": "vector_normalize",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare dense vector normalization to F64 components."
       },
       {
         "name": "sum_distinct",

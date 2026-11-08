@@ -39,6 +39,7 @@ pub(super) struct Spec {
     pub(super) keys: Vec<VortexRelationalOrderKey>,
     pub(super) names: Vec<String>,
     pub(super) copy_policy: CopyPolicy,
+    pub(super) unobserved_fields: Vec<usize>,
 }
 
 pub(super) struct Sort<'a> {
@@ -174,11 +175,12 @@ impl<'a> Sort<'a> {
         let mut selected = ReservedVec::new(context.memory())?;
         selected.reserve(rows.len())?;
         selected.values.extend(rows.iter().map(|row| Some(*row)));
-        gather(
+        gather_with_unobserved_fields(
             &self.table,
             &selected.values,
             &self.spec.fields,
             self.spec.copy_policy,
+            &self.spec.unobserved_fields,
             context,
         )
     }
@@ -207,6 +209,7 @@ impl<'a> Sort<'a> {
         }
         let requested = requested.filter(|_| {
             self.spec.copy_policy == CopyPolicy::ValidateValues
+                && self.spec.unobserved_fields.is_empty()
                 && (input_payloads_validated
                     || self.spec.fields.iter().all(|(_, dtype)| {
                         !matches!(dtype, DType::Decimal(..))
@@ -254,6 +257,7 @@ impl<'a> Sort<'a> {
                 &rows.values,
                 &self.spec.fields,
                 self.spec.copy_policy,
+                &self.spec.unobserved_fields,
                 (requested.is_some() && !input_payloads_validated && retained < part.len())
                     .then_some(retained),
                 context,
@@ -296,7 +300,26 @@ pub(super) fn gather(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    gather_with_prefix(table, rows, fields, policy, None, context)
+    gather_with_prefix(table, rows, fields, policy, &[], None, context)
+}
+
+pub(super) fn gather_with_unobserved_fields(
+    table: &Table,
+    rows: &[Option<usize>],
+    fields: &[(String, DType)],
+    policy: CopyPolicy,
+    unobserved_fields: &[usize],
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    gather_with_prefix(
+        table,
+        rows,
+        fields,
+        policy,
+        unobserved_fields,
+        None,
+        context,
+    )
 }
 
 fn gather_with_prefix(
@@ -304,16 +327,22 @@ fn gather_with_prefix(
     rows: &[Option<usize>],
     fields: &[(String, DType)],
     policy: CopyPolicy,
+    unobserved_fields: &[usize],
     prefix: Option<usize>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let gather = table.gather(rows, false, context)?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
-    for (name, dtype) in fields {
+    for (index, (name, dtype)) in fields.iter().enumerate() {
         columns.values.push(if let Some(retained) = prefix {
             gather.column_prefix(name, dtype, retained, context)?
         } else {
+            let policy = if unobserved_fields.contains(&index) {
+                CopyPolicy::PreserveUnobserved
+            } else {
+                policy
+            };
             gather.column_with_policy(name, dtype, policy, context)?
         });
     }

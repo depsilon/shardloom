@@ -26,6 +26,17 @@ mod temporal_functions;
 #[path = "local_primitive_relational_decimal_bind.rs"]
 mod decimal_functions;
 
+#[path = "local_primitive_relational_vector_bind.rs"]
+mod vector_functions;
+
+#[cfg(test)]
+#[path = "local_primitive_relational_literal_ownership_tests.rs"]
+mod literal_ownership_tests;
+
+#[cfg(test)]
+#[path = "local_primitive_relational_vector_expression_tests.rs"]
+mod vector_tests;
+
 impl Binder<'_> {
     pub(super) fn join_condition(
         &mut self,
@@ -100,7 +111,7 @@ impl Binder<'_> {
             ExpressionKind::Alias { expr, .. } => return self.expression(expr, fields, depth + 1),
             ExpressionKind::Literal(value) => return self.literal_expression(value),
             ExpressionKind::List { values } => {
-                return self.list_expression(values, fields, depth);
+                return self.list_expression(values, fields, depth, false);
             }
             ExpressionKind::Struct { fields: children } => {
                 return self.struct_expression(children, fields, depth);
@@ -207,8 +218,18 @@ impl Binder<'_> {
         values: &[Input],
         fields: &[(String, DType)],
         depth: usize,
+        dense_argument: bool,
     ) -> Result<Expression> {
-        if values.len() > 128 {
+        let floating_literals = values.iter().all(|value| {
+            matches!(
+                value.kind,
+                ExpressionKind::Literal(ScalarValue::Float64(_) | ScalarValue::Null)
+            )
+        }) && (dense_argument
+            || values.iter().any(|value| {
+                matches!(value.kind, ExpressionKind::Literal(ScalarValue::Float64(_)))
+            }));
+        if values.len() > 128 && !floating_literals {
             return Err(failed("list constructor exceeds 128 elements"));
         }
         self.charge_fields(values.len())?;
@@ -222,7 +243,11 @@ impl Binder<'_> {
             element = common(&element, &value.dtype)?;
         }
         if element == DType::Null {
-            element = DType::Bool(Nullability::Nullable);
+            element = if dense_argument {
+                DType::Primitive(PType::F64, Nullability::Nullable)
+            } else {
+                DType::Bool(Nullability::Nullable)
+            };
         }
         Ok(Expression::new(
             DType::List(element.into(), Nullability::NonNullable),
@@ -279,6 +304,9 @@ impl Binder<'_> {
                 "function '{}' requires {} through {} arguments",
                 definition.name, definition.min_args, definition.max_args
             )));
+        }
+        if vector_functions::handles(definition.type_rule) {
+            return vector_functions::bind(self, definition, args, fields, depth);
         }
         self.charge_fields(args.len())?;
         let mut args = args
@@ -444,8 +472,33 @@ impl Binder<'_> {
             )?;
         }
         let dtype = literal_dtype(value)?;
-        let scalar = literal(value)?;
+        let scalar = match value {
+            ScalarValue::Utf8(text) => {
+                let bytes = self.literal_buffer(text.as_bytes())?;
+                Scalar::utf8(
+                    vortex::buffer::BufferString::try_from(bytes).map_err(super::vortex_error)?,
+                    Nullability::NonNullable,
+                )
+            }
+            ScalarValue::Binary(bytes) => {
+                Scalar::binary(self.literal_buffer(bytes)?, Nullability::NonNullable)
+            }
+            _ => literal(value)?,
+        };
         Ok(Expression::new(dtype, Kind::Literal(scalar)))
+    }
+
+    fn literal_buffer(&self, value: &[u8]) -> Result<vortex::buffer::ByteBuffer> {
+        // Plan metadata admission above remains conservative. Payload allocation
+        // also owns its own credit: a ConstantArray or extracted scalar buffer
+        // can outlive both the binder and its prepared-plan metadata lease.
+        let mut buffer = self
+            .session
+            .native_allocator()
+            .allocate(value.len(), vortex::buffer::Alignment::new(1))
+            .map_err(super::vortex_error)?;
+        buffer.as_mut_slice().copy_from_slice(value);
+        Ok(buffer.freeze())
     }
 }
 
@@ -748,6 +801,10 @@ fn primitive_function_dtype(rule: ScalarTypeRule, args: &[Expression]) -> Result
     }
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "Exhaustive shared scalar type-policy table"
+)]
 fn typed_function_dtype(
     rule: ScalarTypeRule,
     args: &[Expression],
@@ -836,6 +893,15 @@ fn typed_function_dtype(
             return Err(failed(
                 "temporal functions require metadata-bound calendar admission",
             ));
+        }
+        T::VectorDimension
+        | T::TensorShape
+        | T::VectorValues
+        | T::VectorElement
+        | T::VectorSlice
+        | T::VectorReduction
+        | T::VectorNormalize => {
+            return Err(failed("vector functions require native array binding"));
         }
         T::Utf8 | T::Utf8Offsets | T::Utf8Length | T::Utf8Predicate => {
             return text_function_dtype(rule, args, nullable);

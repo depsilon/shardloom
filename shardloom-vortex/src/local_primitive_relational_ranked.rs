@@ -450,5 +450,6 @@ fn ranking_spec(
         keys: spec.keys.clone(),
         names: spec.names.clone(),
         copy_policy: native_payload::CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     }
 }

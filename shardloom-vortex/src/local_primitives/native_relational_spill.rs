@@ -2,7 +2,7 @@
 
 use super::{
     native_capacity::ReservedVec,
-    native_relational_batch::{Batch, Table, failed, take_batch_with_policy},
+    native_relational_batch::{Batch, Table, failed, take_batch_with_unobserved_fields},
     native_relational_sort::{self, Sort, Spec},
     query_run_store::{
         self, NativeQueryRun, QueryRunBlock, QueryRunReader, QueryRunSpec, QueryRunStore,
@@ -299,11 +299,12 @@ impl<'p, 's> Ordering<'p, 's> {
                     context.check_cancelled()?;
                     rows.values.clear();
                     rows.values.extend(start..end);
-                    let compact = take_batch_with_policy(
+                    let compact = take_batch_with_unobserved_fields(
                         &array,
                         &self.spec.fields,
                         &rows.values,
                         self.spec.copy_policy,
+                        &self.spec.unobserved_fields,
                         context,
                     )?;
                     let bytes = self.sort.incoming_bytes(&compact)?;
@@ -533,11 +534,12 @@ impl<'p, 's> Ordering<'p, 's> {
             rows.values.extend(0..block.array().len());
             // Do not detach the store's borrowed array from its work/path credits.
             // Compact into the shared allocator before a downstream node retains it.
-            consume(take_batch_with_policy(
+            consume(take_batch_with_unobserved_fields(
                 block.array(),
                 &self.spec.fields,
                 &rows.values,
                 self.spec.copy_policy,
+                &self.spec.unobserved_fields,
                 context,
             )?)?;
             context.check_cancelled()?;
@@ -750,11 +752,12 @@ impl<'a> Merge<'a> {
             self.validate()?;
             return Ok(None);
         }
-        let output = native_relational_sort::gather(
+        let output = native_relational_sort::gather_with_unobserved_fields(
             &table,
             &rows.values,
             &self.spec.fields,
             self.spec.copy_policy,
+            &self.spec.unobserved_fields,
             context,
         )?;
         self.validate()?;

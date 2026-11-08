@@ -61,6 +61,7 @@ pub(in crate::local_primitives) fn run(
             .collect::<Result<_>>()?,
         names: spec.right_keys.clone(),
         copy_policy: native_payload::CopyPolicy::PreserveUnobserved,
+        unobserved_fields: Vec::new(),
     };
     let mut order = Ordering::new(&sort_spec, spill, batch_rows, context)?;
     right_input(&mut |array| {

@@ -1,4 +1,4 @@
-//! Bit-preserving private movement of measures before their observation boundary.
+//! Bit-preserving native selection before a numeric observation boundary.
 
 use super::{
     ArrayRef, CopyPolicy, DType, HostAllocatorRef, NativeExecutionContext, Result, check, failed,

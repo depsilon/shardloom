@@ -222,6 +222,7 @@ fn order_spec(array: &ArrayRef, nulls: Option<VortexRelationalNullOrder>) -> Spe
         }],
         names: vec!["key".into()],
         copy_policy: CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     }
 }
 

@@ -121,6 +121,9 @@ impl Parser {
                 value,
             ));
         }
+        if let Some(values) = super::parse_array_literal_projection_values(raw)? {
+            return self.array(values, id, depth);
+        }
         if raw
             .get(..5)
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case "))
@@ -197,6 +200,37 @@ impl Parser {
         Ok(Expression::column(
             ExprId::new(format!("{id}.{raw}"))?,
             ColumnRef::new(raw)?,
+        ))
+    }
+
+    fn array(
+        &mut self,
+        values: Vec<ScalarValue>,
+        id: &str,
+        depth: usize,
+    ) -> Result<Expression, ShardLoomError> {
+        self.nodes = self
+            .nodes
+            .checked_add(values.len())
+            .ok_or_else(|| unsupported_sql_error("scalar expression node count overflow"))?;
+        if self.nodes > 4096 || (depth == 24 && !values.is_empty()) {
+            return Err(unsupported_sql_error(
+                "scalar expressions exceed 24 levels or 4096 nodes",
+            ));
+        }
+        let values = values
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| {
+                Ok(Expression::literal(
+                    ExprId::new(format!("{id}.array.{index}"))?,
+                    value,
+                ))
+            })
+            .collect::<Result<Vec<_>, ShardLoomError>>()?;
+        Ok(Expression::new(
+            ExprId::new(format!("{id}.array"))?,
+            ExpressionKind::List { values },
         ))
     }
 
@@ -516,6 +550,57 @@ mod tests {
     use super::super::parse_sql_local_source_statement;
     use super::*;
     use shardloom_core::{ExpressionEvaluationStatus, ExpressionInputRow, evaluate_expression};
+
+    #[test]
+    fn vector_array_declarations_compose_without_losing_parser_budgets() {
+        let declaration = parse(
+            "VECTOR_DOT(ARRAY[1.0,NULL,-2.0], VECTOR_VALUES(embedding))",
+            "vector",
+        )
+        .unwrap();
+        assert_eq!(expression_source_columns(&declaration), vec!["embedding"]);
+        let ExpressionKind::FunctionCall { args, .. } = &declaration.expression.kind else {
+            panic!("function");
+        };
+        let ExpressionKind::List { values } = &args[0].kind else {
+            panic!("array");
+        };
+        assert_eq!(values.len(), 3);
+        assert!(matches!(
+            values[1].kind,
+            ExpressionKind::Literal(ScalarValue::Null)
+        ));
+        for raw in [
+            "VECTOR_NORM(ARRAY[])",
+            "VECTOR_NORM(ARRAY[NULL,NULL])",
+            "TENSOR_SHAPE(tensor,'physical')",
+        ] {
+            assert!(parse(raw, "vector").is_ok(), "{raw}");
+            assert!(composed(raw).unwrap());
+        }
+        let array = |count| format!("ARRAY[{}]", vec!["1.0"; count].join(","));
+        assert!(parse(&format!("VECTOR_NORM({})", array(1536)), "vector").is_ok());
+        assert!(parse(&format!("VECTOR_NORM({})", array(4094)), "vector").is_ok());
+        assert!(parse(&format!("VECTOR_NORM({})", array(4095)), "vector").is_err());
+        assert!(super::super::parse_array_literal_projection_values(&array(4095)).is_ok());
+        assert!(super::super::parse_array_literal_projection_values(&array(4096)).is_err());
+        for raw in [
+            "VECTOR_NORM(ARRAY[1.0] trailing)",
+            "VECTOR_NORM(ARRAY[value])",
+            "VECTOR_NORM(ARRAY[ARRAY[1.0]])",
+            "VECTOR_NORM(ARRAY[1.0)",
+        ] {
+            assert!(parse(raw, "vector").is_err(), "{raw}");
+        }
+        let too_deep = format!(
+            "{}ARRAY[1.0]{}",
+            "VECTOR_VALUES(".repeat(24),
+            ")".repeat(24)
+        );
+        assert!(parse(&too_deep, "vector").is_err());
+        let too_large = format!("ARRAY['{}']", "a".repeat(65_537));
+        assert!(super::super::parse_array_literal_projection_values(&too_large).is_err());
+    }
 
     #[test]
     fn registered_boolean_functions_consume_their_syntax_before_predicate_lowering() {

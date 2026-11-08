@@ -1,0 +1,3101 @@
+{
+  "schema": "shardloom.vector-semantics-preparation.v1",
+  "status": "prepared_not_executed",
+  "created_at": "2026-11-08T17:48:14.710415+00:00",
+  "source_contract_sha256": "8c7d3acf86f95c96c3697750bdac9f4008a583ab8ecdb36dc30dbc9057028171",
+  "generator_sha256": "0522bfceaeda2c45b610ccc43a2ead65b8990abebffed2f68352440ded6e6b2b",
+  "engine_executed": false,
+  "cases": [
+    {
+      "id": "vector_dot_null_parent",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_dot_null_component_left",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_dot_null_component_right",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "4000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_dot_dimension_before_null_component",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        }
+      }
+    },
+    {
+      "id": "vector_dot_empty",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        }
+      }
+    },
+    {
+      "id": "vector_l2_distance_null_parent",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_l2_distance_null_component_left",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_l2_distance_null_component_right",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "4000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_l2_distance_dimension_before_null_component",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        }
+      }
+    },
+    {
+      "id": "vector_l2_distance_empty",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        }
+      }
+    },
+    {
+      "id": "vector_cosine_similarity_null_parent",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_cosine_similarity_null_component_left",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_cosine_similarity_null_component_right",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "4000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_cosine_similarity_dimension_before_null_component",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            null
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "unequal_dimensions"
+        }
+      }
+    },
+    {
+      "id": "vector_cosine_similarity_empty",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_norm_null_parent",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_norm_null_component_before_nan",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_norm_empty",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        }
+      }
+    },
+    {
+      "id": "vector_normalize_null_parent",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_normalize_null_component_before_nan",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "vector_normalize_empty",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "dot_zero_times_infinity",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "0000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "dot_opposing_infinite_products",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000",
+            "7ff0000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "bff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "dot_negative_infinite_product",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "bff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "fff0000000000000"
+        }
+      }
+    },
+    {
+      "id": "dot_negative_zero_exact_sum",
+      "operation": "vector_dot",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "8000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        }
+      }
+    },
+    {
+      "id": "norm_nan_before_infinity",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000",
+            "fff0000000000001"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "norm_infinite_component",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000000",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff0000000000000"
+        }
+      }
+    },
+    {
+      "id": "norm_signed_zero",
+      "operation": "vector_norm",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            "0000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "0000000000000000"
+        }
+      }
+    },
+    {
+      "id": "distance_same_infinity",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "distance_opposite_infinity",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff0000000000000"
+        }
+      }
+    },
+    {
+      "id": "distance_infinity_finite",
+      "operation": "vector_l2_distance",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff0000000000000"
+        }
+      }
+    },
+    {
+      "id": "cosine_nonfinite_before_zero_norm",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "0000000000000000",
+            "8000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "f64_bits",
+          "bits": "7ff8000000000000"
+        }
+      }
+    },
+    {
+      "id": "cosine_zero_norm",
+      "operation": "vector_cosine_similarity",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "0000000000000000"
+          ]
+        },
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "normalize_zero_norm",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            "0000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "normalize_nan_norm",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "7ff8000000000000",
+            "7ff8000000000000",
+            "7ff8000000000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "normalize_infinite_norm",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000",
+            "fff0000000000000",
+            "bff0000000000000",
+            "8000000000000000",
+            "0000000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "observed_nonfinite"
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "7ff8000000000000",
+            "7ff8000000000000",
+            "8000000000000000",
+            "8000000000000000",
+            "0000000000000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "normalize_preserves_zero_signs",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            "0000000000000000",
+            "3ff0000000000000"
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            "0000000000000000",
+            "3ff0000000000000"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            "0000000000000000",
+            "3ff0000000000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "normalize_preserves_fixed_width",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2
+        }
+      }
+    },
+    {
+      "id": "normalize_strips_embedding_identity",
+      "operation": "vector_normalize",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2,
+          "embedding": {
+            "version": 1,
+            "space_id": "known"
+          }
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "0000000000000000"
+          ],
+          "fixed": 2
+        }
+      }
+    },
+    {
+      "id": "element_nan_payload",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        0
+      ],
+      "expected": {
+        "strict": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "fff0000000000001"
+        },
+        "extended": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "fff0000000000001"
+        }
+      }
+    },
+    {
+      "id": "element_infinity_carriage",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "7ff0000000000000"
+        },
+        "extended": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "7ff0000000000000"
+        }
+      }
+    },
+    {
+      "id": "element_negative_index",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -2
+      ],
+      "expected": {
+        "strict": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "8000000000000000"
+        },
+        "extended": {
+          "kind": "component_bits",
+          "component": "f64",
+          "bits": "8000000000000000"
+        }
+      }
+    },
+    {
+      "id": "element_null_component",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_positive_oob",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        4
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_negative_oob",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -5
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_signed_min",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -9223372036854775808
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_unsigned_max",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        18446744073709551615
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_null_index",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        null
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_null_parent",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        },
+        0
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "element_f16_nan_payload",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f16",
+          "values": [
+            "fd11"
+          ]
+        },
+        0
+      ],
+      "expected": {
+        "strict": {
+          "kind": "component_bits",
+          "component": "f16",
+          "bits": "fd11"
+        },
+        "extended": {
+          "kind": "component_bits",
+          "component": "f16",
+          "bits": "fd11"
+        }
+      }
+    },
+    {
+      "id": "slice_f16_nan_payload",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f16",
+          "values": [
+            "fd11"
+          ]
+        },
+        0,
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f16",
+          "values": [
+            "fd11"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f16",
+          "values": [
+            "fd11"
+          ]
+        }
+      }
+    },
+    {
+      "id": "element_f32_nan_payload",
+      "operation": "vector_element",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f32",
+          "values": [
+            "ff812345"
+          ]
+        },
+        0
+      ],
+      "expected": {
+        "strict": {
+          "kind": "component_bits",
+          "component": "f32",
+          "bits": "ff812345"
+        },
+        "extended": {
+          "kind": "component_bits",
+          "component": "f32",
+          "bits": "ff812345"
+        }
+      }
+    },
+    {
+      "id": "slice_f32_nan_payload",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f32",
+          "values": [
+            "ff812345"
+          ]
+        },
+        0,
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f32",
+          "values": [
+            "ff812345"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f32",
+          "values": [
+            "ff812345"
+          ]
+        }
+      }
+    },
+    {
+      "id": "slice_nan_payload",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        0,
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001"
+          ]
+        }
+      }
+    },
+    {
+      "id": "slice_negative_bounds",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -3,
+        -1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000",
+            "8000000000000000"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "7ff0000000000000",
+            "8000000000000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "slice_omitted_end",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        2
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            null
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "8000000000000000",
+            null
+          ]
+        }
+      }
+    },
+    {
+      "id": "slice_end_before_start",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        3,
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": []
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": []
+        }
+      }
+    },
+    {
+      "id": "slice_clamped_extremes",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        -9223372036854775808,
+        18446744073709551615
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        }
+      }
+    },
+    {
+      "id": "slice_unsigned_start",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        18446744073709551615
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": []
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": []
+        }
+      }
+    },
+    {
+      "id": "slice_null_start",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        null
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "slice_null_end",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        0,
+        null
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "slice_null_parent",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        },
+        0,
+        1
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "slice_strips_fixed_embedding_identity",
+      "operation": "vector_slice",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ],
+          "fixed": 2,
+          "embedding": {
+            "version": 1,
+            "space_id": "known"
+          }
+        },
+        0,
+        2
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "3ff0000000000000",
+            "4000000000000000"
+          ]
+        }
+      }
+    },
+    {
+      "id": "values_strips_identity_without_changing_bits",
+      "operation": "vector_values",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "8000000000000000"
+          ],
+          "fixed": 2,
+          "embedding": {
+            "version": 1,
+            "space_id": "known"
+          }
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "8000000000000000"
+          ],
+          "fixed": 2
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "8000000000000000"
+          ],
+          "fixed": 2
+        }
+      }
+    },
+    {
+      "id": "values_plain_list_identity",
+      "operation": "vector_values",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        },
+        "extended": {
+          "kind": "vector_bits",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        }
+      }
+    },
+    {
+      "id": "dimension_dense",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": [
+            "fff0000000000001",
+            "7ff0000000000000",
+            "8000000000000000",
+            null
+          ]
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "u64",
+          "value": 4
+        },
+        "extended": {
+          "kind": "u64",
+          "value": 4
+        }
+      }
+    },
+    {
+      "id": "dimension_empty",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "u64",
+          "value": 0
+        },
+        "extended": {
+          "kind": "u64",
+          "value": 0
+        }
+      }
+    },
+    {
+      "id": "dimension_null_parent",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "dense_storage",
+          "component": "f64",
+          "values": null
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "dimension_sparse_max_u64",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "sparse_storage",
+          "size": 18446744073709551615,
+          "indices": [],
+          "values": []
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "u64",
+          "value": 18446744073709551615
+        },
+        "extended": {
+          "kind": "u64",
+          "value": 18446744073709551615
+        }
+      }
+    },
+    {
+      "id": "dimension_quantized_codes",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "quantized_storage",
+          "codes": [
+            -128,
+            null,
+            127
+          ],
+          "scale": 0.5,
+          "zero_point": 0
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "u64",
+          "value": 3
+        },
+        "extended": {
+          "kind": "u64",
+          "value": 3
+        }
+      }
+    },
+    {
+      "id": "dimension_uniform_mismatch",
+      "operation": "vector_dimension",
+      "arguments": [
+        {
+          "kind": "sparse_storage",
+          "size": 2,
+          "indices": [],
+          "values": [],
+          "uniform_size": 3
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "uniform_size"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "uniform_size"
+        }
+      }
+    },
+    {
+      "id": "shape_fixed_logical",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "fixed_tensor_storage",
+          "shape": [
+            2,
+            3,
+            4
+          ],
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            4,
+            2,
+            3
+          ],
+          "fixed": 3
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            4,
+            2,
+            3
+          ],
+          "fixed": 3
+        }
+      }
+    },
+    {
+      "id": "shape_fixed_physical",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "fixed_tensor_storage",
+          "shape": [
+            2,
+            3,
+            4
+          ],
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "present": true
+        },
+        "physical"
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            2,
+            3,
+            4
+          ],
+          "fixed": 3
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            2,
+            3,
+            4
+          ],
+          "fixed": 3
+        }
+      }
+    },
+    {
+      "id": "shape_fixed_null",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "fixed_tensor_storage",
+          "shape": [
+            2,
+            3,
+            4
+          ],
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "present": false
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "shape_fixed_rank_zero",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "fixed_tensor_storage",
+          "shape": [],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [],
+          "fixed": 0
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [],
+          "fixed": 0
+        }
+      }
+    },
+    {
+      "id": "shape_fixed_zero_dimension",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "fixed_tensor_storage",
+          "shape": [
+            9223372036854775807,
+            0
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            9223372036854775807,
+            0
+          ],
+          "fixed": 2
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            9223372036854775807,
+            0
+          ],
+          "fixed": 2
+        }
+      }
+    },
+    {
+      "id": "shape_variable_logical",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            3,
+            2,
+            5
+          ],
+          "data_length": 30,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            5,
+            3,
+            2
+          ],
+          "fixed": 3
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            5,
+            3,
+            2
+          ],
+          "fixed": 3
+        }
+      }
+    },
+    {
+      "id": "shape_variable_physical",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            3,
+            2,
+            5
+          ],
+          "data_length": 30,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        },
+        "physical"
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            3,
+            2,
+            5
+          ],
+          "fixed": 3
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            3,
+            2,
+            5
+          ],
+          "fixed": 3
+        }
+      }
+    },
+    {
+      "id": "shape_variable_null",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            3,
+            2,
+            5
+          ],
+          "data_length": 30,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": false
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "null"
+        },
+        "extended": {
+          "kind": "null"
+        }
+      }
+    },
+    {
+      "id": "shape_variable_rank_zero",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 0,
+          "shape": [],
+          "data_length": 1,
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [],
+          "fixed": 0
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [],
+          "fixed": 0
+        }
+      }
+    },
+    {
+      "id": "shape_variable_later_zero",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 4,
+          "shape": [
+            2147483647,
+            2147483647,
+            2147483647,
+            0
+          ],
+          "data_length": 0,
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "shape_u64",
+          "values": [
+            2147483647,
+            2147483647,
+            2147483647,
+            0
+          ],
+          "fixed": 4
+        },
+        "extended": {
+          "kind": "shape_u64",
+          "values": [
+            2147483647,
+            2147483647,
+            2147483647,
+            0
+          ],
+          "fixed": 4
+        }
+      }
+    },
+    {
+      "id": "shape_variable_uniform_mismatch",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            0,
+            3,
+            5
+          ],
+          "data_length": 0,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "uniform_shape"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "uniform_shape"
+        }
+      }
+    },
+    {
+      "id": "shape_variable_product_mismatch",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            3,
+            2,
+            5
+          ],
+          "data_length": 29,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "shape_product"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "shape_product"
+        }
+      }
+    },
+    {
+      "id": "shape_variable_negative_after_zero",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            0,
+            -1,
+            5
+          ],
+          "data_length": 0,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "shape_dimension"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "shape_dimension"
+        }
+      }
+    },
+    {
+      "id": "shape_variable_null_after_zero",
+      "operation": "tensor_shape",
+      "arguments": [
+        {
+          "kind": "variable_tensor_storage",
+          "rank": 3,
+          "shape": [
+            0,
+            null,
+            5
+          ],
+          "data_length": 0,
+          "permutation": [
+            2,
+            0,
+            1
+          ],
+          "uniform_shape": [
+            null,
+            2,
+            null
+          ],
+          "present": true
+        }
+      ],
+      "expected": {
+        "strict": {
+          "kind": "error",
+          "category": "shape_dimension"
+        },
+        "extended": {
+          "kind": "error",
+          "category": "shape_dimension"
+        }
+      }
+    }
+  ],
+  "binding_cases": [
+    {
+      "id": "known_matching_space",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "unknown_spaces",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_space"
+    },
+    {
+      "id": "conflicting_space",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "Known"
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_space"
+    },
+    {
+      "id": "mixed_embedding_plain",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1
+      },
+      "accepted": false,
+      "error_category": "embedding_space"
+    },
+    {
+      "id": "unequal_fixed_dimensions",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000"
+        ],
+        "fixed": 2,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": false,
+      "error_category": "unequal_dimensions"
+    },
+    {
+      "id": "model_id_known_vs_unknown",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_id": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_identity"
+    },
+    {
+      "id": "model_id_matching",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_id": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_id": "v1"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "model_id_missing_vs_null",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_id": null
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "model_version_known_vs_unknown",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_version": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_identity"
+    },
+    {
+      "id": "model_version_matching",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_version": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_version": "v1"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "model_version_missing_vs_null",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "model_version": null
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "representation_version_known_vs_unknown",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "representation_version": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_identity"
+    },
+    {
+      "id": "representation_version_matching",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "representation_version": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "representation_version": "v1"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "representation_version_missing_vs_null",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "representation_version": null
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "preprocessing_id_known_vs_unknown",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "preprocessing_id": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "accepted": false,
+      "error_category": "embedding_identity"
+    },
+    {
+      "id": "preprocessing_id_matching",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "preprocessing_id": "v1"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "preprocessing_id": "v1"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "preprocessing_id_missing_vs_null",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "preprocessing_id": null
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "normalization_not_space_identity",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "normalization": "a"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "normalization": "b"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    },
+    {
+      "id": "source_provenance_not_space_identity",
+      "operation": "vector_dot",
+      "left": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "source_provenance": "a"
+        }
+      },
+      "right": {
+        "kind": "dense_storage",
+        "component": "f64",
+        "values": [
+          "3ff0000000000000"
+        ],
+        "fixed": 1,
+        "embedding": {
+          "version": 1,
+          "space_id": "known",
+          "source_provenance": "b"
+        }
+      },
+      "accepted": true,
+      "error_category": null
+    }
+  ],
+  "notes": [
+    "Dense floating inputs are original stored bits, not SQL nonfinite literals.",
+    "Expected rows are manually selected semantic facts; no runtime implementation was used.",
+    "Schema/category assertions require routing-specific adapters in future native tests.",
+    "Finite numerical accuracy is governed separately by the 270-case exact reference."
+  ]
+}
