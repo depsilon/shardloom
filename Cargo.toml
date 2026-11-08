@@ -45,13 +45,13 @@ rust-version = "1.96"
 adbc_core = "=0.25.0"
 adbc_ffi = "=0.25.0"
 arrow-array = "=59.3.2"
-arrow-buffer = "=59.3.2"
+arrow-buffer = "=60.1.0"
 arrow-data = "=59.3.2"
 arrow-avro = { version = "=59.3.2", default-features = false, features = ["deflate", "snappy"] }
-arrow-flight = { version = "=59.3.2", default-features = false, features = ["flight-sql", "tls-ring"] }
+arrow-flight = { version = "=60.1.0", default-features = false, features = ["flight-sql", "tls-ring"] }
 arrow-ipc = "=59.3.2"
-arrow-pyarrow = "=59.3.2"
-arrow-schema = "=59.3.2"
+arrow-pyarrow = "=60.1.0"
+arrow-schema = "=60.1.0"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
