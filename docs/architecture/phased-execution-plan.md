@@ -358,12 +358,38 @@ records and no failures
 or errors. The clean installed wheel passes 386 tests with zero failures, errors
 or skips, including 11 vector, 37 tensor/Float16 regression and 19 context tests.
 The packet preserves 10 original failed observations, passes original and
-relocated replay, and rejects nine corruption controls. Hosted review, PR checks,
-merge, exact-main checks and final artifact retirement are pending at this local
-acceptance checkpoint. Exact
-vector expressions remain the next scoped contract; this does not close item 19,
-item 20, RFC 0044 or CG-1 through CG-23, and makes no arithmetic, quantization,
-dequantization, ANN, fallback, performance or publication claim.
+relocated replay, and rejects nine corruption controls. PR [#1669](https://github.com/depsilon/shardloom/pull/1669)
+merged as `a157a5ff86c50ff253300848950fed207ce3d72d`; all 58 PR checks and all
+55 exact-main checks passed with review clear. Verified retirement removed
+10,226 regular files and three symlinks among 11,596 entries; current inputs and
+the vector runtime-r2/wheel remained unchanged, and portable replay passed after
+retirement. Exact vector expressions remain an upcoming scoped contract; this does
+not close item 19, item 20 or CG-1 through CG-23, and makes no arithmetic,
+quantization/dequantization, ANN, fallback, performance or publication claim.
+Five independent Dependabot PRs (#1664–#1668) remain open for separate
+maintenance. The Float16 runtime/wheel were superseded and retired. RFC 0044
+retains its independent status.
+
+**November 8 dependency maintenance: in progress.** The
+[calendar, transport and CI patch contract](dependency-intake-2026-11-08.md)
+prepares #1665, #1667 and #1668 before shared exact vector expressions. It
+preserves their original proposal ancestry, adds independent calendar regression
+checks, and requires combined graph, notice, native/installed-package and hosted
+acceptance. The original partial Vortex #1664 and Arrow #1666 proposals remain
+unaccepted; the maintainer's subsequent priority below activates their coordinated
+review and upgrade. This maintenance unit adds no engine capability or completion credit to
+item 19, item 20, RFC 0044 or CG-1 through CG-23.
+
+**November 8 maintainer priority: provider updates, Dependabot, then the queue.**
+Finish the patch validation already running, preserving its results. The next
+active implementation work reviews the Vortex and Arrow updates for useful
+upstream improvements and completes a coordinated upgrade. Review every retained
+provider patch, Arrow/Parquet type identity, native I/O and ownership boundary;
+do not accept the original mixed graphs or retire a local invariant merely
+because a version is newer. Resolve the remaining Dependabot PRs afterward, then
+resume the main queue with shared exact vector expressions. This explicit order
+supersedes the earlier major-provider deferral without granting capability or
+competitive-gate completion from dependency versions alone.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

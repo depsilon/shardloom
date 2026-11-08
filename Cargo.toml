@@ -55,7 +55,7 @@ arrow-schema = "=59.3.2"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
-jiff = { version = "=0.2.38", default-features = false, features = ["std"] }
+jiff = { version = "=0.2.39", default-features = false, features = ["std"] }
 jiff-tzdb = "=0.1.6"
 memchr = "2.8.3"
 parquet = "=59.3.1"
@@ -71,7 +71,7 @@ rustls = { version = "=0.23.46", default-features = false, features = ["ring", "
 tokio = { version = "=1.54.1", default-features = false, features = ["macros", "rt-multi-thread", "sync", "time", "net", "io-util"] }
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
 tonic = { version = "=0.14.9", default-features = false, features = ["transport", "codegen", "router", "tls-ring"] }
-tonic-prost = "=0.14.8"
+tonic-prost = "=0.14.9"
 shardloom-core = { version = "1.1.0", path = "shardloom-core" }
 shardloom-exec = { version = "1.1.0", path = "shardloom-exec" }
 shardloom-plan = { version = "1.1.0", path = "shardloom-plan" }

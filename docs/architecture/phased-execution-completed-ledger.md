@@ -17,7 +17,7 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
-- [x] `Sparse and quantized vector lifecycle — local and portable acceptance`
+- [x] `Sparse and quantized vector lifecycle — merged and verified`
   — the [contract](native-vector-representations-2026-11-07.md) and
   [532-member packet](../release/evidence/native-vector-representations-2026-11-07/README.md)
   preserve 13 accepted stages against 39 source records, including one deletion.
@@ -27,12 +27,17 @@ phase plan first.
   11 vector, 37 tensor/Float16 and 19 context tests. Python core reports 857 runs
   among 1,247 discovered cases, 56 optional/environment skip records and no
   failures or errors. Ten original failed observations are preserved. Original
-  and relocated replay pass, and nine corruption controls reject. This entry
-  closes local/portable acceptance only; hosted review, PR checks, exact-main
-  verification and final artifact retirement remain pending at this checkpoint.
-  Item 19, item 20, RFC 0044 and CG-1 through CG-23 retain their independent
-  status. Vector arithmetic, quantization/dequantization and ANN remain separate
-  capabilities; no fallback, performance or publication claim follows.
+  and relocated replay pass, and nine corruption controls reject. PR [#1669](https://github.com/depsilon/shardloom/pull/1669)
+  merged as `a157a5ff86c50ff253300848950fed207ce3d72d`; all 58 PR checks and all
+  55 exact-main checks passed with review clear. Verified retirement removed
+  10,226 regular files and three symlinks among 11,596 entries; current inputs
+  and the vector runtime-r2/wheel remained unchanged, and portable replay passed
+  after retirement. The Float16 runtime/wheel were superseded and retired. Item
+  19, item 20, RFC 0044 and CG-1 through CG-23 retain
+  their independent status. Five independent Dependabot PRs (#1664–#1668)
+  remain open for separate maintenance. Vector arithmetic, quantization/
+  dequantization and ANN remain separate capabilities; no fallback, performance
+  or publication claim follows.
 
 - [x] `Float16 and vector-collection lifecycle — local and portable acceptance`
   — the [scoped contract](native-float16-lifecycle-2026-11-07.md) and

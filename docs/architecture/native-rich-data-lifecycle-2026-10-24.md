@@ -57,7 +57,13 @@ workspace tests pass 3,321/6,988, and the installed wheel passes 386 tests
 with zero failures, errors or skips, including 11 vector, 37 tensor/Float16
 regression and 19 context tests. Original and relocated replay pass, and nine
 corruption controls reject. Hosted review, PR checks, merge, exact-main checks
-and final artifact retirement are pending at this local acceptance checkpoint.
+and final artifact retirement are complete. PR [#1669](https://github.com/depsilon/shardloom/pull/1669)
+merged as `a157a5ff86c50ff253300848950fed207ce3d72d`; all 58 PR checks and all
+55 exact-main checks passed with review clear. Verified retirement removed
+10,226 regular files and three symlinks among 11,596 entries; current inputs and
+the vector runtime-r2/wheel remained unchanged, and portable replay passed after
+retirement. The Float16 runtime/wheel were superseded and retired. Five
+independent Dependabot PRs (#1664–#1668) remain open for separate maintenance.
 This payload-only step adds no
 arithmetic, quantization/dequantization, ANN or fallback execution. Exact vector
 expressions remain separate; item 19, item 20, RFC 0044 and CG-1 through CG-23
