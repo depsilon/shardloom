@@ -6,6 +6,8 @@ The [current migration](../architecture/native-provider-upgrade-2026-11-08.md)
 ports the retained local contracts to published Vortex 0.93.0 and completes the
 compatible Arrow/Parquet 59.3.2 family. Arrow 60 remains a separate coordinated
 consumer migration: Vortex 0.93, ADBC and ORC do not share its Arrow types.
+Vortex manifest requirement: `=0.93.0`.
+`Cargo.lock` records the upstream Vortex crate family at `0.93.0`.
 The archive checksums and all original member identities are verified; dirty
 Vortex VCS markers remain explicit. Original legal texts are preserved and
 modified sources carry change notices. The refreshed notice bundle covers 431
