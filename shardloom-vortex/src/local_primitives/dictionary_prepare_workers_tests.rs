@@ -597,7 +597,7 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        Self::with_statistics(Vec::new())
+        Self::with_statistics(&[])
     }
     fn numeric_expected(&self) -> serde_json::Value {
         self.expected.as_array().unwrap().iter().map(|row| {
@@ -608,7 +608,7 @@ impl Fixture {
         }).collect::<Vec<_>>().into()
     }
 
-    fn with_statistics(statistics: Vec<Stat>) -> Self {
+    fn with_statistics(statistics: &[Stat]) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
             "shardloom-dictionary-preparation-{}-{}",
@@ -646,7 +646,7 @@ impl Fixture {
             .with_strategy(native_flat_layout::SequentialNativeFlatLayout::strategy(
                 chunks.len(),
             ))
-            .with_file_statistics(statistics)
+            .with_file_statistics(statistics.iter().filter_map(Stat::aggregate_fn).collect())
             .blocking(&runtime)
             .writer(&mut file, chunks[0].dtype().clone());
         for input in chunks {
@@ -852,7 +852,7 @@ fn dictionary_preparation_numeric_native_ordinary_prepared_owned_and_pressure() 
 
 #[test]
 fn dictionary_preparation_native_pruned_input_starts_no_workers() {
-    let fixture = Fixture::with_statistics(vec![Stat::Min, Stat::Max, Stat::NullCount]);
+    let fixture = Fixture::with_statistics(&[Stat::Min, Stat::Max, Stat::NullCount]);
     let mut query = query(&fixture.path);
     query.predicate = Some(PredicateExpr::Compare {
         column: ColumnRef::new("Referer").unwrap(),

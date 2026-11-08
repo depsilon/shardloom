@@ -17,6 +17,7 @@ static FAMILY: EditionFamily = EditionFamily {
 static DECLARATION: EditionDeclaration = EditionDeclaration {
     edition: Edition {
         id: ID,
+        immutable: true,
         min_library_version: None,
     },
     added: &[

@@ -204,9 +204,10 @@ fn native_typed_payload_schema_rejects_other_metadata_and_decimal_domains() {
     for dtype in [
         DType::Decimal(DecimalDType::new(39, 0), n),
         DType::Decimal(DecimalDType::new(10, -1), n),
-        DType::Extension(
-            Timestamp::new_with_tz(TimeUnit::Microseconds, Some("ShardLoom/Invalid".into()), n)
-                .erased(),
+        crate::native_temporal::invalid_timestamp_for_test(
+            TimeUnit::Microseconds,
+            Some("ShardLoom/Invalid"),
+            n,
         ),
     ] {
         assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
@@ -328,7 +329,7 @@ fn native_typed_payload_nested_gather_preserves_null_parent_and_leaf_types() {
         PrimitiveArray::from_iter([2u64, 0, 1, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -391,7 +392,7 @@ fn native_typed_payload_explode_fields_preserve_values_and_empty_schema() {
         PrimitiveArray::from_iter([2u64, 0, 1, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

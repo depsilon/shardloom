@@ -32,7 +32,8 @@ use vortex_utils::aliases::hash_map::HashMap;
 
 use crate::FileStatistics;
 use crate::footer::Footer;
-use crate::pruning::can_prune_file_stats;
+use crate::pruning::is_falsified_by_file_stats;
+use crate::source::FileDataSource;
 use crate::v2::FileStatsLayoutReader;
 
 /// Represents a Vortex file, providing access to its metadata and content.
@@ -244,13 +245,14 @@ impl VortexFile {
     /// Create a [`DataSource`](vortex_scan::DataSource) from this file for scanning.
     ///
     /// Wraps the file's layout reader with [`FileStatsLayoutReader`] (when file-level
-    /// statistics are available) and [`LayoutReaderDataSource`].
+    /// statistics are available) and [`LayoutReaderDataSource`]. Stored footer aggregates are
+    /// available through the source statistics methods without reading payloads.
     pub fn data_source(&self) -> VortexResult<DataSourceRef> {
         let reader = self.layout_reader()?;
 
-        Ok(Arc::new(LayoutReaderDataSource::new(
-            reader,
-            self.session.clone(),
+        Ok(Arc::new(FileDataSource::new(
+            LayoutReaderDataSource::new(reader, self.session.clone()),
+            self.file_stats().cloned(),
         )))
     }
 
@@ -293,19 +295,14 @@ impl VortexFile {
     /// Row-count-aware pruning predicates are evaluated with the file's total
     /// row count as their scope.
     pub fn can_prune(&self, filter: &Expression) -> VortexResult<bool> {
-        let Some((stats, fields)) = self
-            .footer
-            .statistics()
-            .zip(self.footer.dtype().as_struct_fields_opt())
-        else {
+        let Some(stats) = self.footer.statistics() else {
             return Ok(false);
         };
 
-        can_prune_file_stats(
+        is_falsified_by_file_stats(
             &filter.bind(self.footer.dtype())?,
             self.footer.row_count(),
             stats,
-            fields,
             &self.session,
         )
     }
@@ -330,7 +327,7 @@ mod cache_lifetime_tests {
 
     use vortex_array::IntoArray;
     use vortex_array::VortexSessionExecute;
-    use vortex_array::array_session;
+
     use vortex_array::assert_arrays_eq;
     use vortex_array::stream::ArrayStreamAdapter;
     use vortex_array::stream::ArrayStreamExt;
@@ -345,9 +342,12 @@ mod cache_lifetime_tests {
     use super::VortexFile;
     use crate::OpenOptionsSessionExt;
     use crate::WriteOptionsSessionExt;
+    use crate::v2::ScanDriver;
 
     async fn cached_file(start: i32) -> VortexResult<VortexFile> {
-        let session = array_session().with::<LayoutSession>().with_tokio();
+        let session = vortex_session::VortexSession::empty()
+            .with::<LayoutSession>()
+            .with_tokio();
         crate::register_default_encodings(&session);
         crate::enable_all_registered_array_encodings(&session);
         let mut bytes = ByteBufferMut::empty();
@@ -372,7 +372,8 @@ mod cache_lifetime_tests {
     async fn assert_v2_values(file: &VortexFile, start: i32) -> VortexResult<()> {
         let result = ArrayStreamAdapter::new(
             file.dtype().clone(),
-            ScanBuilder::new(file.session().clone(), file.scan_file()).into_stream()?,
+            ScanDriver::new(file.session().handle(), 1, true)
+                .run(ScanBuilder::new(file.session().clone(), file.scan_file())),
         )
         .read_all()
         .await?;

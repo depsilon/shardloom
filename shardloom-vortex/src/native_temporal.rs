@@ -20,6 +20,66 @@ mod edition;
 #[path = "native_duration_arrow.rs"]
 pub(crate) mod arrow;
 
+/// Model an unresolved file extension after proving the typed provider rejects
+/// its metadata. Tests must not use the infallible typed constructor for invalid
+/// zones or units: the provider now rejects those before `ShardLoom` admission.
+#[cfg(test)]
+pub(crate) fn invalid_timestamp_for_test(
+    unit: TimeUnit,
+    timezone: Option<&str>,
+    nullability: vortex::array::dtype::Nullability,
+) -> DType {
+    use vortex::array::{
+        dtype::extension::{ExtDType, ExtId, ExtVTable},
+        extension::datetime::TimestampOptions,
+        scalar::ScalarValue,
+    };
+    use vortex::error::{VortexResult, vortex_ensure};
+
+    // A separate test vtable keeps malformed wire metadata opaque. It cannot
+    // downcast to the real Timestamp provider or bypass its checked constructor.
+    #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+    struct UnresolvedTimestamp;
+    impl ExtVTable for UnresolvedTimestamp {
+        type Metadata = TimestampOptions;
+        type NativeValue<'a> = &'a ScalarValue;
+
+        fn id(&self) -> ExtId {
+            Timestamp.id()
+        }
+        fn serialize_metadata(&self, metadata: &Self::Metadata) -> VortexResult<Vec<u8>> {
+            Timestamp.serialize_metadata(metadata)
+        }
+        fn deserialize_metadata(&self, metadata: &[u8]) -> VortexResult<Self::Metadata> {
+            Timestamp.deserialize_metadata(metadata)
+        }
+        fn validate_dtype(dtype: &ExtDType<Self>) -> VortexResult<()> {
+            vortex_ensure!(matches!(
+                dtype.storage_dtype(),
+                DType::Primitive(PType::I64, _)
+            ));
+            Ok(())
+        }
+        fn unpack_native<'a>(
+            _dtype: &'a ExtDType<Self>,
+            value: &'a ScalarValue,
+        ) -> VortexResult<Self::NativeValue<'a>> {
+            Ok(value)
+        }
+    }
+    let options = TimestampOptions {
+        unit,
+        tz: timezone.map(std::sync::Arc::from),
+    };
+    let storage = DType::Primitive(PType::I64, nullability);
+    assert!(ExtDType::<Timestamp>::try_new(options.clone(), storage.clone()).is_err());
+    DType::Extension(
+        ExtDType::<UnresolvedTimestamp>::try_new(options, storage)
+            .unwrap()
+            .erased(),
+    )
+}
+
 /// Recognize provider metadata, never an extension name or its storage alone.
 pub(crate) fn temporal_storage(dtype: &DType) -> Option<PType> {
     let DType::Extension(extension) = dtype else {
@@ -332,17 +392,12 @@ mod tests {
             )
             .is_err()
         );
-        for (unit, timezone, value) in [
-            (TimeUnit::Days, None, 0),
-            (TimeUnit::Microseconds, Some(Arc::from("Not/A/Timezone")), 0),
+        for (unit, timezone) in [
+            (TimeUnit::Days, None),
+            (TimeUnit::Microseconds, Some("Not/A/Timezone")),
         ] {
-            let dtype = DType::Extension(
-                Timestamp::new_with_tz(unit, timezone, Nullability::Nullable).erased(),
-            );
+            let dtype = invalid_timestamp_for_test(unit, timezone, Nullability::Nullable);
             assert_eq!(temporal_storage(&dtype), None);
-            assert!(
-                Scalar::try_new(dtype, Some(ScalarValue::Primitive(PValue::I64(value)))).is_err()
-            );
         }
         let required = DType::Extension(
             Timestamp::new(TimeUnit::Microseconds, Nullability::NonNullable).erased(),

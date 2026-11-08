@@ -1,5 +1,8 @@
 //! Native file-statistics table admission, independent of scalar/schema payloads.
 
+#[path = "native_provider_nested_statistics_tests.rs"]
+mod nested_tests;
+
 use std::sync::{Arc, Mutex};
 
 use shardloom_exec::live_memory::LiveMemoryPool;
@@ -86,7 +89,7 @@ fn stat(index: usize) -> StatsSet {
 fn fixture(width: Option<usize>) -> (FlatBuffer, DType) {
     let dtype = dtype(width);
     let count = width.unwrap_or(1);
-    let statistics = FileStatistics::new_with_dtype((0..count).map(stat).collect(), &dtype);
+    let statistics = FileStatistics::from_stats_with_dtype((0..count).map(stat).collect(), &dtype);
     (statistics.write_flatbuffer_bytes().unwrap(), dtype)
 }
 
@@ -100,30 +103,105 @@ fn reopen(
     FileStatistics::from_flatbuffer(&root, dtype, session)
 }
 
-fn table_bytes(count: usize) -> u64 {
-    u64::try_from(count * (size_of::<StatsSet>() + size_of::<DType>())).unwrap()
+/// Observe the parser's conservative grant independently of its private cost
+/// formula. Check it covers every visible retained table before using it for
+/// short-grant and owner-lifetime tests. Scalar/schema payloads are separate.
+pub(super) fn parsed_table_bytes(statistics: &FileStatistics, dtype: &DType) -> u64 {
+    let bytes = statistics.write_flatbuffer_bytes().unwrap();
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let (consumer, requests) = session(&memory);
+    let parsed = reopen(&bytes, dtype, &consumer).unwrap();
+    let minimum = size_of_val(parsed.stats_sets())
+        + size_of_val(parsed.dtypes())
+        + size_of_val(parsed.paths())
+        + size_of_val(parsed.aggregates())
+        + parsed
+            .aggregates()
+            .iter()
+            .map(|stats| {
+                stats.iter().count()
+                    * size_of::<vortex::layout::layouts::file_stats::AggregateStat>()
+            })
+            .sum::<usize>();
+    let grant = memory.snapshot().reserved_bytes;
+    assert!(grant >= u64::try_from(minimum).unwrap());
+    assert_eq!(
+        requests.lock().unwrap().as_slice(),
+        if grant == 0 {
+            Vec::new()
+        } else {
+            vec![usize::try_from(grant).unwrap()]
+        }
+    );
+    drop((parsed, consumer));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    grant
+}
+
+fn table_bytes(width: Option<usize>) -> u64 {
+    let (bytes, dtype) = fixture(width);
+    let parsed = reopen(&bytes, &dtype, &VortexSession::default()).unwrap();
+    parsed_table_bytes(&parsed, &dtype)
+}
+
+fn producer_bytes(count: usize) -> u64 {
+    let memory = LiveMemoryPool::new(16 << 20).unwrap();
+    let (consumer, requests) = session(&memory);
+    let statistics = FileStatistics::try_from_fn(
+        count,
+        |index| Ok((stat(index), field_dtype(index))),
+        &consumer,
+    )
+    .unwrap();
+    let grant = memory.snapshot().reserved_bytes;
+    assert_eq!(
+        requests.lock().unwrap().as_slice(),
+        &[usize::try_from(grant).unwrap()]
+    );
+    assert!(
+        grant
+            >= u64::try_from(
+                size_of_val(statistics.stats_sets()) + size_of_val(statistics.dtypes())
+            )
+            .unwrap()
+    );
+    drop(statistics);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    grant
 }
 
 fn assert_fields(statistics: &FileStatistics, count: usize) {
     assert_eq!(statistics.stats_sets().len(), count);
     assert_eq!(statistics.dtypes().len(), count);
-    for (index, (stats, dtype)) in statistics.into_iter().enumerate() {
+    for (index, (stats, dtype)) in statistics
+        .stats_sets()
+        .iter()
+        .zip(statistics.dtypes())
+        .enumerate()
+    {
         assert_eq!(dtype, &field_dtype(index));
         assert_eq!(
             stats.get(Stat::NullCount),
             Precision::Exact(u64::try_from(index).unwrap().into())
         );
         let (indexed_stats, indexed_dtype) = statistics.get(index);
-        assert!(std::ptr::eq(stats, indexed_stats));
+        assert!(std::ptr::eq(
+            &raw const statistics.aggregates()[index],
+            indexed_stats
+        ));
+        assert_eq!(
+            indexed_stats.to_stats_set().get(Stat::NullCount),
+            stats.get(Stat::NullCount)
+        );
         assert!(std::ptr::eq(dtype, indexed_dtype));
     }
 }
 
 #[test]
-fn native_file_statistics_parsed_tables_require_exact_admission() {
+fn native_file_statistics_parsed_tables_require_sufficient_admission() {
     for width in [None, Some(1), Some(2), Some(7), Some(8), Some(128)] {
         let count = width.unwrap_or(1);
-        let expected = table_bytes(count);
+        let expected = table_bytes(width);
         let (bytes, dtype) = fixture(width);
         let memory = LiveMemoryPool::new(expected).unwrap();
         let (consumer, requests) = session(&memory);
@@ -142,8 +220,7 @@ fn native_file_statistics_parsed_tables_require_exact_admission() {
 #[test]
 fn native_file_statistics_parsed_tables_deny_one_byte_short() {
     for width in [None, Some(128)] {
-        let count = width.unwrap_or(1);
-        let expected = table_bytes(count);
+        let expected = table_bytes(width);
         let (bytes, dtype) = fixture(width);
         let memory = LiveMemoryPool::new(expected - 1).unwrap();
         let (consumer, requests) = session(&memory);
@@ -162,7 +239,7 @@ fn native_file_statistics_parsed_tables_deny_one_byte_short() {
 #[test]
 fn native_file_statistics_parsed_clone_keeps_both_tables_after_session() {
     let count = 128;
-    let expected = table_bytes(count);
+    let expected = table_bytes(Some(count));
     let (bytes, dtype) = fixture(Some(count));
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, _) = session(&memory);
@@ -216,7 +293,7 @@ fn native_file_statistics_empty_and_custom_allocator_boundaries() {
 fn native_file_statistics_caller_owned_compatibility_preserves_shared_tables() {
     let stats: Arc<[StatsSet]> = Arc::from([stat(0), stat(1)]);
     let dtypes: Arc<[DType]> = Arc::from([field_dtype(0), field_dtype(1)]);
-    let table = FileStatistics::new(Arc::clone(&stats), Arc::clone(&dtypes));
+    let table = FileStatistics::from_stats(Arc::clone(&stats), Arc::clone(&dtypes));
     let clone = table.clone();
     drop(table);
     assert_eq!(clone.stats_sets().as_ptr(), stats.as_ptr());
@@ -259,7 +336,7 @@ fn native_file_statistics_cardinality_mismatch_precedes_admission() {
         let (bytes, _) = fixture(supplied);
         let error = reopen(&bytes, &dtype(expected), &consumer).unwrap_err();
         assert!(!crate::owned_buffers::is_owned_reservation_denial(&error));
-        assert!(error.to_string().contains("Assertion failed"));
+        assert!(error.to_string().contains("statistics cardinality"));
     }
     assert!(requests.lock().unwrap().is_empty());
     assert_eq!(memory.snapshot().peak_reserved_bytes, 0);
@@ -268,7 +345,7 @@ fn native_file_statistics_cardinality_mismatch_precedes_admission() {
 
 #[test]
 fn native_file_statistics_producer_failure_releases_partial_tables() {
-    let expected = table_bytes(8);
+    let expected = producer_bytes(8);
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, requests) = session(&memory);
     let mut visited = Vec::new();
@@ -304,7 +381,7 @@ fn native_file_statistics_producer_failure_releases_partial_tables() {
 #[test]
 fn native_file_statistics_retained_peer_denial_and_retry_preserve_values() {
     let count = 8;
-    let expected = table_bytes(count);
+    let expected = table_bytes(Some(count));
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, _) = session(&memory);
     let (bytes, dtype) = fixture(Some(count));
@@ -355,11 +432,12 @@ fn native_file_statistics_parser_failure_releases_partial_tables() {
         &mut builder,
         &fb::FileStatisticsArgs {
             field_stats: Some(fields),
+            ..Default::default()
         },
     );
     builder.finish(root, None);
     let root = flatbuffers::root::<fb::FileStatistics<'_>>(builder.finished_data()).unwrap();
-    let expected = table_bytes(2);
+    let expected = table_bytes(Some(2));
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, requests) = session(&memory);
     let error = FileStatistics::from_flatbuffer(&root, &dtype(Some(2)), &consumer).unwrap_err();
@@ -398,9 +476,9 @@ fn native_file_statistics_preserve_all_values_precision_and_serialized_bytes() {
     for (stat, value) in &expected {
         stats.set(*stat, value.clone());
     }
-    let original = FileStatistics::new(Arc::from([stats]), Arc::from([dtype.clone()]));
+    let original = FileStatistics::from_stats(Arc::from([stats]), Arc::from([dtype.clone()]));
     let bytes = original.write_flatbuffer_bytes().unwrap();
-    let memory = LiveMemoryPool::new(table_bytes(1)).unwrap();
+    let memory = LiveMemoryPool::new(parsed_table_bytes(&original, &dtype)).unwrap();
     let (consumer, _) = session(&memory);
     let parsed = reopen(&bytes, &dtype, &consumer).unwrap();
     for (stat, value) in expected {
@@ -456,9 +534,16 @@ fn native_file_statistics_writer_admits_before_table_production_and_retains_foot
         },
     };
 
-    let expected = table_bytes(1);
     let array = PrimitiveArray::from_option_iter([Some(-9_i64), None, Some(17)]).into_array();
-    for limit in [expected - 1, expected] {
+    let mut expected = None;
+    // The first write observes the provider's conservative snapshot grant;
+    // subsequent writes exercise denial just below it and exact reuse.
+    for attempt in 0..3 {
+        let limit = match attempt {
+            0 => 16 << 20,
+            1 => expected.unwrap() - 1,
+            _ => expected.unwrap(),
+        };
         let runtime = CurrentThreadRuntime::new();
         let memory = LiveMemoryPool::new(limit).unwrap();
         let (consumer, requests) = session(&memory);
@@ -467,12 +552,22 @@ fn native_file_statistics_writer_admits_before_table_production_and_retains_foot
         let result = runtime.block_on(
             consumer
                 .write_options()
-                .with_file_statistics(vec![Stat::Min, Stat::Max, Stat::NullCount])
+                .with_file_statistics(
+                    [Stat::Min, Stat::Max, Stat::NullCount]
+                        .iter()
+                        .filter_map(Stat::aggregate_fn)
+                        .collect(),
+                )
                 .with_strategy(Arc::new(
                     vortex::layout::layouts::flat::writer::FlatLayoutStrategy::default(),
                 ))
                 .write(&mut output, array.to_array_stream()),
         );
+        let expected = *expected.get_or_insert_with(|| {
+            let requests = requests.lock().unwrap();
+            assert_eq!(requests.len(), 1);
+            u64::try_from(requests[0]).unwrap()
+        });
         assert_eq!(
             requests.lock().unwrap().as_slice(),
             &[usize::try_from(expected).unwrap()]
@@ -587,13 +682,16 @@ fn native_file_statistics_both_open_paths_preserve_values_and_independent_statis
         let stats_pointer = statistics.stats_sets().as_ptr();
         let types_pointer = statistics.dtypes().as_ptr();
         drop((file, consumer));
-        assert_eq!(memory.snapshot().reserved_bytes, table_bytes(3));
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            parsed_table_bytes(&statistics, array.dtype())
+        );
         assert_eq!(statistics.stats_sets().as_ptr(), stats_pointer);
         assert_eq!(statistics.dtypes().as_ptr(), types_pointer);
         for index in 0..3 {
             assert_eq!(statistics.get(index).1, &field_dtype(index));
             assert_eq!(
-                statistics.get(index).0.get(Stat::NullCount),
+                statistics.stats_sets()[index].get(Stat::NullCount),
                 Precision::Exact(1_u64.into())
             );
         }

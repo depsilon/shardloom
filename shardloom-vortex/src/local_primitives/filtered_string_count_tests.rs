@@ -108,7 +108,7 @@ fn run_filtered(chunks: &[ArrayRef], memory_bytes: usize) -> serde_json::Value {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
-        Some(&vortex::array::array_session()),
+        Some(&vortex::session::VortexSession::empty()),
     )
     .expect("states");
     states
@@ -193,7 +193,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         false,
         true,
         VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
-        Some(&vortex::array::array_session()),
+        Some(&vortex::session::VortexSession::empty()),
     )
     .expect("states");
     states
@@ -232,7 +232,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
             &columns,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("refinement");

@@ -857,7 +857,7 @@ fn finish_column(
             variable.expect("variable buffer allocated"),
             dtype.clone(),
             validity,
-            &mut vortex::array::array_session()
+            &mut vortex::session::VortexSession::empty()
                 .with_host_allocator(allocator.clone())
                 .create_execution_ctx(),
         )

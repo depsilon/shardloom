@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.85"
 name = "parquet"
-version = "59.3.1"
+version = "59.3.2"
 publish = false
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 build = false
@@ -352,31 +352,31 @@ harness = false
 required-features = ["arrow"]
 
 [dependencies.arrow-array]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-buffer]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-csv]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-data]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-ipc]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-schema]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.arrow-select]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.base64]
@@ -469,19 +469,19 @@ optional = true
 default-features = false
 
 [dependencies.parquet-geospatial]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.parquet-variant]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.parquet-variant-compute]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.parquet-variant-json]
-version = "59.3.1"
+version = "59.3.2"
 optional = true
 
 [dependencies.ring]
@@ -537,7 +537,7 @@ optional = true
 default-features = false
 
 [dev-dependencies.arrow]
-version = "59.3.1"
+version = "59.3.2"
 features = [
     "ipc",
     "test_utils",
@@ -547,7 +547,7 @@ features = [
 default-features = false
 
 [dev-dependencies.arrow-cast]
-version = "59.3.1"
+version = "59.3.2"
 
 [dev-dependencies.base64]
 version = "0.23"

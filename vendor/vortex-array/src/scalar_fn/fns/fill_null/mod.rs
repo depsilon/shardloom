@@ -27,6 +27,7 @@ use crate::arrays::VarBinView;
 use crate::dtype::DType;
 use crate::expr::BoundExpression;
 use crate::optimizer::ArrayOptimizer;
+use crate::require_input;
 use crate::scalar::Scalar;
 use crate::scalar_fn::Arity;
 use crate::scalar_fn::ChildName;
@@ -34,6 +35,7 @@ use crate::scalar_fn::EmptyOptions;
 use crate::scalar_fn::ExecutionArgs;
 use crate::scalar_fn::ReduceNode;
 use crate::scalar_fn::ReduceNodeValidity;
+use crate::scalar_fn::ScalarFnExecutionResult;
 use crate::scalar_fn::ScalarFnId;
 use crate::scalar_fn::ScalarFnVTable;
 use crate::scalar_fn::ScalarFnVTableExt;
@@ -163,9 +165,24 @@ impl ScalarFnVTable for FillNull {
         };
 
         match columnar {
-            ColumnarView::Canonical(canonical) => fill_null_canonical(canonical, &fill_scalar, ctx),
-            ColumnarView::Constant(constant) => fill_null_constant(constant, &fill_scalar),
+            ColumnarView::Canonical(canonical) => fill_null_canonical(canonical, fill_scalar, ctx),
+            ColumnarView::Constant(constant) => fill_null_constant(constant, fill_scalar),
         }
+    }
+
+    fn execute_step(
+        &self,
+        options: &Self::Options,
+        args: &dyn ExecutionArgs,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<ScalarFnExecutionResult> {
+        // Only once the fill is constant: `execute` materializes a lazy fill first, so the input's
+        // FillNull kernels can still apply before the input is decoded.
+        if args.input_matches(1, |fill| fill.is::<Constant>())? {
+            require_input!(args, 0 => AnyColumnar);
+        }
+        self.execute(options, args, ctx)
+            .map(ScalarFnExecutionResult::done)
     }
 
     fn simplify(
@@ -237,15 +254,17 @@ fn fill_null_canonical(
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::LazyLock;
 
     use vortex_buffer::buffer;
     use vortex_error::VortexExpect;
+    use vortex_session::VortexSession;
 
     use super::*;
     use crate::Canonical;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
-    use crate::array_session;
+    use crate::arrays::BoolArray;
     use crate::arrays::Chunked;
     use crate::arrays::ChunkedArray;
     use crate::arrays::Constant;
@@ -276,6 +295,8 @@ mod tests {
     use crate::scalar::Scalar;
     use crate::scalar_fn::fns::binary::Binary;
     use crate::scalar_fn::fns::operators::Operator;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     /// A fill of `40 + 2` that is not a [`ConstantArray`] until it executes.
     fn lazy_fill_42(len: usize) -> VortexResult<ArrayRef> {
@@ -309,7 +330,7 @@ mod tests {
 
     #[test]
     fn evaluate() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let test_array =
             PrimitiveArray::from_option_iter([Some(1i32), None, Some(3), None, Some(5)])
                 .into_array();
@@ -330,7 +351,7 @@ mod tests {
 
     #[test]
     fn evaluate_lazy_constant_fill() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let input = PrimitiveArray::from_option_iter([Some(1i32), None, Some(3)]).into_array();
         let fill = lazy_fill_42(input.len())?;
         assert!(fill.as_constant().is_none());
@@ -349,7 +370,7 @@ mod tests {
 
     #[test]
     fn evaluate_lazy_fill_preserves_chunked_input() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let input = ChunkedArray::try_new(
             vec![
                 PrimitiveArray::from_option_iter([Some(1i32), None]).into_array(),
@@ -375,7 +396,7 @@ mod tests {
 
     #[test]
     fn non_constant_fill_declines_and_errors() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let varying = PrimitiveArray::from_iter([1i32, 2, 3]).into_array();
 
         let constant_input = ConstantArray::new(Scalar::null_native::<i32>(), 3).into_array();
@@ -417,7 +438,7 @@ mod tests {
     /// canonical array rather than a constant. Stacked fills over an empty chunk must still run.
     #[test]
     fn repeated_fill_over_empty_chunk() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let input = ChunkedArray::try_new(
             vec![
                 PrimitiveArray::from_option_iter(Vec::<Option<u16>>::new()).into_array(),
@@ -437,7 +458,7 @@ mod tests {
 
     #[test]
     fn evaluate_struct_field() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let test_array = StructArray::from_fields(&[(
             "a",
             PrimitiveArray::from_option_iter([Some(1i32), None, Some(3)]).into_array(),
@@ -457,7 +478,7 @@ mod tests {
 
     #[test]
     fn evaluate_non_nullable_input() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let test_array = buffer![1i32, 2, 3].into_array();
         let expr = fill_null(root(), lit(0i32));
         let result = test_array.apply(&expr).unwrap();
@@ -468,7 +489,7 @@ mod tests {
     /// accepts, so adding a kernel without updating `supports_dtype` fails here.
     #[test]
     fn supports_dtype_matches_kernels() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let i32_dtype = DType::Primitive(PType::I32, Nullability::NonNullable);
         let dtypes = [
             DType::Bool(Nullability::Nullable),
@@ -519,5 +540,19 @@ mod tests {
     fn test_display() {
         let expr = fill_null(get_item("value", root()), lit(0i32));
         assert_eq!(expr.to_string(), "vortex.fill_null($.value, 0i32)");
+    }
+
+    /// A scalar function input is executed through the executor before its nulls are filled.
+    #[test]
+    fn executes_non_columnar_input_iteratively() -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let input = PrimitiveArray::from_option_iter([Some(1i32), None, Some(3)])
+            .into_array()
+            .binary(ConstantArray::new(2i32, 3).into_array(), Operator::Gt)?;
+
+        let result = input.fill_null(Scalar::from(false))?;
+
+        assert_arrays_eq!(result, BoolArray::from_iter([false, false, true]), &mut ctx);
+        Ok(())
     }
 }

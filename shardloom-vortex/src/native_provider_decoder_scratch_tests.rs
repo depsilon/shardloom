@@ -4,7 +4,7 @@ use vortex::{
     array::{
         Canonical, VortexSessionExecute as _,
         arrays::{ChunkedArray, ConstantArray, DecimalArray, DictArray, slice::SliceKernel as _},
-        dtype::{DecimalDType, Nullability, PType},
+        dtype::{DecimalDType, DecimalType, Nullability, PType},
         memory::HostMemorySessionExt as _,
         patches::Patches,
         scalar::Scalar,
@@ -50,9 +50,11 @@ fn check_case(encoded: ArrayRef, expected: &ArrayRef, scratch: u64) {
         workspace(&encoded, Mode::Append, 0).unwrap().unwrap().bytes,
         scratch
     );
+    // Keep a mixed inner chunk so the shared-dictionary pull-up rewrite does
+    // not change this direct-leaf contract. That rewrite has its own test below.
     let input = chunks(vec![
-        expected.clone(),
-        chunks(vec![encoded.clone(), encoded]),
+        encoded.clone(),
+        chunks(vec![expected.clone(), encoded]),
     ]);
     let rows = expected.len() * 3;
     let output_bytes = value_capacity(expected.dtype(), rows).unwrap();
@@ -132,7 +134,7 @@ fn native_decoder_direct_bitpacked_and_patched_append_need_no_full_child_buffer(
         buffer![-91i32, 71_337, i32::MAX].into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -263,7 +265,7 @@ fn native_decoder_sparse_shift_and_dense_fill_are_both_reserved() {
         buffer![3i32, -17, 91].into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -286,7 +288,7 @@ fn native_decoder_alp_patches_and_alprd_parts_reserve_cow_overlap() {
         buffer![-0.125f64, 91.25].into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -317,7 +319,7 @@ fn native_decoder_alp_patches_and_alprd_parts_reserve_cow_overlap() {
         Buffer::copy_from(&left[1..]).into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -398,6 +400,182 @@ fn native_decoder_dictionary_preserves_decimal_physical_width_and_gather_alignme
         .into_array(),
         4 * 16 + 4096 + 4 * 16 + 256,
     );
+}
+
+#[test]
+fn native_decoder_shared_dictionary_rewrite_keeps_code_and_gather_admission() {
+    let decimal = DecimalDType::new(18, 2);
+    let cases = [
+        (
+            PrimitiveArray::new(
+                Buffer::copy_from_aligned([7i64, -17, 91], Alignment::new(4096)),
+                Validity::NonNullable,
+            )
+            .into_array(),
+            buffer![91i64, 7, 91, -17].into_array(),
+            8 * 8 + 4096 + 8 * 8 + 256,
+        ),
+        (
+            DecimalArray::new(
+                Buffer::copy_from_aligned([123i128, -456, 789], Alignment::new(4096)),
+                decimal,
+                Validity::NonNullable,
+            )
+            .into_array(),
+            DecimalArray::new(
+                buffer![789i128, 123, 789, -456],
+                decimal,
+                Validity::NonNullable,
+            )
+            .into_array(),
+            8 * 16 + 4096 + 8 * 16 + 256,
+        ),
+        (
+            BoolArray::from_iter([true, false, true]).into_array(),
+            BoolArray::from_iter([true, true, true, false]).into_array(),
+            8 + 256 + 8,
+        ),
+    ];
+    for (values, expected, gather_bytes) in cases {
+        let codes = buffer![2u32, 0, 2, 1].into_array();
+        let encoded = DictArray::try_new(codes.clone(), values.clone())
+            .unwrap()
+            .into_array();
+        let rewritten = DictArray::try_new(chunks(vec![codes.clone(), codes]), values)
+            .unwrap()
+            .into_array();
+        assert_eq!(
+            workspace(&rewritten, Mode::Append, 0)
+                .unwrap()
+                .unwrap()
+                .bytes,
+            gather_bytes
+        );
+        // The provider optimizer pulls the shared values above these two inner
+        // chunks. Their eight u32 codes use the independently admitted builder.
+        let shared = chunks(vec![encoded.clone(), encoded]);
+        for (input, repeats) in [
+            (shared.clone(), 2),
+            (chunks(vec![expected.clone(), shared]), 3),
+        ] {
+            let output_bytes = value_capacity(expected.dtype(), repeats * 4).unwrap();
+            let outer = output_bytes + 256;
+            let codes = 8 * 4 + 256 + 256;
+            let grant = outer + gather_bytes + codes;
+            for limit in [outer - 1, outer + gather_bytes - 1, grant - 1, grant] {
+                let memory = LiveMemoryPool::new(limit).unwrap();
+                let result = input
+                    .clone()
+                    .execute::<Canonical>(&mut session(&memory).create_execution_ctx());
+                if limit < grant {
+                    let error = result.unwrap_err();
+                    assert!(
+                        crate::owned_buffers::is_owned_reservation_denial(&error),
+                        "{error}"
+                    );
+                    assert_eq!(memory.snapshot().reserved_bytes, 0);
+                    assert_eq!(memory.snapshot().denied_reservations, 1);
+                    continue;
+                }
+                let output = result.unwrap().into_array();
+                assert_eq!(memory.snapshot().peak_reserved_bytes, grant);
+                assert_eq!(memory.snapshot().reserved_bytes, output_bytes);
+                for part in 0..repeats {
+                    assert_values(&output.slice(part * 4..part * 4 + 4).unwrap(), &expected);
+                }
+                let retained = output.buffers()[0].clone();
+                drop(output);
+                assert_eq!(memory.snapshot().reserved_bytes, output_bytes);
+                drop(retained);
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+            }
+        }
+    }
+}
+
+#[test]
+fn native_decoder_shared_dictionary_exclusions_keep_output_ownership() {
+    let primitive_values = buffer![7i32, 8, 9].into_array();
+    let primitive_codes = buffer![2u32, 0, 1].into_array();
+    for (codes, values, expected) in [
+        (
+            primitive_codes.clone(),
+            PrimitiveArray::from_option_iter([Some(7i32), None, Some(9)]).into_array(),
+            PrimitiveArray::from_option_iter([Some(9i32), Some(7), None]).into_array(),
+        ),
+        (
+            PrimitiveArray::from_option_iter([Some(2u32), None, Some(0)]).into_array(),
+            primitive_values.clone(),
+            PrimitiveArray::from_option_iter([Some(9i32), None, Some(7)]).into_array(),
+        ),
+        (
+            Sequence::try_new_typed(0u32, 1, Nullability::NonNullable, 3)
+                .unwrap()
+                .into_array(),
+            primitive_values.clone(),
+            primitive_values,
+        ),
+        (
+            primitive_codes,
+            Sequence::try_new_typed(7i32, 1, Nullability::NonNullable, 3)
+                .unwrap()
+                .into_array(),
+            buffer![9i32, 7, 8].into_array(),
+        ),
+    ] {
+        let rewritten =
+            DictArray::try_new(chunks(vec![codes.clone(), codes.clone()]), values.clone())
+                .unwrap()
+                .into_array();
+        assert!(workspace(&rewritten, Mode::Append, 0).unwrap().is_none());
+        let encoded = DictArray::try_new(codes, values).unwrap().into_array();
+        let input = chunks(vec![encoded.clone(), encoded]);
+        let output_bytes = value_capacity(expected.dtype(), 6).unwrap();
+        let validity_bytes = if expected.dtype().is_nullable() {
+            bitmap_capacity(6).unwrap()
+        } else {
+            0
+        };
+        let output_and_finish = output_bytes + validity_bytes + 256;
+        let denied = LiveMemoryPool::new(output_and_finish - 1).unwrap();
+        let error = input
+            .clone()
+            .execute::<Canonical>(&mut session(&denied).create_execution_ctx())
+            .unwrap_err();
+        assert!(
+            crate::owned_buffers::is_owned_reservation_denial(&error),
+            "{error}"
+        );
+        assert_eq!(denied.snapshot().reserved_bytes, 0);
+
+        // Scratch remains explicitly unproved for these trees. The previous
+        // Chunked output ownership contract must still survive the rewrite.
+        let memory = LiveMemoryPool::new(1 << 20).unwrap();
+        let output = input
+            .execute::<Canonical>(&mut session(&memory).create_execution_ctx())
+            .unwrap()
+            .into_array();
+        assert_values(&output.slice(0..3).unwrap(), &expected);
+        assert_values(&output.slice(3..6).unwrap(), &expected);
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            output_bytes + validity_bytes
+        );
+        let values = output.buffers()[0].clone();
+        let validity = match output.validity().unwrap() {
+            Validity::Array(bitmap) => Some(bitmap.buffers()[0].clone()),
+            _ => None,
+        };
+        drop(output);
+        assert_eq!(
+            memory.snapshot().reserved_bytes,
+            output_bytes + validity_bytes
+        );
+        drop(values);
+        assert_eq!(memory.snapshot().reserved_bytes, validity_bytes);
+        drop(validity);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 }
 
 #[test]
@@ -611,6 +789,54 @@ fn native_decoder_temporary_grant_respects_concurrent_owner_and_retry() {
 }
 
 #[test]
+fn native_decoder_constant_decimal_accounts_for_physical_and_null_widths() {
+    let rows = 19;
+    for (precision, null_width) in [(2, 1), (4, 2), (9, 4), (18, 8), (38, 16), (76, 32)] {
+        let dtype = DecimalDType::new(precision, 1);
+        let mut context = VortexSession::default().create_execution_ctx();
+        // During the provider's canonical-width migration, non-null constants
+        // still preserve their scalar width, even when it differs from precision.
+        let narrow = DecimalArray::new(buffer![7i8], dtype, Validity::NonNullable)
+            .into_array()
+            .execute_scalar(0, &mut context)
+            .unwrap();
+        let wide = DecimalArray::new(buffer![-7i128], dtype, Validity::NonNullable)
+            .into_array()
+            .execute_scalar(0, &mut context)
+            .unwrap();
+        for (scalar, width) in [
+            (narrow, 1),
+            (wide, 16),
+            (
+                Scalar::null(DType::Decimal(dtype, Nullability::Nullable)),
+                null_width,
+            ),
+        ] {
+            let constant = ConstantArray::new(scalar.clone(), rows).into_array();
+            let output = constant
+                .clone()
+                .execute::<DecimalArray>(&mut context)
+                .unwrap();
+            assert_eq!(output.values_type().byte_width(), width);
+            assert_eq!(
+                decoded_capacity(&constant, rows, Alignment::DEFAULT_ALIGNMENT.as_usize()).unwrap(),
+                u64::try_from(rows * width + 256).unwrap()
+            );
+            assert_eq!(
+                workspace(&constant, Mode::Canonical, 0)
+                    .unwrap()
+                    .unwrap()
+                    .bytes,
+                u64::try_from(rows * width + 256).unwrap()
+            );
+            for row in 0..rows {
+                assert_eq!(output.execute_scalar(row, &mut context).unwrap(), scalar);
+            }
+        }
+    }
+}
+
+#[test]
 fn native_decoder_sparse_boolean_and_decimal_fill_keep_physical_widths_explicit() {
     let bool_patches = Patches::new(
         9,
@@ -619,7 +845,7 @@ fn native_decoder_sparse_boolean_and_decimal_fill_keep_physical_widths_explicit(
         BoolArray::new(BitBuffer::new_set(2), Validity::NonNullable).into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -651,7 +877,7 @@ fn native_decoder_sparse_boolean_and_decimal_fill_keep_physical_widths_explicit(
         ConstantArray::new(scalar, 2).into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();
@@ -686,7 +912,7 @@ fn native_decoder_composed_children_include_canonical_finish_and_cow() {
         buffer![777i32].into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();

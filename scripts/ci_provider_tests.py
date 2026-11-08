@@ -13,16 +13,15 @@ import time
 from ci_build_artifact import ROOT, sha, write_json
 
 GROUPS = {
-    "arrays": ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-zstd",
+    "arrays": ("vortex-array", "vortex-fsst", "vortex-zstd",
                "vortex-datetime-parts"),
-    "io": ("vortex-layout", "vortex-file", "vortex-io"),
+    "io": ("vortex-layout", "vortex-file", "vortex-io", "vortex-arrow"),
     "buffer": ("vortex-buffer",),
-    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array"),
+    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet"),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": []},
     "vortex-fsst": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
-    "vortex-runend": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
     "vortex-zstd": {"features": "vortex-array/table-display", "patches": ["vortex-array"]},
     "vortex-datetime-parts": {"features": "vortex-array/table-display",
                                "patches": ["vortex-array"]},
@@ -31,6 +30,9 @@ CONFIGURATIONS = {
     "vortex-file": {"features": "tokio,vortex-array/table-display",
                     "patches": ["vortex-array", "vortex-io", "vortex-layout"], "clippy_tests": True},
     "vortex-io": {"features": "object_store", "patches": ["vortex-array"], "clippy_tests": True},
+    "vortex-arrow": {"features": "vortex-array/_test-harness,vortex-array/table-display",
+                     "patches": ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst"],
+                     "clippy_tests": True},
     "vortex-buffer": {"features": None, "patches": []},
     "orc-rust": {"features": None, "patches": [], "no_default_features": True,
                  "clippy_tests": True, "clippy_conf_dir": "vendor/orc-rust"},
@@ -43,6 +45,11 @@ CONFIGURATIONS = {
                    "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-data"},
     "arrow-array": {"features": "ffi", "patches": ["arrow-data"],
                     "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-array"},
+    "parquet": {"features": "default", "patches": ["arrow-array", "arrow-data", "arrow-ipc"],
+                "integration_tests": True, "clippy_tests": True,
+                "clippy_conf_dir": "vendor/parquet",
+                "arrow_test_data": "vendor/parquet/test/arrow-testing/data",
+                "parquet_test_data": "vendor/parquet/test/parquet-testing/data"},
 }
 
 
@@ -67,7 +74,8 @@ def commands(crate: str) -> list[list[str]]:
         return [["cargo", "test", "--locked", *args],
                 ["cargo", "clippy", "--locked", *args, "--all-targets", "--", "-D", "warnings"]]
     targets = ["--lib", "--tests"] if CONFIGURATIONS[crate].get("clippy_tests") else ["--lib"]
-    return [["cargo", "test", "--locked", *args, "--lib", "--", "--test-threads=2"],
+    test_targets = ["--lib", "--tests"] if CONFIGURATIONS[crate].get("integration_tests") else ["--lib"]
+    return [["cargo", "test", "--locked", *args, *test_targets, "--", "--test-threads=2"],
             ["cargo", "clippy", "--locked", *args, *targets, "--", "-D", "warnings"]]
 
 
@@ -88,11 +96,14 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
             crate_env = dict(env)
             crate_env["CLIPPY_CONF_DIR"] = str(root / CONFIGURATIONS[crate].get(
                 "clippy_conf_dir", "vendor/vortex-array"))
-            if fixture_path := CONFIGURATIONS[crate].get("arrow_test_data"):
-                fixture_root = root / fixture_path
-                if not fixture_root.is_dir():
-                    raise ValueError(f"missing committed provider test fixtures: {crate}")
-                crate_env["ARROW_TEST_DATA"] = str(fixture_root)
+            fixture_paths = {}
+            for fixture_key in ("arrow_test_data", "parquet_test_data"):
+                if fixture_path := CONFIGURATIONS[crate].get(fixture_key):
+                    fixture_root = root / fixture_path
+                    if not fixture_root.is_dir():
+                        raise ValueError(f"missing committed provider test fixtures: {crate} {fixture_key}")
+                    fixture_paths[fixture_key] = str(fixture_root)
+                    crate_env[fixture_key.upper()] = str(fixture_root)
             frozen = root / ".github/provider-locks" / f"{crate}.lock"
             if frozen.is_symlink() or not frozen.is_file():
                 raise ValueError(f"missing reviewed provider lockfile: {crate}")
@@ -105,8 +116,7 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
                 started = time.monotonic()
                 entry = {"crate": crate, "command": command, "lock_sha256": sha(frozen),
                          "clippy_conf_dir": crate_env["CLIPPY_CONF_DIR"]}
-                if fixture_path:
-                    entry["arrow_test_data"] = crate_env["ARROW_TEST_DATA"]
+                entry.update(fixture_paths)
                 report["commands"].append(entry)
                 print("Running " + " ".join(command), flush=True)
                 with log.open("xb") as stream:

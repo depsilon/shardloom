@@ -1,0 +1,57 @@
+{
+  "status": "documentation_only",
+  "validation_source_fingerprint_sha256": "dafe8b475600910d71498f928f585ef6af2ce974502681324e188d8b8a886386",
+  "changes": {
+    ".github/provider-locks/README.md": {
+      "before": {
+        "sha256": "4c6469a2d9e7d41880ee83ef50131bbf46224e03e0f30b3b189a86c7a9ad05fd",
+        "bytes": 8805
+      },
+      "after": {
+        "bytes": 9317,
+        "sha256": "21fd4a4901b882a27efeebb9029cd94ce74a1fc32e3a62942227ac47d3a6dc3b"
+      }
+    },
+    "docs/architecture/local-development-storage.md": {
+      "before": {
+        "sha256": "843e089faa64a0e09c20b979156125d845158e1f06519bad51e31d8f98b77952",
+        "bytes": 56339
+      },
+      "after": {
+        "bytes": 57230,
+        "sha256": "20bb77b08a8f9e8a316f3c423e8a8ab2ddafd18d163de68036102029d31db672"
+      }
+    },
+    "docs/architecture/native-provider-upgrade-2026-11-08.md": {
+      "before": {
+        "sha256": "8586c62b6a76feed7dfc51a374be310d2d4eb000b8b57526fee0da66600fbc5d",
+        "bytes": 14262
+      },
+      "after": {
+        "bytes": 15413,
+        "sha256": "f0d7b5d74c34f1b68825fd7969c19c76dee0de49e23a7e6aaa2e561570ace7c2"
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "before": {
+        "sha256": "9f3092af4701abe97677c065e30dcbd2b493d0e4ba927e6c55f76fd766c24671",
+        "bytes": 213149
+      },
+      "after": {
+        "bytes": 213544,
+        "sha256": "af08b5584abd6cbb9545d5d821d44e8fbba133beee121508410ca0090db7bb11"
+      }
+    },
+    "docs/dependencies/vortex-upstream-review.md": {
+      "before": {
+        "sha256": "79a588ddfa1bfee7e824924c36613d4351857743f0a11e517fec1fb26e855a3d",
+        "bytes": 54993
+      },
+      "after": {
+        "bytes": 55497,
+        "sha256": "f6551e62ac9ef4249d2e15bfad517004cf6c282b8211ae1a98e8611780b68c1e"
+      }
+    }
+  },
+  "scope": "Final status and evidence links only. All compiled source, manifests, locks, tests, scripts, provider metadata and notices retain the exact validated identities."
+}

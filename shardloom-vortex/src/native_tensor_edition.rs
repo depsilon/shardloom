@@ -17,6 +17,7 @@ static FAMILY: EditionFamily = EditionFamily {
 static DECLARATION: EditionDeclaration = EditionDeclaration {
     edition: Edition {
         id: ID,
+        immutable: true,
         min_library_version: None,
     },
     added: &[EditionMember::dtype(&"shardloom.fixed_shape_tensor.v1")],
@@ -40,6 +41,7 @@ const VARIABLE_ID: EditionId = EditionId::new("shardloomtensor", 2026, 11, 1);
 static VARIABLE_DECLARATION: EditionDeclaration = EditionDeclaration {
     edition: Edition {
         id: VARIABLE_ID,
+        immutable: true,
         min_library_version: None,
     },
     added: &[EditionMember::dtype(&"shardloom.variable_shape_tensor.v1")],

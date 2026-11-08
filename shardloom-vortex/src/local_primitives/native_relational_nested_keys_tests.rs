@@ -13,7 +13,7 @@ use vortex::array::{
 fn key(array: &ArrayRef, memory: &LiveMemoryPool, cancellation: &CancellationToken) -> KeyColumn {
     KeyColumn::new(
         array,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
         memory,
         cancellation,
     )
@@ -81,7 +81,7 @@ fn lists(rows: &[Option<Vec<Option<i64>>>], dictionary: bool) -> ArrayRef {
         PrimitiveArray::from_iter(lengths).into_array(),
         Validity::from_iter(rows.iter().map(Option::is_some)),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -228,7 +228,7 @@ fn native_nested_keys_fixed_lists_preserve_width_child_nulls_and_cancellation() 
 #[test]
 fn native_nested_keys_schema_and_memory_are_admitted_before_provider_execution() {
     let memory = LiveMemoryPool::new(128).unwrap();
-    let mut context = vortex::array::array_session().create_execution_ctx();
+    let mut context = vortex::session::VortexSession::empty().create_execution_ctx();
     let small = lists(&[Some(vec![Some(1)])], false);
     assert!(KeyColumn::new(&small, &mut context, &memory, &CancellationToken::default()).is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -257,7 +257,7 @@ fn native_nested_keys_repeated_overlapping_coordinates_and_parent_dictionaries_a
         PrimitiveArray::from_iter([2u64, 2, 2, 1, 0]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

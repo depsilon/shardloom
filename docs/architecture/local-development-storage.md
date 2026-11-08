@@ -40,7 +40,8 @@ PR #1663 subsequently merged after 58 PR checks passed; all 55 exact-main checks
 then passed. Its separate closeout retirement removed 19,953 regular files and six symlinks
 after identity and closed-handle checks. Current inputs and the accepted
 Float16 runtime/wheel remained unchanged, and post-retirement replay passed.
-The tested Float16 runtime and wheel remain retained. Five independent
+At that closeout checkpoint, the tested Float16 runtime and wheel remained
+retained; the subsequent vector integration below superseded and retired them. Five independent
 Dependabot PRs (#1664–#1668) remain open for separate dependency review. Storage
 limits are unchanged, and no payload backups were created.
 
@@ -51,8 +52,26 @@ release cache remained unchanged; the storage floor did not change and no
 payload backup was created. The
 [vector packet](../release/evidence/native-vector-representations-2026-11-07/README.md)
 preserves this observation. Current inputs and the accepted Float16 runtime/wheel
-remain retained at local acceptance, pending hosted closeout. Final vector
-artifact retirement is a separate step.
+remained retained at local acceptance. PR #1669 subsequently merged as
+`a157a5ff86c50ff253300848950fed207ce3d72d` after all 58 PR checks and all 55
+exact-main checks passed with review clear. Its verified closeout retirement
+removed 11,596 entries, including 10,226 regular files and three symlinks;
+current inputs and the vector runtime-r2/wheel remained unchanged, and portable
+replay passed after retirement. The Float16 runtime/wheel were superseded and
+retired. No storage-limit change or payload backup was made. Five independent
+Dependabot PRs (#1664–#1668) remain open for separate maintenance.
+
+During November 8 provider validation, guarded cache retirement preserved each
+stopped run and its diagnostics. The final debug retirement removed 20,077
+entries, including 17,173 regular files, after repeated identities and closed-handle
+checks. The accepted vector runtime/wheel, the separate small-dependency comparison
+runtime and installed proof, current input generations and release cache remained
+unchanged. The final array test/lint check and fresh release build then passed.
+The [provider evidence packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
+retains these receipts and all earlier outcomes. Its local acceptance includes
+the new runtime and all 386 isolated installed-wheel tests with zero skips.
+Hosted integration and retirement of the superseded retained runtimes remain
+separate steps. No storage floor changed and no payload backup was created.
 
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched

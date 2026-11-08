@@ -9,7 +9,6 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::array::{
     arrays::Decimal,
     builders::{ArrayBuilder, builder_with_capacity_in},
-    dtype::DecimalType,
 };
 
 #[path = "native_provider_decoder_scratch.rs"]
@@ -95,10 +94,7 @@ fn value_capacity(dtype: &DType, rows: usize) -> VortexResult<u64> {
     let bytes = match dtype {
         DType::Primitive(ptype, _) => mul(rows, ptype.byte_width())?,
         DType::Bool(_) => return bitmap_capacity(rows),
-        DType::Decimal(decimal, _) => mul(
-            rows,
-            DecimalType::smallest_decimal_value_type(decimal).byte_width(),
-        )?,
+        DType::Decimal(decimal, _) => mul(rows, decimal.canonical_values_type().byte_width())?,
         _ => vortex_bail!("native fixed-width builder requires a fixed-width dtype"),
     };
     allocation_capacity(bytes)

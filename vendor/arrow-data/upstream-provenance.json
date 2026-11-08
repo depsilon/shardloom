@@ -14,7 +14,7 @@
   "migration_status": "variable_tensor_boundary_corrections; lifecycle_and_provider_acceptance_required",
   "modified_files_sha256": {
     "Cargo.toml": "b7ca0587c4793b67fbda007c3ce38ed91362efd07280a36c27443564d7575998",
-    "src/data.rs": "723542edf4aad2d665981e165d0614090d3d3b1ea80827c2fdcc3875a1824a09"
+    "src/data.rs": "22c5cf8d60371af3ee839717553226cde2c59d855730f87e812ce32c519bf7ff"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/arrow-data/arrow-data-59.3.2.crate#NOTICE.txt",

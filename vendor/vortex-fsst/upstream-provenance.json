@@ -1,67 +1,71 @@
 {
   "provider": "vortex-fsst",
-  "version": "0.90.0",
+  "version": "0.93.0",
   "license": "Apache-2.0",
-  "registry_archive_sha256": "e2a198ab5fcd335db05dab36506ae37988acde7e916d4bbf3cbac6519ae6ae27",
-  "registry_archive_file_count": 25,
-  "registry_archive_uncompressed_bytes": 294960,
+  "registry_archive_sha256": "6dbe48ed4c7e4a53ed9c8a277d53d91d4929324642eefe0907e1d81281d5144a",
+  "registry_archive_file_count": 26,
+  "registry_archive_uncompressed_bytes": 305407,
   "original_files_sha256": {
-    ".cargo_vcs_info.json": "805065d7103aef7144c531320a9cd0fff3d01647a168b62481d5766dce350254",
-    "Cargo.lock": "40c51e5c27f26b6ec8b7d475d0e3dd8c7e1c3eb001f56f165fc9620cc36c8042",
-    "Cargo.toml": "f446b62199c0374f7c8557784ba11cc1bf41f22b6e88294e49b10c992d233f5e",
+    ".cargo_vcs_info.json": "5d694b685ff92b72b521fc52e49e9d72a42de70fea00e039f3c8da2e1196a9f7",
+    "Cargo.lock": "be849c1b8f7eb3196a390d96ce5272c7712f23d57431a7f1e2e9602678706c37",
+    "Cargo.toml": "a29c47738b3410b392fc8c437ff2521aaaa54be4131883d34089060c1faf757d",
     "Cargo.toml.orig": "14bc93e9e7ced190c8230c073ac112dab7e7361a52047a5b11b8e6249d01eb13",
     "README.md": "ecde4db2ad754c2d3d12b8d98f002dc4d447aeb7ac55986ac858da5242a4e753",
-    "src/array.rs": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
-    "src/canonical.rs": "2d7130ffb7114ec61c0de243e784d4d16e320ac3cc19b87479b1149101dc063a",
-    "src/compress.rs": "15846e1a0dd1ac1c1523f7e2920a4d4c68ca46c01fdaeaef66c702f13349c27e",
+    "src/array.rs": "317b31672dd63b851d2f4f636e653ea55e54d50b9521693fc4bea654cbeabeba",
+    "src/canonical.rs": "ab63c4bea52bd1f15d8281f6e6620703c20d62cb279f72ebc55e734532da1b02",
+    "src/compress.rs": "54cac974911326c14b7a6e10e67fd563d323313d8a8f50b1b4fe96ebc6031a87",
     "src/compute/byte_length.rs": "e5d61c09603d063742d35d4ca38b583b312c9938e235a92f0a2dded31cc42f3d",
-    "src/compute/cast.rs": "4ffa2e3d5652bad6a8922a012518a8d4c4228708729f63f2e7ac3447055e6324",
-    "src/compute/compare.rs": "322e0a70cccf90d1b5e19f5fd45e231623248cd920cb87c6eaddffb31f4c418b",
+    "src/compute/cast.rs": "5f4669f685bcdaac6db9fd5451b52ccd51d69556b8a659f81cc5b7e8ad6278c2",
+    "src/compute/compare.rs": "3ca9c3cfcba7b344a0a4fe2d886d27e7244c325e2a5a6df5ea7b669c2807a06a",
     "src/compute/filter.rs": "c384bb3b770a368a6cc6a90340704423c980b20a7bedb336d3c1cc6021c67912",
-    "src/compute/like.rs": "cdecae7b2d9d956c97e28cdbd6b945ad5122629d2afb55b3bd32817f47772118",
-    "src/compute/mod.rs": "c72ef916ae23fbce3d69ea4533a592a02617974953cd1b60594e33daafc28245",
+    "src/compute/like.rs": "f520a9ec24decb246fdf2b439060acd83d80aada271f7ea9fc50d8c7427d580c",
+    "src/compute/mod.rs": "2a8e51402750b28740fc455f981f65b0fa451e654de30c28e833c6daedf32e26",
+    "src/compute/uncompressed_size_in_bytes.rs": "b133b93be6166e17855c5433035bedfef8ac0229872d611350a36a884ce20565",
     "src/dfa/flat_contains.rs": "00dc0580cf05b5f63def355b54b24535fc81317b37dba0ea50ac8b1b22a809ef",
     "src/dfa/mod.rs": "8a2daf475d24625ddd7c1f7f4ec7e0da6b81d9e6170f9ec6c4f63b1962db350d",
     "src/dfa/prefix.rs": "f600d85b05ef84cd7c2e46117f0f74bece686d825af09586050670a43fcd08df",
-    "src/dfa/tests.rs": "21e265a86f22f2f6aa73023cb423e3c16d2281f720b173c2c59fde8972d5719a",
-    "src/kernel.rs": "7f5fa34606417bf395b2c38652c54f6be88026b107eb427d3f35cfb77d004f5f",
-    "src/lib.rs": "2471427d2f3d026c89db523e7b836fb5b1c7071b42bb0e7f6825df4a66cb1c7e",
+    "src/dfa/tests.rs": "db0d5a8c5da6793ee1aa77a3874c4736775ee71b559577ef6346c846bdb58d63",
+    "src/kernel.rs": "67eff37271c46ef57242b2f74f101dd5577fabcb3bac848d14cf90003dc109db",
+    "src/lib.rs": "88221c5236966280012d1605375085246c518572414a0d207921ef9e0ba9e033",
     "src/ops.rs": "5a040f109b084085f0e5172fcbec60975914fa7cdbf45292c1e0eacc5a2b2a1f",
     "src/rules.rs": "9a6c28ebd29885a06c44f22b45a59097d6949767330070a178a9950441f3157a",
     "src/slice.rs": "cbb5156ab0ff2cc1617959e03a68c16413de860c37cd3271ade20ac555d6f391",
     "src/test_utils.rs": "b0cda76f497afc492df6a881063f00a4759fed46c747f12956458dec10c5a689",
-    "src/tests.rs": "157e5d7007cbda5cddda7d483b900729fc9b110e670fdd284d2ca1add190fd9a"
+    "src/tests.rs": "ab36eb06a416f6704f7f108a766f2e93977ce4a84bec118b60e5780582f84c40"
   },
   "vcs_info": {
     "git": {
-      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43",
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
       "dirty": true
     },
     "path_in_vcs": "encodings/fsst"
   },
-  "source_of_truth": "https://static.crates.io/crates/vortex-fsst/vortex-fsst-0.90.0.crate",
-  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
+  "source_of_truth": "https://static.crates.io/crates/vortex-fsst/vortex-fsst-0.93.0.crate",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-  "migration_status": "ported_retained_local_invariants",
+  "migration_status": "retained_local_contract_port",
   "predecessor": {
-    "source_commit": "3628a81bef597a4a3d833d93470ffae1b1cc7587",
-    "version": "0.85.0",
-    "registry_archive_sha256": "aa353148fd0181d6caaecd7823c46c917140f264c3a67d8f5fb3b2574ce394fc",
+    "source_commit": "0205283370712637305aba07a86f5854e833da6e",
+    "version": "0.90.0",
+    "registry_archive_sha256": "e2a198ab5fcd335db05dab36506ae37988acde7e916d4bbf3cbac6519ae6ae27",
     "provenance_path": "vendor/vortex-fsst/upstream-provenance.json"
   },
   "modified_files_sha256": {
-    "Cargo.toml": "afcabb8a63f5bbbb7553a1cd716604034293a62b3d9bf376f9c7961b9d32e0c4",
-    "src/array.rs": "f22416b2918c53d8d2816f3bf753008d50b225599482f713421ee9e8b1c8f3b2",
-    "src/canonical.rs": "057cc58a8afad337f93e4d1384dc90f7226c1101f8d64f8c61f5c799108d77d3"
+    "Cargo.toml": "7fb38654f19eba59766ef06bff4373f41a19bdb40d60d073b52f218eed050fa0",
+    "src/array.rs": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
+    "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "dbb169f4e5aeee7f018f425af80e21a1a310b19f7d9cf77b57ef1af764795650",
+    "README.shardloom.md": "ab2f8397b130110f90bc6d699539c595a145af33bd59c1f8b324a55a45a428db",
     "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "dbb169f4e5aeee7f018f425af80e21a1a310b19f7d9cf77b57ef1af764795650"
+    "sha256": "ab2f8397b130110f90bc6d699539c595a145af33bd59c1f8b324a55a45a428db"
+  },
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
   },
   "supplemental_test_files": {
     "goldenfiles/fsst.metadata": {
@@ -73,15 +77,25 @@
       "bytes": 4,
       "test_source": "src/array.rs",
       "test_source_matches_published_archive": false,
-      "test_source_sha256": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
-      "test_source_published_archive_sha256": "f0362b8705e524d89f505576a5b570aa693b2a2ac95ec49c28bfbfc83f97dcdb",
-      "test_source_current_sha256": "f22416b2918c53d8d2816f3bf753008d50b225599482f713421ee9e8b1c8f3b2",
+      "test_source_sha256": "317b31672dd63b851d2f4f636e653ea55e54d50b9521693fc4bea654cbeabeba",
+      "test_source_published_archive_sha256": "317b31672dd63b851d2f4f636e653ea55e54d50b9521693fc4bea654cbeabeba",
+      "test_source_current_sha256": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
       "retained_test_module": {
+        "marker": "#[cfg(test)]\nmod test {",
+        "bytes": 12074,
+        "sha256": "8804a040e7662dd64f1bb0545997805376272eb390e54af139c3de0ed61225db",
+        "matches_published_archive": true
+      },
+      "retained_from_predecessor": true,
+      "test_source_candidate_archive_sha256": "317b31672dd63b851d2f4f636e653ea55e54d50b9521693fc4bea654cbeabeba",
+      "test_source_matches_candidate_archive": false,
+      "predecessor_retained_test_module": {
         "marker": "#[cfg(test)]\nmod test {",
         "bytes": 12026,
         "sha256": "adf6a13df3d2e16c6de1fff12038d56c5f4e1fb68fc63ec3b9af7018746071a8",
         "matches_published_archive": true
       }
     }
-  }
+  },
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7"
 }

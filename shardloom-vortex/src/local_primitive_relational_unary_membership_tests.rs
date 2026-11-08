@@ -501,7 +501,7 @@ fn unary_membership_ignores_unselected_nested_duplicate_payloads() {
                 PrimitiveArray::from_iter(0..=GROUPS as u64 * 2).into_array(),
                 Validity::NonNullable,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .into_array(),

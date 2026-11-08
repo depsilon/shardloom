@@ -123,12 +123,12 @@ impl WritableHostBuffer {
     pub fn as_mut_slice_typed<T: HostBufferElement>(&mut self) -> VortexResult<&mut [T]> {
         vortex_ensure!(
             size_of::<T>() != 0,
-            InvalidArgument: "Cannot create typed mutable slice for zero-sized type {}",
+            "InvalidArgument: Cannot create typed mutable slice for zero-sized type {}",
             std::any::type_name::<T>()
         );
         vortex_ensure!(
             self.alignment().is_aligned_to(Alignment::of::<T>()),
-            InvalidArgument: "Buffer is not sufficiently aligned for type {}",
+            "InvalidArgument: Buffer is not sufficiently aligned for type {}",
             std::any::type_name::<T>()
         );
 
@@ -139,13 +139,13 @@ impl WritableHostBuffer {
 
         vortex_ensure!(
             Alignment::of::<T>().is_ptr_aligned(ptr),
-            InvalidArgument: "Mutable buffer pointer is not aligned for type {}",
+            "InvalidArgument: Mutable buffer pointer is not aligned for type {}",
             std::any::type_name::<T>()
         );
 
         vortex_ensure!(
             byte_len.is_multiple_of(type_size),
-            InvalidArgument: "Buffer length {byte_len} is not a multiple of {} for {}",
+            "InvalidArgument: Buffer length {byte_len} is not a multiple of {} for {}",
             type_size,
             std::any::type_name::<T>()
         );
@@ -165,7 +165,7 @@ impl WritableHostBuffer {
     pub fn freeze_typed<T: HostBufferElement>(self) -> VortexResult<Buffer<T>> {
         vortex_ensure!(
             size_of::<T>() != 0,
-            InvalidArgument: "Cannot freeze typed buffer for zero-sized type {}",
+            "InvalidArgument: Cannot freeze typed buffer for zero-sized type {}",
             std::any::type_name::<T>()
         );
 
@@ -176,13 +176,13 @@ impl WritableHostBuffer {
 
         vortex_ensure!(
             byte_len.is_multiple_of(type_size),
-            InvalidArgument: "Buffer length {byte_len} is not a multiple of {} for {}",
+            "InvalidArgument: Buffer length {byte_len} is not a multiple of {} for {}",
             type_size,
             std::any::type_name::<T>()
         );
         vortex_ensure!(
             buffer.is_aligned(type_align),
-            InvalidArgument: "Buffer pointer is not aligned to {} for {}",
+            "InvalidArgument: Buffer pointer is not aligned to {} for {}",
             type_align,
             std::any::type_name::<T>()
         );

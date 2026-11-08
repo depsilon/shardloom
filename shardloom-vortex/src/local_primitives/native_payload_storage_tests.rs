@@ -260,7 +260,7 @@ fn native_payload_scalar_counter_covers_nested_values_and_preserves_raw_storage(
                         PrimitiveArray::from_iter([0_u64, 2, 3, 5]).into_array(),
                         Validity::from_iter([true, false, true]),
                         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                            &vortex::array::array_session(),
+                            &vortex::session::VortexSession::empty(),
                         ),
                     )
                     .map_err(vortex_error)?
@@ -399,7 +399,7 @@ fn private_window_payload_preserves_wide_decimal_limbs_through_native_selection_
         source,
         Validity::from_iter([true, true, false, true, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -504,7 +504,7 @@ fn private_window_payload_keeps_valid_nested_float_bits_and_masks_null_list_chil
         PrimitiveArray::from_iter([0u64, 2, 8]).into_array(),
         Validity::from_iter([true, false]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -553,7 +553,7 @@ fn private_window_payload_masks_nested_parents_and_releases_denied_copies() {
             PrimitiveArray::from_iter([0u64, 1, 2]).into_array(),
             Validity::from_iter([false, true]),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()

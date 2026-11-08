@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.85"
 name = "arrow-ipc"
-version = "59.3.1"
+version = "59.3.2"
 publish = false
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
 build = false
@@ -59,19 +59,19 @@ path = "benches/ipc_writer.rs"
 harness = false
 
 [dependencies.arrow-array]
-version = "59.3.1"
+version = "59.3.2"
 
 [dependencies.arrow-buffer]
-version = "59.3.1"
+version = "59.3.2"
 
 [dependencies.arrow-data]
-version = "59.3.1"
+version = "59.3.2"
 
 [dependencies.arrow-schema]
-version = "59.3.1"
+version = "59.3.2"
 
 [dependencies.arrow-select]
-version = "59.3.1"
+version = "59.3.2"
 
 [dependencies.bytes]
 version = "1.9"

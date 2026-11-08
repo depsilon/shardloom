@@ -153,7 +153,7 @@ fn construct(
                     child,
                     offsets,
                     validity,
-                    &mut vortex::array::array_session()
+                    &mut vortex::session::VortexSession::empty()
                         .with_host_allocator(allocator.clone())
                         .create_execution_ctx(),
                 )

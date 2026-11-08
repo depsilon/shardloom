@@ -204,7 +204,7 @@ fn unsigned_varbin_slices_preserve_values_schema_and_owned_lifetimes() {
                 dtype.clone(),
                 Validity::from_iter([true, true, false, true, true, true]),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap()
@@ -307,7 +307,7 @@ fn encoded_varbin_offsets_retain_native_backing_and_obey_serialized_byte_bound()
         DType::Binary(Nullability::Nullable),
         Validity::from_iter([true, false, true, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -388,7 +388,7 @@ fn varbin_checked_construction_rejects_invalid_payload_ranges_without_leaking_of
             DType::Binary(Nullability::NonNullable),
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         );
         assert!(

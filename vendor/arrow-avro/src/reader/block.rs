@@ -1,3 +1,5 @@
+// Modified by ShardLoom on 2026-11-08: preserve the local provider contracts.
+// See README.shardloom.md and upstream-provenance.json for the retained changes.
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information

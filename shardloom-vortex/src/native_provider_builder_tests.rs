@@ -180,10 +180,7 @@ fn native_builder_decimal_width_follows_precision_and_preserves_scale() {
         let memory = LiveMemoryPool::new(data_bytes + bitmap_bytes + capacity(0).unwrap()).unwrap();
         let mut ctx = session(&memory).create_execution_ctx();
         let output = input.execute::<DecimalArray>(&mut ctx).unwrap();
-        assert_eq!(
-            output.values_type(),
-            DecimalType::smallest_decimal_value_type(&dtype)
-        );
+        assert_eq!(output.values_type(), dtype.canonical_values_type());
         assert_eq!(
             output.dtype(),
             &DType::Decimal(dtype, vortex::array::dtype::Nullability::Nullable)

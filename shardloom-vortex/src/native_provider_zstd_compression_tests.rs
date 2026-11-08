@@ -68,18 +68,19 @@ fn admission_session(
 }
 
 fn assert_data_bytes_equal(left: &ZstdData, right: &ZstdData) {
+    use vortex::array::{ProstMetadata, SerializeMetadata as _};
     let left = left.clone().into_parts(Validity::NonNullable);
     let right = right.clone().into_parts(Validity::NonNullable);
     assert_eq!(left.n_rows, right.n_rows);
     assert_eq!(
-        left.metadata.dictionary_size,
-        right.metadata.dictionary_size
+        ProstMetadata(left.metadata.clone()).serialize(),
+        ProstMetadata(right.metadata.clone()).serialize()
     );
     let frame_metadata = |metadata: &ZstdMetadata| {
         metadata
-            .frames
+            .frames()
             .iter()
-            .map(|frame| (frame.uncompressed_size, frame.n_values))
+            .map(|frame| (frame.uncompressed_bytes(), frame.num_values()))
             .collect::<Vec<_>>()
     };
     assert_eq!(
@@ -365,9 +366,9 @@ fn native_zstd_compression_overaligned_frames_preserve_counts_and_slices() {
     assert_eq!(
         parts
             .metadata
-            .frames
+            .frames()
             .iter()
-            .map(|frame| frame.n_values)
+            .map(vortex::encodings::zstd::ZstdFrameMetadata::num_values)
             .sum::<u64>(),
         65
     );

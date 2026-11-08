@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
 use vortex_buffer::BufferAllocatorRef;
+use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure_eq;
 
@@ -133,12 +134,13 @@ impl ChildBuilder {
         self.flush_pending();
         self.chunks_len = 0;
 
-        let mut chunks = std::mem::take(&mut self.chunks);
-        if chunks.len() == 1 {
-            return chunks.remove(0);
+        if self.chunks.len() == 1 {
+            return self.chunks.pop().vortex_expect("single chunk");
         }
 
-        unsafe { ChunkedArray::new_unchecked(chunks, self.dtype.clone()) }.into_array()
+        // SAFETY: every accumulated chunk has the builder's dtype.
+        unsafe { ChunkedArray::new_unchecked(self.chunks.drain(..), self.dtype.clone()) }
+            .into_array()
     }
 
     /// Moves whatever the scalar builder holds into `chunks`, keeping the chunks in logical order.
@@ -154,16 +156,18 @@ impl ChildBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use rstest::rstest;
     use vortex_buffer::BufferAllocatorRef;
     use vortex_buffer::buffer;
     use vortex_error::VortexResult;
+    use vortex_session::VortexSession;
 
     use super::ChildBuilder;
     use crate::ArrayRef;
     use crate::IntoArray;
     use crate::VortexSessionExecute;
-    use crate::array_session;
     use crate::arrays::Chunked;
     use crate::arrays::Constant;
     use crate::arrays::ConstantArray;
@@ -176,6 +180,8 @@ mod tests {
     use crate::dtype::Nullability::Nullable;
     use crate::dtype::PType::I32;
     use crate::scalar::Scalar;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     /// An arbitrary array length. `ChildBuilder` treats no length specially, so the tests only
     /// need a length long enough to tell chunks apart.
@@ -193,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_appended_arrays_are_kept_as_chunks() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -218,7 +224,7 @@ mod tests {
     /// too. A caller that wants the values copied appends them as scalars instead.
     #[test]
     fn test_short_arrays_are_kept_as_chunks_too() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -240,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_scalars_interleaved_with_chunks_keep_their_order() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -263,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_single_chunk_is_not_wrapped() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -279,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_empty_arrays_never_become_chunks() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
         let empty = constant(1, CHUNK_LEN).slice(0..0)?;
@@ -304,7 +310,7 @@ mod tests {
     /// An empty child must still finish as an empty array rather than as an empty [`ChunkedArray`].
     #[test]
     fn test_empty_child_finishes_without_chunks() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -324,7 +330,7 @@ mod tests {
     #[case::empty(0)]
     #[case::non_empty(CHUNK_LEN)]
     fn test_appending_a_mismatched_dtype_is_rejected(#[case] len: usize) {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 
@@ -335,7 +341,7 @@ mod tests {
     /// Everything the scalar builder can produce has to be flushed ahead of the next chunk.
     #[test]
     fn test_zeros_and_nulls_around_chunks_keep_their_order() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let dtype = DType::Primitive(I32, Nullable);
         let mut builder = ChildBuilder::with_capacity(&dtype, 0, BufferAllocatorRef::static_ref());
 
@@ -362,7 +368,7 @@ mod tests {
 
     #[test]
     fn test_finish_resets_the_builder() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let mut builder =
             ChildBuilder::with_capacity(&DType::from(I32), 0, BufferAllocatorRef::static_ref());
 

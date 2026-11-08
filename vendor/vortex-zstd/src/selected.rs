@@ -149,7 +149,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use vortex_array::VortexSessionExecute;
-    use vortex_array::array_session;
+
     use vortex_array::dtype::Nullability;
     use vortex_array::memory::{
         DefaultHostAllocator, HostAllocator, HostMemorySessionExt, WritableHostBuffer,
@@ -180,7 +180,7 @@ mod tests {
             &[b"\xff\x00\x80", b"binary bytes longer than twelve", b"\x00"],
         ];
         let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = VortexSession::empty().create_execution_ctx();
         for values in cases {
             let bytes = interleaved(values)?;
             for first in 0..=values.len() {
@@ -267,12 +267,12 @@ mod tests {
 
     #[test]
     fn selected_decoder_validates_indices_and_shape_before_allocating() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = VortexSession::empty().create_execution_ctx();
         let plain = VarBinViewArray::from_iter_str(["first value", "second value"]);
         let encoded = Zstd::from_var_bin_view_without_dict(&plain, 0, 1, &mut ctx)?.into_array();
         let counter = Arc::new(AllocationCounter::default());
         let session =
-            array_session().with_host_allocator(Arc::<AllocationCounter>::clone(&counter));
+            VortexSession::empty().with_host_allocator(Arc::<AllocationCounter>::clone(&counter));
         let mut ctx = session.create_execution_ctx();
         for indices in [&[2][..], &[1, 0], &[0, 0], &[0, usize::MAX]] {
             assert!(decompress(encoded.as_::<Zstd>(), indices, &mut ctx).is_err());
@@ -289,7 +289,7 @@ mod tests {
                 &nulls,
                 0,
                 1,
-                &mut array_session().create_execution_ctx(),
+                &mut VortexSession::empty().create_execution_ctx(),
             )?
             .into_array();
             assert!(decompress(nulls.as_::<Zstd>(), &[0], &mut ctx).is_err());
@@ -298,7 +298,7 @@ mod tests {
             &PrimitiveArray::from_iter([1i64, 2]),
             0,
             0,
-            &mut array_session().create_execution_ctx(),
+            &mut VortexSession::empty().create_execution_ctx(),
         )?
         .into_array();
         assert!(decompress(primitive.as_::<Zstd>(), &[0], &mut ctx).is_err());
@@ -330,7 +330,7 @@ mod tests {
                     dtype.clone(),
                 );
                 for dictionary in [false, true] {
-                    let mut ctx = array_session().create_execution_ctx();
+                    let mut ctx = VortexSession::empty().create_execution_ctx();
                     let encoded = if dictionary {
                         Zstd::from_var_bin_view(&plain, 0, 8, &mut ctx)?
                     } else {
@@ -353,7 +353,7 @@ mod tests {
 
     #[test]
     fn selected_decoder_rejects_incorrect_encoded_value_count() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = VortexSession::empty().create_execution_ctx();
         let plain = VarBinViewArray::from_iter_str(["first", "second"]);
         let encoded = Zstd::from_var_bin_view_without_dict(&plain, 0, 0, &mut ctx)?.into_array();
         for rows in [1usize, 3] {
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn selected_decoder_validates_utf8_in_selected_output() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = VortexSession::empty().create_execution_ctx();
         let plain = VarBinViewArray::from_iter(
             [Some(&b"\xff"[..]), Some(&b"valid"[..])],
             DType::Binary(Nullability::NonNullable),

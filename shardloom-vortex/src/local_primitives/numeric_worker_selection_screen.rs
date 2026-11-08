@@ -363,7 +363,7 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             false,
             false,
             policy.resource_envelope(),
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .unwrap();
         assert!(
@@ -382,7 +382,7 @@ fn small_count_selection_preserves_nullable_parent_semantics() {
             &columns,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap();

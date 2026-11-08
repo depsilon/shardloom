@@ -1,6 +1,6 @@
 # ShardLoom Arrow IPC provider controls
 
-This is the Apache-2.0 `arrow-ipc` 59.3.1 registry provider with local decoder
+This is the Apache-2.0 `arrow-ipc` 59.3.2 registry provider with local decoder
 controls. Original source identities and preserved license/notice files remain
 recorded in `upstream-provenance.json`. The optional Zstandard dependency stays
 pinned to `=0.14.3`; `publish = false` prevents publishing this local provider.
@@ -55,7 +55,7 @@ full decoded row count and records no adaptive decoder completion. Broader
 engine/interface acceptance remains separate.
 
 The root lock owns shipped dependencies. The separate reviewed
-`.github/provider-locks/arrow-ipc.lock` fixes standalone tests at Arrow 59.3.1.
+`.github/provider-locks/arrow-ipc.lock` fixes standalone tests at Arrow 59.3.2.
 The `formats` provider CI group runs all library tests with `lz4,zstd` and strict
 library/test Clippy; all fixtures are generated locally. At this scoped revision,
 154 library tests and strict library/test Clippy pass with both codecs; the

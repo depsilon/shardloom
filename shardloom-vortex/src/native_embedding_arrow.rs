@@ -244,7 +244,14 @@ mod tests {
                 .downcast_ref::<FixedSizeListArray>()
                 .unwrap();
             let input = input.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
-            assert_eq!(input.nulls(), output.nulls());
+            assert_eq!(
+                (0..input.len())
+                    .map(|row| input.is_null(row))
+                    .collect::<Vec<_>>(),
+                (0..output.len())
+                    .map(|row| output.is_null(row))
+                    .collect::<Vec<_>>()
+            );
             let input = input
                 .values()
                 .as_any()
@@ -255,7 +262,14 @@ mod tests {
                 .as_any()
                 .downcast_ref::<Float32Array>()
                 .unwrap();
-            assert_eq!(input.nulls(), output.nulls());
+            assert_eq!(
+                (0..input.len())
+                    .map(|row| input.is_null(row))
+                    .collect::<Vec<_>>(),
+                (0..output.len())
+                    .map(|row| output.is_null(row))
+                    .collect::<Vec<_>>()
+            );
             assert_eq!(
                 input
                     .values()

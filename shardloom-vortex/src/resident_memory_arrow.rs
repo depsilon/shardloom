@@ -171,6 +171,7 @@ impl ResidentMemorySource {
         let array = context
             .native_session()
             .arrow()
+            .with_preserved_decimal_storage()
             .from_arrow_record_batch(retained, &schema)
             .map_err(native_error)?;
         #[cfg(feature = "native-binary-objects")]

@@ -266,7 +266,7 @@ fn typed_values() -> Vec<(&'static str, ArrayRef, Vec<Value>, Value, Value)> {
         PrimitiveArray::from_iter([2u64, 1, 0, 2, 0, 1]).into_array(),
         Validity::from_iter([true, true, false, true, true, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -536,7 +536,7 @@ fn ordered_aggregate_nested_count_does_not_observe_child_payload_values() {
         PrimitiveArray::from_iter([1u64, 0, 1]).into_array(),
         Validity::from_iter([true, false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

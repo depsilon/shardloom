@@ -555,7 +555,7 @@ fn cache_retry_gate_rejects_corruption_with_a_simultaneous_owned_denial() {
                 .unwrap_err();
             assert!(is_owned_reservation_denial(&denied));
             let corruption =
-                vortex_err!(InvalidArgument: "corrupt serialized segment with concurrent pressure");
+                vortex_err!("InvalidArgument: corrupt serialized segment with concurrent pressure");
             assert!(!attempt.request_uncached_retry(&corruption));
             Err(crate::resident_session::native_error(corruption))
         });

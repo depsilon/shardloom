@@ -1967,10 +1967,11 @@ mod frame_index_tests;
 #[expect(clippy::cast_possible_truncation)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::LazyLock;
 
     use rstest::rstest;
     use vortex_array::VortexSessionExecute;
-    use vortex_array::array_session;
+
     use vortex_array::arrays::VarBinViewArray;
     use vortex_array::arrays::varbin::VarBinArrayExt as _;
     use vortex_array::builders::VarBinBuilder;
@@ -1982,6 +1983,7 @@ mod tests {
     use vortex_buffer::ByteBuffer;
     use vortex_error::VortexResult;
     use vortex_mask::Mask;
+    use vortex_session::VortexSession;
 
     use super::DecompressedSlice;
     use super::ViewLen;
@@ -1992,6 +1994,8 @@ mod tests {
     use super::zstd_value_len;
     use super::zstd_value_offset;
     use crate::array::BinaryView;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     /// Build a Zstd-style interleaved buffer: [u32-LE length][string bytes] repeated.
     fn make_interleaved(strings: &[&[u8]]) -> ByteBuffer {
@@ -2069,7 +2073,7 @@ mod tests {
             ],
         ];
         let allocator: HostAllocatorRef = Arc::new(DefaultHostAllocator);
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = VortexSession::empty().create_execution_ctx();
         for strings in cases {
             let buffer = make_interleaved(strings);
             for limit in [0, 1, 4, 12, 16, 17, 20, 34, 1024] {
@@ -2205,7 +2209,7 @@ mod tests {
         append_slice_to_varbin(&slice, &Mask::new_true(2), &mut builder)?;
 
         let appended = builder.finish_into_varbin();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         assert_eq!(appended.bytes_at(0, &mut ctx).as_slice(), b"hello");
         assert_eq!(appended.bytes_at(1, &mut ctx).as_slice(), b"world");
         Ok(())

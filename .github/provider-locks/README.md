@@ -1,11 +1,48 @@
 # Standalone patched-provider validation locks
 
-These eight lockfiles freeze the existing excluded provider test configurations.
+These fifteen lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
-running its unchanged feature/patch/target configuration with `--locked`.
-The three CI groups share compatible Cargo fingerprints within each job; they
+running its recorded feature/patch/target configuration with `--locked`.
+The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 8 provider migration
+
+The current graphs resolve Vortex 0.93.0 and Arrow/Parquet 59.3.2. RunEnd's source
+and tests move into `vortex-array`, so its obsolete separate lock is removed.
+Parquet adds a default-codec library and enabled-integration-test configuration,
+with the patched Arrow array/data/IPC providers and both committed fixture roots.
+Its `test_common` benchmark helpers are unnecessary for these targets and remain
+disabled; the library's unit tests receive their normal test configuration.
+Missing fixture roots fail before Cargo starts. No external engine is admitted.
+
+The added `vortex-arrow` configuration checks its complete library tests and
+strict library/test lint with the reviewed array, buffer, Arrow array/data and
+FSST patches. Its scoped decimal import preserves physical storage only after
+ShardLoom's ancestor-aware value validation. Its new lock adds no package identity
+outside the previously reviewed root and standalone graphs.
+
+Resolution retains unchanged packages from prior locks where possible. The
+Parquet graph starts from the root lock. Relative to the exact prior standalone
+graphs, 34 current development-only identities are absent; their checksum-verified archives
+declare Apache-2.0, MIT or combinations of those licenses. Declared Rust minimums
+do not exceed 1.95. This review does not add these development packages to the
+runtime or turn optional features on. ORC retains its already-reviewed upstream
+Arrow 58.4.1 development dependencies; the runtime has one Arrow 59.3.2 family.
+The additional identity since the initial 33-package review is the registry
+`vortex-arrow` 0.93.0 used by some standalone tests; the runtime now uses its
+local path provider. This is an existing reviewed archive, not a new version.
+The historical graph reviews below retain their original versions and outcomes.
+
+The [provider migration contract](../../docs/architecture/native-provider-upgrade-2026-11-08.md)
+tracks whole-engine and installed-package acceptance separately from these locks.
+The [November 8 acceptance packet](../../docs/release/evidence/native-provider-upgrade-2026-11-08/README.md)
+verifies passing tests and strict lint for all fifteen configurations against
+their current compiled sources, direct patches, lockfiles and runner settings.
+Earlier passing commands are reused only when those inputs match; provenance-only
+metadata changes are verified separately. Whole-workspace and isolated installed
+wheel acceptance also pass for the current graph, with hosted integration pending.
 
 The initial October 25 resolution starts from workspace `Cargo.lock` SHA-256
 `2784ccccf7f886593291618ea7cfd8494dc7405757ef0d416b030d160f473bea`, resolves

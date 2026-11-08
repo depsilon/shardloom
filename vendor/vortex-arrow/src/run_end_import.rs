@@ -1,0 +1,348 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright the Vortex contributors
+
+use arrow_array::Array as _;
+use arrow_array::ArrayRef as ArrowArrayRef;
+use arrow_array::RunArray;
+use arrow_array::types::RunEndIndexType;
+use vortex_array::ArrayRef;
+use vortex_array::IntoArray;
+use vortex_array::arrays::PrimitiveArray;
+use vortex_array::arrays::RunEnd;
+use vortex_array::arrays::primitive::PrimitiveArrayExt;
+use vortex_array::dtype::NativePType;
+use vortex_array::validity::Validity;
+use vortex_buffer::Buffer;
+use vortex_error::VortexResult;
+use vortex_error::vortex_ensure_eq;
+
+/// Build a Vortex run-end array from an Arrow [`RunArray`].
+///
+/// `import_values` converts the Arrow values of the runs that intersect the logical range. The
+/// caller supplies it, so extension metadata on the values field reaches the session's import
+/// plugins. This function slices both children from one physical run range, so the ends and the
+/// values cannot drift apart.
+pub(crate) fn run_end_from_arrow<R: RunEndIndexType>(
+    array: &RunArray<R>,
+    import_values: impl FnOnce(ArrowArrayRef) -> VortexResult<ArrayRef>,
+) -> VortexResult<ArrayRef>
+where
+    R::Native: NativePType,
+{
+    // Arrow slices a RunArray by adjusting the logical offset and length while keeping the full
+    // children, so keep only the physical runs that intersect the logical range.
+    let (first, len, offset) = if array.is_empty() {
+        (0, 0, 0)
+    } else {
+        let first = array.get_start_physical_index();
+        let len = array.get_end_physical_index() - first + 1;
+        (first, len, array.run_ends().offset())
+    };
+
+    let ends_buf =
+        Buffer::<R::Native>::from_arrow_scalar_buffer(array.run_ends().inner().slice(first, len));
+    let ends = PrimitiveArray::new(ends_buf, Validity::NonNullable)
+        .reinterpret_cast(R::Native::PTYPE.to_unsigned())
+        .into_array();
+    let values = import_values(array.values().slice(first, len))?;
+
+    vortex_ensure_eq!(
+        ends.len(),
+        values.len(),
+        "Arrow run-end array must have one value per run end"
+    );
+
+    // SAFETY: Arrow guarantees positive, strictly increasing run ends that cover the logical range.
+    // The unsigned cast preserves those values. The slice retains all intersecting runs,
+    // and the length check ensures one value per run end.
+    Ok(unsafe { RunEnd::new_unchecked(ends, values, offset, array.len()) }.into_array())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::LazyLock;
+
+    use arrow_array::Array as _;
+    use arrow_array::Float64Array;
+    use arrow_array::Int32Array;
+    use arrow_array::Int64Array;
+    use arrow_array::RunArray;
+    use arrow_array::types::Int32Type;
+    use arrow_array::types::Int64Type;
+    use arrow_array::types::RunEndIndexType;
+    use arrow_schema::DataType;
+    use arrow_schema::Field;
+    use rstest::rstest;
+    use vortex_array::ArrayRef;
+    use vortex_array::IntoArray as _;
+    use vortex_array::VortexSessionExecute as _;
+    use vortex_array::arrays::PrimitiveArray;
+    use vortex_array::arrays::RunEnd;
+    use vortex_array::assert_arrays_eq;
+    use vortex_array::dtype::DType;
+    use vortex_array::dtype::NativePType;
+    use vortex_array::dtype::Nullability;
+    use vortex_array::dtype::PType;
+    use vortex_buffer::Buffer;
+    use vortex_buffer::buffer;
+    use vortex_error::VortexResult;
+    use vortex_session::VortexSession;
+
+    use crate::ArrowSessionExt;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
+
+    /// Decode through the session import path, which is what production callers use.
+    fn decode_run_array<R: RunEndIndexType>(
+        array: &RunArray<R>,
+        nullable: bool,
+    ) -> VortexResult<ArrayRef>
+    where
+        R::Native: NativePType,
+    {
+        SESSION
+            .arrow()
+            .from_arrow_array(Arc::new(array.clone()), nullable)
+    }
+
+    #[test]
+    fn test_arrow_run_array_to_vortex() -> VortexResult<()> {
+        // Create an Arrow RunArray with UInt32 run ends and Int32 values
+        // Run ends: [3, 5, 8] means runs of length 3, 2, 3
+        // Values: [10, 20, 30] means values 10, 10, 10, 20, 20, 30, 30, 30
+        let run_ends = Int32Array::from(vec![3i32, 5, 8]);
+        let values = Int32Array::from(vec![10, 20, 30]);
+        let arrow_run_array = RunArray::<Int32Type>::try_new(&run_ends, &values)?;
+
+        // Convert to Vortex
+        let vortex_array = decode_run_array(&arrow_run_array, false)?;
+
+        assert_arrays_eq!(
+            vortex_array.into_array(),
+            buffer![10i32, 10, 10, 20, 20, 30, 30, 30].into_array(),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_arrow_run_array_with_nulls_to_vortex() -> VortexResult<()> {
+        // Create an Arrow RunArray with nullable values
+        let run_ends = Int32Array::from(vec![2i32, 4, 6]);
+        let values = Int32Array::from(vec![Some(100), None, Some(300)]);
+        let arrow_run_array = RunArray::<Int32Type>::try_new(&run_ends, &values)?;
+
+        // Convert to Vortex with nullable=true
+        let vortex_array = decode_run_array(&arrow_run_array, true)?;
+
+        assert_arrays_eq!(
+            vortex_array.into_array(),
+            PrimitiveArray::from_option_iter([
+                Some(100i32),
+                Some(100i32),
+                None,
+                None,
+                Some(300i32),
+                Some(300i32)
+            ]),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_arrow_run_array_with_different_types() -> VortexResult<()> {
+        // Test with UInt64 run ends and Float64 values
+        let run_ends = Int64Array::from(vec![1i64, 3, 4]);
+        let values = Float64Array::from(vec![1.5, 2.5, 3.5]);
+        let arrow_run_array = RunArray::<Int64Type>::try_new(&run_ends, &values)?;
+
+        // Convert to Vortex
+        let vortex_array = decode_run_array(&arrow_run_array, false)?;
+
+        assert_arrays_eq!(
+            vortex_array,
+            buffer![1.5f64, 2.5, 2.5, 3.5].into_array(),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sliced_arrow_run_array_to_vortex() -> VortexResult<()> {
+        // Create an Arrow RunArray with run ends and values
+        // Run ends: [2, 5, 8, 10] means runs of length 2, 3, 3, 2
+        // Values: [100, 200, 300, 400] means: 100, 100, 200, 200, 200, 300, 300, 300, 400, 400
+        let run_ends = Int32Array::from(vec![2i32, 5, 8, 10]);
+        let values = Int32Array::from(vec![100, 200, 300, 400]);
+        let arrow_run_array = RunArray::<Int32Type>::try_new(&run_ends, &values)?;
+
+        // Slice the array from index 1 to 7 (length 6)
+        // This should give us: 100, 200, 200, 200, 300, 300
+        let sliced_array = arrow_run_array.slice(1, 6);
+
+        // Convert the sliced array to Vortex
+        let vortex_array = decode_run_array(&sliced_array, false)?;
+        assert_arrays_eq!(
+            vortex_array,
+            buffer![100, 200, 200, 200, 300, 300].into_array(),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    #[rstest]
+    #[case::prefix(0, 2)]
+    #[case::suffix(4, 2)]
+    #[case::empty(3, 0)]
+    #[case::empty_at_end(6, 0)]
+    fn test_sliced_run_array_ignores_nulls_outside_its_rows(
+        #[case] start: usize,
+        #[case] len: usize,
+    ) -> VortexResult<()> {
+        let run_ends = Int32Array::from(vec![2, 4, 6]);
+        let values = Int32Array::from(vec![Some(10), None, Some(30)]);
+        let array = RunArray::<Int32Type>::try_new(&run_ends, &values)?.slice(start, len);
+        let imported = decode_run_array(&array, false)?;
+        let expected =
+            Buffer::from_iter(std::iter::repeat_n(if start < 2 { 10i32 } else { 30 }, len))
+                .into_array();
+        assert_arrays_eq!(imported, expected, &mut SESSION.create_execution_ctx());
+        Ok(())
+    }
+
+    #[test]
+    fn test_sliced_arrow_run_array_with_nulls_to_vortex() -> VortexResult<()> {
+        // Create an Arrow RunArray with nullable values
+        // Run ends: [3, 6, 9, 12] means runs of length 3, 3, 3, 3
+        // Values: [Some(10), None, Some(30), Some(40)]
+        let run_ends = Int64Array::from(vec![3i64, 6, 9, 12]);
+        let values = Int64Array::from(vec![Some(10), None, Some(30), Some(40)]);
+        let arrow_run_array = RunArray::<Int64Type>::try_new(&run_ends, &values)?;
+
+        // Slice from index 4 to 10 (length 6)
+        // Original: 10, 10, 10, null, null, null, 30, 30, 30, 40, 40, 40
+        // Sliced:   null, null, 30, 30, 30, 40
+        let sliced_array = arrow_run_array.slice(4, 6);
+
+        // Convert to Vortex with nullable=true
+        let vortex_array = decode_run_array(&sliced_array, true)?;
+
+        assert_arrays_eq!(
+            vortex_array,
+            PrimitiveArray::from_option_iter([
+                None,
+                None,
+                Some(30i64),
+                Some(30),
+                Some(30),
+                Some(40),
+            ]),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sliced_to_0_arrow_run_array_with_nulls_to_vortex() -> VortexResult<()> {
+        // Create an Arrow RunArray with nullable values
+        // Run ends: [3, 6, 9, 12] means runs of length 3, 3, 3, 3
+        // Values: [Some(10), None, Some(30), Some(40)]
+        let run_ends = Int64Array::from(vec![3i64, 6, 9, 12]);
+        let values = Int64Array::from(vec![Some(10), None, Some(30), Some(40)]);
+        let arrow_run_array = RunArray::<Int64Type>::try_new(&run_ends, &values)?;
+
+        // Slice from index 4 to 4 (length 0)
+        // Original: 10, 10, 10, null, null, null, 30, 30, 30, 40, 40, 40
+        // Sliced:   [ ]
+        let sliced_array = arrow_run_array.slice(4, 0);
+
+        // Convert to Vortex with nullable=true
+        let vortex_array = decode_run_array(&sliced_array, true)?;
+
+        // Verify properties
+        assert_eq!(vortex_array.len(), 0);
+        assert_eq!(
+            vortex_array.dtype(),
+            &DType::Primitive(PType::I64, Nullability::Nullable)
+        );
+        assert_arrays_eq!(
+            vortex_array,
+            PrimitiveArray::from_option_iter([] as [Option<i64>; 0]),
+            &mut SESSION.create_execution_ctx()
+        );
+        Ok(())
+    }
+
+    fn ree_type(ends: DataType, values_dtype: DataType) -> DataType {
+        DataType::RunEndEncoded(
+            Arc::new(Field::new("run_ends", ends, false)),
+            Arc::new(Field::new("values", values_dtype, true)),
+        )
+    }
+
+    fn execute(array: ArrayRef, dt: &DataType) -> VortexResult<arrow_array::ArrayRef> {
+        let field = Field::new("", dt.clone(), true);
+        SESSION
+            .arrow()
+            .execute_arrow(array, Some(&field), &mut SESSION.create_execution_ctx())
+    }
+
+    #[test]
+    fn test_roundtrip_arrow_to_vortex_to_arrow() -> VortexResult<()> {
+        let original = RunArray::<Int32Type>::try_new(
+            &Int32Array::from(vec![3i32, 5, 8]),
+            &Int32Array::from(vec![10, 20, 30]),
+        )?;
+        let vortex_array = decode_run_array(&original, false)?;
+        let target = ree_type(DataType::Int32, DataType::Int32);
+        let result = execute(vortex_array.into_array(), &target)?;
+
+        let expected = RunArray::<Int32Type>::try_new(
+            &Int32Array::from(vec![3, 5, 8]),
+            &Int32Array::from(vec![10, 20, 30]),
+        )?;
+        assert_eq!(result.as_ref(), &expected);
+        Ok(())
+    }
+
+    /// Slicing a RunEndArray and converting to Arrow REE must produce
+    /// correctly trimmed and adjusted run ends for both zero and non-zero offsets.
+    #[rstest]
+    #[case::nonzero_offset(
+        &[10i32, 10, 20, 20, 20, 30, 30],
+        1..5usize,
+        &[1i32, 4],
+        &[10i32, 20],
+    )]
+    #[case::zero_offset_excess_runs(
+        &[10i32, 10, 10, 20, 20, 30, 30, 30, 30, 30],
+        0..4usize,
+        &[3i32, 4],
+        &[10i32, 20],
+    )]
+    fn sliced_runend_to_arrow_ree(
+        #[case] input: &[i32],
+        #[case] slice_range: std::ops::Range<usize>,
+        #[case] expected_ends: &[i32],
+        #[case] expected_values: &[i32],
+    ) -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let array = RunEnd::encode(
+            PrimitiveArray::from_iter(input.iter().copied()).into_array(),
+            &mut ctx,
+        )?;
+        let sliced = array.into_array().slice(slice_range.clone())?;
+        let target = ree_type(DataType::Int32, DataType::Int32);
+        let result = execute(sliced, &target)?;
+
+        assert_eq!(result.len(), slice_range.len());
+        let expected = RunArray::<Int32Type>::try_new(
+            &Int32Array::from(expected_ends.to_vec()),
+            &Int32Array::from(expected_values.to_vec()),
+        )?;
+        assert_eq!(result.as_ref(), &expected);
+        Ok(())
+    }
+}

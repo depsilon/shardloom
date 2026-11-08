@@ -10,27 +10,26 @@ use vortex_array::dtype::DType;
 use vortex_array::expr::stats::Stat;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
-use vortex_error::vortex_err;
 use vortex_mask::Mask;
+use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 
 use crate::layouts::zoned::legacy_stats_to_aggregates;
+use crate::plan::physical::Eval;
 use crate::plan::physical::EvalPlan;
 use crate::plan::physical::Plan;
-use crate::plan::physical::PlanChildren;
 use crate::plan::physical::PlanId;
 use crate::plan::physical::PlanParts;
 use crate::plan::physical::PlanRef;
+use crate::plan::physical::PlanSlots;
 use crate::plan::physical::PlanVTable;
 use crate::plan::physical::Zoned;
 use crate::plan::physical::ZonedPlan;
-use crate::plan::physical::check_child_count;
 use crate::plan::physical::optimizer::PlanParentReduceRule;
 use crate::plan::physical::optimizer::PlanReduceRule;
 use crate::plan::physical::pipeline::Chain;
 use crate::plan::physical::pipeline::Compiler;
-use crate::plan::physical::pipeline::Reach;
-use crate::segments::SegmentId;
+use crate::plan::physical::plans::zoned::is_zone_pruning;
 
 const DATA: usize = 0;
 const ZONES: usize = 1;
@@ -39,8 +38,9 @@ const ZONES: usize = 1;
 /// than by aggregate function.
 ///
 /// The optimizer rewrites it into a [`Zoned`] plan over the zone table converted to the aggregate
-/// schema, or into its data alone when a [`Zoned`] plan already summarises the same data. Compiled
-/// unoptimized, it reads its data and prunes nothing.
+/// schema, or into its data alone when a [`Zoned`] plan already summarises the same data; a plan
+/// that reads the data is then optimized to the data alone. Compiled unoptimized, it reads its
+/// data and prunes nothing.
 #[derive(Clone, Debug)]
 pub struct LegacyStats;
 
@@ -56,10 +56,10 @@ pub struct LegacyStatsData {
 pub type LegacyStatsPlan = Plan<LegacyStats>;
 
 impl LegacyStatsPlan {
-    pub(crate) fn from_children(
+    pub(crate) fn from_slots(
         dtype: DType,
         row_count: u64,
-        children: PlanChildren,
+        slots: PlanSlots,
         zone_len: u64,
         stats: Arc<[Stat]>,
     ) -> Self {
@@ -67,7 +67,7 @@ impl LegacyStatsPlan {
             vtable: LegacyStats,
             dtype,
             row_count,
-            children,
+            slots,
             data: LegacyStatsData { zone_len, stats },
         }
         .into_typed()
@@ -78,7 +78,7 @@ impl LegacyStatsPlan {
     pub fn new(data: PlanRef, zones: PlanRef, zone_len: u64, stats: Arc<[Stat]>) -> Self {
         let dtype = data.dtype().clone();
         let row_count = data.row_count();
-        Self::from_children(dtype, row_count, vec![data, zones].into(), zone_len, stats)
+        Self::from_slots(dtype, row_count, [data, zones].into(), zone_len, stats)
     }
 
     /// Returns the number of rows each zone summarises.
@@ -93,12 +93,12 @@ impl LegacyStatsPlan {
 
     /// Returns the plan producing the summarised data.
     pub fn data_plan(&self) -> VortexResult<PlanRef> {
-        self.child_required(DATA)
+        self.slot_required(DATA)
     }
 
     /// Returns the plan producing the legacy zone table.
     pub fn zones_plan(&self) -> VortexResult<PlanRef> {
-        self.child_required(ZONES)
+        self.slot_required(ZONES)
     }
 }
 
@@ -115,26 +115,24 @@ impl PlanVTable for LegacyStats {
         None
     }
 
-    fn with_children(
+    fn with_slots(
         plan: &Plan<Self>,
-        children: &PlanChildren,
+        slots: &PlanSlots,
         _data: &mut Self::PlanData,
     ) -> VortexResult<()> {
-        check_child_count("LegacyStats", children, 2)?;
-        let data = children
-            .get(DATA)?
-            .ok_or_else(|| vortex_err!("LegacyStats data child is absent"))?;
+        slots.check_len("LegacyStats", 2)?;
+        let data = slots.required(DATA)?;
         if data.dtype() != plan.dtype() || data.row_count() != plan.row_count() {
             vortex_bail!("LegacyStats data child shape does not match the plan output");
         }
         Ok(())
     }
 
-    fn child_name(_plan: &Plan<Self>, index: usize) -> Cow<'_, str> {
+    fn slot_name(_plan: &Plan<Self>, index: usize) -> Cow<'_, str> {
         match index {
             DATA => Cow::Borrowed("data"),
             ZONES => Cow::Borrowed("zones"),
-            _ => Cow::Owned(format!("child[{index}]")),
+            _ => Cow::Owned(format!("slot[{index}]")),
         }
     }
 
@@ -145,15 +143,6 @@ impl PlanVTable for LegacyStats {
         compiler: &mut Compiler<'_>,
     ) -> VortexResult<Option<Chain>> {
         compiler.compile(&plan.data_plan()?, rows, mask)
-    }
-
-    fn reach(
-        plan: &Plan<Self>,
-        rows: Range<u64>,
-        at: &Reach,
-        visit: &mut dyn FnMut(SegmentId, Range<u64>),
-    ) -> VortexResult<()> {
-        plan.data_plan()?.reach(rows, at, visit)
     }
 }
 
@@ -167,7 +156,11 @@ impl PlanVTable for LegacyStats {
 pub(crate) struct LegacyStatsRule;
 
 impl PlanReduceRule<LegacyStats> for LegacyStatsRule {
-    fn reduce(&self, plan: &Plan<LegacyStats>) -> VortexResult<Option<PlanRef>> {
+    fn reduce(
+        &self,
+        plan: &Plan<LegacyStats>,
+        _session: &VortexSession,
+    ) -> VortexResult<Option<PlanRef>> {
         let data = plan.data_plan()?;
         if plan.zone_len() == 0 || data.is::<Zoned>() {
             return Ok(Some(data));
@@ -184,24 +177,29 @@ impl PlanReduceRule<LegacyStats> for LegacyStatsRule {
     }
 }
 
-/// Drops legacy stats beneath a [`Zoned`] plan: its aggregate zone map already summarises the
-/// same rows.
+/// Converts the legacy stats beneath a zone pruning plan in place, so the plan meets a [`Zoned`] plan
+/// before the data path optimizes the stats away.
 #[derive(Debug)]
-pub(crate) struct ZonedLegacyStatsRule;
+pub(crate) struct ExpressionLegacyStatsRule;
 
-impl PlanParentReduceRule<LegacyStats> for ZonedLegacyStatsRule {
-    type Parent = Zoned;
+impl PlanParentReduceRule<LegacyStats> for ExpressionLegacyStatsRule {
+    type Parent = Eval;
 
     fn reduce_parent(
         &self,
         child: &LegacyStatsPlan,
-        parent: &ZonedPlan,
-        child_idx: usize,
+        parent: &Plan<Eval>,
+        _child_idx: usize,
+        session: &VortexSession,
     ) -> VortexResult<Option<PlanRef>> {
-        if child_idx != DATA || parent.is_pruning() {
+        if !is_zone_pruning(parent)? {
             return Ok(None);
         }
-        let children = vec![child.data_plan()?, parent.zones_plan()?];
-        Ok(Some(parent.clone().into_plan().with_children(children)?))
+        let Some(converted) = LegacyStatsRule.reduce(child, session)? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            EvalPlan::try_new(parent.expression().clone(), converted)?.into_plan(),
+        ))
     }
 }

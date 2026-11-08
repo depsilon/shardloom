@@ -1,5 +1,39 @@
 # Vortex Upstream Dependency Review
 
+## November 8, 2026 coordinated provider local acceptance
+
+The [current migration](../architecture/native-provider-upgrade-2026-11-08.md)
+ports the retained local contracts to published Vortex 0.93.0 and completes the
+compatible Arrow/Parquet 59.3.2 family. Arrow 60 remains a separate coordinated
+consumer migration: Vortex 0.93, ADBC and ORC do not share its Arrow types.
+Vortex manifest requirement: `=0.93.0`.
+`Cargo.lock` records the upstream Vortex crate family at `0.93.0`.
+The archive checksums and all original member identities are verified; dirty
+Vortex VCS markers remain explicit. Original legal texts are preserved and
+modified sources carry change notices. The refreshed notice bundle covers 431
+registry packages, 15 path patches, 829 legal-file records and 249 distinct texts.
+
+RunEnd moves into the array provider with its shared view-table owner intact.
+The aggregate/nested-statistics API retains conservative admission, lossless
+legacy slots, bounded scalar storage and explicit malformed-input failure.
+Shared-dictionary rewrites preserve output and scratch ownership through both
+root and inner Chunked execution. Source, scalar and sink boundaries remain
+Vortex-native; V2 execution and external query engines are not admitted.
+
+The [portable acceptance packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
+verifies all fifteen standalone provider configurations against their current
+inputs, including the scoped `vortex-arrow` patch's 406 library tests and strict
+lint. Its decimal storage preservation follows ancestor-aware validation.
+The 24 focused compatibility checks and 19 statistics ownership/wide-schema
+checks pass, followed by 3,321 default and 6,996 native workspace tests with no
+failures; 37 existing native opt-in ignores remain reported. Supported feature
+and toolchain checks, the unchanged audit policy and all 386 isolated installed
+wheel tests pass. Installed acceptance has no skips. Source-only relocated
+replay passes and all 13 corruption controls are rejected; original failures
+remain preserved. Hosted integration and proposal reconciliation remain pending.
+This update makes no performance or capability-completion claim. Dated
+observations below retain their original graphs and results.
+
 ## November 5, 2026 Arrow validation correction
 
 The [run-end validation correction](arrow-run-end-validation-2026-11-05.md)

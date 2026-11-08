@@ -2,11 +2,12 @@
 
 # Sparse and quantized vectors through native data workflows
 
-Status: local and portable acceptance passed, November 7, 2026. Float16 PR
-#1663 merged as `16854483c1dc4969496a14e16241b7f3cc0c4462` with all 58 PR and
-55 exact-main checks passing. This vector-representation PR has not been created;
-hosted review, CI, merge, exact-main checks and final artifact retirement remain
-pending.
+Status: scoped integration complete, November 8, 2026. PR [#1669](https://github.com/depsilon/shardloom/pull/1669)
+merged as `a157a5ff86c50ff253300848950fed207ce3d72d`; all 58 PR checks and all
+55 exact-main checks passed with review clear. Verified retirement removed
+10,226 regular files and three symlinks among 11,596 entries; current inputs and
+the vector runtime-r2/wheel remained unchanged, and portable replay passed after
+retirement. The preceding Float16 runtime/wheel were superseded and retired.
 
 This is item 19 step 4's remaining representation work, after Float16 and vector
 collections. It does not close item 19, item 20, RFC 0044 or CG-1 through CG-23.
@@ -252,9 +253,9 @@ strict lint and workspace tests; existing seven feature configurations; Python
 core checks; generated public docs; a runnable public example; and an isolated
 ordinary installed-wheel proof with zero skipped native tests. Bind exact source,
 runtime and wheel identities in portable evidence, with positive replay and
-targeted corruption controls. Preserve original failed attempts. Hosted PR
-review, CI, exact-main acceptance and guarded artifact retirement remain pending
-for this unit; no source-only result is described as a published package.
+targeted corruption controls. Preserve original failed attempts. PR #1669 passed
+hosted review, CI and exact-main acceptance, and guarded artifact retirement
+completed; no source-only result is described as a published package.
 
 The adversarial review must challenge hidden-child validation, wide integer
 rounding, metadata loss across spill/export, eager payload work, uncredited
@@ -279,9 +280,9 @@ two preparation attempts. Original and relocated replay pass; all nine negative
 controls reject, alongside the two positive replay controls. The saved
 acceptance binds source, runtime and installed-wheel identities. The separate
 debug-validation retirement passed while leaving the retained runtimes, wheel,
-input generations and release cache unchanged. These results establish only
-local and portable payload-lifecycle acceptance; hosted integration remains
-pending and no benchmark, publication or arithmetic claim follows.
+input generations and release cache unchanged. This section records the local
+and portable checkpoint; the subsequent merge and final retirement are recorded
+in the status above. No benchmark, publication or arithmetic claim follows.
 
 ## Frozen independent mixed reference
 

@@ -289,7 +289,7 @@ fn compact_local_selection_nested_sliced_bases_preserve_duplicates_and_validity(
         PrimitiveArray::from_iter([2u64, 0, 0, 1]).into_array(),
         Validity::from_iter([true, true, false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

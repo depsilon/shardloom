@@ -37,13 +37,16 @@ use vortex_array::scalar_fn::fns::operators::CompareOperator;
 use vortex_array::stats::as_stat_bitset_bytes;
 use vortex_error::VortexResult;
 use vortex_error::vortex_err;
+use vortex_expr::stats::rewrite::BoundExpressionPruneExt;
 use vortex_mask::Mask;
+use vortex_session::VortexSession;
 use vortex_session::registry::CachedId;
 use vortex_session::registry::ReadContext;
 
 use super::*;
 use crate::LayoutBuildContext;
-use crate::LayoutEncoding;
+use crate::LayoutDeserialization;
+use crate::LayoutPlugin;
 use crate::LayoutRef;
 use crate::OwnedLayoutChildren;
 use crate::layouts::chunked::ChunkedLayout;
@@ -58,6 +61,9 @@ use crate::layouts::zoned::MAX_IS_TRUNCATED;
 use crate::layouts::zoned::ZonedLayout;
 use crate::layouts::zoned::legacy_stats_to_aggregates;
 use crate::layouts::zoned::zone_map::ZoneMap;
+use crate::plan::physical::Filter;
+use crate::plan::physical::LegacyStats;
+use crate::plan::physical::pipeline::Scan;
 use crate::segments::SegmentId;
 use crate::test::SESSION;
 
@@ -81,7 +87,7 @@ fn unsupported(row_count: u64, dtype: DType) -> LayoutRef {
 }
 
 fn make_plan(layout: LayoutRef) -> VortexResult<PlanRef> {
-    lower(&layout)
+    layout.new_plan()
 }
 
 fn make_eval(expression: Expression, child: PlanRef) -> VortexResult<EvalPlan> {
@@ -91,12 +97,11 @@ fn make_eval(expression: Expression, child: PlanRef) -> VortexResult<EvalPlan> {
 
 fn make_row_idx_plan(expression: Expression, child: PlanRef) -> VortexResult<PlanRef> {
     let expression = expression.bind(child.dtype())?.optimize_recursive()?;
-    plan_row_idx_expression(expression, child)
+    plan_row_idx_expression(expression, child, &SESSION)
 }
 
-fn child_of(plan: &PlanRef, index: usize) -> VortexResult<PlanRef> {
-    plan.child(index)?
-        .ok_or_else(|| vortex_err!("missing child {index}"))
+fn child_of(plan: &PlanRef, slot: usize) -> VortexResult<PlanRef> {
+    plan.slot_required(slot)
 }
 
 fn assert_unsupported(error: vortex_error::VortexError) {
@@ -113,7 +118,8 @@ fn unsupported_layout_has_no_plan() -> VortexResult<()> {
     let layout = unsupported(3, DType::Null);
 
     assert_unsupported(
-        lower(&layout)
+        layout
+            .new_plan()
             .err()
             .ok_or_else(|| vortex_err!("unsupported layout unexpectedly produced a plan"))?,
     );
@@ -127,8 +133,8 @@ fn flat_plan_is_a_filtered_segment_scan_without_children() -> VortexResult<()> {
     assert!(plan.is::<Filter>());
     let scan = child_of(&plan, 0)?;
     assert!(scan.is::<SegmentScan>());
-    assert_eq!(scan.child_count(), 0);
-    assert!(scan.child(0)?.is_none());
+    assert_eq!(scan.nslots(), 0);
+    assert!(scan.slot(0).is_err());
     Ok(())
 }
 
@@ -144,9 +150,31 @@ fn chunked_plan_exposes_chunks() -> VortexResult<()> {
     let plan = make_plan(layout)?;
 
     assert!(plan.is::<Concat>());
-    assert_eq!(plan.child_count(), 2);
+    assert_eq!(plan.nslots(), 2);
     assert_eq!(child_of(&plan, 0)?.row_count(), 2);
     assert_eq!(child_of(&plan, 1)?.row_count(), 1);
+    Ok(())
+}
+
+#[test]
+fn optimize_preserves_unvisited_concat_children() -> VortexResult<()> {
+    let dtype = primitive(PType::I32, Nullability::NonNullable);
+    let layout = ChunkedLayout::new(
+        4,
+        dtype.clone(),
+        OwnedLayoutChildren::layout_children(vec![
+            flat(2, dtype.clone(), 0),
+            unsupported(2, dtype),
+        ]),
+    )
+    .into_layout();
+    let plan = optimize(make_plan(layout)?, &SESSION)?;
+    assert_eq!(child_of(&plan, 0)?.row_count(), 2);
+    assert_unsupported(
+        child_of(&plan, 1)
+            .err()
+            .ok_or_else(|| vortex_err!("unsupported child unexpectedly lowered"))?,
+    );
     Ok(())
 }
 
@@ -187,9 +215,9 @@ fn struct_plan_lowers_each_field_on_access() -> VortexResult<()> {
     .into_layout();
 
     let plan = make_plan(layout)?;
-    assert_eq!(child_of(&plan, 0)?.row_count(), 1);
+    assert_eq!(child_of(&plan, Pack::FIELDS_OFFSET)?.row_count(), 1);
     assert_unsupported(
-        child_of(&plan, 1)
+        child_of(&plan, Pack::FIELDS_OFFSET + 1)
             .err()
             .ok_or_else(|| vortex_err!("unsupported field unexpectedly produced a plan"))?,
     );
@@ -208,14 +236,14 @@ fn dict_plan_orders_codes_before_values() -> VortexResult<()> {
     let plan = make_plan(layout)?;
 
     assert!(plan.is::<Take>());
-    assert_eq!(plan.child_count(), 2);
+    assert_eq!(plan.nslots(), 2);
     assert_eq!(child_of(&plan, 0)?.dtype(), &codes_dtype);
     assert_eq!(child_of(&plan, 1)?.dtype(), &values_dtype);
     Ok(())
 }
 
 #[test]
-fn list_plan_appends_validity_when_nullable() -> VortexResult<()> {
+fn list_plan_validity_slot_is_present_when_nullable() -> VortexResult<()> {
     let element_dtype = primitive(PType::I32, Nullability::NonNullable);
     let offsets_dtype = primitive(PType::U32, Nullability::NonNullable);
     let non_nullable = ListLayout::new(
@@ -228,9 +256,10 @@ fn list_plan_appends_validity_when_nullable() -> VortexResult<()> {
     let plan = make_plan(non_nullable)?;
 
     assert!(plan.is::<ListPack>());
-    assert_eq!(plan.child_count(), 2);
+    assert_eq!(plan.nslots(), 3);
     assert_eq!(child_of(&plan, 0)?.dtype(), &element_dtype);
     assert_eq!(child_of(&plan, 1)?.dtype(), &offsets_dtype);
+    assert!(plan.slot(2)?.is_none());
 
     let nullable = ListLayout::new(
         DType::List(Arc::new(element_dtype.clone()), Nullability::Nullable),
@@ -240,7 +269,7 @@ fn list_plan_appends_validity_when_nullable() -> VortexResult<()> {
     )
     .into_layout();
     let nullable_plan = make_plan(nullable)?;
-    assert_eq!(nullable_plan.child_count(), 3);
+    assert_eq!(nullable_plan.nslots(), 3);
     assert_eq!(
         child_of(&nullable_plan, 2)?.dtype(),
         &DType::Bool(Nullability::NonNullable)
@@ -249,7 +278,7 @@ fn list_plan_appends_validity_when_nullable() -> VortexResult<()> {
 }
 
 #[test]
-fn struct_plan_appends_validity_when_nullable() -> VortexResult<()> {
+fn struct_plan_validity_slot_is_present_when_nullable() -> VortexResult<()> {
     let field_dtype = primitive(PType::I32, Nullability::NonNullable);
     let fields = StructFields::from_iter([("a", field_dtype.clone()), ("b", field_dtype.clone())]);
     let non_nullable = StructLayout::new(
@@ -264,9 +293,13 @@ fn struct_plan_appends_validity_when_nullable() -> VortexResult<()> {
     let plan = make_plan(non_nullable)?;
 
     assert!(plan.is::<Pack>());
-    assert_eq!(plan.child_count(), 2);
-    assert_eq!(child_of(&plan, 0)?.dtype(), &field_dtype);
-    assert_eq!(child_of(&plan, 1)?.dtype(), &field_dtype);
+    assert_eq!(plan.nslots(), 3);
+    assert!(plan.slot(Pack::VALIDITY_SLOT)?.is_none());
+    assert_eq!(child_of(&plan, Pack::FIELDS_OFFSET)?.dtype(), &field_dtype);
+    assert_eq!(
+        child_of(&plan, Pack::FIELDS_OFFSET + 1)?.dtype(),
+        &field_dtype
+    );
 
     let nullable = StructLayout::new(
         3,
@@ -279,16 +312,43 @@ fn struct_plan_appends_validity_when_nullable() -> VortexResult<()> {
     )
     .into_layout();
     let nullable_plan = make_plan(nullable)?;
-    assert_eq!(nullable_plan.child_count(), 3);
+    assert_eq!(nullable_plan.nslots(), 3);
     assert_eq!(
-        child_of(&nullable_plan, 2)?.dtype(),
+        child_of(&nullable_plan, Pack::VALIDITY_SLOT)?.dtype(),
         &DType::Bool(Nullability::NonNullable)
     );
     Ok(())
 }
 
 #[test]
-fn with_children_rejects_mismatched_arity() -> VortexResult<()> {
+fn pack_validity_slot_must_match_nullability() -> VortexResult<()> {
+    let field_dtype = primitive(PType::I32, Nullability::NonNullable);
+    let fields = StructFields::from_iter([("a", field_dtype.clone())]);
+    let plan = make_plan(
+        StructLayout::new(
+            3,
+            DType::Struct(fields, Nullability::NonNullable),
+            vec![flat(3, field_dtype, 0)],
+        )
+        .into_layout(),
+    )?;
+    let validity = make_plan(flat(3, DType::Bool(Nullability::NonNullable), 1))?;
+
+    let error = plan
+        .with_slots(vec![validity, child_of(&plan, Pack::FIELDS_OFFSET)?])
+        .err()
+        .ok_or_else(|| vortex_err!("validity on a non-nullable Pack unexpectedly succeeded"))?;
+    assert!(
+        error
+            .to_string()
+            .contains("Non-nullable Pack has a validity child"),
+        "unexpected error: {error}"
+    );
+    Ok(())
+}
+
+#[test]
+fn with_slots_rejects_mismatched_arity() -> VortexResult<()> {
     let dtype = primitive(PType::I32, Nullability::NonNullable);
     let layout = ChunkedLayout::new(
         3,
@@ -299,20 +359,20 @@ fn with_children_rejects_mismatched_arity() -> VortexResult<()> {
     let plan = make_plan(layout)?;
 
     let error = plan
-        .with_children(vec![child_of(&plan, 0)?])
+        .with_slots(vec![child_of(&plan, 0)?])
         .err()
         .ok_or_else(|| vortex_err!("mismatched arity unexpectedly succeeded"))?;
     assert!(
         error
             .to_string()
-            .contains("Concat expects 2 children but got 1"),
+            .contains("Concat expects 2 slots but got 1"),
         "unexpected error: {error}"
     );
     Ok(())
 }
 
 #[test]
-fn with_children_replaces_children_in_order() -> VortexResult<()> {
+fn with_slots_replaces_children_in_order() -> VortexResult<()> {
     let dtype = primitive(PType::I32, Nullability::NonNullable);
     let layout = ChunkedLayout::new(
         3,
@@ -322,7 +382,7 @@ fn with_children_replaces_children_in_order() -> VortexResult<()> {
     .into_layout();
     let plan = make_plan(layout)?;
 
-    let swapped = plan.with_children(vec![child_of(&plan, 1)?, child_of(&plan, 0)?])?;
+    let swapped = plan.with_slots(vec![child_of(&plan, 1)?, child_of(&plan, 0)?])?;
     assert_eq!(child_of(&swapped, 0)?.row_count(), 1);
     assert_eq!(child_of(&swapped, 1)?.row_count(), 2);
     assert_eq!(swapped.as_::<Concat>().row_offsets(), &[0, 1]);
@@ -352,7 +412,7 @@ fn optimize_drops_identity_expressions() -> VortexResult<()> {
     let expression = root().bind(child.dtype())?;
     let plan: PlanRef = EvalPlan::try_new(expression, child)?.into_plan();
 
-    assert!(optimize(plan)?.is::<Filter>());
+    assert!(optimize(plan, &SESSION)?.is::<Filter>());
     Ok(())
 }
 
@@ -371,9 +431,9 @@ fn optimize_rewrites_nested_children() -> VortexResult<()> {
     // any chunked-specific rule.
     let chunk = child_of(&chunked, 0)?;
     let identity: PlanRef = EvalPlan::try_new(root().bind(chunk.dtype())?, chunk)?.into_plan();
-    let wrapped = chunked.with_children(vec![identity, child_of(&chunked, 1)?])?;
+    let wrapped = chunked.with_slots(vec![identity, child_of(&chunked, 1)?])?;
 
-    let optimized = optimize(wrapped)?;
+    let optimized = optimize(wrapped, &SESSION)?;
     assert!(optimized.is::<Concat>());
     assert!(child_of(&optimized, 0)?.is::<Filter>());
     assert!(child_of(&optimized, 1)?.is::<Filter>());
@@ -448,11 +508,11 @@ fn plan_display_matches_array_tree_display_shape() -> VortexResult<()> {
     let nullable = make_plan(nullable_layout)?;
     insta::assert_snapshot!(nullable.tree_display_builder(), @r"
     root:
+      validity:
+        child:
       a:
         child:
       b:
-        child:
-      validity:
         child:
     ");
     Ok(())
@@ -550,7 +610,7 @@ fn row_idx_only_expression_uses_row_idx_source() -> VortexResult<()> {
       child: vortex.plan.row_idx(u64, rows=3)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"root: vortex.plan.row_idx(u64, rows=3)");
     assert!(optimized.is::<RowIdx>());
     Ok(())
@@ -582,21 +642,21 @@ fn expression_partitions_across_row_idx_and_struct() -> VortexResult<()> {
     );
     let plan = make_row_idx_plan(expression, make_plan(layout)?)?;
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"
-    root: vortex.plan.eval(bool, rows=3) expr=($.row_idx and $.child)
-      child: vortex.plan.pack({row_idx=bool, child=bool}, rows=3)
-        row_idx: vortex.plan.eval(bool, rows=3) expr=($ > 11u64)
+    root: vortex.plan.eval(bool, rows=3) expr=($.0 and $.1)
+      child: vortex.plan.pack({0=bool, 1=bool}, rows=3)
+        0: vortex.plan.eval(bool, rows=3) expr=($ > 11u64)
           child: vortex.plan.row_idx(u64, rows=3)
-        child: vortex.plan.eval(bool, rows=3) expr=($.a and $.b)
-          child: vortex.plan.pack({a=bool, b=bool}, rows=3)
-            a: vortex.plan.take(bool, rows=3)
+        1: vortex.plan.eval(bool, rows=3) expr=($.0 and $.1)
+          child: vortex.plan.pack({0=bool, 1=bool}, rows=3)
+            0: vortex.plan.take(bool, rows=3)
               codes: vortex.plan.filter(u8, rows=3)
                 child: vortex.plan.segment_scan(u8, rows=3)
               values: vortex.plan.eval(bool, rows=2) expr=($ > 5i32)
                 child: vortex.plan.filter(i32, rows=2)
                   child: vortex.plan.segment_scan(i32, rows=2)
-            b: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
+            1: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
               child: vortex.plan.filter(i32, rows=3)
                 child: vortex.plan.segment_scan(i32, rows=3)
     ");
@@ -621,7 +681,7 @@ fn empty_projection_prunes_row_idx_child_fields() -> VortexResult<()> {
     );
     let plan = make_row_idx_plan(projection, make_plan(layout)?)?;
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     let projection = optimized
         .as_opt::<Eval>()
         .ok_or_else(|| vortex_err!("optimized plan has no projection expression"))?;
@@ -631,7 +691,8 @@ fn empty_projection_prunes_row_idx_child_fields() -> VortexResult<()> {
         .ok_or_else(|| vortex_err!("empty projection did not prune the RowIdx child"))?;
 
     assert_eq!(empty_struct.nfields(), 0);
-    assert_eq!(empty_struct.children().len(), 0);
+    assert_eq!(empty_struct.nslots(), Pack::FIELDS_OFFSET);
+    assert_eq!(empty_struct.children().count(), 0);
     Ok(())
 }
 
@@ -646,14 +707,14 @@ fn row_idx_and_data_expression_pushes_data_into_chunks() -> VortexResult<()> {
     .into_layout();
     let child = make_plan(layout)?;
     let expression = and(gt(row_idx(), lit(10_u64)), gt(root(), lit(5_i32)));
-    let plan = optimize(make_row_idx_plan(expression, child)?)?;
+    let plan = optimize(make_row_idx_plan(expression, child)?, &SESSION)?;
 
-    insta::assert_snapshot!(plan.display_tree(), @r"
-    root: vortex.plan.eval(bool, rows=3) expr=($.row_idx and $.child)
-      child: vortex.plan.pack({row_idx=bool, child=bool}, rows=3)
-        row_idx: vortex.plan.eval(bool, rows=3) expr=($ > 10u64)
+    insta::assert_snapshot!(plan.display_tree(), @"
+    root: vortex.plan.eval(bool, rows=3) expr=($.0 and $.1)
+      child: vortex.plan.pack({0=bool, 1=bool}, rows=3)
+        0: vortex.plan.eval(bool, rows=3) expr=($ > 10u64)
           child: vortex.plan.row_idx(u64, rows=3)
-        child: vortex.plan.concat(bool, rows=3)
+        1: vortex.plan.concat(bool, rows=3)
           chunks[0]: vortex.plan.eval(bool, rows=1) expr=($ > 5i32)
             child: vortex.plan.filter(i32, rows=1)
               child: vortex.plan.segment_scan(i32, rows=1)
@@ -693,7 +754,7 @@ fn expression_pushes_through_struct_field_and_dictionary_values() -> VortexResul
           child: vortex.plan.segment_scan(i32, rows=3)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"
     root: vortex.plan.take(bool, rows=3)
       codes: vortex.plan.filter(u8, rows=3)
@@ -745,7 +806,7 @@ fn expression_pushes_through_struct_field_with_heterogeneous_chunks() -> VortexR
           child: vortex.plan.segment_scan(i32, rows=5)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"
     root: vortex.plan.concat(bool, rows=5)
       chunks[0]: vortex.plan.take(bool, rows=3)
@@ -789,7 +850,7 @@ fn expression_pushes_through_nested_struct_fields_in_one_pass() -> VortexResult<
     let expression = gt(get_item("x", get_item("nested", root())), lit(5_i32));
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @r"
     root: vortex.plan.eval(bool, rows=3) expr=($ > 5i32)
       child: vortex.plan.filter(i32, rows=3)
@@ -827,7 +888,7 @@ fn expression_pushes_through_single_field_nested_structs() -> VortexResult<()> {
             child: vortex.plan.segment_scan(i32, rows=3)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @r"
     root: vortex.plan.eval(bool, rows=3) expr=($ > 5i32)
       child: vortex.plan.filter(i32, rows=3)
@@ -864,7 +925,7 @@ fn expression_pushes_through_three_single_field_structs() -> VortexResult<()> {
     );
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @r"
     root: vortex.plan.eval(bool, rows=3) expr=($ > 5i32)
       child: vortex.plan.filter(i32, rows=3)
@@ -912,17 +973,17 @@ fn compound_expression_pushes_through_nested_struct_and_dictionary() -> VortexRe
     );
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
-    insta::assert_snapshot!(optimized.display_tree(), @r"
-    root: vortex.plan.eval(bool, rows=3) expr=($.b and $.c)
-      child: vortex.plan.pack({b=bool, c=bool}, rows=3)
-        b: vortex.plan.take(bool, rows=3)
+    let optimized = optimize(plan, &SESSION)?;
+    insta::assert_snapshot!(optimized.display_tree(), @"
+    root: vortex.plan.eval(bool, rows=3) expr=($.0 and $.1)
+      child: vortex.plan.pack({0=bool, 1=bool}, rows=3)
+        0: vortex.plan.take(bool, rows=3)
           codes: vortex.plan.filter(u8, rows=3)
             child: vortex.plan.segment_scan(u8, rows=3)
           values: vortex.plan.eval(bool, rows=2) expr=($ > 5i32)
             child: vortex.plan.filter(i32, rows=2)
               child: vortex.plan.segment_scan(i32, rows=2)
-        c: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
+        1: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
           child: vortex.plan.filter(i32, rows=3)
             child: vortex.plan.segment_scan(i32, rows=3)
     ");
@@ -962,7 +1023,7 @@ fn expression_pushes_through_dictionary_of_struct_values() -> VortexResult<()> {
     let expression = gt(get_item("b", get_item("a", root())), lit(5_i32));
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @r"
     root: vortex.plan.take(bool, rows=3)
       codes: vortex.plan.filter(u8, rows=3)
@@ -1019,21 +1080,21 @@ fn multi_field_struct_expression_pushes_into_each_field() -> VortexResult<()> {
           child: vortex.plan.segment_scan(i32, rows=3)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"
-    root: vortex.plan.eval(bool, rows=3) expr=($.a and $.b)
-      child: vortex.plan.pack({a=bool, b=bool}, rows=3)
-        a: vortex.plan.take(bool, rows=3)
+    root: vortex.plan.eval(bool, rows=3) expr=($.0 and $.1)
+      child: vortex.plan.pack({0=bool, 1=bool}, rows=3)
+        0: vortex.plan.take(bool, rows=3)
           codes: vortex.plan.filter(u8, rows=3)
             child: vortex.plan.segment_scan(u8, rows=3)
           values: vortex.plan.eval(bool, rows=2) expr=($ > 5i32)
             child: vortex.plan.filter(i32, rows=2)
               child: vortex.plan.segment_scan(i32, rows=2)
-        b: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
+        1: vortex.plan.eval(bool, rows=3) expr=($ > 7i32)
           child: vortex.plan.filter(i32, rows=3)
             child: vortex.plan.segment_scan(i32, rows=3)
     ");
-    let reoptimized = optimize(optimized.clone())?;
+    let reoptimized = optimize(optimized.clone(), &SESSION)?;
     assert!(PlanRef::ptr_eq(&optimized, &reoptimized));
     Ok(())
 }
@@ -1058,8 +1119,8 @@ fn repeated_cross_field_expressions_reach_a_fixed_point() -> VortexResult<()> {
     );
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
-    let reoptimized = optimize(optimized.clone())?;
+    let optimized = optimize(plan, &SESSION)?;
+    let reoptimized = optimize(optimized.clone(), &SESSION)?;
     assert!(PlanRef::ptr_eq(&optimized, &reoptimized));
     Ok(())
 }
@@ -1095,21 +1156,23 @@ fn multi_field_struct_expression_keeps_cross_field_refinement() -> VortexResult<
     );
     let plan = make_eval(expression, make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @"
-    root: vortex.plan.eval(bool, rows=3) expr=(($.a + $.b) > 10i32)
-      child: vortex.plan.pack({a=i32, b=i32}, rows=3)
-        a: vortex.plan.take(i32, rows=3)
+    root: vortex.plan.eval(bool, rows=3) expr=(($.0 + $.1) > 10i32)
+      child: vortex.plan.pack({0=i32, 1=i32}, rows=3)
+        0: vortex.plan.take(i32, rows=3)
           codes: vortex.plan.filter(u8, rows=3)
             child: vortex.plan.segment_scan(u8, rows=3)
           values: vortex.plan.filter(i32, rows=2)
             child: vortex.plan.segment_scan(i32, rows=2)
-        b: vortex.plan.filter(i32, rows=3)
+        1: vortex.plan.filter(i32, rows=3)
           child: vortex.plan.segment_scan(i32, rows=3)
     ");
     assert_eq!(
         optimized.display_tree().to_string(),
-        optimize(optimized.clone())?.display_tree().to_string()
+        optimize(optimized.clone(), &SESSION)?
+            .display_tree()
+            .to_string()
     );
     Ok(())
 }
@@ -1125,7 +1188,10 @@ fn negative_cost_part_of_expression_pushes_into_dictionary_values() -> VortexRes
         byte_length(root()),
         primitive(PType::I64, Nullability::NonNullable),
     );
-    let optimized = optimize(make_eval(expression, make_plan(dictionary)?)?.into_plan())?;
+    let optimized = optimize(
+        make_eval(expression, make_plan(dictionary)?)?.into_plan(),
+        &SESSION,
+    )?;
 
     insta::assert_snapshot!(optimized.display_tree(), @"
     root: vortex.plan.eval(i64, rows=3) expr=cast($ as i64)
@@ -1154,7 +1220,7 @@ fn dictionary_pushdown_rejects_unsafe_expressions() -> VortexResult<()> {
         gt(checked_add(root(), lit(1_i32)), lit(5_i32)),
     ] {
         let plan = make_eval(expression.clone(), make_plan(Arc::clone(&dictionary))?)?.into_plan();
-        let optimized = optimize(plan)?;
+        let optimized = optimize(plan, &SESSION)?;
         let eval = optimized.as_opt::<Eval>().ok_or_else(|| {
             vortex_err!("Expression unexpectedly pushed into dictionary: {expression}")
         })?;
@@ -1170,7 +1236,10 @@ fn non_strict_expression_pushes_into_dictionary_without_null_codes() -> VortexRe
         flat(3, primitive(PType::U8, Nullability::NonNullable), 1),
     )
     .into_layout();
-    let optimized = optimize(make_eval(is_null(root()), make_plan(dictionary)?)?.into_plan())?;
+    let optimized = optimize(
+        make_eval(is_null(root()), make_plan(dictionary)?)?.into_plan(),
+        &SESSION,
+    )?;
     let take = optimized
         .as_opt::<Take>()
         .ok_or_else(|| vortex_err!("is_null was not pushed into the dictionary: {optimized}"))?;
@@ -1195,7 +1264,7 @@ fn nullable_struct_keeps_expression_above_parent_validity() -> VortexResult<()> 
     .into_layout();
     let plan = make_eval(gt(get_item("a", root()), lit(5_i32)), make_plan(layout)?)?.into_plan();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     let eval = optimized
         .as_opt::<Eval>()
         .ok_or_else(|| vortex_err!("Nullable struct expression unexpectedly pushed down"))?;
@@ -1247,7 +1316,7 @@ fn stats_expression_rewrites_to_zoned_pruning_plan() -> VortexResult<()> {
         vec![max].into(),
     )?
     .into_layout();
-    let session = vortex_array::array_session();
+    let session = VortexSession::empty();
     let filter = gt(root(), lit(5_i32));
     let falsifier = filter
         .bind(&dtype)?
@@ -1265,7 +1334,7 @@ fn stats_expression_rewrites_to_zoned_pruning_plan() -> VortexResult<()> {
           child: vortex.plan.segment_scan({vortex.max()=i32?}, rows=2)
     ");
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     insta::assert_snapshot!(optimized.display_tree(), @r"
     root: vortex.plan.zoned(bool?, rows=5) prune=(stat($, vortex.max()) <= 5i32)
       zones: vortex.plan.filter({vortex.max()=i32?}, rows=2)
@@ -1277,21 +1346,48 @@ fn stats_expression_rewrites_to_zoned_pruning_plan() -> VortexResult<()> {
     assert!(zoned.is_pruning());
     assert_eq!(zoned.pruning_expression(), Some(&falsifier));
     assert!(zoned.data_plan()?.is_none());
-    assert_eq!(zoned.children().len(), 1);
+    assert_eq!(zoned.nslots(), 2);
+    assert_eq!(zoned.children().count(), 1);
 
     let mixed_expression = bound_and(falsifier, gt(root(), lit(0_i32)).bind(&dtype)?);
-    let mixed = optimize(EvalPlan::try_new(mixed_expression, source)?.into_plan())?;
+    let mixed = optimize(
+        EvalPlan::try_new(mixed_expression, source)?.into_plan(),
+        &SESSION,
+    )?;
     let mixed = mixed
         .as_opt::<Eval>()
         .ok_or_else(|| vortex_err!("expression with a data reference was pushed into zones"))?;
-    let mixed_child = mixed.child_plan()?;
-    assert!(mixed_child.is::<Zoned>());
-    assert!(
-        !mixed_child
-            .as_opt::<Zoned>()
-            .ok_or_else(|| vortex_err!("mixed expression child is not zoned"))?
-            .is_pruning()
-    );
+    assert!(mixed.child_plan()?.is::<Filter>());
+    Ok(())
+}
+
+/// A plan that reads a zoned column's data is optimized to the data alone: the zone table is
+/// neither a child of the plan nor among the segments it reads.
+#[test]
+fn data_expression_strips_zoned_to_its_data() -> VortexResult<()> {
+    let dtype = primitive(PType::I32, Nullability::NonNullable);
+    let (max, zones_dtype) = max_zones_dtype(&dtype)?;
+    let zone_len = NonZeroUsize::new(3).ok_or_else(|| vortex_err!("zone length is zero"))?;
+    let layout = ZonedLayout::try_new(
+        flat(5, dtype.clone(), 0),
+        flat(2, zones_dtype, 1),
+        zone_len,
+        vec![max].into(),
+    )?
+    .into_layout();
+    let source = make_plan(layout)?;
+
+    let plan = EvalPlan::try_new(gt(root(), lit(4_i32)).bind(&dtype)?, source.clone())?.into_plan();
+    insta::assert_snapshot!(optimize(plan, &SESSION)?.display_tree(), @"
+    root: vortex.plan.eval(bool, rows=5) expr=($ > 4i32)
+      child: vortex.plan.filter(i32, rows=5)
+        child: vortex.plan.segment_scan(i32, rows=5)
+    ");
+
+    let identity = optimize(source, &SESSION)?;
+    assert!(identity.is::<Filter>());
+    let segments = Scan::segments(&SESSION, &identity, 0..5, &Mask::new_true(5))?;
+    assert_eq!(segments, vec![SegmentId::from(0)]);
     Ok(())
 }
 
@@ -1325,7 +1421,7 @@ fn pruning_expression_partitions_across_row_idx_and_zoned_struct_field() -> Vort
     )
     .into_layout();
     let source = make_plan(layout)?;
-    let session = vortex_array::array_session();
+    let session = VortexSession::empty();
     let filter = and(
         gt(row_idx(), lit(11_u64)),
         gt(get_item("a", root()), lit(5_i32)),
@@ -1335,13 +1431,16 @@ fn pruning_expression_partitions_across_row_idx_and_zoned_struct_field() -> Vort
         .falsify(&session)?
         .ok_or_else(|| vortex_err!("filter has no falsifier"))?;
 
-    let optimized = optimize(plan_row_idx_expression(falsifier, source)?)?;
-    insta::assert_snapshot!(optimized.display_tree(), @r"
-    root: vortex.plan.eval(bool?, rows=5) expr=($.row_idx or $.child)
-      child: vortex.plan.pack({row_idx=bool?, child=bool?}, rows=5)
-        row_idx: vortex.plan.eval(bool?, rows=5) expr=(stat($, vortex.max()) <= 11u64)
+    let optimized = optimize(
+        plan_row_idx_expression(falsifier, source, &SESSION)?,
+        &SESSION,
+    )?;
+    insta::assert_snapshot!(optimized.display_tree(), @"
+    root: vortex.plan.eval(bool?, rows=5) expr=($.0 or $.1)
+      child: vortex.plan.pack({0=bool?, 1=bool?}, rows=5)
+        0: vortex.plan.eval(bool?, rows=5) expr=(stat($, vortex.max()) <= 11u64)
           child: vortex.plan.row_idx(u64, rows=5)
-        child: vortex.plan.zoned(bool?, rows=5) prune=(stat($, vortex.max()) <= 5i32)
+        1: vortex.plan.zoned(bool?, rows=5) prune=(stat($, vortex.max()) <= 5i32)
           zones: vortex.plan.filter({vortex.max()=i32?}, rows=2)
             child: vortex.plan.segment_scan({vortex.max()=i32?}, rows=2)
     ");
@@ -1360,7 +1459,7 @@ fn legacy_layout(
         flat(5, dtype.clone(), 0),
         flat(2, zones_dtype, 1),
     ]);
-    let session = vortex_array::array_session();
+    let session = VortexSession::empty();
     let read_ctx = ReadContext::new([]);
     let build_ctx = LayoutBuildContext {
         session: &session,
@@ -1368,13 +1467,16 @@ fn legacy_layout(
     };
     let mut metadata = zone_len.to_le_bytes().to_vec();
     metadata.extend(as_stat_bitset_bytes(stats));
-    LayoutEncoding::build(
+    LayoutPlugin::deserialize(
         &LegacyStatsLayoutEncoding,
-        dtype,
-        5,
-        &metadata,
-        Vec::new(),
-        children.as_ref(),
+        LayoutDeserialization {
+            serialized_id: LayoutPlugin::id(&LegacyStatsLayoutEncoding),
+            dtype,
+            row_count: 5,
+            metadata: &metadata,
+            segment_ids: Vec::new(),
+            children: children.as_ref(),
+        },
         &build_ctx,
     )
 }
@@ -1461,34 +1563,30 @@ fn legacy_stats_rewrite_to_zoned_over_converted_zones() -> VortexResult<()> {
     let (max, zones_dtype) = max_zones_dtype(&dtype)?;
     let legacy = legacy_max_plan(&dtype)?;
 
-    let optimized = optimize(legacy.clone())?;
-    let zoned = optimized
+    // Read as data, the legacy stats are dropped along with the zoned plan they convert to.
+    assert!(optimize(legacy.clone(), &SESSION)?.is::<Filter>());
+
+    let falsifier = gt(root(), lit(5_i32))
+        .bind(&dtype)?
+        .falsify(&SESSION)?
+        .ok_or_else(|| vortex_err!("filter has no falsifier"))?;
+    let pruning = optimize(EvalPlan::try_new(falsifier, legacy)?.into_plan(), &SESSION)?;
+    let pruning = pruning
         .as_opt::<Zoned>()
-        .ok_or_else(|| vortex_err!("legacy stats did not become zoned"))?;
-    assert!(!zoned.is_pruning());
-    assert_eq!(zoned.zone_len(), 3);
+        .ok_or_else(|| vortex_err!("legacy stats predicate did not become a pruning plan"))?;
+    assert!(pruning.is_pruning());
+    assert_eq!(pruning.zone_len(), 3);
     assert_eq!(
-        zoned
+        pruning
             .aggregate_fns()
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>(),
         vec![max.to_string()]
     );
-    let zones = zoned.zones_plan()?;
-    assert!(zones.is::<Eval>());
+    let zones = pruning.zones_plan()?;
+    assert!(zones.is::<Pack>());
     assert_eq!(zones.dtype(), &zones_dtype);
-
-    let falsifier = gt(root(), lit(5_i32))
-        .bind(&dtype)?
-        .falsify(&SESSION)?
-        .ok_or_else(|| vortex_err!("filter has no falsifier"))?;
-    let pruning = optimize(EvalPlan::try_new(falsifier, legacy)?.into_plan())?;
-    let pruning = pruning
-        .as_opt::<Zoned>()
-        .ok_or_else(|| vortex_err!("legacy stats predicate did not become a pruning plan"))?;
-    assert!(pruning.is_pruning());
-    assert!(pruning.zones_plan()?.is::<Eval>());
     Ok(())
 }
 
@@ -1527,43 +1625,52 @@ fn converted_legacy_zones_prune() -> VortexResult<()> {
     Ok(())
 }
 
+/// A zoned plan over legacy stats read as data keeps neither zone table.
 #[test]
-fn legacy_stats_under_zoned_are_dropped() -> VortexResult<()> {
+fn zoned_over_legacy_stats_read_as_data_keeps_only_the_data() -> VortexResult<()> {
     let dtype = primitive(PType::I32, Nullability::NonNullable);
     let (max, zones_dtype) = max_zones_dtype(&dtype)?;
     let zones = make_plan(flat(2, zones_dtype, 2))?;
-    let plan =
-        ZonedPlan::new(legacy_max_plan(&dtype)?, zones.clone(), 3, vec![max].into()).into_plan();
+    let legacy = legacy_max_plan(&dtype)?;
+    let data = legacy
+        .as_opt::<LegacyStats>()
+        .ok_or_else(|| vortex_err!("legacy plan is not legacy stats"))?
+        .data_plan()?;
+    let plan = ZonedPlan::new(legacy, zones, 3, vec![max].into()).into_plan();
 
-    let optimized = optimize(plan)?;
-    let zoned = optimized
-        .as_opt::<Zoned>()
-        .ok_or_else(|| vortex_err!("zoned plan was rewritten away"))?;
-    assert!(zoned.data_plan()?.is_some_and(|data| data.is::<Filter>()));
-    assert!(PlanRef::ptr_eq(&zoned.zones_plan()?, &zones));
+    assert!(PlanRef::ptr_eq(&optimize(plan, &SESSION)?, &data));
     Ok(())
 }
 
+/// Legacy stats over a zoned plan are dropped: read as data only the data remains, and a zone
+/// pruning plan is evaluated over the aggregate zones, never the legacy table.
 #[test]
 fn legacy_stats_over_zoned_are_dropped() -> VortexResult<()> {
     let dtype = primitive(PType::I32, Nullability::NonNullable);
     let (max, zones_dtype) = max_zones_dtype(&dtype)?;
-    let zoned = ZonedPlan::new(
-        make_plan(flat(5, dtype.clone(), 0))?,
-        make_plan(flat(2, zones_dtype, 2))?,
-        3,
-        vec![max].into(),
-    )
-    .into_plan();
+    let data = make_plan(flat(5, dtype.clone(), 0))?;
+    let zones = make_plan(flat(2, zones_dtype, 2))?;
+    let zoned = ZonedPlan::new(data.clone(), zones.clone(), 3, vec![max].into()).into_plan();
     let legacy = LegacyStatsPlan::new(
-        zoned.clone(),
+        zoned,
         make_plan(flat(2, legacy_max_zones_dtype(&dtype), 1))?,
         3,
         vec![Stat::Max].into(),
     )
     .into_plan();
 
-    assert!(PlanRef::ptr_eq(&optimize(legacy)?, &zoned));
+    assert!(PlanRef::ptr_eq(&optimize(legacy.clone(), &SESSION)?, &data));
+
+    let falsifier = gt(root(), lit(5_i32))
+        .bind(&dtype)?
+        .falsify(&SESSION)?
+        .ok_or_else(|| vortex_err!("filter has no falsifier"))?;
+    let pruning = optimize(EvalPlan::try_new(falsifier, legacy)?.into_plan(), &SESSION)?;
+    let pruning = pruning
+        .as_opt::<Zoned>()
+        .ok_or_else(|| vortex_err!("predicate over legacy stats did not become a pruning plan"))?;
+    assert!(pruning.is_pruning());
+    assert!(PlanRef::ptr_eq(&pruning.zones_plan()?, &zones));
     Ok(())
 }
 
@@ -1579,7 +1686,7 @@ fn legacy_stats_with_zero_zone_length_keep_only_data() -> VortexResult<()> {
     )
     .into_plan();
 
-    assert!(PlanRef::ptr_eq(&optimize(legacy)?, &data));
+    assert!(PlanRef::ptr_eq(&optimize(legacy, &SESSION)?, &data));
     Ok(())
 }
 
@@ -1602,8 +1709,10 @@ fn dynamic_predicates_stay_above_dictionary_values() -> VortexResult<()> {
     };
 
     for predicate in [threshold(), and(gt(root(), lit(0_i32)), threshold())] {
-        let optimized =
-            optimize(make_eval(predicate, make_plan(Arc::clone(&layout))?)?.into_plan())?;
+        let optimized = optimize(
+            make_eval(predicate, make_plan(Arc::clone(&layout))?)?.into_plan(),
+            &SESSION,
+        )?;
         let eval = optimized
             .as_opt::<Eval>()
             .ok_or_else(|| vortex_err!("dynamic predicate was pushed down"))?;
@@ -1633,7 +1742,7 @@ fn expression_pushes_onto_values_less_nullable_than_the_take() -> VortexResult<(
     let plan = make_eval(gt(root(), lit(5_i32)), take)?.into_plan();
     let dtype = plan.dtype().clone();
 
-    let optimized = optimize(plan)?;
+    let optimized = optimize(plan, &SESSION)?;
     assert_eq!(optimized.dtype(), &dtype);
     let take = optimized
         .as_opt::<Take>()
@@ -1663,7 +1772,10 @@ fn zoned_pruning_plan_with_new_zones_proves_them_again() -> VortexResult<()> {
         .bind(&dtype)?
         .falsify(&SESSION)?
         .ok_or_else(|| vortex_err!("filter has no falsifier"))?;
-    let pruning = optimize(EvalPlan::try_new(falsifier.clone(), source)?.into_plan())?;
+    let pruning = optimize(
+        EvalPlan::try_new(falsifier.clone(), source)?.into_plan(),
+        &SESSION,
+    )?;
     let pruning = pruning
         .as_opt::<Zoned>()
         .ok_or_else(|| vortex_err!("predicate did not become a pruning plan"))?;
@@ -1685,7 +1797,10 @@ fn zoned_pruning_plan_with_new_zones_proves_them_again() -> VortexResult<()> {
     );
 
     let new_zones = make_plan(flat(2, zones_dtype, 2))?;
-    let rebuilt = pruning.clone().into_plan().with_children(vec![new_zones])?;
+    let rebuilt = pruning
+        .clone()
+        .into_plan()
+        .with_slots(vec![None, Some(LazyPlanRef::ready(new_zones))])?;
     let rebuilt_proof = rebuilt
         .as_opt::<Zoned>()
         .and_then(|zoned| zoned.pruned_zones())
@@ -1698,5 +1813,38 @@ fn zoned_pruning_plan_with_new_zones_proves_them_again() -> VortexResult<()> {
     );
     assert_eq!(rebuilt_proof.get(&falsifier, &SESSION)?, Some(updated));
     assert_eq!(proof.get(&falsifier, &SESSION)?, Some(original));
+    Ok(())
+}
+
+/// Eval($ > 5, Eval($.a, (...))) -> Eval($.a > 5, (...))
+#[test]
+fn test_eval_of_eval() -> VortexResult<()> {
+    let dtype = primitive(PType::I32, Nullability::NonNullable);
+    let values = vec![flat(3, dtype.clone(), 2)];
+    let fields = StructFields::from_iter([("a", dtype)]);
+    let struct_dtype = DType::Struct(fields, Nullability::NonNullable);
+    let layout = StructLayout::new(3, struct_dtype, values).into_layout();
+    let plan = make_eval(get_item("a", root()), make_plan(layout)?)?.into_plan();
+    let plan = make_eval(gt(root(), lit(5_i32)), plan)?.into_plan();
+    insta::assert_snapshot!(optimize(plan, &SESSION)?.display_tree(), @"
+    root: vortex.plan.eval(bool, rows=3) expr=($ > 5i32)
+      child: vortex.plan.filter(i32, rows=3)
+        child: vortex.plan.segment_scan(i32, rows=3)
+    ");
+    Ok(())
+}
+
+/// Eval(pack({0: $ > 0}, (...))) -> Pack({0: $ > 0}, (...))
+#[test]
+fn test_eval_of_pack() -> VortexResult<()> {
+    let expr = pack([("0", gt(root(), lit(0_i32)))], Nullability::NonNullable);
+    let plan = make_plan(flat(3, primitive(PType::I32, Nullability::NonNullable), 0))?;
+    let plan = make_eval(expr, plan)?.into_plan();
+    insta::assert_snapshot!(optimize(plan, &SESSION)?.display_tree(), @"
+    root: vortex.plan.pack({0=bool}, rows=3)
+      0: vortex.plan.eval(bool, rows=3) expr=($ > 0i32)
+        child: vortex.plan.filter(i32, rows=3)
+          child: vortex.plan.segment_scan(i32, rows=3)
+    ");
     Ok(())
 }

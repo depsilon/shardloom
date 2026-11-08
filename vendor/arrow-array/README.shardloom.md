@@ -1,6 +1,6 @@
 # ShardLoom zero-width Arrow list builder correction
 
-This is the `arrow-array` 59.3.1 registry source, licensed Apache-2.0 AND MIT.
+This is the `arrow-array` 59.3.2 registry source, licensed Apache-2.0 AND MIT.
 `upstream-provenance.json` records the exact archive, original source members,
 and preserved Apache license, MIT license and notice files. The root lockfile
 owns runtime resolution; `publish = false` prevents publishing this provider.

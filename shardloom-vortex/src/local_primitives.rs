@@ -16042,7 +16042,7 @@ fn constant_kernel_input_from_vortex_array(
     let Some(constant) = array.as_constant() else {
         return Ok(None);
     };
-    let Some(value) = vortex_scalar_to_stat_value(&constant) else {
+    let Some(value) = vortex_scalar_to_stat_value(constant) else {
         return Ok(None);
     };
     let mut stats = SegmentStats::with_row_count(row_count);
@@ -16079,7 +16079,7 @@ fn dictionary_kernel_input_from_vortex_array(
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::dict::DictArraySlotsExt as _;
-    let mut ctx = vortex::array::array_session().create_execution_ctx();
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
 
     let Some(dictionary_array) = array.as_opt::<vortex::array::arrays::Dict>() else {
         return Ok(None);
@@ -16369,7 +16369,7 @@ fn sparse_kernel_input_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
     use vortex::encodings::sparse::SparseExt as _;
-    let mut ctx = native_numeric_execution_ctx(&vortex::array::array_session());
+    let mut ctx = native_numeric_execution_ctx(&vortex::session::VortexSession::empty());
 
     let Some(sparse_array) = array.as_opt::<vortex::encodings::sparse::Sparse>() else {
         return Ok(None);
@@ -16465,7 +16465,7 @@ fn run_end_kernel_input_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Result<Option<VortexReaderGeneratedEncodedKernelInput>> {
     use vortex::encodings::runend::{RunEndArrayExt as _, RunEndArraySlotsExt as _};
-    let mut ctx = native_numeric_execution_ctx(&vortex::array::array_session());
+    let mut ctx = native_numeric_execution_ctx(&vortex::session::VortexSession::empty());
 
     let Some(run_end_array) = array.as_opt::<vortex::encodings::runend::RunEnd>() else {
         return Ok(None);
@@ -29945,7 +29945,7 @@ impl<'a> GroupedAggregateStates<'a> {
             numeric_pair_late_measure_enabled,
             string_count_topk_heavy_hitter_enabled,
             VortexLocalPrimitiveResourceEnvelope::new(4, 2)?,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
     }
 
@@ -43798,7 +43798,7 @@ fn aggregate_column_accessor_with_work(
     aggregate_column_accessor_in_context(
         column,
         array,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
     )
 }
 
@@ -49993,7 +49993,7 @@ mod tests {
             sizes,
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50046,7 +50046,7 @@ mod tests {
             item_sizes,
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50056,7 +50056,7 @@ mod tests {
             label_sizes,
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50111,7 +50111,7 @@ mod tests {
             sizes,
             Validity::from_iter([true, false, true]),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50155,7 +50155,7 @@ mod tests {
             sizes,
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50219,7 +50219,7 @@ mod tests {
             sizes,
             Validity::from_iter([true, false, true]),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();
@@ -50995,7 +50995,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("direct host contains count");
@@ -51009,7 +51009,7 @@ mod tests {
             "afé",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("direct UTF-8 byte-search contains count");
@@ -51030,7 +51030,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("encoded count decision");
@@ -51046,7 +51046,7 @@ mod tests {
             "google",
             true,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("encoded negated count decision");
@@ -51095,7 +51095,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable direct contains count");
@@ -51107,7 +51107,7 @@ mod tests {
             "google",
             true,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable direct negated contains count");
@@ -51119,7 +51119,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable direct contains row indices");
@@ -51131,7 +51131,7 @@ mod tests {
             "google",
             true,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable direct negated contains row indices");
@@ -51153,7 +51153,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable dictionary contains count");
@@ -51165,7 +51165,7 @@ mod tests {
             "google",
             true,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable dictionary negated contains count");
@@ -51177,7 +51177,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable dictionary contains row indices");
@@ -51200,7 +51200,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable dictionary code contains count");
@@ -51212,7 +51212,7 @@ mod tests {
             "google",
             true,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable dictionary code negated contains count");
@@ -51225,7 +51225,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered nullable dictionary contains count");
@@ -51236,7 +51236,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered nullable dictionary contains row indices");
@@ -51247,7 +51247,7 @@ mod tests {
             true,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered nullable dictionary negated contains row indices");
@@ -51587,7 +51587,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered direct count");
@@ -51598,7 +51598,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered direct indices");
@@ -51614,7 +51614,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-true filtered direct count");
@@ -51625,7 +51625,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-true filtered direct indices");
@@ -51641,7 +51641,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-false filtered direct count");
@@ -51652,7 +51652,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-false filtered direct indices");
@@ -51680,7 +51680,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered dictionary count");
@@ -51691,7 +51691,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered dictionary indices");
@@ -51704,7 +51704,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-true filtered dictionary count");
@@ -51715,7 +51715,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-true filtered dictionary indices");
@@ -51728,7 +51728,7 @@ mod tests {
             "google",
             false,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-false filtered dictionary count");
@@ -51739,7 +51739,7 @@ mod tests {
             false,
             0,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("all-false filtered dictionary indices");
@@ -51824,7 +51824,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let chunk = RunEnd::try_new(ends, values, &mut ctx)
             .expect("run-end array")
             .into_array();
@@ -51872,7 +51872,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let chunk = BitPackedData::encode(&values, 1, &mut ctx)
             .expect("bit-packed array")
             .as_array()
@@ -51998,7 +51998,7 @@ mod tests {
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array();
-        let mut ctx = vortex::array::array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let flag = BitPackedData::encode(&flag_values, 1, &mut ctx)
             .expect("bit-packed flag")
             .as_array()
@@ -52192,7 +52192,7 @@ mod tests {
             .into_array();
         let values =
             PrimitiveArray::new(vec![5_i64, 9], Validity::from_iter([true, false])).into_array();
-        let mut ctx = vortex::array::array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let chunk = RunEnd::try_new(ends, values, &mut ctx)
             .expect("nullable run-end array")
             .into_array();
@@ -52254,7 +52254,7 @@ mod tests {
             5,
             Scalar::from(0_i32),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("sparse array")
@@ -52666,7 +52666,7 @@ mod tests {
             "flag",
             &direct_array,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("direct boolean accessor");
@@ -52688,7 +52688,7 @@ mod tests {
             "flag",
             &nullable_array,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("nullable boolean accessor");
@@ -60219,7 +60219,7 @@ mod tests {
             "__shardloom_derived_utf8_len_URL",
             &dictionary,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("numeric dictionary accessor");
@@ -60248,7 +60248,7 @@ mod tests {
         use vortex::array::arrays::{DictArray, PrimitiveArray};
         use vortex::encodings::fastlanes::BitPackedData;
 
-        let mut ctx = vortex::array::array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let codes = [0_u8, 1, 0, 2]
             .into_iter()
             .collect::<PrimitiveArray>()
@@ -60271,7 +60271,7 @@ mod tests {
             "CounterID",
             &dictionary,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("encoded numeric dictionary accessor");
@@ -60300,7 +60300,7 @@ mod tests {
             "UserID",
             &filtered,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered primitive aggregate accessor");
@@ -60336,7 +60336,7 @@ mod tests {
             "UserID",
             &filtered,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered nullable primitive aggregate accessor");
@@ -60372,7 +60372,7 @@ mod tests {
             "UserID",
             &filtered,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("filtered nullable primitive aggregate accessor");
@@ -61110,7 +61110,7 @@ mod tests {
                     &declared_columns,
                     None,
                     &mut NativeNumericAccessorWork::default(),
-                    &mut native_numeric_execution_ctx(&vortex::array::array_session()),
+                    &mut native_numeric_execution_ctx(&vortex::session::VortexSession::empty()),
                 )
                 .expect("dictionary weighted update")
         );
@@ -62326,7 +62326,7 @@ mod tests {
             false,
             true,
             VortexLocalPrimitiveResourceEnvelope::new(24, 12).expect("envelope"),
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .expect("states");
         states
@@ -62509,7 +62509,7 @@ mod tests {
             false,
             true,
             envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .expect("states");
         states
@@ -62566,7 +62566,7 @@ mod tests {
             false,
             true,
             envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .expect("states");
         states
@@ -64161,7 +64161,7 @@ mod tests {
             false,
             false,
             envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .expect("states");
 
@@ -64181,7 +64181,7 @@ mod tests {
             false,
             false,
             constrained_envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .expect("constrained states");
         constrained_states.enable_string_count_distinct_topk_heavy_hitter();
@@ -65856,7 +65856,7 @@ mod tests {
             &declared_columns,
             Some(&residual_evaluator),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("residual exact update");
@@ -66722,7 +66722,7 @@ mod tests {
     fn aggregate_accessor_uses_utf8_chunk_dictionary_before_materialized_rows() {
         use vortex::array::IntoArray as _;
         use vortex::array::VortexSessionExecute as _;
-        use vortex::array::array_session;
+
         use vortex::array::arrays::varbin::builder::VarBinBuilder;
         use vortex::array::dtype::{DType, Nullability};
         use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
@@ -66738,7 +66738,7 @@ mod tests {
         input.append_value(b"http://example.test/c");
         input.append_value(b"http://example.test/b");
         let input = input.finish_into_varbin().into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let compressor = fsst_train_compressor(&input, &mut ctx).expect("train FSST compressor");
         let compressed = fsst_compress(&input, &compressor, &mut ctx)
             .expect("compress FSST array")
@@ -66748,7 +66748,7 @@ mod tests {
             "URL",
             &compressed,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("UTF-8 aggregate accessor");
@@ -66781,7 +66781,7 @@ mod tests {
     fn fsst_string_contains_uses_vortex_like_kernel_without_materialized_rows() {
         use vortex::array::IntoArray as _;
         use vortex::array::VortexSessionExecute as _;
-        use vortex::array::array_session;
+
         use vortex::array::arrays::varbin::builder::VarBinBuilder;
         use vortex::array::dtype::{DType, Nullability};
         use vortex::encodings::fsst::{fsst_compress, fsst_train_compressor};
@@ -66798,7 +66798,7 @@ mod tests {
         input.append_value(b"https://example.test/d");
         input.append_value(b"https://google.example/e");
         let input = input.finish_into_varbin().into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
         let compressor = fsst_train_compressor(&input, &mut ctx).expect("train FSST compressor");
         let compressed = fsst_compress(&input, &compressor, &mut ctx)
             .expect("compress FSST array")
@@ -66811,7 +66811,7 @@ mod tests {
                 "google",
                 false,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("contains count"),
@@ -66824,7 +66824,7 @@ mod tests {
                 false,
                 0,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("contains row indices"),
@@ -66836,7 +66836,7 @@ mod tests {
                 "google",
                 true,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("negated contains count"),
@@ -66851,7 +66851,7 @@ mod tests {
                 "google",
                 false,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("all-true masked FSST count"),
@@ -66864,7 +66864,7 @@ mod tests {
                 "google",
                 false,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("all-true masked FSST row indices"),
@@ -66879,7 +66879,7 @@ mod tests {
                 "google",
                 false,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("all-false masked FSST count"),
@@ -66892,7 +66892,7 @@ mod tests {
                 "google",
                 false,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("all-false masked FSST row indices"),
@@ -66916,7 +66916,7 @@ mod tests {
             "SearchPhrase",
             &input,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("UTF-8 accessor");
@@ -66960,7 +66960,7 @@ mod tests {
                 "text",
                 &input,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("accessor")
@@ -67017,7 +67017,7 @@ mod tests {
             "Referer",
             &input,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("accessor")
@@ -67360,7 +67360,7 @@ mod tests {
         assert!(
             aggregate_direct_numeric_dictionary_accessor(
                 &dictionary,
-                &mut vortex::array::array_session().create_execution_ctx(),
+                &mut vortex::session::VortexSession::empty().create_execution_ctx(),
             )
             .expect("numeric provider should return a miss, not panic")
             .is_none()
@@ -67370,7 +67370,7 @@ mod tests {
                 "URL",
                 &dictionary,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("UTF-8 dictionary provider should accept dictionary values"),
@@ -69323,7 +69323,7 @@ mod tests {
                     &chunk,
                     &columns,
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .expect("exact")
@@ -69345,7 +69345,7 @@ mod tests {
             &columns,
             &[0, 2],
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .expect("candidate materialized filter");
@@ -69405,7 +69405,7 @@ mod tests {
                 &columns,
                 &[0, 1, 2, 3],
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .expect("column-scoped candidate filter")
@@ -69417,7 +69417,7 @@ mod tests {
                     &chunk,
                     &columns,
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .expect("exact")

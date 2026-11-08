@@ -271,10 +271,10 @@ impl Patches {
 
             #[cfg(debug_assertions)]
             {
-                use crate::aggregate_fn::fns::is_sorted::is_sorted;
+                use crate::aggregate_fn::fns::is_sorted::is_strict_sorted;
                 assert!(
-                    is_sorted(&indices, ctx).unwrap_or(false),
-                    "Patch indices must be sorted"
+                    is_strict_sorted(&indices, ctx).unwrap_or(false),
+                    "Patch indices must be strictly increasing"
                 );
             }
         }
@@ -290,6 +290,59 @@ impl Patches {
         })
     }
 
+    /// Reconstruct patches from serialized metadata and their child arrays.
+    ///
+    /// Preserves the number of patches sliced off within the first chunk. Metadata without this
+    /// field defaults to zero for compatibility with older arrays.
+    pub fn from_metadata(
+        array_len: usize,
+        metadata: &PatchesMetadata,
+        indices: ArrayRef,
+        values: ArrayRef,
+        chunk_offsets: Option<ArrayRef>,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<Self> {
+        let mut patches = Self::new(
+            array_len,
+            metadata.offset()?,
+            indices,
+            values,
+            chunk_offsets,
+            ctx,
+        )?;
+        if let Some(chunk_offsets) = &patches.chunk_offsets {
+            let offset_within_chunk = usize::try_from(metadata.offset_within_chunk())?;
+            let sliced_rows = patches.offset % PATCH_CHUNK_SIZE;
+            vortex_ensure!(
+                offset_within_chunk <= sliced_rows,
+                "Patch offset within chunk exceeds the sliced row count"
+            );
+
+            // A wrong offset can assign first-chunk patches to a later chunk during decoding.
+            // Check the boundary against the indices, not just the original chunk's patch count.
+            if chunk_offsets.len() > 1 && chunk_offsets.is_host() && patches.indices.is_host() {
+                let first_chunk_end = patches
+                    .offset
+                    .checked_add(PATCH_CHUNK_SIZE - sliced_rows)
+                    .ok_or_else(|| vortex_err!("Patch chunk boundary overflows usize"))?;
+                let retained =
+                    search_index_binary_search(&patches.indices, first_chunk_end, ctx)?.to_index();
+                let expected_offset = patches
+                    .chunk_offset_at(1, ctx)?
+                    .checked_sub(patches.chunk_offset_at(0, ctx)?)
+                    .and_then(|count| count.checked_sub(retained))
+                    .ok_or_else(|| vortex_err!("Invalid patch chunk offsets"))?;
+                vortex_ensure_eq!(
+                    offset_within_chunk,
+                    expected_offset,
+                    "Patch offset within chunk disagrees with the patch indices"
+                );
+            }
+            patches.offset_within_chunk = Some(offset_within_chunk);
+        }
+        Ok(patches)
+    }
+
     /// Construct new patches without validating any of the arguments
     ///
     /// # Safety
@@ -297,7 +350,7 @@ impl Patches {
     /// Users have to assert that
     /// * Indices and values have the same length
     /// * Indices is an unsigned integer type
-    /// * Indices must be sorted
+    /// * Indices must be strictly increasing
     /// * Last value in indices is smaller than array_len
     pub unsafe fn new_unchecked(
         array_len: usize,
@@ -1354,6 +1407,9 @@ fn take_indices_with_search_fn<
 
 #[cfg(test)]
 mod test {
+    use std::ops::Range;
+    use std::sync::LazyLock;
+
     use rstest::rstest;
     use vortex_buffer::BitBuffer;
     use vortex_buffer::Buffer;
@@ -1362,19 +1418,127 @@ mod test {
     use vortex_error::VortexExpect;
     use vortex_error::VortexResult;
     use vortex_mask::Mask;
+    use vortex_session::VortexSession;
 
     use crate::IntoArray;
     use crate::VortexSessionExecute;
-    use crate::array_session;
     use crate::assert_arrays_eq;
+    use crate::dtype::PType;
     use crate::patches::Patches;
+    use crate::patches::PatchesMetadata;
     use crate::patches::PrimitiveArray;
     use crate::search_sorted::SearchResult;
     use crate::validity::Validity;
 
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
+
+    #[rstest]
+    #[case::unchunked(false)]
+    #[case::chunked(true)]
+    fn test_from_metadata_without_offset_within_chunk(#[case] chunked: bool) -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let metadata = PatchesMetadata::new(
+            3,
+            0,
+            PType::U32,
+            chunked.then_some(3),
+            chunked.then_some(PType::U32),
+            None,
+        );
+        let patches = Patches::from_metadata(
+            3072,
+            &metadata,
+            buffer![7u32, 1029, 2051].into_array(),
+            buffer![11i32, 22, 33].into_array(),
+            chunked.then(|| buffer![0u32, 1, 2].into_array()),
+            &mut ctx,
+        )?;
+
+        assert_eq!(patches.offset_within_chunk(), chunked.then_some(0));
+        assert_eq!(
+            patches.search_index(1029, &mut ctx)?,
+            SearchResult::Found(1)
+        );
+        Ok(())
+    }
+
+    #[rstest]
+    fn test_from_metadata_rejects_inconsistent_chunk_offset(
+        #[values(0, 2, 3, 501, usize::MAX)] offset_within_chunk: usize,
+    ) {
+        let mut ctx = SESSION.create_execution_ctx();
+        // The original first chunk had patches at 100 and 500; slicing at 500 removed one.
+        let metadata = PatchesMetadata::new(
+            2,
+            500,
+            PType::U32,
+            Some(2),
+            Some(PType::U32),
+            Some(offset_within_chunk),
+        );
+        let error = Patches::from_metadata(
+            1000,
+            &metadata,
+            buffer![500u32, 1200].into_array(),
+            buffer![11i32, 22].into_array(),
+            Some(buffer![0u32, 2].into_array()),
+            &mut ctx,
+        )
+        .expect_err("inconsistent patch offset must be rejected");
+        assert!(error.to_string().contains("Patch offset within chunk"));
+    }
+
+    #[rstest]
+    #[case::single_chunk(900..901)]
+    #[case::later_single_chunk(1500..1501)]
+    #[case::multiple_chunks(900..2050)]
+    fn test_from_metadata_short_slice(#[case] range: Range<usize>) -> VortexResult<()> {
+        let mut ctx = SESSION.create_execution_ctx();
+        let indices = PrimitiveArray::from_iter(0u32..3072).into_array();
+        let patches = Patches::new(
+            3072,
+            0,
+            indices.clone(),
+            indices,
+            Some(buffer![0u32, 1024, 2048].into_array()),
+            &mut ctx,
+        )?;
+        let sliced = patches.slice(range, &mut ctx)?.expect("slice has patches");
+        let metadata = sliced.to_metadata(sliced.array_len(), sliced.dtype())?;
+        let read = Patches::from_metadata(
+            sliced.array_len(),
+            &metadata,
+            sliced.indices().clone(),
+            sliced.values().clone(),
+            sliced.chunk_offsets().clone(),
+            &mut ctx,
+        )?;
+
+        assert_eq!(read.offset_within_chunk(), sliced.offset_within_chunk());
+        assert_eq!(read.search_index(0, &mut ctx)?, SearchResult::Found(0));
+        assert_arrays_eq!(read.values(), sliced.values(), &mut ctx);
+        Ok(())
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "Patch indices must be strictly increasing")]
+    fn test_new_rejects_repeated_indices() {
+        let mut ctx = SESSION.create_execution_ctx();
+        Patches::new(
+            5,
+            0,
+            buffer![1u32, 1].into_array(),
+            buffer![10i32, 20].into_array(),
+            None,
+            &mut ctx,
+        )
+        .unwrap();
+    }
+
     #[test]
     fn test_filter() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             100,
             0,
@@ -1404,7 +1568,7 @@ mod test {
 
     #[test]
     fn take_with_nulls() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             20,
             0,
@@ -1448,7 +1612,7 @@ mod test {
 
     #[test]
     fn take_search_with_nulls_chunked() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             20,
             0,
@@ -1493,7 +1657,7 @@ mod test {
 
     #[test]
     fn take_search_chunked_multiple_chunks() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             2048,
             0,
@@ -1528,7 +1692,7 @@ mod test {
 
     #[test]
     fn take_search_chunked_indices_with_no_patches() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             20,
             0,
@@ -1552,7 +1716,7 @@ mod test {
 
     #[test]
     fn take_search_chunked_interleaved() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             30,
             0,
@@ -1587,7 +1751,7 @@ mod test {
 
     #[test]
     fn test_take_search_multiple_chunk_offsets() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             1500,
             0,
@@ -1622,7 +1786,7 @@ mod test {
 
     #[test]
     fn doubly_sliced() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let values = buffer![15_u32, 135, 13531, 42].into_array();
         let indices = buffer![10_u64, 11, 50, 100].into_array();
 
@@ -1658,7 +1822,7 @@ mod test {
 
     #[test]
     fn test_mask_all_true() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1676,7 +1840,7 @@ mod test {
 
     #[test]
     fn test_mask_all_false() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1711,7 +1875,7 @@ mod test {
 
     #[test]
     fn test_mask_partial() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1746,7 +1910,7 @@ mod test {
 
     #[test]
     fn test_mask_with_offset() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             5,                                  // offset
@@ -1779,7 +1943,7 @@ mod test {
 
     #[test]
     fn test_mask_nullable_values() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1834,7 +1998,7 @@ mod test {
         #[values(true, false)] cache_mask_indices: bool,
     ) -> VortexResult<()> {
         const LEN: usize = 1000;
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
 
         let patches = Patches::new(
             LEN,
@@ -1901,7 +2065,7 @@ mod test {
     /// Mask indices past the maximum of the patch index type cannot match a patch.
     #[test]
     fn test_filter_sparse_mask_past_index_type_max() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             1000,
             0,
@@ -1932,7 +2096,7 @@ mod test {
 
     #[test]
     fn test_filter_keep_all() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1961,7 +2125,7 @@ mod test {
 
     #[test]
     fn test_filter_none() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -1980,7 +2144,7 @@ mod test {
 
     #[test]
     fn test_filter_with_indices() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2009,7 +2173,7 @@ mod test {
 
     #[test]
     fn test_slice_full_range() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2036,7 +2200,7 @@ mod test {
 
     #[test]
     fn test_slice_partial() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2066,7 +2230,7 @@ mod test {
 
     #[test]
     fn test_slice_no_patches() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2084,7 +2248,7 @@ mod test {
 
     #[test]
     fn test_slice_with_offset() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             5,                                  // offset
@@ -2113,7 +2277,7 @@ mod test {
 
     #[test]
     fn test_indices_range() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2130,7 +2294,7 @@ mod test {
 
     #[test]
     fn test_search_index() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2176,7 +2340,7 @@ mod test {
 
     #[test]
     fn test_mask_boundary_patches() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test masking patches at array boundaries
         let patches = Patches::new(
             10,
@@ -2208,7 +2372,7 @@ mod test {
 
     #[test]
     fn test_mask_all_patches_removed() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test when all patches are masked out
         let patches = Patches::new(
             10,
@@ -2230,7 +2394,7 @@ mod test {
 
     #[test]
     fn test_mask_no_patches_removed() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test when no patches are masked
         let patches = Patches::new(
             10,
@@ -2262,7 +2426,7 @@ mod test {
 
     #[test]
     fn test_mask_single_patch() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test with a single patch
         let patches = Patches::new(
             5,
@@ -2296,7 +2460,7 @@ mod test {
 
     #[test]
     fn test_mask_contiguous_patches() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test with contiguous patches
         let patches = Patches::new(
             10,
@@ -2328,7 +2492,7 @@ mod test {
 
     #[test]
     fn test_mask_with_large_offset() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // Test with a large offset that shifts all indices
         let patches = Patches::new(
             20,
@@ -2362,7 +2526,7 @@ mod test {
     #[test]
     #[should_panic(expected = "Filter mask length 5 does not match array length 10")]
     fn test_mask_wrong_length() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let patches = Patches::new(
             10,
             0,
@@ -2380,7 +2544,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_search() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 200, 3000, 3100].into_array();
         let values = buffer![10i32, 20, 30, 40].into_array();
         let chunk_offsets = buffer![0u64, 2, 2, 3].into_array();
@@ -2427,7 +2591,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_with_slice() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 500, 1200, 1300, 1500, 1800, 2100, 2500].into_array();
         let values = buffer![10i32, 20, 30, 35, 40, 45, 50, 60].into_array();
         let chunk_offsets = buffer![0u64, 2, 6].into_array();
@@ -2465,7 +2629,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_with_slice_after_first_chunk() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 500, 1200, 1300, 1500, 1800, 2100, 2500].into_array();
         let values = buffer![10i32, 20, 30, 35, 40, 45, 50, 60].into_array();
         let chunk_offsets = buffer![0u64, 2, 6].into_array();
@@ -2506,7 +2670,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_slice_empty_result() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 200, 3000, 3100].into_array();
         let values = buffer![10i32, 20, 30, 40].into_array();
         let chunk_offsets = buffer![0u64, 2, 2, 3].into_array();
@@ -2519,7 +2683,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_slice_single_patch() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 1200, 1300, 2500].into_array();
         let values = buffer![10i32, 20, 30, 40].into_array();
         let chunk_offsets = buffer![0u64, 1, 3].into_array();
@@ -2551,7 +2715,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_slice_across_chunks() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 200, 1100, 1200, 2100, 2200].into_array();
         let values = buffer![10i32, 20, 30, 40, 50, 60].into_array();
         let chunk_offsets = buffer![0u64, 2, 4].into_array();
@@ -2588,7 +2752,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_boundary_searches() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![1023u64, 1024, 1025, 2047, 2048].into_array();
         let values = buffer![10i32, 20, 30, 40, 50].into_array();
         let chunk_offsets = buffer![0u64, 1, 4].into_array();
@@ -2628,7 +2792,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_slice_edge_cases() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![0u64, 1, 1023, 1024, 2047, 2048].into_array();
         let values = buffer![10i32, 20, 30, 40, 50, 60].into_array();
         let chunk_offsets = buffer![0u64, 3, 5].into_array();
@@ -2673,7 +2837,7 @@ mod test {
 
     #[test]
     fn test_chunk_offsets_slice_nested() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let indices = buffer![100u64, 200, 300, 400, 500, 600].into_array();
         let values = buffer![10i32, 20, 30, 40, 50, 60].into_array();
         let chunk_offsets = buffer![0u64].into_array();
@@ -2709,7 +2873,7 @@ mod test {
 
     #[test]
     fn test_nested_slice_with_dropped_first_chunk() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         // PATCH_CHUNK_SIZE = 1024, so the two patches land in different chunks.
         let indices = buffer![0u64, 1024].into_array();
         let values = buffer![1i32, 2].into_array();
@@ -2736,7 +2900,7 @@ mod test {
 
     #[test]
     fn test_index_larger_than_length() {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let chunk_offsets = buffer![0u64].into_array();
         let indices = buffer![1023u64].into_array();
         let values = buffer![42i32].into_array();

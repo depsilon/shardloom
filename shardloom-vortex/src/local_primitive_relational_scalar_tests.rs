@@ -42,7 +42,7 @@ fn scalar_values() -> Vec<ArrayRef> {
         PrimitiveArray::from_iter([2u64]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

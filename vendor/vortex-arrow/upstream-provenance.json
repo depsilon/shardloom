@@ -1,0 +1,73 @@
+{
+  "provider": "vortex-arrow",
+  "version": "0.93.0",
+  "license": "Apache-2.0",
+  "registry_archive_sha256": "08c7e0c13897d3630bdd5840018869a123ff363560a59562e914c7fe995ea1cd",
+  "source_of_truth": "https://static.crates.io/crates/vortex-arrow/vortex-arrow-0.93.0.crate",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "migration_status": "scoped_storage_preservation_under_validation",
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d"
+  },
+  "supplemental_test_files": {},
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d",
+    "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f"
+  },
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "77feffc83eed39d77cd208c6c5e7b7aa7323a2eac2c6bb8b380d967fcdc13981",
+    "Cargo.lock": "58e490bde3b2907dfc38a0b42040f35714dde41a492f26efff4aead4849883c1",
+    "Cargo.toml": "5ee9e08f67127c7957a51ff5d788c29b7fb5f8c957d50b0562814990cb75b72b",
+    "Cargo.toml.orig": "3f9e915147ffe4e7ed6f3349cd1ab357c310d3a9f13c3eba889af27d8aec02da",
+    "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+    "src/convert.rs": "91d33289dffab2e0abf8eed1d87bdb8119d7e6aaa678d4cca583ed96243332f7",
+    "src/datum.rs": "c48148b2d7de1a1000a4c8814066dc3c3f957dd99dfb997dabe34f45ea28c9bb",
+    "src/dtype.rs": "8db97ab0c0110465e7e4a3917c1755b371768e7d07cf58bd394e8eb5f7365d79",
+    "src/executor/bool.rs": "0d3e91a74853f965f60ead8100285973b9fbcbfe94d0fd45c6aca1462994143f",
+    "src/executor/byte.rs": "a5f4f15fa6c724adf42d590155a51f6737ee3e49df2f507f683ab7981f69d91c",
+    "src/executor/byte_view.rs": "5335695cd8e5100a165bc9faff1f18fcd9e5b64b75e1521bc1d83a7348e5ddeb",
+    "src/executor/decimal.rs": "c0c016d276a7a6801c672452b4d51299cb72c231b6dae66be7a72186844c0543",
+    "src/executor/dictionary.rs": "f63d8be0ecab92d3bdc91880af75b90e38eec7c3a15c715489b50196cffcd414",
+    "src/executor/fixed_size_list.rs": "59066c1e4482faa3924dc7c5bc9fa7eb2ed88ed68f1264484852c23dbbfd3c36",
+    "src/executor/list.rs": "280fa4a320d6878e238ca8681f627a54490904e4291888a57927b802a91ebd6f",
+    "src/executor/list_view.rs": "da2732ebb784adc06c3acc25f5188df72efbfd8856b60bc806bd93b246f5c3ed",
+    "src/executor/map.rs": "8f365853ed0d8181104f86a92c909a830a57ec8f2c18d4305a0e9bd669c8fd5c",
+    "src/executor/mod.rs": "5e7608dd824375d33a0f23a212f132ab808fb3f40f6cab16f8317b6517646dfe",
+    "src/executor/null.rs": "03375aafd19017451c2df75f126371c7a598e752f725bd1d66a1e2f28abddbf9",
+    "src/executor/primitive.rs": "f32dbf26fc4eff1f2b4cec1f3201494d0fa999adf8a80a53998504fc09b8f77d",
+    "src/executor/run_end.rs": "d5f7fe4843f1dace100e2bf8755100b581d2cc1a3770eac6475ad4c57aa34476",
+    "src/executor/struct_.rs": "44008a63c0cb786fb12c6fa20796768537daf25b09da1ca5e2b70ecc9adfd3bf",
+    "src/executor/temporal.rs": "aee4d98e83e40a9269d24bc40ecea62de467f1ee8a58e61a7f4f5db0ebc5ccaf",
+    "src/executor/validity.rs": "cac8a0c448c23b92ee19e0368a9f169181c977c361bf0b876c9d06cd7854814d",
+    "src/iter.rs": "a3ac88fffe71c43afbe9dd55c571ca600cf1ddb7c7043afbdf4d98fd673079b9",
+    "src/lib.rs": "c2ecd1e8c89956a116fa45c0fd572ebe7412dd14fbbb37e5ea348528265b8667",
+    "src/null_buffer.rs": "67518a0759b9731db5ccd3a7464567aa3e53988016a57fe70f348dd8ff51a089",
+    "src/options/mod.rs": "978f2a8a33de5a94c8175dcbbfe31923583c63bd2cc97b4f4bc72bc8a01e98cd",
+    "src/options/tests.rs": "9c7e4e587f39c9232f1b5ba636e192dfcaa9868dcd794bccc78831dc3a4b0f10",
+    "src/run_end_import.rs": "4c91f647f3455e9ecd65f9678347f9298891cf3dc975d58e2c360728dde738fb",
+    "src/scalar.rs": "f93800bf284e2e93e92af0ce6f8503142f43cb481b45160459b130efcd4a19a3",
+    "src/session.rs": "d6ebe840ee1a61fc35b348679a7f5e0d679709865a4acc4aa242b2c1324aaf88",
+    "src/tests.rs": "c20984a9c4846a002c8db09ff97906675a127163be7e743f53f9fc9d46dec976"
+  },
+  "registry_archive_file_count": 33,
+  "registry_archive_uncompressed_bytes": 511928,
+  "modified_files_sha256": {
+    "Cargo.toml": "75f8550231fa5f8facbef923f63cac3136649f4beafc973d8471b43a8ad61b3a",
+    "src/lib.rs": "73d2cf769267a8d34d39210a50fd1fbbf71c6077cca19e683d413658ea397603",
+    "src/session.rs": "94c7471b136ff8a2eaeb1633e15316702d27028edfe05b766107e177c72f5765"
+  },
+  "vcs_info": {
+    "git": {
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
+    },
+    "path_in_vcs": "vortex-arrow"
+  }
+}

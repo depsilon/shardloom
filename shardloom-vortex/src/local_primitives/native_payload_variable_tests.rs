@@ -391,7 +391,7 @@ fn variable_gather_releases_source_storage_and_preserves_pressure_and_cancellati
         drop(retained);
         drop(session);
         assert!(memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         assert!(matches!(
             result_batch::scalar_value(&child, 0, &mut execution).unwrap(),
             Value::SharedText(value) if value.as_str() == "東京"

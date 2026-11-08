@@ -1,0 +1,50 @@
+[package]
+name = "vortex-arrow"
+authors = { workspace = true }
+categories = { workspace = true }
+description = "Apache Arrow interoperability for Vortex arrays"
+edition = { workspace = true }
+include = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+readme = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true
+
+[dependencies]
+arrow-array = { workspace = true, features = ["ffi"] }
+arrow-buffer = { workspace = true }
+arrow-cast = { workspace = true }
+arrow-data = { workspace = true }
+arrow-schema = { workspace = true, features = ["canonical_extension_types"] }
+base64 = { workspace = true }
+itertools = { workspace = true }
+num-traits = { workspace = true }
+simdutf8 = { workspace = true }
+tracing = { workspace = true }
+vortex-array = { workspace = true }
+vortex-buffer = { workspace = true, features = ["arrow"] }
+vortex-error = { workspace = true }
+vortex-mask = { workspace = true }
+vortex-session = { workspace = true }
+
+[dev-dependencies]
+divan = { workspace = true }
+mimalloc = { workspace = true }
+rstest = { workspace = true }
+vortex-array = { workspace = true, features = ["_test-harness"] }
+vortex-decimal-byte-parts = { workspace = true }
+vortex-fsst = { workspace = true }
+vortex-onpair = { workspace = true }
+vortex-zstd = { workspace = true }
+
+[[bench]]
+name = "to_arrow"
+harness = false

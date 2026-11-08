@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-local-primitives")]
-    fn owned_denial_remains_typed_through_native_context_and_shared_wrappers() {
+    fn owned_denial_remains_typed_through_native_context_and_shared_payloads() {
         let memory = LiveMemoryPool::new(16).unwrap();
         let allocator = ReservedHostAllocator::new(memory);
         let denied = allocator
@@ -280,11 +280,12 @@ mod tests {
             .unwrap();
         assert!(is_owned_reservation_denial(&denied));
         let contextual = denied.with_context("native filter allocation");
-        let shared = vortex::error::VortexError::Shared(std::sync::Arc::new(contextual));
+        let shared = contextual.clone().with_context("shared native allocation");
+        assert!(is_owned_reservation_denial(&contextual));
         assert!(is_owned_reservation_denial(&shared));
-        assert!(!is_owned_reservation_denial(
-            &vortex_err!(InvalidArgument: "corrupt source")
-        ));
+        assert!(!is_owned_reservation_denial(&vortex_err!(
+            "InvalidArgument: corrupt source"
+        )));
         assert!(!is_owned_reservation_denial(&vortex_err!(
             "cancelled; memory reservation denied:"
         )));

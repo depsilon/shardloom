@@ -933,7 +933,7 @@ fn serialize_generation_footer(
 ) -> Result<Vec<ByteBuffer>> {
     let buffers = footer
         .clone()
-        .into_serializer()
+        .into_serializer(native)
         .with_layout_context(
             LayoutContext::default().with_allowed_ids(
                 native
@@ -1242,7 +1242,7 @@ fn compact_generation_varbin<O: Copy + Into<u64>>(
         payload,
         slice.dtype().clone(),
         slice.validity().map_err(generation_error)?,
-        &mut vortex::array::array_session()
+        &mut vortex::session::VortexSession::empty()
             .with_host_allocator(allocator.clone())
             .create_execution_ctx(),
     )

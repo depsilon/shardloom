@@ -51,6 +51,7 @@ use crate::expr::stats::Stat;
 use crate::expr::stats::StatsProviderExt;
 use crate::matcher::Matcher;
 use crate::optimizer::ArrayOptimizer;
+use crate::optimizer::OptimizedState;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
 use crate::stats::StatsSetRef;
@@ -95,10 +96,26 @@ impl ArrayRef {
     }
 
     /// Returns a mutable reference to the inner if this is the sole owner.
+    ///
+    /// The caller may change the array, so it is no longer known to be optimized.
     #[allow(clippy::inline_always)]
     #[inline(always)]
     pub(crate) fn inner_mut(&mut self) -> Option<&mut ArrayInner<dyn DynArrayData>> {
-        Arc::get_mut(&mut self.0)
+        let inner = Arc::get_mut(&mut self.0)?;
+        *inner.optimized.0.get_mut() = false;
+        Some(inner)
+    }
+
+    /// Returns the record of whether the optimizer has already taken this array to its fixpoint.
+    ///
+    /// Only the optimizer can read or set the record.
+    pub(crate) fn optimized_state(&self) -> &OptimizedState {
+        &self.0.optimized
+    }
+
+    /// Returns whether another owner holds this array too.
+    pub(crate) fn is_shared(&self) -> bool {
+        Arc::strong_count(&self.0) > 1
     }
 
     /// Returns the Arc::as_ptr().addr() of the underlying array.
@@ -308,11 +325,12 @@ impl ArrayRef {
     /// many reads of the same array use [`Self::repeated_probe`].
     ///
     /// ```
+    /// use vortex_session::VortexSession;
     /// use vortex_array::{IntoArray, VortexSessionExecute};
     /// use vortex_array::arrays::PrimitiveArray;
     ///
     /// let array = PrimitiveArray::from_iter([10i32, 20, 30]).into_array();
-    /// let mut ctx = vortex_array::array_session().create_execution_ctx();
+    /// let mut ctx = VortexSession::empty().create_execution_ctx();
     /// assert_eq!(array.probe().execute_scalar(2, &mut ctx)?, 30i32.into());
     /// # Ok::<(), vortex_error::VortexError>(())
     /// ```
@@ -325,11 +343,12 @@ impl ArrayRef {
     /// probe and child probes between reads.
     ///
     /// ```
+    /// use vortex_session::VortexSession;
     /// use vortex_array::{IntoArray, VortexSessionExecute};
     /// use vortex_array::arrays::PrimitiveArray;
     ///
     /// let array = PrimitiveArray::from_iter([10i32, 20, 30]).into_array();
-    /// let mut ctx = vortex_array::array_session().create_execution_ctx();
+    /// let mut ctx = VortexSession::empty().create_execution_ctx();
     /// let mut probe = array.repeated_probe();
     /// assert_eq!(probe.execute_scalar(2, &mut ctx)?, 30i32.into());
     /// assert_eq!(probe.execute_scalar(0, &mut ctx)?, 10i32.into());
@@ -486,8 +505,8 @@ impl ArrayRef {
     }
 
     /// Returns the constant scalar if this is a constant array.
-    pub fn as_constant(&self) -> Option<Scalar> {
-        self.as_opt::<Constant>().map(|a| a.scalar().clone())
+    pub fn as_constant(&self) -> Option<&Scalar> {
+        self.as_opt::<Constant>().map(|a| a.data().scalar())
     }
 
     /// Total size of the array in bytes, including all children and buffers.
@@ -566,7 +585,7 @@ impl ArrayRef {
         mut self,
         slot_idx: usize,
     ) -> VortexResult<(ArrayRef, ArrayRef)> {
-        if let Some(inner) = Arc::get_mut(&mut self.0) {
+        if let Some(inner) = self.inner_mut() {
             let child = inner.slots[slot_idx]
                 .take()
                 .vortex_expect("take_slot_unchecked cannot take an absent slot");
@@ -601,7 +620,7 @@ impl ArrayRef {
         slot_idx: usize,
         replacement: ArrayRef,
     ) -> VortexResult<ArrayRef> {
-        if let Some(inner) = Arc::get_mut(&mut self.0) {
+        if let Some(inner) = self.inner_mut() {
             inner.slots[slot_idx] = Some(replacement);
             return Ok(self);
         }

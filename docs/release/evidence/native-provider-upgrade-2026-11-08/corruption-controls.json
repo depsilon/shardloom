@@ -1,0 +1,712 @@
+{
+  "status": "passed",
+  "receipt": {
+    "status": "passed",
+    "cases": [
+      {
+        "case": "original",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "original.log",
+        "log_identity": {
+          "bytes": 1625,
+          "sha256": "76d5cd70992346bc408a1b92523a3055c461b298f2aab30903ad9860dda5e0ff"
+        },
+        "mutations": [],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "c5365f9c1deaab2214c5621caa22a3665b45310843e4405f3fb6092ef675a892"
+          },
+          "verification.tar.xz": {
+            "bytes": 93511388,
+            "sha256": "abcd983128f29c7ef085b8691beea5f305bb9d143bc265a47efb311fcac27584"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "relocated_source_only",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "relocated_source_only.log",
+        "log_identity": {
+          "bytes": 1625,
+          "sha256": "76d5cd70992346bc408a1b92523a3055c461b298f2aab30903ad9860dda5e0ff"
+        },
+        "mutations": [],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "c5365f9c1deaab2214c5621caa22a3665b45310843e4405f3fb6092ef675a892"
+          },
+          "verification.tar.xz": {
+            "bytes": 93511388,
+            "sha256": "abcd983128f29c7ef085b8691beea5f305bb9d143bc265a47efb311fcac27584"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "unsealed_archive_corruption",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "unsealed_archive_corruption.log",
+        "log_identity": {
+          "bytes": 571,
+          "sha256": "34eb4bb96d05f02dace2d283db02764bea5d12641c9f63eceb45d01298b9d6b5"
+        },
+        "mutations": [],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "c5365f9c1deaab2214c5621caa22a3665b45310843e4405f3fb6092ef675a892"
+          },
+          "verification.tar.xz": {
+            "bytes": 93511388,
+            "sha256": "1e6ab8928489fa951fb6dae77fc7b63d4f81f27266adb10c64877b672da255c5"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_failed.log",
+        "log_identity": {
+          "bytes": 600,
+          "sha256": "d2d314f204584cbbb832d193b1775dfaef44f7aa2732d235de534ed4835a3f22"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/provider-native-tests-r3.json",
+            "before": {
+              "bytes": 1283705,
+              "sha256": "19d45f011c38f439c8165d2aef8a8902051e64ed39da26d75598ebf7cf9f1c3e"
+            },
+            "after": {
+              "bytes": 1283705,
+              "sha256": "96a73502456dccfaaa4248a74f71760cac8fd98c38cf601367fb3cbfeec57b24"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "faa4d158e52a0f0f490aefeae2ec82d72af2dbf484efadb8b5aae2a7ece3018a"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407440,
+            "sha256": "a5827d8f53c23c099accfa2f5d27b54b62cf1bae46bc9465b75ca95643654521"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "installed_skips",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "installed_skips.log",
+        "log_identity": {
+          "bytes": 642,
+          "sha256": "37098dc529a3c40bf8a4afdd1e43c28f54671ce851011bcef7889f34fc70763c"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/installed-proof-r1/integration.json",
+            "before": {
+              "bytes": 89,
+              "sha256": "f003f85c11bd9b96666356dab7114b5add07557da927dc7f48e2d385f0fabb12"
+            },
+            "after": {
+              "bytes": 89,
+              "sha256": "1fc2983451363c5f30e5b311faa67367a46284180718969f99b8005b0317ceab"
+            }
+          },
+          {
+            "path": "observations/provider/installed-proof-r1/report.json",
+            "before": {
+              "bytes": 10183,
+              "sha256": "d53735afce0f784e57fc117950e572434f6087775044d69097552371e460c8b6"
+            },
+            "after": {
+              "bytes": 10183,
+              "sha256": "e06a6f54b6e6251fa90ae6e3c60a9d02e32dcee8927ad0cbf7b20d758f5742ae"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "4e47f06e1abdec08178f1526d68157382aaa1625d4d0709ab899f33cf0aa8bbf"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407440,
+            "sha256": "efc4e0d13073b816bf7c89b96fbec5f41fba7518a538c2804f352bf713e2855f"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "omitted_original_failure",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "omitted_original_failure.log",
+        "log_identity": {
+          "bytes": 807,
+          "sha256": "6a3c8938d5aa11e6b6b292e872566ff6df53cee3c444cb4003e758a92b171ecf"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/candidate-installation-failure-r1.json",
+            "before": {
+              "bytes": 188,
+              "sha256": "289a1389f97c3a7e2ebe718a8da261dd4037e1cb5d318c966b2a846c3b577a24"
+            },
+            "after": null
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2526886,
+            "sha256": "3b10422be9c71ebf811b6392b1529b5a98d4fd502dde745cbb8968f25f2c03f9"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407416,
+            "sha256": "04279761bf8d8396a5608f1d078e62ad343ddc45fd79756b022dc48d0e69ce8f"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "compiled_source_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "compiled_source_changed.log",
+        "log_identity": {
+          "bytes": 600,
+          "sha256": "c5a8950d2e797541c5176a5f6f22cafd56425f5fa89059abfe4f5e0005a9ae4b"
+        },
+        "mutations": [
+          {
+            "path": "source-blobs/16a443850ce6ddc6a38a28be258342aaa49b84b0f7fc18df3060a4ad62233bc6",
+            "before": {
+              "bytes": 1400,
+              "sha256": "16a443850ce6ddc6a38a28be258342aaa49b84b0f7fc18df3060a4ad62233bc6"
+            },
+            "after": {
+              "bytes": 1429,
+              "sha256": "ea59239f19460558e258b1ee37e278965ab8415535aaa6965d134b56bbb9bd7c"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "3dd5c1f2942bb728d0b4116ba5a573258d09a0e930088aa6963011ac797c2910"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407440,
+            "sha256": "1bacf94d7b2b4b56e7f3c0c24916a0cd551bfb86806dcf35890d4982dcdb723c"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_archive_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_archive_changed.log",
+        "log_identity": {
+          "bytes": 1075,
+          "sha256": "ec459729119257bb88b1f99d39f3cc3e58a999c2a3a8a1332fd3ae0a7e5ab44c"
+        },
+        "mutations": [
+          {
+            "path": "crate-blobs/00e778cec317a66ad43111508c9dfcc782af9bbac8ace68097651d687f864204.crate",
+            "before": {
+              "bytes": 50827,
+              "sha256": "00e778cec317a66ad43111508c9dfcc782af9bbac8ace68097651d687f864204"
+            },
+            "after": {
+              "bytes": 50827,
+              "sha256": "a2c439cbc133cf6fd004e4889b2de128fd530011672a9113407cb939c080e5de"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "737950d7ceb449915a566de65896b87189debd90c928f0b2e9ab4c9635d2736a"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407436,
+            "sha256": "b231a64b9951830d2e18898563f719d202e94536f6265f4536c7d3bc0e8f71e2"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "standalone_provider_omitted",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "standalone_provider_omitted.log",
+        "log_identity": {
+          "bytes": 608,
+          "sha256": "d3e68848c13869f08969292934ffac8c9a10bef4abafbef5dac218140000fad5"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/standalone-acceptance-r1.json",
+            "before": {
+              "bytes": 34434,
+              "sha256": "7b2e3959deaa701b43ce1851a0b1dffc6aaf338d6cfbf06ddd393139cbec0492"
+            },
+            "after": {
+              "bytes": 32383,
+              "sha256": "d6885ff055375804aa73de73ca4abd771d060322cfea82c9fdedb7452893e035"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "b88bb92ad84853be2a835c8036742442fe6a440372b91e8b538e2f2fbc303b3f"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407352,
+            "sha256": "e4bf83f194c8eda5413239b612d8c09c63ef1dd2407901e43395b67822922cf6"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "standalone_child_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "standalone_child_failed.log",
+        "log_identity": {
+          "bytes": 765,
+          "sha256": "8b416192ac73cdbaa241299af7b4a283276bb9ea6a2aa660513e72b88fa70370"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/standalone-final-r1/formats/report.json",
+            "before": {
+              "bytes": 10225,
+              "sha256": "a5c6f617108826b4573c9694d8ab5ebd2687e4a34aa527a1a11b96cc4dd73229"
+            },
+            "after": {
+              "bytes": 10225,
+              "sha256": "f77319685f4c8406753c536194a8828db19129957fd747e4035f3065468b0733"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "5bfe3971fb175470ebcab46cfc80655f7687f509458a5d2ddfc4fd8c05236eef"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407444,
+            "sha256": "222500e24ff9ebcd139c9440af39d20d0db5679d02ed5ac602d62b16d2a5411e"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "source_drift",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "source_drift.log",
+        "log_identity": {
+          "bytes": 682,
+          "sha256": "d04e1c99d882f95fbcdfef82ef90b657b578ed4f7d0b27ad1518c138590f5b08"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/provider-native-tests-r3.json",
+            "before": {
+              "bytes": 1283705,
+              "sha256": "19d45f011c38f439c8165d2aef8a8902051e64ed39da26d75598ebf7cf9f1c3e"
+            },
+            "after": {
+              "bytes": 1283733,
+              "sha256": "73785da404707c6aa7c551661b6ac101fd79f8f8ef975b80efea51c65ebd9b7c"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "63c7d84207afa7d5eb2ef7a4a0e8121568940774c77ed6ca780495565cfb8661"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407432,
+            "sha256": "7a45e1a012e4761f323d78362d593748e3de6d433e83d18c655aba5b194180b0"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "audit_policy_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "audit_policy_failed.log",
+        "log_identity": {
+          "bytes": 528,
+          "sha256": "a4aa0ae561b3e47310e50f09f4e11b40e54b5c808642c719d7fcb6d177fa6a3d"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/dependency-audit-report-r1.json",
+            "before": {
+              "bytes": 4106,
+              "sha256": "c429a90773d78526270082749af593ac216d12e7793434c01b7db1fdc4dfd42b"
+            },
+            "after": {
+              "bytes": 4106,
+              "sha256": "c3bd4c09f177840859c4cc25fdc8583f9f2d242d295f1f11b491bfe9c4a202ce"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "3fc81669892d7f6cdf90add191588b6bfa49ec15f3075177cc2b1d1b3366ce38"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407440,
+            "sha256": "5e04c98b5996596b854bff925a331c96e3b9675736c423d7a7cbea6360c937b9"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "dependency_baseline_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "dependency_baseline_changed.log",
+        "log_identity": {
+          "bytes": 933,
+          "sha256": "4a6af25c19dc24787e4f8ed81b00190d6041d016815904db4442407498785d5c"
+        },
+        "mutations": [
+          {
+            "path": "dependency-baseline/acceptance.json",
+            "before": {
+              "bytes": 189484,
+              "sha256": "e7f2c6a0553a34be8e7ba6c7f69fba173d292b1718b76917084c2b7e59bab01f"
+            },
+            "after": {
+              "bytes": 189484,
+              "sha256": "850cb957bfaef7ae673740d076c95c7dfa78073262f521a38d24ee912b151485"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "3571459984ff367d921641f7e15d6e0f9eff13b304ce0f968fe09ed8b273dca9"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407436,
+            "sha256": "1e17054741ec148f84691b9eebb0e9275a7f37dcb4ca2053fccaf18cb8962145"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "required_stage_omitted",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "required_stage_omitted.log",
+        "log_identity": {
+          "bytes": 532,
+          "sha256": "a3705952cbc32f9196edbd212dc9ea6e6bd3a5640bbc06fa237d19e8a3003091"
+        },
+        "mutations": [
+          {
+            "path": "observations/provider/validation-protocol-r7.json",
+            "before": {
+              "bytes": 9125,
+              "sha256": "a8304dbc7bb5e417df739b6aa9d87e358966e78d7dba6f64dc43ba64eaeb502e"
+            },
+            "after": {
+              "bytes": 8370,
+              "sha256": "ddf6fe30f65add70de5cf4aedee539acb7583f907e00d74ccb575af9cd16a2aa"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527348,
+            "sha256": "22543cee1bd13b055742bec98f10c88b909885e8bb88ed46279b8df417f6ca9a"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407436,
+            "sha256": "4feae58482f5a1f76a5ddd777ef4adfbffd45c67466f0217a14232587210698c"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "unsafe_archive_path",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "unsafe_archive_path.log",
+        "log_identity": {
+          "bytes": 937,
+          "sha256": "8612c88faab2142fd777d6194b922ad3ed972d2ce039504adbabdcfa97567efa"
+        },
+        "mutations": [
+          {
+            "path": "../untrusted.json",
+            "before": null,
+            "after": {
+              "bytes": 3,
+              "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+            }
+          }
+        ],
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2527497,
+            "sha256": "c97053ec0813a774776c7913a20f20d7ca4d6471a05b8e4f141e5828116411b1"
+          },
+          "verification.tar.xz": {
+            "bytes": 140407636,
+            "sha256": "afa8f187d3b6f3117426773e05be0f8cee2e53d5c1fbdb1d48bfbca61bad55d3"
+          },
+          "verify.py": {
+            "bytes": 21826,
+            "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+          },
+          "verify_sources.py": {
+            "bytes": 13322,
+            "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+          },
+          "verify_standalone.py": {
+            "bytes": 9506,
+            "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+          }
+        },
+        "original_packet_unchanged": true
+      }
+    ],
+    "positive_controls": 2,
+    "rejected_controls": 13,
+    "original_packet": {
+      "acceptance.json": {
+        "bytes": 2527348,
+        "sha256": "c5365f9c1deaab2214c5621caa22a3665b45310843e4405f3fb6092ef675a892"
+      },
+      "verification.tar.xz": {
+        "bytes": 93511388,
+        "sha256": "abcd983128f29c7ef085b8691beea5f305bb9d143bc265a47efb311fcac27584"
+      },
+      "verify.py": {
+        "bytes": 21826,
+        "sha256": "fe921807a5a27727c2b001131f84c3cd198570928a6e6dd307c7c308b613f66a"
+      },
+      "verify_sources.py": {
+        "bytes": 13322,
+        "sha256": "87785738560128fd19edf70816999a394319d7d7938cfa9273ca385bde5ee05b"
+      },
+      "verify_standalone.py": {
+        "bytes": 9506,
+        "sha256": "7cdb452e2aed8235854911bf135e0b02575c33ff71497d03d3439dd949e5ec5d"
+      }
+    },
+    "driver_sha256": "25b4ba780611781b9487715a980ecc27028954b25c3be0dc32a465e239448bcc",
+    "scope": "Actual subprocess replay of copied portable evidence; negative archives resealed except the explicit checksum control. Temporary mutated payloads retired after observations; sources and original evidence unchanged."
+  },
+  "logs": {
+    "original.log": "{\"status\": \"passed\", \"archive_members\": 7015, \"source_verification\": {\"status\": \"passed\", \"changed_graph_records\": 104, \"providers\": [{\"name\": \"arrow-array\", \"version\": \"59.3.2\", \"files\": 68}, {\"name\": \"arrow-avro\", \"version\": \"59.3.2\", \"files\": 88}, {\"name\": \"arrow-data\", \"version\": \"59.3.2\", \"files\": 40}, {\"name\": \"arrow-ipc\", \"version\": \"59.3.2\", \"files\": 37}, {\"name\": \"orc-rust\", \"version\": \"0.9.0\", \"files\": 81}, {\"name\": \"parquet\", \"version\": \"59.3.2\", \"files\": 498}, {\"name\": \"vortex-array\", \"version\": \"0.93.0\", \"files\": 879}, {\"name\": \"vortex-arrow\", \"version\": \"0.93.0\", \"files\": 35}, {\"name\": \"vortex-buffer\", \"version\": \"0.93.0\", \"files\": 34}, {\"name\": \"vortex-datetime-parts\", \"version\": \"0.93.0\", \"files\": 24}, {\"name\": \"vortex-file\", \"version\": \"0.93.0\", \"files\": 43}, {\"name\": \"vortex-fsst\", \"version\": \"0.93.0\", \"files\": 28}, {\"name\": \"vortex-io\", \"version\": \"0.93.0\", \"files\": 52}, {\"name\": \"vortex-layout\", \"version\": \"0.93.0\", \"files\": 161}, {\"name\": \"vortex-zstd\", \"version\": \"0.93.0\", \"files\": 24}], \"standalone_graphs\": 15, \"new_development_packages\": 34, \"parquet_fixtures\": 268, \"dependency_notices\": {\"status\": \"passed\", \"registry_packages\": 431, \"vendored_packages\": 15, \"license_file_records\": 829, \"unique_text_files\": 249}, \"offline\": true}, \"checks\": 15, \"standalone_providers\": 15, \"installed_package\": {\"tests\": 386, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"status\": \"passed\"}, \"original_nonacceptance_records\": 70, \"documentation_bindings\": 0, \"repository_source_comparison\": false, \"scope\": \"Offline source/graph/license and saved-check replay; no runtime tests or benchmarks rerun.\"}\n",
+    "relocated_source_only.log": "{\"status\": \"passed\", \"archive_members\": 7015, \"source_verification\": {\"status\": \"passed\", \"changed_graph_records\": 104, \"providers\": [{\"name\": \"arrow-array\", \"version\": \"59.3.2\", \"files\": 68}, {\"name\": \"arrow-avro\", \"version\": \"59.3.2\", \"files\": 88}, {\"name\": \"arrow-data\", \"version\": \"59.3.2\", \"files\": 40}, {\"name\": \"arrow-ipc\", \"version\": \"59.3.2\", \"files\": 37}, {\"name\": \"orc-rust\", \"version\": \"0.9.0\", \"files\": 81}, {\"name\": \"parquet\", \"version\": \"59.3.2\", \"files\": 498}, {\"name\": \"vortex-array\", \"version\": \"0.93.0\", \"files\": 879}, {\"name\": \"vortex-arrow\", \"version\": \"0.93.0\", \"files\": 35}, {\"name\": \"vortex-buffer\", \"version\": \"0.93.0\", \"files\": 34}, {\"name\": \"vortex-datetime-parts\", \"version\": \"0.93.0\", \"files\": 24}, {\"name\": \"vortex-file\", \"version\": \"0.93.0\", \"files\": 43}, {\"name\": \"vortex-fsst\", \"version\": \"0.93.0\", \"files\": 28}, {\"name\": \"vortex-io\", \"version\": \"0.93.0\", \"files\": 52}, {\"name\": \"vortex-layout\", \"version\": \"0.93.0\", \"files\": 161}, {\"name\": \"vortex-zstd\", \"version\": \"0.93.0\", \"files\": 24}], \"standalone_graphs\": 15, \"new_development_packages\": 34, \"parquet_fixtures\": 268, \"dependency_notices\": {\"status\": \"passed\", \"registry_packages\": 431, \"vendored_packages\": 15, \"license_file_records\": 829, \"unique_text_files\": 249}, \"offline\": true}, \"checks\": 15, \"standalone_providers\": 15, \"installed_package\": {\"tests\": 386, \"failures\": 0, \"errors\": 0, \"skipped\": 0, \"status\": \"passed\"}, \"original_nonacceptance_records\": 70, \"documentation_bindings\": 0, \"repository_source_comparison\": false, \"scope\": \"Offline source/graph/license and saved-check replay; no runtime tests or benchmarks rerun.\"}\n",
+    "unsealed_archive_corruption.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-ssqp9djq/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-ssqp9djq/verify.py\", line 90, in verify\n    assert sha(archive_raw) == report['archive_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "native_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-ubm7vs4i/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-ubm7vs4i/verify.py\", line 134, in verify\n    assert result['status'] == 'passed' and result['returncode'] == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "installed_skips.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-m_qqpi29/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-m_qqpi29/verify.py\", line 218, in verify\n    assert integration['failures'] == integration['errors'] == integration['skipped'] == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "omitted_original_failure.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-xmand705/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-xmand705/verify.py\", line 248, in verify\n    failure_inventory = verify_failure_inventory(data.__getitem__)\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-xmand705/verify.py\", line 70, in verify_failure_inventory\n    content = read(prefix + relative(row['receipt_path']))\nKeyError: 'observations/provider/candidate-installation-failure-r1.json'\n",
+    "compiled_source_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-0ju3g100/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-0ju3g100/verify.py\", line 113, in verify\n    assert identity(data['source-blobs/' + entry['sha256']]) == entry\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "provider_archive_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fxr563_z/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fxr563_z/verify.py\", line 160, in verify\n    source_result = module.verify(data.__getitem__, sources, report['baseline_provider_locks'])\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fxr563_z/verify_sources.py\", line 110, in verify\n    raw = crate(name, version, checksum)['Cargo.toml']\n          ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fxr563_z/verify_sources.py\", line 65, in crate\n    assert sha(raw) == checksum, 'archive:checksum:' + name\n           ^^^^^^^^^^^^^^^^^^^^\nAssertionError: archive:checksum:vortex\n",
+    "standalone_provider_omitted.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-_nh17bdy/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-_nh17bdy/verify.py\", line 173, in verify\n    assert standalone_result == provider(report['standalone_acceptance'])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "standalone_child_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-3yj70e3u/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-3yj70e3u/verify.py\", line 172, in verify\n    standalone_result = standalone_module.verify(data.__getitem__, sources)\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-3yj70e3u/verify_standalone.py\", line 130, in verify\n    assert entry['returncode'] == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "source_drift.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-q1ulth4q/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-q1ulth4q/verify.py\", line 144, in verify\n    assert validation['head_matches'] and validation['path_set_matches'] and validation['changed_paths'] == []\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "audit_policy_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-a_cqamue/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-a_cqamue/verify.py\", line 243, in verify\n    assert audit[key] == 'passed'\n           ^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "dependency_baseline_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-m8puy_um/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-m8puy_um/verify.py\", line 193, in verify\n    assert result.returncode == 0, result.stdout.decode(errors='replace')\n           ^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: Traceback (most recent call last):\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-dependency-replay-ummh0_ak/verify.py\", line 88, in <module>\n    assert graph['status'] == 'passed' and graph['build_sources'] == report['code_snapshot']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n\n",
+    "required_stage_omitted.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-3bf6s7w2/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-3bf6s7w2/verify.py\", line 125, in verify\n    assert len(names) == len(ROLES)\n           ^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "unsafe_archive_path.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fycwibmh/verify.py\", line 343, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fycwibmh/verify.py\", line 98, in verify\n    assert member.isfile() and safe(member.name) == row['path'] and member.size == row['bytes']\n                               ~~~~^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/provider-upgrade-2026-11-08/packet-controls-r1/provider-control-fycwibmh/verify.py\", line 50, in safe\n    assert path and not value.is_absolute() and '..' not in value.parts and str(value) == path\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  "scope": "Saved actual subprocess outcomes, identities and mutation records. No runtime/benchmark rerun.",
+  "primary_sealer_sha256": "f8439afeda758b2dad2265695a5e7db1b7f0424b882db36a0d02586c57130752"
+}

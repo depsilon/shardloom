@@ -10,7 +10,7 @@ use vortex::array::{
 fn key(array: &ArrayRef, memory: &LiveMemoryPool) -> KeyColumn {
     KeyColumn::new(
         array,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
         memory,
         &CancellationToken::default(),
     )
@@ -198,7 +198,7 @@ fn native_typed_keys_temporal_domains_keep_full_ranges_and_logical_identity() {
 
 #[test]
 fn native_typed_keys_admission_precedes_work_and_releases_failed_reservations() {
-    let mut context = vortex::array::array_session().create_execution_ctx();
+    let mut context = vortex::session::VortexSession::empty().create_execution_ctx();
     let cancellation = CancellationToken::default();
     let memory = LiveMemoryPool::new(15).unwrap();
     let binary = VarBinArray::from(vec![Some(&b"\xff"[..]), Some(&b""[..])]).into_array();
@@ -209,12 +209,13 @@ fn native_typed_keys_admission_precedes_work_and_releases_failed_reservations() 
         DecimalArray::from_option_iter([] as [Option<i128>; 0], DecimalDType::new(39, 0))
             .into_array(),
         ExtensionArray::new(
-            Timestamp::new_with_tz(
+            crate::native_temporal::invalid_timestamp_for_test(
                 TimeUnit::Microseconds,
-                Some("ShardLoom/Invalid".into()),
+                Some("ShardLoom/Invalid"),
                 Nullability::NonNullable,
             )
-            .erased(),
+            .as_extension()
+            .clone(),
             PrimitiveArray::from_iter([] as [i64; 0]).into_array(),
         )
         .into_array(),

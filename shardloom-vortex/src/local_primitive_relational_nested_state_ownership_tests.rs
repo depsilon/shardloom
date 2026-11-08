@@ -12,7 +12,7 @@ fn hidden_children_fixture() -> (ArrayRef, DType) {
         PrimitiveArray::from_iter([1_000_000u64, 0]).into_array(),
         Validity::from_iter([false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -23,7 +23,7 @@ fn hidden_children_fixture() -> (ArrayRef, DType) {
         PrimitiveArray::from_iter([1u64, 0]).into_array(),
         Validity::AllValid,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -152,7 +152,7 @@ fn large_nested(context: &crate::resident_session::NativeExecutionContext<'_>) -
         PrimitiveArray::from_iter([1u64, 1, 1]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

@@ -2,7 +2,7 @@
 
 use prost::Message as _;
 use vortex_array::arrays::VarBinViewArray;
-use vortex_array::{IntoArray, VortexSessionExecute, array_session};
+use vortex_array::{IntoArray, VortexSessionExecute};
 use vortex_buffer::ByteBuffer;
 use vortex_error::VortexResult;
 
@@ -20,7 +20,7 @@ fn original_payload_and_indices(values: &[Option<Vec<u8>>]) -> (ByteBuffer, Vec<
 }
 
 fn compare_original_representation(values: &[Option<Vec<u8>>], sliced: bool) -> VortexResult<()> {
-    let session = array_session();
+    let session = vortex_session::VortexSession::empty();
     let mut ctx = session.create_execution_ctx();
     let input = if sliced {
         let mut padded = vec![Some(b"unselected prefix".to_vec())];
@@ -106,7 +106,7 @@ fn sparse_frames_preserve_dictionary_training_and_partial_frames() -> VortexResu
 #[test]
 fn sparse_index_has_only_native_writer_frame_boundaries() -> VortexResult<()> {
     let input = VarBinViewArray::from_iter_str(std::iter::repeat_n("", 16_385));
-    let mut ctx = array_session().create_execution_ctx();
+    let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
     let packed = collect_valid_vbv(&input, 8_192, &mut ctx)?;
     assert_eq!(packed.n_values, 16_385);
     assert_eq!(packed.payload.len(), 16_385 * size_of::<ViewLen>());

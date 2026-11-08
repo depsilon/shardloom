@@ -246,7 +246,7 @@ fn exact_byte_aggregate_caches_and_mirrors_keep_the_small_grant() {
             false,
             true,
             envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .unwrap();
         let items = usize::try_from(bytes / 128).unwrap();
@@ -295,7 +295,7 @@ fn exact_byte_grouped_aggregate_refuses_before_opening_or_allocating_state() {
             false,
             true,
             policy.resource_envelope,
-            Some(&vortex::array::array_session()),
+            Some(&vortex::session::VortexSession::empty()),
         )
         .err()
         .expect("insufficient direct state grant");

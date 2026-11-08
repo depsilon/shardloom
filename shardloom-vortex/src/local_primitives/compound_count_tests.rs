@@ -50,7 +50,7 @@ fn partial(numeric: &ArrayRef, text: &ArrayRef, memory: &LiveMemoryPool) -> Comp
     compound_count_partial::count(
         numeric,
         text,
-        vortex::array::array_session().create_execution_ctx(),
+        vortex::session::VortexSession::empty().create_execution_ctx(),
         &worker(),
         &mut lease,
     )
@@ -169,7 +169,7 @@ fn compound_empty_sliced_and_underreserved_inputs_preserve_ownership() {
     let error = compound_count_partial::count(
         &integers(&[1]),
         &strings(&["x"]),
-        vortex::array::array_session().create_execution_ctx(),
+        vortex::session::VortexSession::empty().create_execution_ctx(),
         &worker(),
         &mut lease,
     )
@@ -208,7 +208,7 @@ fn compound_complete_keys_preserve_global_winner_skew_collisions_and_workers() {
                     let mut partial = compound_count_partial::count(
                         &numeric,
                         &text,
-                        vortex::array::array_session().create_execution_ctx(),
+                        vortex::session::VortexSession::empty().create_execution_ctx(),
                         worker,
                         lease,
                     )?;
@@ -376,7 +376,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 false,
                 false,
                 policy.resource_envelope,
-                Some(&vortex::array::array_session()),
+                Some(&vortex::session::VortexSession::empty()),
             )
             .unwrap();
             let memory = LiveMemoryPool::new(8 << 20).unwrap();
@@ -395,7 +395,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 chunks[0].dtype(),
                 &columns,
                 policy,
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
                 &memory,
             )
             .unwrap()
@@ -463,7 +463,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             array.dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
             &memory
         )
         .unwrap()
@@ -486,7 +486,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             parent_nullable.dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
             &memory,
         )
         .unwrap()
@@ -500,7 +500,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
         compound_count_partial::count(
             &integers(&[1, 2]),
             &strings(&["x", "y"]),
-            vortex::array::array_session().create_execution_ctx(),
+            vortex::session::VortexSession::empty().create_execution_ctx(),
             &ChunkWorkerContext::Inline(cancel),
             &mut lease
         )
@@ -517,7 +517,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
         let partial = compound_count_partial::count(
             &integers(&[1, 2]),
             &strings(&["x", "y"]),
-            vortex::array::array_session().create_execution_ctx(),
+            vortex::session::VortexSession::empty().create_execution_ctx(),
             worker,
             lease,
         )?;
@@ -557,7 +557,7 @@ fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
                 repeat,
             });
         assert!(
-            vortex::array::array_session()
+            vortex::session::VortexSession::empty()
                 .get_opt::<compound_count_partial::ProviderFault>()
                 .is_none()
         );
@@ -663,7 +663,7 @@ fn compound_initial_reservation_race_hands_off_untouched_chunk_exactly_once() {
             chunks[0].dtype(),
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
             &memory,
         )
         .unwrap()

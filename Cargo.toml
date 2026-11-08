@@ -8,7 +8,7 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/orc-rust", "vendor/parquet", "vendor/vortex-array", "vendor/vortex-buffer", "vendor/vortex-datetime-parts", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-runend", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/orc-rust", "vendor/parquet", "vendor/vortex-array", "vendor/vortex-arrow", "vendor/vortex-buffer", "vendor/vortex-datetime-parts", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
@@ -19,13 +19,13 @@ arrow-ipc = { path = "vendor/arrow-ipc" }
 orc-rust = { path = "vendor/orc-rust" }
 parquet = { path = "vendor/parquet" }
 vortex-array = { path = "vendor/vortex-array" }
+vortex-arrow = { path = "vendor/vortex-arrow" }
 vortex-buffer = { path = "vendor/vortex-buffer" }
 vortex-datetime-parts = { path = "vendor/vortex-datetime-parts" }
 vortex-file = { path = "vendor/vortex-file" }
 vortex-fsst = { path = "vendor/vortex-fsst" }
 vortex-io = { path = "vendor/vortex-io" }
 vortex-layout = { path = "vendor/vortex-layout" }
-vortex-runend = { path = "vendor/vortex-runend" }
 vortex-zstd = { path = "vendor/vortex-zstd" }
 
 [workspace.package]
@@ -44,21 +44,21 @@ rust-version = "1.96"
 [workspace.dependencies]
 adbc_core = "=0.25.0"
 adbc_ffi = "=0.25.0"
-arrow-array = "=59.3.1"
+arrow-array = "=59.3.2"
 arrow-buffer = "=59.3.2"
 arrow-data = "=59.3.2"
-arrow-avro = { version = "=59.3.1", default-features = false, features = ["deflate", "snappy"] }
-arrow-flight = { version = "=59.3.1", default-features = false, features = ["flight-sql", "tls-ring"] }
-arrow-ipc = "=59.3.1"
-arrow-pyarrow = "=59.3.1"
+arrow-avro = { version = "=59.3.2", default-features = false, features = ["deflate", "snappy"] }
+arrow-flight = { version = "=59.3.2", default-features = false, features = ["flight-sql", "tls-ring"] }
+arrow-ipc = "=59.3.2"
+arrow-pyarrow = "=59.3.2"
 arrow-schema = "=59.3.2"
 futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
-jiff = { version = "=0.2.38", default-features = false, features = ["std"] }
+jiff = { version = "=0.2.39", default-features = false, features = ["std"] }
 jiff-tzdb = "=0.1.6"
 memchr = "2.8.3"
-parquet = "=59.3.1"
+parquet = "=59.3.2"
 pyo3 = "=0.29.3"
 pyo3-build-config = "=0.30.1"
 prost = "=0.14.4"
@@ -71,14 +71,14 @@ rustls = { version = "=0.23.46", default-features = false, features = ["ring", "
 tokio = { version = "=1.54.1", default-features = false, features = ["macros", "rt-multi-thread", "sync", "time", "net", "io-util"] }
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
 tonic = { version = "=0.14.9", default-features = false, features = ["transport", "codegen", "router", "tls-ring"] }
-tonic-prost = "=0.14.8"
+tonic-prost = "=0.14.9"
 shardloom-core = { version = "1.1.0", path = "shardloom-core" }
 shardloom-exec = { version = "1.1.0", path = "shardloom-exec" }
 shardloom-plan = { version = "1.1.0", path = "shardloom-plan" }
 shardloom-runtime = { package = "shardloom-cli", version = "1.1.0", path = "shardloom-cli" }
 shardloom-vortex = { version = "1.1.0", path = "shardloom-vortex" }
-vortex = { version = "=0.90.0", default-features = false, features = ["files", "zstd"] }
-vortex-zstd = "=0.90.0"
+vortex = { version = "=0.93.0", default-features = false, features = ["files", "zstd"] }
+vortex-zstd = "=0.93.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

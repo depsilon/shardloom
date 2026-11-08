@@ -15,7 +15,7 @@ use vortex::{
     array::{
         aggregate_fn::session::AggregateFnSession, dtype::session::DTypeSession,
         memory::HostMemorySessionExt as _, optimizer::kernels::KernelSession,
-        scalar_fn::session::ScalarFnSession, session::ArraySession, stats::session::StatsSession,
+        scalar_fn::session::ScalarFnSession, session::ArraySession,
     },
     editions::{EditionSession, EnabledEditions},
     io::session::RuntimeSession,
@@ -39,7 +39,6 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     inherit::<KernelSession>(parent, &child);
     inherit::<LayoutSession>(parent, &child);
     inherit::<ScalarFnSession>(parent, &child);
-    inherit::<StatsSession>(parent, &child);
     inherit::<AggregateFnSession>(parent, &child);
     inherit::<EditionSession>(parent, &child);
     inherit::<EnabledEditions>(parent, &child);

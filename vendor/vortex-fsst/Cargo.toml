@@ -14,7 +14,7 @@ publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-fsst"
-version = "0.90.0"
+version = "0.93.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -55,7 +55,7 @@ name = "vortex_fsst"
 path = "src/lib.rs"
 
 [dependencies.fsst-rs]
-version = "0.6.0"
+version = "0.7.0"
 
 [dependencies.num-traits]
 version = "0.2.19"
@@ -64,38 +64,38 @@ version = "0.2.19"
 version = "0.14"
 
 [dependencies.rand]
-version = "0.10.1"
+version = "0.10.3"
 optional = true
 
 [dependencies.vortex-array]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-buffer]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-mask]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-session]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dev-dependencies.divan]
-version = "5.0.0"
+version = "6.0.0"
 package = "codspeed-divan-compat"
 
 [dev-dependencies.mimalloc]
 version = "0.1.42"
 
 [dev-dependencies.rand]
-version = "0.10.1"
+version = "0.10.3"
 
 [dev-dependencies.rstest]
 version = "0.26.1"
@@ -104,7 +104,7 @@ version = "0.26.1"
 version = "=0.16.3"
 
 [dev-dependencies.vortex-array]
-version = "0.90.0"
+version = "0.93.0"
 features = ["_test-harness"]
 default-features = false
 

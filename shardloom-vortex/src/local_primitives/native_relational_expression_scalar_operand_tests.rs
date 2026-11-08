@@ -148,7 +148,7 @@ fn prepared_scalar_operands_own_results_after_input_and_session_close() {
         let retained = output.slice(0..rows).unwrap();
         drop((output, receiver));
         assert!(receiver_memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         for (row, value) in [Some(18i64), None, Some(-2)]
             .into_iter()
             .take(rows)

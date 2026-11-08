@@ -35,7 +35,7 @@ fn typed_unary_lazy_field_wrappers_never_evaluate_unselected_struct_scalars() {
                     .unwrap(),
                 Validity::from_iter([true, false, true]),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap()

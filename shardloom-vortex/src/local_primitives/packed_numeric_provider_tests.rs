@@ -155,38 +155,40 @@ fn packed_provider_preserves_patch_positions_after_slicing() {
 }
 
 #[test]
-fn frame_of_reference_provider_declines_ordered_comparisons_at_wrapping_boundary() {
+fn frame_of_reference_provider_compares_full_signed_distance_domain() {
     let mut ctx = vortex::session::VortexSession::default().create_execution_ctx();
-    let reference = i32::MAX - 3;
-    let offsets = [0_i32, 3, 4, 7];
-    let values = offsets.map(|v| reference.wrapping_add(v));
+    // Vortex 0.93 requires the reference to be no larger than any decoded
+    // value. Large unsigned distances still wrap in the signed encoded type.
+    let reference = i32::MIN + 3;
+    let values = [reference, -1, 0, i32::MAX];
+    let offsets = values.map(|value| value.wrapping_sub(reference));
     let array = FoR::try_new(
         PrimitiveArray::from_iter(offsets).into_array(),
         vortex::scalar::Scalar::from(reference),
     )
     .unwrap();
-    for op in OPS {
-        let rhs = ConstantArray::new(i32::MAX, values.len()).into_array();
-        let provided =
-            <FoR as CompareKernel>::compare(array.as_view(), &rhs, op, &mut ctx).unwrap();
-        assert_eq!(
-            provided.is_some(),
-            matches!(op, CompareOperator::Eq | CompareOperator::NotEq)
-        );
-        // Declining this kernel does not mean the native expression is unsupported.
-        // Its general provider may materialize the values, within Vortex itself.
-        let actual = array
-            .clone()
-            .into_array()
-            .binary(rhs, Operator::from(op))
-            .unwrap()
-            .execute::<BoolArray>(&mut ctx)
-            .unwrap();
-        let expected: Vec<_> = values
-            .iter()
-            .map(|v| Some(compare(*v, i32::MAX, op)))
-            .collect();
-        assert_mask(&actual, &expected, &mut ctx);
+    for constant in [i32::MIN, reference, -1, 0, i32::MAX] {
+        for op in OPS {
+            let rhs = ConstantArray::new(constant, values.len()).into_array();
+            let provided = <FoR as CompareKernel>::compare(array.as_view(), &rhs, op, &mut ctx)
+                .unwrap()
+                .expect("full-domain encoded comparison must be admitted")
+                .execute::<BoolArray>(&mut ctx)
+                .unwrap();
+            let actual = array
+                .clone()
+                .into_array()
+                .binary(rhs, Operator::from(op))
+                .unwrap()
+                .execute::<BoolArray>(&mut ctx)
+                .unwrap();
+            let expected: Vec<_> = values
+                .iter()
+                .map(|value| Some(compare(*value, constant, op)))
+                .collect();
+            assert_mask(&provided, &expected, &mut ctx);
+            assert_mask(&actual, &expected, &mut ctx);
+        }
     }
 }
 

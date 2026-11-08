@@ -14,7 +14,7 @@ publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-zstd"
-version = "0.90.0"
+version = "0.93.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -58,27 +58,27 @@ version = "0.2.19"
 version = "0.14"
 
 [dependencies.vortex-array]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-buffer]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-edition]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-mask]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-session]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.zstd]
@@ -99,7 +99,7 @@ version = "0.12.5"
 version = "0.26.1"
 
 [dev-dependencies.vortex-array]
-version = "0.90.0"
+version = "0.93.0"
 features = ["_test-harness"]
 default-features = false
 

@@ -193,7 +193,7 @@ impl VarBinViewData {
         match dtype {
             DType::Utf8(nullability) => Ok((true, *nullability)),
             DType::Binary(nullability) => Ok((false, *nullability)),
-            _ => vortex_bail!(InvalidArgument: "invalid DType {dtype} for `VarBinViewArray`"),
+            _ => vortex_bail!("invalid DType {dtype} for `VarBinViewArray`"),
         }
     }
 
@@ -640,7 +640,7 @@ impl VarBinViewData {
         vortex_ensure_eq!(
             validity.nullability(),
             nullability,
-            InvalidArgument: "validity nullability is incompatible with dtype nullability",
+            "validity nullability is incompatible with dtype nullability",
         );
         Ok(is_utf8)
     }
@@ -749,7 +749,7 @@ impl VarBinViewData {
                 let bytes = view.as_inlined().value();
                 vortex_ensure!(
                     simdutf8::basic::from_utf8(bytes).is_ok(),
-                    InvalidArgument: "view at index {idx}: inlined bytes failed utf-8 validation"
+                    "view at index {idx}: inlined bytes failed utf-8 validation"
                 );
             }
             return Ok(());
@@ -761,25 +761,25 @@ impl VarBinViewData {
         let end_offset = start_offset.saturating_add(view.size as usize);
 
         let buf = buffers.get(buf_index).ok_or_else(||
-            vortex_err!(InvalidArgument: "view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {} buffers",
+            vortex_err!("view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {} buffers",
                 buffers.len()))?;
 
         vortex_ensure!(
             start_offset < buf.len(),
-            InvalidArgument: "start offset {start_offset} out of bounds for buffer {buf_index} with size {}",
+            "start offset {start_offset} out of bounds for buffer {buf_index} with size {}",
             buf.len(),
         );
 
         vortex_ensure!(
             end_offset <= buf.len(),
-            InvalidArgument: "end offset {end_offset} out of bounds for buffer {buf_index} with size {}",
+            "end offset {end_offset} out of bounds for buffer {buf_index} with size {}",
             buf.len(),
         );
 
         // Make sure the prefix data matches the buffer data.
         vortex_ensure!(
             view.prefix == buf[start_offset..start_offset + 4],
-            InvalidArgument: "VarBinView prefix does not match full string"
+            "VarBinView prefix does not match full string"
         );
 
         let Some(buffers_utf8) = buffers_utf8 else {
@@ -795,7 +795,7 @@ impl VarBinViewData {
 
         vortex_ensure!(
             valid_utf8,
-            InvalidArgument: "view at index {idx}: outlined bytes fails utf-8 validation"
+            "view at index {idx}: outlined bytes fails utf-8 validation"
         );
 
         Ok(())
@@ -815,31 +815,31 @@ impl VarBinViewData {
             let bytes = &view.as_inlined().data[..view.len() as usize];
             vortex_ensure!(
                 valid_utf8(bytes),
-                InvalidArgument: "view at index {idx}: inlined bytes failed utf-8 validation"
+                "InvalidArgument: view at index {idx}: inlined bytes failed utf-8 validation"
             );
         } else {
             // Validate the view pointer
             let view = view.as_view();
             let buf_index = view.buffer_index as usize;
             let start_offset = view.offset as usize;
-            let end_offset = view.offset.checked_add(view.size).ok_or_else(
-                || vortex_err!(InvalidArgument: "view at index {idx}: end offset exceeds u32"),
-            )? as usize;
+            let end_offset = view.offset.checked_add(view.size).ok_or_else(|| {
+                vortex_err!("InvalidArgument: view at index {idx}: end offset exceeds u32")
+            })? as usize;
 
             vortex_ensure!(
                 buf_index < buffer_count,
-                InvalidArgument: "view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {buffer_count} buffers"
+                "InvalidArgument: view at index {idx} references invalid buffer: {buf_index} out of bounds for VarBinViewData with {buffer_count} buffers"
             );
             let (buffer_len, bytes) = buffer_at(buf_index);
 
             vortex_ensure!(
                 start_offset < buffer_len,
-                InvalidArgument: "start offset {start_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
+                "InvalidArgument: start offset {start_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
             );
 
             vortex_ensure!(
                 end_offset <= buffer_len,
-                InvalidArgument: "end offset {end_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
+                "InvalidArgument: end offset {end_offset} out of bounds for buffer {buf_index} with size {buffer_len}",
             );
 
             let Some(bytes) = bytes else {
@@ -851,7 +851,7 @@ impl VarBinViewData {
             let bytes = &bytes[start_offset..end_offset];
             vortex_ensure!(
                 view.prefix == bytes[..4],
-                InvalidArgument: "VarBinView prefix does not match full string"
+                "InvalidArgument: VarBinView prefix does not match full string"
             );
 
             // Validate the full string
@@ -865,7 +865,7 @@ impl VarBinViewData {
             );
             vortex_ensure!(
                 value_is_utf8,
-                InvalidArgument: "view at index {idx}: outlined bytes fails utf-8 validation"
+                "InvalidArgument: view at index {idx}: outlined bytes fails utf-8 validation"
             );
         }
         Ok(())
@@ -926,11 +926,11 @@ impl VarBinViewData {
     fn checked_host_bytes_at(&self, index: usize) -> VortexResult<&[u8]> {
         vortex_ensure!(
             self.views.as_host_opt().is_some(),
-            InvalidArgument: "VarBinView text access requires host views"
+            "InvalidArgument: VarBinView text access requires host views"
         );
-        let view = self.views().get(index).ok_or_else(
-            || vortex_err!(InvalidArgument: "VarBinView text index {index} is out of bounds"),
-        )?;
+        let view = self.views().get(index).ok_or_else(|| {
+            vortex_err!("InvalidArgument: VarBinView text index {index} is out of bounds")
+        })?;
         if view.is_inlined() {
             return Ok(view.as_inlined().value());
         }
@@ -940,11 +940,13 @@ impl VarBinViewData {
             .get(reference.buffer_index as usize)
             .and_then(BufferHandle::as_host_opt)
             .ok_or_else(|| {
-                vortex_err!(InvalidArgument: "VarBinView text access requires a host payload buffer")
+                vortex_err!(
+                    "InvalidArgument: VarBinView text access requires a host payload buffer"
+                )
             })?;
         buffer
             .get(reference.as_range())
-            .ok_or_else(|| vortex_err!(InvalidArgument: "VarBinView text range is out of bounds"))
+            .ok_or_else(|| vortex_err!("InvalidArgument: VarBinView text range is out of bounds"))
     }
 
     /// Access one of the backing data buffers.
@@ -1085,7 +1087,7 @@ pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
     fn utf8_slice_at(&self, index: usize) -> VortexResult<&str> {
         vortex_ensure!(
             matches!(self.as_ref().dtype(), DType::Utf8(_)),
-            InvalidArgument: "VarBinView text access requires a UTF-8 dtype"
+            "InvalidArgument: VarBinView text access requires a UTF-8 dtype"
         );
         let bytes = self.checked_host_bytes_at(index)?;
         if self.utf8_validated {

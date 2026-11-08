@@ -541,7 +541,7 @@ fn numeric_output_copy_survives_producer_drop_and_releases_its_own_clone_slice_c
         assert!(reserved > 0);
         drop(clone);
         assert!(receiver_memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         for row in 0..slice.len() {
             let original = rows - slice.len() + row;
             let observed = scalar(&slice, row, &mut execution).unwrap();

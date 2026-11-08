@@ -114,7 +114,7 @@
       "ctx.from_vortex_ipc",
       "Session.from_vortex_ipc"
     ],
-    "native_ipc_provider_version": "0.90.0",
+    "native_ipc_provider_version": "0.93.0",
     "native_ipc_max_combined_message_bytes": 67108864,
     "native_ipc_wire_statistics_trusted": false,
     "typed_plan_handles": true,
@@ -1437,10 +1437,10 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "231b6173e6451d39600faa5f95b1389b6ff67ef14bd104197cdcabded200e534",
+    "source_identity": "b33241f03ce24796210d96f1329ec2b7e45539f1073f54dc931a375d2bb28a4a",
     "source_inputs": {
-      "Cargo.lock": "9cafe7ca287be50faba717b13b39f3137fdc09c5682454f3c8f861f9f2bba1f4",
-      "Cargo.toml": "c61434702a77d9ee110d9c060f37668013572b76109caefd6afbaa5142f6d524",
+      "Cargo.lock": "8354a8f33c1a311a7aa92118c5b2a3e8e12d02c923b4015603fa3c45986dbcd3",
+      "Cargo.toml": "df59a5e23fccbb508d0936782ed3d3c03e5b61cd6f798391de1acc3b3dadcf69",
       "docs/release/channel-proofs/pypi-v1.1.0-provenance.json": "56e349f401a1a35fbbbf53c1c916d615b3b894d23d42a05e77d7ca1f65bc1282",
       "docs/release/package-channel-readiness-matrix.json": "dfff6eeb5014ea635c52f8efc7419bcda66fa11012b15507486ca18903fc7785",
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
@@ -1449,7 +1449,7 @@
       "python/src/shardloom/_result_schema.py": "e142cfdc7f5a6d7dc8653f6845407554346ad4ba5fd8dcd96bd1e363fee2b377",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
-      "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
+      "python/src/shardloom/adbc.py": "8ab2cc51e5f632561493e0b47bd693552dd45d19fa07ae5676571a23a95d0dba",
       "python/src/shardloom/client.py": "a2d90c758d341693f4031c711f297a1fd084d7e1fb55b93645c1d202d4feda4b",
       "python/src/shardloom/context.py": "b059c5578715f22fed5430691e5edd3345d15b27d80b28b347d4885111f0d4c1",
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
@@ -1464,7 +1464,7 @@
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
       "python/src/shardloom/types.py": "2dcf5b80c08ddb359cf4bf556cf980480a3b7e64bfa9c27e9c951f3994f0e063",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
-      "shardloom-vortex/Cargo.toml": "9b79b2cd5f93f2892f3a17a864c1fa21a3f5a28555a5a1ae0a4f8e054b34de41"
+      "shardloom-vortex/Cargo.toml": "8726fb194829d9b50487afc82c663adf2d563b095a7969b004e2b9c57d9388d3"
     },
     "python_symbols": [
       {

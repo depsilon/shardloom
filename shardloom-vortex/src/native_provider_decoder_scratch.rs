@@ -1,4 +1,4 @@
-//! Finite byte-buffer bounds for the pinned 0.90 physical decoder paths.
+//! Finite byte-buffer bounds for the pinned 0.93 physical decoder paths.
 //!
 //! Sum potential allocations throughout a closed tree rather than assuming
 //! children are unique or their temporary outputs cannot overlap. These credits
@@ -72,7 +72,7 @@ pub(super) fn workspace(
     let Some(alignment) = host_buffer_alignment(array) else {
         return Ok(None);
     };
-    // Blocked widths/references have different scratch trees in 0.90 and are
+    // Blocked widths/references have separate scratch trees and are
     // outside this finite global-encoding allocation proof.
     if array
         .as_opt::<BitPacked>()
@@ -144,7 +144,7 @@ fn physical_workspace(
 ) -> VortexResult<Option<Workspace>> {
     if array.is::<Delta>() && array.dtype().is_nullable() {
         // The reviewed Delta bound covers non-null integer children only.
-        // 0.90 may expose canonical validity without closing the nullable
+        // Canonical validity alone does not close the nullable
         // decoder's allocation tree, so keep this exclusion explicit.
         return Ok(None);
     }
@@ -319,14 +319,26 @@ fn dictionary(
     if array.dtype().is_nullable()
         || codes.dtype().is_nullable()
         || values.dtype().is_nullable()
-        || !codes.is::<Primitive>()
         || !canonical(values)
     {
         return Ok(None);
     }
-    let Some(mut result) = children(array, depth)? else {
+    let Some(mut result) = workspace(values, Mode::Canonical, depth + 1)? else {
         return Ok(None);
     };
+    if codes.is::<Primitive>() {
+        let Some(codes) = workspace(codes, Mode::Canonical, depth + 1)? else {
+            return Ok(None);
+        };
+        result.include(codes)?;
+    } else if !admitted_chunked_codes(codes, depth + 1) {
+        return Ok(None);
+    }
+    // 0.93 pulls shared values above Chunked dictionary codes. The native
+    // fixed-width builder independently admits those canonical code buffers
+    // (including finish overlap) and retains their credit through this gather.
+    // Reserve only the gather scratch here, so those owned buffers are not
+    // charged a second time. Other encoded code trees remain explicit exclusions.
     if values.is::<Bool>() {
         // collect_bool allocates u64 words, then retains the truncated buffer.
         result.allocate(capacity(mul(array.len().div_ceil(64), 8)?)?)?;
@@ -347,6 +359,25 @@ fn dictionary(
         }
     }
     Ok(Some(result))
+}
+
+fn admitted_chunked_codes(codes: &ArrayRef, depth: usize) -> bool {
+    use vortex::array::arrays::chunked::ChunkedArrayExt as _;
+
+    if depth >= 24
+        || codes.dtype().is_nullable()
+        || !matches!(codes.dtype(), DType::Primitive(ptype, _) if ptype.is_int())
+    {
+        return false;
+    }
+    if codes.is::<Primitive>() {
+        return codes.is_host();
+    }
+    codes.as_opt::<Chunked>().is_some_and(|chunks| {
+        chunks
+            .iter_chunks()
+            .all(|child| admitted_chunked_codes(child, depth + 1))
+    })
 }
 
 fn builder_capacity(array: &ArrayRef) -> VortexResult<u64> {
@@ -373,11 +404,11 @@ fn decoded_capacity(array: &ArrayRef, rows: usize, alignment: usize) -> VortexRe
                 decimal.values_type().byte_width()
             } else if let Some(constant) = array.as_opt::<Constant>() {
                 constant.scalar().as_decimal().decimal_value().map_or_else(
-                    || DecimalType::smallest_decimal_value_type(decimal).byte_width(),
+                    || decimal.canonical_values_type().byte_width(),
                     |value| value.decimal_type().byte_width(),
                 )
             } else {
-                DecimalType::smallest_decimal_value_type(decimal).byte_width()
+                decimal.canonical_values_type().byte_width()
             }
         }
         _ => vortex_bail!("native decoder scratch requires a fixed-width dtype"),

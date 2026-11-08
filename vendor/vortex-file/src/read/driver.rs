@@ -1,3 +1,5 @@
+// Modified by ShardLoom on 2026-11-08: preserve the local provider contracts.
+// See README.shardloom.md and upstream-provenance.json for the retained changes.
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 

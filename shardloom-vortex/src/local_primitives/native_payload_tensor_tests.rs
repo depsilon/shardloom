@@ -7,7 +7,7 @@ use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::dtype::{FieldNames, extension::ExtDType};
 
 fn tensor() -> ArrayRef {
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let data = ListArray::try_new(
         PrimitiveArray::from_iter([10_i32, 20, 30, 40]).into_array(),
         PrimitiveArray::from_iter([0_u64, 1, 3, 4]).into_array(),

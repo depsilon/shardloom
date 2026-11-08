@@ -753,8 +753,7 @@ mod tests {
                 )
             };
             let buffers =
-                future::join_all((0..3).map(|id| source.request(SegmentId::from(id))))
-                    .await;
+                future::join_all((0..3).map(|id| source.request(SegmentId::from(id)))).await;
             for (buffer, segment) in buffers.into_iter().zip(segments.iter()) {
                 let expected = (segment.offset..segment.offset + 8)
                     .map(|value| u8::try_from(value % 251).unwrap())

@@ -1,6 +1,6 @@
 # ShardLoom Vortex buffer provider candidate
 
-This directory contains the Apache-2.0 `vortex-buffer` 0.90.0 published source,
+This directory contains the Apache-2.0 `vortex-buffer` 0.93.0 published source,
 with the Cargo registry archive and original member hashes recorded in
 `upstream-provenance.json`. The published archive is authoritative and its VCS
 record identifies the upstream revision and dirty checkout. The upstream

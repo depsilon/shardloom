@@ -1119,7 +1119,7 @@ fn build_column(
                 bytes.freeze(),
                 DType::Utf8(Nullability::Nullable),
                 validity,
-                &mut vortex::array::array_session()
+                &mut vortex::session::VortexSession::empty()
                     .with_host_allocator(allocator.clone())
                     .create_execution_ctx(),
             )

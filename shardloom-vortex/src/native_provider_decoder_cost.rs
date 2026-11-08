@@ -208,7 +208,7 @@ fn physical_leaf(
                 patch_values,
                 None,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap();
@@ -255,7 +255,7 @@ fn patches(
             selected,
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap(),
@@ -281,7 +281,7 @@ fn alprd(values: &ArrayRef) -> ArrayRef {
         Buffer::copy_from(&left).into_array(),
         None,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap();

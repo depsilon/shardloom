@@ -10,6 +10,9 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
+use async_channel::SendError;
+use async_channel::Sender;
+use async_channel::bounded;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -22,13 +25,14 @@ use itertools::Itertools;
 use vortex_array::ArrayContext;
 use vortex_array::ArrayId;
 use vortex_array::ArrayRef;
+use vortex_array::aggregate_fn::AggregateFnRef;
+use vortex_array::aggregate_fn::AggregateFnVTable;
+use vortex_array::aggregate_fn::fns::min::Min;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldPath;
-use vortex_array::expr::stats::Stat;
 use vortex_array::iter::ArrayIterator;
 use vortex_array::iter::ArrayIteratorExt;
 use vortex_array::session::ArraySessionExt;
-use vortex_array::stats::PRUNING_STATS;
 use vortex_array::stream::ArrayStream;
 use vortex_array::stream::ArrayStreamAdapter;
 use vortex_array::stream::ArrayStreamExt;
@@ -41,11 +45,9 @@ use vortex_error::VortexError;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
-use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_io::IoBuf;
 use vortex_io::VortexWrite;
-use vortex_io::kanal_ext::KanalExt;
 use vortex_io::runtime::BlockingRuntime;
 use vortex_io::session::RuntimeSessionExt;
 use vortex_layout::BufferedBytesTracker;
@@ -87,8 +89,12 @@ pub struct VortexWriteOptions {
     disable_editions: bool,
     buffered_bytes: BufferedBytesTracker,
     exclude_dtype: bool,
-    max_variable_length_statistics_size: usize,
-    file_statistics: Vec<Stat>,
+    /// The aggregates to compute for file-level statistics.
+    ///
+    /// If unset, the writer chooses pruning aggregates from the file dtype.
+    file_statistics: Option<Vec<AggregateFnRef>>,
+    write_nested_statistics: bool,
+    write_legacy_statistics: bool,
     metadata: HashMap<String, ByteBuffer>,
 }
 
@@ -110,8 +116,9 @@ impl VortexWriteOptions {
             buffered_bytes: BufferedBytesTracker::new(),
             session,
             exclude_dtype: false,
-            file_statistics: PRUNING_STATS.to_vec(),
-            max_variable_length_statistics_size: 64,
+            file_statistics: None,
+            write_nested_statistics: false,
+            write_legacy_statistics: true,
             metadata: HashMap::default(),
         }
     }
@@ -160,9 +167,40 @@ impl VortexWriteOptions {
 
     /// Configure which statistics to compute at the file level.
     ///
-    /// Pass an empty vector to omit file-level statistics.
-    pub fn with_file_statistics(mut self, file_statistics: Vec<Stat>) -> Self {
-        self.file_statistics = file_statistics;
+    /// Pass an empty vector to omit file-level statistics. If left unset, the writer chooses
+    /// pruning aggregates from the file dtype.
+    ///
+    /// Like zone maps, file statistics only record aggregates the enabled editions include: the
+    /// write fails if this asks for one they don't, while the defaults leave such aggregates out.
+    pub fn with_file_statistics(mut self, file_statistics: Vec<AggregateFnRef>) -> Self {
+        self.file_statistics = Some(file_statistics);
+        self
+    }
+
+    /// Exclude legacy top-level-only statistics (`field_stats`) from the file, computing and
+    /// writing only the full nested post-order statistics (`entry_sets` and `partials`).
+    ///
+    /// Nested statistics are only written if enabled with [`Self::include_nested_statistics`];
+    /// otherwise no file-level statistics are written.
+    ///
+    /// Readers built before nested file stats existed only look at `field_stats` and reject a file
+    /// whose `field_stats` doesn't have one entry per top-level struct field. To keep the file
+    /// readable by them, `field_stats` is still written with one entry per field, each empty, so
+    /// those readers find no usable statistics but can still read the data.
+    pub fn exclude_legacy_statistics(mut self) -> Self {
+        self.write_legacy_statistics = false;
+        self
+    }
+
+    /// Include the full nested post-order statistics (`entry_sets` and `partials`) in the file,
+    /// alongside the legacy top-level-only statistics (`field_stats`).
+    ///
+    /// By default only the legacy statistics are written, and readers see the file the way they
+    /// see one written before nested file stats existed: with statistics for top-level fields
+    /// only. Since the legacy format has a fixed slot per
+    /// [`Stat`](vortex_array::expr::stats::Stat), aggregates without one are not recorded.
+    pub fn include_nested_statistics(mut self) -> Self {
+        self.write_nested_statistics = true;
         self
     }
 
@@ -248,6 +286,7 @@ impl VortexWriteOptions {
             .with_buffered_bytes_tracker(self.buffered_bytes.clone());
         let ctx = if enforce_editions {
             ctx.with_allowed_aggregates(edition_filter(&self.session, ComponentKind::Aggregate))
+                .with_allowed_layouts(edition_filter(&self.session, ComponentKind::Layout))
         } else {
             ctx
         };
@@ -277,19 +316,37 @@ impl VortexWriteOptions {
                 .map(move |result| result.map(|chunk| (ptr.advance(), chunk))),
         )
         .sendable();
+        let omit_statistics = matches!(&self.file_statistics, Some(stats) if stats.is_empty())
+            || (!self.write_nested_statistics && !self.write_legacy_statistics);
+        let file_statistics: Option<Arc<[AggregateFnRef]>> = if omit_statistics {
+            Some(Arc::from([]))
+        } else {
+            self.file_statistics.clone().map(Arc::from)
+        };
+        // When unset, `accumulate_stats` resolves each leaf's own default from its dtype, the way
+        // `default_zoned_aggregate_fns` does for zoned layouts (e.g. bounded min/max for
+        // variable-length columns), rather than a single dtype-blind default applied uniformly.
+        // Editions before the aggregates (for example `core2025.10.0`) do not permit `Min`, so the
+        // nested statistics would have no min and max. Readers of these editions use only the
+        // legacy format, so these editions get the legacy statistics only.
+        let write_nested_statistics =
+            self.write_nested_statistics && ctx.allows_aggregate(&Min.id());
+
         let (file_stats, stream) = accumulate_stats(
             stream,
-            self.file_statistics.clone().into(),
-            self.max_variable_length_statistics_size,
+            file_statistics,
             &self.session,
-        );
+            write_nested_statistics,
+            self.write_legacy_statistics,
+            &ctx,
+        )?;
 
         // First, write the magic bytes.
         write.write_all(ByteBuffer::copy_from(MAGIC_BYTES)).await?;
         let mut position = MAGIC_BYTES.len() as u64;
 
         // Create a channel to send buffers from the segment sink to the output stream.
-        let (send, recv) = kanal::bounded_async(1);
+        let (send, recv_stream) = bounded(1);
 
         let segments = Arc::new(BufferedSegmentSink::new(send, position));
 
@@ -311,7 +368,6 @@ impl VortexWriteOptions {
         });
 
         // Flush buffers as they arrive
-        let recv_stream = recv.into_stream();
         pin_mut!(recv_stream);
         while let Some(buffer) = recv_stream.next().await {
             if buffer.is_empty() {
@@ -324,30 +380,13 @@ impl VortexWriteOptions {
         let (layout, segment_specs) = layout_fut.await?;
 
         // Assemble the Footer object now that we have all the segments.
-        let statistics = if self.file_statistics.is_empty() {
+        let statistics = if omit_statistics {
             None
         } else {
-            let mut stats = file_stats.stats_sets_iter();
-            let count = dtype
-                .as_struct_fields_opt()
-                .map_or(1, |fields| fields.nfields());
-            vortex_ensure_eq!(stats.len(), count);
-            Some(FileStatistics::try_from_fn(
-                count,
-                |index| {
-                    let stats = stats.next().ok_or_else(|| {
-                        vortex_err!("Missing accumulated file statistics at {index}")
-                    })?;
-                    let field_dtype = match &dtype {
-                        DType::Struct(fields, _) => {
-                            fields.field_by_index(index).ok_or_else(|| {
-                                vortex_err!("Missing file statistics field type at {index}")
-                            })?
-                        }
-                        dtype => dtype.clone(),
-                    };
-                    Ok((stats, field_dtype))
-                },
+            Some(FileStatistics::try_from_accumulator(
+                &file_stats,
+                &dtype,
+                write_nested_statistics,
                 &self.session,
             )?)
         };
@@ -361,7 +400,7 @@ impl VortexWriteOptions {
         // Emit the footer buffers and EOF.
         let (footer_buffers, metadata, approx_byte_size) = footer
             .clone()
-            .into_serializer()
+            .into_serializer(&self.session)
             .with_layout_context(new_layout_context(&self.session, enforce_editions))
             .with_metadata_segments(self.metadata)
             .with_offset(position)
@@ -390,10 +429,9 @@ impl VortexWriteOptions {
     /// flush remaining buffers, and receive the [`WriteSummary`].
     pub fn writer<'w, W: VortexWrite + Unpin + 'w>(self, write: W, dtype: DType) -> Writer<'w> {
         // Create a channel for sending arrays to the layout task.
-        let (arrays_send, arrays_recv) = kanal::bounded_async(1);
+        let (arrays_send, arrays_recv) = bounded(1);
 
-        let arrays =
-            ArrayStreamExt::boxed(ArrayStreamAdapter::new(dtype, arrays_recv.into_stream()));
+        let arrays = ArrayStreamExt::boxed(ArrayStreamAdapter::new(dtype, arrays_recv));
 
         let write = CountingVortexWrite::new(write);
         let bytes_written = write.counter();
@@ -541,7 +579,7 @@ fn validate_metadata_segments(metadata: &HashMap<String, ByteBuffer>) -> VortexR
 /// An async API for writing Vortex files.
 pub struct Writer<'w> {
     // The input channel for sending arrays to the writer.
-    arrays: Option<kanal::AsyncSender<VortexResult<ArrayRef>>>,
+    arrays: Option<Sender<VortexResult<ArrayRef>>>,
     // The writer task that ultimately produces the footer.
     future: Fuse<LocalBoxFuture<'w, VortexResult<WriteSummary>>>,
     // The bytes written so far.
@@ -590,7 +628,7 @@ impl Writer<'_> {
             while let Some(chunk) = stream.next().await {
                 arrays.send(chunk).await?;
             }
-            Ok::<_, kanal::SendError>(())
+            Ok::<_, SendError<VortexResult<ArrayRef>>>(())
         }
         .fuse();
         pin_mut!(stream_fut);
@@ -785,7 +823,6 @@ impl WriteSummary {
 mod tests {
     use rstest::rstest;
     use vortex_array::VTable;
-    use vortex_array::array_session;
     use vortex_array::arrays::Bool;
     use vortex_array::arrays::Primitive;
     use vortex_buffer::ByteBuffer;
@@ -797,6 +834,7 @@ mod tests {
     use vortex_edition::EditionMember;
     use vortex_edition::EditionSession;
     use vortex_edition::EditionSessionExt;
+    use vortex_session::VortexSession;
     use vortex_session::registry::CachedId;
 
     use super::*;
@@ -807,12 +845,13 @@ mod tests {
         static DECLARATION: EditionDeclaration = EditionDeclaration {
             edition: Edition {
                 id: EDITION,
+                immutable: true,
                 min_library_version: None,
             },
             added: &[EditionMember::array(&"vortex.primitive")],
         };
 
-        let session = array_session().with::<EditionSession>();
+        let session = VortexSession::empty().with::<EditionSession>();
         session.register_edition(&DECLARATION)?;
         session.enable_edition(EDITION)?;
 
@@ -830,6 +869,7 @@ mod tests {
         static DECLARATION: EditionDeclaration = EditionDeclaration {
             edition: Edition {
                 id: EDITION,
+                immutable: true,
                 min_library_version: None,
             },
             added: &[
@@ -838,7 +878,7 @@ mod tests {
             ],
         };
 
-        let session = array_session().with::<EditionSession>();
+        let session = VortexSession::empty().with::<EditionSession>();
         session.register_edition(&DECLARATION)?;
         session.enable_edition(EDITION)?;
 
@@ -851,7 +891,7 @@ mod tests {
 
     #[test]
     fn disabling_editions_allows_all_registered_array_ids() {
-        let session = array_session();
+        let session = VortexSession::empty();
         let registered_ids = session
             .arrays()
             .registry()
@@ -869,12 +909,13 @@ mod tests {
         static ARRAYS_ONLY: EditionDeclaration = EditionDeclaration {
             edition: Edition {
                 id: EDITION,
+                immutable: true,
                 min_library_version: None,
             },
             added: &[EditionMember::array(&"vortex.primitive")],
         };
 
-        let session = array_session().with::<EditionSession>();
+        let session = VortexSession::empty().with::<EditionSession>();
         session.register_edition(&ARRAYS_ONLY)?;
         session.enable_edition(EDITION)?;
         assert!(edition_filter(&session, ComponentKind::Layout).is_empty());
@@ -913,12 +954,13 @@ mod tests {
         static DECLARATION: EditionDeclaration = EditionDeclaration {
             edition: Edition {
                 id: EDITION,
+                immutable: true,
                 min_library_version: None,
             },
             added: &[EditionMember::dtype(&"vortex.date")],
         };
 
-        let session = array_session().with::<EditionSession>();
+        let session = VortexSession::empty().with::<EditionSession>();
         session.register_edition(&DECLARATION)?;
         session.enable_edition(EDITION)?;
 
@@ -939,10 +981,12 @@ mod tests {
     }
 
     fn write_options_with_keys(keys: &[String]) -> VortexWriteOptions {
-        array_session().write_options().with_metadata_segments(
-            keys.iter()
-                .map(|key| (key.clone(), ByteBuffer::copy_from(b"value"))),
-        )
+        VortexSession::empty()
+            .write_options()
+            .with_metadata_segments(
+                keys.iter()
+                    .map(|key| (key.clone(), ByteBuffer::copy_from(b"value"))),
+            )
     }
 
     #[rstest]

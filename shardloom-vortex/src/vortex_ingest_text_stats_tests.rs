@@ -150,7 +150,7 @@ fn selected_text_codec_preserves_values_and_file_pruning_statistics() {
                 ] {
                     if let Some(expected) = expected {
                         assert_eq!(
-                            stats.get(stat).as_exact(),
+                            stats.get(stat).as_inexact(),
                             Scalar::utf8(*expected, Nullability::Nullable).into_value()
                         );
                     }

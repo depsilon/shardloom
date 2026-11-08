@@ -147,9 +147,9 @@ impl BoundTimeZone {
 
 fn instant(ticks: i64, unit: TemporalUnit) -> Result<jiff::Timestamp> {
     let nanos = i128::from(ticks) * unit.nanoseconds();
-    // Jiff 0.2.35's from_nanosecond delegates to jiff-core 0.1.0, whose
-    // constructor checks i64 storage but omits the calendar bounds before an
-    // internal unchecked construction. Use the checked seconds/fraction API.
+    // jiff-core 0.1.0 omitted calendar bounds in from_nanosecond. Although the
+    // current provider fixes that constructor, retain the checked seconds/fraction
+    // API so calendar admission stays explicit for every native tick unit.
     let seconds = i64::try_from(nanos / 1_000_000_000).map_err(|_| range_error())?;
     let fraction = i32::try_from(nanos % 1_000_000_000).expect("fraction below one second");
     jiff::Timestamp::new(seconds, fraction).map_err(|_| range_error())
@@ -164,13 +164,74 @@ fn range_error() -> crate::ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::temporal::civil::parse_timestamp;
+    use crate::temporal::civil::{NANOS_PER_SECOND, parse_timestamp};
 
     fn civil(text: &str) -> CivilDateTime {
         parse_timestamp(text).unwrap().0
     }
     fn utc(text: &str) -> i64 {
         civil(text).ticks(TemporalUnit::Seconds).unwrap()
+    }
+
+    fn assert_fixed_civil(zone: &BoundTimeZone, offset: i32, ticks: i64, unit: TemporalUnit) {
+        // The oracle uses integer Gregorian arithmetic, with no Jiff conversion.
+        let nanos = i128::from(ticks) * unit.nanoseconds() + i128::from(offset) * NANOS_PER_SECOND;
+        let expected = CivilDateTime::from_nanoseconds(nanos).unwrap();
+        assert_eq!(
+            zone.civil(ticks, unit).unwrap(),
+            expected,
+            "offset={offset}, ticks={ticks}, unit={unit:?}"
+        );
+        assert_eq!(
+            zone.timestamp(expected, unit, Ambiguity::Reject).unwrap(),
+            ticks,
+            "round trip: offset={offset}, ticks={ticks}, unit={unit:?}"
+        );
+    }
+
+    #[test]
+    fn fixed_zone_clock_seconds_match_independent_civil_conversion() {
+        for (name, offset) in [("UTC", 0), ("+05:45", 20_700)] {
+            let zone = BoundTimeZone::new(name).unwrap();
+            for ticks in -86_400..86_400 {
+                assert_fixed_civil(&zone, offset, ticks, TemporalUnit::Seconds);
+            }
+        }
+    }
+
+    #[test]
+    fn fixed_zone_fractional_and_calendar_boundaries_match_all_units() {
+        let seconds = [
+            -86_400,
+            -3_600,
+            -60,
+            -1,
+            0,
+            1,
+            60,
+            3_600,
+            86_400,
+            utc("1900-03-01T00:00:00"),
+            utc("2000-02-29T00:00:00"),
+            utc("2000-03-01T00:00:00"),
+        ];
+        for (name, offset) in [("+00:00", 0), ("+05:45", 20_700), ("-03:30", -12_600)] {
+            let zone = BoundTimeZone::new(name).unwrap();
+            for unit in [
+                TemporalUnit::Seconds,
+                TemporalUnit::Milliseconds,
+                TemporalUnit::Microseconds,
+                TemporalUnit::Nanoseconds,
+            ] {
+                let scale = NANOS_PER_SECOND / unit.nanoseconds();
+                for anchor in seconds {
+                    for delta in [-scale + 1, -scale / 2, -1, 0, 1, scale / 2, scale - 1] {
+                        let ticks = i64::try_from(i128::from(anchor) * scale + delta).unwrap();
+                        assert_fixed_civil(&zone, offset, ticks, unit);
+                    }
+                }
+            }
+        }
     }
 
     #[test]

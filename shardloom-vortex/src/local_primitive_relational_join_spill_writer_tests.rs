@@ -66,7 +66,7 @@ fn right() -> Fixture {
                     PrimitiveArray::from_iter(vec![2u64; rows]).into_array(),
                     Validity::from_iter((0..ROWS).rev().map(|id| !id.is_multiple_of(7))),
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .unwrap()

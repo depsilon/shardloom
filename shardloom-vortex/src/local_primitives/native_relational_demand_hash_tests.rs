@@ -54,7 +54,7 @@ fn demand_hash_keeps_exact_bytes_nulls_codebooks_and_slices_without_hash_slots()
                 source.slice(1..1).unwrap(),
             ] {
                 let memory = LiveMemoryPool::new(4096).unwrap();
-                let mut execution = vortex::array::array_session().create_execution_ctx();
+                let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
                 let cancellation = CancellationToken::default();
                 let demand =
                     KeyColumn::for_membership(&array, &mut execution, &memory, &cancellation)
@@ -85,7 +85,7 @@ fn demand_hash_keeps_exact_bytes_nulls_codebooks_and_slices_without_hash_slots()
 fn demand_hash_uses_no_hash_slot_credit_and_keeps_cancellation_and_nested_preparation() {
     let source = VarBinViewArray::from_iter_str(["a", "b"]).into_array();
     let memory = LiveMemoryPool::new(15).unwrap();
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let cancellation = CancellationToken::default();
     let demand =
         KeyColumn::for_membership(&source, &mut execution, &memory, &cancellation).unwrap();

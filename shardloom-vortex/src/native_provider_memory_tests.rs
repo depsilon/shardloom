@@ -490,7 +490,7 @@ fn integer_fixture(array: &PrimitiveArray, kind: usize, ctx: &mut ExecutionCtx) 
                     array.clone().into_array(),
                     None,
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .unwrap(),
@@ -795,7 +795,7 @@ fn nullable_codes(kind: usize, present: &[bool]) -> ArrayRef {
                 child,
                 validity,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap()

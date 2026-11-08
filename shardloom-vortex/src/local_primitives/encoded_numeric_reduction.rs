@@ -194,7 +194,7 @@ impl EncodedColumn {
             let value = if scalar.is_null() {
                 StatValue::Null
             } else {
-                vortex_scalar_to_stat_value(&scalar)
+                vortex_scalar_to_stat_value(scalar)
                     .ok_or_else(|| failed("constant has an unsupported numeric scalar"))?
             };
             add(&mut work.constant_arrays, 1)?;

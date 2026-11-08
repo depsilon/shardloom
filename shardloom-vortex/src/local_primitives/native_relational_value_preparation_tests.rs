@@ -9,7 +9,7 @@ use vortex::array::{
 fn prepare(array: &ArrayRef, memory: &LiveMemoryPool, purpose: Preparation) -> Result<KeyColumn> {
     KeyColumn::prepare(
         array,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
         memory,
         &CancellationToken::default(),
         purpose,
@@ -92,7 +92,7 @@ fn value_preparation_keeps_hash_admission_cancellation_and_empty_null_contracts(
     }
     let cancellation = CancellationToken::default();
     cancellation.cancel();
-    let mut context = vortex::array::array_session().create_execution_ctx();
+    let mut context = vortex::session::VortexSession::empty().create_execution_ctx();
     assert!(KeyColumn::values(&source, &mut context, &memory, &cancellation).is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
@@ -209,7 +209,7 @@ fn value_preparation_validates_every_observed_nested_child_but_skips_null_parent
         PrimitiveArray::from_iter([1u64, 2]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

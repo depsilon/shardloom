@@ -210,7 +210,7 @@ fn aggregate_spec(case: Case) -> aggregate::Spec {
 }
 
 fn json_rows(array: &ArrayRef) -> Vec<Value> {
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let names = array
         .dtype()
         .as_struct_fields_opt()

@@ -11,7 +11,7 @@ use vortex::utils::aliases::hash_set::HashSet;
 use vortex::{
     array::{
         ArrayId, ArrayRef, ExecutionCtx, VTable as _,
-        arrays::{Dict, Primitive},
+        arrays::{Chunked, Dict, Primitive, chunked::ChunkedArrayExt as _},
         dtype::DType,
         session::ArraySessionExt as _,
     },
@@ -193,7 +193,13 @@ pub(super) fn measured_probe(
         // compacts and gathers constant-detection statistics upstream. Leave
         // encoded inputs on the provider route: they may have a Dict root or
         // require execution before the decision can be made safely.
-        if !dictionary_admitted && chunk.is::<Primitive>() {
+        let primitive_sample = chunk.is::<Primitive>()
+            || chunk
+                .as_opt::<Chunked>()
+                .is_some_and(|parts| parts.iter_chunks().all(ArrayRef::is::<Primitive>));
+        // Vortex 0.93 combines several source chunks for its probe. A sample
+        // made entirely of primitive chunks has the same non-Dict decision.
+        if !dictionary_admitted && primitive_sample {
             return Ok(chunk.clone());
         }
         let start = Instant::now();

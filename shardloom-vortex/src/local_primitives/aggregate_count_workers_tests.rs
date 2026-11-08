@@ -220,7 +220,7 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
                 &chunk,
                 &columns,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap();
@@ -390,7 +390,7 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
                 &columns,
                 None,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap();

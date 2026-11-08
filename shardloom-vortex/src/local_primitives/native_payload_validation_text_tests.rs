@@ -33,7 +33,7 @@ fn payload_validation_preserves_utf8_error_coordinates_and_hidden_values() {
     let nullable = vortex::array::arrays::MaskedArray::try_new(
         text,
         Validity::AllValid,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
     )
     .unwrap()
     .into_array();

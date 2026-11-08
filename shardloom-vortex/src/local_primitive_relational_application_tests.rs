@@ -492,7 +492,7 @@ fn application_retained_input_and_independently_owned_output_survive_query_owner
     retained_input.lock().unwrap().clear();
     assert_eq!(witness.unwrap().strong_count(), 0);
     assert!(memory.snapshot().reserved_bytes > 0);
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let n =
         crate::local_primitives::logical_field_from_native_array(&retained_output[0], "n").unwrap();
     assert_eq!(

@@ -502,9 +502,9 @@ fn injected_provider_error(ctx: &ExecutionCtx) -> vortex::error::VortexResult<()
         .allocate(bytes, vortex::buffer::Alignment::DEFAULT_ALIGNMENT)
         .expect_err("alignment capacity must exceed remaining fixture budget");
     if fault.corruption {
-        Err(
-            vortex::error::vortex_err!(InvalidArgument: "injected exact distinct provider corruption"),
-        )
+        Err(vortex::error::vortex_err!(
+            "InvalidArgument: injected exact distinct provider corruption"
+        ))
     } else {
         Err(error)
     }

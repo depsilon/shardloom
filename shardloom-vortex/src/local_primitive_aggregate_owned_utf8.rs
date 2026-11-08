@@ -143,7 +143,7 @@ impl OwnedAggregateFinalizer {
             data.freeze(),
             DType::Utf8(Nullability::NonNullable),
             Validity::NonNullable,
-            &mut vortex::array::array_session()
+            &mut vortex::session::VortexSession::empty()
                 .with_host_allocator(self.allocator.clone())
                 .create_execution_ctx(),
         )

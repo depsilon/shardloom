@@ -1,6 +1,6 @@
 # ShardLoom Parquet dependency pin
 
-This is the `parquet` 59.3.1 registry source with the following local corrections. Normal and
+This is the `parquet` 59.3.2 registry source with the following local corrections. Normal and
 development Zstandard dependencies are pinned to `=0.14.3`, and `publish = false` prevents
 publishing this local provider. Source and preserved license files come from the SHA-256 verified
 crates.io archive.
@@ -45,3 +45,18 @@ field nullability and present values are unchanged. The original regression
 writes and reads nullable structs containing required zero-width and positive-
 width lists, checks complete values and schema, and validates every returned
 Arrow array. Native tensor persistence exercises the same path.
+
+The November 8 provider migration adds a standalone default-codec library and
+integration configuration with the local Arrow array, data and IPC providers.
+Its committed lock is `.github/provider-locks/parquet.lock`. The test-only
+benchmark helpers are not enabled; all default library and integration tests
+remain selected. Optional async, CRC, encryption and variant capabilities are
+not enabled by this recipe. Disabled-encryption rejection tests still run.
+
+The fixture directories `test/parquet-testing/{data,bad_data}` and
+`test/arrow-testing/data/parquet` come from Arrow 59.3.2's pinned upstream test
+repositories. Their Apache licenses, exact commits and per-file Git/SHA-256
+identities are retained in `upstream-provenance.json`. The runner sets both
+`PARQUET_TEST_DATA` and `ARROW_TEST_DATA` to those committed inputs. One corrupt
+dictionary-header test derives only Rust's integer-conversion diagnostic suffix
+from the current compiler; it still asserts the complete Parquet error chain.

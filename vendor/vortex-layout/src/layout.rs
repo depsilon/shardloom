@@ -16,6 +16,7 @@ use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldName;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
+use vortex_error::vortex_bail;
 use vortex_session::VortexSession;
 use vortex_session::registry::Id;
 
@@ -24,6 +25,7 @@ use crate::LayoutReaderRef;
 use crate::children::LayoutChildren;
 use crate::display::DisplayLayoutTree;
 use crate::display::display_tree_with_segment_sizes;
+use crate::plan::physical::PlanRef;
 use crate::segments::SegmentId;
 use crate::segments::SegmentSource;
 use crate::vtable::LayoutRef;
@@ -190,6 +192,11 @@ impl<V: VTable> Layout<V> {
     ) -> VortexResult<LayoutReaderRef> {
         V::new_reader(self, name, segment_source, session, ctx)
     }
+
+    /// Construct a physical plan for this layout.
+    pub fn new_plan(&self) -> VortexResult<PlanRef> {
+        V::new_plan(self)
+    }
 }
 
 impl<V: VTable> Clone for Layout<V> {
@@ -270,6 +277,16 @@ pub trait DynLayout: 'static + Send + Sync + Debug {
         ctx: &LayoutReaderContext,
     ) -> VortexResult<LayoutReaderRef>;
 
+    /// Constructs a physical plan.
+    ///
+    /// The default implementation returns an error: the layout has no physical plan.
+    fn dyn_new_plan(&self) -> VortexResult<PlanRef> {
+        vortex_bail!(
+            "No physical plan implementation for layout '{}'",
+            self.dyn_encoding_id()
+        )
+    }
+
     /// Returns `true` if this layout is indivisible: its readers never register natural split
     /// boundaries strictly inside their row range (see [`crate::VTable::is_indivisible`]).
     fn dyn_is_indivisible(&self) -> bool {
@@ -330,6 +347,10 @@ impl<V: VTable> DynLayout for Layout<V> {
         ctx: &LayoutReaderContext,
     ) -> VortexResult<LayoutReaderRef> {
         Layout::new_reader(self, name, segment_source, session, ctx)
+    }
+
+    fn dyn_new_plan(&self) -> VortexResult<PlanRef> {
+        Layout::new_plan(self)
     }
 
     fn dyn_is_indivisible(&self) -> bool {
@@ -430,6 +451,13 @@ impl dyn DynLayout + '_ {
         ctx: &LayoutReaderContext,
     ) -> VortexResult<LayoutReaderRef> {
         self.dyn_new_reader(name, segment_source, session, ctx)
+    }
+
+    /// Constructs a physical plan for this layout.
+    ///
+    /// The root operator is built immediately; child layouts are planned on first access.
+    pub fn new_plan(&self) -> VortexResult<PlanRef> {
+        self.dyn_new_plan()
     }
 
     /// Returns all serialized (present) children, in slot order.

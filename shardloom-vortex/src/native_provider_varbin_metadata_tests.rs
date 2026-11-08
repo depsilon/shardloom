@@ -661,7 +661,7 @@ fn native_varbin_table_mask_and_runend_expansion_share_owner_and_values() {
         output.clone().into_array(),
         Validity::Array(bitmap),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

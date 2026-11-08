@@ -214,7 +214,7 @@ impl CountWorkers {
         Some(Err(match fault {
             SourceScanTestFault::OwnedDenial => denied,
             SourceScanTestFault::CorruptionWithConcurrentDenial => {
-                vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
+                vortex::error::vortex_err!("InvalidArgument: injected source corruption")
             }
         }))
     }
@@ -387,7 +387,7 @@ impl SingleCountWorkers {
         Some(Err(match fault {
             SourceScanTestFault::OwnedDenial => denied,
             SourceScanTestFault::CorruptionWithConcurrentDenial => {
-                vortex::error::vortex_err!(InvalidArgument: "injected source corruption")
+                vortex::error::vortex_err!("InvalidArgument: injected source corruption")
             }
         }))
     }

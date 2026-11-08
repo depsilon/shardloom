@@ -15,7 +15,9 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array")
+NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "vortex-arrow")
+RETIRED_PROVIDERS = {"vortex-runend"}  # 0.93 moves its implementation/tests into vortex-array.
+CURRENT_PROVIDERS = (set(FROZEN_CRATES) | set(NEW_PROVIDERS)) - RETIRED_PROVIDERS
 
 
 # Cargo commands as they appeared in the frozen workflow, before the intentional
@@ -69,10 +71,10 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 14)
-        self.assertEqual(set(assigned), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
+        self.assertEqual(len(assigned), 15)
+        self.assertEqual(set(assigned), CURRENT_PROVIDERS)
         self.assertEqual(len(set(assigned)), len(assigned))
-        self.assertEqual(set(providers.CONFIGURATIONS), set(FROZEN_CRATES) | set(NEW_PROVIDERS))
+        self.assertEqual(set(providers.CONFIGURATIONS), CURRENT_PROVIDERS)
         self.assertEqual(set(providers.GROUPS), {"arrays", "io", "buffer", "formats"})
 
     def test_new_datetime_parts_provider_is_configured_without_rewriting_frozen_history(self) -> None:
@@ -87,9 +89,19 @@ class ProviderCommandTests(unittest.TestCase):
             "vortex-zstd", "vortex-datetime-parts").split())
         self.assertEqual(clippy_command, expected_clippy)
 
+    def test_arrow_boundary_provider_checks_shared_owners_and_all_library_tests(self) -> None:
+        self.assertIn("vortex-arrow", providers.GROUPS["io"])
+        config = providers.CONFIGURATIONS["vortex-arrow"]
+        self.assertEqual(config["patches"],
+                         ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst"])
+        test_command, lint_command = providers.commands("vortex-arrow")
+        self.assertIn("vortex-array/_test-harness,vortex-array/table-display", test_command)
+        self.assertEqual(test_command[-3:], ["--lib", "--", "--test-threads=2"])
+        self.assertIn("--tests", lint_command)
+
     def test_orc_provider_matches_admitted_runtime_features_and_checks_tests(self) -> None:
         self.assertEqual(providers.GROUPS["formats"],
-                         ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array"))
+                         ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet"))
         self.assertEqual(providers.commands("orc-rust"), [
             ["cargo", "test", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
              "--no-default-features", "--lib", "--", "--test-threads=2"],
@@ -110,12 +122,14 @@ class ProviderCommandTests(unittest.TestCase):
     def test_generated_commands_preserve_frozen_feature_patch_target_and_thread_behavior(self) -> None:
         self.assertEqual(set(FROZEN_COMMANDS), set(FROZEN_CRATES))
         for crate in FROZEN_CRATES:
+            if crate in RETIRED_PROVIDERS:
+                continue
             with self.subTest(crate=crate):
                 self.assertEqual(providers.commands(crate),
                                  [normalize_frozen_command(row.split())
                                   for row in FROZEN_COMMANDS[crate]])
 
-        for crate in ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-zstd"):
+        for crate in ("vortex-array", "vortex-fsst", "vortex-zstd"):
             test_command, clippy_command = providers.commands(crate)
             self.assertEqual(test_command[-3:], ["--lib", "--", "--test-threads=2"])
             self.assertIn("--lib", clippy_command)
@@ -149,6 +163,16 @@ class ProviderCommandTests(unittest.TestCase):
                     ["cargo", "clippy", "--locked", *arguments, "--lib", "--tests", "--", "-D", "warnings"],
                 ])
                 self.assertNotIn("arrow_test_data", providers.CONFIGURATIONS[crate])
+
+    def test_parquet_checks_default_codecs_and_integration_with_patched_arrow_providers(self) -> None:
+        arguments = ["--manifest-path", "vendor/parquet/Cargo.toml"]
+        for crate in ("arrow-array", "arrow-data", "arrow-ipc"):
+            arguments += ["--config", f'patch.crates-io.{crate}.path="vendor/{crate}"']
+        arguments += ["--features", "default", "--lib", "--tests"]
+        self.assertEqual(providers.commands("parquet"), [
+            ["cargo", "test", "--locked", *arguments, "--", "--test-threads=2"],
+            ["cargo", "clippy", "--locked", *arguments, "--", "-D", "warnings"],
+        ])
 
 
 class RunGroupTests(unittest.TestCase):
@@ -191,12 +215,17 @@ class RunGroupTests(unittest.TestCase):
             (self.root / "vendor" / crate).mkdir()
         fixtures = self.root / "vendor/arrow-avro/test/arrow-testing/data"
         fixtures.mkdir(parents=True)
+        parquet_arrow = self.root / "vendor/parquet/test/arrow-testing/data"
+        parquet_arrow.mkdir(parents=True)
+        parquet_data = self.root / "vendor/parquet/test/parquet-testing/data"
+        parquet_data.mkdir(parents=True)
         with patch.dict(providers.os.environ, {"CLIPPY_CONF_DIR": "/inherited/vortex-policy",
-                                               "ARROW_TEST_DATA": "/inherited/fixtures"}):
+                                               "ARROW_TEST_DATA": "/inherited/fixtures",
+                                               "PARQUET_TEST_DATA": "/inherited/parquet"}):
             with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
                 report = providers.run_group("formats", self.root / "out", root=self.root)
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(run.call_count, 10)
+        self.assertEqual(run.call_count, 12)
         for call, command in zip(run.call_args_list, report["commands"]):
             crate = command["crate"]
             expected = str(self.root / "vendor" / crate)
@@ -205,9 +234,26 @@ class RunGroupTests(unittest.TestCase):
             if crate == "arrow-avro":
                 self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], str(fixtures))
                 self.assertEqual(command["arrow_test_data"], str(fixtures))
+            elif crate == "parquet":
+                self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], str(parquet_arrow))
+                self.assertEqual(command["arrow_test_data"], str(parquet_arrow))
+                self.assertEqual(call.kwargs["env"]["PARQUET_TEST_DATA"], str(parquet_data))
+                self.assertEqual(command["parquet_test_data"], str(parquet_data))
             else:
                 self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], "/inherited/fixtures")
                 self.assertNotIn("arrow_test_data", command)
+
+    def test_missing_either_parquet_fixture_set_fails_before_commands(self) -> None:
+        for missing in ("arrow_test_data", "parquet_test_data"):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                present = "parquet_test_data" if missing == "arrow_test_data" else "arrow_test_data"
+                (root / providers.CONFIGURATIONS["parquet"][present]).mkdir(parents=True)
+                with patch.object(providers, "GROUPS", {"formats": ("parquet",)}):
+                    with patch.object(providers.subprocess, "run") as run:
+                        with self.assertRaisesRegex(ValueError, f"parquet {missing}"):
+                            providers.run_group("formats", root / "out", root=root)
+                run.assert_not_called()
 
     def test_missing_avro_fixtures_fail_before_commands(self) -> None:
         with patch.object(providers, "GROUPS", {"formats": ("arrow-avro",)}):

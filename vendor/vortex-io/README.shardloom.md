@@ -1,6 +1,6 @@
 # ShardLoom fallible read admission
 
-This is the reviewed Apache-2.0 `vortex-io` 0.90.0 published source. The
+This is the reviewed Apache-2.0 `vortex-io` 0.93.0 published source. The
 registry archive, original member hashes, license and upstream revision are
 recorded in `upstream-provenance.json`. The published archive is authoritative;
 its VCS record identifies a dirty checkout. `publish = false` prevents

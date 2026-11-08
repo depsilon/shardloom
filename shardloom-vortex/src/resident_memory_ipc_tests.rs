@@ -129,7 +129,7 @@ fn ipc_null_fields_and_nested_null_elements_keep_receiving_ownership() {
                     PrimitiveArray::from_iter((0..=rows).map(|row| (row * 2) as u64)).into_array(),
                     Validity::NonNullable,
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .unwrap()
@@ -453,7 +453,7 @@ fn ipc_rebuilds_sliced_packed_patches_without_trusting_the_wire_cache() {
         original_patches.values().clone(),
         Some(PrimitiveArray::from_iter([0u64, 2, 5]).into_array()),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

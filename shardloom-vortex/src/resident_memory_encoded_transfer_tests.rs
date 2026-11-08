@@ -138,7 +138,7 @@ fn encoded_transfer_preserves_complete_values_validity_and_physical_trees() {
             .into_array(),
             None,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap(),
@@ -228,7 +228,7 @@ fn encoded_transfer_preserves_complete_values_validity_and_physical_trees() {
             PrimitiveArray::from_iter([0u64, 2, 4]).into_array(),
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()
@@ -323,7 +323,7 @@ fn additional_encoded_providers_preserve_values_and_execute_after_transfer() {
             PrimitiveArray::from_iter([2u32, 3, 0]).into_array(),
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()
@@ -332,7 +332,7 @@ fn additional_encoded_providers_preserve_values_and_execute_after_transfer() {
             PrimitiveArray::from_iter([19i64, -11, 7]).into_array(),
             Validity::from_iter([true, false, true]),
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()

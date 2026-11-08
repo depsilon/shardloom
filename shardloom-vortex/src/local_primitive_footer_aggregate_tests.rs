@@ -60,7 +60,7 @@ fn statistics(
     if let Some(nulls) = nulls {
         stats.set(Stat::NullCount, Precision::Exact(nulls.into()));
     }
-    FileStatistics::new(Arc::from([stats]), Arc::from([field]))
+    FileStatistics::from_stats(Arc::from([stats]), Arc::from([field]))
 }
 
 #[test]
@@ -258,7 +258,7 @@ fn footer_aggregate_count_uses_nonnullable_schema_but_never_inexact_nullable_nul
     let field = DType::Primitive(PType::I64, Nullability::Nullable);
     let mut stats = StatsSet::default();
     stats.set(Stat::NullCount, Precision::Inexact(0_u64.into()));
-    let statistics = FileStatistics::new(Arc::from([stats]), Arc::from([field.clone()]));
+    let statistics = FileStatistics::from_stats(Arc::from([stats]), Arc::from([field.clone()]));
     let mut nullable_states = states(&request);
     assert!(
         complete_from_stats(
@@ -561,7 +561,7 @@ fn footer_aggregate_uses_schema_position_and_rejects_duplicate_aliases() {
         Some(Precision::Exact(19_i64.into())),
         Some(0),
     );
-    let stats = FileStatistics::new(
+    let stats = FileStatistics::from_stats(
         Arc::from([
             decoy.stats_sets()[0].clone(),
             selected.stats_sets()[0].clone(),

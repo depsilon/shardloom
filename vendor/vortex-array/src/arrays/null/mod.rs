@@ -20,6 +20,7 @@ use crate::array::ArrayParts;
 use crate::array::ArrayView;
 use crate::array::EmptyArrayData;
 use crate::array::OperationsVTable;
+use crate::array::ProbeState;
 use crate::array::VTable;
 use crate::array::ValidityVTable;
 use crate::array::with_empty_buffers;
@@ -160,7 +161,8 @@ impl VTable for Null {
 /// ```
 /// # fn main() -> vortex_error::VortexResult<()> {
 /// use vortex_array::arrays::NullArray;
-/// use vortex_array::{IntoArray, VortexSessionExecute, array_session};
+/// use vortex_array::{IntoArray, VortexSessionExecute};
+/// use vortex_session::VortexSession;
 ///
 /// // Create a null array with 5 elements
 /// let array = NullArray::new(5);
@@ -170,7 +172,7 @@ impl VTable for Null {
 /// assert_eq!(sliced.len(), 2);
 ///
 /// // All elements are null
-/// let mut ctx = array_session().create_execution_ctx();
+/// let mut ctx = VortexSession::empty().create_execution_ctx();
 /// let scalar = array.execute_scalar(0, &mut ctx).unwrap();
 /// assert!(scalar.is_null());
 /// # Ok(())
@@ -196,12 +198,20 @@ impl Array<Null> {
 impl OperationsVTable<Null> for Null {
     type ProbeState = ();
 
-    fn scalar_at(
-        _array: ArrayView<'_, Null>,
+    fn probe_scalar(
+        _state: &mut ProbeState<'_, Null>,
         _index: usize,
         _ctx: &mut ExecutionCtx,
     ) -> VortexResult<Scalar> {
         Ok(Scalar::null(DType::Null))
+    }
+
+    fn scalar_at(
+        array: ArrayView<'_, Null>,
+        index: usize,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<Scalar> {
+        Self::probe_scalar(&mut ProbeState::once(array), index, ctx)
     }
 }
 

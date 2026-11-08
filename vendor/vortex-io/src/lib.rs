@@ -21,7 +21,6 @@ pub mod compat;
 mod fallible_read;
 pub mod filesystem;
 mod io_buf;
-pub mod kanal_ext;
 mod limit;
 #[cfg(feature = "object_store")]
 pub mod object_store;

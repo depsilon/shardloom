@@ -1,6 +1,6 @@
 # ShardLoom Arrow Avro continuation and resource patch
 
-This is the Apache-2.0 `arrow-avro` 59.3.1 registry source from the SHA-256
+This is the Apache-2.0 `arrow-avro` 59.3.2 registry source from the SHA-256
 verified archive recorded in `upstream-provenance.json`. Original license and
 NOTICE texts are preserved. The archive lockfile is omitted because the root
 workspace lockfile owns dependency resolution; this local package cannot publish.
@@ -71,7 +71,7 @@ nested records carry their explicit row count.
 
 The original upstream fixtures are retained under `test/data` and
 `test/arrow-testing`, with their Apache license texts and exact source identities
-in `upstream-provenance.json`. Arrow release 59.3.1 resolves to
+in `upstream-provenance.json`. The original Arrow release 59.3.1 resolves to
 `265760646dec646fbdca5d26e4ba9f3c03a6bd91`; its Arrow-testing submodule is
 `735ae7128d571398dd798d7ff004adebeb342883`. The original record source matches
 the registry archive. Set `ARROW_TEST_DATA` to this package's
@@ -84,8 +84,12 @@ from remaining engine-wide acceptance. The
 in `.github/provider-locks/arrow-avro.lock` for this complete suite and strict
 library/test lint. Existing provider configurations retain their commands.
 
-All changes are original integration/correctness work. This adds no execution
-engine, dependency upgrade or fallback. Physical geometry and shared source
+The November 8 migration rebases these local corrections onto 59.3.2. Its
+standalone deflate/snappy library and strict lint checks pass; earlier optional
+type-feature counts above remain historical observations.
+
+All local changes are original integration/correctness work. They add no execution
+engine or fallback. Physical geometry and shared source
 integration are exercised through the workspace's pinned provider graph.
 
 Format reference: [Apache Avro OCF specification](https://avro.apache.org/docs/1.12.0/specification/#object-container-files).

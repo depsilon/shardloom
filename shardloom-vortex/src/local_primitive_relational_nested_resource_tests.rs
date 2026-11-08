@@ -159,7 +159,7 @@ fn native_nested_json_cancellation_is_checked_within_a_single_list() {
         PrimitiveArray::from_iter([100_000u64]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -197,7 +197,7 @@ fn native_nested_key_order_spill_preserves_payloads_and_cleans_up_after_consumer
         PrimitiveArray::from_iter((0..count).map(|_| 2u64)).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

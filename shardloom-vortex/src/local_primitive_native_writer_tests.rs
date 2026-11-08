@@ -356,7 +356,7 @@ fn persisted_writer_retains_only_statistics_credit_until_footer_release() {
                     dtype.clone(),
                     Validity::NonNullable,
                     &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                        &vortex::array::array_session(),
+                        &vortex::session::VortexSession::empty(),
                     ),
                 )
                 .into_array(),
