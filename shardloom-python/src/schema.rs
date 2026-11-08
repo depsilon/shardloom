@@ -83,22 +83,7 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         }
         DataType::Struct(children) => {
             result.set_item("fields", fields(py, children)?)?;
-            if field
-                .metadata()
-                .get("ARROW:extension:name")
-                .is_some_and(|name| name == "arrow.variable_shape_tensor")
-            {
-                let metadata = field
-                    .metadata()
-                    .get("ARROW:extension:metadata")
-                    .ok_or_else(|| {
-                        PyValueError::new_err("variable tensor result is missing metadata")
-                    })?;
-                result.set_item("metadata", metadata)?;
-                "variable_shape_tensor"
-            } else {
-                "struct"
-            }
+            structured_name(field, &result)?
         }
         dtype => {
             return Err(PyValueError::new_err(format!(
@@ -108,4 +93,30 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
     };
     result.set_item("type", name)?;
     Ok(result.unbind())
+}
+
+fn structured_name(field: &Field, result: &Bound<'_, PyDict>) -> PyResult<&'static str> {
+    let (name, missing) = match field
+        .metadata()
+        .get("ARROW:extension:name")
+        .map(String::as_str)
+    {
+        Some("shardloom.sparse_vector.v1") => {
+            ("sparse_vector", "vector result is missing metadata")
+        }
+        Some("shardloom.quantized_vector.v1") => {
+            ("quantized_vector", "vector result is missing metadata")
+        }
+        Some("arrow.variable_shape_tensor") => (
+            "variable_shape_tensor",
+            "variable tensor result is missing metadata",
+        ),
+        _ => return Ok("struct"),
+    };
+    let metadata = field
+        .metadata()
+        .get("ARROW:extension:metadata")
+        .ok_or_else(|| PyValueError::new_err(missing))?;
+    result.set_item("metadata", metadata)?;
+    Ok(name)
 }

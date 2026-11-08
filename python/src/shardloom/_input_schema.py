@@ -14,6 +14,7 @@ from ._result_schema import ResultType
 from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
 from . import _tensor
 from . import _variable_tensor
+from . import _vector
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
@@ -47,7 +48,7 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
     expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3,
-                "variable_shape_tensor": 2, "decimal128": 2,
+                "variable_shape_tensor": 2, "sparse_vector": 2, "quantized_vector": 2, "decimal128": 2,
                 "binary_object": 0}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
@@ -75,6 +76,14 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
         fields = dict(metadata)
         if len(fields) != len(metadata):
             raise ValueError("duplicate variable tensor metadata field")
+        value.update({"storage": storage, "metadata": fields})
+    elif dtype.name in _vector.KINDS:
+        storage, metadata = dtype.parameters
+        if not isinstance(metadata, tuple) or any(not isinstance(pair, tuple) or len(pair) != 2 for pair in metadata):
+            raise ValueError("ResultType vector requires immutable metadata pairs")
+        fields = dict(metadata)
+        if len(fields) != len(metadata):
+            raise ValueError("duplicate vector metadata field")
         value.update({"storage": storage, "metadata": fields})
     elif dtype.name in {"list", "fixed_size_list", "embedding"}:
         value["item"] = dtype.parameters[0]
@@ -133,6 +142,9 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
         allowed.update(("shape", "dim_names", "permutation"))
     if token == "variable_shape_tensor":
         allowed.update(("storage", "metadata", "item", "ndim", "dim_names", "permutation", "uniform_shape"))
+    if token in _vector.KINDS:
+        allowed.update(("storage", "metadata", "uniform_size"))
+        allowed.update(("item", "index", "index_policy") if token == "sparse_vector" else ("code", "scale", "block_size"))
     if token == "struct":
         allowed.add("fields")
     if set(parameters) - allowed:
@@ -180,6 +192,47 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
                 "dim_names", "permutation", "uniform_shape") if key in parameters}
         metadata = _variable_tensor.normalize_metadata(metadata_value, rank)
         budget[1] += 128 * len(_variable_tensor.metadata_json(metadata).encode("utf-8"))
+        if budget[1] > _MAX_BYTES:
+            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        return ResultType(token, nullable, (storage, metadata))
+    if token in _vector.KINDS:
+        if "storage" in parameters:
+            if set(parameters) != {"type", "nullable", "storage", "metadata"} and set(parameters) != {"type", "storage", "metadata"}:
+                raise ValueError("explicit vector declarations require only storage, metadata and nullability")
+            storage = _parse_type(parameters["storage"], depth + 1, budget)
+            if storage.nullable != nullable:
+                raise ValueError("vector storage nullability must match its outer declaration")
+            metadata_value = parameters["metadata"]
+        else:
+            metadata_value = dict(normalize_metadata(parameters.get("metadata")))
+            if "uniform_size" in parameters:
+                metadata_value["uniform_size"] = parameters["uniform_size"]
+            if token == "sparse_vector":
+                if "item" not in parameters:
+                    raise ValueError("sparse vector requires a floating item type")
+                metadata_value["index_policy"] = parameters.get("index_policy", "preserve")
+                children = {"size": {"type": "uint64", "nullable": False},
+                    "indices": {"type": "list", "item": parameters.get("index", "uint32"), "nullable": False},
+                    "values": {"type": "list", "item": parameters["item"], "nullable": False}}
+            else:
+                if "code" not in parameters:
+                    raise ValueError("quantized vector requires an integer code type")
+                code = parameters["code"]
+                zero = _result_type_parameters(code) if isinstance(code, ResultType) else (
+                    dict(code) if isinstance(code, Mapping) else {"type": code})
+                zero["nullable"] = False
+                scale = parameters.get("scale", "float32")
+                blocked = "block_size" in parameters
+                metadata_value["parameter_mode"] = "blocked" if blocked else "per_vector"
+                if blocked:
+                    metadata_value["block_size"] = parameters["block_size"]
+                children = {"codes": {"type": "list", "item": code, "nullable": False},
+                    "scale": {"type": "list", "item": scale, "nullable": False} if blocked else scale,
+                    "zero_point": {"type": "list", "item": zero, "nullable": False} if blocked else zero}
+            storage = _parse_type({"type": "struct", "fields": children, "nullable": nullable}, depth + 1, budget)
+        metadata = _vector.normalize_metadata(token, metadata_value)
+        _vector.storage_fields(token, storage, metadata)
+        budget[1] += 128 * len(_vector.metadata_json(metadata).encode("utf-8"))
         if budget[1] > _MAX_BYTES:
             raise ValueError("nested input schema exceeds 8 MiB metadata")
         return ResultType(token, nullable, (storage, metadata))
@@ -241,6 +294,10 @@ def wire_schema(fields: Sequence[tuple[str, ResultType]]) -> tuple[tuple[str, ob
 
 def _wire_type(dtype: ResultType) -> object:
     name, nullable = dtype.name, dtype.nullable
+    if name in _vector.KINDS:
+        return {"Extension": {"id": _vector.IDS[name],
+            "metadata": list(_vector.metadata_json(dtype.parameters[1]).encode("utf-8")),
+            "storage_dtype": _wire_type(dtype.parameters[0])}}
     if name == "fixed_shape_tensor":
         return {"Extension": {
             "id": _tensor.EXTENSION_ID,
@@ -401,6 +458,10 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         if len(value) > _MAX_BYTES - budget[0]:
             raise ValueError("native input value exceeds 8 MiB")
         return [_value(child, dtype.parameters[0], budget) for child in value]
+    if name in _vector.KINDS:
+        storage, metadata = dtype.parameters
+        _vector.validate_value(name, value, storage, metadata)
+        return _value(value, storage, budget)
     if name == "variable_shape_tensor":
         storage, metadata = dtype.parameters
         _variable_tensor.validate_value(value, storage, metadata)

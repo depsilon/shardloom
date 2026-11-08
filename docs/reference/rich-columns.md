@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Dense vectors, embeddings, tensors and binary objects
+# Vectors, embeddings, tensors and binary objects
 
 This capability is in current source builds after 1.1.0. It is not included in
 the published 1.1.0 wheels. Use a matching native Python source build.
@@ -11,10 +11,12 @@ the matching native object layout. The `native-binary-objects` feature is part
 of the native Python and release user-surface build.
 Fixed-shape tensors require a reader that registers `shardloom.fixed_shape_tensor.v1`.
 Variable-shape tensors require `shardloom.variable_shape_tensor.v1`.
+Sparse and quantized vectors require `shardloom.sparse_vector.v1` and
+`shardloom.quantized_vector.v1`, respectively.
 
-Store supplied dense Float16/Float32/Float64 vectors, inline bytes and nested values
-alongside ordinary columns. An embedding adds caller-supplied identity to a
-fixed-size vector. Filtering, ordering and joining on ordinary columns carry
+Store supplied dense, sparse and affine-quantized vectors, inline bytes and nested
+values alongside ordinary columns. An embedding adds caller-supplied identity to a
+fixed-size dense vector. Filtering, ordering and joining on ordinary columns carry
 these payloads through the same native engine, including explicit native spill.
 
 ```python
@@ -63,6 +65,27 @@ Use `t.fixed_size_list(t.float32(), size)` for a numeric vector without embeddin
 identity. `t.list_`, `t.struct` and `t.binary` describe ordinary rich columns.
 Empty bytes, null bytes, an empty variable list and a null vector remain distinct.
 
+Use `t.sparse_vector(item, index=..., index_policy=..., metadata=...)` for a
+dimension plus supplied coordinates and values. The default `preserve` policy
+keeps coordinate order and duplicates exactly; it does not sort, combine or
+drop entries. `t.quantized_vector(code, scale=..., block_size=..., metadata=...)`
+carries supplied integer codes and affine interpretation parameters. Without a
+`block_size`, scale and zero point apply to the vector; a positive `block_size`
+declares per-block parameter lists. Neither declaration quantizes floating data
+or reconstructs floating values from codes.
+
+Both declarations use versioned logical identities, `shardloom.sparse_vector.v1`
+and `shardloom.quantized_vector.v1`. Sparse indices and quantized codes retain
+their declared signed or unsigned 8/16/32/64-bit width. Sparse values and scales
+retain Float16/Float32/Float64 width. A quantized zero point has the same integer
+type as its codes. Component and whole-vector nullability remain independent;
+quantized scales must be finite and positive, and required coordinates and
+parameters must be present. Optional metadata can carry the same embedding
+identity fields (`space_id`, `model_id`, `model_version`,
+`representation_version`, `normalization`, `preprocessing_id` and
+`source_provenance`). These are carriage types: vector arithmetic, similarity
+search and ANN indexing remain separate capabilities.
+
 ## Shape, nullability and identity
 
 Embedding dimensions are positive. The item must be Float16, Float32 or Float64. The
@@ -107,11 +130,12 @@ declarations require an exact native representation; inferred Python floats
 remain Float64. Raw typed-JSON numbers remain finite-only.
 
 Vortex persistence, native spill, Arrow IPC and the native Parquet adapter
-preserve the embedding declaration. CSV, JSON/JSONL files, Avro and ORC currently
-reject declared embeddings before publication because those adapters do not
-preserve this logical identity. Bounded CLI JSON **result envelopes** separately
-carry a typed schema and finite values; that is distinct from an unannotated JSON
-file export.
+preserve admitted embedding, sparse-vector and quantized-vector declarations,
+including logical identity, primitive widths, nullability and visible values.
+CSV, JSON/JSONL files, Avro and ORC reject these vector extensions before
+publication because those adapters do not preserve their logical identity.
+Bounded CLI JSON **result envelopes** separately carry a typed schema and finite
+values; that is distinct from an unannotated JSON file export.
 
 PyArrow 25.0.1 cannot read null fixed-size-list parents in Parquet, including
 files it writes itself. The native Parquet reader preserves those rows. Use
@@ -124,11 +148,10 @@ null vector parents, and all nullable rows through Arrow IPC.
 
 This delivery carries rich payloads through projection, ordinary-column filters,
 joins, bounded input/output, native spill, write and reopen. It does not admit
-embedding or tensor values as comparison keys or arithmetic operands.
-Fixed- and variable-shape tensors and Float16 components use the same payload
-lifecycle. Sparse and quantized logical representations require separate
-interpretation contracts. Exact vector functions remain in the
-[rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
+embedding, tensor, sparse-vector or quantized-vector values as comparison keys or
+arithmetic operands. Fixed- and variable-shape tensors and Float16 components use
+the same payload lifecycle. Exact vector functions and ANN indexing remain
+separate work in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
 Existing nested-schema depth/node/metadata limits remain; replacing them requires
 the separately tracked resource-backed traversal work, not removal of checks.
 
@@ -154,16 +177,37 @@ embeddings = t.list_(t.embedding(t.float16(), 3, metadata={"space_id": "passages
 # A row value: [[0.5, -0.0, None], [1.0, 2.0, 3.0]]
 ```
 
+Use the dedicated declarations when coordinates or quantization parameters carry
+meaning of their own:
+
+```python
+sparse = t.sparse_vector(t.float16(), index="uint64", index_policy="preserve")
+per_vector = t.quantized_vector(t.int8(), scale="float16")
+blocked = t.quantized_vector(t.uint64(), scale="float64", block_size=2)
+```
+
+Sparse vectors retain their declared dimension, coordinate/value order, duplicate
+coordinates, explicit zeros and component nulls. Quantized vectors retain their
+integer codes and the declared affine parameters `(code - zero_point) * scale`;
+blocked parameters have one entry per code block, including a final partial
+block. These declarations preserve the supplied representation and metadata.
+They do not quantize, sort, merge, densify or dequantize values. Null whole-vector
+parents remain distinct from present empty vectors.
+
 An empty collection, a null collection, a null vector and a null component remain
 distinct. Native files, Arrow IPC and Parquet retain these declarations and raw
 Float16 representations, subject to the independent-reader limitations above.
 Avro and ORC refuse scalar or nested Float16 output before consuming a streaming
-producer. Embedding and tensor text-output restrictions also remain unchanged.
+producer. Embedding and tensor text-output restrictions also remain unchanged;
+sparse and quantized vector extensions are likewise refused by text, Avro and ORC
+destinations before producer or staging work.
 
 The [runnable example](../../python/examples/float16_vectors.py) combines Float16
-scalars, vector collections and both tensor forms, then writes and reopens a
-native file. The [Float16 lifecycle contract](../architecture/native-float16-lifecycle-2026-11-07.md)
-records the exact-bit, observation-policy and ownership requirements.
+scalars, dense vector collections, sparse and quantized vectors, and both tensor
+forms, then writes and reopens a native file. The [Float16 lifecycle contract](../architecture/native-float16-lifecycle-2026-11-07.md)
+records the exact-bit, observation-policy and ownership requirements. The
+[sparse and quantized vector contract](../architecture/native-vector-representations-2026-11-07.md)
+defines their storage and interpretation metadata.
 
 ## Fixed-shape tensors
 

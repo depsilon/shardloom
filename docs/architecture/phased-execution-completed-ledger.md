@@ -17,6 +17,23 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Sparse and quantized vector lifecycle — local and portable acceptance`
+  — the [contract](native-vector-representations-2026-11-07.md) and
+  [532-member packet](../release/evidence/native-vector-representations-2026-11-07/README.md)
+  preserve 13 accepted stages against 39 source records, including one deletion.
+  Default/native tests pass 3,321/6,988 cases with 37 existing native ignores;
+  strict lint, formatting and all seven feature configurations pass. All 386
+  installed-package tests pass without failures, errors or skips, including
+  11 vector, 37 tensor/Float16 and 19 context tests. Python core reports 857 runs
+  among 1,247 discovered cases, 56 optional/environment skip records and no
+  failures or errors. Ten original failed observations are preserved. Original
+  and relocated replay pass, and nine corruption controls reject. This entry
+  closes local/portable acceptance only; hosted review, PR checks, exact-main
+  verification and final artifact retirement remain pending at this checkpoint.
+  Item 19, item 20, RFC 0044 and CG-1 through CG-23 retain their independent
+  status. Vector arithmetic, quantization/dequantization and ANN remain separate
+  capabilities; no fallback, performance or publication claim follows.
+
 - [x] `Float16 and vector-collection lifecycle — local and portable acceptance`
   — the [scoped contract](native-float16-lifecycle-2026-11-07.md) and
   [portable packet](../release/evidence/native-float16-lifecycle-2026-11-07/README.md)
@@ -29,9 +46,14 @@ phase plan first.
   54 optional/environment skip records and no failures or errors. The packet
   binds 71 changed runtime/test sources, 13 accepted stages and 442 members,
   preserves all 20 failed or interrupted observations, passes original and
-  relocated replay, and rejects nine controlled corruptions. Hosted integration
-  and subsequent retention remain pending. This row closes only local/portable
-  proof; item 19, item 20, RFC 0044 and CG-1 through CG-23 remain independent.
+  relocated replay, and rejects nine controlled corruptions. [PR #1663](https://github.com/depsilon/shardloom/pull/1663)
+  merged as `16854483c1dc4969496a14e16241b7f3cc0c4462`; all 58 PR checks and 55
+  exact-main checks passed with review clear. Verified retirement removed 19,953
+  regular files and six symlinks; inputs and accepted runtime/wheel remained
+  unchanged, and post-retirement replay passed. Five independent Dependabot PRs
+  (#1664–#1668) remain open for separate dependency review. This row closes only
+  Float16 lifecycle proof; item 19, item 20, RFC 0044 and CG-1 through CG-23
+  remain independent.
 
 - [x] `Variable-shape tensor lifecycle — merged and locally/portably verified`
   — the [scoped lifecycle contract](native-variable-tensor-lifecycle-2026-11-07.md)

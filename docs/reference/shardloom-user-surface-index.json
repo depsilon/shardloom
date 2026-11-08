@@ -1437,7 +1437,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "95ca05857928fc197c5ac12e9ad150a6d5971adcfd79f246b644e070edf39d48",
+    "source_identity": "231b6173e6451d39600faa5f95b1389b6ff67ef14bd104197cdcabded200e534",
     "source_inputs": {
       "Cargo.lock": "9cafe7ca287be50faba717b13b39f3137fdc09c5682454f3c8f861f9f2bba1f4",
       "Cargo.toml": "c61434702a77d9ee110d9c060f37668013572b76109caefd6afbaa5142f6d524",
@@ -1446,7 +1446,7 @@
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "afaaaa20f14b69fff4aeadb30fb4ade0a0acd32392635e5ba72bf6acf84a0374",
+      "python/src/shardloom/_result_schema.py": "e142cfdc7f5a6d7dc8653f6845407554346ad4ba5fd8dcd96bd1e363fee2b377",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "bc67d193cf9d386aba3e71b994ad710637e4274398d8ea880d7b86b8a0b1f84d",
@@ -1462,7 +1462,7 @@
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
-      "python/src/shardloom/types.py": "3db13272038ce2fbb9ae80487d65bd4f971f4409f5cd36c362590e973c88d3b2",
+      "python/src/shardloom/types.py": "2dcf5b80c08ddb359cf4bf556cf980480a3b7e64bfa9c27e9c951f3994f0e063",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "shardloom-vortex/Cargo.toml": "9b79b2cd5f93f2892f3a17a864c1fa21a3f5a28555a5a1ae0a4f8e054b34de41"
     },
@@ -5102,6 +5102,24 @@
         "source": "python/src/shardloom/types.py",
         "signature": "(item: 'object', size: 'int', *, metadata: 'Mapping[str, object] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
         "summary": "Declare dense Float16/Float32/Float64 values with versioned embedding identity."
+      },
+      {
+        "name": "sparse_vector",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(item: 'object', *, index: 'object' = 'uint32', index_policy: 'str' = 'preserve', uniform_size: 'int | None' = None, metadata: 'Mapping[str, object] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare size, indices and supplied floating values without densification."
+      },
+      {
+        "name": "quantized_vector",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(code: 'object', *, scale: 'object' = 'float32', block_size: 'int | None' = None, uniform_size: 'int | None' = None, metadata: 'Mapping[str, object] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare supplied affine codes, positive scales and matching zero points."
       },
       {
         "name": "fixed_shape_tensor",

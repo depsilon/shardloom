@@ -1,0 +1,192 @@
+{
+  "status": "passed",
+  "positive_controls": 2,
+  "rejected_controls": 9,
+  "exact_fixture_mutations_verified": true,
+  "original_packet_unchanged": true,
+  "observation": {
+    "status": "passed",
+    "positive_controls": 2,
+    "rejected_controls": 9,
+    "results": [
+      {
+        "name": "original",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo/docs/release/evidence/native-vector-representations-2026-11-07/verify.py",
+          "--packet",
+          "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo/docs/release/evidence/native-vector-representations-2026-11-07",
+          "--repo-root",
+          "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo"
+        ],
+        "returncode": 0,
+        "expected": "accept",
+        "log_sha256": "4a1e782782e4fbd744a041e4f4c8793bbc32e7dfb45609d943c030e641f2bea7"
+      },
+      {
+        "name": "relocated",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/relocated/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/relocated"
+        ],
+        "returncode": 0,
+        "expected": "accept",
+        "log_sha256": "4a1e782782e4fbd744a041e4f4c8793bbc32e7dfb45609d943c030e641f2bea7"
+      },
+      {
+        "name": "archive-byte-corruption",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/archive-byte-corruption/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/archive-byte-corruption"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "793fc644f995f237d556fd47e3dcbdbdc8e17227d445dcc78cf2310770a0bb8c"
+      },
+      {
+        "name": "summary-count-corruption",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/summary-count-corruption/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/summary-count-corruption"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "dc49e962622fa7b9855100e00eea6f42e12b1bf564dcc9a35814b8114e0a12b9"
+      },
+      {
+        "name": "failed-native-check-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-native-check-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-native-check-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "40f45926322d32de298e1b0c5143710f75ddcaf0d85a5b5c01dde91dc74051aa"
+      },
+      {
+        "name": "skipped-installed-test-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/skipped-installed-test-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/skipped-installed-test-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "df93adfa2f6e48015b5c23f617896a905e389588371cdb01fa30b5a04dcc1d30"
+      },
+      {
+        "name": "omitted-original-failure-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-original-failure-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-original-failure-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "54d6e0282270f7f4535360aa08b6499196529393ec404c621b5657abefdbb933"
+      },
+      {
+        "name": "changed-source-blob-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-source-blob-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-source-blob-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "51a28e0706c68bd10e169e36dc56c2d75c895c27e082e001be012cf822b7f83b"
+      },
+      {
+        "name": "changed-installed-source-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-installed-source-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-installed-source-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "a96c16d858e67a407f755056a2d5939f32645f4d9002dae341af83d91b2b7008"
+      },
+      {
+        "name": "omitted-exhaustive-test-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-exhaustive-test-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-exhaustive-test-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "dfe7073056e14987f3774ee9cf4236c618bb10e6d9dd21300357db8ff7d9419a"
+      },
+      {
+        "name": "failed-preceding-main-resealed",
+        "command": [
+          "/opt/homebrew/opt/python@3.13/bin/python3.13",
+          "-I",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-preceding-main-resealed/verify.py",
+          "--packet",
+          "/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-preceding-main-resealed"
+        ],
+        "returncode": 1,
+        "expected": "reject",
+        "log_sha256": "3add6d419ee0c5352568a320d195342b5a30a86b54c9984b9dfc6322a326550a"
+      }
+    ],
+    "original_files": {
+      "acceptance.json": {
+        "bytes": 135077,
+        "sha256": "ea4270cfa5caf45566e9f7aee51de24fff4ff6ff53fb62a348031d017f18530e"
+      },
+      "verification.tar.xz": {
+        "bytes": 2807664,
+        "sha256": "f4217fdd5bc250c89def0c547ef493aacd3d6609a516e9ba9078fba41c776567"
+      },
+      "verify.py": {
+        "bytes": 20343,
+        "sha256": "1ffb6311587bbf81b445b5c5139df2d09de36dc68515a6a6d57bec9dff34caf4"
+      }
+    },
+    "original_packet_unchanged": true,
+    "driver_sha256": "5784b3f21c97be592e2e29aa8331bb509ea5eed5439b671a56c5ae52842dcfd4"
+  },
+  "logs": {
+    "original": "{\"status\": \"passed\", \"archive_members\": 532, \"changed_sources\": 39, \"installed_tests\": 386, \"vector_tests\": 11, \"original_failures\": 10}\n",
+    "relocated": "{\"status\": \"passed\", \"archive_members\": 532, \"changed_sources\": 39, \"installed_tests\": 386, \"vector_tests\": 11, \"original_failures\": 10}\n",
+    "archive-byte-corruption": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/archive-byte-corruption/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/archive-byte-corruption/verify.py\", line 102, in verify\n    assert digest(archive_raw) == report['archive_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "summary-count-corruption": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/summary-count-corruption/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/summary-count-corruption/verify.py\", line 193, in verify\n    assert report['python_core'] == dict(discovered_test_cases=core['test_count'],\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        reported_test_runs=int(count.group(1)), skip_records=core['skipped_count'], failures=0, errors=0)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "failed-native-check-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-native-check-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-native-check-resealed/verify.py\", line 158, in verify\n    assert result['status'] == 'passed' and result['returncode'] == 0\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "skipped-installed-test-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/skipped-installed-test-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/skipped-installed-test-resealed/verify.py\", line 200, in verify\n    assert all(installed['integration'][key] == 0 for key in ('failures', 'errors', 'skipped'))\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "omitted-original-failure-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-original-failure-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-original-failure-resealed/verify.py\", line 249, in verify\n    assert failures == [entry['receipt'] for entry in index['failures']] == [entry['receipt'] for entry in report['original_failures']]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "changed-source-blob-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-source-blob-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-source-blob-resealed/verify.py\", line 129, in verify\n    assert name.rsplit('/', 1)[1] == digest(raw)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "changed-installed-source-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-installed-source-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/changed-installed-source-resealed/verify.py\", line 145, in verify\n    assert source == {name: info for name, info in build['changed_source_inventory'].items() if code_path(name)}\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "omitted-exhaustive-test-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-exhaustive-test-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/omitted-exhaustive-test-resealed/verify.py\", line 217, in verify\n    assert report['vector_tests'] == successful_methods(integration_log, MODULES) == successful_methods(log('vector_bindings'), MODULES) == expected\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "failed-preceding-main-resealed": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-preceding-main-resealed/verify.py\", line 320, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root)))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/vector-representations-2026-11-07/packet-controls-r1/failed-preceding-main-resealed/verify.py\", line 308, in verify\n    assert all(row['head_sha'] == closeout['merge_commit'] and row['status'] == 'completed' and row['conclusion'] == 'success' for row in selected)\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  "driver_source": "\"\"\"Check original/relocated replay and meaningful resealed corruptions.\"\"\"\nimport argparse\nimport hashlib\nimport io\nimport json\nfrom pathlib import Path\nimport re\nimport shutil\nimport subprocess\nimport sys\nimport tarfile\n\nROOT = Path('/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo')\nOUT = Path(__file__).resolve().parents[1]\nPACKET = ROOT / 'docs/release/evidence/native-vector-representations-2026-11-07'\nparser = argparse.ArgumentParser(description=__doc__)\nparser.add_argument('--attempt', default='r1')\nargs = parser.parse_args()\nassert args.attempt.replace('-', '').isalnum()\nDEST = OUT / ('packet-controls-' + args.attempt)\nassert not DEST.exists()\nDEST.mkdir()\nFILENAMES = ('acceptance.json', 'verification.tar.xz', 'verify.py')\n\n\ndef identity(raw):\n    return dict(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())\n\n\noriginal = {name: identity((PACKET / name).read_bytes()) for name in FILENAMES}\nresults = []\n\n\ndef clone(name):\n    directory = DEST / name\n    directory.mkdir()\n    for filename in FILENAMES:\n        shutil.copyfile(PACKET / filename, directory / filename)\n        assert identity((directory / filename).read_bytes()) == original[filename]\n    return directory, json.loads((directory / 'acceptance.json').read_bytes())\n\n\ndef save(directory, report):\n    (directory / 'acceptance.json').write_text(json.dumps(report, indent=2) + '\\n')\n\n\ndef change_json(entries, name, update):\n    value = json.loads(entries[name])\n    update(value)\n    entries[name] = json.dumps(value).encode()\n\n\ndef rewrite(directory, report, change):\n    with tarfile.open(directory / 'verification.tar.xz', 'r:xz') as archive:\n        entries = {entry.name: archive.extractfile(entry).read() for entry in archive.getmembers()}\n    change(entries, report)\n    report['members'] = [dict(path=name, **identity(raw)) for name, raw in sorted(entries.items())]\n    with tarfile.open(directory / 'verification.tar.xz', 'w:xz', preset=1) as archive:\n        for row in report['members']:\n            info = tarfile.TarInfo(row['path'])\n            info.size, info.mode, info.mtime = row['bytes'], 0o644, 0\n            archive.addfile(info, io.BytesIO(entries[row['path']]))\n    report['archive_sha256'] = identity((directory / 'verification.tar.xz').read_bytes())['sha256']\n    save(directory, report)\n\n\ndef run(name, directory, accepted, repo_root=None):\n    command = [sys.executable, '-I', str(directory / 'verify.py'), '--packet', str(directory)]\n    if repo_root:\n        command += ['--repo-root', str(repo_root)]\n    result = subprocess.run(command, capture_output=True, timeout=120)\n    raw = result.stdout + result.stderr\n    assert len(raw) < 1 << 20\n    (DEST / (name + '.log')).write_bytes(raw)\n    results.append(dict(name=name, command=command, returncode=result.returncode,\n        expected='accept' if accepted else 'reject', log_sha256=identity(raw)['sha256']))\n    assert (result.returncode == 0) == accepted, name\n    if accepted:\n        assert json.loads(result.stdout)['status'] == 'passed'\n    else:\n        assert b'AssertionError' in raw or b'KeyError' in raw, (name, raw)\n\n\ndef failed_native(entries, report):\n    change_json(entries, 'current/' + report['roles']['native_tests'], lambda v: v.update(status='failed', returncode=101))\n\n\ndef skipped_installed(entries, report):\n    change_json(entries, 'current/installed-proof-r1/report.json', lambda v: v['integration'].update(skipped=1))\n    change_json(entries, 'current/installed-proof-r1/integration.json', lambda v: v.update(skipped=1))\n    report['installed_package']['skipped'] = 1\n\n\ndef omitted_failure(entries, report):\n    name = 'current/vectors-native-clippy-r1.json'\n    entries.pop(name)\n    report['original_failures'] = [entry for entry in report['original_failures'] if entry['receipt'] != name]\n\n\ndef changed_blob(entries, report):\n    name = 'python/tests/test_native_vector_representations_binding.py'\n    key = 'current/source-blobs/' + report['code_snapshot'][name]['sha256']\n    entries[key] += b'\\n'\n\n\ndef changed_installed_source(entries, report):\n    name = 'python/src/shardloom/types.py'\n    old = report['code_snapshot'][name]\n    raw = entries['current/source-blobs/' + old['sha256']] + b'\\n'\n    new = identity(raw)\n    entries['current/source-blobs/' + new['sha256']] = raw\n    report['code_snapshot'][name] = new\n    change_json(entries, 'current/' + report['roles']['installed'], lambda v: v['changed_source_inventory'].update({name: new}))\n\n\ndef missing_exhaustive_test(entries, report):\n    key = 'current/installed-proof-r1/integration.log'\n    raw = entries[key]\n    lines = raw.splitlines(keepends=True)\n    removed = [line for line in lines if line.startswith(b'test_vector_every_integer_and_float_width_retains_typed_and_arrow_storage ')]\n    assert len(removed) == 1\n    raw = b''.join(line for line in lines if line not in removed)\n    count = report['installed_package']['tests'] - 1\n    raw = re.sub(rb'Ran \\d+ tests in', b'Ran ' + str(count).encode() + b' tests in', raw)\n    entries[key] = raw\n    report['installed_package']['tests'] = count\n    change_json(entries, 'current/installed-proof-r1/integration.json', lambda v: v.update(tests=count))\n    def update(value):\n        value['integration']['tests'] = count\n        step = next(row for row in value['steps'] if row['log'] == 'integration.log')\n        step['log_sha256'] = identity(raw)['sha256']\n    change_json(entries, 'current/installed-proof-r1/report.json', update)\n\n\ndef failed_prior_main(entries, _):\n    closeout = json.loads(entries['prior/float16-closeout-r1.json'])\n    main_name = next(name for name in closeout['receipts'] if re.fullmatch(r'float16-main1663-r\\d+\\.json', name)\n        and json.loads(entries['prior/' + name])['status'] == 'passed')\n    main = json.loads(entries['prior/' + main_name])\n    raw_name = main_name.removesuffix('.json') + '-raw/checks.json'\n    checks = json.loads(entries['prior/' + raw_name])\n    required = set(main['required_hosted_check_names'])\n    next(row for row in checks['check_runs'] if row['name'] in required)['conclusion'] = 'failure'\n    entries['prior/' + raw_name] = json.dumps(checks).encode()\n    main['raw_sources'][raw_name] = identity(entries['prior/' + raw_name])['sha256']\n    entries['prior/' + main_name] = json.dumps(main).encode()\n    for name in (raw_name, main_name):\n        closeout['receipts'][name] = identity(entries['prior/' + name])\n    entries['prior/float16-closeout-r1.json'] = json.dumps(closeout).encode()\n    change_json(entries, 'current/preparation-transfer-r1.json',\n        lambda value: value.update(prior_float16_closeout_sha256=identity(entries['prior/float16-closeout-r1.json'])['sha256']))\n\n\ntry:\n    run('original', PACKET, True, ROOT)\n    relocated, _ = clone('relocated')\n    run('relocated', relocated, True)\n    directory, report = clone('archive-byte-corruption')\n    raw = bytearray((directory / 'verification.tar.xz').read_bytes())\n    raw[len(raw) // 2] ^= 1\n    (directory / 'verification.tar.xz').write_bytes(raw)\n    run('archive-byte-corruption', directory, False)\n    directory, report = clone('summary-count-corruption')\n    report['python_core']['reported_test_runs'] += 1\n    save(directory, report)\n    run('summary-count-corruption', directory, False)\n    for name, change in [\n        ('failed-native-check-resealed', failed_native),\n        ('skipped-installed-test-resealed', skipped_installed),\n        ('omitted-original-failure-resealed', omitted_failure),\n        ('changed-source-blob-resealed', changed_blob),\n        ('changed-installed-source-resealed', changed_installed_source),\n        ('omitted-exhaustive-test-resealed', missing_exhaustive_test),\n        ('failed-preceding-main-resealed', failed_prior_main),\n    ]:\n        directory, report = clone(name)\n        rewrite(directory, report, change)\n        run(name, directory, False)\n    assert original == {name: identity((PACKET / name).read_bytes()) for name in FILENAMES}\n    assert len(results) == 11\n    receipt = dict(status='passed', positive_controls=2, rejected_controls=9,\n        results=results, original_files=original, original_packet_unchanged=True,\n        driver_sha256=identity(Path(__file__).read_bytes())['sha256'])\nexcept BaseException as error:\n    receipt = dict(status='failed', results=results, error=type(error).__name__ + ': ' + str(error))\n    raise\nfinally:\n    (DEST / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\\n')\nprint(json.dumps(receipt))\n",
+  "driver_sha256": "5784b3f21c97be592e2e29aa8331bb509ea5eed5439b671a56c5ae52842dcfd4",
+  "primary_verifier_source": "\"\"\"Independently check exact corruption fixtures and preserve their outputs.\"\"\"\nimport argparse\nimport copy\nimport hashlib\nimport io\nimport json\nfrom pathlib import Path\nimport re\nimport tarfile\n\nOUT = Path(__file__).resolve().parents[1]\nROOT = Path('/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo')\nPACKET = ROOT / 'docs/release/evidence/native-vector-representations-2026-11-07'\nparser = argparse.ArgumentParser(description=__doc__)\nparser.add_argument('--attempt', default='r1')\nargs = parser.parse_args()\nassert args.attempt.replace('-', '').isalnum()\nCONTROL = OUT / ('packet-controls-' + args.attempt)\n\n\ndef identity(raw):\n    return dict(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())\n\n\ndef read(path):\n    return json.loads(path.read_bytes())\n\n\ndef contents(directory, report):\n    raw = (directory / 'verification.tar.xz').read_bytes()\n    assert identity(raw)['sha256'] == report['archive_sha256']\n    with tarfile.open(fileobj=io.BytesIO(raw), mode='r:xz') as archive:\n        assert archive.getnames() == [row['path'] for row in report['members']]\n        result = {}\n        for entry, row in zip(archive.getmembers(), report['members']):\n            assert entry.isfile() and entry.size == row['bytes']\n            raw = archive.extractfile(entry).read()\n            assert identity(raw)['sha256'] == row['sha256']\n            result[entry.name] = raw\n        return result\n\n\nreceipt = read(CONTROL / 'receipt.json')\nassert receipt['status'] == 'passed' and receipt['positive_controls'] == 2 and receipt['rejected_controls'] == 9\noriginal = read(PACKET / 'acceptance.json')\nfor name, info in receipt['original_files'].items():\n    assert identity((PACKET / name).read_bytes()) == info\ndriver = (OUT / 'tools/check_vector_packet_controls.py').read_bytes()\nassert identity(driver)['sha256'] == receipt['driver_sha256']\ndata = contents(PACKET, original)\nnames = ['original', 'relocated', 'archive-byte-corruption', 'summary-count-corruption',\n    'failed-native-check-resealed', 'skipped-installed-test-resealed', 'omitted-original-failure-resealed',\n    'changed-source-blob-resealed', 'changed-installed-source-resealed', 'omitted-exhaustive-test-resealed',\n    'failed-preceding-main-resealed']\nassert [row['name'] for row in receipt['results']] == names\nlogs = {}\nfor index, row in enumerate(receipt['results']):\n    raw = (CONTROL / (row['name'] + '.log')).read_bytes()\n    assert identity(raw)['sha256'] == row['log_sha256']\n    assert (row['returncode'] == 0) == (index < 2)\n    assert row['expected'] == ('accept' if index < 2 else 'reject')\n    if index >= 2:\n        assert b'AssertionError' in raw or b'KeyError' in raw\n    else:\n        assert json.loads(raw)['status'] == 'passed'\n    logs[row['name']] = raw.decode()\n    if index:\n        assert (CONTROL / row['name'] / 'verify.py').read_bytes() == (PACKET / 'verify.py').read_bytes()\nfor name in receipt['original_files']:\n    assert (CONTROL / 'relocated' / name).read_bytes() == (PACKET / name).read_bytes()\ndirectory = CONTROL / 'archive-byte-corruption'\nassert read(directory / 'acceptance.json') == original\nexpected = bytearray((PACKET / 'verification.tar.xz').read_bytes())\nexpected[len(expected) // 2] ^= 1\nassert (directory / 'verification.tar.xz').read_bytes() == expected\ndirectory = CONTROL / 'summary-count-corruption'\nexpected = copy.deepcopy(original)\nexpected['python_core']['reported_test_runs'] += 1\nassert read(directory / 'acceptance.json') == expected\nassert (directory / 'verification.tar.xz').read_bytes() == (PACKET / 'verification.tar.xz').read_bytes()\n\nfor name in names[4:]:\n    directory = CONTROL / name\n    report = read(directory / 'acceptance.json')\n    actual = contents(directory, report)\n    wanted_report = copy.deepcopy(original)\n    wanted = dict(data)\n    if name == 'failed-native-check-resealed':\n        key = 'current/' + original['roles']['native_tests']\n        value = json.loads(wanted[key])\n        value.update(status='failed', returncode=101)\n        wanted[key] = json.dumps(value).encode()\n    elif name == 'skipped-installed-test-resealed':\n        for key in ('current/installed-proof-r1/report.json', 'current/installed-proof-r1/integration.json'):\n            value = json.loads(wanted[key])\n            target = value['integration'] if 'integration' in value else value\n            target['skipped'] = 1\n            wanted[key] = json.dumps(value).encode()\n        wanted_report['installed_package']['skipped'] = 1\n    elif name == 'omitted-original-failure-resealed':\n        key = 'current/vectors-native-clippy-r1.json'\n        del wanted[key]\n        wanted_report['original_failures'] = [row for row in wanted_report['original_failures'] if row['receipt'] != key]\n    elif name == 'changed-source-blob-resealed':\n        info = original['code_snapshot']['python/tests/test_native_vector_representations_binding.py']\n        wanted['current/source-blobs/' + info['sha256']] += b'\\n'\n    elif name == 'changed-installed-source-resealed':\n        path = 'python/src/shardloom/types.py'\n        old = original['code_snapshot'][path]\n        raw = wanted['current/source-blobs/' + old['sha256']] + b'\\n'\n        new = identity(raw)\n        wanted['current/source-blobs/' + new['sha256']] = raw\n        wanted_report['code_snapshot'][path] = new\n        key = 'current/' + original['roles']['installed']\n        value = json.loads(wanted[key])\n        value['changed_source_inventory'][path] = new\n        wanted[key] = json.dumps(value).encode()\n    elif name == 'omitted-exhaustive-test-resealed':\n        key = 'current/installed-proof-r1/integration.log'\n        raw = wanted[key]\n        pattern = rb'^test_vector_every_integer_and_float_width_retains_typed_and_arrow_storage [^\\n]*\\n'\n        assert len(re.findall(pattern, raw, re.MULTILINE)) == 1\n        raw = re.sub(pattern, b'', raw, flags=re.MULTILINE)\n        count = original['installed_package']['tests'] - 1\n        raw = re.sub(rb'Ran \\d+ tests in', b'Ran ' + str(count).encode() + b' tests in', raw)\n        wanted[key] = raw\n        wanted_report['installed_package']['tests'] = count\n        key = 'current/installed-proof-r1/integration.json'\n        value = json.loads(wanted[key])\n        value['tests'] = count\n        wanted[key] = json.dumps(value).encode()\n        key = 'current/installed-proof-r1/report.json'\n        value = json.loads(wanted[key])\n        value['integration']['tests'] = count\n        next(step for step in value['steps'] if step['log'] == 'integration.log')['log_sha256'] = identity(raw)['sha256']\n        wanted[key] = json.dumps(value).encode()\n    else:\n        assert name == 'failed-preceding-main-resealed'\n        closeout = json.loads(wanted['prior/float16-closeout-r1.json'])\n        main_name = next(key for key in closeout['receipts'] if re.fullmatch(r'float16-main1663-r\\d+\\.json', key)\n            and json.loads(wanted['prior/' + key])['status'] == 'passed')\n        main = json.loads(wanted['prior/' + main_name])\n        raw_name = main_name.removesuffix('.json') + '-raw/checks.json'\n        checks = json.loads(wanted['prior/' + raw_name])\n        next(row for row in checks['check_runs'] if row['name'] in main['required_hosted_check_names'])['conclusion'] = 'failure'\n        wanted['prior/' + raw_name] = json.dumps(checks).encode()\n        main['raw_sources'][raw_name] = identity(wanted['prior/' + raw_name])['sha256']\n        wanted['prior/' + main_name] = json.dumps(main).encode()\n        for key in (raw_name, main_name):\n            closeout['receipts'][key] = identity(wanted['prior/' + key])\n        wanted['prior/float16-closeout-r1.json'] = json.dumps(closeout).encode()\n        key = 'current/preparation-transfer-r1.json'\n        value = json.loads(wanted[key])\n        value['prior_float16_closeout_sha256'] = identity(wanted['prior/float16-closeout-r1.json'])['sha256']\n        wanted[key] = json.dumps(value).encode()\n    assert actual == wanted, name\n    wanted_report['members'] = report['members']\n    wanted_report['archive_sha256'] = report['archive_sha256']\n    assert report == wanted_report, name\n\nresult = dict(status='passed', positive_controls=2, rejected_controls=9,\n    exact_fixture_mutations_verified=True, original_packet_unchanged=True,\n    observation=receipt, logs=logs, driver_source=driver.decode(), driver_sha256=identity(driver)['sha256'],\n    primary_verifier_source=Path(__file__).read_text(),\n    scope='Saved evidence consistency only; no native tests, builds, benchmarks or installation rerun.')\nwith (PACKET / 'corruption-controls.json').open('x') as stream:\n    json.dump(result, stream, indent=2)\n    stream.write('\\n')\nprint(json.dumps({key: result[key] for key in ('status', 'positive_controls', 'rejected_controls', 'exact_fixture_mutations_verified')}))\n",
+  "scope": "Saved evidence consistency only; no native tests, builds, benchmarks or installation rerun."
+}

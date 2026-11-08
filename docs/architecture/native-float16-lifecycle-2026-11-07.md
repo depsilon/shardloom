@@ -2,8 +2,9 @@
 
 # Float16 and collections of fixed-dimensional vectors
 
-Status: local and portable acceptance passed, November 7. Hosted integration
-and subsequent artifact retention remain pending.
+Status: local and portable acceptance passed, November 7; [PR #1663](https://github.com/depsilon/shardloom/pull/1663)
+merged as `16854483c1dc4969496a14e16241b7f3cc0c4462` with exact-main checks
+passing. Verified artifact retirement and post-retirement replay also passed.
 This continues step 4 of the
 [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md) after fixed and
 variable tensors. Variable-tensor PR #1662 merged as
@@ -194,8 +195,13 @@ adjusted to match. Exact control mutations are independently verified. The
 archive preserves all 20 original failed or interrupted top-level observations,
 their available logs and dispositions; successful reruns do not replace them.
 
-This acceptance is local and portable. Hosted review, PR checks, exact-main
-verification and post-integration retention must finish before the next
-implementation unit. Sparse/quantized representations and exact vector
-expressions remain separate work; item 19, item 20, RFC 0044 and CG-1 through
-CG-23 retain their independent completion requirements.
+This acceptance is local and portable. Hosted review is clear; all 58 PR checks
+and all 55 exact-main checks passed. Verified retirement removed 19,953 regular
+files and six symlinks; current inputs and the accepted Float16 runtime/wheel
+were unchanged, and post-retirement replay passed. The local acceptance's 20
+failed or interrupted observations and all 375 installed-package tests remain
+unchanged. Five independent Dependabot PRs (#1664–#1668) remain open for separate
+dependency review; repository-wide open-PR reconciliation is pending. Sparse,
+quantized representations and exact vector expressions remain separate work;
+item 19, item 20, RFC 0044 and CG-1 through CG-23 retain their independent
+completion requirements.

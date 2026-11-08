@@ -61,7 +61,7 @@ Declare fixed-rank tensors with row-specific shapes using
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `95ca05857928fc197c5ac12e9ad150a6d5971adcfd79f246b644e070edf39d48` (SHA-256 of the listed source inputs).
+Source identity: `231b6173e6451d39600faa5f95b1389b6ff67ef14bd104197cdcabded200e534` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -315,6 +315,8 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |
 | [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
 | [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float16/Float32/Float64 values with versioned embedding identity. |
+| [`shardloom.types.sparse_vector`](../../python/src/shardloom/types.py) | function | Declare size, indices and supplied floating values without densification. |
+| [`shardloom.types.quantized_vector`](../../python/src/shardloom/types.py) | function | Declare supplied affine codes, positive scales and matching zero points. |
 | [`shardloom.types.fixed_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat physical-order tensor values with a checked fixed shape. |
 | [`shardloom.types.variable_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat values with a row-specific shape and fixed rank. |
 | [`shardloom.types.struct`](../../python/src/shardloom/types.py) | function | Declare struct metadata for the native binder. |

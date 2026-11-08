@@ -79,7 +79,7 @@ pub(crate) fn provider_batch(
             .build()
             .map_err(super::vortex_error)
     }
-    crate::native_variable_tensor::arrow::validate_batch(&batch, memory, check)?;
+    crate::native_cross_field_arrow::validate_batch(&batch, memory, check)?;
     let (schema, columns, rows) = batch.into_parts();
     let columns = columns
         .into_iter()

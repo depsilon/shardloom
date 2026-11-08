@@ -41,6 +41,8 @@ __all__ = (
     "list_",
     "fixed_size_list",
     "embedding",
+    "sparse_vector",
+    "quantized_vector",
     "fixed_shape_tensor",
     "variable_shape_tensor",
     "struct",
@@ -196,6 +198,40 @@ def embedding(item: object, size: int, *, metadata: Mapping[str, object] | None 
 
 def struct(fields: Mapping[str, object], *, nullable: bool = True) -> ResultType:
     return _type({"type": "struct", "fields": fields, "nullable": nullable})
+
+
+def sparse_vector(item: object, *, index: object = "uint32", index_policy: str = "preserve",
+                  uniform_size: int | None = None, metadata: Mapping[str, object] | None = None,
+                  nullable: bool = True) -> ResultType:
+    """Declare size, indices and supplied floating values without densification.
+
+    The preserve policy retains order and duplicates; strictly_increasing checks
+    ascending unique indices. Component/index nullability comes from their types,
+    but indices in a present vector must be nonnull. No vector arithmetic is enabled.
+    """
+    declaration = {"type": "sparse_vector", "item": item, "index": index,
+                   "index_policy": index_policy, "metadata": metadata, "nullable": nullable}
+    if uniform_size is not None:
+        declaration["uniform_size"] = uniform_size
+    return _type(declaration)
+
+
+def quantized_vector(code: object, *, scale: object = "float32", block_size: int | None = None,
+                     uniform_size: int | None = None, metadata: Mapping[str, object] | None = None,
+                     nullable: bool = True) -> ResultType:
+    """Declare supplied affine codes, positive scales and matching zero points.
+
+    Omit block_size for scalar parameters, or use a positive block width for
+    parameter lists. Codes retain their width and nullability. This declaration
+    neither quantizes floating data nor reconstructs floating values from codes.
+    """
+    declaration = {"type": "quantized_vector", "code": code, "scale": scale,
+                   "metadata": metadata, "nullable": nullable}
+    if block_size is not None:
+        declaration["block_size"] = block_size
+    if uniform_size is not None:
+        declaration["uniform_size"] = uniform_size
+    return _type(declaration)
 
 
 def fixed_shape_tensor(item: object, shape: list[int] | tuple[int, ...], *,

@@ -27,12 +27,6 @@ use vortex::{
 const NAME: &str = "ARROW:extension:name";
 const META: &str = "ARROW:extension:metadata";
 
-#[cfg(feature = "vortex-write")]
-#[path = "native_variable_tensor_arrow_values.rs"]
-mod values;
-#[cfg(feature = "vortex-write")]
-pub(crate) use values::validate_batch;
-
 #[derive(Debug)]
 struct TensorArrow;
 

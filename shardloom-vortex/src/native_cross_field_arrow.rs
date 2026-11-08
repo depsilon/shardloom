@@ -1,14 +1,17 @@
 //! Cross-field checks at the complete Arrow intake boundary, before masks change.
 
-use super::{META, Metadata, NAME};
+use crate::native_variable_tensor::Metadata;
 use arrow_array::{Array, GenericListArray, OffsetSizeTrait, RecordBatch, cast::AsArray as _};
 use arrow_schema::{DataType, Field};
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
 
+const NAME: &str = "ARROW:extension:name";
+const META: &str = "ARROW:extension:metadata";
+
 fn failed(message: impl std::fmt::Display) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
-        "variable tensor intake: {message}; no fallback execution was attempted"
+        "rich value intake: {message}; no fallback execution was attempted"
     ))
 }
 
@@ -16,7 +19,8 @@ fn contains(field: &Field) -> bool {
     if field
         .metadata()
         .get(NAME)
-        .is_some_and(|name| name == super::super::ARROW_ID)
+        .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
+        || crate::native_vector::arrow::kind(field).is_some()
     {
         return true;
     }
@@ -33,6 +37,7 @@ fn contains(field: &Field) -> bool {
 /// the small traversal tree and JSON scratch; no per-row shape vector is made.
 enum Validator {
     Tensor(Metadata, usize),
+    Vector(crate::native_vector::Metadata),
     Struct(Vec<(usize, Self)>),
     List(Box<Self>),
     LargeList(Box<Self>),
@@ -41,12 +46,20 @@ enum Validator {
 
 impl Validator {
     fn new(field: &Field) -> Result<Self> {
+        if crate::native_vector::arrow::kind(field).is_some() {
+            let dtype = crate::native_vector::arrow::dtype(field).map_err(failed)?;
+            return Ok(Self::Vector(
+                crate::native_vector::metadata(&dtype)
+                    .expect("validated vector metadata")
+                    .clone(),
+            ));
+        }
         if field
             .metadata()
             .get(NAME)
-            .is_some_and(|name| name == super::super::ARROW_ID)
+            .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
         {
-            if !super::admitted(field) {
+            if !crate::native_variable_tensor::arrow::admitted(field) {
                 return Err(failed("invalid variable tensor storage"));
             }
             let DataType::Struct(fields) = field.data_type() else {
@@ -76,7 +89,7 @@ impl Validator {
                 Box::new(Self::new(child)?),
                 usize::try_from(*width).map_err(failed)?,
             ),
-            _ => return Err(failed("unsupported containing tensor layout")),
+            _ => return Err(failed("unsupported containing rich-value layout")),
         })
     }
 
@@ -89,11 +102,14 @@ impl Validator {
     ) -> Result<()> {
         check()?;
         if start > end || end > array.len() {
-            return Err(failed("tensor parent coordinates exceed child values"));
+            return Err(failed("rich-value parent coordinates exceed child values"));
         }
         valid_ranges(array, start, end, |start, end| match self {
             Self::Tensor(metadata, rank) => {
                 validate_tensor(metadata, *rank, array, start, end, check)
+            }
+            Self::Vector(metadata) => {
+                crate::native_vector::arrow::values::validate(metadata, array, start, end, check)
             }
             Self::Struct(fields) => {
                 let array = array
@@ -248,7 +264,7 @@ pub(crate) fn validate_batch(
         if contains(field) {
             let bytes = crate::native_payload_schema::arrow_metadata_bytes(field.data_type())?
                 .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
-                .ok_or_else(|| failed("tensor schema workspace overflow"))?;
+                .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
             let _workspace = memory.map(|memory| memory.reserve(bytes)).transpose()?;
             Validator::new(field)?.validate(array.as_ref(), 0, array.len(), check)?;
         }

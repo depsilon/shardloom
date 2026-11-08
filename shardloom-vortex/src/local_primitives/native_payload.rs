@@ -32,6 +32,8 @@ pub(super) use storage::decimal_key;
 
 #[path = "native_payload_tensor.rs"]
 mod tensor;
+#[path = "native_payload_vector.rs"]
+mod vector;
 
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_tensor_tests.rs"]
@@ -448,6 +450,17 @@ fn copy_rows<const RETAIN: bool>(
                 extension.metadata_opt::<crate::native_variable_tensor::VariableShapeTensor>()
         {
             tensor::validate_selection(
+                storage.as_ref().map(ExtensionArrayExt::storage_array),
+                rows,
+                metadata,
+                context,
+                allocator,
+            )?;
+        }
+        if copy.policy == CopyPolicy::ValidateValues
+            && let Some(metadata) = crate::native_vector::metadata(dtype)
+        {
+            vector::validate_selection(
                 storage.as_ref().map(ExtensionArrayExt::storage_array),
                 rows,
                 metadata,
