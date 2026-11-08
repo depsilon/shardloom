@@ -186,20 +186,7 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
         });
     }
     if kind == "Extension" {
-        #[cfg(feature = "native-binary-objects")]
-        if value.get("id").and_then(Value::as_str) == Some(crate::native_binary_type::ID) {
-            return binary_object_dtype(value, depth + 1, nodes);
-        }
-        if value.get("id").and_then(Value::as_str) == Some(crate::native_embedding::ID) {
-            return embedding_dtype(value, depth + 1, nodes);
-        }
-        if value.get("id").and_then(Value::as_str) == Some(crate::native_tensor::ID) {
-            return tensor_dtype(value, depth + 1, nodes);
-        }
-        if value.get("id").and_then(Value::as_str) == Some(crate::native_variable_tensor::ID) {
-            return variable_tensor_dtype(value, depth + 1, nodes);
-        }
-        return temporal_dtype(value);
+        return extension_dtype(value, depth + 1, nodes);
     }
     let size = if kind == "FixedSizeList" { 3 } else { 2 };
     let parts = value
@@ -268,6 +255,27 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
         }
         _ => return Err(failed("unsupported native input dtype")),
     })
+}
+
+fn extension_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let id = value.get("id").and_then(Value::as_str);
+    #[cfg(feature = "native-binary-objects")]
+    if id == Some(crate::native_binary_type::ID) {
+        return binary_object_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_embedding::ID) {
+        return embedding_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_tensor::ID) {
+        return tensor_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_variable_tensor::ID) {
+        return variable_tensor_dtype(value, depth, nodes);
+    }
+    if let Some(kind) = id.and_then(crate::native_vector::Kind::from_id) {
+        return vector_dtype(kind, value, depth, nodes);
+    }
+    temporal_dtype(value)
 }
 
 #[cfg(feature = "native-binary-objects")]
@@ -361,6 +369,37 @@ fn variable_tensor_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Resu
             .map_err(vortex_error)?
             .erased(),
     ))
+}
+
+fn vector_dtype(
+    kind: crate::native_vector::Kind,
+    value: &Value,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let bytes = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("vector metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("vector metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = match kind {
+        crate::native_vector::Kind::Sparse => {
+            crate::native_vector::SparseVector::default().deserialize_metadata(&bytes)
+        }
+        crate::native_vector::Kind::Quantized => {
+            crate::native_vector::QuantizedVector::default().deserialize_metadata(&bytes)
+        }
+    }
+    .map_err(vortex_error)?;
+    crate::native_vector::dtype(metadata, storage).map_err(vortex_error)
 }
 
 fn decimal_dtype(value: &Value, nullable: Nullability) -> Result<DType> {

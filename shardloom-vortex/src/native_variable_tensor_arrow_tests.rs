@@ -1,4 +1,5 @@
 use super::*;
+use crate::native_cross_field_arrow::validate_batch;
 use arrow_array::{
     Array as _, FixedSizeListArray, Float32Array, Int32Array, LargeListArray, ListArray,
     RecordBatch, StructArray, cast::AsArray as _, types::Float32Type,

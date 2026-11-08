@@ -129,6 +129,8 @@ pub mod application_batch;
 pub mod binary_object;
 #[cfg(feature = "native-binary-objects")]
 mod native_binary_type;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+mod native_cross_field_arrow;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_embedding;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
@@ -141,6 +143,8 @@ mod native_temporal;
 mod native_tensor;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_variable_tensor;
+#[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
+mod native_vector;
 #[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
 mod native_work_sizing;
 pub mod output_payload;

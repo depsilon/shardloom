@@ -17,6 +17,7 @@ from .errors import ShardLoomProtocolError
 from ._embedding import EXTENSION_ID, decode_metadata, metadata_json
 from . import _tensor
 from . import _variable_tensor
+from . import _vector
 from ._temporal import decode_temporal_dtype, temporal_parts, validate_temporal_ticks, arrow_temporal_type
 
 _PRIMITIVES = {
@@ -36,6 +37,8 @@ class ResultType:
 
     @property
     def label(self) -> str:
+        if self.name in _vector.KINDS:
+            return self.name
         if self.name == "fixed_shape_tensor":
             return f"fixed_shape_tensor<{self.parameters[0].label},{dict(self.parameters[2])['shape']}>"
         if self.name == "variable_shape_tensor":
@@ -78,6 +81,17 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
+        if payload.get("id") in _vector.IDS.values():
+            raw = payload.get("metadata")
+            if (set(payload) != {"id", "metadata", "storage_dtype"} or not isinstance(raw, list)
+                    or any(type(byte) is not int or not 0 <= byte <= 255 for byte in raw)):
+                raise ValueError("vector metadata requires UTF8 bytes")
+            name = next(name for name, identity in _vector.IDS.items() if identity == payload["id"])
+            metadata = _vector.decode_metadata(name, bytes(raw).decode("utf-8"))
+            if list(_vector.metadata_json(metadata).encode("utf-8")) != raw:
+                raise ValueError("native vector metadata requires its canonical encoding")
+            _vector.storage_fields(name, storage, metadata)
+            return ResultType(name, storage.nullable, (storage, metadata))
         if payload.get("id") == _BINARY_OBJECT_EXTENSION_ID:
             raw = payload.get("metadata")
             if (set(payload) != {"id", "metadata", "storage_dtype"}
@@ -212,6 +226,10 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
             if not isinstance(value, list) or (dtype.name != "list" and len(value) != dtype.parameters[1]):
                 raise ValueError("invalid native list payload")
             return [_python_value(item, dtype.parameters[0], temporal) for item in value]
+        if dtype.name in _vector.KINDS:
+            storage, metadata = dtype.parameters
+            _vector.validate_value(dtype.name, value, storage, metadata)
+            return _python_value(value, storage, temporal)
         if dtype.name == "variable_shape_tensor":
             storage, metadata = dtype.parameters
             _variable_tensor.validate_value(value, storage, metadata)
@@ -231,7 +249,10 @@ def arrow_table(rows: Sequence[Mapping[str, Any]], fields: Sequence[tuple[str, R
 
 def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
     metadata = None
-    if dtype.name == "fixed_shape_tensor":
+    if dtype.name in _vector.KINDS:
+        metadata = {b"ARROW:extension:name": _vector.IDS[dtype.name].encode("utf-8"),
+                    b"ARROW:extension:metadata": _vector.metadata_json(dtype.parameters[1]).encode("utf-8")}
+    elif dtype.name == "fixed_shape_tensor":
         metadata = {b"ARROW:extension:name": _tensor.ARROW_EXTENSION_ID.encode("utf-8"),
                     b"ARROW:extension:metadata": _tensor.metadata_json(dtype.parameters[2]).encode("utf-8")}
     elif dtype.name == "variable_shape_tensor":
@@ -247,7 +268,7 @@ def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
 
 
 def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
-    if dtype.name == "variable_shape_tensor":
+    if dtype.name == "variable_shape_tensor" or dtype.name in _vector.KINDS:
         return _arrow_type(dtype.parameters[0], pyarrow)
     if dtype.name == "struct":
         return pyarrow.struct([_arrow_field(name, child, pyarrow)

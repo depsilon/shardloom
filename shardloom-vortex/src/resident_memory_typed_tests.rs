@@ -34,6 +34,148 @@ fn rows(source: &ResidentMemorySource) -> Json {
     serde_json::from_str(result.values_json.value()).unwrap()
 }
 
+fn vector_dtype(sparse: bool, blocked: bool) -> Json {
+    let list = |primitive: &str| json!({"List":[{"Primitive":[primitive,true]},false]});
+    let (name, metadata, names, children) = if sparse {
+        (
+            "shardloom.sparse_vector.v1",
+            r#"{"index_policy":"preserve","space_id":"Ω","version":1}"#,
+            vec!["size", "indices", "values"],
+            vec![json!({"Primitive":["u64",false]}), list("u64"), list("f16")],
+        )
+    } else if blocked {
+        (
+            "shardloom.quantized_vector.v1",
+            r#"{"block_size":2,"parameter_mode":"blocked","version":1}"#,
+            vec!["codes", "scale", "zero_point"],
+            vec![list("u64"), list("f32"), list("u64")],
+        )
+    } else {
+        (
+            "shardloom.quantized_vector.v1",
+            r#"{"parameter_mode":"per_vector","version":1}"#,
+            vec!["codes", "scale", "zero_point"],
+            vec![
+                list("u64"),
+                json!({"Primitive":["f16",true]}),
+                json!({"Primitive":["u64",true]}),
+            ],
+        )
+    };
+    json!({"Extension":{"id":name,"metadata":metadata.as_bytes(),
+        "storage_dtype":{"Struct":[{"names":names,"dtypes":children},true]}}})
+}
+
+#[test]
+fn native_vector_typed_json_preserves_wide_values_empty_rows_and_nested_nulls() {
+    let session = ResidentVortexSession::new(16 << 20, 1).unwrap();
+    for (sparse, blocked, values) in [
+        (
+            true,
+            false,
+            vec![
+                json!({"size":u64::MAX,"indices":[u64::MAX-1,0,u64::MAX-1],"values":[-0.0,null,1.5]}),
+                Json::Null,
+                json!({"size":0,"indices":[],"values":[]}),
+            ],
+        ),
+        (
+            false,
+            false,
+            vec![
+                json!({"codes":[u64::MAX,null,0],"scale":0.25,"zero_point":u64::MAX}),
+                Json::Null,
+                json!({"codes":[],"scale":0.5,"zero_point":0}),
+            ],
+        ),
+        (
+            false,
+            true,
+            vec![
+                json!({"codes":[u64::MAX,null,0],"scale":[0.5,2.0],"zero_point":[u64::MAX,0]}),
+                Json::Null,
+                json!({"codes":[],"scale":[],"zero_point":[]}),
+            ],
+        ),
+    ] {
+        let dtype = vector_dtype(sparse, blocked);
+        for (dtype, values) in [
+            (dtype.clone(), values.clone()),
+            (
+                json!({"List":[dtype,true]}),
+                vec![Json::Array(values), Json::Null, json!([])],
+            ),
+        ] {
+            let input = source(&session, &dtype, &values).unwrap();
+            assert_eq!(
+                serde_json::to_value(input.dtype().as_struct_fields().field("v").unwrap()).unwrap(),
+                dtype
+            );
+            assert_eq!(
+                rows(&input),
+                Json::Array(values.iter().map(|value| json!({"v":value})).collect())
+            );
+            drop(input);
+            let empty = source(&session, &dtype, &[]).unwrap();
+            assert_eq!(rows(&empty), json!([]));
+            drop(empty);
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn native_vector_typed_json_refuses_cross_field_errors_and_bad_metadata_before_source_publication()
+{
+    let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
+    for (sparse, blocked, values) in [
+        (
+            true,
+            false,
+            vec![
+                json!({"size":0,"indices":[0],"values":[1.0]}),
+                json!({"size":u64::MAX,"indices":[u64::MAX],"values":[1.0]}),
+                json!({"size":1,"indices":[null],"values":[1.0]}),
+                json!({"size":1,"indices":[0],"values":[]}),
+            ],
+        ),
+        (
+            false,
+            false,
+            vec![
+                json!({"codes":[],"scale":0.0,"zero_point":0}),
+                json!({"codes":[],"scale":1.0,"zero_point":null}),
+                json!({"codes":[],"scale":1e-40,"zero_point":0}),
+            ],
+        ),
+        (
+            false,
+            true,
+            vec![
+                json!({"codes":[1,2,3],"scale":[1.0],"zero_point":[0]}),
+                json!({"codes":[],"scale":[1.0],"zero_point":[0]}),
+                json!({"codes":[1],"scale":[null],"zero_point":[0]}),
+            ],
+        ),
+    ] {
+        let dtype = vector_dtype(sparse, blocked);
+        for value in values {
+            assert!(source(&session, &dtype, &[value]).is_err());
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+        for metadata in [
+            b"{}".as_slice(),
+            br#"{"version":1,"version":1}"#,
+            br#"{"version":2}"#,
+        ] {
+            let mut bad = dtype.clone();
+            bad["Extension"]["metadata"] = json!(metadata);
+            assert!(source(&session, &bad, &[]).is_err());
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
+}
+
 #[test]
 fn dense_embedding_typed_json_preserves_metadata_nested_values_and_nulls() {
     let session = ResidentVortexSession::new(16 * 1024 * 1024, 1).unwrap();

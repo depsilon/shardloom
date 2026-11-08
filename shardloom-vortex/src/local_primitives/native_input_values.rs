@@ -47,6 +47,11 @@ impl Layout {
 
     pub(super) fn observe(&mut self, dtype: &DType, value: Option<&Json>) -> Result<()> {
         if let Some(value) = value.filter(|value| !value.is_null())
+            && let Some(metadata) = crate::native_vector::metadata(dtype)
+        {
+            metadata.validate_json(value).map_err(super::vortex_error)?;
+        }
+        if let Some(value) = value.filter(|value| !value.is_null())
             && let DType::Extension(extension) = dtype
             && let Some(metadata) =
                 extension.metadata_opt::<crate::native_variable_tensor::VariableShapeTensor>()

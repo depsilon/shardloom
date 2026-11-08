@@ -43,10 +43,25 @@ Verified retirement removed 9,996 obsolete regular files and three links. The
 preserves the scoped result and all original failures. The
 [Float16 and vector-collection unit](native-float16-lifecycle-2026-11-07.md)
 passes local and portable acceptance, including all 375 installed-package tests
-without skips, both replay locations and nine corruption controls. Hosted
-integration and subsequent retention remain pending. It extends the existing
-owners without adding vector arithmetic. Other representations and exact vector
-expressions retain separate acceptance requirements.
+without skips, both replay locations and nine corruption controls. [PR #1663](https://github.com/depsilon/shardloom/pull/1663)
+merged as `16854483c1dc4969496a14e16241b7f3cc0c4462`; all 58 PR checks and 55
+exact-main checks passed, and verified artifact retirement/replay completed.
+It extends the existing owners without adding vector arithmetic. Other
+representations and exact vector expressions retain separate acceptance
+requirements.
+The [sparse and quantized vector payload step](native-vector-representations-2026-11-07.md)
+now passes local and portable acceptance, recorded in its
+[532-member packet](../release/evidence/native-vector-representations-2026-11-07/README.md).
+All 13 accepted stages pass against the same 39 source records; default/native
+workspace tests pass 3,321/6,988, and the installed wheel passes 386 tests
+with zero failures, errors or skips, including 11 vector, 37 tensor/Float16
+regression and 19 context tests. Original and relocated replay pass, and nine
+corruption controls reject. Hosted review, PR checks, merge, exact-main checks
+and final artifact retirement are pending at this local acceptance checkpoint.
+This payload-only step adds no
+arithmetic, quantization/dequantization, ANN or fallback execution. Exact vector
+expressions remain separate; item 19, item 20, RFC 0044 and CG-1 through CG-23
+retain their independent status.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.

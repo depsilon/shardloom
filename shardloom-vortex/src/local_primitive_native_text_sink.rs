@@ -26,6 +26,11 @@ fn failed(reason: &str) -> ShardLoomError {
 }
 
 pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()> {
+    if crate::native_vector::contains(dtype) {
+        return Err(failed(
+            "text output cannot preserve vector interpretation; use Vortex, Arrow IPC or Parquet",
+        ));
+    }
     #[cfg(feature = "native-binary-objects")]
     if crate::native_binary_type::contains(dtype) {
         return Err(crate::binary_object::error(

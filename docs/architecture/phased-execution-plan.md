@@ -336,10 +336,34 @@ no failures or errors. The
 binds 71 changed runtime/test sources, 13 accepted stages and 442 evidence
 members, preserving all 20 original failed or interrupted observations.
 Original and relocated replay pass, and all nine corruption controls reject.
-Hosted review, PR/main checks and subsequent artifact retention remain pending.
-Sparse and quantized representations and exact vector expressions retain their
-later contracts. This scoped acceptance does not close item 19, item 20,
-RFC 0044 or CG-1 through CG-23, or authorize a benchmark or package publication.
+Hosted review, PR/main checks and subsequent artifact retention are complete.
+[PR #1663](https://github.com/depsilon/shardloom/pull/1663) merged as
+`16854483c1dc4969496a14e16241b7f3cc0c4462`; all 58 PR checks and 55 exact-main
+checks passed with review clear. Verified retirement removed 19,953 regular
+files and six symlinks; current inputs and the accepted Float16 runtime/wheel
+were unchanged, and post-retirement replay passed. Five independent Dependabot
+PRs (#1664–#1668) remain open for separate dependency review.
+This Float16 acceptance does not close item 19, item 20, RFC 0044 or CG-1 through
+CG-23, or authorize a benchmark or package publication.
+
+**November 7 sparse and quantized vector local and portable acceptance passed.**
+The payload representations pass local and portable acceptance
+under the [scoped contract](native-vector-representations-2026-11-07.md) and
+[532-member packet](../release/evidence/native-vector-representations-2026-11-07/README.md).
+All 13 accepted stages pass against the same 39 source records, including one
+deletion; default/native tests pass 3,321/6,988, with 37 existing native ignores.
+Formatting, strict lint and all seven feature configurations pass. Python core
+reports 857 runs among 1,247 discovered tests, 56 optional/environment skip
+records and no failures
+or errors. The clean installed wheel passes 386 tests with zero failures, errors
+or skips, including 11 vector, 37 tensor/Float16 regression and 19 context tests.
+The packet preserves 10 original failed observations, passes original and
+relocated replay, and rejects nine corruption controls. Hosted review, PR checks,
+merge, exact-main checks and final artifact retirement are pending at this local
+acceptance checkpoint. Exact
+vector expressions remain the next scoped contract; this does not close item 19,
+item 20, RFC 0044 or CG-1 through CG-23, and makes no arithmetic, quantization,
+dequantization, ANN, fallback, performance or publication claim.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

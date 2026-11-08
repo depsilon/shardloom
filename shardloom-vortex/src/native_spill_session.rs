@@ -80,6 +80,20 @@ pub(crate) fn with_memory(parent: &VortexSession, memory: LiveMemoryPool) -> Vor
     {
         crate::native_variable_tensor::register_dtype(&child);
     }
+    for (kind, id) in [
+        (
+            crate::native_vector::Kind::Sparse,
+            crate::native_vector::SparseVector::default().id(),
+        ),
+        (
+            crate::native_vector::Kind::Quantized,
+            crate::native_vector::QuantizedVector::default().id(),
+        ),
+    ] {
+        if child.dtypes().registry().contains_key(&id) {
+            crate::native_vector::register_dtype(&child, kind);
+        }
+    }
     child
 }
 

@@ -25,7 +25,7 @@ use vortex::{
 
 pub(crate) const ID: &str = "shardloom.embedding.v1";
 const MAX_METADATA_BYTES: usize = 8 * 1024 * 1024;
-const IDENTITY_FIELDS: &[&str] = &[
+pub(crate) const IDENTITY_FIELDS: &[&str] = &[
     "space_id",
     "model_id",
     "model_version",

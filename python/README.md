@@ -96,8 +96,9 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
 Current source builds after 1.1.0 also carry dense Float16/Float32/Float64 vectors,
-declared embedding identity, fixed- and variable-shape tensors, inline binary
-content and nested values through native data workflows.
+declared embedding identity, fixed- and variable-shape tensors, sparse coordinates,
+affine quantization codes, inline binary content and nested values through native
+data workflows.
 See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
 This addition is not in the published 1.1.0 wheels.
 
@@ -107,8 +108,12 @@ integration checks in PR #1662; these declarations are not in the published whee
 
 Explicit `types.float16()` declarations require exactly representable values.
 Use lists of fixed-size vectors or embeddings for several vectors per row. The
-[Float16 example](https://github.com/depsilon/shardloom/blob/main/python/examples/float16_vectors.py)
-creates, selects, writes and reopens those values in a matching source build.
+[rich-vector example](https://github.com/depsilon/shardloom/blob/main/python/examples/float16_vectors.py)
+creates, selects, writes and reopens those values, sparse vectors and quantized
+vectors in a matching source build. Sparse coordinate order and duplicates are
+preserved under the declared index policy; quantized codes and scale/zero-point
+parameters retain their original types. Vector arithmetic, quantization and
+dequantization remain separate capabilities.
 
 ## Application batch functions
 

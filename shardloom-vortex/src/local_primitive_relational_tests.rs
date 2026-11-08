@@ -87,6 +87,9 @@ mod unary_tests;
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_variable_tensor_tests.rs"]
 mod variable_tensor_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_vector_tests.rs"]
+mod vector_tests;
 #[path = "local_primitive_relational_window_frame_tests.rs"]
 mod window_frame_tests;
 #[path = "local_primitive_relational_window_spill_tests.rs"]
