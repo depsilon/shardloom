@@ -1,3 +1,5 @@
+// Modified by ShardLoom on 2026-11-08: preserve the local provider contracts.
+// See README.shardloom.md and upstream-provenance.json for the retained changes.
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
@@ -41,11 +43,11 @@ pub fn decode_to_temporal(
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<TemporalArray> {
     let DType::Extension(ext) = dtype else {
-        vortex_panic!(Compute: "expected dtype to be DType::Extension variant")
+        vortex_panic!("expected dtype to be DType::Extension variant")
     };
 
     let Some(options) = ext.metadata_opt::<Timestamp>() else {
-        vortex_panic!(Compute: "must decode TemporalMetadata from extension metadata");
+        vortex_panic!("must decode TemporalMetadata from extension metadata");
     };
 
     let divisor = match options.unit {
@@ -53,7 +55,7 @@ pub fn decode_to_temporal(
         TimeUnit::Microseconds => 1_000_000,
         TimeUnit::Milliseconds => 1_000,
         TimeUnit::Seconds => 1,
-        TimeUnit::Days => vortex_panic!(InvalidArgument: "cannot decode into TimeUnit::D"),
+        TimeUnit::Days => vortex_panic!("cannot decode into TimeUnit::D"),
     };
 
     let days = parts.days.as_::<Primitive>();
@@ -128,8 +130,8 @@ impl TimePart {
             ));
         }
 
-        // `split_temporal` produces `i32` parts, so this cast is normally a no-op. Other widths
-        // are cast up front rather than instantiating the fused kernel for every width
+        // `split_temporal` produces `i32` seconds and subseconds, so this cast is normally a no-op.
+        // Other widths are cast up front rather than instantiating the fused kernel for every width
         // combination.
         let values = part
             .cast(DType::Primitive(PType::I32, Nullability::NonNullable))?
@@ -186,7 +188,7 @@ mod test {
     use crate::test_support::assert_arrays_eq;
 
     static SESSION: LazyLock<VortexSession> = LazyLock::new(|| {
-        let session = vortex_array::array_session();
+        let session = VortexSession::empty();
         crate::initialize(&session);
         session
     });

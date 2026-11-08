@@ -42,7 +42,15 @@ fn with_dictionary(input: &ArrayRef, dictionary: Vec<u8>) -> ArrayRef {
         .data()
         .clone()
         .into_parts(input.validity().unwrap());
-    parts.metadata.dictionary_size = u32::try_from(dictionary.len()).unwrap();
+    parts.metadata = metadata_fixture(
+        dictionary.len(),
+        &parts
+            .metadata
+            .frames()
+            .iter()
+            .map(|frame| (frame.uncompressed_bytes(), frame.num_values()))
+            .collect::<Vec<_>>(),
+    );
     Zstd::try_new(
         input.dtype().clone(),
         ZstdData::new(
@@ -390,13 +398,7 @@ fn native_zstd_initial_legacy_headers_are_explicitly_unsupported() {
             ZstdData::new(
                 None,
                 vec![ByteBuffer::from(magic.to_le_bytes().to_vec())],
-                ZstdMetadata {
-                    dictionary_size: 0,
-                    frames: vec![vortex::encodings::zstd::ZstdFrameMetadata {
-                        uncompressed_size: 8,
-                        n_values: 1,
-                    }],
-                },
+                metadata_fixture(0, &[(8, 1)]),
                 1,
             ),
             Validity::NonNullable,
@@ -434,15 +436,7 @@ fn native_zstd_empty_and_all_null_selections_need_no_decoder() {
         ] {
             let input = Zstd::try_new(
                 dtype,
-                ZstdData::new(
-                    None,
-                    vec![],
-                    ZstdMetadata {
-                        dictionary_size: 0,
-                        frames: vec![],
-                    },
-                    rows,
-                ),
+                ZstdData::new(None, vec![], ZstdMetadata::default(), rows),
                 validity.clone(),
             )
             .unwrap()

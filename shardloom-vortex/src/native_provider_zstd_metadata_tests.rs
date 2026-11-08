@@ -232,12 +232,12 @@ fn native_zstd_metadata_raw_parts_export_keeps_its_explicit_caller_owned_boundar
     let retained = memory.snapshot().reserved_bytes;
     // Shared export copies raw vectors and leaves the original reservation intact.
     let copied = data.clone().into_parts(Validity::NonNullable);
-    assert_ne!(copied.metadata.frames.as_ptr(), address);
+    assert_ne!(copied.metadata.frames().as_ptr(), address);
     assert_eq!(memory.snapshot().reserved_bytes, retained);
     drop((input, copied));
     // Unique export moves the vectors into the explicit caller-owned boundary.
     let moved = data.into_parts(Validity::NonNullable);
-    assert_eq!(moved.metadata.frames.as_ptr(), address);
+    assert_eq!(moved.metadata.frames().as_ptr(), address);
     assert_eq!(memory.snapshot().reserved_bytes, retained - capacity);
     let raw = ZstdData::new(moved.dictionary, moved.frames, moved.metadata, moved.n_rows);
     let cloned = raw.clone();

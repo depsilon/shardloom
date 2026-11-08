@@ -15,6 +15,38 @@ use vortex::encodings::zstd::Zstd;
 #[path = "native_provider_fixed_width_builder.rs"]
 mod fixed_width;
 
+/// The provider can rewrite a root Chunked dictionary into Dict<Chunked codes>.
+/// Preserve the same output owner and decoder admission even when the Chunked
+/// node is no longer the root. Other decoder trees keep their explicit scratch
+/// exclusions inside the existing fixed-width builder.
+pub(super) fn execute_shared_dictionary(
+    _child: &ArrayRef,
+    parent: &ArrayRef,
+    child_idx: usize,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<Option<ArrayRef>> {
+    let Some(dict) = parent.as_opt::<Dict>() else {
+        return Ok(None);
+    };
+    if child_idx != 0
+        || !dict.codes().is::<Chunked>()
+        || !matches!(
+            parent.dtype(),
+            DType::Primitive(..) | DType::Bool(_) | DType::Decimal(..)
+        )
+    {
+        return Ok(None);
+    }
+    let Some(memory) = ctx
+        .session()
+        .get_opt::<ProviderMemory>()
+        .map(|owner| owner.memory.clone())
+    else {
+        return Ok(None);
+    };
+    fixed_width::decode(parent, ctx, &memory).map(Some)
+}
+
 pub(super) fn execute(
     _child: &ArrayRef,
     parent: &ArrayRef,

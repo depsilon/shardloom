@@ -29,7 +29,7 @@ pub(crate) fn validation_workspace_bytes(data: &arrow_data::ArrayData) -> Result
 }
 
 /// Arrow permits null storage below null Struct/FixedSizeList parents even when
-/// their child field is nonnullable. Vortex 0.90 imports each child independently.
+/// their child field is nonnullable. Vortex imports each child independently.
 /// After original Arrow validation, discard only these unreachable child masks;
 /// keep parent validity, logical nullability and all value buffers unchanged.
 /// Call after buffer ownership admission: the existing schema grant covers the
@@ -148,15 +148,27 @@ pub(crate) fn validate_values_with_float_policy(
     array: &dyn Array,
     float_policy: FloatPolicy,
 ) -> Result<()> {
+    macro_rules! decimal {
+        ($kind:ty, $precision:expr) => {
+            array.as_primitive::<$kind>().validate_decimal_precision(*$precision)
+                .map_err(|error| ShardLoomError::InvalidOperation(format!(
+                    "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
+                )))
+        };
+    }
     match array.data_type() {
-        DataType::Decimal128(precision, _) => array
-            .as_primitive::<arrow_array::types::Decimal128Type>()
-            .validate_decimal_precision(*precision)
-            .map_err(|error| ShardLoomError::InvalidOperation(format!(
-                "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
-            ))),
+        DataType::Decimal32(precision, _) => decimal!(arrow_array::types::Decimal32Type, precision),
+        DataType::Decimal64(precision, _) => decimal!(arrow_array::types::Decimal64Type, precision),
+        DataType::Decimal128(precision, _) => {
+            decimal!(arrow_array::types::Decimal128Type, precision)
+        }
+        DataType::Decimal256(precision, _) => {
+            decimal!(arrow_array::types::Decimal256Type, precision)
+        }
         DataType::List(_) => validate_list_values(column, array.as_list::<i32>(), float_policy),
-        DataType::LargeList(_) => validate_list_values(column, array.as_list::<i64>(), float_policy),
+        DataType::LargeList(_) => {
+            validate_list_values(column, array.as_list::<i64>(), float_policy)
+        }
         DataType::FixedSizeList(..) => {
             let list = array.as_fixed_size_list();
             let width = usize::try_from(list.value_length()).map_err(|_| {
@@ -165,7 +177,13 @@ pub(crate) fn validate_values_with_float_policy(
                 ))
             })?;
             for_valid_parent_ranges(array, |start, end| {
-                validate_child_range(column, list.values().as_ref(), start * width, end * width, float_policy)
+                validate_child_range(
+                    column,
+                    list.values().as_ref(),
+                    start * width,
+                    end * width,
+                    float_policy,
+                )
             })
         }
         DataType::Struct(_) => for_valid_parent_ranges(array, |start, end| {
@@ -174,9 +192,38 @@ pub(crate) fn validate_values_with_float_policy(
             }
             Ok(())
         }),
-        _ if float_policy == FloatPolicy::Strict => super::reject_columnar_non_finite_floats(column, array),
+        _ if float_policy == FloatPolicy::Strict => {
+            super::reject_columnar_non_finite_floats(column, array)
+        }
         _ => Ok(()),
     }
+}
+
+/// Replace the provider's flat decimal scan at legacy/streaming conversion with
+/// the same ancestor-aware check used by resident intake. This does not admit
+/// additional types or change the caller's floating-point policy.
+pub(crate) fn validate_provider_decimal_values(batch: &arrow_array::RecordBatch) -> Result<()> {
+    fn contains_decimal(dtype: &DataType) -> bool {
+        match dtype {
+            DataType::Decimal32(..)
+            | DataType::Decimal64(..)
+            | DataType::Decimal128(..)
+            | DataType::Decimal256(..) => true,
+            DataType::Struct(fields) => fields
+                .iter()
+                .any(|field| contains_decimal(field.data_type())),
+            DataType::List(field)
+            | DataType::LargeList(field)
+            | DataType::FixedSizeList(field, _) => contains_decimal(field.data_type()),
+            _ => false,
+        }
+    }
+    for (field, array) in batch.schema().fields().iter().zip(batch.columns()) {
+        if contains_decimal(field.data_type()) {
+            validate_values_with_float_policy(field.name(), array.as_ref(), FloatPolicy::Extended)?;
+        }
+    }
+    Ok(())
 }
 
 fn validate_list_values<O: OffsetSizeTrait>(
@@ -238,6 +285,102 @@ mod tests {
     use super::*;
     use arrow_array::{Float64Array, ListArray, builder::Float64Builder, types::Float64Type};
     use std::sync::Arc;
+
+    #[test]
+    #[cfg(feature = "vortex-local-primitives")]
+    fn provider_decimal_validation_covers_reachable_nested_and_sliced_storage() {
+        use crate::resident_memory_source::ResidentMemorySource;
+        use crate::resident_session::ResidentVortexSession;
+        use arrow_array::{
+            ArrayRef, Decimal128Array, FixedSizeListArray, LargeListArray, ListArray, RecordBatch,
+            StructArray,
+        };
+        use arrow_schema::Schema;
+        use shardloom_exec::compute_pool::CancellationToken;
+
+        let decimal = DataType::Decimal128(2, 0);
+        let values: ArrayRef = Arc::new(
+            Decimal128Array::from(vec![123, 9, -12, 999])
+                .with_precision_and_scale(2, 0)
+                .unwrap(),
+        );
+        let item = Arc::new(Field::new("amount", decimal.clone(), false));
+        let nulls = Some(vec![false, true, true, false].into());
+        let inputs: Vec<ArrayRef> = vec![
+            Arc::new(StructArray::new(
+                vec![item.clone()].into(),
+                vec![values.clone()],
+                nulls.clone(),
+            )),
+            Arc::new(ListArray::new(
+                item.clone(),
+                arrow_buffer::OffsetBuffer::new(vec![0i32, 1, 2, 3, 4].into()),
+                values.clone(),
+                nulls.clone(),
+            )),
+            Arc::new(LargeListArray::new(
+                item.clone(),
+                arrow_buffer::OffsetBuffer::new(vec![0i64, 1, 2, 3, 4].into()),
+                values.clone(),
+                nulls.clone(),
+            )),
+            Arc::new(FixedSizeListArray::new(item, 1, values, nulls.clone())),
+            Arc::new(
+                Decimal128Array::new(vec![123, 9, -12, 999].into(), nulls)
+                    .with_precision_and_scale(2, 0)
+                    .unwrap(),
+            ),
+        ];
+        let batch = |array: ArrayRef| {
+            RecordBatch::try_new(
+                Arc::new(Schema::new(vec![Field::new(
+                    "value",
+                    array.data_type().clone(),
+                    true,
+                )])),
+                vec![array],
+            )
+            .unwrap()
+        };
+        for input in inputs {
+            for (offset, len) in [(0, 4), (1, 2), (0, 1), (0, 0), (4, 0)] {
+                let batch = batch(input.slice(offset, len));
+                let converted =
+                    super::super::arrow_record_batch_to_vortex_array(batch.clone()).unwrap();
+                assert_eq!(converted.len(), len);
+                let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+                let source = ResidentMemorySource::from_arrow_record_batch(
+                    &session,
+                    batch,
+                    &CancellationToken::default(),
+                )
+                .unwrap();
+                assert_eq!(source.row_count(), len);
+                drop(source);
+                assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+            }
+            let visible = arrow_array::make_array(
+                input.to_data().into_builder().nulls(None).build().unwrap(),
+            );
+            let batch = batch(visible);
+            let error =
+                super::super::arrow_record_batch_to_vortex_array(batch.clone()).unwrap_err();
+            assert!(
+                error.to_string().contains("declared decimal precision"),
+                "{error}"
+            );
+            let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+            assert!(
+                ResidentMemorySource::from_arrow_record_batch(
+                    &session,
+                    batch,
+                    &CancellationToken::default()
+                )
+                .is_err()
+            );
+            assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+        }
+    }
 
     #[test]
     fn dense_embedding_provider_mask_bridge_preserves_parent_and_value_buffers() {

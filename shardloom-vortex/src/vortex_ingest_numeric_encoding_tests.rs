@@ -96,7 +96,19 @@ fn omitted_primitive_probe_preserves_dictionary_decisions_and_existing_encoded_r
     let original = original_probe(&session, &allowed);
     let candidate = measured_probe(&session, &allowed, timings.clone());
     let mut ctx = session.create_execution_ctx();
-    for input in primitive_probe_inputs() {
+    let inputs = primitive_probe_inputs();
+    let chunked = inputs
+        .iter()
+        .map(|input| {
+            vortex::array::arrays::ChunkedArray::try_new(
+                vec![input.clone(), input.clone()],
+                input.dtype().clone(),
+            )
+            .unwrap()
+            .into_array()
+        })
+        .collect::<Vec<_>>();
+    for input in inputs.into_iter().chain(chunked) {
         let expected = original.compress_chunk(&input, &mut ctx).unwrap();
         let actual = candidate.compress_chunk(&input, &mut ctx).unwrap();
         assert!(!expected.is::<Dict>());
@@ -257,7 +269,7 @@ fn pinned_dictionary_probe_discards_a_non_dict_result_but_storage_adapter_retain
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(runtime.handle());
     let probe_encodings =
-        vortex::array::array_session().enabled_component_ids(ComponentKind::Array);
+        vortex::session::VortexSession::empty().enabled_component_ids(ComponentKind::Array);
     assert_eq!(probe_encodings, [] as [vortex::session::registry::Id; 0]);
     assert!(
         session

@@ -281,7 +281,7 @@ fn real_paired_files_keep_segment_geometry_payloads_dictionary_epochs_and_full_v
 }
 
 #[test]
-fn default_file_statistics_preserve_exact_global_bounds_nulls_and_schema_after_reopen() {
+fn default_file_statistics_preserve_global_bounds_precision_nulls_and_schema_after_reopen() {
     use vortex::expr::stats::Stat;
     let directory = Fixture::new();
     let runtime = CurrentThreadRuntime::new();
@@ -333,7 +333,8 @@ fn default_file_statistics_preserve_exact_global_bounds_nulls_and_schema_after_r
             (Scalar::from("a-東京"), Scalar::from("z-λ"), 3_u64),
         ];
         for (index, (minimum, maximum, nulls)) in expected.into_iter().enumerate() {
-            let (stats, field_dtype) = statistics.get(index);
+            let stats = &statistics.stats_sets()[index];
+            let field_dtype = &statistics.dtypes()[index];
             assert_eq!(
                 field_dtype,
                 &dtype
@@ -343,8 +344,17 @@ fn default_file_statistics_preserve_exact_global_bounds_nulls_and_schema_after_r
                     .nth(index)
                     .unwrap()
             );
-            assert_eq!(stats.get(Stat::Min).as_exact(), minimum.into_value());
-            assert_eq!(stats.get(Stat::Max).as_exact(), maximum.into_value());
+            for (stat, expected) in [(Stat::Min, minimum), (Stat::Max, maximum)] {
+                let bound = stats.get(stat);
+                // The provider's bounded string aggregate serializes an
+                // inexact bound even when this short value was not truncated.
+                let value = if field_dtype.is_utf8() {
+                    bound.as_inexact()
+                } else {
+                    bound.as_exact()
+                };
+                assert_eq!(value, expected.into_value());
+            }
             assert_eq!(
                 stats.get(Stat::NullCount).as_exact(),
                 Scalar::from(nulls).into_value()

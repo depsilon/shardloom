@@ -1,6 +1,6 @@
 # ShardLoom native file ownership and read policy
 
-This directory contains the reviewed Apache-2.0 `vortex-file` 0.90.0 registry
+This directory contains the reviewed Apache-2.0 `vortex-file` 0.93.0 registry
 source. `upstream-provenance.json` records the authoritative archive, all
 original member hashes, license and dirty upstream revision. The workspace
 lockfile owns production dependency resolution; the archive's crate-local
@@ -74,17 +74,18 @@ segment-table scope excludes metadata locator/name allocation, schema and
 statistics payloads, read contexts, writer construction/scratch, fixed wrapper
 bookkeeping and process RSS. Caller-owned tables remain explicitly unadmitted.
 
-The subsequent file-statistics extension admits both `StatsSet` and `DType`
-table capacities before parsing or native writer construction. `FileStatistics`
-clones share vectors and retain their reservation through the final owner;
-`stats_sets` and `dtypes` borrow slices without exporting raw shared allocations.
-Its existing constructors preserve caller-owned inputs. The fallible indexed
-factory checks count/layout overflow, skips empty allocations and releases
-partial production on error. Parsing validates cardinality before admission and
-reads FlatBuffer entries directly. The writer consumes the accumulator's lazy
-iterator after admission, avoiding an intermediate statistics vector. Nested
+The November 8 file-statistics port admits legacy `StatsSet`, aggregate, DType
+and field-path tables before parsing or native writer construction. Its checked
+capacity bound covers retained vectors and conservative construction overlap.
+`FileStatistics` clones share one private owner; borrowed access does not export
+unguarded shared tables. Path lookup is linear and creates no separate index.
+The caller-owned constructors retain their explicit compatibility boundary.
+Parsing validates nested and legacy cardinality before admission, preserves raw
+legacy slots and propagates malformed aggregate/scalar errors. Empty tables
+allocate no payload; partial failures refund credit and permit retry. Nested
 schema/scalar payloads, statistics overflow storage, accumulator state, writer
-scratch and fixed bookkeeping remain separate from these table capacities.
+scratch and fixed bookkeeping remain separate ownership classes. This migration
+does not admit V2 execution or broaden the native writer's supported schema.
 
 The metadata-locator extension shares one private owner across postscript
 parsing, footer/source aliases and serialization. It admits exact locator-vector

@@ -13,7 +13,7 @@ use vortex::{
 };
 
 fn keys(arrays: &[ArrayRef], memory: &LiveMemoryPool) -> Vec<KeyColumn> {
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     arrays
         .iter()
         .map(|array| {
@@ -77,7 +77,7 @@ fn inline_cache_sample_is_not_proof_and_bucket_collision_is_only_a_miss() {
 #[test]
 fn inline_cache_masks_padding_and_distinguishes_empty_null_and_binary_lengths() {
     let memory = LiveMemoryPool::new(4 << 20).unwrap();
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     for dtype in [
         DType::Utf8(Nullability::NonNullable),
         DType::Binary(Nullability::NonNullable),

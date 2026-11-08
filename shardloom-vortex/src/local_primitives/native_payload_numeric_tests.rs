@@ -220,7 +220,7 @@ fn source(rows: usize) -> ArrayRef {
                 PrimitiveArray::from_iter((0..=rows).map(|row| (row * 2) as u64)).into_array(),
                 Validity::from_iter((0..rows).map(|row| row % 3 != 0)),
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .into_array(),

@@ -1,3 +1,5 @@
+// Modified by ShardLoom on 2026-11-08: preserve the local provider contracts.
+// See README.shardloom.md and upstream-provenance.json for the retained changes.
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -17,7 +19,9 @@
 
 //! Tests that reading invalid parquet files returns an error
 
+use arrow::compute::concat_batches;
 use arrow::util::test_util::parquet_test_data;
+use arrow_array::RecordBatchReader;
 use bytes::Bytes;
 use parquet::arrow::arrow_reader::ArrowReaderBuilder;
 use parquet::errors::ParquetError;
@@ -108,9 +112,12 @@ fn test_arrow_gh_41317() {
 #[test]
 fn test_arrow_rs_gh_6229_dict_header() {
     let err = read_file("ARROW-RS-GH-6229-DICTHEADER.parquet").unwrap_err();
+    // Keep the complete error contract while allowing Rust's integer-conversion
+    // diagnostic wording to differ across the supported compiler versions.
+    let overflow = u32::try_from(-1_i32).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "External: Parquet argument error: Parquet error: Integer overflow: out of range integral type conversion attempted"
+        format!("External: Parquet argument error: Parquet error: Integer overflow: {overflow}")
     );
 }
 
@@ -168,23 +175,26 @@ fn non_standard_delta_blocks() {
     let selectors = vec![RowSelector::skip(1000), RowSelector::select(5)];
 
     let selection: RowSelection = selectors.into();
-    let reader = ArrowReaderBuilder::try_new(file)
+    let reader = ArrowReaderBuilder::try_new(file.clone())
         .unwrap()
         .with_row_selection(selection)
         .build()
         .unwrap();
 
-    if let Some(maybe_batch) = reader.into_iter().next() {
-        // TODO: uncomment if we ever allow skipping miniblocks > 64 elements
-        //let batch = maybe_batch.expect("skip should succeed");
-        //assert_eq!(batch.num_rows(), 5);
-        assert!(
-            maybe_batch
-                .unwrap_err()
-                .to_string()
-                .contains("cannot skip miniblock of size 128")
-        );
-    }
+    let selected = concat_batches(
+        &reader.schema(),
+        &reader.collect::<Result<Vec<_>, _>>().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(selected.num_rows(), 5);
+
+    let reader = ArrowReaderBuilder::try_new(file).unwrap().build().unwrap();
+    let all = concat_batches(
+        &reader.schema(),
+        &reader.collect::<Result<Vec<_>, _>>().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(selected, all.slice(1000, 5));
 }
 
 #[test]

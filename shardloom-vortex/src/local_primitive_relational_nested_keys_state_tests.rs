@@ -56,7 +56,7 @@ fn native_nested_selected_branches_require_exact_child_types_even_when_empty() {
             PrimitiveArray::from_iter([] as [u64; 0]).into_array(),
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()

@@ -145,7 +145,7 @@ mod tests {
 
     use super::*;
     use crate::VortexSessionExecute;
-    use crate::array_session;
+
     use crate::arrays::varbinview::VarBinViewArrayExt;
     use crate::memory::DefaultHostAllocator;
     use crate::memory::HostAllocator;
@@ -182,7 +182,7 @@ mod tests {
         ];
         let bytes: Vec<_> = values.iter().map(|value| value.as_bytes()).collect();
         let raw = records(&bytes);
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         for start in 0..=values.len() {
             for end in start..=values.len() {
                 for nullable in [false, true] {
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn length_prefixed_text_rejects_invalid_selected_values_and_cross_record_sequences()
     -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         for values in [
             vec![&b"\xc3"[..], &b"\xa9"[..]], // Together valid; separately invalid.
             vec![&b"\xf0\x9f"[..], &b"\xa6\x80"[..]],
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn length_prefixed_text_rejects_bad_framing_counts_ranges_and_validity() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         for raw in [
             vec![1, 0, 0],
             vec![5, 0, 0, 0, b'a'],
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn length_prefixed_text_empty_and_all_null_have_valid_empty_views() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         for (rows, validity) in [(0, Validity::NonNullable), (7, Validity::AllInvalid)] {
             let array = build_views_from_length_prefixed_in(
                 writable(&[])?,

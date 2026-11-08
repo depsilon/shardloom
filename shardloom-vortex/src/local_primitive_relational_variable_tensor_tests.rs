@@ -12,7 +12,7 @@ use vortex::array::{
 };
 
 fn malformed_tensor_fixture(hide_bad: bool) -> Fixture {
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let data = ListArray::try_new(
         PrimitiveArray::from_iter([10_i32, 20, 30, 40]).into_array(),
         PrimitiveArray::from_iter([0_u64, 1, 3, 4]).into_array(),

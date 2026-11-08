@@ -117,7 +117,7 @@ impl Fixture {
             let mut writer = session
                 .write_options()
                 .with_strategy(Arc::new(FlatLayoutStrategy::default()))
-                .with_file_statistics(statistics)
+                .with_file_statistics(statistics.iter().filter_map(Stat::aggregate_fn).collect())
                 .blocking(&runtime)
                 .writer(&mut file, array.dtype().clone());
             writer.push(array.clone()).unwrap();

@@ -516,7 +516,7 @@ fn large_nested_documents_survive_width_splitting_and_all_binary_writers() {
         PrimitiveArray::from_iter([1_u64, 2, 0, 1]).into_array(),
         Validity::from_iter([true, false, true, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

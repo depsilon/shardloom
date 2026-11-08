@@ -1,5 +1,24 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 8 provider migration
+
+The current provider is the published **0.93.0** archive. The dated sections
+below retain the origin of the local contracts. Upstream now admits full-range
+timestamp storage and integrates RunEnd into this crate. The port preserves
+bundled timezone validation, physical-tick display outside the calendar range,
+fallible allocation and shared-owner lifetimes. Earlier timings do not measure
+this version.
+
+RunEnd text/binary expansion in `src/arrays/runend/compress.rs` reuses the original
+VarBinView array's shared data-buffer table and reservation. Its moved metadata
+fixture retains exact Git and content identities in the supplemental provenance.
+The separate `vortex-runend` package and standalone lock are retired.
+
+Bounded minimum and maximum aggregates copy only their compact scalar bytes, so
+small bounds cannot retain complete source allocations. The 0.93 bounded
+aggregates conservatively label variable-length bounds inexact even when a short
+value needs no truncation. No exactness claim is inferred from the value length.
+
 ## Provider refresh and native text validation
 
 The October 24 refresh rebases these retained contracts onto the published
@@ -32,7 +51,7 @@ independently. Original payload ownership and full allocator credit are retained
 malformed framing and selected text fail explicitly. Canonical Vortex Zstd text
 uses this builder without changing compressed source bytes or serialization.
 
-This is the Apache-2.0 `vortex-array` 0.90.0 published source with a focused
+This is the Apache-2.0 `vortex-array` 0.93.0 published source with a focused
 correction for full-domain timestamp scalars. Vortex's timestamp
 extension uses Int64 storage, but the original scalar validator constructs a
 calendar span that can panic on valid storage values. Its display path repeats

@@ -21,7 +21,7 @@ fn lists(rows: &[Option<Vec<Option<i64>>>]) -> ArrayRef {
         PrimitiveArray::from_iter(sizes).into_array(),
         Validity::from_iter(rows.iter().map(Option::is_some)),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

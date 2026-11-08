@@ -80,7 +80,7 @@ fn footer_fixture(segments: Arc<[SegmentSpec]>) -> ByteBuffer {
         ReadContext::new([]),
     ));
     let buffers = Footer::new(root, segments, None, ReadContext::new([]))
-        .into_serializer()
+        .into_serializer(&VortexSession::default())
         .exclude_dtype()
         .serialize()
         .unwrap();
@@ -395,7 +395,10 @@ fn check_source_owners(file_backed: bool) {
             let map = file.footer().segment_map().clone();
             let table_bytes = map.len() * size_of::<SegmentSpec>();
             let stats = file.footer().statistics().unwrap();
-            let statistics_bytes = size_of_val(stats.stats_sets()) + size_of_val(stats.dtypes());
+            let statistics_bytes = usize::try_from(
+                super::file_statistics_tests::parsed_table_bytes(stats, file.dtype()),
+            )
+            .unwrap();
             let metadata_bytes = file
                 .footer()
                 .metadata_segments()
@@ -489,7 +492,7 @@ fn native_segment_map_serializer_retains_owner_and_roundtrips() {
     let memory = LiveMemoryPool::new(expected).unwrap();
     let (consumer, _) = session(&memory);
     let footer = reopen(fixture(width), &consumer).unwrap();
-    let serializer = footer.into_serializer().exclude_dtype();
+    let serializer = footer.into_serializer(&consumer).exclude_dtype();
     drop(consumer);
     assert_eq!(memory.snapshot().reserved_bytes, expected);
     let buffers = serializer.serialize().unwrap();

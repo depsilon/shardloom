@@ -1643,7 +1643,7 @@ mod ownership_tests {
                 PrimitiveArray::from_iter([1u64]).into_array(),
                 Validity::NonNullable,
                 &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                    &vortex::array::array_session(),
+                    &vortex::session::VortexSession::empty(),
                 ),
             )
             .unwrap()
@@ -1715,7 +1715,7 @@ mod ownership_tests {
         let selected = state.as_ref().unwrap().array.clone();
         drop((state, session));
         assert!(memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         assert_eq!(
             selected
                 .execute_scalar(0, &mut execution)

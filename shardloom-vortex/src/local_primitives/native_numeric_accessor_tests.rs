@@ -40,7 +40,7 @@ fn exact(array: &ArrayRef, expected: &[StatValue]) {
 
 #[test]
 fn native_numeric_accessor_preserves_for_bitpacked_sparse_and_runend_exact_values() {
-    let mut ctx = vortex::array::array_session().create_execution_ctx();
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
     let base = 1_i64 << 60;
     let for_array = FoRData::encode(
         PrimitiveArray::from_option_iter([Some(i64::MIN), None, Some(i64::MAX), Some(base + 3)]),
@@ -79,7 +79,7 @@ fn native_numeric_accessor_preserves_for_bitpacked_sparse_and_runend_exact_value
         5,
         Scalar::from(0_u64),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -284,7 +284,7 @@ fn native_numeric_owner_all_widths_keep_payload_identity_and_sliced_validity() {
             .into_array()
             .slice(1..5)
             .unwrap();
-            let mut ctx = vortex::array::array_session().create_execution_ctx();
+            let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
             let before = input.clone().execute::<PrimitiveArray>(&mut ctx).unwrap();
             let pointer = before.as_slice::<$ty>().as_ptr();
             let (accessor, work) =
@@ -1083,7 +1083,7 @@ fn native_numeric_owner_credits_follow_payload_and_pinned_builder_gap_is_explici
 fn native_numeric_owner_propagates_real_corrupt_zstd_payload_error() {
     use crate::local_primitives::aggregate_column_accessor_in_context;
     use vortex::encodings::zstd::{Zstd, ZstdData};
-    let mut ctx = vortex::array::array_session().create_execution_ctx();
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
     let primitive = PrimitiveArray::new((0..512_i64).collect::<Vec<_>>(), Validity::NonNullable);
     let data = ZstdData::from_primitive_without_dict(&primitive, 0, 1024, &mut ctx).unwrap();
     let mut parts = data.into_parts(Validity::NonNullable);

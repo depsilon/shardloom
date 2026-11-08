@@ -385,8 +385,10 @@ mod measured {
                 entries.saturating_mul(u64::try_from(size_of::<usize>()).unwrap_or(u64::MAX)),
             );
             for frame in frames {
-                counts.valid_values = counts.valid_values.saturating_add(frame.n_values);
-                counts.payload_bytes = counts.payload_bytes.saturating_add(frame.uncompressed_size);
+                counts.valid_values = counts.valid_values.saturating_add(frame.num_values());
+                counts.payload_bytes = counts
+                    .payload_bytes
+                    .saturating_add(frame.uncompressed_bytes());
             }
         }
 

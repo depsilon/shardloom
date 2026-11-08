@@ -119,7 +119,7 @@ and workflow markers verbatim for contract checking.
 
 - Commands: `python scripts/ci_provider_tests.py --group ${{ matrix.group }} --output target/provider-evidence/${{ matrix.group }}`
 - Artifacts: `provider-evidence-${{ matrix.group }}`; `target/provider-evidence/${{ matrix.group }}`
-- Release blockers: `all ten patched-provider test and lint configurations`
+- Release blockers: `all fifteen patched-provider test and lint configurations`
 - Workflow markers: `group: [arrays, io, buffer, formats]`; `CARGO_TARGET_DIR: ${{ github.workspace }}/target/providers`; `.github/provider-locks/*.lock`
 
 ### native_test_coverage — native-tests

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom, 2026-11-08: materialize deferred validity at the
+// existing canonical writer boundary so nullable gathered arrays serialize.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -9,12 +11,13 @@ use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::pin_mut;
 use vortex_array::ArrayRef;
+#[cfg(test)]
 use vortex_array::Canonical;
+use vortex_array::CanonicalValidity;
 use vortex_array::ExecutionCtx;
 use vortex_array::IntoArray;
 use vortex_array::VortexSessionExecute;
 use vortex_array::aggregate_fn::fns::uncompressed_size_in_bytes::UncompressedSizeInBytes;
-use vortex_array::aggregate_fn::fns::uncompressed_size_in_bytes::UncompressedSizeOpts;
 use vortex_array::aggregate_fn::fns::uncompressed_size_in_bytes::uncompressed_size_in_bytes;
 use vortex_array::arrays::ChunkedArray;
 use vortex_array::dtype::DType;
@@ -116,7 +119,7 @@ impl LayoutStrategy for RepartitionStrategy {
                 stream.map(move |chunk| {
                     let (sequence_id, chunk) = chunk?;
                     let mut ctx = canonicalize_session.create_execution_ctx();
-                    let canonical = chunk.execute::<Canonical>(&mut ctx)?.into_array();
+                    let canonical = chunk.execute::<CanonicalValidity>(&mut ctx)?.0.into_array();
                     VortexResult::Ok((sequence_id, canonical))
                 }),
             )
@@ -157,7 +160,7 @@ impl LayoutStrategy for RepartitionStrategy {
                         let chunked =
                             ChunkedArray::try_new(output_chunks, dtype_clone.clone())?;
                         if !chunked.is_empty() {
-                            let canonical = chunked.into_array().execute::<Canonical>(&mut ctx)?.into_array();
+                            let canonical = chunked.into_array().execute::<CanonicalValidity>(&mut ctx)?.0.into_array();
                             yield (
                                 sequence_pointer.advance(),
                                 canonical,
@@ -171,7 +174,7 @@ impl LayoutStrategy for RepartitionStrategy {
                         dtype_clone.clone(),
                     )?;
                     if !to_flush.is_empty() {
-                        let canonical = to_flush.into_array().execute::<Canonical>(&mut ctx)?.into_array();
+                        let canonical = to_flush.into_array().execute::<CanonicalValidity>(&mut ctx)?.0.into_array();
                         yield (
                             sequence_pointer.advance(),
                             canonical,
@@ -279,18 +282,18 @@ fn exact_size(chunk: &ArrayRef, ctx: &mut ExecutionCtx) -> VortexResult<u64> {
     if !UncompressedSizeInBytes::supports_dtype(chunk.dtype()) {
         return Ok(chunk.nbytes());
     }
-    let size = uncompressed_size_in_bytes(chunk, UncompressedSizeOpts::exact(), ctx)?;
+    let size = uncompressed_size_in_bytes(chunk, ctx)?;
     u64::try_from(size).map_err(|e| vortex_err!("block size does not fit in u64: {e}"))
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::LazyLock;
 
     use vortex_array::ArrayContext;
     use vortex_array::IntoArray;
     use vortex_array::VortexSessionExecute;
-    use vortex_array::array_session;
     use vortex_array::arrays::ChunkedArray;
     use vortex_array::arrays::ConstantArray;
     use vortex_array::arrays::FixedSizeListArray;
@@ -306,6 +309,7 @@ mod tests {
     use vortex_error::VortexResult;
     use vortex_io::runtime::single::block_on;
     use vortex_io::session::RuntimeSessionExt;
+    use vortex_session::VortexSession;
 
     use super::*;
     use crate::LayoutStrategy;
@@ -316,6 +320,8 @@ mod tests {
     use crate::sequence::SequenceId;
     use crate::sequence::SequentialArrayStreamExt;
     use crate::test::new_session;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     const ONE_MEG: u64 = 1 << 20;
 
@@ -562,7 +568,7 @@ mod tests {
     /// `pop_front` subtracted the larger Cached-era values.
     #[test]
     fn chunks_buffer_pop_front_no_panic_after_shared_execution() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let n = 20_000usize;
         let block_len = 10_000usize;
 

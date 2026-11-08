@@ -200,7 +200,7 @@ fn chunked(children: Vec<LayoutRef>) -> LayoutRef {
 fn serialized(layout: &LayoutRef) -> (FlatBuffer, ReadContext) {
     let context = LayoutContext::empty();
     let buffer = layout
-        .flatbuffer_writer(&context)
+        .flatbuffer_writer(&context, &VortexSession::default())
         .write_flatbuffer_bytes()
         .unwrap();
     (buffer, ReadContext::new(context.to_ids()))

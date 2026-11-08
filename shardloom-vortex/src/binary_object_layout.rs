@@ -5,7 +5,7 @@ use vortex::{
     array::{DeserializeMetadata, SerializeMetadata, dtype::DType, memory::HostMemoryReservation},
     error::{VortexResult, vortex_ensure, vortex_err},
     layout::{
-        Layout, LayoutChildType, LayoutDeserializeArgs, LayoutEncoding, LayoutId, LayoutParts,
+        Layout, LayoutChildType, LayoutDeserializeArgs, LayoutId, LayoutParts, LayoutPlugin,
         LayoutReaderContext, LayoutReaderRef, LayoutRef, VTable, layout_children,
         segments::{SegmentId, SegmentSource},
         session::LayoutSessionExt as _,
@@ -195,5 +195,5 @@ pub(super) fn wrap(
 }
 
 pub(crate) fn register(session: &VortexSession) {
-    session.layouts().register(&Objects as &dyn LayoutEncoding);
+    session.layouts().register(&Objects as &dyn LayoutPlugin);
 }

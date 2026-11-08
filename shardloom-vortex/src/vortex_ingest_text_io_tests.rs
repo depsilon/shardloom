@@ -872,7 +872,7 @@ fn text_layout_filesystem_reads_and_lifecycle_are_exact_and_bounded() {
             "query_records": records.len() * queries().len(),
             "writer_background_cpu_drivers": 1, "writer_cpu_drivers_including_caller": 2,
             "query_requested_cpu_parallelism": 2,
-            "native_version": "0.90.0", "intended_validation_feature": "release-user-surfaces",
+            "native_version": crate::UPSTREAM_VORTEX_PROVIDER_VERSION.trim_start_matches('='), "intended_validation_feature": "release-user-surfaces",
             "release_user_surfaces_enabled": cfg!(feature = "release-user-surfaces"),
             "host_os": std::env::consts::OS, "host_arch": std::env::consts::ARCH,
             "available_parallelism": std::thread::available_parallelism().unwrap().get(),

@@ -296,7 +296,7 @@ fn artifact_proof(file: &vortex::file::VortexFile, bytes: &[u8], candidate: bool
 fn statistics_proof(file: &vortex::file::VortexFile) -> String {
     let statistics = file.footer().statistics().unwrap();
     assert_eq!(statistics.stats_sets().len(), 4);
-    let (identifiers, _) = statistics.get(0);
+    let identifiers = &statistics.stats_sets()[0];
     assert_eq!(
         identifiers.get(Stat::Min).as_exact(),
         Scalar::from(BASE).into_value()
@@ -326,7 +326,9 @@ fn statistics_proof(file: &vortex::file::VortexFile) -> String {
         ),
     ] {
         assert_eq!(
-            statistics.get(field).0.get(Stat::NullCount).as_exact(),
+            statistics.stats_sets()[field]
+                .get(Stat::NullCount)
+                .as_exact(),
             Scalar::from(u64::try_from(nulls).unwrap()).into_value()
         );
     }

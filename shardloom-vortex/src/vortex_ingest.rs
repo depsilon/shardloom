@@ -12321,6 +12321,7 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     use vortex::arrow::ArrowSessionExt as _;
 
     // This legacy conversion keeps its caller's existing batch headroom.
+    nested::validate_provider_decimal_values(&batch)?;
     let batch = nested::provider_batch(batch, None, &|| Ok(()))?;
     let source_schema = batch.schema();
     let schema = crate::native_temporal::arrow::schema(source_schema.as_ref())?;
@@ -12328,6 +12329,7 @@ fn arrow_record_batch_to_vortex_array(batch: RecordBatch) -> Result<vortex::arra
     crate::native_extensions::register(&session);
     session
         .arrow()
+        .with_preserved_decimal_storage()
         .from_arrow_record_batch(batch, &schema)
         .map_err(vortex_error)
 }
@@ -12422,6 +12424,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
     let started = Instant::now();
     let result = if let Some((memory, lease)) = native_memory {
         use vortex::arrow::ArrowSessionExt as _;
+        nested::validate_provider_decimal_values(&projected)?;
         let admission_bytes = arrow_ownership::batch_copy_allocation_bytes(&projected)?;
         if admission_bytes > lease.bytes() / 2 {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -12442,6 +12445,7 @@ fn owned_record_batch_to_vortex_from_arrow_provider_profiled_with_memory(
         let result = memory
             .session
             .arrow()
+            .with_preserved_decimal_storage()
             .from_arrow_record_batch(retained, &schema)
             .map_err(vortex_error);
         // Admitted copied/transferred input buffers and later allocator buffers

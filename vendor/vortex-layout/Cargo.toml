@@ -14,7 +14,7 @@ publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-layout"
-version = "0.90.0"
+version = "0.93.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -69,6 +69,9 @@ version = "59.2"
 [dependencies.arrow-schema]
 version = "59.2"
 
+[dependencies.async-channel]
+version = "2.5.0"
+
 [dependencies.async-lock]
 version = "3.4"
 
@@ -95,9 +98,6 @@ default-features = false
 
 [dependencies.itertools]
 version = "0.14.0"
-
-[dependencies.kanal]
-version = "0.1.1"
 
 [dependencies.moka]
 version = "0.12.10"
@@ -149,55 +149,55 @@ default-features = false
 version = "2.1.2"
 
 [dependencies.vortex-array]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-arrow]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-btrblocks]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-buffer]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.90.0"
+version = "0.93.0"
+default-features = false
+
+[dependencies.vortex-expr]
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-io]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-mask]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-metrics]
-version = "0.90.0"
-default-features = false
-
-[dependencies.vortex-runend]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-scan]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-sequence]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-session]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dependencies.vortex-utils]
-version = "0.90.0"
+version = "0.93.0"
 features = ["dashmap"]
 default-features = false
 
@@ -208,7 +208,7 @@ version = "1.0.100"
 version = "59.2"
 
 [dev-dependencies.divan]
-version = "5.0.0"
+version = "6.0.0"
 package = "codspeed-divan-compat"
 
 [dev-dependencies.futures]
@@ -230,7 +230,7 @@ version = "0.13.2"
 default-features = false
 
 [dev-dependencies.rand]
-version = "0.10.1"
+version = "0.10.3"
 
 [dev-dependencies.rstest]
 version = "0.26.1"
@@ -248,11 +248,11 @@ features = [
 ]
 
 [dev-dependencies.vortex-buffer]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dev-dependencies.vortex-edition]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies.uuid]

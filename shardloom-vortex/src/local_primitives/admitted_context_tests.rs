@@ -455,7 +455,7 @@ fn admitted_context_fsst_predicate_and_mask_keep_encoded_offsets_owner() {
         codes.dtype().clone(),
         codes.validity().unwrap(),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     );
     let encoded = FSST::try_new_with_symbol_table(
@@ -550,7 +550,7 @@ fn list_fixture(encoded_part: &str) -> ArrayRef {
         sizes,
         validity,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .into_array()
@@ -615,7 +615,7 @@ fn admitted_context_null_and_empty_lists_do_not_decode_unused_offsets() {
             compressed(&PrimitiveArray::from_iter(vec![1u32; count])),
             Validity::AllInvalid,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .into_array();

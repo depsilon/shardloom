@@ -20,7 +20,7 @@ fn keyed(keys: ArrayRef, ids: impl IntoIterator<Item = u32>) -> ArrayRef {
 fn check_case(left: &ArrayRef, right: &[ArrayRef], expected_semi: &[u64], unique: usize) {
     for kind in [Kind::LeftSemi, Kind::LeftAnti] {
         let ids = logical_field_from_native_array(left, "id").unwrap();
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         let expected = (0..left.len())
             .map(
                 |row| match result_batch::scalar_value(&ids, row, &mut execution).unwrap() {

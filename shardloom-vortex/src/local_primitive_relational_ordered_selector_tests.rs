@@ -187,7 +187,7 @@ fn ordered_selector_native_nested_values_keep_null_parents_and_children() {
         PrimitiveArray::from_option_iter([Some(u64::MAX), None, Some(7)]).into_array(),
         PrimitiveArray::from_iter([0u64, 2, 2, 3]).into_array(),
         Validity::from_iter([true, false, true]),
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
     )
     .unwrap()
     .into_array();

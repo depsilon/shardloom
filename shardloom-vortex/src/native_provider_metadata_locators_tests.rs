@@ -499,7 +499,7 @@ fn native_metadata_locators_serializer_retains_existing_owner_without_copying_na
     let (consumer, requests) = session(&memory);
     let footer = reopen(bytes.clone(), dtype.clone(), &consumer).unwrap();
     let alias = footer.clone();
-    let serializer = footer.into_serializer();
+    let serializer = footer.into_serializer(&consumer);
     drop(consumer);
     assert_eq!(memory.snapshot().reserved_bytes, expected);
     let output = serializer.serialize().unwrap();

@@ -14,7 +14,7 @@ publish = false
 edition = "2024"
 rust-version = "1.95"
 name = "vortex-buffer"
-version = "0.90.0"
+version = "0.93.0"
 authors = ["Vortex Authors <hello@vortex.dev>"]
 build = false
 include = [
@@ -98,12 +98,15 @@ optional = true
 default-features = false
 
 [dependencies.vortex-error]
-version = "0.90.0"
+version = "0.93.0"
 default-features = false
 
 [dev-dependencies.divan]
-version = "5.0.0"
+version = "6.0.0"
 package = "codspeed-divan-compat"
+
+[dev-dependencies.hegeltest]
+version = "0.28.7"
 
 [dev-dependencies.mimalloc]
 version = "0.1.42"
@@ -112,7 +115,7 @@ version = "0.1.42"
 version = "0.2.19"
 
 [dev-dependencies.rand]
-version = "0.10.1"
+version = "0.10.3"
 
 [dev-dependencies.rstest]
 version = "0.26.1"

@@ -112,7 +112,17 @@ impl<'runtime, 'sink, B: BlockingRuntime> NativeWriter<'runtime, 'sink, B> {
     ) -> Self {
         let failure = SinkFailure::default();
         let selected_statistics = if statistics.is_some() {
-            vortex::array::stats::PRUNING_STATS.to_vec()
+            use vortex::array::expr::stats::Stat;
+            [
+                Stat::Min,
+                Stat::Max,
+                Stat::Sum,
+                Stat::NullCount,
+                Stat::NaNCount,
+            ]
+            .iter()
+            .filter_map(Stat::aggregate_fn)
+            .collect()
         } else {
             Vec::new()
         };

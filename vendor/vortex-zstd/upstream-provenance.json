@@ -1,72 +1,70 @@
 {
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "b1795696cb5c21ae89f3c8f002a44cafca20dcd84d15125f79f52071bb915a51",
+    "README.shardloom.md": "c6f47c3e32f6b3b14e2f73ccb932652a9c1584d663975f6a44f4eb89e08821c1",
     "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
     "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
     "src/decoder_workspace.rs": "a40160fffc924e3759a4c08d2bfbe7d4248caa7e420bef17804a73e099145f3c",
     "src/dependency_regression_tests.rs": "f16e06ff3722e87c1d18180aa2792a94ffa9aca6d05d0a70991ebe12090d80a5",
-    "src/frame_index_tests.rs": "9c6a5293c6f6877f8c3d289d363f2712b46e4337fa6eb22a4e9e62cacb04cf6c",
+    "src/frame_index_tests.rs": "98a5eb5ea9e4f3705ed502f6f09589fcc9fe212aa7cda64815bc54ce834e5184",
     "src/metadata_resources.rs": "66de9be321a47b23ee8192b7e1de37b163e5600ea1dd2af560e7109404622ce1",
     "src/metadata_resources_tests.rs": "e90f5146121e76367b4a850e7db969c1634539143a59edca23d24273ab639c70",
-    "src/selected.rs": "631aebf780aab0c585505e88d19d16a9c52b090b266bd05e5ed1d50874048c74"
+    "src/selected.rs": "19efcbb50445a4e7810b3e161075ef093f5d7b83813b60006e9ef50b6561da94"
   },
   "license": "Apache-2.0",
   "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-  "license_url": "https://raw.githubusercontent.com/vortex-data/vortex/6c3ef48e57a4e16d76b6a69b002772df68a90f43/LICENSE",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "b1795696cb5c21ae89f3c8f002a44cafca20dcd84d15125f79f52071bb915a51"
+    "sha256": "c6f47c3e32f6b3b14e2f73ccb932652a9c1584d663975f6a44f4eb89e08821c1"
   },
-  "migration_status": "ported_retained_local_invariants",
+  "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
-    "Cargo.toml": "b5cf9c5d1c4488cd69f4a07ec2caeab1641d6fe169f1150e552ccc15ebe55397",
-    "src/array.rs": "359a90784e07c80166451cca30f926daeb68e215a19e4b6d7d832c75048351a0",
-    "src/compute/cast.rs": "e7c24896b4fda8f07e86bf5586b0134e9875c429aa35a12a069298953979e917",
-    "src/lib.rs": "9df1baaa21ea56baef92c19b8fdc1c3e53a525882e5674339f51f0237bddf4af",
-    "src/test.rs": "fc1a76dbd5bc6d3f3240003ebf8b55e97ce2b5d96fc7fe0cd54c13177b0fbda5"
-  },
-  "omitted_files": {
-    "Cargo.lock": {
-      "original_sha256": "0c3aba0d916fea7d20a4a80f523acd921f60ddb1ad680262e05990ba7e89191f",
-      "reason": "Upstream lock is omitted as documented in README.shardloom.md. Repository-root Cargo.lock owns runtime resolution; standalone provider validation uses .github/provider-locks/vortex-zstd.lock."
-    }
+    "Cargo.toml": "e7fe0bfa3bbb7a30550719c722bcf04a50093e0b4af3a2a71c34f7cecccd8146",
+    "src/array.rs": "3d027286a9775e534bdd64dc9e6aae747d3a18ffc30a801b7475f408bc28c9ae",
+    "src/compute/cast.rs": "48cf6fd95ad460eacc6eba474619c32f9963bd2dfbc24867e2b620c4ea9d378e",
+    "src/lib.rs": "3d9219ecd7e556e38093c72b8f1e6d92aa2b7690e491c38583f887d04f5f84c7",
+    "src/test.rs": "bf2833947acf51414e9a9300637a5763a2ce97b3444f1138950ae7592fc4dad3"
   },
   "original_files_sha256": {
-    ".cargo_vcs_info.json": "e14cbfa47ab80d9dd135c5691eca96290a472cf9f162f110fd7f3dac4da5ce5c",
-    "Cargo.lock": "0c3aba0d916fea7d20a4a80f523acd921f60ddb1ad680262e05990ba7e89191f",
-    "Cargo.toml": "749e19963ce838aa7ee1a58995c687945bd53e1a1e9c2b200381ad4e18df8605",
+    ".cargo_vcs_info.json": "01eb1adf7cbb0ff46fe2baf107271fc66e3016bd08fd00ddc62473cfacbadc8d",
+    "Cargo.lock": "bb7ba6f7816cfac098990b345aef047a035047666dce17d2cef68bbff496316c",
+    "Cargo.toml": "2ed35974c546bd291c9275f9067020b87cceaf4a2f35116005199b6b760bfb10",
     "Cargo.toml.orig": "7de2bbd82594c14f6cd09f6ce15fd8a1f5b6cb1a69b953c2221a04db08b93aae",
-    "README.md": "cd899987b96ab2c72c73b619e0a456553b01ab35776f177a8eeb52a3fcc8110e",
-    "src/array.rs": "58bfa50f2198250274fd958a5db321639146fc6139830c805206e83b073e5782",
-    "src/compute/cast.rs": "44712458e7b29d7ca80f37c77473b6fae1716b24347f790e6ba3f7ed1d2e4743",
-    "src/compute/mod.rs": "dbc89a09dde21998f7e86dd62251976176c39b32c094b323a585814a18c9da87",
+    "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+    "src/array.rs": "8987d286d68b1225541f660066b44470994354938b902b7adbc35e0802244b5e",
+    "src/compute/cast.rs": "91ab352cdc4d51e4ac62a4b4550a1f517e5287d56ff09005f3ab58c4c9374941",
+    "src/compute/mod.rs": "294f450f96da57c89f711abddb6b09754a56be0cbe3b20bc0ff72e2ad39a4cdd",
     "src/decompressor.rs": "bd7853ce40d61f7e9d4fb8e87000fedc7a8f8fd748112de2bfc871a52f10c3cd",
-    "src/editions.rs": "6d05d4a2ee4372fafb563713cd9cd3ca57ba709971a449360619ea0cb5cde603",
-    "src/lib.rs": "c514d82b11865e263d607d8fe3668bd8ced1554d37c34908e3c1dd76bd26375f",
+    "src/editions.rs": "7d641d952b96a5dcb7fec0d5149bfa98a460443e6c4917de6897b69449ff706e",
+    "src/lib.rs": "826e5ee597023a84de4309370b1e2ae5a972cfb3dfb0de45eab35821bac4c194",
     "src/rules.rs": "15949c2b2656f6f66349b6ced09ac1b97038ae6dd1e9c9097cef9c8c9840e3a8",
     "src/slice.rs": "a907fda7287e39d13913f402d56e11da5e3f493ea038f5d13eaaf189ce1c870d",
-    "src/test.rs": "9eb381afac711a6558e7a02ea96b5f13e043b827a2e02cc547fe649f99889916",
-    "src/zstd_buffers.rs": "8d24962c589814053704cbf7a42ea471fe4fec32e9ea3df1c91f7a1948c799dd"
+    "src/test.rs": "a1d5762fa084157d8953da4f700414a430629baabdc9d1907bbd022a3c8324d9",
+    "src/zstd_buffers.rs": "afb2575658069dd7d1cc2c2333737fffcb3a2946566e071e6f9050b12d3f1076"
   },
   "predecessor": {
-    "provenance_path": "vendor/vortex-zstd/upstream-provenance.json",
-    "registry_archive_sha256": "03cae43b171152fd403b884d5e0b764e860261d38b2fd80dfd4e03678beac837",
-    "source_commit": "3628a81bef597a4a3d833d93470ffae1b1cc7587",
-    "version": "0.85.0"
+    "source_commit": "0205283370712637305aba07a86f5854e833da6e",
+    "version": "0.90.0",
+    "registry_archive_sha256": "16ed140fdf797d28c36b4d4b73223a7874d794ecd3c9cd3a79e16977bd6b03b4",
+    "provenance_path": "vendor/vortex-zstd/upstream-provenance.json"
   },
   "provider": "vortex-zstd",
   "registry_archive_file_count": 15,
-  "registry_archive_sha256": "16ed140fdf797d28c36b4d4b73223a7874d794ecd3c9cd3a79e16977bd6b03b4",
-  "registry_archive_uncompressed_bytes": 192927,
-  "source_of_truth": "https://static.crates.io/crates/vortex-zstd/vortex-zstd-0.90.0.crate",
-  "supplemental_test_files": {},
+  "registry_archive_sha256": "ce3be1e195edae8c5a1674ad6c636f84f6bd26e46847a369b66909dae369ca8d",
+  "registry_archive_uncompressed_bytes": 193029,
+  "source_of_truth": "https://static.crates.io/crates/vortex-zstd/vortex-zstd-0.93.0.crate",
   "vcs_info": {
     "git": {
-      "dirty": true,
-      "sha1": "6c3ef48e57a4e16d76b6a69b002772df68a90f43"
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
     },
     "path_in_vcs": "encodings/zstd"
   },
-  "version": "0.90.0"
+  "version": "0.93.0",
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "supplemental_test_files": {},
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7"
 }

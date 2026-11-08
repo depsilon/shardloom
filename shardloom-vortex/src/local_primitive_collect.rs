@@ -1177,7 +1177,7 @@ mod tests {
             &chunked.arrays()[0],
             &names,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap();
@@ -1203,7 +1203,7 @@ mod tests {
             &names,
             &[3, 0],
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap();

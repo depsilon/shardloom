@@ -2,7 +2,7 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "117cf65757bb2b2853bc0f9ac1e9b348a2ed48e5fa7f5c4419321a9d5652b1c7",
+    "README.shardloom.md": "946d122f836022ae7193a04f25a072a0fbb0dd0094302ad7b312cd5f58cab42d",
     "src/compression_reserved.rs": "478354cd9c9eb6b7145a9818453f9eaf883ea282407dc534a7fca9fed64739f3",
     "src/compression_reserved_tests.rs": "349ba3463ec5f062dff65a28e637d54dedad01cc09aba357614743c3dea4e910",
     "src/reader/block_memory.rs": "fc5c5a5c390fea51b83dfa10db88cf74037bbede8a8522b913a27d4176412407",
@@ -62,32 +62,26 @@
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
-  "license_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#LICENSE.txt",
+  "license_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.2.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "117cf65757bb2b2853bc0f9ac1e9b348a2ed48e5fa7f5c4419321a9d5652b1c7"
+    "sha256": "946d122f836022ae7193a04f25a072a0fbb0dd0094302ad7b312cd5f58cab42d"
   },
-  "migration_status": "ocf_framing_adaptive_batches_and_owned_header_schema_record_block_storage",
+  "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
-    "Cargo.toml": "b7817d3a0c02de4118e03ceff27a9a0d5579633da8013935d934551221c07fe7",
-    "src/compression.rs": "1ecb3561ef20a12e383156cf25f5887bb28af09306785040695d18b313543c6a",
-    "src/reader/block.rs": "c50f860d833b3fff00162961e9a9a7b044bd068d74f91547f0de135e6db90c1c",
-    "src/reader/header.rs": "fcbb14355396cb7e8d272db3535d55b8da0779a354610fba963244140acae7f6",
-    "src/reader/mod.rs": "5d66e837b347eb5c1c0b84b922e3718fa8d7bc21efd8086200ed1394fed911c9",
-    "src/reader/record.rs": "d5f61725a4eaf2280b8326c038fddeea75c509bf6159873f83a1f1e6c1d5caa3",
-    "src/reader/vlq.rs": "4fb11a0fba7491f84634ecb4914053279c0ba014a8d2cafef0c673fa96a32f64"
+    "Cargo.toml": "44a8634cd7c5c7ae1ec0678e077c7941830d35d74d988eb0eb627055870c930d",
+    "src/compression.rs": "16e9237ef979b3503765805d5265b4719ea2f80b171af35b40484eb12255ec3e",
+    "src/reader/block.rs": "7c3d22e5e8237d08e7252a59b691c45e626d008f39bce3b9238bdcf49d3badd4",
+    "src/reader/header.rs": "483a93577dbb5d0778fa0af1d324655683c25714ba3525fad89921950aa78eda",
+    "src/reader/mod.rs": "d52610d29516140d320f456862a9a71957ed75aa4560c3831e8d455c0e2cf91e",
+    "src/reader/record.rs": "d0d6f43de5ecac8c88bbfe674f5e7ab029293b0f796ce2fa29bb4d1c6ed204b2",
+    "src/reader/vlq.rs": "a647ae4ee12139fc98109f68d627a02f9bb7aee7be04da44ac9ddf056843145f"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-  "notice_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate#NOTICE.txt",
-  "omitted_files": {
-    "Cargo.lock": {
-      "original_sha256": "7513d8aefd8bcb82a205ef884e5cad12d878539e35c4da3278616cd53638776d",
-      "reason": "Repository-root Cargo.lock owns dependency resolution."
-    }
-  },
+  "notice_url": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.2.crate#NOTICE.txt",
   "original_files_sha256": {
-    "Cargo.lock": "7513d8aefd8bcb82a205ef884e5cad12d878539e35c4da3278616cd53638776d",
-    "Cargo.toml": "f1b5ac45170861492f32184f604315b2ea2706d5e48ec818929242da97051649",
+    "Cargo.lock": "12abb662bd0ede071a98c5dc8f2a1103d796236474fdcb5394762d647dbb02e7",
+    "Cargo.toml": "590ccd86320c6e78ccf7e3892b6f8c54ca72abad7fae5edc22b977cc0f44e404",
     "Cargo.toml.orig": "30702e2dd2769a2527de933b3f6699474c91b9c5bd377af15f9c49decb6d81fc",
     "LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
@@ -119,9 +113,26 @@
   },
   "provider": "arrow-avro",
   "registry_archive_file_count": 30,
-  "registry_archive_sha256": "9b052309b61700bb359f7f2bcb70697c447d6331780850c3c21408273cd36509",
-  "registry_archive_uncompressed_bytes": 1657953,
-  "source_of_truth": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.1.crate",
+  "registry_archive_sha256": "cba30bb78cb38952b3f8adea1bd617bc171e4af4ac94fb6db4f03d7cee7b200d",
+  "registry_archive_uncompressed_bytes": 1662787,
+  "source_of_truth": "https://static.crates.io/crates/arrow-avro/arrow-avro-59.3.2.crate",
+  "supplemental_test_sources": {
+    "arrow_rs_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
+    "arrow_testing_notice": "No NOTICE file exists in the pinned repository root; its Apache-2.0 LICENSE.txt is preserved.",
+    "arrow_testing_submodule_commit": "735ae7128d571398dd798d7ff004adebeb342883",
+    "original_record_source_matches_registry": true
+  },
+  "version": "59.3.2",
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "vcs_info": null,
+  "predecessor": {
+    "source_commit": "0205283370712637305aba07a86f5854e833da6e",
+    "version": "59.3.1",
+    "registry_archive_sha256": "9b052309b61700bb359f7f2bcb70697c447d6331780850c3c21408273cd36509",
+    "provenance_path": "vendor/arrow-avro/upstream-provenance.json"
+  },
   "supplemental_test_files": {
     "test/arrow-testing/LICENSE.txt": {
       "bytes": 11358,
@@ -131,7 +142,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "LICENSE.txt",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/LICENSE.txt"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/LICENSE.txt",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/README.md": {
       "bytes": 2273,
@@ -141,7 +153,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/README.md",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/README.md"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/README.md",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_dictionary.avro": {
       "bytes": 765,
@@ -151,7 +164,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_dictionary.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_dictionary.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_dictionary.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_nulls_plain.avro": {
       "bytes": 603,
@@ -161,7 +175,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_nulls_plain.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_nulls_plain.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_nulls_plain.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_plain.avro": {
       "bytes": 868,
@@ -171,7 +186,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_plain.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_plain.bzip2.avro": {
       "bytes": 864,
@@ -181,7 +197,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_plain.bzip2.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.bzip2.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.bzip2.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_plain.snappy.avro": {
       "bytes": 837,
@@ -191,7 +208,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_plain.snappy.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.snappy.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.snappy.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_plain.xz.avro": {
       "bytes": 843,
@@ -201,7 +219,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_plain.xz.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.xz.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.xz.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/alltypes_plain.zstandard.avro": {
       "bytes": 818,
@@ -211,7 +230,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/alltypes_plain.zstandard.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.zstandard.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/alltypes_plain.zstandard.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/binary.avro": {
       "bytes": 236,
@@ -221,7 +241,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/binary.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/binary.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/binary.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/datapage_v2.snappy.avro": {
       "bytes": 456,
@@ -231,7 +252,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/datapage_v2.snappy.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/datapage_v2.snappy.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/datapage_v2.snappy.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/dict-page-offset-zero.avro": {
       "bytes": 213,
@@ -241,7 +263,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/dict-page-offset-zero.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/dict-page-offset-zero.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/dict-page-offset-zero.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/fixed_length_decimal.avro": {
       "bytes": 436,
@@ -251,7 +274,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/fixed_length_decimal.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/fixed_length_decimal_legacy.avro": {
       "bytes": 433,
@@ -261,7 +285,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/fixed_length_decimal_legacy.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal_legacy.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/fixed_length_decimal_legacy.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/int32_decimal.avro": {
       "bytes": 392,
@@ -271,7 +296,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/int32_decimal.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int32_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int32_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/int64_decimal.avro": {
       "bytes": 431,
@@ -281,7 +307,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/int64_decimal.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int64_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/int64_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/list_columns.avro": {
       "bytes": 373,
@@ -291,7 +318,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/list_columns.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/list_columns.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/list_columns.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/nested_lists.snappy.avro": {
       "bytes": 407,
@@ -301,7 +329,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/nested_lists.snappy.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_lists.snappy.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_lists.snappy.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/nested_records.avro": {
       "bytes": 927,
@@ -311,7 +340,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/nested_records.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_records.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nested_records.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/nonnullable.impala.avro": {
       "bytes": 1570,
@@ -321,7 +351,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/nonnullable.impala.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nonnullable.impala.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nonnullable.impala.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/nullable.impala.avro": {
       "bytes": 1812,
@@ -331,7 +362,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/nullable.impala.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nullable.impala.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nullable.impala.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/nulls.snappy.avro": {
       "bytes": 330,
@@ -341,7 +373,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/nulls.snappy.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nulls.snappy.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/nulls.snappy.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/repeated_no_annotation.avro": {
       "bytes": 627,
@@ -351,7 +384,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/repeated_no_annotation.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/repeated_no_annotation.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/repeated_no_annotation.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/simple_enum.avro": {
       "bytes": 411,
@@ -361,7 +395,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/simple_enum.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_enum.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_enum.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/simple_fixed.avro": {
       "bytes": 388,
@@ -371,7 +406,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/simple_fixed.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_fixed.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/simple_fixed.avro",
+      "retained_from_predecessor": true
     },
     "test/arrow-testing/data/avro/single_nan.avro": {
       "bytes": 204,
@@ -381,7 +417,8 @@
       "source_commit": "735ae7128d571398dd798d7ff004adebeb342883",
       "source_path": "data/avro/single_nan.avro",
       "source_repository": "apache/arrow-testing",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/single_nan.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-testing/735ae7128d571398dd798d7ff004adebeb342883/data/avro/single_nan.avro",
+      "retained_from_predecessor": true
     },
     "test/data/README.md": {
       "bytes": 27720,
@@ -391,7 +428,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/README.md",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/README.md"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/README.md",
+      "retained_from_predecessor": true
     },
     "test/data/bad-varint-bug.avro.gz": {
       "bytes": 254,
@@ -401,7 +439,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/bad-varint-bug.avro.gz",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/bad-varint-bug.avro.gz"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/bad-varint-bug.avro.gz",
+      "retained_from_predecessor": true
     },
     "test/data/comprehensive_e2e.avro": {
       "bytes": 7831,
@@ -411,7 +450,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/comprehensive_e2e.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/comprehensive_e2e.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/comprehensive_e2e.avro",
+      "retained_from_predecessor": true
     },
     "test/data/duration_logical_types.avro": {
       "bytes": 556,
@@ -421,7 +461,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/duration_logical_types.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_logical_types.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_logical_types.avro",
+      "retained_from_predecessor": true
     },
     "test/data/duration_uuid.avro": {
       "bytes": 517,
@@ -431,7 +472,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/duration_uuid.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_uuid.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/duration_uuid.avro",
+      "retained_from_predecessor": true
     },
     "test/data/enum_reuse.avro": {
       "bytes": 358,
@@ -441,7 +483,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/enum_reuse.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/enum_reuse.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/enum_reuse.avro",
+      "retained_from_predecessor": true
     },
     "test/data/fixed256_decimal.avro": {
       "bytes": 1043,
@@ -451,7 +494,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/fixed256_decimal.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed256_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed256_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/data/fixed_length_decimal_legacy_32.avro": {
       "bytes": 378,
@@ -461,7 +505,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/fixed_length_decimal_legacy_32.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed_length_decimal_legacy_32.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/fixed_length_decimal_legacy_32.avro",
+      "retained_from_predecessor": true
     },
     "test/data/int128_decimal.avro": {
       "bytes": 306,
@@ -471,7 +516,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/int128_decimal.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int128_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int128_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/data/int256_decimal.avro": {
       "bytes": 380,
@@ -481,7 +527,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/int256_decimal.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int256_decimal.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/int256_decimal.avro",
+      "retained_from_predecessor": true
     },
     "test/data/named_types_complex.avro": {
       "bytes": 962,
@@ -491,7 +538,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/named_types_complex.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/named_types_complex.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/named_types_complex.avro",
+      "retained_from_predecessor": true
     },
     "test/data/nested_record_reuse.avro": {
       "bytes": 366,
@@ -501,7 +549,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/nested_record_reuse.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/nested_record_reuse.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/nested_record_reuse.avro",
+      "retained_from_predecessor": true
     },
     "test/data/skippable_types.avro": {
       "bytes": 3234,
@@ -511,7 +560,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/skippable_types.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/skippable_types.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/skippable_types.avro",
+      "retained_from_predecessor": true
     },
     "test/data/union_fields.avro": {
       "bytes": 3430,
@@ -521,7 +571,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/union_fields.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/union_fields.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/union_fields.avro",
+      "retained_from_predecessor": true
     },
     "test/data/zero_byte.avro": {
       "bytes": 210,
@@ -531,7 +582,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "arrow-avro/test/data/zero_byte.avro",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/zero_byte.avro"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/arrow-avro/test/data/zero_byte.avro",
+      "retained_from_predecessor": true
     },
     "test/upstream-arrow-rs/LICENSE.txt": {
       "bytes": 11577,
@@ -541,7 +593,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "LICENSE.txt",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/LICENSE.txt"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/LICENSE.txt",
+      "retained_from_predecessor": true
     },
     "test/upstream-arrow-rs/NOTICE.txt": {
       "bytes": 470,
@@ -551,14 +604,8 @@
       "source_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
       "source_path": "NOTICE.txt",
       "source_repository": "apache/arrow-rs",
-      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/NOTICE.txt"
+      "upstream_url": "https://raw.githubusercontent.com/apache/arrow-rs/265760646dec646fbdca5d26e4ba9f3c03a6bd91/NOTICE.txt",
+      "retained_from_predecessor": true
     }
-  },
-  "supplemental_test_sources": {
-    "arrow_rs_commit": "265760646dec646fbdca5d26e4ba9f3c03a6bd91",
-    "arrow_testing_notice": "No NOTICE file exists in the pinned repository root; its Apache-2.0 LICENSE.txt is preserved.",
-    "arrow_testing_submodule_commit": "735ae7128d571398dd798d7ff004adebeb342883",
-    "original_record_source_matches_registry": true
-  },
-  "version": "59.3.1"
+  }
 }

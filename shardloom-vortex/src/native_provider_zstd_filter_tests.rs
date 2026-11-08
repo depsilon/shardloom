@@ -410,7 +410,7 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
         assert_eq!(retained.len(), 16);
         assert_eq!(retained.dtype(), source.dtype());
         assert_eq!(parts.frames.len(), 2);
-        assert_eq!(parts.metadata.frames.len(), 2);
+        assert_eq!(parts.metadata.frames().len(), 2);
         for (index, original) in [0, 15].into_iter().enumerate() {
             assert_eq!(
                 parts.frames[index].as_ptr(),
@@ -418,12 +418,12 @@ fn native_zstd_sparse_text_filter_preserves_validated_frame_parts() {
             );
             assert_eq!(
                 (
-                    parts.metadata.frames[index].n_values,
-                    parts.metadata.frames[index].uncompressed_size
+                    parts.metadata.frames()[index].num_values(),
+                    parts.metadata.frames()[index].uncompressed_bytes()
                 ),
                 (
-                    source_parts.metadata.frames[original].n_values,
-                    source_parts.metadata.frames[original].uncompressed_size
+                    source_parts.metadata.frames()[original].num_values(),
+                    source_parts.metadata.frames()[original].uncompressed_bytes()
                 )
             );
         }
@@ -579,7 +579,28 @@ fn native_zstd_sparse_text_filter_rejects_inconsistent_frame_value_counts() {
             .data()
             .clone()
             .into_parts(Validity::NonNullable);
-        parts.metadata.frames[0].n_values = count;
+        parts.metadata = metadata_fixture(
+            parts
+                .dictionary
+                .as_ref()
+                .map_or(0, vortex::buffer::Buffer::len),
+            &parts
+                .metadata
+                .frames()
+                .iter()
+                .enumerate()
+                .map(|(index, frame)| {
+                    (
+                        frame.uncompressed_bytes(),
+                        if index == 0 {
+                            count
+                        } else {
+                            frame.num_values()
+                        },
+                    )
+                })
+                .collect::<Vec<_>>(),
+        );
         let malformed = Zstd::try_new(
             encoded.dtype().clone(),
             ZstdData::new(parts.dictionary, parts.frames, parts.metadata, parts.n_rows),
@@ -607,7 +628,28 @@ fn native_zstd_owned_filter_selection_error_releases_owner() {
             .data()
             .clone()
             .into_parts(Validity::NonNullable);
-        parts.metadata.frames[0].n_values = count;
+        parts.metadata = metadata_fixture(
+            parts
+                .dictionary
+                .as_ref()
+                .map_or(0, vortex::buffer::Buffer::len),
+            &parts
+                .metadata
+                .frames()
+                .iter()
+                .enumerate()
+                .map(|(index, frame)| {
+                    (
+                        frame.uncompressed_bytes(),
+                        if index == 0 {
+                            count
+                        } else {
+                            frame.num_values()
+                        },
+                    )
+                })
+                .collect::<Vec<_>>(),
+        );
         let owner = Arc::new(());
         let weak = Arc::downgrade(&owner);
         let malformed = Zstd::try_new(

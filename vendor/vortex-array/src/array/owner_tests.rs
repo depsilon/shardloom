@@ -21,7 +21,7 @@ use crate::IntoArray;
 use crate::VTable;
 use crate::VortexSessionExecute;
 use crate::array::typed::{ArrayData, ArrayInner};
-use crate::array_session;
+
 use crate::arrays::Constant;
 use crate::arrays::ConstantArray;
 use crate::arrays::PrimitiveArray;
@@ -56,7 +56,7 @@ fn retained_owner_survives_clones_and_nested_slices() {
     drop(array);
     drop(clone);
     assert!(weak.upgrade().is_some());
-    let mut ctx = array_session().create_execution_ctx();
+    let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
     assert_eq!(
         i32::try_from(&slice.execute_scalar(0, &mut ctx).unwrap()).unwrap(),
         17
@@ -89,7 +89,7 @@ fn retained_slice_materializes_at_the_explicit_execution_boundary() {
         .with_retained_owner(owner)
         .unwrap();
     let slice = input.slice(3..9).unwrap().slice(1..4).unwrap();
-    let mut ctx = array_session().create_execution_ctx();
+    let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
     let result = slice.execute::<PrimitiveArray>(&mut ctx).unwrap();
     assert_eq!(result.as_slice::<i64>(), &[4, 5, 6]);
 }

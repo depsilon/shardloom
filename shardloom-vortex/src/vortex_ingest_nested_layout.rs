@@ -124,7 +124,9 @@ pub(super) fn append_evidence(
         }
     }
     if contains_full_domain_timestamp(dtype) {
-        layout.push_str(";timestamp_layout=chunked_flat_native_compressed;file_min_max=provider_exact_when_present;file_other_pruning_stats=retained;timestamp_provider=vortex_array_0.90.0_full_domain_microsecond_patch");
+        layout.push_str(";timestamp_layout=chunked_flat_native_compressed;file_min_max=provider_exact_when_present;file_other_pruning_stats=retained;timestamp_provider=vortex_array_");
+        layout.push_str(crate::UPSTREAM_VORTEX_PROVIDER_VERSION.trim_start_matches('='));
+        layout.push_str("_full_domain_microsecond_patch");
         coalescing.push_str(";timestamp_fields=source_chunks");
         compression.push_str(
             ";timestamp_fields=native_btrblocks;timestamp_compression_concurrency_per_field=1",

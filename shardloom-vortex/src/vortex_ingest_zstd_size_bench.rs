@@ -219,7 +219,7 @@ fn clickbench_zstd_size_admission_screen() {
     }
     let report = json!({
         "schema_version":"shardloom.native_zstd_size_screen.v1",
-        "source":source,"provider":"Vortex 0.90.0 native Zstd and native file writer/scan",
+        "source":source,"provider":format!("Vortex {} native Zstd and native file writer/scan", crate::UPSTREAM_VORTEX_PROVIDER_VERSION),
         "columns":prepared.columns,"row_groups":ROW_GROUPS,"batches_per_region":BATCHES_PER_REGION,
         "rows_per_batch":BATCH_ROWS,"profiles":PROFILES.map(Profile::name),
         "limits":{"admitted_memory_bytes":MEMORY_LIMIT_BYTES,"column_file_bytes":COLUMN_FILE_LIMIT_BYTES,
@@ -320,9 +320,9 @@ fn write_and_check(
             .map_or(0, vortex::buffer::Buffer::len);
         let frame_rows: Vec<_> = parts
             .metadata
-            .frames
+            .frames()
             .iter()
-            .map(|frame| frame.n_values)
+            .map(vortex::encodings::zstd::ZstdFrameMetadata::num_values)
             .collect();
         assert!(
             frame_rows

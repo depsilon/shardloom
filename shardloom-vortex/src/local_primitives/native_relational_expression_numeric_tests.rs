@@ -706,7 +706,7 @@ fn binary_lifetime(source_type: PType) {
     assert!(receiver_memory.snapshot().reserved_bytes > 0);
     drop(clone);
     assert!(receiver_memory.snapshot().reserved_bytes > 0);
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     assert_eq!(
         slice.execute_scalar(0, &mut execution).unwrap(),
         Scalar::primitive(2052_i64, Nullability::Nullable)
@@ -786,7 +786,7 @@ fn numeric_expression_coalesce_refusal_cancellation_and_independent_output_lifet
     let slice = output.slice(2051..2053).unwrap();
     drop((output, receiver));
     assert!(receiver_memory.snapshot().reserved_bytes > 0);
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let selected = slice
         .clone()
         .execute::<PrimitiveArray>(&mut execution)
@@ -817,7 +817,7 @@ fn numeric_expression_decimal_and_temporal_stay_with_original_owners() {
             // storage while the expression carries the logical date dtype.
             Expression::new(source.dtype().clone(), Kind::Literal(Scalar::from(-1_i32)))
         } else {
-            let mut execution = vortex::array::array_session().create_execution_ctx();
+            let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
             literal(source.execute_scalar(0, &mut execution).unwrap())
         };
         coalesce_literal_agrees(source.clone(), value, source.dtype().clone(), false);

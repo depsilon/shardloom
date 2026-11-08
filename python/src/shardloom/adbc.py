@@ -178,7 +178,7 @@ class _Connection:
         from ._version import __version__
         self.ensure_open()
         values = {0: "ShardLoom", 1: __version__, 3: True, 4: False,
-                  100: "ShardLoom local ADBC", 101: __version__, 102: "59.3.1", 103: 1_001_000}
+                  100: "ShardLoom local ADBC", 101: __version__, 102: "59.3.2", 103: 1_001_000}
         selected = sorted(values if codes is None else set(codes).intersection(values))
         union_type = schema.field("info_value").type
         children = [[] for _ in union_type]

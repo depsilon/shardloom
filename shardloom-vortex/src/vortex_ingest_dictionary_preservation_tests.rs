@@ -430,11 +430,7 @@ fn dictionary_preservation_all_null_codes_ignore_unused_dictionary_values() {
         assert_eq!(file.dtype(), array.dtype());
         assert_eq!(file.row_count(), 4096);
         assert_eq!(
-            file.footer()
-                .statistics()
-                .unwrap()
-                .get(0)
-                .0
+            file.footer().statistics().unwrap().stats_sets()[0]
                 .get(Stat::NullCount)
                 .as_exact(),
             Scalar::from(4096_u64).into_value()

@@ -5,48 +5,41 @@
 // metadata vectors before their construction.
 
 use std::fmt;
+use std::ops::BitAnd;
 use std::ops::Range;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use futures::FutureExt;
-use futures::future::try_join_all;
 use futures::try_join;
 use itertools::Itertools;
-use vortex_array::IntoArray;
 use vortex_array::MaskFuture;
-use vortex_array::arrays::StructArray;
 use vortex_array::dtype::DType;
 use vortex_array::dtype::FieldMask;
 use vortex_array::dtype::FieldName;
-use vortex_array::dtype::FieldNames;
 use vortex_array::dtype::Nullability;
 use vortex_array::dtype::RESERVED_VALIDITY_FIELD_NAME;
 use vortex_array::dtype::StructFields;
 use vortex_array::expr::BoundExpression;
 use vortex_array::expr::ExactBoundExpr;
-use vortex_array::expr::analysis::AnnotationFn;
 use vortex_array::expr::bound::get_item;
 use vortex_array::expr::bound::mask;
 use vortex_array::expr::bound::not;
 use vortex_array::expr::bound::pack;
-use vortex_array::expr::make_bound_free_field_annotator;
-use vortex_array::expr::transform::BoundPartitionedExpr;
-use vortex_array::expr::transform::partition_bound;
 use vortex_array::expr::traversal::NodeExt;
 use vortex_array::expr::traversal::Transformed;
 use vortex_array::expr::traversal::TraversalOrder;
+use vortex_array::scalar_fn::fns::binary::Binary;
 use vortex_array::scalar_fn::fns::get_item::GetItem;
 use vortex_array::scalar_fn::fns::is_not_null::IsNotNull;
 use vortex_array::scalar_fn::fns::is_null::IsNull;
-use vortex_array::scalar_fn::fns::pack::Pack;
-use vortex_array::scalar_fn::fns::select::FieldSelection;
+use vortex_array::scalar_fn::fns::operators::Operator;
 use vortex_array::scalar_fn::fns::select::Select;
-use vortex_array::validity::Validity;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
-use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
+use vortex_expr::analysis::AnnotationFn;
+use vortex_expr::make_bound_free_field_annotator;
+use vortex_expr::transform::partition_bound;
 use vortex_mask::Mask;
 use vortex_session::VortexSession;
 use vortex_utils::aliases::dash_map::DashMap;
@@ -58,7 +51,7 @@ use crate::LayoutReaderRef;
 use crate::LazyReaderChildren;
 use crate::RowSplits;
 use crate::SplitRange;
-use crate::layouts::partitioned::BoundPartitionedExprEval;
+use crate::layouts::partitioned::PartitionedEval;
 use crate::layouts::struct_::StructLayout;
 use crate::segments::SegmentSource;
 
@@ -239,10 +232,6 @@ impl StructReader {
         if self.dtype().is_nullable() {
             return self.compute_nullable_partitioned_expr(expr);
         }
-        if let Some(direct) = self.direct_projection(expr)? {
-            return Ok(Partitioned::Direct(Arc::new(direct)));
-        }
-
         // First, we expand the root scope into the fields of the struct to ensure
         // that partitioning works correctly.
         let expr = expand_struct_root(
@@ -283,99 +272,9 @@ impl StructReader {
             .into_boxed_slice();
         partitioned.replace_partitions(partitions)?;
 
-        Ok(Partitioned::Multi(Arc::new(partitioned)))
-    }
-
-    /// Recognize projections that pass fields of a non-nullable struct through unchanged: `$`,
-    /// `select(..., $)` and `pack(name: $.field, ...)`.
-    ///
-    /// These read each field with its own root expression and assemble the result directly,
-    /// instead of partitioning a `pack` over every field and evaluating it lazily on top of the
-    /// field arrays, a per-field cost that dominates scans of wide tables.
-    fn direct_projection(&self, expr: &BoundExpression) -> VortexResult<Option<DirectProjection>> {
-        if self.dtype().is_nullable() {
-            return Ok(None);
-        }
-        let fields = self.struct_fields();
-        let field_index = |name: &FieldName| {
-            fields
-                .find(name)
-                .ok_or_else(|| vortex_err!("Field {name} not found in struct layout"))
-        };
-
-        let (names, indices) = if expr.is_root() {
-            (fields.names().clone(), (0..fields.nfields()).collect())
-        } else if let Some(FieldSelection::Include(names)) = expr.as_opt::<Select>()
-            && expr.child(0).is_root()
-        {
-            let indices = names.iter().map(field_index).try_collect()?;
-            (names.clone(), indices)
-        } else if let Some(pack) = expr.as_opt::<Pack>()
-            && !pack.nullability.is_nullable()
-        {
-            let Some(indices) = expr
-                .children()
-                .iter()
-                .map(|child| {
-                    child
-                        .as_opt::<GetItem>()
-                        .filter(|_| child.child(0).is_root())
-                        .map(field_index)
-                })
-                .collect::<Option<VortexResult<Vec<_>>>>()
-            else {
-                return Ok(None);
-            };
-            (pack.names.clone(), indices?)
-        } else {
-            return Ok(None);
-        };
-
-        let fields = indices
-            .into_iter()
-            .map(|idx: usize| -> VortexResult<_> {
-                let dtype = fields
-                    .field_by_index(idx)
-                    .ok_or_else(|| vortex_err!("Field index {idx} out of bounds"))?;
-                Ok((idx, BoundExpression::new_root(dtype)))
-            })
-            .try_collect()?;
-        Ok(Some(DirectProjection { names, fields }))
-    }
-
-    /// Evaluate a [`DirectProjection`] by reading each field and packing the results.
-    fn direct_projection_evaluation(
-        &self,
-        direct: &DirectProjection,
-        row_range: &Range<u64>,
-        mask_fut: MaskFuture,
-    ) -> VortexResult<ArrayFuture> {
-        let field_futs: Vec<_> = direct
-            .fields
-            .iter()
-            .map(|(idx, expr)| {
-                self.field_reader_by_index(*idx)?
-                    .projection_evaluation(row_range, expr, mask_fut.clone())
-                    .map_err(|err| {
-                        err.with_context(format!(
-                            "While evaluating projection of field {}",
-                            self.struct_fields()
-                                .field_name(*idx)
-                                .vortex_expect("field index is in bounds")
-                        ))
-                    })
-            })
-            .try_collect()?;
-        let names = direct.names.clone();
-
-        Ok(async move {
-            let (fields, mask) = try_join!(try_join_all(field_futs), mask_fut)?;
-            Ok(
-                StructArray::try_new(names, fields, mask.true_count(), Validity::NonNullable)?
-                    .into_array(),
-            )
-        }
-        .boxed())
+        Ok(Partitioned::Multi(Arc::new(PartitionedEval::new(
+            partitioned,
+        )?)))
     }
 
     fn compute_nullable_partitioned_expr(
@@ -419,7 +318,9 @@ impl StructReader {
             .try_collect::<_, Vec<_>, _>()?
             .into_boxed_slice();
         partitioned.replace_partitions(partitions)?;
-        Ok(Partitioned::Nullable(Arc::new(partitioned)))
+        Ok(Partitioned::Nullable(Arc::new(PartitionedEval::new(
+            partitioned,
+        )?)))
     }
 
     fn nullable_partition_reader(
@@ -613,20 +514,9 @@ enum Partitioned {
     /// An expression which only operates over a single coordinate
     Single(Item, BoundExpression),
     /// An expression which operates over multiple coordinates
-    Multi(Arc<BoundPartitionedExpr<Item>>),
-    /// A projection that passes fields through unchanged, see
-    /// [`StructReader::direct_projection`].
-    Direct(Arc<DirectProjection>),
+    Multi(Arc<PartitionedEval<Item>>),
     /// Nullable scopes combine child values with their own validity before evaluation.
-    Nullable(Arc<BoundPartitionedExpr<NullablePartition>>),
-}
-
-/// The fields read by a pass-through projection of a non-nullable struct.
-struct DirectProjection {
-    /// The output field names.
-    names: FieldNames,
-    /// The struct field index for each output field, with the root expression it is read with.
-    fields: Vec<(usize, BoundExpression)>,
+    Nullable(Arc<PartitionedEval<NullablePartition>>),
 }
 
 impl LayoutReader for StructReader {
@@ -688,10 +578,26 @@ impl LayoutReader for StructReader {
                 // true (for example is_null(field)), so child-only pruning is not conservative.
                 Ok(MaskFuture::ready(mask))
             }
-            Partitioned::Multi(_) | Partitioned::Direct(_) => {
-                // TODO(ngates): if all partitions are boolean, we can use a pruning evaluation. Otherwise
-                //  there's not much we can do? Maybe... it's complicated...
-                Ok(MaskFuture::ready(mask))
+            Partitioned::Multi(_) => {
+                // Only split after single-field delegation so field readers see whole predicates.
+                // AND/OR compose conservative "may match" masks, even for nullable predicates;
+                // other multi-field operators cannot generally combine these masks (e.g. NOT).
+                let Some(operator @ (Operator::And | Operator::Or)) =
+                    expr.as_opt::<Binary>().copied()
+                else {
+                    return Ok(MaskFuture::ready(mask));
+                };
+                let lhs = self.pruning_evaluation(row_range, &expr.children()[0], mask.clone())?;
+                let rhs = self.pruning_evaluation(row_range, &expr.children()[1], mask.clone())?;
+                Ok(MaskFuture::new(mask.len(), async move {
+                    let (lhs, rhs) = try_join!(lhs, rhs)?;
+                    let combined = if operator == Operator::And {
+                        &lhs & &rhs
+                    } else {
+                        &lhs | &rhs
+                    };
+                    Ok(mask.bitand(&combined))
+                }))
             }
         }
     }
@@ -734,12 +640,6 @@ impl LayoutReader for StructReader {
                 },
                 self.session.clone(),
             ),
-            Partitioned::Direct(_) => {
-                vortex_bail!(
-                    "Cannot evaluate struct projection {expr} as a filter over {}",
-                    self.name
-                )
-            }
             Partitioned::Nullable(partitioned) => Arc::clone(partitioned).into_mask_future(
                 mask,
                 |source, expr, mask| {
@@ -792,9 +692,6 @@ impl LayoutReader for StructReader {
                         })
                 })
             }
-            Partitioned::Direct(direct) => {
-                self.direct_projection_evaluation(direct, row_range, mask_fut)
-            }
             Partitioned::Nullable(partitioned) => {
                 Arc::clone(partitioned).into_array_future(mask_fut, |source, expr, mask| {
                     self.nullable_partition_reader(source)?
@@ -818,6 +715,7 @@ impl LayoutReader for StructReader {
 mod tests {
     mod nullable;
 
+    use std::num::NonZeroUsize;
     use std::sync::Arc;
 
     use rstest::fixture;
@@ -827,8 +725,8 @@ mod tests {
     use vortex_array::IntoArray;
     use vortex_array::MaskFuture;
     use vortex_array::VortexSessionExecute;
-    use vortex_array::array_session;
     use vortex_array::arrays::BoolArray;
+    use vortex_array::arrays::ChunkedArray;
     use vortex_array::arrays::PrimitiveArray;
     use vortex_array::arrays::StructArray;
     use vortex_array::arrays::struct_::StructArrayExt;
@@ -849,6 +747,9 @@ mod tests {
     use vortex_array::expr::is_not_null;
     use vortex_array::expr::is_null;
     use vortex_array::expr::lit;
+    use vortex_array::expr::lt;
+    use vortex_array::expr::mask;
+    use vortex_array::expr::not;
     use vortex_array::expr::or;
     use vortex_array::expr::pack;
     use vortex_array::expr::root;
@@ -865,8 +766,12 @@ mod tests {
     use crate::LayoutReaderRef;
     use crate::LayoutRef;
     use crate::LayoutStrategy;
+    use crate::layouts::chunked::writer::ChunkedLayoutStrategy;
     use crate::layouts::flat::writer::FlatLayoutStrategy;
     use crate::layouts::table::TableStrategy;
+    use crate::layouts::zoned::writer::ZonedLayoutOptions;
+    use crate::layouts::zoned::writer::ZonedStrategy;
+    use crate::segments::CountingSegmentSource;
     use crate::segments::SegmentSource;
     use crate::segments::TestSegments;
     use crate::sequence::SequenceId;
@@ -1049,6 +954,142 @@ mod tests {
         (segments, layout)
     }
 
+    /// Writes `{id, s: {a, b, c}}`, where the struct `s` is null in row 0.
+    #[fixture]
+    fn table_with_null_struct_layout() -> (Arc<dyn SegmentSource>, LayoutRef) {
+        let segments = Arc::new(TestSegments::default());
+        let (ptr, eof) = SequenceId::root().split();
+        let strategy = TableStrategy::new(
+            Arc::new(FlatLayoutStrategy::default()),
+            Arc::new(FlatLayoutStrategy::default()),
+        );
+        let s = StructArray::try_from_iter_with_validity(
+            [
+                ("a", buffer![7, 2, 3].into_array()),
+                ("b", buffer![4, 5, 6].into_array()),
+                ("c", buffer![8, 9, 10].into_array()),
+            ],
+            Validity::Array(BoolArray::from_iter([false, true, true]).into_array()),
+        )
+        .unwrap();
+        let table = StructArray::try_from_iter([
+            ("id", buffer![0, 1, 2].into_array()),
+            ("s", s.into_array()),
+        ])
+        .unwrap();
+        let segments2 = Arc::<TestSegments>::clone(&segments);
+        let layout = block_on(|handle| async move {
+            let session = new_session().with_handle(handle);
+            strategy
+                .write_stream(
+                    ArrayContext::empty().into(),
+                    segments2,
+                    table.into_array().to_array_stream().sequenced(ptr),
+                    eof,
+                    &session,
+                )
+                .await
+        })
+        .unwrap();
+
+        (segments, layout)
+    }
+
+    /// Projecting a nullable struct reads only the fields it keeps, plus the struct validity.
+    #[rstest]
+    #[case::select_one_field(select(["b"], root()), 2)]
+    #[case::whole_struct(root(), 4)]
+    fn test_nullable_struct_projection_request_count(
+        #[from(null_struct_layout)] (segments, layout): (Arc<dyn SegmentSource>, LayoutRef),
+        #[case] expr: Expression,
+        #[case] expected_requests: usize,
+    ) -> VortexResult<()> {
+        let source = Arc::new(CountingSegmentSource::new(segments));
+        let reader = layout.new_reader(
+            "".into(),
+            Arc::clone(&source) as _,
+            &SESSION,
+            &Default::default(),
+        )?;
+        let expr = expr.bind(reader.dtype())?;
+        let project = reader.projection_evaluation(&(0..3), &expr, MaskFuture::new_true(3))?;
+        let result = block_on(move |_| project)?;
+
+        assert_eq!(source.requests(), expected_requests);
+        let mut ctx = SESSION.create_execution_ctx();
+        let result = result.execute::<StructArray>(&mut ctx)?;
+        assert_eq!(
+            result.validity()?.execute_mask(3, &mut ctx)?,
+            Mask::from_iter([false, true, true])
+        );
+        assert_arrays_eq!(
+            result.unmasked_field_by_name("b")?,
+            PrimitiveArray::from_iter([4i32, 5, 6]),
+            &mut ctx
+        );
+        Ok(())
+    }
+
+    /// Projecting a pruned nullable struct column, with `select` or a masked `pack`, reads only
+    /// the fields it keeps, plus the struct validity.
+    #[rstest]
+    #[case::select(
+        select(["b"], get_item("s", root())),
+        PrimitiveArray::from_iter([4i32, 5, 6]).into_array(),
+    )]
+    // Reading `b` through the nullable `s` also nulls it where `s` is null.
+    #[case::masked_pack(
+        mask(
+            pack([("b", get_item("b", get_item("s", root())))], Nullability::NonNullable),
+            is_not_null(get_item("s", root())),
+        ),
+        PrimitiveArray::from_option_iter([None, Some(5i32), Some(6)]).into_array(),
+    )]
+    fn test_pruned_nullable_struct_column_reads_only_kept_fields(
+        #[from(table_with_null_struct_layout)] (segments, layout): (
+            Arc<dyn SegmentSource>,
+            LayoutRef,
+        ),
+        #[case] s_projection: Expression,
+        #[case] expected_b: ArrayRef,
+    ) -> VortexResult<()> {
+        let source = Arc::new(CountingSegmentSource::new(segments));
+        let reader = layout.new_reader(
+            "".into(),
+            Arc::clone(&source) as _,
+            &SESSION,
+            &Default::default(),
+        )?;
+        let expr = pack(
+            [("id", get_item("id", root())), ("s", s_projection)],
+            Nullability::NonNullable,
+        )
+        .bind(reader.dtype())?;
+        let project = reader.projection_evaluation(&(0..3), &expr, MaskFuture::new_true(3))?;
+        let result = block_on(move |_| project)?;
+
+        // `id`, `s.b` and the validity of `s`; `s.a` and `s.c` are never requested.
+        assert_eq!(source.requests(), 3);
+        let mut ctx = SESSION.create_execution_ctx();
+        let result = result.execute::<StructArray>(&mut ctx)?;
+        assert_arrays_eq!(
+            result.unmasked_field_by_name("id")?,
+            PrimitiveArray::from_iter([0i32, 1, 2]),
+            &mut ctx
+        );
+        let s = result
+            .unmasked_field_by_name("s")?
+            .clone()
+            .execute::<StructArray>(&mut ctx)?;
+        assert_eq!(s.names().as_ref(), ["b"].map(FieldName::from));
+        assert_eq!(
+            s.validity()?.execute_mask(3, &mut ctx)?,
+            Mask::from_iter([false, true, true])
+        );
+        assert_arrays_eq!(s.unmasked_field_by_name("b")?, expected_b, &mut ctx);
+        Ok(())
+    }
+
     #[rstest]
     fn test_struct_layout_or(
         #[from(struct_layout)] (segments, layout): (Arc<dyn SegmentSource>, LayoutRef),
@@ -1122,7 +1163,7 @@ mod tests {
     fn test_struct_layout_select(
         #[from(struct_layout)] (segments, layout): (Arc<dyn SegmentSource>, LayoutRef),
     ) {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let reader = layout
             .new_reader("".into(), segments, &SESSION, &Default::default())
             .unwrap();
@@ -1163,7 +1204,7 @@ mod tests {
         );
     }
 
-    /// Field pass-through projections take the direct path; the rest must match it.
+    /// Pass-through projections skip evaluating the partition root; the rest must match them.
     #[rstest]
     #[case::root(root(), &[("a", [7, 2]), ("b", [4, 5]), ("c", [4, 5])])]
     #[case::select(select(["c", "a"], root()), &[("c", [4, 5]), ("a", [7, 2])])]
@@ -1230,7 +1271,7 @@ mod tests {
         // ...and the result is masked with the validity of the parent StructArray
         assert_eq!(
             result
-                .execute_scalar(0, &mut array_session().create_execution_ctx())
+                .execute_scalar(0, &mut SESSION.create_execution_ctx())
                 .unwrap(),
             Scalar::null(result.dtype().clone()),
         );
@@ -1793,7 +1834,7 @@ mod tests {
         // Row 0: struct is valid, field "c" is 4.
         assert_eq!(
             result
-                .execute_scalar(0, &mut array_session().create_execution_ctx())
+                .execute_scalar(0, &mut SESSION.create_execution_ctx())
                 .unwrap()
                 .as_struct()
                 .field_by_idx(0)
@@ -1804,7 +1845,7 @@ mod tests {
         // Row 1: struct is null (because root.a.b was null at this row).
         assert!(
             result
-                .execute_scalar(1, &mut array_session().create_execution_ctx())
+                .execute_scalar(1, &mut SESSION.create_execution_ctx())
                 .unwrap()
                 .as_struct()
                 .is_null()
@@ -1813,7 +1854,7 @@ mod tests {
         // Row 2: struct is valid, field "c" is 6.
         assert_eq!(
             result
-                .execute_scalar(2, &mut array_session().create_execution_ctx())
+                .execute_scalar(2, &mut SESSION.create_execution_ctx())
                 .unwrap()
                 .as_struct()
                 .field_by_idx(0)
@@ -1893,9 +1934,133 @@ mod tests {
         // DType mismatch: "age" is u8 but literal is i32
         let filt = eq(col("age"), lit(67i32));
 
-        let result = filt.bind(reader.dtype());
-        assert!(result.is_err());
-        let err = result.err().unwrap().to_string();
-        assert!(err.contains("Cannot compare different DTypes"), "{err}");
+        let error = filt
+            .bind(reader.dtype())
+            .expect_err("the u8 column cannot be compared with an i32 literal");
+        assert!(
+            error
+                .to_string()
+                .contains("Comparison requires equal dtypes ignoring nullability")
+        );
+    }
+
+    /// Nine rows sorted by `(a, b)`; three zones of three; `c` copies `b` with nulls.
+    /// All three columns are zoned.
+    #[fixture]
+    fn sorted_zoned_layout() -> (Arc<dyn SegmentSource>, LayoutRef) {
+        let ctx = ArrayContext::empty();
+        let segments = Arc::new(TestSegments::default());
+        let (ptr, eof) = SequenceId::root().split();
+        let zoned = ZonedStrategy::new(
+            ChunkedLayoutStrategy::new(FlatLayoutStrategy::default()),
+            FlatLayoutStrategy::default(),
+            ZonedLayoutOptions {
+                block_size: NonZeroUsize::new(3).unwrap(),
+                ..Default::default()
+            },
+        );
+        let strategy = TableStrategy::new(Arc::new(FlatLayoutStrategy::default()), Arc::new(zoned));
+        let chunk = |a: [i32; 3], b: [i32; 3]| {
+            StructArray::from_fields(
+                [
+                    ("a", buffer![a[0], a[1], a[2]].into_array()),
+                    ("b", buffer![b[0], b[1], b[2]].into_array()),
+                    (
+                        "c",
+                        PrimitiveArray::from_option_iter([Some(b[0]), Some(b[1]), None])
+                            .into_array(),
+                    ),
+                ]
+                .as_slice(),
+            )
+            .unwrap()
+            .into_array()
+        };
+        let array_stream = ChunkedArray::from_iter([
+            chunk([1, 1, 1], [1, 2, 3]),
+            chunk([1, 2, 2], [4, 1, 2]),
+            chunk([2, 2, 3], [3, 4, 1]),
+        ])
+        .into_array()
+        .to_array_stream()
+        .sequenced(ptr);
+        let segments2 = Arc::<TestSegments>::clone(&segments);
+        let layout = block_on(|handle| async move {
+            let session = new_session().with_handle(handle);
+            strategy
+                .write_stream(ctx.into(), segments2, array_stream, eof, &session)
+                .await
+        })
+        .unwrap();
+        (segments, layout)
+    }
+
+    #[rstest]
+    #[case::lexicographic_bound(
+        or(
+            gt(col("a"), lit(1)),
+            and(eq(col("a"), lit(1)), gt(col("b"), lit(4))),
+        ),
+        [false, true, true],
+    )]
+    #[case::nested_and_or(
+        and(
+            or(gt(col("a"), lit(1)), gt(col("b"), lit(4))),
+            or(eq(col("a"), lit(1)), gt(col("b"), lit(2))),
+        ),
+        [false, true, true],
+    )]
+    #[case::single_field_compound(
+        or(
+            and(gt(col("a"), lit(1)), eq(col("a"), lit(3))),
+            gt(col("b"), lit(4)),
+        ),
+        [false, false, true],
+    )]
+    #[case::unsupported_and_branch(
+        and(gt(col("a"), lit(1)), gt(col("a"), col("b"))),
+        [false, true, true],
+    )]
+    #[case::unsupported_or_branch(
+        or(gt(col("a"), lit(2)), gt(col("a"), col("b"))),
+        [true, true, true],
+    )]
+    #[case::multi_field_negation(
+        not(or(
+            gt(col("a"), lit(1)),
+            and(eq(col("a"), lit(1)), gt(col("b"), lit(4))),
+        )),
+        [true, true, true],
+    )]
+    #[case::nullable_and(
+        and(lt(col("a"), lit(2)), gt(col("c"), lit(3))),
+        [false, true, false],
+    )]
+    #[case::nullable_or(
+        or(gt(col("a"), lit(2)), gt(col("c"), lit(4))),
+        [false, false, true],
+    )]
+    fn multi_field_predicates_prune(
+        #[from(sorted_zoned_layout)] (segments, layout): (Arc<dyn SegmentSource>, LayoutRef),
+        #[case] expr: Expression,
+        #[case] expected_zones: [bool; 3],
+        #[values(
+            Mask::new_true(9),
+            Mask::new_false(9),
+            Mask::from_iter([true, false, true, false, true, false, true, false, true]),
+        )]
+        mask: Mask,
+    ) -> VortexResult<()> {
+        block_on(|handle| async {
+            let session = new_session().with_handle(handle);
+            let reader = layout.new_reader("".into(), segments, &session, &Default::default())?;
+            let expr = expr.bind(reader.dtype())?;
+            let result = reader
+                .pruning_evaluation(&(0..layout.row_count()), &expr, mask.clone())?
+                .await?;
+            let expected = Mask::from_iter(expected_zones.into_iter().flat_map(|keep| [keep; 3]));
+            assert_eq!(result, &mask & &expected);
+            Ok(())
+        })
     }
 }

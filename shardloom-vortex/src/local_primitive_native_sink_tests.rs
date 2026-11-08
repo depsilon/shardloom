@@ -266,7 +266,7 @@ fn read_complete(path: &Path) -> (DType, Vec<serde_json::Value>) {
             &chunk,
             &names,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap();

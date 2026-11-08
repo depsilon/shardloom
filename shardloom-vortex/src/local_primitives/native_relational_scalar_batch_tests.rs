@@ -237,7 +237,7 @@ fn prepared_utf8_output_does_not_retain_source_credits_after_session_close() {
         drop(output);
         drop(receiver);
         assert!(receiver_memory.snapshot().reserved_bytes > 0);
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         for (row, expected) in expected.into_iter().enumerate() {
             assert_eq!(
                 result_batch::scalar(&retained, row, &mut execution).unwrap(),

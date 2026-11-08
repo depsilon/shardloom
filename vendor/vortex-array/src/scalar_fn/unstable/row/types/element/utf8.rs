@@ -319,6 +319,8 @@ unsafe impl InputElement for Utf8Column {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use rstest::rstest;
     use vortex_buffer::Buffer;
     use vortex_buffer::ByteBuffer;
@@ -354,6 +356,8 @@ mod tests {
     use crate::scalar_fn::unstable::row::ViewLen;
     use crate::scalar_fn::unstable::row::execute_rows;
     use crate::validity::Validity;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     #[derive(Clone)]
     struct StartsWithPre;
@@ -392,7 +396,7 @@ mod tests {
     #[case::views(VarBinViewArray::from_iter_nullable_str(NULLABLE_VALUES).into_array())]
     fn row_fn_reads_each_storage_and_propagates_nulls(#[case] input: ArrayRef) -> VortexResult<()> {
         let args = VecExecutionArgs::new(vec![input.clone()], input.len());
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let output = execute_rows(&StartsWithPre, &EmptyOptions, &args, &mut ctx)?;
 
         let expected = BoolArray::from_iter([
@@ -409,7 +413,7 @@ mod tests {
     #[test]
     fn input_reads_inline_and_referenced_views() -> VortexResult<()> {
         let array = VarBinViewArray::from_iter_str(["short", "a referenced string"]);
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let column = Utf8Column::decode(array.into_array(), &mut ctx)?;
 
         assert!(matches!(column.0, Utf8Storage::Views { .. }));
@@ -429,7 +433,7 @@ mod tests {
         #[case] offsets: PrimitiveArray,
         #[case] shares_offsets: bool,
     ) -> VortexResult<()> {
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let bytes = ByteBuffer::from("héllo!".as_bytes().to_vec());
         let array = VarBinArray::try_new(
             offsets.clone().into_array(),
@@ -467,7 +471,7 @@ mod tests {
         )
         .into_array()
         .slice(1..3)?;
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let column = Utf8Column::decode(array, &mut ctx)?;
 
         assert!(matches!(column.0, Utf8Storage::Offsets { .. }));
@@ -481,7 +485,7 @@ mod tests {
     /// view storage, which replaces null rows with empty strings.
     #[test]
     fn varbin_input_with_invalid_null_bytes_reads_views() -> VortexResult<()> {
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let array = VarBinArray::try_new(
             PrimitiveArray::from_iter([0u32, 1, 2]).into_array(),
             ByteBuffer::from(vec![b'a', 0xff]),
@@ -574,7 +578,7 @@ mod tests {
     #[case("a referenced batch constant")]
     fn constant_decodes_inlined_and_referenced_values(#[case] value: &str) -> VortexResult<()> {
         let array = ConstantArray::new(Scalar::from(value), 8).into_array();
-        let mut ctx = VortexSession::empty().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
 
         let constant = Utf8Column::decode_constant(array, &mut ctx)?;
 

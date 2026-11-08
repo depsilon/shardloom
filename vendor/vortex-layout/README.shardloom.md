@@ -1,25 +1,27 @@
 # ShardLoom native layout patches
 
-This directory contains the reviewed Apache-2.0 `vortex-layout` 0.90.0 registry
+This directory contains the reviewed Apache-2.0 `vortex-layout` 0.93.0 registry
 source. `upstream-provenance.json` records the authoritative archive, original
 member hashes, license and dirty upstream revision. The workspace lockfile owns
 dependency resolution; the archive's crate-local lockfile is recorded but omitted.
 
-ShardLoom changes `src/layouts/file_stats.rs` to retain bounded running native
-statistics instead of one builder entry per input batch. Unknown observations
+ShardLoom changes `src/layouts/file_stats.rs` to retain one running native
+statistics tree in stream order, instead of parallel per-chunk partial trees. Unknown observations
 and overflow invalidate a statistic; an all-null batch does not invalidate a
 known extremum. Variable-length bounds retain independent compact bytes, and
 disabled statistics do not execute input columns. Nullable root structs retain
 one empty statistics set per field because root validity cannot be represented
-by unmasked child bounds. Native `StatsSet` merging and
-scalar truncation supply the existing precision semantics.
+by unmasked child bounds. Upstream aggregate functions supply the values and
+precision. Variable-length minimum/maximum use bounded aggregates, including
+when explicitly requested. Their 0.93 precision is conservatively inexact.
 
-The accumulator also exposes a lazy, exact-size statistics iterator retaining
-its existing lock. Creating it allocates no statistics table. The native file
-writer admits both output table capacities before producing entries, without
-an intermediate vector. The existing vector-returning API remains available
-for caller-owned data. Running accumulator state and independently allocated
-statistics payloads retain their separate ownership scope.
+The November 8 port uses the upstream nested aggregate API and exposes counts
+before producing footer tables. The file provider reserves retained tables and
+construction overlap before collecting them. Legacy top-level `StatsSet` slots
+remain available without lossy aggregate conversion. The admitted V1 writer
+preserves its prior Sum default and absorbing overflow behavior; nested defaults
+retain upstream's exclusion of Sum until its separate SumV2 contract is admitted.
+Running accumulator state and scalar/schema payloads keep separate ownership.
 
 The October 24 refresh ports those corrections to the 0.90 layout/context APIs.
 Upstream repartitioning now requests exact referenced-byte costs; physical
@@ -45,8 +47,8 @@ is retained. Its contract and acceptance are tracked in
 
 The `native_vortex_tests` CI lane runs this excluded crate's complete library
 test target, including the accumulator and nullable structural-reader
-regressions, plus strict library Clippy. It seeds the
-ignored crate-local lockfile from the workspace lockfile, applies the reviewed
+regressions, plus strict library/test Clippy. It copies the reviewed
+`.github/provider-locks/vortex-layout.lock` to the ignored crate-local lockfile, applies the reviewed
 `vortex-array` and `vortex-io` patches and enables the provider's test harness
 and local runtime. The indexed-layout and Bloom-filter golden metadata omitted
 from the published archive are restored from the exact upstream revision;

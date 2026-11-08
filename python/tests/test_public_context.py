@@ -211,7 +211,7 @@ class PublicNativeContextTests(unittest.TestCase):
                 self.assertIs(result.details, result.envelope)
                 self.assertEqual(result.details.field("python_result_ownership"), "retained_native")
                 self.assertEqual(result.details.field("resident_provider_crate"), "vortex")
-                self.assertEqual(result.details.field("resident_provider_version"), "=0.90.0")
+                self.assertEqual(result.details.field("resident_provider_version"), "=0.93.0")
                 self.assertEqual(tuple(name for name, _ in result.schema), ("id", "total"))
 
     def test_native_chaining_keeps_exact_values_after_context_close_without_export(self):

@@ -50,13 +50,13 @@ fn fixture_comparison_rejects_type_length_value_and_null_mismatches() {
         PrimitiveArray::from_option_iter([None::<i64>]).into_array(),
     ] {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let mut ctx = vortex_array::array_session().create_execution_ctx();
+            let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
             let left = PrimitiveArray::from_iter([1_i64]).into_array();
             assert_fixture_equal(left, right, &mut ctx);
         }));
         assert!(result.is_err(), "fixture mismatch must fail");
     }
-    let mut ctx = vortex_array::array_session().create_execution_ctx();
+    let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
     let nullable = PrimitiveArray::from_option_iter([Some(1_i64), None]).into_array();
     assert_fixture_equal(nullable.clone(), nullable, &mut ctx);
 }

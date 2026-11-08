@@ -136,5 +136,11 @@
   "registry_archive_uncompressed_bytes": 721721,
   "source_of_truth": "https://static.crates.io/crates/orc-rust/orc-rust-0.9.0.crate",
   "supplemental_test_files": {},
-  "version": "0.9.0"
+  "version": "0.9.0",
+  "vcs_info": {
+    "git": {
+      "sha1": "d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307"
+    },
+    "path_in_vcs": ""
+  }
 }

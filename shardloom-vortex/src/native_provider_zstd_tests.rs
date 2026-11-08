@@ -31,6 +31,36 @@ use vortex::{
     session::registry::ReadContext,
 };
 
+/// Build an explicit wire fixture through the public metadata decoder. This
+/// keeps corruption tests independent of the provider's private mutable fields.
+fn metadata_fixture(dictionary_bytes: usize, frames: &[(u64, u64)]) -> ZstdMetadata {
+    use vortex::array::{DeserializeMetadata as _, ProstMetadata};
+
+    fn varint(mut value: u64, bytes: &mut Vec<u8>) {
+        while value >= 128 {
+            bytes.push(u8::try_from(value & 0x7f).unwrap() | 0x80);
+            value >>= 7;
+        }
+        bytes.push(u8::try_from(value).unwrap());
+    }
+
+    let mut wire = vec![0x08];
+    varint(
+        u64::from(u32::try_from(dictionary_bytes).unwrap()),
+        &mut wire,
+    );
+    for &(uncompressed, values) in frames {
+        let mut frame = vec![0x08];
+        varint(uncompressed, &mut frame);
+        frame.push(0x10);
+        varint(values, &mut frame);
+        wire.push(0x12);
+        varint(u64::try_from(frame.len()).unwrap(), &mut wire);
+        wire.extend(frame);
+    }
+    ProstMetadata::<ZstdMetadata>::deserialize(&wire).unwrap()
+}
+
 fn session(memory: &LiveMemoryPool) -> VortexSession {
     let session = VortexSession::default().with_host_allocator(Arc::new(
         crate::owned_buffers::ReservedHostAllocator::new(memory.clone()),
@@ -246,15 +276,7 @@ fn native_zstd_all_null_output_has_accounted_canonical_storage() {
     ] {
         let input = Zstd::try_new(
             dtype.clone(),
-            ZstdData::new(
-                None,
-                vec![],
-                ZstdMetadata {
-                    dictionary_size: 0,
-                    frames: vec![],
-                },
-                9,
-            ),
+            ZstdData::new(None, vec![], ZstdMetadata::default(), 9),
             Validity::AllInvalid,
         )
         .unwrap()

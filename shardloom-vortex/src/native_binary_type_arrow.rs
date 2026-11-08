@@ -204,7 +204,9 @@ mod tests {
                 .unwrap();
             let output = output.as_any().downcast_ref::<BinaryArray>().unwrap();
             let input = input.as_any().downcast_ref::<BinaryArray>().unwrap();
-            assert_eq!(input.nulls(), output.nulls());
+            // Empty/all-valid masks may be represented by an absent bitmap.
+            // The complete iterator comparison below includes every null row.
+            assert_eq!(input.len(), output.len());
             assert_eq!(
                 input.iter().collect::<Vec<_>>(),
                 output.iter().collect::<Vec<_>>()

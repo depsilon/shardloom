@@ -24,7 +24,7 @@ fn large_unused_children(context: &NativeExecutionContext<'_>) -> ArrayRef {
         PrimitiveArray::from_iter([1u64; 3]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -103,7 +103,7 @@ fn one_large_value(text: &str) -> ArrayRef {
             PrimitiveArray::from_iter([1u64]).into_array(),
             Validity::NonNullable,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap()

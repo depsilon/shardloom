@@ -1,6 +1,6 @@
 # ShardLoom Zstd allocation and selection contracts
 
-This is the reviewed Apache-2.0 `vortex-zstd` 0.90.0 published source, with the
+This is the reviewed Apache-2.0 `vortex-zstd` 0.93.0 published source, with the
 existing ShardLoom resource and text-construction changes ported to its context
 and serialization APIs. `upstream-provenance.json` records the authoritative
 archive, original member hashes, license and preceding provider identity.

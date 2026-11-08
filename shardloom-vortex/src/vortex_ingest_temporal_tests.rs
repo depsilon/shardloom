@@ -67,7 +67,7 @@ fn fixture(profile: Values) -> ArrayRef {
         PrimitiveArray::from_iter([0_u32, 1, 2, 3, 4, 5]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .into_array();
@@ -319,7 +319,7 @@ fn verify_statistics(
 ) {
     let statistics = file.footer().statistics().unwrap();
     for index in 0..statistics.stats_sets().len() {
-        let (stats, _) = statistics.get(index);
+        let stats = &statistics.stats_sets()[index];
         let source = if array.dtype().is_struct() {
             array
                 .as_::<vortex::array::arrays::Struct>()
@@ -339,8 +339,16 @@ fn verify_statistics(
                 .collect::<Vec<_>>()
         };
         let compare = |left: &&Scalar, right: &&Scalar| left.partial_cmp(right).unwrap();
+        let bound = |stat| {
+            let value = stats.get(stat);
+            if source.dtype().is_utf8() || source.dtype().is_binary() {
+                value.as_inexact()
+            } else {
+                value.as_exact()
+            }
+        };
         assert_eq!(
-            stats.get(Stat::Min).as_exact(),
+            bound(Stat::Min),
             values
                 .iter()
                 .min_by(compare)
@@ -348,7 +356,7 @@ fn verify_statistics(
                 .and_then(Scalar::into_value)
         );
         assert_eq!(
-            stats.get(Stat::Max).as_exact(),
+            bound(Stat::Max),
             values
                 .iter()
                 .max_by(compare)
@@ -466,7 +474,7 @@ fn date_only_files_keep_full_domain_minimum_and_maximum_statistics() {
                 .block_on(context.session.open_options().open_path(&path))
                 .unwrap();
             let statistics = file.footer().statistics().unwrap();
-            let (stats, _) = statistics.get(0);
+            let stats = &statistics.stats_sets()[0];
             assert_eq!(
                 stats.get(Stat::Min).as_exact(),
                 Scalar::from(i32::MIN).into_value()

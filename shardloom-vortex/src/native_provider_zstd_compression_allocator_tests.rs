@@ -171,7 +171,10 @@ fn native_zstd_sparse_frame_index_charges_only_frame_starts_and_refunds_denial()
         "the payload is unchanged; only three frame-start offsets are allocated"
     );
     assert_eq!(
-        data.into_parts(Validity::NonNullable).metadata.frames.len(),
+        data.into_parts(Validity::NonNullable)
+            .metadata
+            .frames()
+            .len(),
         3
     );
     assert_eq!(memory.snapshot().reserved_bytes, 0);

@@ -1,9 +1,62 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-08: bounded scalars must not pin input buffers.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::num::NonZeroUsize;
+
+#[cfg(test)]
+mod shardloom_owner_tests {
+    use crate::dtype::Nullability;
+    use crate::scalar::Scalar;
+    use bytes::Bytes;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use vortex_buffer::{Alignment, BufferString, ByteBuffer};
+
+    struct Source {
+        bytes: Vec<u8>,
+        drops: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for Source {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+    impl Drop for Source {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn bounded_scalar_releases_complete_source_allocation() {
+        for utf8 in [false, true] {
+            for length in [3, 4096] {
+                let drops = Arc::new(AtomicUsize::new(0));
+                let bytes = ByteBuffer::from_bytes_aligned(
+                    Bytes::from_owner(Source {
+                        bytes: vec![b'a'; length],
+                        drops: drops.clone(),
+                    }),
+                    Alignment::none(),
+                );
+                let scalar = if utf8 {
+                    Scalar::utf8(
+                        BufferString::try_from(bytes).unwrap(),
+                        Nullability::NonNullable,
+                    )
+                } else {
+                    Scalar::binary(bytes, Nullability::NonNullable)
+                };
+                let bound = super::truncate_min(scalar, 16).unwrap().unwrap();
+                assert_eq!(drops.load(Ordering::SeqCst), 1);
+                assert!(!bound.is_null());
+            }
+        }
+    }
+}
 
 use vortex_buffer::BufferString;
 use vortex_buffer::ByteBuffer;
@@ -26,6 +79,7 @@ use crate::aggregate_fn::NumericalAggregateOpts;
 use crate::aggregate_fn::fns::min::Min;
 use crate::aggregate_fn::fns::min_max::MinMax;
 use crate::aggregate_fn::fns::min_max::columnar_min_max;
+use crate::aggregate_fn::fns::min_max::min_max;
 use crate::dtype::DType;
 use crate::partial_ord::partial_min;
 use crate::scalar::Scalar;
@@ -196,6 +250,21 @@ impl AggregateFnVTable for BoundedMin {
         false
     }
 
+    fn try_accumulate(
+        &self,
+        args: AggregateArgs<'_, Self::Options>,
+        partial: &mut Self::Partial,
+        batch: &ArrayRef,
+        ctx: &mut ExecutionCtx,
+    ) -> VortexResult<bool> {
+        // `min_max` computes both extrema in one pass and caches both on `batch`, so a
+        // `BoundedMax` over the same batch reads the cached value instead of a second scan.
+        if let Some(result) = min_max(batch, ctx, NumericalAggregateOpts::default())? {
+            merge_min(partial, result.min, args.options.max_bytes.get())?;
+        }
+        Ok(true)
+    }
+
     fn accumulate(
         &self,
         args: AggregateArgs<'_, Self::Options>,
@@ -208,10 +277,7 @@ impl AggregateFnVTable for BoundedMin {
         let Some(result) = columnar_min_max(batch, NumericalAggregateOpts::default(), ctx)? else {
             return Ok(());
         };
-        if let Some(bound) = truncate_min(result.min, args.options.max_bytes.get())? {
-            partial.merge(bound);
-        }
-        Ok(())
+        merge_min(partial, result.min, args.options.max_bytes.get())
     }
 
     fn finalize(
@@ -231,6 +297,14 @@ impl AggregateFnVTable for BoundedMin {
     }
 }
 
+/// Merge the byte-bounded lower bound of `min` into `partial`.
+fn merge_min(partial: &mut BoundedMinPartial, min: Scalar, max_bytes: usize) -> VortexResult<()> {
+    if let Some(bound) = truncate_min(min, max_bytes)? {
+        partial.merge(bound);
+    }
+    Ok(())
+}
+
 fn supported_dtype<'a>(_options: &BoundedMinOptions, input_dtype: &'a DType) -> Option<&'a DType> {
     MinMax
         .return_dtype(&NumericalAggregateOpts::default(), input_dtype)
@@ -239,25 +313,36 @@ fn supported_dtype<'a>(_options: &BoundedMinOptions, input_dtype: &'a DType) -> 
 
 fn truncate_min(value: Scalar, max_bytes: usize) -> VortexResult<Option<Scalar>> {
     let nullability = value.dtype().nullability();
-    match value.dtype() {
-        DType::Utf8(_) => {
-            Ok(
-                lower_bound(BufferString::from_scalar(value)?, max_bytes, nullability)
-                    .map(|(bound, _)| bound),
-            )
-        }
-        DType::Binary(_) => {
-            Ok(
-                lower_bound(ByteBuffer::from_scalar(value)?, max_bytes, nullability)
-                    .map(|(bound, _)| bound),
-            )
-        }
-        _ => Ok(Some(value)),
-    }
+    let bound = match value.dtype() {
+        DType::Utf8(_) => lower_bound(BufferString::from_scalar(value)?, max_bytes, nullability)
+            .map(|(bound, _)| bound),
+        DType::Binary(_) => lower_bound(ByteBuffer::from_scalar(value)?, max_bytes, nullability)
+            .map(|(bound, _)| bound),
+        _ => Some(value),
+    };
+    // A bounded view can still own the complete source batch. Copy just the
+    // bounded bytes so the running scalar cannot pin prior input allocations.
+    bound
+        .map(|bound| {
+            let dtype = bound.dtype().clone();
+            let value = bound.into_value().map(|value| match value {
+                crate::scalar::ScalarValue::Utf8(value) => {
+                    crate::scalar::ScalarValue::Utf8(BufferString::from(&*value))
+                }
+                crate::scalar::ScalarValue::Binary(value) => {
+                    crate::scalar::ScalarValue::Binary(ByteBuffer::copy_from(value.as_slice()))
+                }
+                value => value,
+            });
+            Scalar::try_new(dtype, value)
+        })
+        .transpose()
 }
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroUsize;
+    use std::sync::LazyLock;
 
     use vortex_buffer::buffer;
     use vortex_error::VortexExpect;
@@ -276,24 +361,25 @@ mod tests {
     use crate::aggregate_fn::fns::bounded_min::BoundedMinOptions;
     use crate::aggregate_fn::fns::max::Max;
     use crate::aggregate_fn::fns::min::Min;
-    use crate::array_session;
     use crate::arrays::PrimitiveArray;
     use crate::arrays::VarBinViewArray;
     use crate::dtype::Nullability;
     use crate::scalar::Scalar;
     use crate::validity::Validity;
 
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
+
     fn max_bytes(value: usize) -> NonZeroUsize {
         NonZeroUsize::new(value).vortex_expect("non-zero max_bytes")
     }
 
     fn fresh_session() -> VortexSession {
-        array_session()
+        VortexSession::empty()
     }
 
     #[test]
     fn bounded_min_truncates_utf8_to_lower_bound() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let array =
             VarBinViewArray::from_iter_str(["snowman⛄️snowman", "untruncated"]).into_array();
         let mut acc = Accumulator::try_new(
@@ -315,7 +401,7 @@ mod tests {
 
     #[test]
     fn bounded_min_keeps_fixed_width_values_exact() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let array = PrimitiveArray::new(buffer![10i32, 20, 5], Validity::NonNullable).into_array();
         let mut acc = Accumulator::try_new(
             BoundedMin,
@@ -413,7 +499,7 @@ mod tests {
         let metadata = BoundedMin
             .serialize(&options)?
             .expect("serializable options");
-        let roundtrip = BoundedMin.deserialize(&metadata, &VortexSession::empty())?;
+        let roundtrip = BoundedMin.deserialize(&metadata, &SESSION)?;
 
         assert_eq!(roundtrip, options);
         Ok(())

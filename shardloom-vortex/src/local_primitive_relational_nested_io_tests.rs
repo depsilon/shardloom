@@ -61,7 +61,7 @@ fn struct_list_fixture() -> (Fixture, Vec<Value>) {
         PrimitiveArray::from_iter([2u64, 0, 0, 2]).into_array(),
         Validity::from_iter([true, true, false, true]),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

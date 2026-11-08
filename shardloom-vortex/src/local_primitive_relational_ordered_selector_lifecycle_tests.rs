@@ -290,7 +290,7 @@ fn ordered_selector_parent_validity_does_not_prepare_million_hidden_list_childre
         PrimitiveArray::from_iter([0u64, 0]).into_array(),
         PrimitiveArray::from_iter([1_000_000u64, 0]).into_array(),
         Validity::from_iter([false, true]),
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
     )
     .unwrap()
     .into_array();

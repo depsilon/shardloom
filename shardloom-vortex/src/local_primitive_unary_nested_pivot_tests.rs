@@ -49,7 +49,7 @@ fn list_i64(rows: &[Json]) -> ArrayRef {
         PrimitiveArray::from_iter(sizes).into_array(),
         Validity::from_iter(rows.iter().map(|row| !row.is_null())),
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()
@@ -355,7 +355,7 @@ fn unary_nested_pivot_domain_names_match_literal_list_fixed_struct_and_collision
         PrimitiveArray::from_iter([1u64, 1]).into_array(),
         Validity::NonNullable,
         &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-            &vortex::array::array_session(),
+            &vortex::session::VortexSession::empty(),
         ),
     )
     .unwrap()

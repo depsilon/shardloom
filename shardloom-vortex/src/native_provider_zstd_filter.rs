@@ -99,7 +99,7 @@ pub(super) fn prepare(
     let (mut source_start, mut kept_rows, mut cursor, mut touched, mut payload_bytes) =
         (0usize, 0usize, 0, 0, 0usize);
     for (frame_index, description) in data.frame_metadata().iter().enumerate() {
-        let rows = usize::try_from(description.n_values)?;
+        let rows = usize::try_from(description.num_values())?;
         let source_stop = source_start
             .checked_add(rows)
             .ok_or_else(|| vortex_err!("Zstd frame row count overflow"))?;
@@ -127,7 +127,7 @@ pub(super) fn prepare(
         }
         if cursor != first {
             payload_bytes = payload_bytes
-                .checked_add(usize::try_from(description.uncompressed_size)?)
+                .checked_add(description.get_uncompressed_size()?)
                 .ok_or_else(size_overflow)?;
             frame_indices[frame_count] = frame_index;
             frame_count += 1;

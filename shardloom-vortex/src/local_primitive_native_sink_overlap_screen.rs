@@ -92,7 +92,7 @@ fn verify_complete(path: &Path, filtered: bool) -> (usize, String, String) {
             &chunk,
             &names,
             &mut vortex::array::VortexSessionExecute::create_execution_ctx(
-                &vortex::array::array_session(),
+                &vortex::session::VortexSession::empty(),
             ),
         )
         .unwrap();

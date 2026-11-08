@@ -9,7 +9,7 @@ use shardloom_core::{ComparisonOp, PredicateExpr, StatValue};
 use vortex::array::arrays::{ExtensionArray, ListArray};
 
 fn listed(values: ArrayRef, offsets: &[u64]) -> ArrayRef {
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     ListArray::try_new(
         values,
         PrimitiveArray::from_iter(offsets.iter().copied()).into_array(),

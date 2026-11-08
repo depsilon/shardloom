@@ -260,7 +260,7 @@ fn key_directory_reservation_declines_low_memory_and_checks_cancellation() {
     for (budget, admitted) in [(1023, false), (4096, true)] {
         let memory = LiveMemoryPool::new(budget).unwrap();
         let cancellation = CancellationToken::default();
-        let mut execution = vortex::array::array_session().create_execution_ctx();
+        let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
         let key = KeyColumn::new(&source, &mut execution, &memory, &cancellation).unwrap();
         let cache = KeyLookupCache::new(&key, &memory, &cancellation).unwrap();
         assert_eq!(cache.is_some(), admitted);

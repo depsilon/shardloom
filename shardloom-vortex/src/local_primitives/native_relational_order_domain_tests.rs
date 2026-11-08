@@ -11,7 +11,7 @@ use vortex::array::{
 fn key(array: &ArrayRef, memory: &LiveMemoryPool, policy: FloatPolicy) -> KeyColumn {
     KeyColumn::values_with_float_policy(
         array,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
         memory,
         &CancellationToken::default(),
         policy,

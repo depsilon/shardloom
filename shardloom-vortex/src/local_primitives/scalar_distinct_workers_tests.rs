@@ -271,7 +271,7 @@ fn scalar_distinct_workers_reject_malformed_text_before_admission_and_ignore_unu
         binary.data_buffers().iter().cloned(),
         DType::Utf8(Nullability::NonNullable),
         Validity::NonNullable,
-        &vortex::array::array_session()
+        &vortex::session::VortexSession::empty()
             .create_execution_ctx()
             .host_allocator(),
     )

@@ -1,6 +1,6 @@
 # ShardLoom full-domain timestamp correction
 
-This directory contains the Apache-2.0 `vortex-datetime-parts` 0.90.0 published
+This directory contains the Apache-2.0 `vortex-datetime-parts` 0.93.0 published
 source. `upstream-provenance.json` records the registry archive and every
 original member hash. The archive is authoritative; its VCS metadata records
 the upstream revision and dirty checkout. The upstream generated `Cargo.lock`

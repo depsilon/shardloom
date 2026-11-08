@@ -221,7 +221,7 @@ impl VTable for Interleave {
         _array: ArrayView<'_, Self>,
         _session: &VortexSession,
     ) -> VortexResult<Option<Vec<u8>>> {
-        vortex_bail!("Interleave array is not serializable")
+        Ok(None)
     }
 
     fn deserialize(
@@ -310,21 +310,27 @@ fn value_validity_array(value: &ArrayRef) -> VortexResult<ArrayRef> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use rstest::rstest;
     use vortex_error::VortexResult;
+    use vortex_session::VortexSession;
 
     use super::*;
     use crate::AnyColumnar;
     use crate::Canonical;
     use crate::VortexSessionExecute;
-    use crate::array_session;
     use crate::arrays::Bool;
     use crate::arrays::BoolArray;
+    use crate::arrays::DecimalArray;
     use crate::arrays::Primitive;
     use crate::arrays::PrimitiveArray;
     use crate::arrays::SliceArray;
     use crate::assert_arrays_eq;
+    use crate::dtype::DecimalDType;
     use crate::dtype::PType;
+
+    static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     #[derive(Clone, Copy)]
     enum LazyChild {
@@ -333,16 +339,25 @@ mod tests {
         ThirdValue,
     }
 
+    /// The value type, which picks the execution kernel.
+    #[derive(Clone, Copy)]
+    enum ValueKind {
+        Bool,
+        Primitive,
+        Decimal,
+    }
+
     #[rstest]
     #[case::array_selector(LazyChild::ArraySelector)]
     #[case::row_selector(LazyChild::RowSelector)]
     #[case::third_value(LazyChild::ThirdValue)]
     fn executes_lazy_children(
         #[case] lazy_child: LazyChild,
-        #[values(false, true)] boolean: bool,
+        #[values(ValueKind::Bool, ValueKind::Primitive, ValueKind::Decimal)] value_kind: ValueKind,
     ) -> VortexResult<()> {
-        let (mut values, expected) = if boolean {
-            (
+        let decimal_dtype = DecimalDType::new(9, 2);
+        let (mut values, expected) = match value_kind {
+            ValueKind::Bool => (
                 vec![
                     BoolArray::from_iter([true, false]).into_array(),
                     BoolArray::from_iter([false, true]).into_array(),
@@ -350,9 +365,8 @@ mod tests {
                 ],
                 BoolArray::from_iter([None, Some(true), Some(true), Some(false), Some(false)])
                     .into_array(),
-            )
-        } else {
-            (
+            ),
+            ValueKind::Primitive => (
                 vec![
                     PrimitiveArray::from_iter([10i32, 11]).into_array(),
                     PrimitiveArray::from_iter([20i32, 21]).into_array(),
@@ -360,7 +374,19 @@ mod tests {
                 ],
                 PrimitiveArray::from_option_iter([None, Some(10i32), Some(21), Some(30), Some(11)])
                     .into_array(),
-            )
+            ),
+            ValueKind::Decimal => (
+                vec![
+                    DecimalArray::from_iter([10i32, 11], decimal_dtype).into_array(),
+                    DecimalArray::from_iter([20i32, 21], decimal_dtype).into_array(),
+                    DecimalArray::from_option_iter([Some(30i32), None], decimal_dtype).into_array(),
+                ],
+                DecimalArray::from_option_iter(
+                    [None, Some(10i32), Some(21), Some(30), Some(11)],
+                    decimal_dtype,
+                )
+                .into_array(),
+            ),
         };
         let mut array_indices = PrimitiveArray::from_iter([2u8, 0, 1, 2, 0]).into_array();
         let mut row_indices = PrimitiveArray::from_iter([1u32, 0, 1, 0, 1]).into_array();
@@ -380,10 +406,9 @@ mod tests {
             !matches!(lazy_child, LazyChild::RowSelector)
         );
         for (i, value) in values.iter().enumerate() {
-            let matches = if boolean {
-                value.is::<Bool>()
-            } else {
-                value.is::<AnyColumnar>()
+            let matches = match value_kind {
+                ValueKind::Bool => value.is::<Bool>(),
+                ValueKind::Primitive | ValueKind::Decimal => value.is::<AnyColumnar>(),
             };
             assert_eq!(
                 matches,
@@ -393,7 +418,7 @@ mod tests {
 
         let interleaved =
             InterleaveArray::try_new(values, array_indices, row_indices)?.into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         assert_arrays_eq!(interleaved, expected, &mut ctx);
         Ok(())
     }
@@ -484,7 +509,7 @@ mod tests {
             InterleaveArray::try_new(values.clone(), array_indices.clone(), row_indices.clone())?
                 .into_array();
 
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let reference = interleave_reference(&values, &array_indices, &row_indices, &mut ctx)?;
 
         assert_arrays_eq!(interleaved, reference, &mut ctx);
@@ -622,7 +647,7 @@ mod tests {
             InterleaveArray::try_new(vec![value.clone(), value], array_indices, row_indices)?
                 .into_array();
 
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let err = interleaved
             .execute::<Canonical>(&mut ctx)
             .err()
@@ -643,7 +668,7 @@ mod tests {
             InterleaveArray::try_new(vec![value.clone(), value], array_indices, row_indices)?
                 .into_array();
 
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         let err = interleaved
             .execute::<Canonical>(&mut ctx)
             .err()
@@ -663,7 +688,7 @@ mod tests {
         let expected =
             PrimitiveArray::from_option_iter([Some(1.0f64), Some(10.0), Some(2.0), None])
                 .into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
         assert_arrays_eq!(interleaved, expected, &mut ctx);
         Ok(())
     }
@@ -678,7 +703,7 @@ mod tests {
             InterleaveArray::try_new(vec![constant, column], array_indices, row_indices)?
                 .into_array();
         let expected = PrimitiveArray::from_iter([1.0f64, 10.0, 1.0, 20.0]).into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
 
         assert_arrays_eq!(interleaved, expected, &mut ctx);
         Ok(())
@@ -699,7 +724,7 @@ mod tests {
                 .into_array();
         let expected =
             PrimitiveArray::from_option_iter([None, Some(10.0f64), None, Some(20.0)]).into_array();
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = SESSION.create_execution_ctx();
 
         assert_arrays_eq!(interleaved, expected, &mut ctx);
         Ok(())

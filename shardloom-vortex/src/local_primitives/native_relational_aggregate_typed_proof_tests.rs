@@ -319,7 +319,7 @@ fn typed_grouped_state_cancellation_and_result_lifetime_release_each_owner() {
     let selected = outputs[0].slice(1..2).unwrap();
     drop((outputs, receiver));
     assert!(receiver_memory.snapshot().reserved_bytes > 0);
-    let mut execution = vortex::array::array_session().create_execution_ctx();
+    let mut execution = vortex::session::VortexSession::empty().create_execution_ctx();
     let value = logical_field_from_native_array(&selected, "a4").unwrap();
     assert_eq!(
         result_batch::scalar(&value, 0, &mut execution).unwrap(),

@@ -458,7 +458,7 @@ mod tests {
     use vortex_error::VortexResult;
 
     use crate::VortexSessionExecute;
-    use crate::array_session;
+
     use crate::arrays::varbinview::BinaryView;
     use crate::arrays::varbinview::build_views::MAX_BUFFER_LEN;
     use crate::arrays::varbinview::build_views::build_views;
@@ -472,7 +472,7 @@ mod tests {
     #[case::single_buffer(64)]
     #[case::split_buffers(17)]
     fn admitted_views_ignore_invalid_null_bytes(#[case] max_len: usize) -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         let visible = b"a visible string!";
         let mut bytes = visible.to_vec();
         bytes.push(0xff);
@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn admitted_null_views_may_split_multibyte_characters() -> VortexResult<()> {
-        let mut ctx = array_session().create_execution_ctx();
+        let mut ctx = vortex_session::VortexSession::empty().create_execution_ctx();
         let array = build_views_in(
             64,
             ByteBuffer::copy_from("aé"),

@@ -42,7 +42,7 @@ fn list(values: ArrayRef, offsets: &[u64], validity: Validity) -> ArrayRef {
         values,
         PrimitiveArray::from_iter(offsets.iter().copied()).into_array(),
         validity,
-        &mut vortex::array::array_session().create_execution_ctx(),
+        &mut vortex::session::VortexSession::empty().create_execution_ctx(),
     )
     .unwrap()
     .into_array()

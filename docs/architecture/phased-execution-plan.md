@@ -370,7 +370,7 @@ Five independent Dependabot PRs (#1664–#1668) remain open for separate
 maintenance. The Float16 runtime/wheel were superseded and retired. RFC 0044
 retains its independent status.
 
-**November 8 dependency maintenance: in progress.** The
+**November 8 dependency maintenance: local baseline passed; integration pending.** The
 [calendar, transport and CI patch contract](dependency-intake-2026-11-08.md)
 prepares #1665, #1667 and #1668 before shared exact vector expressions. It
 preserves their original proposal ancestry, adds independent calendar regression
@@ -390,6 +390,21 @@ because a version is newer. Resolve the remaining Dependabot PRs afterward, then
 resume the main queue with shared exact vector expressions. This explicit order
 supersedes the earlier major-provider deferral without granting capability or
 competitive-gate completion from dependency versions alone.
+
+The [coordinated provider update](native-provider-upgrade-2026-11-08.md) now
+uses Vortex 0.93.0 and Arrow/Parquet 59.3.2, with retained local ownership,
+temporal and statistics contracts. All fifteen standalone provider configurations
+have verified test/lint evidence for their current inputs. Default/native
+workspace tests pass 3,321/6,996 cases with no failures and 37 reported native
+ignores. Feature, toolchain, audit and Python core checks pass; the isolated wheel
+passes all 386 integration tests with no skips. The
+[portable packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
+replays after relocation, rejects all 13 corruption controls and retains every
+original failure record, with the earlier small-dependency baseline kept separate.
+The active delivery step is hosted checks/review, merge and exact-main verification,
+then reconciliation of #1664–#1668 and guarded retirement. Shared exact vector
+expressions resume afterward. Arrow 60 remains a coordinated consumer migration;
+no capability or competitive gate closes from this dependency update.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

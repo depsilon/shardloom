@@ -61,6 +61,18 @@ replay passed after retirement. The Float16 runtime/wheel were superseded and
 retired. No storage-limit change or payload backup was made. Five independent
 Dependabot PRs (#1664–#1668) remain open for separate maintenance.
 
+During November 8 provider validation, guarded cache retirement preserved each
+stopped run and its diagnostics. The final debug retirement removed 20,077
+entries, including 17,173 regular files, after repeated identities and closed-handle
+checks. The accepted vector runtime/wheel, the separate small-dependency comparison
+runtime and installed proof, current input generations and release cache remained
+unchanged. The final array test/lint check and fresh release build then passed.
+The [provider evidence packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
+retains these receipts and all earlier outcomes. Its local acceptance includes
+the new runtime and all 386 isolated installed-wheel tests with zero skips.
+Hosted integration and retirement of the superseded retained runtimes remain
+separate steps. No storage floor changed and no payload backup was created.
+
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched
 the committed collection. Repeated identity checks and closed-handle checks

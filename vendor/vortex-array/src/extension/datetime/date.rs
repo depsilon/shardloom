@@ -5,6 +5,7 @@
 use std::fmt;
 
 use jiff::Span;
+
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -71,10 +72,14 @@ impl fmt::Display for DateValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (value, unit, days) = match self {
             DateValue::Days(days) => (i64::from(*days), "d", Some(i64::from(*days))),
-            DateValue::Milliseconds(ms) => (*ms, "ms", (ms % 86_400_000 == 0).then_some(ms / 86_400_000)),
+            DateValue::Milliseconds(ms) => {
+                (*ms, "ms", (ms % 86_400_000 == 0).then_some(ms / 86_400_000))
+            }
         };
         if let Some(days) = days
-            && let Ok(date) = Span::new().try_days(days).and_then(|span| EPOCH.checked_add(span))
+            && let Ok(date) = Span::new()
+                .try_days(days)
+                .and_then(|span| EPOCH.checked_add(span))
         {
             return write!(f, "{date}");
         }
@@ -106,12 +111,13 @@ impl ExtVTable for Date {
         let ptype = date_ptype(metadata)
             .ok_or_else(|| vortex_err!("Date type does not support time unit {}", metadata))?;
 
-        vortex_ensure_eq!(
-            ext_dtype.storage_dtype().as_ptype(),
-            ptype,
-            "Date storage dtype for {} has the wrong ptype",
-            metadata
-        );
+        let DType::Primitive(storage_ptype, _) = ext_dtype.storage_dtype() else {
+            vortex_bail!(
+                "Date storage dtype must be primitive, got {}",
+                ext_dtype.storage_dtype()
+            );
+        };
+        vortex_ensure_eq!(*storage_ptype, ptype);
 
         Ok(())
     }
@@ -133,15 +139,23 @@ impl ExtVTable for Date {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use vortex_error::VortexResult;
 
     use crate::dtype::DType;
     use crate::dtype::Nullability::Nullable;
+    use crate::dtype::extension::ExtDType;
     use crate::extension::datetime::Date;
+    use crate::extension::datetime::DateValue;
     use crate::extension::datetime::TimeUnit;
     use crate::scalar::PValue;
     use crate::scalar::Scalar;
     use crate::scalar::ScalarValue;
+
+    #[test]
+    fn test_reject_non_primitive_storage() {
+        assert!(ExtDType::<Date>::try_new(TimeUnit::Days, DType::Utf8(Nullable),).is_err());
+    }
 
     #[test]
     fn validate_date_scalar() -> VortexResult<()> {
@@ -174,6 +188,22 @@ mod tests {
 
         let scalar = Scalar::new(dtype, Some(ScalarValue::Primitive(PValue::I32(365))));
         assert_eq!(format!("{}", scalar.as_extension()), "1971-01-01");
+    }
+
+    #[rstest]
+    #[case::ordinary(DateValue::Milliseconds(86_400_000), "1970-01-02")]
+    #[case::after_year_9999(DateValue::Days(2_932_897), "2932897d since Unix epoch")]
+    #[case::beyond_jiff_span(DateValue::Days(10_000_000), "10000000d since Unix epoch")]
+    #[case::max_milliseconds(
+        DateValue::Milliseconds(i64::MAX),
+        "9223372036854775807ms since Unix epoch"
+    )]
+    #[case::subday_milliseconds(DateValue::Milliseconds(1), "1ms since Unix epoch")]
+    #[case::negative_subday_milliseconds(DateValue::Milliseconds(-1), "-1ms since Unix epoch")]
+    fn display_date_value(#[case] value: DateValue, #[case] expected: &str) {
+        // Retain ShardLoom's explicit physical-unit/epoch display outside the
+        // calendar domain, including non-whole-day Date64 storage values.
+        assert_eq!(value.to_string(), expected);
     }
 
     #[test]

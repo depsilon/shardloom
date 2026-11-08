@@ -2,27 +2,95 @@
 
 # Vortex and Arrow provider update
 
-Status: source review and preparation. The November 8 maintainer instruction
+Status: local provider and installed-package acceptance passed; hosted integration
+and Dependabot reconciliation remain pending. The
+[portable evidence packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
+binds all fifteen required stages to the same complete source snapshot and graph.
+The November 8 maintainer instruction
 places this work after the already-running calendar/transport/CI validation,
 before resolving the remaining Dependabot PRs and resuming item 19's shared
 exact vector expressions. This is a provider maintenance unit under the active
 phase plan and RFC 0044; it does not close item 19, item 20 or CG-1 through CG-23.
 
-## Candidate and compatibility boundary
+The selected graph is Vortex 0.93.0 with one compatible Arrow/Parquet 59.3.2
+family. Eight Vortex and four Arrow/Parquet provider trees were rebased from
+verified registry archives; Arrow data was already 59.3.2. The former separate
+RunEnd provider is removed after its code, owner contract and metadata fixture
+move into `vortex-array`. ORC remains at its existing 0.9.0 boundary. Arrow 60's
+consumer migration remains deferred for the compatibility reasons below.
+The existing registry `vortex-arrow` 0.93.0 is now a fifteenth local provider
+for scoped decimal storage preservation at admitted Arrow intake boundaries.
 
-Review released Vortex **0.93.0**, including the 0.91 and 0.92 changes since the
-current 0.90.0 provider. The original bot proposal targets 0.91.0, but
+The default workspace passes 3,321 tests; the native workspace passes 6,996,
+with 37 reported opt-in ignores and no failures. Formatting, strict default/native
+lint, generated references, supported feature configurations, Rust 1.96 checks
+and the unchanged dependency audit all pass. The canonical Python core shard
+records 1,247 discovered cases, 857 reported runs and 56 optional/environment
+skip records, with no failures or errors. The ordinary isolated wheel passes all
+386 integration tests with no failures, errors or skips, including load and
+uninstall checks against the newly built runtime.
+
+All fifteen standalone provider configurations have passing tests and strict
+lint tied to their current compiled inputs, configuration and lockfiles. This
+includes the array provider's 5,773 passes and one existing ignore, the added
+Arrow provider's 406 passes, and Parquet's 1,243 unit plus 105 enabled integration
+tests with one existing ignored integration case. Unchanged checks are reused
+only after exact input comparison; provenance-only record changes are
+separately verified against the current archives.
+
+The first broad native run exposed 22 compatibility regressions. Their targeted
+24-test cohort and 19 statistics ownership/wide-schema checks pass under unchanged
+grants, followed by the successful complete native run above. Earlier storage-floor
+interruptions and evidence-tool corrections remain preserved. The interrupted
+array/layout wrapper is not acceptance: a fresh array test/lint run completed
+with clean before/after source checks, while the other affected providers have
+their own completed evidence. The packet retains 70 original nonacceptance receipt
+records, including child and preparation records; these are not 70 independent
+runtime executions. Original and relocated replay pass, and all 13 corruption
+controls are rejected.
+
+The source and license records describe the current archives and retained
+local modifications. The Python notice bundle verifies 431 registry packages,
+15 path providers, 829 legal-file records and 249 distinct texts. The initial
+standalone graph review checked 14 locks and the exact archives, declared
+licenses and declared Rust minimums of 33 new development-only package identities.
+The current review checks all 15 locks and 34 identities absent from the prior
+standalone graphs. The extra identity is the already-reviewed registry Arrow
+provider, now development-only relative to the engine's new local path provider.
+Provider-local Arrow 58.4.1 remains only in ORC's unchanged test dependencies;
+the engine graph contains only Arrow 59.3.2.
+
+Decimal storage imports are explicitly scoped: native file reads preserve stored
+width and raw bits, while resident and streaming Arrow intake validate reachable
+values before opting into the same preservation. Null-parent children and values
+outside the slice remain unobserved. Ordinary upstream deserialization/import
+retains its precision validation and narrowing. Existing canonical dictionary
+output now also makes validity concrete at that same serialization boundary.
+
+The port preserves one running statistics tree, bounded independently owned
+variable-length extrema, legacy Sum/overflow semantics, and lossless legacy
+footer slots alongside 0.93's aggregate/nested statistics. Table/path/aggregate
+admission covers conservative construction overlap and last-owner release.
+Malformed statistics still fail explicitly. Shared-dictionary rewrites now
+retain code/gather and output owners at both inner and root execution boundaries.
+Nullable or encoded code trees retain their documented scratch exclusions while
+the output owner remains enforced. V2 scans remain outside native admission.
+
+## Version selection and compatibility boundary
+
+The review covers released Vortex **0.93.0**, including the 0.91 and 0.92 changes
+since the prior 0.90.0 provider. The original bot proposal targets 0.91.0, but
 [0.93.0 was released on November 6](https://github.com/vortex-data/vortex/releases/tag/0.93.0).
 Use exact published registry archives, checksums, member inventories and license
 records for implementation. A tag alone does not establish the identity of a
 published crate with a dirty VCS marker.
 
 The [0.93 workspace](https://github.com/vortex-data/vortex/blob/0.93.0/Cargo.toml)
-still requires Arrow/Parquet 59.2. The current ShardLoom graph already contains
-Arrow buffer, data and schema 59.3.2, with other Arrow/Parquet providers at 59.3.1.
-Review the [59.3.2 maintenance release](https://github.com/apache/arrow-rs/releases/tag/59.3.2)
-and complete the compatible family update after confirming published packages.
-Review [Arrow 60](https://github.com/apache/arrow-rs/releases/tag/60.0.0) and
+still requires Arrow/Parquet 59.2. At intake, ShardLoom already contained Arrow
+buffer, data and schema 59.3.2, with other Arrow/Parquet providers at 59.3.1.
+The verified [59.3.2 maintenance release](https://github.com/apache/arrow-rs/releases/tag/59.3.2)
+completes the compatible family. The review also covers
+[Arrow 60](https://github.com/apache/arrow-rs/releases/tag/60.0.0) and
 [60.1](https://github.com/apache/arrow-rs/releases/tag/60.1.0) for useful changes,
 backports and future migration requirements. They are not interchangeable with
 the current provider's Arrow types.
@@ -33,8 +101,8 @@ second major or a conversion bridge merely to make the partial bot proposal
 compile. Advancing the whole graph to Arrow 60 would also require a reviewed
 port of the upstream consumers; changing ShardLoom's four pins alone is not that
 port. The compatibility decision and any unadopted update remain explicit in the
-final disposition. Source review may narrow or change the candidate before
-implementation; no candidate is accepted by this design note.
+final disposition. Arrow 60 remains deferred; local acceptance of the selected
+0.93/59.3.2 graph does not accept that separate consumer migration.
 
 ## Incorporate improvements through existing providers
 
@@ -71,6 +139,7 @@ Retirement requires source evidence and equivalent regression coverage.
 | Provider | Contract to preserve |
 | --- | --- |
 | `vortex-array` | Full temporal storage domain, bundled timezone policy, checked statistics, fallible host/external reservations, array owners, deferred owned views, admitted variable-binary tables and checked text reconstruction |
+| `vortex-arrow` | Scoped recursive decimal storage import after ancestor-aware validation, preserving physical widths, bits, nulls and shared buffer ownership without changing default imports |
 | `vortex-buffer` | Explicit empty buffer owners survive typed and Arrow/Bytes aliases |
 | `vortex-datetime-parts` | Signed-Int64 day storage, exact split/recombine and encoded comparisons |
 | `vortex-file` | Admitted footer/schema/layout and segment metadata, locator names, aligned buffers, coalescing amplification bound, lazy unused V2 state and owner release |
@@ -94,9 +163,12 @@ obsolete executable or dependency payload backups.
 
 ## Acceptance
 
-Preserve the completed vector integration and the in-flight small-patch results
-as distinct observations. They are not tests of the upgraded provider. Bind all
-final acceptance roles to the same source, resolved graph and runtime:
+The packet preserves the completed vector integration and separately replays
+the earlier small-patch baseline from its own frozen source. Those earlier tests
+are not tests of the upgraded provider. The first five acceptance obligations
+below pass for the current graph; portable replay and corruption controls also
+pass. Final-head hosted checks, review, merge, exact-main verification and
+post-integration retirement are the remaining delivery boundary.
 
 - Exact archive/member/license verification, complete dependency graph and
   no-fallback review; no unintended unused provider patch or duplicate Arrow major.

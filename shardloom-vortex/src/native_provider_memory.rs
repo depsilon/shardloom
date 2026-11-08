@@ -53,6 +53,9 @@ use vortex::{
 #[path = "native_provider_chunked.rs"]
 mod chunked;
 
+#[path = "native_provider_decimal.rs"]
+mod decimal;
+
 #[path = "native_provider_zstd_filter.rs"]
 mod zstd_filter;
 
@@ -137,6 +140,12 @@ impl SessionVar for ProviderMemory {
 /// then replaces only its memory owner.
 pub(crate) fn install(session: &VortexSession, memory: LiveMemoryPool) {
     if session.get_opt::<ProviderMemory>().is_none() {
+        session.arrays().register(decimal::NativeDecimalStorage);
+        session.kernels().register_execute_parent(
+            Dict.id(),
+            Chunked.id(),
+            &[chunked::execute_shared_dictionary as ExecuteParentFn],
+        );
         session.kernels().register_execute_parent(
             Filter.id(),
             vortex::encodings::zstd::Zstd.id(),

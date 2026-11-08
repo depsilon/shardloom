@@ -399,9 +399,10 @@ fn unary_nested_pivot_rejects_unsupported_empty_nested_leaves_and_policy_shapes(
             n,
         ),
         DType::List(
-            std::sync::Arc::new(DType::Extension(
-                Timestamp::new_with_tz(TimeUnit::Microseconds, Some("ShardLoom/Invalid".into()), n)
-                    .erased(),
+            std::sync::Arc::new(crate::native_temporal::invalid_timestamp_for_test(
+                TimeUnit::Microseconds,
+                Some("ShardLoom/Invalid"),
+                n,
             )),
             n,
         ),

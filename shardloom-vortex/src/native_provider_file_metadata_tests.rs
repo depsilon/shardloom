@@ -214,10 +214,8 @@ fn native_file_metadata_layout_copy_has_independent_exact_admission_and_owner() 
         u64::try_from(original.segment_map().len() * size_of::<vortex::file::SegmentSpec>())
             .unwrap();
     let statistics = original.statistics().unwrap();
-    let statistics_capacity = u64::try_from(
-        std::mem::size_of_val(statistics.stats_sets()) + std::mem::size_of_val(statistics.dtypes()),
-    )
-    .unwrap();
+    let statistics_capacity =
+        super::file_statistics_tests::parsed_table_bytes(statistics, original.dtype());
     let layout_and_segment = capacity + table_capacity;
     let statistics_and_layout = statistics_capacity + capacity;
     let total = statistics_and_layout + table_capacity;
