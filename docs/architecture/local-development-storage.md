@@ -94,6 +94,14 @@ runtime/wheel and the newly tested vector-expression runtime/wheel remain retain
 through hosted closeout. Storage floors are unchanged and no payload backup was
 created.
 
+The [proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
+retains both original hosted deadline failures, the fresh local 397-test installed
+proof and the focused deadline regressions. The original vector-expression packet
+is unchanged; the follow-up stores only new observations and source bytes absent
+from that packet. The tested runtime is reused byte-for-byte. The original
+unexecuted retirement plan remains historical; closeout must use a new inventory
+covering the follow-up and retain the accepted runtime/wheel and both packets.
+
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched
 the committed collection. Repeated identity checks and closed-handle checks

@@ -421,8 +421,13 @@ Frozen numerical/rounding/identity references, wide constant retrieval,
 resource ownership, raw selection, actual spill and separate-process persistence
 are exercised. Feature and Rust 1.96 checks pass. The
 [portable packet](../release/evidence/native-vector-expressions-2026-11-08/README.md)
-retains the original failures and exact source/runtime bindings. Hosted review,
-PR/main checks and post-merge retirement remain subsequent closeout work. No
+retains the original failures and exact source/runtime bindings. The separate
+[proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
+preserves both Linux Python 3.13 aggregate-deadline failures and the unchanged
+core packet. Its bounded integration-only deadline change passes all 21 focused
+proof/package tests and a fresh local installed run of all 397 tests with zero
+skips. Package/runtime inputs and test discovery remain unchanged. Hosted review,
+fresh PR/main checks and post-merge retirement remain subsequent closeout work. No
 performance run or package publication is part of this unit. Sparse/quantized
 arithmetic, ANN and implicit multi-vector reduction remain unadmitted. Item 19,
 item 20, RFC 0044 and CG-1 through CG-23 remain open at their existing boundaries.

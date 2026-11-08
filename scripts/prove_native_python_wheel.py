@@ -112,12 +112,17 @@ def prove(root: Path, output: Path, library: Path, binary: Path, wheelhouse: Pat
     def run(name, command):
         log = output / f"{name}.log"
         started = time.monotonic()
-        entry = {"name": name, "command": [str(arg) for arg in command], "log": log.name}
+        # Integration runs the complete growing binding suite, unlike the
+        # individual setup/package commands. Keep both budgets finite and
+        # record the selected bound with the original step observation.
+        timeout = 1200 if name == "integration" else 600
+        entry = {"name": name, "command": [str(arg) for arg in command], "log": log.name,
+                 "timeout_seconds": timeout}
         report["steps"].append(entry)
         try:
             with log.open("xb") as stream:
                 result = subprocess.run(command, cwd=output, env=env, stdout=stream,
-                                        stderr=subprocess.STDOUT, timeout=600, check=False)
+                                        stderr=subprocess.STDOUT, timeout=timeout, check=False)
             entry["returncode"] = result.returncode
             if result.returncode:
                 raise RuntimeError(f"{name} failed; retained log: {log}")

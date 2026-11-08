@@ -65,6 +65,55 @@ class WheelReuseTests(unittest.TestCase):
             return proof.prove(self.root, self.root / "output", self.library, self.binary,
                                self.wheelhouse, **kwargs)
 
+    def simulate_step_work(self, slow_step: str, seconds: int):
+        """Exercise real proof control flow with deterministic subprocess work."""
+        def run(command, **kwargs):
+            name = Path(kwargs["stdout"].name).stem
+            if name == slow_step and seconds > kwargs["timeout"]:
+                kwargs["stdout"].write(b"fixture step exceeded its bounded budget\n")
+                raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+            if name == "load":
+                kwargs["stdout"].write(json.dumps({"native_library": str(self.library),
+                    "cli": str(self.binary), "isolated_install": True}).encode())
+            elif name == "integration":
+                Path(command[-1]).write_text(json.dumps({"tests": 1, "failures": 0,
+                    "errors": 0, "skipped": 0, "status": "passed"}))
+            return subprocess.CompletedProcess(command, 0)
+
+        with patch.object(proof.subprocess, "run", side_effect=run):
+            return self.invoke(existing_wheel=self.wheel, build_report=self.report)
+
+    def test_complete_integration_has_a_separate_finite_budget(self) -> None:
+        result = self.simulate_step_work("integration", 900)
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["uninstall_status"], "passed")
+        self.assertEqual({row["name"]: row["timeout_seconds"] for row in result["steps"]}, {
+            "create_environment": 600, "install_optional_consumer": 600, "install": 600,
+            "load": 600, "integration": 1200, "uninstall": 600, "verify_uninstalled": 600})
+
+    def test_integration_still_times_out_and_preserves_the_failed_observation(self) -> None:
+        with self.assertRaises(subprocess.TimeoutExpired) as failure:
+            self.simulate_step_work("integration", 1201)
+        self.assertEqual(failure.exception.timeout, 1200)
+        saved = json.loads((self.root / "output/report.json").read_text())
+        self.assertEqual(saved["status"], "failed")
+        self.assertFalse(saved["installation_performed"])
+        self.assertNotIn("integration", saved)
+        self.assertNotIn("uninstall_status", saved)
+        step = saved["steps"][-1]
+        self.assertEqual((step["name"], step["timeout_seconds"]), ("integration", 1200))
+        self.assertNotIn("returncode", step)
+        self.assertEqual(step["log_sha256"], proof.sha(self.root / "output/integration.log"))
+
+    def test_setup_keeps_its_shorter_deadline(self) -> None:
+        with self.assertRaises(subprocess.TimeoutExpired) as failure:
+            self.simulate_step_work("create_environment", 601)
+        self.assertEqual(failure.exception.timeout, 600)
+        saved = json.loads((self.root / "output/report.json").read_text())
+        self.assertEqual(saved["status"], "failed")
+        self.assertEqual(len(saved["steps"]), 1)
+        self.assertEqual(saved["steps"][0]["timeout_seconds"], 600)
+
     def test_reuse_requires_report_pair_and_cannot_also_request_build(self) -> None:
         for args in ({"existing_wheel": self.wheel}, {"build_report": self.report},
                      {"existing_wheel": self.wheel, "build_report": self.report, "build_only": True}):

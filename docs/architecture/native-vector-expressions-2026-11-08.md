@@ -255,3 +255,15 @@ Original failures, including the demonstrated literal-credit and public raw-copy
 defects and their passing regressions, remain in the packet. Hosted review, PR
 checks, exact-main checks and post-merge retirement are subsequent closeout
 steps; this frozen local record does not claim them retrospectively.
+
+The [proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
+preserves that packet byte-for-byte. Both original PR #1671 Linux Python 3.13
+attempts stopped at the aggregate integration deadline after 321 completed tests
+and no observed failed assertions; neither is accepted. The same wheel passed
+397 tests under Linux Python 3.10. The follow-up gives integration a finite
+1,200-second budget, retains 600 seconds for each setup/package step, and records
+the selected budget in each step observation. Test discovery, zero-skip policy,
+package/runtime inputs and the outer CI job limit are unchanged. All 21 focused
+proof/package tests and the fresh local installed run of 397 tests pass, including
+load and uninstall. The original runtime checks remain bound to unchanged inputs;
+fresh hosted checks at the follow-up commit are still required before merge.
