@@ -10,8 +10,9 @@ Managed binary objects additionally require `shardloom.binary-object.v1` and
 the matching native object layout. The `native-binary-objects` feature is part
 of the native Python and release user-surface build.
 Fixed-shape tensors require a reader that registers `shardloom.fixed_shape_tensor.v1`.
+Variable-shape tensors require `shardloom.variable_shape_tensor.v1`.
 
-Store supplied dense Float32/Float64 vectors, inline bytes and nested values
+Store supplied dense Float16/Float32/Float64 vectors, inline bytes and nested values
 alongside ordinary columns. An embedding adds caller-supplied identity to a
 fixed-size vector. Filtering, ordering and joining on ordinary columns carry
 these payloads through the same native engine, including explicit native spill.
@@ -64,7 +65,7 @@ Empty bytes, null bytes, an empty variable list and a null vector remain distinc
 
 ## Shape, nullability and identity
 
-Embedding dimensions are positive. The item must be Float32 or Float64. The
+Embedding dimensions are positive. The item must be Float16, Float32 or Float64. The
 item's `nullable` flag governs components; the embedding's `nullable` flag
 governs the complete vector. Values must have exactly the declared dimension.
 No padding, truncation, rounding or normalization occurs. Size arithmetic,
@@ -101,8 +102,9 @@ Unrelated Arrow application metadata retains its existing adapter limitations.
 The default `float_policy="strict"` rejects observed nonfinite input. Select
 `float_policy="extended"` on the client to carry NaNs and infinities. Native
 arrays, Arrow and Python-object delivery preserve floating bits, including
-signed zero and representable NaN payloads. Python Float32 values must have an
-exact native representation. Raw JSON numbers remain finite-only.
+signed zero and representable NaN payloads. Explicit Python Float16 and Float32
+declarations require an exact native representation; inferred Python floats
+remain Float64. Raw typed-JSON numbers remain finite-only.
 
 Vortex persistence, native spill, Arrow IPC and the native Parquet adapter
 preserve the embedding declaration. CSV, JSON/JSONL files, Avro and ORC currently
@@ -122,14 +124,46 @@ null vector parents, and all nullable rows through Arrow IPC.
 
 This delivery carries rich payloads through projection, ordinary-column filters,
 joins, bounded input/output, native spill, write and reopen. It does not admit
-embedding or tensor values as comparison keys or arithmetic operands. Variable-shape tensors,
-Float16/sparse/quantized representations and exact
-vector functions remain in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
+embedding or tensor values as comparison keys or arithmetic operands.
+Fixed- and variable-shape tensors and Float16 components use the same payload
+lifecycle. Sparse and quantized logical representations require separate
+interpretation contracts. Exact vector functions remain in the
+[rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
 Existing nested-schema depth/node/metadata limits remain; replacing them requires
 the separately tracked resource-backed traversal work, not removal of checks.
 
 See the [implementation and acceptance contract](../architecture/native-dense-embedding-lifecycle-2026-11-05.md)
 for the native provider, ownership and verification boundaries.
+
+## Float16 and multiple vectors per row
+
+Use `t.float16()` for an explicit binary16 column or component type. Values such
+as `0.5`, `1.5` and negative zero are exactly representable. A Python value such
+as `0.1` is refused rather than silently rounded. Scalar arithmetic retains the
+existing Float64 result domain; selectors such as MIN/MAX and discrete quantiles
+retain Float16. Filters compare their thresholds without rounding them to the
+column's width. Scalar Float16 casts are not added by this declaration.
+
+Use existing lists to store several vectors in one row:
+
+```python
+from shardloom import types as t
+
+vectors = t.list_(t.fixed_size_list(t.float16(), 3))
+embeddings = t.list_(t.embedding(t.float16(), 3, metadata={"space_id": "passages"}))
+# A row value: [[0.5, -0.0, None], [1.0, 2.0, 3.0]]
+```
+
+An empty collection, a null collection, a null vector and a null component remain
+distinct. Native files, Arrow IPC and Parquet retain these declarations and raw
+Float16 representations, subject to the independent-reader limitations above.
+Avro and ORC refuse scalar or nested Float16 output before consuming a streaming
+producer. Embedding and tensor text-output restrictions also remain unchanged.
+
+The [runnable example](../../python/examples/float16_vectors.py) combines Float16
+scalars, vector collections and both tensor forms, then writes and reopens a
+native file. The [Float16 lifecycle contract](../architecture/native-float16-lifecycle-2026-11-07.md)
+records the exact-bit, observation-policy and ownership requirements.
 
 ## Fixed-shape tensors
 
@@ -153,7 +187,7 @@ Omitting `permutation` means the same physical and logical dimension order.
 The declaration never transposes values. Names retain their exact strings.
 The component and whole-tensor `nullable` flags remain independent.
 
-Elements may be Boolean, signed/unsigned 8/16/32/64-bit integers, Float32 or
+Elements may be Boolean, signed/unsigned 8/16/32/64-bit integers, Float16, Float32 or
 Float64. Shape dimensions are nonnegative int64 values; their checked product
 must fit the native uint32 list width. Arrow additionally requires a signed
 32-bit list width. Shape `[]` denotes one scalar element, supplied as `[value]`;

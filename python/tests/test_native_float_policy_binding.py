@@ -29,7 +29,7 @@ BITS32 = [0x80000000, 0, 0xff800000, 0x7f800000,
 
 
 def float_value(bits, width=64):
-    return None if bits is None else struct.unpack("<d" if width == 64 else "<f",
+    return None if bits is None else struct.unpack({16: "<e", 32: "<f", 64: "<d"}[width],
         bits.to_bytes(width // 8, "little"))[0]
 
 
@@ -43,7 +43,7 @@ def bit_class(bits, width=64):
     """Classify raw input without evaluating or quieting a signaling NaN."""
     if bits is None:
         return None
-    mantissa = 52 if width == 64 else 23
+    mantissa = {16: 10, 32: 23, 64: 52}[width]
     exponent = (1 << (width - mantissa - 1)) - 1
     special = ((bits >> mantissa) & exponent) == exponent
     payload = bits & ((1 << mantissa) - 1)

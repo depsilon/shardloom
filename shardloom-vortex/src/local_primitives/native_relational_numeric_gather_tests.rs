@@ -67,6 +67,15 @@ fn numeric_gather_writes_original_width_nullable_duplicate_rows_into_owned_buffe
     check!(i16, [-1, 0, i16::MIN, 3]);
     check!(i32, [-1, 0, i32::MIN, 3]);
     check!(i64, [-1, 0, i64::MIN, 3]);
+    check!(
+        f16,
+        [
+            f16::NEG_ZERO,
+            f16::ZERO,
+            f16::from_f64(1.25),
+            f16::from_f64(-3.5)
+        ]
+    );
     check!(f32, [-0.0, 0.0, 1.25, -3.5]);
     check!(f64, [-0.0, 0.0, 1.25, -3.5]);
 }

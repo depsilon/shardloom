@@ -218,6 +218,7 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
                 Some("u16") => PType::U16,
                 Some("u32") => PType::U32,
                 Some("u64") => PType::U64,
+                Some("f16") => PType::F16,
                 Some("f32") => PType::F32,
                 Some("f64") => PType::F64,
                 _ => return Err(failed("unsupported native input primitive")),

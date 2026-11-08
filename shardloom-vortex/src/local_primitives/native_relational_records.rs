@@ -81,6 +81,7 @@ pub(super) fn preserved_column<'a>(
     mut value: impl FnMut(usize) -> Result<Value<'a>>,
 ) -> Result<ArrayRef> {
     let storage = match dtype {
+        DType::Primitive(PType::F16, nullable) => DType::Primitive(PType::U16, *nullable),
         DType::Primitive(PType::F32, nullable) => DType::Primitive(PType::U32, *nullable),
         DType::Primitive(PType::F64, nullable) => DType::Primitive(PType::U64, *nullable),
         _ => {
@@ -104,7 +105,10 @@ pub(super) fn preserved_column<'a>(
                 Value::Null => Ok(Value::Null),
                 Value::Float(value) => {
                     Ok(Value::UInt(
-                        if matches!(dtype, DType::Primitive(PType::F32, _)) {
+                        if matches!(dtype, DType::Primitive(PType::F16, _)) {
+                            u64::from(shardloom_core::float_policy::narrow_f16_bits_exact(value)
+                                .ok_or_else(|| failed("private native Float16 payload cannot be narrowed exactly"))?)
+                        } else if matches!(dtype, DType::Primitive(PType::F32, _)) {
                             u64::from(
                             shardloom_core::float_policy::narrow_f32_exact(value)
                                 .ok_or_else(|| {
@@ -126,6 +130,13 @@ pub(super) fn preserved_column<'a>(
         .as_opt::<Primitive>()
         .ok_or_else(|| failed("private native floating storage is absent"))?;
     Ok(match dtype {
+        DType::Primitive(PType::F16, _) => PrimitiveArray::new(
+            Buffer::<vortex::array::dtype::half::f16>::from_byte_buffer(
+                primitive.to_buffer::<u16>().into_byte_buffer(),
+            ),
+            validity,
+        )
+        .into_array(),
         DType::Primitive(PType::F32, _) => PrimitiveArray::new(
             Buffer::<f32>::from_byte_buffer(primitive.to_buffer::<u32>().into_byte_buffer()),
             validity,

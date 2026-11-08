@@ -14,7 +14,7 @@ use vortex::{
         arrays::bool::BoolArrayExt as _,
         arrays::struct_::StructArrayExt as _,
         arrays::{Bool, Primitive, Struct, StructArray},
-        dtype::{DType, PType},
+        dtype::DType,
         memory::{HostMemorySessionExt as _, WritableHostBuffer},
         validity::Validity,
     },
@@ -36,7 +36,7 @@ pub(super) struct Capture {
 
 fn bytes(dtype: &DType, rows: usize) -> Option<usize> {
     match dtype {
-        DType::Primitive(ptype, _) if *ptype != PType::F16 => rows.checked_mul(ptype.byte_width()),
+        DType::Primitive(ptype, _) => rows.checked_mul(ptype.byte_width()),
         DType::Bool(_) => Some(rows.div_ceil(8)),
         _ => None,
     }
@@ -228,7 +228,7 @@ impl Capture {
                 bytes(&column.dtype, self.rows).ok_or_else(|| failed("capture dtype changed"))?;
             let data = column.values.freeze().slice(0..length);
             let array = if let DType::Primitive(ptype, _) = column.dtype {
-                result_batch::primitive(ptype, data, validity)?
+                result_batch::primitive(ptype, data, validity)
             } else {
                 boolean(data, self.rows, validity)?
             };

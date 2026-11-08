@@ -43,7 +43,7 @@ impl ScalarTypeRule {
             }
             Self::NumericRound => "numeric -> checked promoted numeric; decimal scale becomes zero",
             Self::FloatClassify => {
-                "F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy"
+                "F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy"
             }
             Self::DecimalOutput => {
                 "decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision"

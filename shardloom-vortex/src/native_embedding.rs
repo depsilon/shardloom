@@ -194,8 +194,8 @@ impl ExtVTable for Embedding {
     fn validate_dtype(dtype: &ExtDType<Self>) -> VortexResult<()> {
         vortex_ensure!(
             matches!(dtype.storage_dtype(), DType::FixedSizeList(child, size, _)
-            if *size > 0 && matches!(child.as_ref(), DType::Primitive(PType::F32 | PType::F64, _))),
-            "embedding storage requires a positive fixed-size Float32/Float64 list"
+            if *size > 0 && matches!(child.as_ref(), DType::Primitive(PType::F16 | PType::F32 | PType::F64, _))),
+            "embedding storage requires a positive fixed-size Float16/Float32/Float64 list"
         );
         Ok(())
     }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn dense_embedding_storage_keeps_dimension_precision_and_both_nullabilities() {
         let metadata = Metadata::parse(r#"{"version":1}"#).unwrap();
-        for ptype in [PType::F32, PType::F64] {
+        for ptype in [PType::F16, PType::F32, PType::F64] {
             for outer in [Nullability::Nullable, Nullability::NonNullable] {
                 for component in [Nullability::Nullable, Nullability::NonNullable] {
                     for dimension in [1, 1536, 65537, u32::MAX] {
@@ -349,7 +349,7 @@ mod tests {
                 Nullability::Nullable,
             ),
             DType::FixedSizeList(
-                DType::Primitive(PType::F16, Nullability::Nullable).into(),
+                DType::Bool(Nullability::Nullable).into(),
                 3,
                 Nullability::Nullable,
             ),

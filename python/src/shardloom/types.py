@@ -24,6 +24,7 @@ __all__ = (
     "uint16",
     "uint32",
     "uint64",
+    "float16",
     "float32",
     "float64",
     "boolean",
@@ -105,6 +106,11 @@ def uint64(*, nullable: bool = True) -> ResultType:
     return _type({"type": "uint64", "nullable": nullable})
 
 
+def float16(*, nullable: bool = True) -> ResultType:
+    """Declare exactly represented binary16 values for native input."""
+    return _type({"type": "float16", "nullable": nullable})
+
+
 def float32(*, nullable: bool = True) -> ResultType:
     return _type({"type": "float32", "nullable": nullable})
 
@@ -179,7 +185,7 @@ def fixed_size_list(item: object, size: int, *, nullable: bool = True) -> Result
 
 def embedding(item: object, size: int, *, metadata: Mapping[str, object] | None = None,
               nullable: bool = True) -> ResultType:
-    """Declare dense Float32/Float64 values with versioned embedding identity.
+    """Declare dense Float16/Float32/Float64 values with versioned embedding identity.
 
     Component nullability comes from item; nullable controls the whole vector.
     Identity is carried unchanged and does not authorize vector comparison.

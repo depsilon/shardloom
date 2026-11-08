@@ -647,6 +647,13 @@ pub(super) fn parent_validity(
 fn cast(array: &ArrayRef, dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<ArrayRef> {
     if array.dtype() == &DType::Null {
         Ok(ConstantArray::new(Scalar::null(dtype.as_nullable()), array.len()).into_array())
+    } else if super::native_relational_batch::float16_promotion(array.dtype(), dtype) {
+        super::native_relational_batch::promote_float16(
+            array,
+            dtype,
+            context.float_policy(),
+            context,
+        )
     } else if matches!((array.dtype(), dtype),
         (DType::Decimal(from, _), DType::Decimal(to, _)) if from != to)
     {

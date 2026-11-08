@@ -103,7 +103,7 @@ fn visit_column<const COPY: bool>(
 ) -> Result<Option<ArrayRef>> {
     let temporal = crate::native_payload_schema::temporal_storage(dtype);
     let ptype = match dtype {
-        DType::Primitive(ptype, _) if *ptype != PType::F16 => *ptype,
+        DType::Primitive(ptype, _) => *ptype,
         _ => temporal.ok_or_else(|| failed("numeric copy requires admitted numeric storage"))?,
     };
     if values.ptype() != ptype || valid.len() != values.len() {
@@ -128,6 +128,14 @@ fn visit_column<const COPY: bool>(
         };
     }
     match ptype {
+        PType::F16 => {
+            let values = values.as_slice::<vortex::array::dtype::half::f16>();
+            visit!(|row| finite(
+                float_policy.admits(shardloom_core::float_policy::widen_f16_bits(
+                    values[row].to_bits()
+                ))
+            ))
+        }
         PType::F32 => {
             let values = values.as_slice::<f32>();
             visit!(|row| finite(float_policy.admits(f64::from(values[row]))))

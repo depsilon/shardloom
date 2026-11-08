@@ -33,6 +33,13 @@ pub(super) fn copy(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     let (bytes, stride) = match dtype {
+        DType::Primitive(PType::F16, _) => (
+            source
+                .as_::<Primitive>()
+                .to_buffer::<vortex::array::dtype::half::f16>()
+                .into_byte_buffer(),
+            2,
+        ),
         DType::Primitive(PType::F32, _) => (
             source
                 .as_::<Primitive>()
@@ -53,6 +60,11 @@ pub(super) fn copy(
     };
     let (data, validity) = copy_buffers(source, &bytes, stride, rows, dtype, context, allocator)?;
     Ok(match dtype {
+        DType::Primitive(PType::F16, _) => PrimitiveArray::new(
+            Buffer::<vortex::array::dtype::half::f16>::from_byte_buffer(data),
+            validity,
+        )
+        .into_array(),
         DType::Primitive(PType::F32, _) => {
             PrimitiveArray::new(Buffer::<f32>::from_byte_buffer(data), validity).into_array()
         }

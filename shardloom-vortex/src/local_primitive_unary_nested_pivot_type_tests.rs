@@ -389,7 +389,10 @@ fn unary_nested_pivot_rejects_unsupported_empty_nested_leaves_and_policy_shapes(
     }
     let invalid = [
         DType::List(std::sync::Arc::new(DType::Variant(n)), n),
-        DType::List(std::sync::Arc::new(DType::Primitive(PType::F16, n)), n),
+        DType::List(
+            std::sync::Arc::new(DType::struct_([] as [(String, DType); 0], n)),
+            n,
+        ),
         DType::FixedSizeList(
             std::sync::Arc::new(DType::Decimal(DecimalDType::new(39, 0), n)),
             1,

@@ -9,14 +9,14 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `065375b91c320442a8f094b30ced089d8d6807eb082b7704f53751f7e7a88273`.
+Definition source SHA-256: `928f71609add8f97eb3e6af883fcf3613aa81f620d7a8b249841627f0c1d916a`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
-| `is_nan` | — | 1 | Whether a floating value is NaN; distinct from NULL. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
-| `is_infinite` | — | 1 | Whether a floating value is positive or negative infinity. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
-| `is_finite` | — | 1 | Whether a floating value is finite, including signed zeros and subnormals. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
-| `signbit` | — | 1 | Whether the original floating sign bit is set, including zero and NaN. F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `is_nan` | — | 1 | Whether a floating value is NaN; distinct from NULL. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `is_infinite` | — | 1 | Whether a floating value is positive or negative infinity. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `is_finite` | — | 1 | Whether a floating value is finite, including signed zeros and subnormals. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
+| `signbit` | — | 1 | Whether the original floating sign bit is set, including zero and NaN. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
 | `decimal_rescale` | — | 4 | Rescale an exact decimal or integer to an explicit decimal output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
 | `decimal_add` | — | 5 | Add exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |
 | `decimal_subtract` | — | 5 | Subtract exact decimal or integer operands and round once to the explicit output domain. decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision | null input produces null; nullable if any input is nullable |

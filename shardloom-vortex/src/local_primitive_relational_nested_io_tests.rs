@@ -638,56 +638,76 @@ fn native_nested_empty_intake_retains_nonnullable_lists_and_structs() {
                 nullable,
             ),
         ]));
-        let ipc = fixture.0.join(format!("empty-fields-{nullable}.arrow"));
-        arrow_ipc::writer::FileWriter::try_new(fs::File::create(&ipc).unwrap(), &schema)
-            .unwrap()
-            .finish()
-            .unwrap();
-        let source = crate::read_flat_arrow_ipc_columnar_source(&ipc, 1).unwrap();
-        assert_eq!(source.row_count, 0);
-        let expected = vortex::session::VortexSession::default()
-            .arrow()
-            .from_arrow_datatype(
-                &DataType::Struct(schema.fields().clone()),
-                Nullability::NonNullable,
-            )
-            .unwrap();
-        for mode in ["buffered", "streamed", "budgeted"] {
-            let native = fixture
-                .0
-                .join(format!("empty-fields-{nullable}-{mode}.vortex"));
-            let report = write_nested_intake(&ipc, &native, mode);
-            assert_eq!(report.reopen_row_count, 0);
-            let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
-                source_uri: DatasetUri::new(native.display().to_string()).unwrap(),
-                projection: shardloom_plan::ProjectionRequest::All,
-                predicate: None,
-            });
-            let actual = prepare_relational(&scan, policy())
-                .unwrap()
-                .output_dtype()
-                .unwrap();
-            assert!(actual == expected, "{mode}: {actual} != {expected}");
-        }
-
-        let mut no_fields = source;
-        no_fields.batches.clear();
-        let denied = fixture.0.join(format!("missing-fields-{nullable}.vortex"));
-        let error = write_flat_columnar_vortex_prepared_state(
-            VortexPreparedStateColumnarWriteRequest::new(
-                &denied,
-                no_fields,
-                shardloom_core::ExecutionResources::from_gib(
-                    4,
-                    8,
-                    shardloom_core::ExecutionResourceOrigin::ExecutionCall,
-                )
-                .expect("explicit fixture allocation"),
+        let scalar_schema =
+            |dtype| std::sync::Arc::new(Schema::new(vec![Field::new("half", dtype, nullable)]));
+        for (case, schema) in [
+            ("nested", schema),
+            ("float16", scalar_schema(DataType::Float16)),
+            (
+                "dictionary-float16",
+                scalar_schema(DataType::Dictionary(
+                    Box::new(DataType::Int8),
+                    Box::new(DataType::Float16),
+                )),
             ),
-        )
-        .unwrap_err();
-        assert!(error.to_string().contains("retaining field nullability"));
-        assert!(!denied.exists());
+        ] {
+            let ipc = fixture
+                .0
+                .join(format!("empty-{case}-fields-{nullable}.arrow"));
+            arrow_ipc::writer::FileWriter::try_new(fs::File::create(&ipc).unwrap(), &schema)
+                .unwrap()
+                .finish()
+                .unwrap();
+            let source = crate::read_flat_arrow_ipc_columnar_source(&ipc, 1).unwrap();
+            assert_eq!(source.row_count, 0);
+            assert_eq!(source.batches.len(), 1);
+            assert_eq!(source.batches[0].schema(), schema);
+            let expected = vortex::session::VortexSession::default()
+                .arrow()
+                .from_arrow_datatype(
+                    &DataType::Struct(schema.fields().clone()),
+                    Nullability::NonNullable,
+                )
+                .unwrap();
+            for mode in ["buffered", "streamed", "budgeted"] {
+                let native = fixture
+                    .0
+                    .join(format!("empty-{case}-fields-{nullable}-{mode}.vortex"));
+                let report = write_nested_intake(&ipc, &native, mode);
+                assert_eq!(report.reopen_row_count, 0);
+                let scan = VortexRelationalPlan::Scan(VortexRelationalScan {
+                    source_uri: DatasetUri::new(native.display().to_string()).unwrap(),
+                    projection: shardloom_plan::ProjectionRequest::All,
+                    predicate: None,
+                });
+                let actual = prepare_relational(&scan, policy())
+                    .unwrap()
+                    .output_dtype()
+                    .unwrap();
+                assert!(actual == expected, "{case} {mode}: {actual} != {expected}");
+            }
+
+            let mut no_fields = source;
+            no_fields.batches.clear();
+            let denied = fixture
+                .0
+                .join(format!("missing-{case}-fields-{nullable}.vortex"));
+            let error = write_flat_columnar_vortex_prepared_state(
+                VortexPreparedStateColumnarWriteRequest::new(
+                    &denied,
+                    no_fields,
+                    shardloom_core::ExecutionResources::from_gib(
+                        4,
+                        8,
+                        shardloom_core::ExecutionResourceOrigin::ExecutionCall,
+                    )
+                    .expect("explicit fixture allocation"),
+                ),
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("retaining field nullability"));
+            assert!(!denied.exists());
+        }
     }
 }
 

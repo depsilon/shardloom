@@ -94,7 +94,7 @@ def _dtype(wire: Any, depth: int) -> ResultType:
                     or any(type(byte) is not int or not 0 <= byte <= 255 for byte in raw)):
                 raise ValueError("embedding metadata requires UTF8 bytes")
             if (storage.name != "fixed_size_list" or storage.parameters[1] <= 0
-                    or storage.parameters[0].name not in {"float32", "float64"}):
+                    or storage.parameters[0].name not in {"float16", "float32", "float64"}):
                 raise ValueError("invalid embedding storage")
             metadata = decode_metadata(bytes(raw).decode("utf-8"))
             if list(metadata_json(metadata).encode("utf-8")) != raw:

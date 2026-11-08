@@ -3,9 +3,9 @@
 
 use arrow_array::{
     Array, BinaryArray, BooleanArray, Date32Array, Decimal128Array, FixedSizeListArray,
-    Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, ListArray,
-    RecordBatch, StringArray, StructArray, TimestampMicrosecondArray, UInt8Array, UInt16Array,
-    UInt32Array, UInt64Array,
+    Float16Array, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array,
+    ListArray, RecordBatch, StringArray, StructArray, TimestampMicrosecondArray, UInt8Array,
+    UInt16Array, UInt32Array, UInt64Array,
 };
 use arrow_schema::{DataType, Field, TimeUnit};
 use pyo3::{
@@ -89,6 +89,10 @@ impl Conversion<'_> {
                 shardloom_core::float_policy::widen_f32(downcast::<Float32Array>(array)?.value(row))
                     .into_py_any(py)
             }
+            DataType::Float16 => shardloom_core::float_policy::widen_f16_bits(
+                downcast::<Float16Array>(array)?.value(row).to_bits(),
+            )
+            .into_py_any(py),
             DataType::Float64 => scalar!(Float64Array),
             DataType::Utf8 => scalar!(StringArray),
             DataType::Binary => self.binary(field, downcast::<BinaryArray>(array)?.value(row)),

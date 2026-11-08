@@ -95,15 +95,20 @@ engine-owned columnar results. Arrow export is an explicit conversion. See the
 [embedding guide](https://shardloom.io/field-guide/embedding) and
 [source-build instructions](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md#optional-native-python-binding).
 
-Current source builds after 1.1.0 also carry dense vectors, declared embedding
-identity, fixed-shape tensors, inline binary content and nested values through native data workflows.
+Current source builds after 1.1.0 also carry dense Float16/Float32/Float64 vectors,
+declared embedding identity, fixed- and variable-shape tensors, inline binary
+content and nested values through native data workflows.
 See [rich-column declarations and output fidelity](https://github.com/depsilon/shardloom/blob/main/docs/reference/rich-columns.md).
 This addition is not in the published 1.1.0 wheels.
 
-Variable-shape tensor declarations are a separate current-source addition with
-complete local lifecycle and installed-package verification. Hosted integration
-is pending; these declarations are not in the published wheels. See the
+Variable-shape tensor declarations passed local, installed-package and hosted
+integration checks in PR #1662; these declarations are not in the published wheels. See the
 [variable-shape tensor guide](https://github.com/depsilon/shardloom/blob/main/docs/reference/variable-shape-tensors.md).
+
+Explicit `types.float16()` declarations require exactly representable values.
+Use lists of fixed-size vectors or embeddings for several vectors per row. The
+[Float16 example](https://github.com/depsilon/shardloom/blob/main/python/examples/float16_vectors.py)
+creates, selects, writes and reopens those values in a matching source build.
 
 ## Application batch functions
 

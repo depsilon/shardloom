@@ -42,7 +42,7 @@ class EmbeddingSchemaTests(unittest.TestCase):
     def test_unknown_or_malformed_identity_is_not_silently_discarded(self):
         invalid = [
             {"size": 0}, {"size": -1}, {"size": True}, {"size": 1 << 32},
-            {"item": "float16"}, {"item": "int32"},
+            {"item": "bool"}, {"item": "int32"},
             {"metadata": {"version": True}}, {"metadata": {"version": 2}},
             {"metadata": {"space_id": ""}}, {"metadata": {"space_id": []}},
             {"metadata": {"unrecognized": "x"}},

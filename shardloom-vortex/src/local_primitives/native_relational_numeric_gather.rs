@@ -8,10 +8,8 @@ use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use vortex::array::{
     ArrayRef, VortexSessionExecute as _,
-    arrays::{
-        Bool, Chunked, Primitive, chunked::ChunkedArrayExt, primitive::PrimitiveArrayExt as _,
-    },
-    dtype::{DType, NativePType, PType},
+    arrays::{Bool, Chunked, Primitive, chunked::ChunkedArrayExt},
+    dtype::{DType, NativePType, PType, half::f16},
     memory::{HostBufferElement, HostMemorySessionExt as _},
     validity::Validity,
 };
@@ -41,7 +39,7 @@ fn primitive_leaf(mut array: &ArrayRef) -> Option<&ArrayRef> {
             .as_ref()?;
     }
     let primitive = array.as_opt::<Primitive>()?;
-    if !array.is_host() || primitive.ptype() == PType::F16 {
+    if !array.is_host() {
         return None;
     }
     match vortex::array::arrays::primitive::PrimitiveArrayExt::validity(&primitive) {
@@ -60,8 +58,7 @@ pub(super) fn try_copy(
     let DType::Primitive(ptype, _) = dtype else {
         return Ok(None);
     };
-    if *ptype == PType::F16
-        || array.dtype().as_nonnullable() != dtype.as_nonnullable()
+    if array.dtype().as_nonnullable() != dtype.as_nonnullable()
         || (!dtype.is_nullable() && (array.dtype().is_nullable() || indices.dtype().is_nullable()))
         || !matches!(indices.dtype(), DType::Primitive(PType::U64, _))
         || primitive_leaf(indices).is_none()
@@ -138,7 +135,10 @@ pub(super) fn try_copy(
             value,
             context.float_policy()
         )),
-        PType::F16 => unreachable!("f16 keeps the selected provider path"),
+        PType::F16 => copy!(f16, |value: f16| result_batch::validate_numeric_output(
+            shardloom_core::float_policy::widen_f16_bits(value.to_bits()),
+            context.float_policy()
+        )),
     }?;
     #[cfg(all(test, debug_assertions))]
     crate::local_primitives::native_relational_observation::record(|counts| {

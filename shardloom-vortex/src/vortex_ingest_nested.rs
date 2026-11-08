@@ -310,7 +310,11 @@ mod tests {
         assert!(family(&dtype).unwrap_err().to_string().contains("depth 24"));
         for dtype in [
             DataType::Struct(Vec::<Field>::new().into()),
-            DataType::List(Arc::new(Field::new("item", DataType::Float16, true))),
+            DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Decimal256(39, 0),
+                true,
+            ))),
             DataType::Struct(
                 vec![
                     Field::new("same", DataType::Boolean, true),

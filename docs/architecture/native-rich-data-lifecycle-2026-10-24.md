@@ -36,11 +36,17 @@ passes original and relocated replay and rejects all five corruption controls.
 PR #1661 merged as `740f682eb89191bdd5b85caec96cbb2e2c9abea6` after 58 PR checks
 passed; all 55 required exact-main checks passed, and retirement of 9,995 regular
 files and 3 symlinks completed with post-retirement replay. Variable-shape tensor
-local and portable acceptance now pass; hosted review and integration remain
-pending. The
+PR #1662 merged as `c47eeefa05012cce32b053f53af18583041c9f19` after all 58 PR
+checks passed; all 55 exact-main checks and post-retirement replay passed.
+Verified retirement removed 9,996 obsolete regular files and three links. The
 [portable packet](../release/evidence/native-variable-shape-tensor-2026-11-07/README.md)
-preserves the scoped result and all original failures. Other representations
-and exact vector expressions retain separate acceptance requirements.
+preserves the scoped result and all original failures. The
+[Float16 and vector-collection unit](native-float16-lifecycle-2026-11-07.md)
+passes local and portable acceptance, including all 375 installed-package tests
+without skips, both replay locations and nine corruption controls. Hosted
+integration and subsequent retention remain pending. It extends the existing
+owners without adding vector arithmetic. Other representations and exact vector
+expressions retain separate acceptance requirements.
 RFCs 0011, 0013, 0014, 0017, 0021, 0033 and 0044 govern extension semantics,
 streaming, ownership, recovery, expressions and shared native execution.
 CG-1 through CG-23 remain independent certification gates.

@@ -46,10 +46,14 @@ worker attempts do not cancel the parent.
 ## Python Batch Input and Results
 
 The [dense embedding and rich-column guide](rich-columns.md) describes the
-post-1.1.0 source-build addition: Float32/Float64 vectors and versioned identity
+post-1.1.0 source-build addition: Float16/Float32/Float64 vectors and versioned identity
 through shared payload, streaming, spill and output owners. It distinguishes
 native/Arrow fidelity, the Parquet reader limitation and unsupported vector
 operations from the historical adapter milestones below.
+The [Float16 contract](../architecture/native-float16-lifecycle-2026-11-07.md)
+also covers scalar values, both tensor forms and collections of fixed-dimensional
+vectors. Explicit Python Float16 declarations require exactly representable
+values; ordinary Python float inference remains Float64.
 
 Current source exposes `shardloom.from_batches` / `ShardLoomContext.from_batches`
 and `LazyFrame.iter_batches` / `SqlWorkflow.iter_batches`, merged in PR #1526

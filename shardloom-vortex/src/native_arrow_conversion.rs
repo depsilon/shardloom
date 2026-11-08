@@ -81,7 +81,7 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
             PType::U64 => DataType::UInt64,
             PType::F32 => DataType::Float32,
             PType::F64 => DataType::Float64,
-            PType::F16 => return None,
+            PType::F16 => DataType::Float16,
         },
         DType::List(element, _) => DataType::List(Arc::new(field("item", element)?)),
         DType::FixedSizeList(element, size, _) => DataType::FixedSizeList(

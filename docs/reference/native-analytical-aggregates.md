@@ -60,7 +60,7 @@ recover finite results after those values leave. MIN/MAX and discrete quantiles
 use the analytical order and preserve selected bits. Newly computed NaNs use
 canonical quiet-NaN bits. Quantile probabilities remain finite.
 
-Native Vortex, Arrow IPC and Parquet preserve admitted F32/F64 bits, including
+Native Vortex, Arrow IPC and Parquet preserve admitted F16/F32/F64 bits, including
 signed zeros and NaN payloads. Raw nonfinite CSV/JSON numbers fail explicitly;
 an explicit UTF8 cast chooses `NaN`, `inf` or `-inf` text. Exact integer/decimal
 conversion rejects nonfinite inputs; `TRY_CAST` returns NULL on failure.

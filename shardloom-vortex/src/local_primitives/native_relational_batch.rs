@@ -620,7 +620,14 @@ impl Gather<'_> {
         context.check_cancelled()?;
         let array = self.source_column(name, context)?;
         let mut execution = context.native_session().create_execution_ctx();
-        let selected = select_column(&array, &self.indices, dtype, &mut execution)?;
+        // The retained prefix builder widens only retained scalar registers.
+        // A provider Float16 cast would quiet signaling NaNs before that copy.
+        let selected_dtype = if float16_promotion(array.dtype(), dtype) {
+            array.dtype()
+        } else {
+            dtype
+        };
+        let selected = select_column(&array, &self.indices, selected_dtype, &mut execution)?;
         result_batch::build_column_prefix_with_float_policy(
             dtype,
             self.indices.len(),
@@ -707,9 +714,21 @@ fn take_column_with_policy(
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
+    if float16_promotion(array.dtype(), dtype) {
+        let selected = array.take(indices.clone()).map_err(vortex_error)?;
+        let float_policy = if policy == native_payload::CopyPolicy::PreserveUnobserved {
+            shardloom_core::FloatPolicy::Extended
+        } else {
+            context.float_policy()
+        };
+        return promote_float16(&selected, dtype, float_policy, context);
+    }
     if matches!(dtype, DType::Decimal(..))
         || (policy == native_payload::CopyPolicy::PreserveUnobserved
-            && matches!(dtype, DType::Primitive(PType::F32 | PType::F64, _)))
+            && matches!(
+                dtype,
+                DType::Primitive(PType::F16 | PType::F32 | PType::F64, _)
+            ))
     {
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
@@ -734,7 +753,7 @@ fn take_column_with_policy(
     // As at the native payload-copy boundary, prepare selected numeric storage
     // and validity once. Selection, casts and finite-value validation retain
     // their existing boundaries; unsupported leaves keep scalar diagnostics.
-    let numeric = if matches!(dtype, DType::Primitive(ptype, _) if *ptype != PType::F16)
+    let numeric = if matches!(dtype, DType::Primitive(..))
         || crate::native_payload_schema::temporal_storage(dtype).is_some()
     {
         let primitive = result_batch::scalar_storage(&selected, &mut execution)?
@@ -773,6 +792,54 @@ fn take_column_with_policy(
             },
         )?
     };
+    context.check_cancelled()?;
+    Ok(output)
+}
+
+pub(super) fn float16_promotion(source: &DType, target: &DType) -> bool {
+    matches!(
+        (source, target),
+        (
+            DType::Primitive(PType::F16, _),
+            DType::Primitive(PType::F64, _)
+        )
+    )
+}
+
+/// Common-type promotion writes the final Float64 output directly from selected
+/// Float16 storage. Ordinary provider casts may quiet signaling NaNs; the shared
+/// numeric owner uses the exact bit bridge and observes only valid selected rows.
+pub(super) fn promote_float16(
+    selected: &ArrayRef,
+    dtype: &DType,
+    float_policy: shardloom_core::FloatPolicy,
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
+    if !float16_promotion(selected.dtype(), dtype) {
+        return Err(failed("Float16 promotion requires a Float64 result"));
+    }
+    let mut execution = context.native_session().create_execution_ctx();
+    let primitive = selected
+        .clone()
+        .execute::<PrimitiveArray>(&mut execution)
+        .map_err(vortex_error)?;
+    let values =
+        NativeNumericOwner::new_with_float_policy(primitive, &mut execution, float_policy)?;
+    let output = result_batch::build_numeric_column::<f64>(
+        dtype,
+        selected.len(),
+        &context.native_session().host_allocator(),
+        |row| {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            let value = values.numeric_value(row)?;
+            if let Some(value) = value {
+                result_batch::validate_numeric_output(value, float_policy)?;
+            }
+            Ok(value)
+        },
+    )?;
     context.check_cancelled()?;
     Ok(output)
 }

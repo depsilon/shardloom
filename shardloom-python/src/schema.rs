@@ -30,6 +30,7 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         DataType::UInt32 => "uint32",
         DataType::UInt64 => "uint64",
         DataType::Float32 => "float32",
+        DataType::Float16 => "float16",
         DataType::Float64 => "float64",
         DataType::Utf8 => "utf8",
         DataType::Binary if super::binary_object::field_is_object(field) => "binary_object",

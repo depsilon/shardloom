@@ -905,10 +905,9 @@ fn validate_scalar(dtype: &DType) -> Result<()> {
     if !matches!(
         dtype,
         DType::Bool(_) | DType::Utf8(_) | DType::Primitive(_, _)
-    ) || matches!(dtype, DType::Primitive(PType::F16, _))
-    {
+    ) {
         return Err(failed(
-            "operated scalar requires bool, integer, F32/F64 or UTF8 fields",
+            "operated scalar requires bool, integer, F16/F32/F64 or UTF8 fields",
         ));
     }
     Ok(())
@@ -996,8 +995,8 @@ fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
         return Ok(());
     }
     if let (DType::Primitive(left, _), DType::Primitive(right, _)) = (left, right)
-        && (integer(*left).is_some() || matches!(left, PType::F32 | PType::F64))
-        && (integer(*right).is_some() || matches!(right, PType::F32 | PType::F64))
+        && (integer(*left).is_some() || matches!(left, PType::F16 | PType::F32 | PType::F64))
+        && (integer(*right).is_some() || matches!(right, PType::F16 | PType::F32 | PType::F64))
     {
         return Ok(());
     }
@@ -1016,7 +1015,9 @@ fn common_dtype(left: &DType, right: &DType) -> Result<DType> {
         return Ok(left.with_nullability(nullability));
     }
     if let (DType::Primitive(left, _), DType::Primitive(right, _)) = (left, right) {
-        if matches!(left, PType::F32 | PType::F64) && matches!(right, PType::F32 | PType::F64) {
+        if matches!(left, PType::F16 | PType::F32 | PType::F64)
+            && matches!(right, PType::F16 | PType::F32 | PType::F64)
+        {
             return Ok(DType::Primitive(PType::F64, nullability));
         }
         if let (Some((left_signed, left_bits)), Some((right_signed, right_bits))) =

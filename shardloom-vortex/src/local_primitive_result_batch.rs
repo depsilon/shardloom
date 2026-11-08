@@ -118,10 +118,9 @@ pub(super) fn scalar_value(
     Ok(match scalar.value() {
         None => Value::Null,
         Some(ScalarValue::Bool(value)) => Value::Bool(*value),
-        Some(ScalarValue::Primitive(value)) => Value::from(
-            super::vortex_pvalue_to_stat_value(*value)
-                .ok_or_else(|| failed("unsupported primitive result dtype"))?,
-        ),
+        Some(ScalarValue::Primitive(value)) => {
+            Value::from(super::vortex_pvalue_to_stat_value(*value))
+        }
         Some(ScalarValue::Utf8(value)) => Value::SharedText(value.clone()),
         Some(ScalarValue::Binary(value)) => Value::SharedBinary(value.clone()),
         Some(ScalarValue::Decimal(value)) => {
@@ -378,7 +377,7 @@ pub(super) fn width(dtype: &DType) -> Result<usize> {
     match dtype {
         DType::Bool(_) => Ok(0),
         DType::Utf8(_) | DType::Binary(_) => Ok(8),
-        DType::Primitive(ptype, _) if *ptype != PType::F16 => Ok(ptype.byte_width()),
+        DType::Primitive(ptype, _) => Ok(ptype.byte_width()),
         DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
             Ok(16)
         }
@@ -831,7 +830,7 @@ fn finish_column(
         DType::Bool(_) => bool_array_with_retained_buffer(BitBuffer::new(data, rows), validity)
             .map(vortex::array::IntoArray::into_array)
             .map_err(vortex_error),
-        DType::Primitive(ptype, _) => primitive(*ptype, data, validity),
+        DType::Primitive(ptype, _) => Ok(primitive(*ptype, data, validity)),
         DType::Decimal(decimal, _) => {
             DecimalArray::try_new(Buffer::<i128>::from_byte_buffer(data), *decimal, validity)
                 .map(vortex::array::IntoArray::into_array)
@@ -845,7 +844,7 @@ fn finish_column(
                         .ok_or_else(|| failed("unsupported temporal output dtype"))?,
                     data,
                     validity,
-                )?,
+                ),
                 allocator,
             )
             .map_err(vortex_error)?,
@@ -890,6 +889,13 @@ fn write_primitive(
         (PType::U16, Value::UInt(value)) => integer!(u16, value),
         (PType::U32, Value::UInt(value)) => integer!(u32, value),
         (PType::U64, Value::UInt(value)) => output.copy_from_slice(&value.to_ne_bytes()),
+        (PType::F16, Value::Float(value)) if float_policy.admits(value) => {
+            let bits =
+                shardloom_core::float_policy::narrow_f16_bits_exact(value).ok_or_else(|| {
+                    failed("numeric value differs from its exact Float16 declared dtype")
+                })?;
+            output.copy_from_slice(&bits.to_ne_bytes());
+        }
         (PType::F32, Value::Float(value)) if float_policy.admits(value) => {
             let value = shardloom_core::float_policy::narrow_f32_exact(value).ok_or_else(|| {
                 failed(if float_policy == shardloom_core::FloatPolicy::Strict {
@@ -912,13 +918,13 @@ fn write_primitive(
     Ok(())
 }
 
-pub(super) fn primitive(ptype: PType, data: ByteBuffer, validity: Validity) -> Result<ArrayRef> {
+pub(super) fn primitive(ptype: PType, data: ByteBuffer, validity: Validity) -> ArrayRef {
     macro_rules! array {
         ($t:ty) => {
             PrimitiveArray::new(Buffer::<$t>::from_byte_buffer(data), validity).into_array()
         };
     }
-    Ok(match ptype {
+    match ptype {
         PType::I8 => array!(i8),
         PType::I16 => array!(i16),
         PType::I32 => array!(i32),
@@ -929,6 +935,6 @@ pub(super) fn primitive(ptype: PType, data: ByteBuffer, validity: Validity) -> R
         PType::U64 => array!(u64),
         PType::F32 => array!(f32),
         PType::F64 => array!(f64),
-        PType::F16 => return Err(failed("float16 results are not admitted")),
-    })
+        PType::F16 => array!(vortex::array::dtype::half::f16),
+    }
 }

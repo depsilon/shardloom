@@ -327,7 +327,7 @@ fn native_relational_sql_unary_mixed_melt_does_not_widen_scalar_admission() {
     assert!(
         error
             .to_string()
-            .contains("requires bool, integer, F32/F64 or UTF8"),
+            .contains("requires bool, integer, F16/F32/F64 or UTF8"),
         "{error}"
     );
 }

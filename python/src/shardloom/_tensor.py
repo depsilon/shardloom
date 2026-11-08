@@ -7,7 +7,7 @@ from typing import Mapping
 
 EXTENSION_ID = "shardloom.fixed_shape_tensor.v1"
 ARROW_EXTENSION_ID = "arrow.fixed_shape_tensor"
-ELEMENT_TYPES = frozenset({"bool", "float32", "float64"} | {
+ELEMENT_TYPES = frozenset({"bool", "float16", "float32", "float64"} | {
     f"{kind}{bits}" for kind in ("int", "uint") for bits in (8, 16, 32, 64)
 })
 

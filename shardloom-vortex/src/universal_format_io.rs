@@ -4315,18 +4315,19 @@ where
         batches.push(batch);
     }
 
-    // Nested DataType hints omit the root Field's nullability and metadata.
-    // Retain the actual schema through the same Arrow-to-Vortex provider used
-    // for populated batches, including readers which emit no empty batch.
+    // Schema hints omit the root Field's nullability and metadata. Nested and
+    // Float16 types require the actual schema through the same Arrow-to-Vortex
+    // provider used for populated batches, even when a reader emits no batch.
     if batches.is_empty()
         && reader_schema.fields().iter().any(|field| {
             matches!(
                 field.data_type(),
-                DataType::List(_)
+                DataType::Float16
+                    | DataType::List(_)
                     | DataType::LargeList(_)
                     | DataType::FixedSizeList(..)
                     | DataType::Struct(_)
-            )
+            ) || matches!(field.data_type(), DataType::Dictionary(_, values) if values.as_ref() == &DataType::Float16)
         })
     {
         batches.push(RecordBatch::new_empty(reader_schema));
@@ -4494,7 +4495,13 @@ fn source_schema_arrow_dtype_hint(data_type: &DataType) -> Option<DataType> {
         DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
             Some(DataType::UInt64)
         }
-        DataType::Float16 | DataType::Float32 | DataType::Float64 => Some(DataType::Float64),
+        // Binary16 is an exact physical declaration. Scalar/text reconstruction
+        // must reject it until that boundary supports preserving its width.
+        DataType::Float16 => Some(DataType::Float16),
+        DataType::Dictionary(_, values) if values.as_ref() == &DataType::Float16 => {
+            Some(data_type.clone())
+        }
+        DataType::Float32 | DataType::Float64 => Some(DataType::Float64),
         DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => Some(DataType::Utf8),
         DataType::Binary
         | DataType::LargeBinary

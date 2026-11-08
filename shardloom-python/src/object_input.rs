@@ -6,10 +6,11 @@ use arrow_array::{
     RecordBatch,
     builder::{
         ArrayBuilder, BinaryBuilder, BooleanBuilder, Date32Builder, Decimal128Builder,
-        FixedSizeListBuilder, Float32Builder, Float64Builder, Int8Builder, Int16Builder,
-        Int32Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
+        FixedSizeListBuilder, Float16Builder, Float32Builder, Float64Builder, Int8Builder,
+        Int16Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder, StructBuilder,
         TimestampMicrosecondBuilder, UInt8Builder, UInt16Builder, UInt32Builder, UInt64Builder,
     },
+    types::{ArrowPrimitiveType, Float16Type},
 };
 use arrow_schema::{DataType, Field, Schema, SchemaRef, TimeUnit};
 use pyo3::{
@@ -29,6 +30,8 @@ use shardloom_vortex::resident_memory_source::MemoryBatchSourceBuilder;
 use std::sync::Arc;
 
 pub(super) const CONSTRUCTION_ROWS: usize = 2048;
+
+type Float16 = <Float16Type as ArrowPrimitiveType>::Native;
 
 pub(super) fn import_rows(
     rows: &Py<PyAny>,
@@ -292,6 +295,7 @@ fn builder(dtype: &DataType) -> PyResult<Box<dyn ArrayBuilder>> {
         DataType::UInt32 => simple!(UInt32Builder),
         DataType::UInt64 => simple!(UInt64Builder),
         DataType::Float32 => simple!(Float32Builder),
+        DataType::Float16 => simple!(Float16Builder),
         DataType::Float64 => simple!(Float64Builder),
         DataType::Date32 => simple!(Date32Builder),
         DataType::Timestamp(TimeUnit::Microsecond, None) => simple!(TimestampMicrosecondBuilder),
@@ -401,6 +405,16 @@ impl Conversion<'_, '_> {
                     column.append_value(0.0);
                 } else {
                     column.append_value(float32(value, self.source.float_policy())?);
+                }
+            }
+            DataType::Float16 => {
+                let column = downcast::<Float16Builder>(output)?;
+                if missing {
+                    column.append_null();
+                } else if placeholder {
+                    column.append_value(Float16::from_bits(0));
+                } else {
+                    column.append_value(float16(value, self.source.float_policy())?);
                 }
             }
             DataType::Float64 => {
@@ -757,6 +771,13 @@ fn float32(value: &Bound<'_, PyAny>, policy: shardloom_core::FloatPolicy) -> PyR
     let wide = float64(value, policy)?;
     shardloom_core::float_policy::narrow_f32_exact(wide)
         .ok_or_else(|| invalid("native float32 must be exactly representable"))
+}
+
+fn float16(value: &Bound<'_, PyAny>, policy: shardloom_core::FloatPolicy) -> PyResult<Float16> {
+    let wide = float64(value, policy)?;
+    let bits = shardloom_core::float_policy::narrow_f16_bits_exact(wide)
+        .ok_or_else(|| invalid("native float16 must be exactly representable"))?;
+    Ok(Float16::from_bits(bits))
 }
 
 fn grow_credit(credit: &mut MemoryLease, logical: usize) -> PyResult<()> {

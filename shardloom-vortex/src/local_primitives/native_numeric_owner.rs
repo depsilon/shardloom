@@ -7,7 +7,7 @@ use shardloom_core::{FloatPolicy, Result};
 use vortex::array::{
     ExecutionCtx,
     arrays::{PrimitiveArray, primitive::PrimitiveArrayExt as _},
-    dtype::{NativePType, PType},
+    dtype::{NativePType, PType, half::f16},
 };
 use vortex::mask::Mask;
 
@@ -28,7 +28,7 @@ pub(super) struct NativeNumericOwner {
 }
 
 // Physical type dispatch occurs once around each typed loop. Narrow values are
-// widened in registers only, with the same signedness and f32 -> f64 behavior
+// widened in registers only, with exact signedness and floating representation
 // as the previous Vec conversion.
 macro_rules! numeric_dispatch_type {
     ($owner:expr, $method:ident $(::<$state:ty>)?, $all:literal $(, $arg:expr)*) => {
@@ -43,7 +43,7 @@ macro_rules! numeric_dispatch_type {
             PType::I64 => $owner.$method::<i64, $all $(, $state)?>($($arg),*),
             PType::F32 => $owner.$method::<f32, $all $(, $state)?>($($arg),*),
             PType::F64 => $owner.$method::<f64, $all $(, $state)?>($($arg),*),
-            PType::F16 => unreachable!("f16 is not admitted by the numeric owner"),
+            PType::F16 => $owner.$method::<f16, $all $(, $state)?>($($arg),*),
         }
     };
 }
@@ -68,8 +68,8 @@ impl NativeNumericOwner {
         ctx: &mut ExecutionCtx,
         float_policy: FloatPolicy,
     ) -> Result<Self> {
-        if primitive.ptype() == PType::F16 || !primitive.as_ref().is_host() {
-            return Err(failed("owner requires a host primitive other than f16"));
+        if !primitive.as_ref().is_host() {
+            return Err(failed("owner requires a host primitive"));
         }
         let valid = primitive
             .validity()
@@ -837,6 +837,12 @@ macro_rules! numeric_types {
 numeric_types!(u64; u8, u16, u32, u64);
 numeric_types!(i64; i8, i16, i32, i64);
 numeric_types!(f64; f64);
+impl Numeric for f16 {
+    type Wide = f64;
+    fn widen(self) -> f64 {
+        shardloom_core::float_policy::widen_f16_bits(self.to_bits())
+    }
+}
 impl Numeric for f32 {
     type Wide = f64;
     fn widen(self) -> f64 {
