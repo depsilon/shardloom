@@ -300,6 +300,7 @@ fn typed_payload_validation_checks_discarded_rows_before_ordering_keys() {
             }],
             names: vec!["key".into()],
             copy_policy: CopyPolicy::ValidateValues,
+            unobserved_fields: Vec::new(),
         };
         let session = ResidentVortexSession::new(2 << 20, 1).unwrap();
         session

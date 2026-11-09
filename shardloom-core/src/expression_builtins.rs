@@ -10,6 +10,13 @@ pub enum ScalarTypeRule {
     NumericRound,
     FloatClassify,
     DecimalOutput,
+    VectorDimension,
+    TensorShape,
+    VectorValues,
+    VectorElement,
+    VectorSlice,
+    VectorReduction,
+    VectorNormalize,
     Utf8,
     Utf8Offsets,
     Utf8Length,
@@ -47,6 +54,27 @@ impl ScalarTypeRule {
             }
             Self::DecimalOutput => {
                 "decimal or integer operands and literal precision/scale/rounding -> Decimal128; one exact-ratio rounding step and checked final precision"
+            }
+            Self::VectorDimension => {
+                "F16/F32/F64 List/FixedSizeList, embedding, sparse or quantized vector -> UInt64 dimension; no implicit flattening, densification or dequantization"
+            }
+            Self::TensorShape => {
+                "fixed/variable tensor and optional literal logical/physical layout -> FixedSizeList<UInt64, rank>; shape validation without component observation"
+            }
+            Self::VectorValues => {
+                "F16/F32/F64 List/FixedSizeList or embedding -> original native list storage, explicitly removing embedding metadata"
+            }
+            Self::VectorElement => {
+                "F16/F32/F64 dense vector and integer index -> nullable original component; zero-based and negative indexing, bit-preserving carriage"
+            }
+            Self::VectorSlice => {
+                "F16/F32/F64 dense vector and integer start/optional end -> original-width List; clamped negative bounds, inclusive start/exclusive end, bit-preserving carriage"
+            }
+            Self::VectorReduction => {
+                "F16/F32/F64 dense vectors -> Float64; exact dot/norm/L2 rounding, bounded-error cosine, explicit embedding-space compatibility, component NULL propagation"
+            }
+            Self::VectorNormalize => {
+                "F16/F32/F64 dense vector -> same list kind/width with nonnull Float64 components and nullable parent; bounded-error normalization without embedding metadata"
             }
             Self::Utf8 => "UTF8 arguments -> UTF8",
             Self::Utf8Offsets => "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
@@ -281,6 +309,116 @@ definitions!(
         "decimal_output",
         true,
         "Divide exact decimal or integer operands and round once to the explicit output domain."
+    ),
+    (
+        "vector_dimension",
+        [],
+        1,
+        1,
+        VectorDimension,
+        Propagate,
+        "vector",
+        false,
+        "Read the declared or selected vector dimension without reconstructing sparse or quantized values."
+    ),
+    (
+        "tensor_shape",
+        [],
+        1,
+        2,
+        TensorShape,
+        Propagate,
+        "tensor",
+        false,
+        "Return logical tensor dimensions by default, or physical dimensions with a literal layout control."
+    ),
+    (
+        "vector_values",
+        [],
+        1,
+        1,
+        VectorValues,
+        Propagate,
+        "vector",
+        false,
+        "Expose dense list storage while explicitly removing embedding identity."
+    ),
+    (
+        "vector_element",
+        [],
+        2,
+        2,
+        VectorElement,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Select an original-width component; null or out-of-range indices return NULL."
+    ),
+    (
+        "vector_slice",
+        [],
+        2,
+        3,
+        VectorSlice,
+        Propagate,
+        "vector",
+        false,
+        "Select a clamped component interval into a plain List, preserving bits and component nulls."
+    ),
+    (
+        "vector_dot",
+        [],
+        2,
+        2,
+        VectorReduction,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Sum exact finite component products and round once to nearest-even Float64."
+    ),
+    (
+        "vector_l2_distance",
+        [],
+        2,
+        2,
+        VectorReduction,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Round the exact Euclidean distance once to nearest-even Float64."
+    ),
+    (
+        "vector_cosine_similarity",
+        [],
+        2,
+        2,
+        VectorReduction,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Compute cosine from exact reductions with a 5u relative plus half-min-subnormal absolute error bound; zero norms return NULL."
+    ),
+    (
+        "vector_norm",
+        [],
+        1,
+        1,
+        VectorReduction,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Round the exact Euclidean norm once to nearest-even Float64."
+    ),
+    (
+        "vector_normalize",
+        [],
+        1,
+        1,
+        VectorNormalize,
+        AlwaysNullable,
+        "vector",
+        false,
+        "Normalize with a 3u relative plus half-min-subnormal absolute component error bound; zero norms return NULL."
     ),
     (
         "temporal_extract",

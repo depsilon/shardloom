@@ -28,6 +28,7 @@ pub(in crate::local_primitives) enum TemporalArgument {
 }
 
 pub(in crate::local_primitives) enum Function {
+    Vector(Box<super::vector::Kernel>),
     IsNan,
     IsInfinite,
     IsFinite,
@@ -82,6 +83,7 @@ impl Function {
     /// Only explicitly matched, pure bound kernels are eligible for reuse.
     pub(super) fn same_semantics(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::Vector(left), Self::Vector(right)) => left == right,
             (
                 Self::Decimal {
                     output: left,

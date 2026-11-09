@@ -93,6 +93,9 @@ mod observation;
 mod ranked;
 #[path = "local_primitive_relational_transform.rs"]
 mod transform;
+
+#[path = "local_primitive_relational_payload_policy.rs"]
+mod payload_policy;
 #[cfg(feature = "vortex-write")]
 #[path = "local_primitive_relational_writer.rs"]
 mod writer;
@@ -1113,12 +1116,17 @@ impl Metrics<'_> {
     fn detach_ordering_input(
         &self,
         array: ArrayRef,
+        unobserved_fields: &[usize],
         context: &NativeExecutionContext<'_>,
     ) -> Result<ArrayRef> {
         if self.input.is_none() {
             return Ok(array);
         }
-        let detached = detach_batch(&array, context)?;
+        let detached = super::native_payload::detach_with_unobserved_fields(
+            &array,
+            unobserved_fields,
+            context,
+        )?;
         self.record_ordering_copy(array.len(), detached.nbytes())?;
         Ok(detached)
     }
@@ -1481,6 +1489,7 @@ impl PreparedVortexRelational {
             .fields
             .iter()
             .any(|(_, dtype)| super::native_payload::is_nested(dtype));
+        let unobserved_fields = root.unobserved_fields(context)?;
         let emitted = Cell::new(false);
         let mut emit = |array: ArrayRef| {
             context.check_cancelled()?;
@@ -1488,7 +1497,11 @@ impl PreparedVortexRelational {
                 return Err(failed("producer changed its bound schema or batch size"));
             }
             let array = if nested || !self.batch_sources.is_empty() {
-                detach_batch(&array, context)?
+                super::native_payload::detach_with_unobserved_fields(
+                    &array,
+                    &unobserved_fields.values,
+                    context,
+                )?
             } else {
                 array
             };

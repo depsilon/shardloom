@@ -18,6 +18,7 @@ from .query import (
     interval_days, interval_hours, interval_minutes, interval_seconds,
     not_exists_source, outer, rank,
     row_in, row_in_source, row_not_in, row_not_in_source, row_number, scalar_subquery,
+    ComplexProjectionExpression,
     struct, typed_scalar_udf,
 )
 
@@ -37,12 +38,85 @@ __all__ = (
     "starts_with", "std", "stddev", "stddev_pop", "stddev_samp", "string_agg", "strptime", "struct", "substr", "substring", "sum", "timestamp_add_seconds",
     "timestamp_day", "timestamp_diff_seconds", "timestamp_hour", "timestamp_minute", "timestamp_month",
     "quantile_cont", "quantile_disc", "timestamp_second", "timestamp_sub_seconds", "timestamp_year", "try_cast", "try_strptime",
+    "vector_dimension", "tensor_shape", "vector_values", "vector_element", "vector_slice",
+    "vector_dot", "vector_l2_distance", "vector_cosine_similarity", "vector_norm", "vector_normalize",
     "sum_distinct", "avg_distinct", "trim", "typed_scalar_udf", "unhex", "upper", "url_domain", "var", "var_pop", "var_samp", "variance",
 )
 
 
 def _column(value):
     return value if isinstance(value, ColumnExpression) else col(value)
+
+
+def _vector_operand(value):
+    if isinstance(value, (ColumnExpression, ComplexProjectionExpression)):
+        return value
+    return _column(value)
+
+
+def _vector_index(value):
+    if isinstance(value, ColumnExpression):
+        return value
+    if isinstance(value, str):
+        return _column(value)
+    if value is None or (isinstance(value, int) and not isinstance(value, bool)):
+        return lit(value)
+    raise TypeError("vector index and slice bounds must be columns, expressions, integers, or None")
+
+
+def vector_dimension(value) -> ColumnExpression:
+    """Declare the native dimension inspector for a vector column or expression."""
+    return _call("VECTOR_DIMENSION", _vector_operand(value))
+
+
+def tensor_shape(value, layout="logical") -> ColumnExpression:
+    """Declare tensor shape inspection in logical or physical dimension order."""
+    if type(layout) is not str or layout not in {"logical", "physical"}:
+        raise ValueError("layout must be exactly 'logical' or 'physical'")
+    return _call("TENSOR_SHAPE", _vector_operand(value), lit(layout))
+
+
+def vector_values(value) -> ColumnExpression:
+    """Declare extraction of dense vector values without embedding identity."""
+    return _call("VECTOR_VALUES", _vector_operand(value))
+
+
+def vector_element(value, index) -> ColumnExpression:
+    """Declare selection of one component by a zero-based or negative index."""
+    return _call("VECTOR_ELEMENT", _vector_operand(value), _vector_index(index))
+
+
+def vector_slice(value, start, end=...) -> ColumnExpression:
+    """Declare a start-inclusive, end-exclusive dense vector slice."""
+    arguments = (_vector_operand(value), _vector_index(start))
+    if end is ...:
+        return _call("VECTOR_SLICE", *arguments)
+    return _call("VECTOR_SLICE", *arguments, _vector_index(end))
+
+
+def vector_dot(left, right) -> ColumnExpression:
+    """Declare native dot product between two dense vectors."""
+    return _call("VECTOR_DOT", _vector_operand(left), _vector_operand(right))
+
+
+def vector_l2_distance(left, right) -> ColumnExpression:
+    """Declare native Euclidean distance between two dense vectors."""
+    return _call("VECTOR_L2_DISTANCE", _vector_operand(left), _vector_operand(right))
+
+
+def vector_cosine_similarity(left, right) -> ColumnExpression:
+    """Declare native cosine similarity between two dense vectors."""
+    return _call("VECTOR_COSINE_SIMILARITY", _vector_operand(left), _vector_operand(right))
+
+
+def vector_norm(value) -> ColumnExpression:
+    """Declare the Euclidean norm of a dense vector."""
+    return _call("VECTOR_NORM", _vector_operand(value))
+
+
+def vector_normalize(value) -> ColumnExpression:
+    """Declare dense vector normalization to F64 components."""
+    return _call("VECTOR_NORMALIZE", _vector_operand(value))
 
 
 def decimal_rescale(value, precision, scale, rounding) -> ColumnExpression:

@@ -19,6 +19,18 @@ STAMP = "CAST('2024-02-29T13:14:15.123456Z' AS TIMESTAMP)"
 EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP)"
 ZONED_EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP(us,'UTC'))"
 SPAN = "CAST('2s' AS DURATION(s))"
+VECTOR_CASES = {
+    "vector_dimension": (["ARRAY[3.0,4.0]"], 2),
+    "tensor_shape": (["tensor", "'physical'"], [2, 3]),
+    "vector_values": (["ARRAY[3.0,4.0]"], [3.0, 4.0]),
+    "vector_element": (["ARRAY[3.0,4.0]", "-1"], 4.0),
+    "vector_slice": (["ARRAY[3.0,4.0]", "0", "1"], [3.0]),
+    "vector_dot": (["ARRAY[3.0,4.0]", "ARRAY[1.0,2.0]"], 11.0),
+    "vector_l2_distance": (["ARRAY[3.0,4.0]", "ARRAY[0.0,0.0]"], 5.0),
+    "vector_cosine_similarity": (["ARRAY[3.0,4.0]", "ARRAY[3.0,4.0]"], 1.0),
+    "vector_norm": (["ARRAY[3.0,4.0]"], 5.0),
+    "vector_normalize": (["ARRAY[3.0,4.0]"], [0.6, 0.8]),
+}
 TEMPORAL_CASES = {
     "temporal_extract": ([STAMP, "'hour'"], 13),
     "temporal_trunc": ([STAMP, "'day'"], datetime(2024, 2, 29)),
@@ -34,6 +46,7 @@ TEMPORAL_CASES = {
     "timestamp_remove_timezone": ([ZONED_EPOCH], datetime(1970, 1, 1)),
 }
 CASES = {
+    **VECTOR_CASES,
     **TEMPORAL_CASES,
     "is_nan": (["1.0"], False), "is_infinite": (["1.0"], False),
     "is_finite": (["1.0"], True), "signbit": (["-0.0"], True),
@@ -92,6 +105,13 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         self.addCleanup(context.close)
         return context
 
+    def tensor_source(self, context, *, null=False):
+        from shardloom import types as t
+        return context.from_rows([{"tensor": None if null else [1, 2, 3, 4, 5, 6],
+                                   "vector": None if null else [3.0, 4.0]}],
+            schema={"tensor": t.fixed_shape_tensor(t.int16(), [2, 3], permutation=[1, 0]),
+                    "vector": t.list_(t.float64())})
+
     def test_catalog_is_complete_unique_inert_and_matches_all_sql_aliases(self):
         context, f = self.context(), self.f
         catalog = f.catalog()
@@ -110,7 +130,8 @@ class NativeFunctionCatalogTests(unittest.TestCase):
                 expressions.append(f"{name.upper()}({','.join(arguments)}) AS {alias}")
                 expected[alias] = value
         self.assertIsNone(context.client._native_backend)
-        query = context.sql("SELECT " + ",".join(expressions))
+        query = context.sql("SELECT " + ",".join(expressions) + " FROM input",
+                            relations={"input": self.tensor_source(context)})
         self.assertEqual(query.collect().to_rows(), (expected,))
         catalog[0]["name"] = "changed"
         self.assertNotEqual(f.catalog()[0]["name"], "changed")
@@ -129,6 +150,10 @@ class NativeFunctionCatalogTests(unittest.TestCase):
 
         context, f = self.context(), self.f
         def literal(text):
+            if text.startswith("ARRAY["):
+                return f.array(json.loads(text[5:]))
+            if text == "tensor":
+                return f.col("tensor")
             dates = {DAY: date(2024, 2, 29), "CAST('2024-02-27' AS DATE)": date(2024, 2, 27),
                 EPOCH: datetime(1970, 1, 1),
                 STAMP: datetime(2024, 2, 29, 13, 14, 15, 123456),
@@ -148,6 +173,10 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         projected, expected = [], {}
         for name, (arguments, value) in CASES.items():
             values = [literal(argument) for argument in arguments]
+            if name in VECTOR_CASES:
+                projected.append(getattr(f, name)(*values).alias(name))
+                expected[name] = value
+                continue
             if name in TEMPORAL_CASES:
                 first = values[0] if isinstance(values[0], ColumnExpression) else f.lit(values[0])
                 if name == "timestamp_difference":
@@ -169,7 +198,7 @@ class NativeFunctionCatalogTests(unittest.TestCase):
                 values[0] = f.lit(values[0])
             projected.append(constructor(*values).alias(name))
             expected[name] = value
-        self.assertEqual(context.range(0, 1).select(*projected).collect().to_rows(), (expected,))
+        self.assertEqual(self.tensor_source(context).select(*projected).collect().to_rows(), (expected,))
 
         rows = context.from_rows([{"text": "%_猫"}, {"text": "x猫"}, {"text": None}],
                                  schema={"text": "utf8"})
@@ -218,7 +247,9 @@ class NativeFunctionCatalogTests(unittest.TestCase):
             if not entry["null_rule"].startswith("null input"):
                 continue
             arguments = list(CASES[entry["name"]][0])
-            if entry["name"] in TEMPORAL_CASES:
+            if entry["name"] in VECTOR_CASES:
+                arguments[0] = "tensor" if entry["name"] == "tensor_shape" else "vector"
+            elif entry["name"] in TEMPORAL_CASES:
                 # New temporal functions require an explicit logical domain even
                 # for nulls; metadata and literal policies still bind normally.
                 dtype = arguments[0].rsplit(" AS ", 1)[1][:-1]
@@ -226,7 +257,8 @@ class NativeFunctionCatalogTests(unittest.TestCase):
             else:
                 arguments[0] = "NULL"
             expressions.append(f"{entry['name']}({','.join(arguments)}) AS result_{len(expressions)}")
-        query = context.sql("SELECT " + ",".join(expressions))
+        query = context.sql("SELECT " + ",".join(expressions) + " FROM input",
+                            relations={"input": self.tensor_source(context, null=True)})
         self.assertTrue(all(dtype.nullable for _, dtype in query.schema()))
         self.assertEqual(query.collect().to_rows(), ({f"result_{index}": None for index in range(len(expressions))},))
         for expression in ("ABS(value, 2)", "COALESCE()", "LOWER(value)", "SUBSTR('x',1.2,1)",

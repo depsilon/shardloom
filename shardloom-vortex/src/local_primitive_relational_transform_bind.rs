@@ -134,8 +134,22 @@ impl Binder<'_> {
             validate_name(key.column.as_str())?;
             validate_key(field(&input.fields, key.column.as_str())?)?;
         }
+        self.charge(
+            input
+                .fields
+                .len()
+                .checked_mul(size_of::<usize>())
+                .ok_or_else(|| failed("ordering field policy capacity overflow"))?,
+        )?;
+        let mut unobserved_fields = Vec::with_capacity(input.fields.len());
+        for (index, (name, _)) in input.fields.iter().enumerate() {
+            if input.carries_unobserved(name) {
+                unobserved_fields.push(index);
+            }
+        }
         let spec = native_relational_sort::Spec {
             copy_policy: crate::local_primitives::native_payload::CopyPolicy::ValidateValues,
+            unobserved_fields,
             fields: input.fields.clone(),
             keys: keys.to_vec(),
             names: keys

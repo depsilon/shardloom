@@ -248,12 +248,19 @@ impl PreparedVortexRelational {
                 metrics,
                 batch_rows,
                 parameter,
-                &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
+                &mut |array| {
+                    sort.build(
+                        metrics.detach_ordering_input(array, &spec.unobserved_fields, context)?,
+                        context,
+                    )
+                },
             )?;
             return sort.finish(context, batch_rows, consume);
         }
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-        if self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)? {
+        if spec.unobserved_fields.is_empty()
+            && self.run_ranked_sort(node, context, metrics, batch_rows, parameter, consume)?
+        {
             return Ok(());
         }
         if output_prefix.is_some()
@@ -293,7 +300,12 @@ impl PreparedVortexRelational {
             metrics,
             batch_rows,
             parameter,
-            &mut |array| sort.build(metrics.detach_ordering_input(array, context)?, context),
+            &mut |array| {
+                sort.build(
+                    metrics.detach_ordering_input(array, &spec.unobserved_fields, context)?,
+                    context,
+                )
+            },
         )?;
         sort.finish_prefix(
             context,

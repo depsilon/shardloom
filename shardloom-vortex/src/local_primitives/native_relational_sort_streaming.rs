@@ -24,7 +24,7 @@ impl<'a> StreamingPrefix<'a> {
         let Some(cap) = cap.filter(|cap| *cap <= 16_384) else {
             return Ok(None);
         };
-        if spec.copy_policy != CopyPolicy::ValidateValues {
+        if spec.copy_policy != CopyPolicy::ValidateValues || !spec.unobserved_fields.is_empty() {
             return Ok(None);
         }
         Ok(Some(Self {

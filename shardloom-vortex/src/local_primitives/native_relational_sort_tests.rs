@@ -28,6 +28,7 @@ fn spec(array: &ArrayRef, names: &[&str]) -> Spec {
             .collect(),
         names: names.iter().map(|name| (*name).to_owned()).collect(),
         copy_policy: CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     }
 }
 

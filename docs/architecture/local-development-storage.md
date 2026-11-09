@@ -70,8 +70,37 @@ unchanged. The final array test/lint check and fresh release build then passed.
 The [provider evidence packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
 retains these receipts and all earlier outcomes. Its local acceptance includes
 the new runtime and all 386 isolated installed-wheel tests with zero skips.
-Hosted integration and retirement of the superseded retained runtimes remain
-separate steps. No storage floor changed and no payload backup was created.
+PR #1670 subsequently merged as `d29bff42c5b3aacf7a61463bf2c8f9cec2bdf216`
+after all 58 PR checks passed with review clear; all 55 required exact-main
+checks passed. Its verified closeout retirement removed 40,614 entries,
+including 35,766 regular files and six environment links. Repeated identities
+and closed-handle checks passed; current inputs and the provider runtime-r1 and
+installed-tested wheel remained unchanged. Complete portable replay passed
+after retirement. The superseded vector and small-dependency comparison
+runtimes/wheels, completed install environments and verified temporary source
+copies were retired. The current test wheelhouse and compiler cache remain in
+use for the next queue unit. All five Dependabot proposals are now resolved.
+No storage floor changed and no payload backup was created.
+
+During shared-vector expression validation, verified debug-cache retirement
+removed 12,773 entries, including 10,842 regular files, after final native tests
+and strict lint completed. Repeated identities and closed-handle checks passed;
+the accepted provider runtime/wheel, the earlier vector-expression comparison
+runtime, current input generations and release cache remained unchanged. The
+fresh release build, public checks and all 397 installed-wheel tests subsequently
+passed. The [vector-expression packet](../release/evidence/native-vector-expressions-2026-11-08/README.md)
+preserves this retirement and every original failed observation. The provider
+runtime/wheel and the newly tested vector-expression runtime/wheel remain retained
+through hosted closeout. Storage floors are unchanged and no payload backup was
+created.
+
+The [proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
+retains both original hosted deadline failures, the fresh local 397-test installed
+proof and the focused deadline regressions. The original vector-expression packet
+is unchanged; the follow-up stores only new observations and source bytes absent
+from that packet. The tested runtime is reused byte-for-byte. The original
+unexecuted retirement plan remains historical; closeout must use a new inventory
+covering the follow-up and retain the accepted runtime/wheel and both packets.
 
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched

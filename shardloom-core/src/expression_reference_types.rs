@@ -300,6 +300,13 @@ fn function_result_dtype(
         | T::Temporal
         | T::PrimitiveRefererCase
         | T::PrimitiveHaving
+        | T::VectorDimension
+        | T::TensorShape
+        | T::VectorValues
+        | T::VectorElement
+        | T::VectorSlice
+        | T::VectorReduction
+        | T::VectorNormalize
         | T::DecimalOutput => Err(EvalFailure::unsupported(
             "function_call",
             "function has no admitted reference result type",

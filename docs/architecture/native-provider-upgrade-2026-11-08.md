@@ -2,8 +2,9 @@
 
 # Vortex and Arrow provider update
 
-Status: local provider and installed-package acceptance passed; hosted integration
-and Dependabot reconciliation remain pending. The
+Status: accepted and merged in [#1670](https://github.com/depsilon/shardloom/pull/1670)
+as `d29bff42c5b3aacf7a61463bf2c8f9cec2bdf216`. All 58 PR checks and all 55
+required checks on exact merged main passed, with the final review clear. The
 [portable evidence packet](../release/evidence/native-provider-upgrade-2026-11-08/README.md)
 binds all fifteen required stages to the same complete source snapshot and graph.
 The November 8 maintainer instruction
@@ -20,6 +21,21 @@ move into `vortex-array`. ORC remains at its existing 0.9.0 boundary. Arrow 60's
 consumer migration remains deferred for the compatibility reasons below.
 The existing registry `vortex-arrow` 0.93.0 is now a fifteenth local provider
 for scoped decimal storage preservation at admitted Arrow intake boundaries.
+
+The final dependency reconciliation closes all five retained proposals:
+#1665's CI action pins, #1667's tonic-prost 0.14.9 and #1668's Jiff patches are
+included by ancestry; #1664's Vortex 0.91 proposal is superseded by 0.93.0.
+#1666 was rebased after integration, reviewed again against its exact new head,
+and closed as deferred because its four Arrow 60.1.0 pins would mix runtime
+Arrow families. No permanent dependency-ignore policy was added. A fresh final
+search found no open Dependabot proposals.
+
+Verified retirement removed 40,614 generated entries, including 35,766 regular
+files and six environment links, after repeated identities and closed-handle
+checks. The accepted provider runtime/wheel and current inputs remain unchanged;
+the complete portable packet replays after retirement. No payload backup or
+storage-limit change was made. The main queue now resumes with
+[shared exact vector expressions](native-vector-expressions-2026-11-08.md).
 
 The default workspace passes 3,321 tests; the native workspace passes 6,996,
 with 37 reported opt-in ignores and no failures. Formatting, strict default/native

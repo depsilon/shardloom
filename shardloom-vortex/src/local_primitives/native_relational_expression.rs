@@ -21,6 +21,9 @@ use vortex::array::{
 #[path = "native_relational_scalar.rs"]
 pub(super) mod scalar;
 
+#[path = "native_relational_vector.rs"]
+pub(super) mod vector;
+
 #[path = "native_relational_predicate_block.rs"]
 mod predicate_block;
 
@@ -271,6 +274,19 @@ impl Expression {
         args: &[Self],
         completed: Option<&[ArrayRef]>,
     ) -> Result<ArrayRef> {
+        if let scalar::Function::Vector(kernel) = function {
+            // Rich arguments retain native arrays. Converting them to scalar
+            // key owners first would reject list/extension storage and observe
+            // values before the vector family's parent/component masks.
+            let mut values = ReservedVec::new(context.memory())?;
+            values.reserve(args.len())?;
+            for arg in args {
+                values
+                    .values
+                    .push(arg.evaluate_in_scope(input, context, completed)?);
+            }
+            return kernel.evaluate(&values.values, &self.dtype, context);
+        }
         let mut values = ReservedVec::new(context.memory())?;
         values.reserve(args.len())?;
         for arg in args {
@@ -349,6 +365,9 @@ impl Expression {
         context: &NativeExecutionContext<'_>,
         children: &[Expression],
     ) -> Result<ArrayRef> {
+        if let Some(array) = self.floating_literal_list(children, input.len(), context)? {
+            return Ok(array);
+        }
         let _metadata = context
             .memory()
             .reserve(super::native_payload::metadata_bytes(&self.dtype)?)?;
@@ -427,6 +446,69 @@ impl Expression {
                 "constructor requires its bound list or struct schema",
             )),
         }
+    }
+
+    fn floating_literal_list(
+        &self,
+        children: &[Expression],
+        rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<ArrayRef>> {
+        use vortex::array::{
+            arrays::ListViewArray,
+            scalar::{PValue, ScalarValue},
+        };
+        let DType::List(element, _) = &self.dtype else {
+            return Ok(None);
+        };
+        if !matches!(element.as_ref(), DType::Primitive(PType::F64, _))
+            || !children.iter().all(|child| {
+                matches!(&child.kind, Kind::Literal(value)
+                if matches!(value.value(), None | Some(ScalarValue::Primitive(PValue::F64(_)))))
+            })
+        {
+            return Ok(None);
+        }
+        let allocator = crate::owned_buffers::with_credit(
+            context.native_session().host_allocator(),
+            context
+                .memory()
+                .reserve(super::native_payload::metadata_bytes(&self.dtype)?)?,
+        );
+        // One admitted immutable child backs every row; no composite Scalar
+        // cloning and no child expression evaluated across the whole input.
+        let values = result_batch::build_column_with_float_policy(
+            element,
+            children.len(),
+            &allocator,
+            context.float_policy(),
+            |index| {
+                if index.is_multiple_of(1024) {
+                    context.check_cancelled()?;
+                }
+                let Kind::Literal(value) = &children[index].kind else {
+                    unreachable!("literal list");
+                };
+                Ok(match value.value() {
+                    None => Value::Null,
+                    Some(ScalarValue::Primitive(PValue::F64(value))) => Value::Float(*value),
+                    _ => unreachable!("floating literal"),
+                })
+            },
+        )?;
+        let count = u64::try_from(children.len()).map_err(vortex_error)?;
+        let array = ListViewArray::try_new(
+            values,
+            ConstantArray::new(Scalar::from(0u64), rows).into_array(),
+            ConstantArray::new(Scalar::from(count), rows).into_array(),
+            Validity::NonNullable,
+            &mut context.native_session().create_execution_ctx(),
+        )
+        .map_err(vortex_error)?
+        .into_array();
+        crate::owned_buffers::retain_empty_array_credit(array, &allocator)
+            .map(Some)
+            .map_err(vortex_error)
     }
 
     fn null_if(

@@ -882,15 +882,30 @@ pub(super) fn take_batch_with_policy(
     policy: native_payload::CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
+    take_batch_with_unobserved_fields(array, fields, rows, policy, &[], context)
+}
+
+pub(super) fn take_batch_with_unobserved_fields(
+    array: &ArrayRef,
+    fields: &[(String, DType)],
+    rows: &[usize],
+    policy: native_payload::CopyPolicy,
+    unobserved_fields: &[usize],
+    context: &NativeExecutionContext<'_>,
+) -> Result<ArrayRef> {
     let indices = index_array(rows.len(), false, context, |row| Ok(Some(rows[row])))?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(fields.len())?;
-    for (name, dtype) in fields {
+    for (index, (name, dtype)) in fields.iter().enumerate() {
         columns.values.push(take_column_with_policy(
             &logical_field_from_native_array(array, name)?,
             &indices,
             dtype,
-            policy,
+            if unobserved_fields.contains(&index) {
+                native_payload::CopyPolicy::PreserveUnobserved
+            } else {
+                policy
+            },
             context,
         )?);
     }

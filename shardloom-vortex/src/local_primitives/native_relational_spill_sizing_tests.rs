@@ -81,6 +81,7 @@ fn binding(array: &ArrayRef) -> Spec {
         }],
         names: vec!["key".into()],
         copy_policy: native_payload::CopyPolicy::ValidateValues,
+        unobserved_fields: Vec::new(),
     }
 }
 

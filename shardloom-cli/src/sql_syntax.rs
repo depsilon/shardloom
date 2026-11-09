@@ -4037,6 +4037,11 @@ fn parse_array_literal_projection_values(
     {
         return Ok(None);
     }
+    if trimmed.len() > 65_536 {
+        return Err(unsupported_sql_error(
+            "scalar expression exceeds 65536 bytes",
+        ));
+    }
     let rest = trimmed["array".len()..].trim_start();
     if !rest.starts_with('[') {
         return Err(unsupported_sql_error(
@@ -4055,7 +4060,15 @@ fn parse_array_literal_projection_values(
     if inner.is_empty() {
         return Ok(Some(Vec::new()));
     }
-    split_sql_csv(inner)?
+    let values = split_sql_csv(inner)?;
+    // The ARRAY node itself consumes one node. A containing scalar declaration
+    // accounts for these children against its complete recursive budget too.
+    if values.len() > 4095 {
+        return Err(unsupported_sql_error(
+            "scalar expressions exceed 24 levels or 4096 nodes",
+        ));
+    }
+    values
         .into_iter()
         .map(|value| {
             parse_projection_literal_value(&value).map_err(|_| {
