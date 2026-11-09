@@ -39,7 +39,7 @@ impl Layout {
         let bytes = fields.iter().filter(|(name, _)| needed(name)).try_fold(
             16_384u64,
             |bytes, (name, dtype)| {
-                native_payload::metadata_bytes(dtype)?
+                native_payload::metadata_bytes(dtype, context)?
                     .checked_add(name.len() as u64 * 2)
                     .and_then(|field| field.checked_add(2048))
                     .and_then(|field| field.checked_mul(8))
@@ -149,6 +149,6 @@ impl Layout {
             native_payload::take_record(&projected, &indices, &self.payload_dtype, context)?
         };
         columns.values.push(payload);
-        records::structure(&self.order.fields, columns, rows)
+        records::structure(&self.order.fields, columns, rows, context)
     }
 }

@@ -51,7 +51,7 @@ fn arguments(
         // admission. These functions do not make embeddings, tensors or sparse
         // vectors orderable/groupable by the ordinary comparison kernels.
         if expression.dtype != DType::Null {
-            super::super::validate_payload(&expression.dtype)?;
+            super::super::validate_payload(&expression.dtype, binder.schema_scope())?;
         }
         args.push(expression);
     }

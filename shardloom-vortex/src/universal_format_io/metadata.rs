@@ -79,6 +79,7 @@ pub fn inspect_local_columnar_schema(
             .ok_or_else(|| failed("schema extension metadata size overflow"))?
             .checked_add(crate::native_payload_schema::arrow_metadata_bytes(
                 field.data_type(),
+                (session.memory(), cancellation),
             )?)
             .ok_or_else(|| failed("schema metadata size overflow"))?;
     }

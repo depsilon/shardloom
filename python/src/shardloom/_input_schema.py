@@ -44,7 +44,7 @@ def normalize_schema(schema: Mapping[str, object] | None) -> tuple[tuple[str, Re
 
 
 def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
-    """Inspect one level; ordinary parsing owns recursive depth/node admission."""
+    """Inspect one level; ordinary parsing owns depth and declaration admission."""
     if not isinstance(dtype.name, str) or not isinstance(dtype.parameters, tuple):
         raise TypeError("ResultType requires a string name and tuple parameters")
     expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3,
@@ -115,11 +115,25 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
     return value
 
 
+def _schema_wire_add(budget: list[int], size: int) -> None:
+    """Bound expansion by a lower bound on the unchanged JSON wire contract.
+
+    Caller declarations have no execution memory owner. The exact encoded size
+    is checked by wire_schema; this early check stops shared-subtree expansion
+    without introducing a field count or conservative native-memory ceiling.
+    """
+    budget[1] += size
+    if budget[1] > _MAX_BYTES:
+        raise ValueError("native input schema exceeds the 8 MiB declaration bound")
+
+
 def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultType:
     budget[0] += 1
-    budget[1] += 1024
-    if depth > 24 or budget[0] > 4096 or budget[1] > _MAX_BYTES:
-        raise ValueError("nested input schema exceeds depth 24, 4096 nodes or 8 MiB metadata")
+    if depth > 24:
+        raise ValueError("nested input schema exceeds depth 24")
+    # {"Bool":true} is the shortest admitted native DType JSON node. Container
+    # framing and escaping only increase the final wire size.
+    _schema_wire_add(budget, 13)
     if isinstance(specification, ResultType):
         specification = _result_type_parameters(specification)
     parameters = specification if isinstance(specification, Mapping) else {"type": specification}
@@ -159,9 +173,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             raise ValueError("tensor elements require Boolean, integer, Float16, Float32 or Float64")
         metadata = _tensor.normalize_metadata({key: parameters[key]
             for key in ("shape", "dim_names", "permutation") if key in parameters})
-        budget[1] += 128 * len(_tensor.metadata_json(metadata).encode("utf-8"))
-        if budget[1] > _MAX_BYTES:
-            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        _schema_wire_add(budget, len(_tensor.metadata_json(metadata).encode("utf-8")))
         size = _tensor.shape_size(dict(metadata)["shape"])
         return ResultType(token, nullable, (child, size, metadata))
     if token == "variable_shape_tensor":
@@ -191,9 +203,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             metadata_value = {key: parameters[key] for key in (
                 "dim_names", "permutation", "uniform_shape") if key in parameters}
         metadata = _variable_tensor.normalize_metadata(metadata_value, rank)
-        budget[1] += 128 * len(_variable_tensor.metadata_json(metadata).encode("utf-8"))
-        if budget[1] > _MAX_BYTES:
-            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        _schema_wire_add(budget, len(_variable_tensor.metadata_json(metadata).encode("utf-8")))
         return ResultType(token, nullable, (storage, metadata))
     if token in _vector.KINDS:
         if "storage" in parameters:
@@ -232,9 +242,7 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             storage = _parse_type({"type": "struct", "fields": children, "nullable": nullable}, depth + 1, budget)
         metadata = _vector.normalize_metadata(token, metadata_value)
         _vector.storage_fields(token, storage, metadata)
-        budget[1] += 128 * len(_vector.metadata_json(metadata).encode("utf-8"))
-        if budget[1] > _MAX_BYTES:
-            raise ValueError("nested input schema exceeds 8 MiB metadata")
+        _schema_wire_add(budget, len(_vector.metadata_json(metadata).encode("utf-8")))
         return ResultType(token, nullable, (storage, metadata))
     if match := re.fullmatch(r"decimal128\(([0-9]+),\s*([0-9]+)\)", token):
         # Bound text before integer conversion, including hostile giant digits.
@@ -257,20 +265,18 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
             if not size or child.name not in {"float16", "float32", "float64"}:
                 raise ValueError("embedding requires a positive fixed-size Float16/Float32/Float64 list")
             metadata = normalize_metadata(parameters.get("metadata"))
-            budget[1] += 8 * len(metadata_json(metadata).encode("utf-8"))
-            if budget[1] > _MAX_BYTES:
-                raise ValueError("nested input schema exceeds 8 MiB metadata")
+            _schema_wire_add(budget, len(metadata_json(metadata).encode("utf-8")))
             return ResultType(token, nullable, (child, size, metadata))
         return ResultType(token, nullable, (child, size))
     if token == "struct":
         fields = parameters.get("fields")
-        if not isinstance(fields, Mapping) or not 1 <= len(fields) <= 1024:
-            raise ValueError("nested input structs require 1..=1024 fields")
+        if not isinstance(fields, Mapping) or not fields:
+            raise ValueError("nested input structs require at least one field")
         result = []
         for name, child in fields.items():
             if not isinstance(name, str) or not name:
                 raise ValueError("nested input field names must be nonempty strings")
-            budget[1] += 2 * len(name.encode("utf-8"))
+            _schema_wire_add(budget, len(name.encode("utf-8")) + 2)
             result.append((name, _parse_type(child, depth + 1, budget)))
         if len({name for name, _ in result}) != len(result):
             raise ValueError("nested input field names must be distinct")

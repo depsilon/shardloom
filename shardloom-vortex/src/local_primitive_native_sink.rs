@@ -684,11 +684,23 @@ impl NativeSinkPlan {
             };
             usize::try_from(chunks).map_err(|_| sink_error("source chunk count overflow"))?
         };
-        // The footer serializes the complete schema in addition to its leaf
-        // layouts. Reserve that width-dependent workspace before writer creation.
+        // The footer serializes every nested field, not only the top-level
+        // column names retained by the plan. Transfer the complete schema
+        // reservation into the writer's existing metadata owner before writing.
+        // General provider types keep the sink's existing pass-through domain.
+        let scope = (self.session.memory(), cancellation);
+        let mut metadata =
+            match crate::native_payload_schema::reserve_encoded_schema(&self.dtype, scope) {
+                Ok(metadata) => metadata,
+                Err(ShardLoomError::NotImplemented(_)) => {
+                    crate::native_payload_schema::reserve_serialization(&self.dtype, scope)?
+                }
+                Err(error) => return Err(error),
+            };
         let metadata_base = self
             .schema_metadata
             .bytes()
+            .max(metadata.bytes())
             .checked_add(128 * 1024)
             .ok_or_else(|| sink_error("native sink schema metadata overflow"))?;
         let metadata_bytes = if self.source.is_produced() {
@@ -700,9 +712,8 @@ impl NativeSinkPlan {
                 .and_then(|bytes| bytes.checked_add(metadata_base))
                 .ok_or_else(|| sink_error("native sink metadata reservation overflow"))?
         };
-        let metadata = std::sync::Arc::new(std::sync::Mutex::new(
-            self.session.memory().reserve(metadata_bytes)?,
-        ));
+        metadata.resize(metadata_bytes)?;
+        let metadata = std::sync::Arc::new(std::sync::Mutex::new(metadata));
         let statistics = crate::native_file_statistics::FileStatisticsReservation::reserve(
             &self.dtype,
             self.session.memory(),

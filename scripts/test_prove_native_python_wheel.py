@@ -17,7 +17,7 @@ class IntegrationSelectionTests(unittest.TestCase):
     def test_installed_proof_requires_connected_and_independent_client_suites(self):
         names = ("test_native_binding", "test_connected_programming", "test_native_function_catalog",
                  "test_native_observations", "test_native_standard_adapters", "test_query_surface_native",
-                 "test_recursion_policy", "test_public_context")
+                 "test_recursion_policy", "test_public_context", "test_wide_schema")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in names:
@@ -29,7 +29,7 @@ class IntegrationSelectionTests(unittest.TestCase):
             result = subprocess.run(command, text=True, capture_output=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(report.read_text())["tests"], len(names))
-            for name in ("test_native_standard_adapters", "test_public_context"):
+            for name in ("test_native_standard_adapters", "test_public_context", "test_wide_schema"):
                 with self.subTest(required_suite=name):
                     required = root / (name + ".py")
                     original = required.read_text()

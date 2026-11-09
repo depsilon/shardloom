@@ -106,7 +106,7 @@ impl ResidentMemorySource {
             metadata_bytes = metadata_bytes
                 .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
                 .ok_or_else(|| memory_error("columnar extension metadata overflow"))?
-                .checked_add(schema_metadata_bytes(field.data_type(), origin)?)
+                .checked_add(schema_metadata_bytes(field.data_type(), origin, context)?)
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
         // Controlled transfers may retain arbitrarily many backing buffers at a
@@ -116,7 +116,7 @@ impl ResidentMemorySource {
         if ownership == arrow_ownership::ArrowOwnershipPolicy::ControlledParquet {
             for column in batch.columns() {
                 metadata_bytes = metadata_bytes
-                    .checked_add(variadic_metadata_bytes(column.as_ref())?)
+                    .checked_add(variadic_metadata_bytes(column.as_ref(), context)?)
                     .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
             }
         }
@@ -202,31 +202,48 @@ impl ResidentMemorySource {
     }
 }
 
-fn schema_metadata_bytes(dtype: &arrow_schema::DataType, origin: Origin) -> Result<u64> {
+fn schema_metadata_bytes(
+    dtype: &arrow_schema::DataType,
+    origin: Origin,
+    context: &NativeExecutionContext<'_>,
+) -> Result<u64> {
     match origin {
-        Origin::Caller => crate::native_payload_schema::arrow_metadata_bytes(dtype),
-        Origin::LocalFile => crate::native_payload_schema::arrow_file_metadata_bytes(dtype),
+        Origin::Caller => crate::native_payload_schema::arrow_metadata_bytes(dtype, context),
+        Origin::LocalFile => {
+            crate::native_payload_schema::arrow_file_metadata_bytes(dtype, context)
+        }
     }
 }
 
-// Called only after the existing schema depth/node/type admission. Traversal
+// Called only after the existing schema depth/type admission. Traversal
 // borrows typed arrays; it neither clones buffer vectors nor visits row values.
-fn variadic_metadata_bytes(array: &dyn arrow_array::Array) -> Result<u64> {
-    variadic_metadata_bytes_at(array, 0, &mut 0)
+fn variadic_metadata_bytes(
+    array: &dyn arrow_array::Array,
+    context: &NativeExecutionContext<'_>,
+) -> Result<u64> {
+    let mut traversal = context.memory().reserve(0)?;
+    variadic_metadata_bytes_at(array, 0, &mut traversal, context)
 }
 
 fn variadic_metadata_bytes_at(
     array: &dyn arrow_array::Array,
     depth: usize,
-    nodes: &mut usize,
+    traversal: &mut shardloom_exec::live_memory::MemoryLease,
+    context: &NativeExecutionContext<'_>,
 ) -> Result<u64> {
     use arrow_schema::DataType;
-    *nodes += 1;
-    if depth > 24 || *nodes > 4096 {
+    context.check_cancelled()?;
+    if depth > 24 {
         return Err(memory_error(
             "columnar buffer metadata exceeds schema traversal bounds",
         ));
     }
+    traversal.resize(
+        traversal
+            .bytes()
+            .checked_add(1024)
+            .ok_or_else(|| memory_error("columnar metadata traversal overflow"))?,
+    )?;
     let invalid = || memory_error("columnar array does not match its declared layout");
     let buffers = match array.data_type() {
         DataType::Utf8View => Some(
@@ -254,7 +271,8 @@ fn variadic_metadata_bytes_at(
                         .checked_add(variadic_metadata_bytes_at(
                             child.as_ref(),
                             depth + 1,
-                            nodes,
+                            traversal,
+                            context,
                         )?)
                         .ok_or_else(|| memory_error("columnar buffer metadata overflow"))
                 });
@@ -282,7 +300,7 @@ fn variadic_metadata_bytes_at(
         _ => None,
     };
     child.map_or(Ok(0), |child| {
-        variadic_metadata_bytes_at(child.as_ref(), depth + 1, nodes)
+        variadic_metadata_bytes_at(child.as_ref(), depth + 1, traversal, context)
     })
 }
 

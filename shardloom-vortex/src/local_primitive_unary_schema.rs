@@ -54,6 +54,7 @@ pub(super) fn retained_source_admitted(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
     plan: &LocalVortexScanPlan,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<bool> {
     let columns = if plan.projected_columns.is_empty() {
         super::super::local_field_names(dtype, request.kind)?
@@ -86,14 +87,14 @@ pub(super) fn retained_source_admitted(
                 } else {
                     element.as_ref().clone()
                 };
-                if super::super::native_payload::metadata_bytes(&element).is_err() {
+                if !crate::native_payload_schema::supported(&element, scope)? {
                     return Ok(false);
                 }
                 continue;
             }
         }
         if request.kind == Kind::ExplodeRows || super::super::native_payload::is_nested(&field) {
-            if super::super::native_payload::metadata_bytes(&field).is_err() {
+            if !crate::native_payload_schema::supported(&field, scope)? {
                 return Ok(false);
             }
             continue;
@@ -109,7 +110,7 @@ pub(super) fn bind(
     request: &VortexQueryPrimitiveRequest,
     dtype: &DType,
     plan: &LocalVortexScanPlan,
-    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<Binding> {
     if let Some(predicate) = &request.predicate {
         predicate_types(predicate, dtype)?;
@@ -161,13 +162,13 @@ pub(super) fn bind(
         .transpose()?;
     let expression = if request.kind == Kind::ExpressionProjectRows {
         Some(expression::Plan::bind(
-            request, dtype, &columns, &selected, memory,
+            request, dtype, &columns, &selected, scope,
         )?)
     } else {
         None
     };
     let melt = if request.kind == Kind::MeltRows {
-        Some(super::melt::Plan::bind(request, dtype, &columns)?)
+        Some(super::melt::Plan::bind(request, dtype, &columns, scope)?)
     } else {
         None
     };
@@ -179,7 +180,7 @@ pub(super) fn bind(
         None
     };
     let pivot = if request.kind == Kind::PivotRows {
-        Some(super::pivot::Plan::bind(request, dtype, &columns, memory)?)
+        Some(super::pivot::Plan::bind(request, dtype, &columns, scope)?)
     } else {
         None
     };

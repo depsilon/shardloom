@@ -276,7 +276,7 @@ fn validate(declaration: &ApplicationBatchDeclaration) -> Result<()> {
         }
         // Registration validates declared types without allocating query state
         // or invoking application code. Binding separately reserves its metadata.
-        crate::native_payload_schema::schema_bytes(dtype)?;
+        crate::local_primitives::native_input_schema::validate_application_dtype(dtype)?;
     }
     Ok(())
 }

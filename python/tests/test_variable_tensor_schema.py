@@ -144,8 +144,8 @@ class VariableTensorSchemaTests(unittest.TestCase):
                 normalize_schema({"tensor": {"type": "list", "item": nested}})
         fields = {f"t{index}": {"type": "variable_shape_tensor", "item": "int32", "ndim": 1}
                   for index in range(1024)}
-        with self.assertRaisesRegex(ValueError, "4096 nodes"):
-            normalize_schema({"row": {"type": "struct", "fields": fields}})
+        normalized = normalize_schema({"row": {"type": "struct", "fields": fields}})
+        self.assertEqual(len(normalized[0][1].parameters), 1024)
         with self.assertRaises((ValueError, TypeError)):
             normalize_schema({"tensor": ResultType("variable_shape_tensor", True, (object(), ()))})
 

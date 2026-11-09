@@ -101,6 +101,14 @@ separate existing allocator contract. Private format fixtures preserve their
 original assertions with tuple-based metadata construction; new factory tests
 cover exact/short grants, maximum Unicode keys and partial failure cleanup.
 
+The November 9 wide-schema follow-up propagates lazy DType admission errors
+through legacy statistics field lookup and nested statistics shape inspection.
+The fallible shape walk resolves the fields used by the subsequent post-order
+layout, including variant inspection under list, map and extension storage.
+Cold parsing retains existing lazy ownership and returns an error when metadata
+cannot fit; it does not panic or change the caller's grant. Caller-owned
+statistics constructors retain their explicit compatibility boundary.
+
 ShardLoom's native tests exercise the linked provider with real serialized
 files, allocator refusal, exact grants, competing owners, retained clones,
 malformed-input cleanup, aligned sharing and complete nested/wide values.

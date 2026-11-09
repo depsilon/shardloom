@@ -70,7 +70,10 @@ fn native_payload_value_admission_keeps_many_retained_structs_within_the_shared_
             assert!(context.memory().snapshot().reserved_bytes < 8 << 20);
             let child = field(&retained.values[2047], "value")?;
             drop(retained);
-            assert!(context.memory().snapshot().reserved_bytes >= metadata_bytes(source.dtype())?);
+            assert!(
+                context.memory().snapshot().reserved_bytes
+                    >= metadata_bytes(source.dtype(), context)?
+            );
             let indices = index_array(1, false, context, |_| Ok(Some(0)))?;
             let before = context.memory().snapshot().reserved_bytes;
             let hold = context.memory().reserve((16 << 20) - before - 1)?;
@@ -105,8 +108,20 @@ fn native_payload_record_admission_preserves_wide_values_empty_children_and_nest
         session.with_native_execution_context(&CancellationToken::default(), |context| {
             let indices = index_array(1, false, context, |_| Ok(Some(0)))?;
             let before = context.memory().snapshot().reserved_bytes;
-            assert!(take(&source, &indices, source.dtype(), context).is_err());
-            assert!(defaults(source.dtype(), 0, context).is_err());
+            let nested = take(&source, &indices, source.dtype(), context)?;
+            let empty_nested = defaults(source.dtype(), 0, context)?;
+            assert_eq!(nested.dtype(), source.dtype());
+            assert_eq!(empty_nested.dtype(), source.dtype());
+            assert!(empty_nested.is_empty());
+            let mut execution = context.native_session().create_execution_ctx();
+            for (index, name) in fields.iter().enumerate() {
+                let child = field(&nested, name)?
+                    .execute::<PrimitiveArray>(&mut execution)
+                    .map_err(vortex_error)?;
+                assert_eq!(child.to_buffer::<i64>()[0], i64::try_from(index).unwrap());
+                assert!(field(&empty_nested, name)?.is_empty());
+            }
+            drop((nested, empty_nested));
             assert_eq!(context.memory().snapshot().reserved_bytes, before);
             let record = take_record(&source, &indices, source.dtype(), context)?;
             assert_eq!(record.dtype(), source.dtype());
@@ -119,7 +134,7 @@ fn native_payload_record_admission_preserves_wide_values_empty_children_and_nest
             }
             let child = field(&record, "field1024")?;
             drop(record);
-            let metadata = crate::native_payload_schema::schema_bytes(source.dtype())?;
+            let metadata = crate::native_payload_schema::schema_bytes(source.dtype(), context)?;
             assert!(context.memory().snapshot().reserved_bytes >= metadata);
             let empty = empty_record(source.dtype(), context)?;
             assert!(empty.is_empty());
@@ -201,7 +216,7 @@ fn empty_native_payload_children_retain_schema_after_parent_and_session_drop() {
             let alias = child.clone();
             drop((session, child));
             assert!(
-                memory.snapshot().reserved_bytes >= metadata_bytes(&dtype).unwrap(),
+                memory.snapshot().reserved_bytes >= metadata_bytes(&dtype, &memory).unwrap(),
                 "{dtype}: child path {path:?} released schema credit early"
             );
             drop(alias);

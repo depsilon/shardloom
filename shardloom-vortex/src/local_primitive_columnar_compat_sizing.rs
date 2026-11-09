@@ -10,7 +10,10 @@ const OWNER: &str = "compatibility_writer";
 /// The prepared root dtype is shared through Vortex's `StructFields` owner.
 /// Charge fresh child vectors/facades and nested canonical metadata, without
 /// charging another root name/type tree that this conversion never constructs.
-pub(super) fn canonical_metadata(dtype: &vortex::array::dtype::DType) -> Result<u64> {
+pub(super) fn canonical_metadata(
+    dtype: &vortex::array::dtype::DType,
+    context: &NativeExecutionContext<'_>,
+) -> Result<u64> {
     let fields = dtype
         .as_struct_fields_opt()
         .ok_or_else(|| error("canonical output requires a struct"))?;
@@ -20,7 +23,9 @@ pub(super) fn canonical_metadata(dtype: &vortex::array::dtype::DType) -> Result<
         .ok_or_else(|| error("canonical metadata size overflow"))?;
     fields.fields().try_fold(slots, |bytes, child| {
         bytes
-            .checked_add(crate::native_payload_schema::metadata_bytes(&child)?)
+            .checked_add(crate::native_payload_schema::metadata_bytes(
+                &child, context,
+            )?)
             .ok_or_else(|| error("canonical metadata size overflow"))
     })
 }
@@ -39,13 +44,14 @@ impl<'a> ConversionWindow<'a> {
         export: &'a PreparedCompatibilityExport,
         initial: u64,
         source_rows: usize,
+        context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
         Ok(Self {
             export,
             initial,
             overhead: export.writer_overhead()?,
             source_rows,
-            schema_bytes: crate::native_payload_schema::schema_bytes(&export.plan.dtype)?,
+            schema_bytes: crate::native_payload_schema::schema_bytes(&export.plan.dtype, context)?,
             gather_scratch: crate::local_primitives::native_payload::gather_scratch_per_row(
                 &export.plan.dtype,
             )?,

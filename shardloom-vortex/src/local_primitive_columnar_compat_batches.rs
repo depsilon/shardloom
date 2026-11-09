@@ -150,10 +150,10 @@ impl PreparedCompatibilityExport {
         // owned until every selected part has completed its writer operation.
         let _validation_metadata = execution
             .memory()
-            .reserve(sizing::canonical_metadata(&self.plan.dtype)?)?;
+            .reserve(sizing::canonical_metadata(&self.plan.dtype, execution)?)?;
         let (validated, validated_bytes) =
             admitted_canonical(array, &self.plan.dtype, ctx, &limits)?;
-        let window = sizing::ConversionWindow::new(self, initial, array.len())?;
+        let window = sizing::ConversionWindow::new(self, initial, array.len(), execution)?;
         let mut width = validated_bytes.div_ceil(array.len() as u64).max(1);
         let mut start = 0;
         while start < array.len() {
@@ -173,10 +173,8 @@ impl PreparedCompatibilityExport {
                 let (canonical, expanded, subset_metadata) = if count == array.len() {
                     (validated.clone(), validated_bytes, None)
                 } else {
-                    let metadata = crate::native_payload_schema::reserve_schema(
-                        &self.plan.dtype,
-                        execution.memory(),
-                    )?;
+                    let metadata =
+                        crate::native_payload_schema::reserve_schema(&self.plan.dtype, execution)?;
                     let subset = validated
                         .slice(start..start + count)
                         .map_err(vortex_error)?;

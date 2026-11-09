@@ -8,6 +8,7 @@ use serde_json::json;
 
 #[test]
 fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_empty_structs() {
+    let memory = shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
     let mut deep = DType::Primitive(PType::I64, Nullability::Nullable);
     for _ in 0..25 {
         deep = DType::List(std::sync::Arc::new(deep), Nullability::Nullable);
@@ -21,9 +22,10 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
         }),
         Nullability::NonNullable,
     );
+    assert!(native_payload::metadata_bytes(&wide, &memory).is_ok());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
     for dtype in [
         deep,
-        wide,
         DType::struct_([] as [(String, DType); 0], Nullability::Nullable),
         DType::Decimal(
             vortex::array::dtype::DecimalDType::new(39, 0),
@@ -31,7 +33,10 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
         ),
         DType::Variant(Nullability::Nullable),
     ] {
-        assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
+        assert!(
+            native_payload::metadata_bytes(&dtype, &memory).is_err(),
+            "{dtype}"
+        );
     }
     let duplicate = DType::struct_(
         [
@@ -40,7 +45,8 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
         ],
         Nullability::Nullable,
     );
-    assert!(native_payload::metadata_bytes(&duplicate).is_err());
+    assert!(native_payload::metadata_bytes(&duplicate, &memory).is_err());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]
@@ -173,7 +179,12 @@ fn native_nested_json_cancellation_is_checked_within_a_single_list() {
     };
     let result = session.with_native_execution_context(&cancelled, |context| {
         let mut execution = context.native_session().create_execution_ctx();
-        let column = native_json::Column::new(&array, &mut execution, context.memory())?;
+        let column = native_json::Column::new(
+            &array,
+            &mut execution,
+            context.memory(),
+            context.cancellation(),
+        )?;
         column.write(0, &mut writer, &mut execution, context.cancellation())
     });
     assert!(result.err().unwrap().to_string().contains("cancel"));

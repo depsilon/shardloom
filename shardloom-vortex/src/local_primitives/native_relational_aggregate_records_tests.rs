@@ -5,6 +5,7 @@ use crate::{
     local_primitives::logical_field_from_native_array, resident_session::ResidentVortexSession,
 };
 use shardloom_exec::compute_pool::CancellationToken;
+use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::arrays::Primitive;
 
 fn columns(context: &NativeExecutionContext<'_>) -> Result<ReservedVec<ArrayRef>> {
@@ -21,9 +22,12 @@ fn ordered_aggregate_record_metadata_follows_required_ordinal_without_copying_pa
     let memory = session.memory().clone();
     let name = "x".repeat(4096);
     let fields = vec![(name, u64_type()), (ORDINAL.into(), u64_type())];
-    let metadata =
-        native_payload::metadata_bytes(&DType::struct_(fields.clone(), Nullability::NonNullable))
-            .unwrap();
+    let schema_memory = LiveMemoryPool::new(32 << 20).unwrap();
+    let metadata = native_payload::metadata_bytes(
+        &DType::struct_(fields.clone(), Nullability::NonNullable),
+        &schema_memory,
+    )
+    .unwrap();
     let array = session
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let columns = columns(context)?;
@@ -33,7 +37,7 @@ fn ordered_aggregate_record_metadata_follows_required_ordinal_without_copying_pa
                 .to_buffer::<u64>()
                 .as_ptr();
             let before = memory.snapshot().reserved_bytes;
-            let array = structure(&fields, columns, 2)?;
+            let array = structure(&fields, columns, 2, context)?;
             let ordinal = logical_field_from_native_array(&array, ORDINAL)?;
             assert_eq!(
                 ordinal
@@ -60,9 +64,12 @@ fn ordered_aggregate_record_metadata_follows_required_ordinal_without_copying_pa
 #[test]
 fn ordered_aggregate_public_metadata_follows_selected_child_and_denies_before_parent_allocation() {
     let fields = vec![("x".repeat(4096), u64_type()), ("y".into(), u64_type())];
-    let metadata =
-        native_payload::metadata_bytes(&DType::struct_(fields.clone(), Nullability::NonNullable))
-            .unwrap();
+    let schema_memory = LiveMemoryPool::new(32 << 20).unwrap();
+    let metadata = native_payload::metadata_bytes(
+        &DType::struct_(fields.clone(), Nullability::NonNullable),
+        &schema_memory,
+    )
+    .unwrap();
     let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
     let memory = session.memory().clone();
     let array = session

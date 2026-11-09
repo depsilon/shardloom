@@ -126,11 +126,17 @@ Parquet production of all rows, independent Parquet readback without null vector
 parents, and complete nullable Arrow IPC readback. Do not claim that PyArrow
 version reads the nullable Parquet fixture.
 
-Existing depth 24/node 4096/schema metadata bounds remain. The tracked iterative,
+At this initial delivery, depth 24/node 4096/schema metadata bounds remained. The tracked iterative,
 resource-backed traversal generalization needs complete lifecycle proof beyond
 those boundaries. This first payload delivery does not close that work or the
 whole of item 19. The [public guide](../reference/rich-columns.md) records the
 precise supported routes and remaining obligations.
+
+The [November 9 wide-schema delivery](native-wide-schema-2026-11-09.md)
+subsequently replaces nested width, logical-node and metadata-estimate ceilings
+with shared memory admission. Depth 24 and format/transport limits remain.
+The original acceptance packets and results below remain unchanged; this finite
+extension does not complete deep traversal or all of item 19.
 
 ## Local verification
 

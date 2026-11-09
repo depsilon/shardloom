@@ -158,8 +158,13 @@ identity for binary arithmetic, or explicit identity removal with
 arithmetic, or make rich extensions comparison keys. Fixed- and variable-shape
 tensors and Float16 components use the same payload lifecycle. ANN indexing
 remains separate work in the [rich-data lifecycle plan](../architecture/native-rich-data-lifecycle-2026-10-24.md).
-Existing nested-schema depth/node/metadata limits remain; replacing them requires
-the separately tracked resource-backed traversal work, not removal of checks.
+Source builds after 1.1.0 admit nested field width, expanded logical nodes and
+schema metadata through the operation's shared memory grant. The former
+1,024-field, 4,096-node and 8 MiB metadata-estimate ceilings no longer define
+those logical schema boundaries. Depth 24, serialized declaration/JSON byte
+limits and physical IPC validation remain separate contracts. See the
+[wide-schema contract](../architecture/native-wide-schema-2026-11-09.md) for
+the tested shapes, refusal behavior and retained-owner boundaries.
 
 See the [implementation and acceptance contract](../architecture/native-dense-embedding-lifecycle-2026-11-05.md)
 for the native provider, ownership and verification boundaries.

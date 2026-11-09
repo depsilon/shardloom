@@ -138,9 +138,15 @@ impl ScalarFnVTable for Select {
                 .names()
                 .iter()
                 .cloned()
-                .zip_eq(child_struct_dtype.fields())
-                .filter(|(name, _)| !fields.as_ref().contains(name))
-                .collect(),
+                .zip_eq(child_struct_dtype.try_field_dtypes())
+                .filter_map(|(name, dtype)| match dtype {
+                    Ok(dtype) if !fields.as_ref().contains(&name) => {
+                        Some(Ok((name, dtype.clone())))
+                    }
+                    Ok(_) => None,
+                    Err(error) => Some(Err(error)),
+                })
+                .collect::<VortexResult<_>>()?,
         };
 
         Ok(DType::Struct(projected, child_dtype.nullability()))
@@ -200,15 +206,20 @@ impl ScalarFnVTable for Select {
 
         // "Mask" out the unwanted fields of the child struct `DType`.
         let included_fields = selection.normalize_to_included_fields(struct_fields.names())?;
-        let all_included_fields_are_nullable = included_fields.iter().all(|name| {
-            struct_fields
-                .field(name)
+        let mut all_included_fields_are_nullable = true;
+        for name in included_fields.iter() {
+            if !struct_fields
+                .try_field(name)?
                 .vortex_expect(
                     "`normalize_to_included_fields` checks that the included fields already exist \
                      in `struct_fields`",
                 )
                 .is_nullable()
-        });
+            {
+                all_included_fields_are_nullable = false;
+                break;
+            }
+        }
 
         // If no fields are included, we can trivially simplify to a pack expression.
         // NOTE(ngates): we do this knowing that our layout expression partitioning logic has

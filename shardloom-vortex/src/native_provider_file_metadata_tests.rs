@@ -584,6 +584,78 @@ fn native_file_metadata_nested_schema_and_values_survive_native_roundtrip() {
 }
 
 #[test]
+fn native_file_metadata_cold_wide_refusal_and_retry_cover_statistics_modes() {
+    let leaves: Vec<_> = (0..1025)
+        .map(|index| {
+            PrimitiveArray::from_option_iter([Some(i64::from(index)), None, Some(-9)]).into_array()
+        })
+        .collect();
+    let payload = StructArray::try_new(
+        (0..1025)
+            .map(|index| FieldName::from(format!("field_{index}")))
+            .collect(),
+        leaves,
+        3,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let expected = StructArray::try_new(
+        FieldNames::from(["first", "second"]),
+        vec![payload.clone(), payload],
+        3,
+        Validity::NonNullable,
+    )
+    .unwrap()
+    .into_array();
+    let runtime = CurrentThreadRuntime::new();
+    let writer = VortexSession::default().with_handle(runtime.handle());
+    for mode in ["legacy", "nested", "absent"] {
+        let mut options = writer.write_options();
+        options = match mode {
+            "nested" => options.include_nested_statistics(),
+            "absent" => options.with_file_statistics(Vec::new()),
+            _ => options,
+        };
+        let mut bytes = Vec::new();
+        let written = runtime
+            .block_on(options.write(&mut bytes, expected.to_array_stream()))
+            .unwrap();
+        assert_eq!(written.footer().statistics().is_some(), mode != "absent");
+        for available in [256 << 10, 512 << 10] {
+            let memory = LiveMemoryPool::new(32 << 20).unwrap();
+            let peer = memory.reserve((32 << 20) - available).unwrap();
+            let consumer = session(&memory).with_handle(runtime.handle());
+            let result = (|| -> vortex::error::VortexResult<()> {
+                let file = consumer.open_options().open_buffer(bytes.clone())?;
+                // No dtype equality/debug formatting before the fallible reader:
+                // those compatibility operations can force lazy field parsing.
+                for batch in file.scan()?.with_ordered(true).into_array_iter(&runtime)? {
+                    let _ = batch?;
+                }
+                Ok(())
+            })();
+            let error = result.expect_err("a cold wide file must exceed the small grant");
+            assert!(
+                crate::owned_buffers::is_owned_reservation_denial(&error),
+                "{mode}: {error}"
+            );
+            assert_eq!(memory.snapshot().reserved_bytes, (32 << 20) - available);
+            assert!(memory.snapshot().denied_reservations > 0);
+            drop(peer);
+            let file = consumer.open_options().open_buffer(bytes.clone()).unwrap();
+            assert_values(&file, &expected, &runtime);
+            assert_eq!(file.dtype(), expected.dtype());
+            let dtype = file.dtype().clone();
+            drop((file, consumer));
+            assert!(memory.snapshot().reserved_bytes > 0);
+            drop(dtype);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
 fn native_file_metadata_cached_realignment_preserves_sharing_and_exact_admission() {
     let (bytes, footer) = fixture();
     let runtime = CurrentThreadRuntime::new();

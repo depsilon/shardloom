@@ -81,7 +81,12 @@ impl PreparedVortexRelational {
                             let plan = (declaration.lower)(&mut preparation)?;
                             let root = preparation.binding.bind(&plan, 0)?;
                             preparation.binding.ensure_consumed()?;
-                            bind::validate_subquery_relation(spec, &input.fields, &root.fields)?;
+                            bind::validate_subquery_relation(
+                                spec,
+                                &input.fields,
+                                &root.fields,
+                                context.into(),
+                            )?;
                             self.complete_subquery(
                                 spec,
                                 &root,

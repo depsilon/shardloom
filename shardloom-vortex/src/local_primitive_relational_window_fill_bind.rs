@@ -11,6 +11,7 @@ pub(super) fn bind(
     expression: &VortexRelationalWindowExpression,
     fields: &[(String, DType)],
     window: &mut kernel::Spec,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<(kernel::fill::Spec, DType)> {
     if expression.frame.is_some() || expression.order_by.len() != 1 {
         return Err(failed(
@@ -24,7 +25,7 @@ pub(super) fn bind(
             "temporal filling requires an explicitly typed temporal ordering key",
         ));
     }
-    let time = key(window, fields, order.column.as_str())?;
+    let time = key(window, fields, order.column.as_str(), scope)?;
     let source = field(fields, column)?;
     let (value, dtype) = if method == Method::Linear {
         if !matches!(
@@ -36,13 +37,16 @@ pub(super) fn bind(
             ));
         }
         (
-            key(window, fields, column)?,
+            key(window, fields, column, scope)?,
             DType::Primitive(PType::F64, Nullability::Nullable),
         )
     } else {
         // Preserve nested payloads without evaluating their children just to
         // decide whether the whole value is missing.
-        (validity_key(window, fields, column)?, source.as_nullable())
+        (
+            validity_key(window, fields, column, scope)?,
+            source.as_nullable(),
+        )
     };
     Ok((
         kernel::fill::Spec {

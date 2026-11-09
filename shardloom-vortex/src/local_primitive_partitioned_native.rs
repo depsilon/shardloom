@@ -60,8 +60,12 @@ impl<'a> PartitionedNativeOperation<'a> {
             return Err(failed("source declarations and retained owners differ"));
         }
         let session = super::prepared_dispatch::source_session(first, request, Some(policy))?;
-        let metadata =
-            session.reserve_input_scratch(metadata_bytes(request, uris, first.dtype())?)?;
+        let metadata = session.reserve_input_scratch(metadata_bytes(
+            request,
+            uris,
+            first.dtype(),
+            (session.memory(), cancellation).into(),
+        )?)?;
         match request.kind {
             Kind::SimpleAggregate => {
                 super::prepared_aggregate::canonical(request)?;
@@ -328,6 +332,7 @@ fn metadata_bytes(
     request: &VortexQueryPrimitiveRequest,
     uris: &[DatasetUri],
     dtype: &DType,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<u64> {
     struct Count(u64);
     impl std::fmt::Write for Count {
@@ -357,7 +362,7 @@ fn metadata_bytes(
             .ok_or_else(|| failed("source metadata size overflow"))?;
     }
     bytes
-        .checked_add(super::native_payload::metadata_bytes(dtype)?.saturating_mul(4))
+        .checked_add(super::native_payload::metadata_bytes(dtype, scope)?.saturating_mul(4))
         .ok_or_else(|| failed("schema metadata size overflow"))
 }
 

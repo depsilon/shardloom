@@ -87,7 +87,7 @@ impl Binder<'_> {
         let mut right_keys = Vec::new();
         for key in query.correlation.iter().chain(columns) {
             if let SubqueryRelation::Bound(relation) = &relation {
-                bind_key(key, &input.fields, &relation.fields)?;
+                bind_key(key, &input.fields, &relation.fields, self.schema_scope())?;
             } else {
                 validate_name(key.left.as_str())?;
                 validate_name(key.right.as_str())?;
@@ -198,9 +198,10 @@ pub(in crate::local_primitives::prepared_relational) fn validate_relation(
     spec: &Spec,
     left: &[(String, DType)],
     right: &[(String, DType)],
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<()> {
     for (left_name, right_name) in spec.left_keys.iter().zip(&spec.right_keys) {
-        validate_key_pair(field(left, left_name)?, field(right, right_name)?)?;
+        validate_key_pair(field(left, left_name)?, field(right, right_name)?, scope)?;
     }
     Ok(())
 }
@@ -209,11 +210,13 @@ fn bind_key(
     key: &VortexRelationalJoinKey,
     left: &[(String, DType)],
     right: &[(String, DType)],
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<()> {
     validate_name(key.left.as_str())?;
     validate_name(key.right.as_str())?;
     validate_key_pair(
         field(left, key.left.as_str())?,
         field(right, key.right.as_str())?,
+        scope,
     )
 }

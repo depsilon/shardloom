@@ -11,7 +11,6 @@ use super::{
     StatValue, UnaryOutput, Value, VortexQueryPrimitiveRequest, failed, vortex_error,
 };
 use shardloom_core::ScalarValue;
-use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{
     ArrayRef,
     dtype::{DecimalDType, PType},
@@ -94,8 +93,9 @@ impl Plan {
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,
         columns: &[String],
-        memory: &LiveMemoryPool,
+        scope: crate::native_payload_schema::Scope<'_>,
     ) -> Result<Self> {
+        let memory = scope.memory();
         let projection = super::super::required_pivot_projection(request)?;
         let aggregate = super::super::normalized_pivot_aggregate(projection)?.to_owned();
         if projection.margins && matches!(aggregate.as_str(), "first" | "first_unique") {
@@ -116,7 +116,7 @@ impl Plan {
                 .position(|column| column == name)
                 .ok_or_else(|| failed("pivot source column is absent"))?;
             let dtype = super::schema::source_field(dtype, name)?;
-            native_payload::metadata_bytes(&dtype)?;
+            native_payload::metadata_bytes(&dtype, scope)?;
             dtypes.push(dtype);
         }
         let nested_value = native_payload::is_nested(&dtypes[2]);
@@ -542,7 +542,7 @@ impl Pivot {
         }
         drop(super::super::completed_result::CompletedRows::new_native(
             fields.clone(),
-            context.memory(),
+            context,
         )?);
         let columns = fields
             .iter()

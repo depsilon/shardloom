@@ -116,11 +116,12 @@ impl Rows {
         fields: &[(String, DType)],
         maximum: usize,
         copies: u64,
+        context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
         Ok(Self {
             owner,
             sizing: AdaptiveWorkSizer::default(),
-            cost: fields_cost(fields, copies)?,
+            cost: fields_cost(fields, copies, context)?,
             maximum,
             copies,
         })
@@ -128,10 +129,16 @@ impl Rows {
 
     /// A schema-derived starting estimate. Variable values and provider decode
     /// workspace are not bounded by this estimate. Actual owners still reserve.
-    pub(crate) fn new(owner: Owner, dtype: &DType, maximum: usize, copies: u64) -> Result<Self> {
+    pub(crate) fn new(
+        owner: Owner,
+        dtype: &DType,
+        maximum: usize,
+        copies: u64,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
         Self::with_cost(
             owner,
-            crate::native_payload_schema::schema_bytes(dtype)?,
+            crate::native_payload_schema::schema_bytes(dtype, context)?,
             row_bytes(dtype, 0)?,
             maximum,
             copies,
@@ -198,14 +205,12 @@ impl Rows {
 
 /// Schema and physical starting costs without constructing a temporary dtype.
 /// Owners add their own simultaneous scratch, framing and retained structures.
-pub(crate) fn fields_cost(fields: &[(String, DType)], copies: u64) -> Result<WorkCost> {
-    let metadata = fields.iter().try_fold(
-        crate::native_payload_schema::names_bytes(fields.len(), |i| fields[i].0.as_str())?,
-        |sum, (_, dtype)| {
-            sum.checked_add(crate::native_payload_schema::metadata_bytes(dtype)?)
-                .ok_or_else(overflow)
-        },
-    )?;
+pub(crate) fn fields_cost(
+    fields: &[(String, DType)],
+    copies: u64,
+    context: &NativeExecutionContext<'_>,
+) -> Result<WorkCost> {
+    let metadata = crate::native_payload_schema::reserve_fields(fields, context)?.bytes();
     let row_bytes = fields.iter().try_fold(0_u64, |sum, (_, dtype)| {
         sum.checked_add(row_bytes(dtype, 0)?).ok_or_else(overflow)
     })?;

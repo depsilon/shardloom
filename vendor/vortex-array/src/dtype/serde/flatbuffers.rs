@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-09: admit lazy struct metadata containers
+// through the session host allocator before creating names or field caches.
 
 use std::sync::Arc;
 
@@ -17,6 +19,7 @@ use vortex_session::VortexSession;
 use crate::dtype::DType;
 use crate::dtype::DecimalDType;
 use crate::dtype::FieldDType;
+use crate::dtype::FieldName;
 use crate::dtype::FieldNames;
 use crate::dtype::MapDType;
 use crate::dtype::PType;
@@ -30,6 +33,7 @@ use crate::flatbuffers::FlatBuffer;
 use crate::flatbuffers::FlatBufferRoot;
 use crate::flatbuffers::WriteFlatBuffer;
 use crate::flatbuffers::dtype as fbd;
+use crate::memory::HostMemorySessionExt;
 
 /// A lazily evaluated DType, parsed on access from an underlying flatbuffer.
 #[derive(Debug, Clone)]
@@ -70,34 +74,62 @@ impl StructFields {
         buffer: FlatBuffer,
         session: VortexSession,
     ) -> VortexResult<Self> {
-        let names: FieldNames = fb_struct
+        let source_names = fb_struct
             .names()
-            .ok_or_else(|| vortex_err!("failed to parse struct names from flatbuffer"))?
-            .iter()
-            .collect();
-
-        let dtypes = fb_struct
+            .ok_or_else(|| vortex_err!("failed to parse struct names from flatbuffer"))?;
+        let source_dtypes = fb_struct
             .dtypes()
-            .ok_or_else(|| vortex_err!("failed to parse struct dtypes from flatbuffer"))?
-            .iter()
-            .map(|dt| {
-                FieldDType::from(ViewedDType::from_fb_loc(
-                    dt._tab.loc(),
-                    buffer.clone(),
-                    session.clone(),
-                ))
-            })
-            .collect::<Vec<_>>();
-
-        if names.len() != dtypes.len() {
+            .ok_or_else(|| vortex_err!("failed to parse struct dtypes from flatbuffer"))?;
+        if source_names.len() != source_dtypes.len() {
             vortex_bail!(
                 "length mismatch between struct names ({}) and dtypes ({})",
-                names.len(),
-                dtypes.len()
+                source_names.len(),
+                source_dtypes.len()
             );
         }
-
-        Ok(StructFields::from_fields(names, dtypes))
+        // Cover Vec-to-Arc overlap, each lazy cache/control block, the eventual
+        // field lookup table and copied names. Child structs reserve separately
+        // on first touch. This is container accounting, not process RSS.
+        let per_field = size_of::<FieldDType>()
+            .checked_mul(2)
+            .and_then(|bytes| bytes.checked_add(size_of::<FieldName>() * 2))
+            .and_then(|bytes| bytes.checked_add(512))
+            .ok_or_else(|| vortex_err!("struct metadata size overflow"))?;
+        let bytes = source_names.iter().try_fold(
+            source_names
+                .len()
+                .checked_mul(per_field)
+                .and_then(|bytes| bytes.checked_add(4096))
+                .ok_or_else(|| vortex_err!("struct metadata size overflow"))?,
+            |bytes, name| {
+                name.len()
+                    .checked_mul(2)
+                    .and_then(|name_bytes| bytes.checked_add(name_bytes))
+                    .ok_or_else(|| vortex_err!("struct metadata size overflow"))
+            },
+        )?;
+        let metadata = session.host_allocator().reserve_external(bytes)?;
+        let mut names = Vec::new();
+        names
+            .try_reserve_exact(source_names.len())
+            .map_err(|error| vortex_err!("struct name allocation failed: {error}"))?;
+        let mut dtypes = Vec::new();
+        dtypes
+            .try_reserve_exact(source_dtypes.len())
+            .map_err(|error| vortex_err!("struct field allocation failed: {error}"))?;
+        names.extend(source_names.iter().map(FieldName::from));
+        dtypes.extend(source_dtypes.iter().map(|dt| {
+            FieldDType::from(ViewedDType::from_fb_loc(
+                dt._tab.loc(),
+                buffer.clone(),
+                session.clone(),
+            ))
+        }));
+        Ok(StructFields::from_reserved_fields(
+            FieldNames::from(names),
+            dtypes,
+            metadata,
+        ))
     }
 }
 

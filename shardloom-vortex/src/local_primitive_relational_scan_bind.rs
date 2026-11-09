@@ -174,12 +174,12 @@ impl Binder<'_> {
             .iter()
             .enumerate()
             .map(|(index, (name, dtype))| {
-                spec.retains(index)
+                Ok(spec.retains(index)
                     && (needed.contains(name.as_str())
                         || (needed.is_empty() && first == Some(index))
-                        || native::native_payload::metadata_bytes(dtype).is_err())
+                        || !crate::native_payload_schema::supported(dtype, self.schema_scope())?))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
         if retained.iter().all(|retained| *retained) {
             return Ok(());
         }

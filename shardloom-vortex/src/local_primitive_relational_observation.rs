@@ -20,7 +20,7 @@ impl Metrics<'_> {
             if array.len() != 1 || schema.is_some() {
                 return Err(failed("observation must produce exactly one metric row"));
             }
-            schema = Some(serialize_result_schema(array.dtype(), context.memory())?);
+            schema = Some(serialize_result_schema(array.dtype(), context)?);
             output.append_native(&array, context)
         })?;
         let mut completed = self.observations.borrow_mut();

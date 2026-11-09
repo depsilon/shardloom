@@ -47,7 +47,7 @@ impl OutputBuffer {
                 "native output compaction requires positive batch capacity",
             ));
         }
-        let chunk_metadata_bytes = crate::native_payload_schema::schema_bytes(&dtype)?
+        let chunk_metadata_bytes = crate::native_payload_schema::schema_bytes(&dtype, context)?
             .checked_mul(2)
             .ok_or_else(|| failed("completed record metadata capacity overflow"))?;
         let gather_scratch_per_row = native_payload::gather_scratch_per_row(&dtype)?;

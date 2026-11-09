@@ -91,13 +91,20 @@ pub(crate) fn storage(dtype: &DType) -> Option<&DType> {
     Some(extension.storage_dtype())
 }
 
-pub(crate) fn contains(dtype: &DType) -> bool {
-    match dtype {
+pub(crate) fn contains(dtype: &DType) -> VortexResult<bool> {
+    Ok(match dtype {
         DType::Extension(_) => storage(dtype).is_some(),
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains(child),
-        DType::Struct(fields, _) => fields.fields().any(|child| contains(&child)),
+        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains(child)?,
+        DType::Struct(fields, _) => {
+            for child in fields.try_field_dtypes() {
+                if contains(child?)? {
+                    return Ok(true);
+                }
+            }
+            false
+        }
         _ => false,
-    }
+    })
 }
 
 pub(crate) fn dtype(nullable: bool) -> VortexResult<DType> {
@@ -158,7 +165,7 @@ mod tests {
         for nullable in [false, true] {
             let ty = dtype(nullable).unwrap();
             assert_eq!(storage(&ty), Some(&DType::Binary(nullable.into())));
-            assert!(contains(&ty));
+            assert!(contains(&ty).unwrap());
         }
     }
 }

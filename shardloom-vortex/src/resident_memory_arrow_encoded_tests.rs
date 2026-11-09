@@ -692,7 +692,9 @@ mod admitted {
 
     #[test]
     fn encoded_arrow_control_rejects_unadmitted_types_annotations_and_depth() {
-        let metadata = crate::native_payload_schema::arrow_metadata_bytes;
+        let memory = shardloom_exec::live_memory::LiveMemoryPool::new(1 << 20).unwrap();
+        let metadata =
+            |dtype: &DataType| crate::native_payload_schema::arrow_metadata_bytes(dtype, &memory);
         for value in [
             DataType::Float32,
             DataType::Float64,

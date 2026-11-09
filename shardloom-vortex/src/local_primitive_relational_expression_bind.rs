@@ -184,7 +184,7 @@ impl Binder<'_> {
     ) -> Result<Expression> {
         let child = Box::new(self.expression(input, fields, depth + 1)?);
         if matches!(op, UnaryOp::IsNull | UnaryOp::IsNotNull) {
-            selected_operand(&child.dtype)?;
+            selected_operand(&child.dtype, self.schema_scope())?;
         } else {
             scalar_operand(&child.dtype)?;
         }
@@ -239,7 +239,7 @@ impl Binder<'_> {
             .collect::<Result<Vec<_>>>()?;
         let mut element = DType::Null;
         for value in &values {
-            selected_operand(&value.dtype)?;
+            selected_operand(&value.dtype, self.schema_scope())?;
             element = common(&element, &value.dtype)?;
         }
         if element == DType::Null {
@@ -273,7 +273,7 @@ impl Binder<'_> {
                 return Err(failed("struct constructor field names must be distinct"));
             }
             let mut value = self.expression(value, fields, depth + 1)?;
-            selected_operand(&value.dtype)?;
+            selected_operand(&value.dtype, self.schema_scope())?;
             if value.dtype == DType::Null {
                 value = bound_cast(self, value, DType::Bool(Nullability::Nullable))?;
             }
@@ -314,7 +314,7 @@ impl Binder<'_> {
             .map(|arg| self.expression(arg, fields, depth + 1))
             .collect::<Result<Vec<_>>>()?;
         for argument in &args {
-            selected_operand(&argument.dtype)?;
+            selected_operand(&argument.dtype, self.schema_scope())?;
         }
         let nullability = function_nullability(definition.null_rule, &args);
         let (dtype, kind) = match definition.type_rule {
@@ -332,7 +332,7 @@ impl Binder<'_> {
                 let right = args.pop().expect("length bound");
                 let left = args.pop().expect("length bound");
                 // NULLIF retains its first operand's type and values.
-                compatible(&left.dtype, &right.dtype)?;
+                compatible(&left.dtype, &right.dtype, self.schema_scope())?;
                 (
                     left.dtype.clone(),
                     Kind::NullIf(Box::new(left), Box::new(right)),
@@ -965,7 +965,7 @@ fn comparison_operands(
         left = bound_cast(binder, left, left_dtype)?;
         right = bound_cast(binder, right, right_dtype)?;
     }
-    compatible(&left.dtype, &right.dtype)?;
+    compatible(&left.dtype, &right.dtype, binder.schema_scope())?;
     Ok((Box::new(left), Box::new(right)))
 }
 
@@ -994,13 +994,17 @@ fn bound_cast(binder: &mut Binder<'_>, expression: Expression, dtype: DType) -> 
     ))
 }
 
-fn compatible(left: &DType, right: &DType) -> Result<()> {
-    selected_operand(left)?;
-    selected_operand(right)?;
+fn compatible(
+    left: &DType,
+    right: &DType,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<()> {
+    selected_operand(left, scope)?;
+    selected_operand(right, scope)?;
     if left == &DType::Null || right == &DType::Null {
         Ok(())
     } else {
-        validate_key_pair(left, right)
+        validate_key_pair(left, right, scope)
     }
 }
 
@@ -1012,11 +1016,11 @@ fn scalar_operand(dtype: &DType) -> Result<()> {
     }
 }
 
-fn selected_operand(dtype: &DType) -> Result<()> {
+fn selected_operand(dtype: &DType, scope: crate::native_payload_schema::Scope<'_>) -> Result<()> {
     if dtype == &DType::Null {
         Ok(())
     } else {
-        validate_key(dtype)
+        validate_key(dtype, scope)
     }
 }
 

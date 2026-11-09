@@ -14660,7 +14660,7 @@ impl LocalVortexWriteContext {
     ) -> Result<LocalVortexWriteResult> {
         use vortex::array::memory::HostMemorySessionExt as _;
         #[cfg(feature = "native-binary-objects")]
-        if crate::native_binary_type::contains(array.dtype()) {
+        if crate::native_binary_type::contains(array.dtype()).map_err(vortex_error)? {
             return Err(vortex_error(
                 "SL-BINARY-OBJECT-OWNERSHIP: compatibility ingestion cannot persist unowned binary-object descriptors; use the resident native Vortex writer with admitted object owners",
             ));
@@ -14804,7 +14804,7 @@ impl LocalVortexWriteContext {
     {
         cancellation.check()?;
         #[cfg(feature = "native-binary-objects")]
-        if crate::native_binary_type::contains(iter.dtype()) {
+        if crate::native_binary_type::contains(iter.dtype()).map_err(vortex_error)? {
             return Err(vortex_error(
                 "SL-BINARY-OBJECT-OWNERSHIP: compatibility ingestion cannot persist unowned binary-object descriptors; use the resident native Vortex writer with admitted object owners",
             ));

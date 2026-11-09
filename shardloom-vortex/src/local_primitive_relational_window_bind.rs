@@ -68,6 +68,7 @@ impl Binder<'_> {
                         expression,
                         &input.fields,
                         &mut spec,
+                        self.schema_scope(),
                     )?;
                     (None, Some(fill), dtype)
                 } else if let Function::Framed(declaration) = &expression.function {
@@ -138,7 +139,7 @@ impl Binder<'_> {
         self.charge_names(expression.order_by.iter().map(|key| key.column.as_str()))?;
         let mut partition = Vec::new();
         for column in &expression.partition_by {
-            let index = key(spec, fields, column.as_str())?;
+            let index = key(spec, fields, column.as_str(), self.schema_scope())?;
             if partition.contains(&index) {
                 return Err(failed("window partition columns must be unique"));
             }
@@ -149,7 +150,7 @@ impl Binder<'_> {
             .iter()
             .map(|column| {
                 Ok(kernel::OrderKey {
-                    key: key(spec, fields, column.column.as_str())?,
+                    key: key(spec, fields, column.column.as_str(), self.schema_scope())?,
                     descending: column.descending,
                     nulls: column.nulls,
                 })
@@ -202,9 +203,14 @@ pub(super) fn input_columns(spec: &kernel::Spec) -> impl Iterator<Item = &str> {
         }))
 }
 
-fn key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Result<usize> {
+fn key(
+    spec: &mut kernel::Spec,
+    fields: &[(String, DType)],
+    name: &str,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<usize> {
     validate_name(name)?;
-    validate_key(field(fields, name)?)?;
+    validate_key(field(fields, name)?, scope)?;
     if let Some(index) = spec
         .keys
         .iter()
@@ -217,9 +223,14 @@ fn key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Resul
     Ok(spec.keys.len() - 1)
 }
 
-fn validity_key(spec: &mut kernel::Spec, fields: &[(String, DType)], name: &str) -> Result<usize> {
+fn validity_key(
+    spec: &mut kernel::Spec,
+    fields: &[(String, DType)],
+    name: &str,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<usize> {
     validate_name(name)?;
-    validate_key(field(fields, name)?)?;
+    validate_key(field(fields, name)?, scope)?;
     if let Some(index) = spec
         .parent_validity_keys
         .iter()

@@ -118,7 +118,7 @@ impl Layout {
         // Covers both cloned sort descriptions, private names and logical types.
         // Payload/key owners and their growth still reserve separately.
         let bytes = fields.iter().try_fold(16_384_u64, |total, (_, dtype)| {
-            native_payload::metadata_bytes(dtype)?
+            native_payload::metadata_bytes(dtype, context)?
                 .checked_add(2048)
                 .and_then(|field| field.checked_mul(8))
                 .and_then(|field| total.checked_add(field))
@@ -173,7 +173,7 @@ impl Layout {
                 .checked_add((range.start + row) as u64)
                 .ok_or_else(|| failed("ordered set input ordinal overflow"))
         })?);
-        records::structure(&self.keys.fields, columns, rows)
+        records::structure(&self.keys.fields, columns, rows, context)
     }
 }
 

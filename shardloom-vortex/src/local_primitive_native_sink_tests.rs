@@ -766,7 +766,14 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
     .unwrap();
     let metadata = 40_000_u64.div_ceil(SCAN_ROWS as u64) * METADATA_BYTES_PER_CHUNK
         + 128 * 1024
-        + prepared.schema_metadata.bytes()
+        + prepared.schema_metadata.bytes().max(
+            crate::native_payload_schema::reserve_encoded_schema(
+                &prepared.dtype,
+                prepared.session.memory(),
+            )
+            .unwrap()
+            .bytes(),
+        )
         + statistics.bytes();
     drop(statistics);
     let available = policy.resource_envelope().memory_budget_bytes
@@ -783,6 +790,48 @@ fn source_read_reservation_failure_cleans_staging_after_writer_admission() {
     assert!(error.to_string().contains("memory"), "{error}");
     assert!(!output.exists());
     assert!(!temporary_output_path(&output).unwrap().exists());
+}
+
+#[test]
+fn wide_nested_footer_admission_fails_before_staging_and_releases_schema_credit() {
+    use shardloom_core::{ExecutionResourceOrigin, ExecutionResources};
+    use vortex::array::dtype::{PType, StructFields};
+
+    let fixture = Fixture::new();
+    let fields = DType::Struct(
+        StructFields::from_iter((0..850).map(|index| {
+            (
+                format!("value_{index}"),
+                DType::Primitive(PType::I64, Nullability::Nullable),
+            )
+        })),
+        Nullability::Nullable,
+    );
+    let payload = DType::Struct(
+        StructFields::from_iter((0..10).map(|index| (format!("branch_{index}"), fields.clone()))),
+        Nullability::Nullable,
+    );
+    let dtype = DType::Struct(
+        StructFields::from_iter([("payload", payload)]),
+        Nullability::NonNullable,
+    );
+    let session = ResidentVortexSession::new(1 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let prepared = NativeSinkPlan::produced(session, dtype, 1, None, None).unwrap();
+    let request = Fixture::request(&fixture.0.join("unused-source.vortex"));
+    let policy = VortexLocalPrimitiveExecutionPolicy::from_resources(
+        ExecutionResources::from_bytes(1 << 20, 1, ExecutionResourceOrigin::ExecutionCall).unwrap(),
+    )
+    .unwrap();
+    let target = fixture.0.join("wide.vortex");
+    let error = prepared
+        .write(&request, &target, false, policy)
+        .unwrap_err();
+    assert!(error.to_string().contains("memory"), "{error}");
+    assert!(memory.snapshot().denied_reservations > 0);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    assert!(!target.exists());
+    assert!(!temporary_output_path(&target).unwrap().exists());
 }
 
 #[test]

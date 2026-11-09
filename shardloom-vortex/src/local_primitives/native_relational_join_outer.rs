@@ -65,7 +65,12 @@ impl<'a> Matches<'a> {
             Ok(self.rows.values[row])
         })?)?;
         self.order.build(
-            records::structure(&self.layout.matches.fields, columns, self.rows.values.len())?,
+            records::structure(
+                &self.layout.matches.fields,
+                columns,
+                self.rows.values.len(),
+                context,
+            )?,
             context,
         )?;
         self.rows.values.clear();

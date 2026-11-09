@@ -35,12 +35,12 @@ pub(crate) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, 
     let _workspace = reserve_json(memory, raw.len())?;
     let value = parse_json(raw)?;
     let dtype = dtype(&value, 0, &mut 0)?;
-    let credit = memory.reserve(crate::native_payload_schema::metadata_bytes(&dtype)?)?;
+    let credit = crate::native_payload_schema::reserve_metadata(&dtype, memory)?;
     Ok((dtype, credit))
 }
 
 /// Parse inert caller-owned application metadata before an operation exists.
-/// This retains the ordinary per-field dtype/JSON bounds; query binding later
+/// This retains the ordinary depth and JSON byte bounds; query binding later
 /// reserves the complete schema against its execution allocation. Top-level
 /// record width follows shared schema admission rather than nested limits.
 pub(crate) fn application_fields(fields: &[(String, String)]) -> Result<DType> {
@@ -67,8 +67,36 @@ pub(crate) fn application_fields(fields: &[(String, String)]) -> Result<DType> {
         ),
         Nullability::NonNullable,
     );
-    crate::native_payload_schema::schema_bytes(&schema)?;
+    validate_application_dtype(&schema)?;
     Ok(schema)
+}
+
+/// Inert caller metadata has no operation owner. Bound its validation workspace
+/// by the existing JSON declaration contract, then count its exact wire bytes
+/// without allocating another serialized schema. Binding still admits its own
+/// persistent metadata against the caller's execution pool.
+pub(crate) fn validate_application_dtype(dtype: &DType) -> Result<()> {
+    struct WireSize(usize);
+    impl std::io::Write for WireSize {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self
+                .0
+                .checked_add(bytes.len())
+                .filter(|bytes| *bytes <= MAX_JSON_BYTES)
+                .ok_or_else(|| std::io::Error::other("application schema exceeds 8 MiB"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let limit = (MAX_JSON_BYTES as u64)
+        .checked_mul(512)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(|| failed("application schema workspace overflow"))?;
+    let validation = LiveMemoryPool::new(limit)?;
+    let _workspace = crate::native_payload_schema::reserve_schema(dtype, &validation)?;
+    serde_json::to_writer(WireSize(0), dtype).map_err(|error| failed(&error.to_string()))
 }
 
 /// Payload intake holds `reserve_json` credit. Inert application declarations
@@ -168,9 +196,11 @@ fn fields<'a>(value: &'a Value, keys: &[&str]) -> Result<&'a Map<String, Value>>
 }
 
 fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
-    *nodes += 1;
-    if depth > 24 || *nodes > 4096 {
-        return Err(failed("nested input dtype exceeds depth 24 or 4096 nodes"));
+    *nodes = nodes
+        .checked_add(1)
+        .ok_or_else(|| failed("input dtype node count overflow"))?;
+    if depth > 24 {
+        return Err(failed("nested input dtype exceeds depth 24"));
     }
     let object = value
         .as_object()
@@ -225,8 +255,8 @@ fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
             let fields = fields(&parts[0], &["names", "dtypes"])?;
             let names = fields["names"]
                 .as_array()
-                .filter(|names| (1..=1024).contains(&names.len()))
-                .ok_or_else(|| failed("nested input structs require 1..=1024 fields"))?;
+                .filter(|names| !names.is_empty())
+                .ok_or_else(|| failed("nested input structs require at least one field"))?;
             let types = fields["dtypes"]
                 .as_array()
                 .filter(|types| types.len() == names.len())

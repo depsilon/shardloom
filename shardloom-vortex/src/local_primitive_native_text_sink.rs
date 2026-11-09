@@ -25,14 +25,27 @@ fn failed(reason: &str) -> ShardLoomError {
     ))
 }
 
-pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()> {
+pub(super) fn validate_schema(
+    dtype: &vortex::array::dtype::DType,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<()> {
+    // Preserve the text writer's existing flat-domain support while admitting
+    // nested walks before recursive extension classification.
+    if let Some(fields) = dtype.as_struct_fields_opt() {
+        for dtype in fields.try_field_dtypes() {
+            let dtype = dtype.map_err(vortex_error)?;
+            if super::native_payload::is_nested(dtype) {
+                super::native_payload::metadata_bytes(dtype, scope)?;
+            }
+        }
+    }
     if crate::native_vector::contains(dtype) {
         return Err(failed(
             "text output cannot preserve vector interpretation; use Vortex, Arrow IPC or Parquet",
         ));
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(dtype) {
+    if crate::native_binary_type::contains(dtype).map_err(vortex_error)? {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "text output cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
@@ -47,13 +60,6 @@ pub(super) fn validate_schema(dtype: &vortex::array::dtype::DType) -> Result<()>
         return Err(failed(
             "text output cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
         ));
-    }
-    if let Some(fields) = dtype.as_struct_fields_opt() {
-        for dtype in fields.fields() {
-            if super::native_payload::is_nested(&dtype) {
-                super::native_payload::metadata_bytes(&dtype)?;
-            }
-        }
     }
     Ok(())
 }
@@ -74,7 +80,7 @@ pub(super) fn write(
         return Err(failed("requires JSON, JSONL or CSV output"));
     }
     cancellation.check()?;
-    validate_schema(&plan.dtype)?;
+    validate_schema(&plan.dtype, (plan.session.memory(), cancellation).into())?;
     plan.validate_destination(path)?;
     let mut scratch = plan.session.memory().reserve(128 * 1024)?;
     let mut output = OwnedOutput::new(path, overwrite)?;
@@ -144,6 +150,7 @@ pub(super) fn write(
                                     column,
                                     &mut scalar_context,
                                     context.memory(),
+                                    context.cancellation(),
                                 )
                                 .map(Some)
                             } else {

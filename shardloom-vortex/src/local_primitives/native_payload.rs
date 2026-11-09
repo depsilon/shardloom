@@ -169,7 +169,7 @@ pub(super) fn detach_with_unobserved_fields(
         super::native_relational_batch::index_array(array.len(), false, context, |row| {
             Ok(Some(row))
         })?;
-    let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+    let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context)?;
     take_admitted::<true>(
         array,
         &indices,
@@ -207,7 +207,7 @@ pub(super) fn take_record_with_scalar_count(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<(ArrayRef, u64)> {
-    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
     let scalars = Cell::new(0);
     let output = take_admitted::<true>(
         array,
@@ -242,7 +242,7 @@ pub(super) fn take_with_policy(
 ) -> Result<ArrayRef> {
     // A struct-valued column is one nested value, not a table schema. In
     // particular, sparse state may retain many independent one-row values.
-    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    let metadata = crate::native_payload_schema::reserve_metadata(dtype, context)?;
     take_admitted::<true>(
         source,
         indices,
@@ -270,7 +270,7 @@ pub(super) fn take_record_with_policy(
     policy: CopyPolicy,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
     take_admitted::<true>(
         source,
         indices,
@@ -289,7 +289,7 @@ pub(super) fn validate_selection(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
-    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    let metadata = crate::native_payload_schema::reserve_metadata(dtype, context)?;
     take_admitted::<false>(
         source,
         indices,
@@ -352,7 +352,7 @@ pub(super) fn defaults(
     rows: usize,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let metadata = context.memory().reserve(metadata_bytes(dtype)?)?;
+    let metadata = crate::native_payload_schema::reserve_metadata(dtype, context)?;
     defaults_admitted(dtype, rows, context, metadata)
 }
 
@@ -361,7 +361,7 @@ pub(crate) fn empty_record(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
-    let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+    let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
     defaults_admitted(dtype, 0, context, metadata)
 }
 

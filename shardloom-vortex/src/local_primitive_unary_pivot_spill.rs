@@ -417,7 +417,7 @@ pub(super) fn complete(
     drop(
         crate::local_primitives::completed_result::CompletedRows::new_native(
             fields.clone(),
-            context.memory(),
+            context,
         )?,
     );
     let columns = fields.iter().map(|(name, _)| name.clone()).collect();

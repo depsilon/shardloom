@@ -715,7 +715,9 @@ pub(crate) fn validate_descriptors(
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     use vortex::array::VortexSessionExecute as _;
-    if !crate::native_binary_type::contains(array.dtype()) {
+    if !crate::native_binary_type::contains(array.dtype())
+        .map_err(|cause| error("SCHEMA", cause))?
+    {
         return Ok(());
     }
     let arena = Arena::get(context.native_session())?;

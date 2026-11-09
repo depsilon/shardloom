@@ -161,7 +161,7 @@ fn adaptive_spill_partial_text_blocks_release_the_full_validation_window_backing
     let spec = binding(&source);
     let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
     session.with_native_execution_context(&CancellationToken::default(), |context| {
-        let work = sizing::RunWork::new(&spec, WINDOW)?;
+        let work = sizing::RunWork::new(&spec, WINDOW, context)?;
         let measured = Cell::new(0);
         let maximum = Cell::new(0);
         let input = (0..64).step_by(WINDOW).map(|start| {

@@ -93,3 +93,9 @@ chunked, dictionary and flat writer paths use the admitted constructor.
 Layout depth-first traversal propagates child-construction errors and terminates
 that traversal. It no longer returns an apparently complete parent after denied
 child admission; callers can start a fresh traversal after credit is available.
+
+The November 9 wide-schema follow-up uses fallible lazy field lookup when
+constructing struct reader metadata and resolving a logical struct slot. A
+schema admission failure therefore propagates through the existing fallible
+reader/layout APIs, including files without statistics to pre-resolve fields.
+The child cache retains its existing admission and partial-construction cleanup.

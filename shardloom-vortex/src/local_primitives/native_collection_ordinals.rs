@@ -86,9 +86,7 @@ pub(super) fn column<'a>(
     }
     let allocator = crate::owned_buffers::with_credit(
         context.native_session().host_allocator(),
-        context
-            .memory()
-            .reserve(native_payload::metadata_bytes(&dtype())?)?,
+        crate::native_payload_schema::reserve_metadata(&dtype(), context)?,
     );
     let integer = DType::Primitive(PType::U64, Nullability::NonNullable);
     let elements = result_batch::build_column_with_float_policy(

@@ -118,7 +118,7 @@ pub(super) fn family(dtype: &DataType) -> Result<Option<&'static str>> {
         DataType::Struct(_) => "struct",
         _ => return Ok(None),
     };
-    crate::native_payload_schema::arrow_metadata_bytes(dtype)?;
+    crate::native_payload_schema::validate_arrow_declaration(dtype)?;
     Ok(Some(family))
 }
 

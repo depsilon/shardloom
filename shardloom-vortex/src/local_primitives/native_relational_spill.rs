@@ -263,8 +263,8 @@ impl<'p, 's> Ordering<'p, 's> {
             work: None,
             retained_bytes: 0,
             buffer_bytes: state.policy.buffer_bytes,
-            write_sizing: sizing::RunWork::new(spec, block_rows)?,
-            merge_sizing: sizing::RunWork::new(spec, block_rows)?,
+            write_sizing: sizing::RunWork::new(spec, block_rows, context)?,
+            merge_sizing: sizing::RunWork::new(spec, block_rows, context)?,
         })
     }
 
@@ -284,7 +284,7 @@ impl<'p, 's> Ordering<'p, 's> {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         context.check_cancelled()?;
-        let incoming = self.sort.incoming_bytes(&array)?;
+        let incoming = self.sort.incoming_bytes(&array, context)?;
         if incoming > self.buffer_bytes {
             // A lazy take/field view may retain a much larger input domain. Only
             // when retention crosses the threshold, compact selected native rows
@@ -307,7 +307,7 @@ impl<'p, 's> Ordering<'p, 's> {
                         &self.spec.unobserved_fields,
                         context,
                     )?;
-                    let bytes = self.sort.incoming_bytes(&compact)?;
+                    let bytes = self.sort.incoming_bytes(&compact, context)?;
                     if bytes <= self.buffer_bytes {
                         self.build_admitted(compact, bytes, context)?;
                         break;

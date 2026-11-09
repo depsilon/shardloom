@@ -192,7 +192,9 @@ impl ScalarFnVTable for GetItem {
         let struct_dtype = &arg_dtypes[0];
         let field_dtype = struct_dtype
             .as_struct_fields_opt()
-            .and_then(|st| st.field(field_name))
+            .map(|st| st.try_field(field_name))
+            .transpose()?
+            .flatten()
             .ok_or_else(|| {
                 vortex_err!("Couldn't find the {} field in the input scope", field_name)
             })?;

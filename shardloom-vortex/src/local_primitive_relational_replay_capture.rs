@@ -78,10 +78,23 @@ impl Capture {
         capacity: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<Self>> {
+        context.check_cancelled()?;
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| failed("capture schema changed"))?;
-        let schema_bytes = crate::native_payload_schema::schema_bytes(dtype)?;
+        let snapshot = context.memory().snapshot();
+        let ceiling =
+            (snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) / 8).min(256 * 1024);
+        // Capture is optional and already restricted to a small, flat schema.
+        // Decline from its borrowed-name lower bound before inspecting metadata
+        // that cannot fit. Real admission and cancellation errors still propagate.
+        if crate::native_payload_schema::names_bytes(fields.nfields(), |index| {
+            fields.names()[index].as_ref()
+        })? > ceiling
+        {
+            return Ok(None);
+        }
+        let schema_bytes = crate::native_payload_schema::schema_bytes(dtype, context)?;
         let estimate = fields
             .fields()
             .try_fold(schema_bytes.saturating_mul(2), |sum, dtype| {
@@ -91,13 +104,10 @@ impl Capture {
                     .and_then(|sum| sum.checked_add(capacity.div_ceil(8) as u64 + 1024))
                     .ok_or_else(|| failed("capture capacity overflow"))
             })?;
-        let snapshot = context.memory().snapshot();
-        if estimate > snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) / 8
-            || estimate > 256 * 1024
-        {
+        if estimate > ceiling {
             return Ok(None);
         }
-        let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+        let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
         let allocator =
             owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
         let mut columns = ReservedVec::new(context.memory())?;

@@ -262,10 +262,19 @@ pub(crate) fn validate_batch(
     for (field, array) in batch.schema().fields().iter().zip(batch.columns()) {
         check()?;
         if contains(field) {
-            let bytes = crate::native_payload_schema::arrow_metadata_bytes(field.data_type())?
-                .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
-                .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
-            let _workspace = memory.map(|memory| memory.reserve(bytes)).transpose()?;
+            let _workspace = if let Some(memory) = memory {
+                let bytes =
+                    crate::native_payload_schema::arrow_metadata_bytes(field.data_type(), memory)?
+                        .checked_add(
+                            crate::native_payload_schema::arrow_extension_metadata_bytes(field)?,
+                        )
+                        .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
+                Some(memory.reserve(bytes)?)
+            } else {
+                crate::native_payload_schema::validate_arrow_declaration(field.data_type())?;
+                crate::native_payload_schema::arrow_extension_metadata_bytes(field)?;
+                None
+            };
             Validator::new(field)?.validate(array.as_ref(), 0, array.len(), check)?;
         }
     }

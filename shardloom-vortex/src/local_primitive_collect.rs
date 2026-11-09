@@ -398,7 +398,8 @@ impl PreparedVortexCollect {
             cancellation,
         )?;
         cancellation.check()?;
-        let result_schema_json = serialize_result_schema(result.dtype(), self.session.memory())?;
+        let result_schema_json =
+            serialize_result_schema(result.dtype(), (self.session.memory(), cancellation))?;
         let result_serialization = serialization_started.elapsed();
         cancellation.check()?;
         self.source.validate_generation()?;
@@ -630,9 +631,8 @@ impl JsonRows {
                 ));
             }
         } else {
-            let lease = self
-                .memory
-                .reserve(schema_scratch_bytes(array.dtype(), 0)?)?;
+            let lease =
+                crate::native_payload_schema::reserve_serialization(array.dtype(), context)?;
             self.schema = Some((array.dtype().clone(), lease));
         }
         let fields = array
@@ -697,7 +697,7 @@ impl JsonRows {
             .iter()
             .map(|column| {
                 let field = logical_field_from_native_array(array, column.as_ref())?;
-                super::native_json::Column::new(&field, context, &self.memory)
+                super::native_json::Column::new(&field, context, &self.memory, cancellation)
             })
             .collect::<Result<Vec<_>>>()?;
         for row in 0..array.len() {
@@ -853,51 +853,16 @@ pub(super) fn certify_json_delivery(
 
 /// Serialize the existing native dtype at the explicit result boundary. The
 /// provider's ordered names and recursive types also describe typed empty rows.
-pub(crate) fn serialize_result_schema(
+pub(crate) fn serialize_result_schema<'a>(
     dtype: &DType,
-    memory: &LiveMemoryPool,
+    scope: impl Into<crate::native_payload_schema::Scope<'a>>,
 ) -> Result<Budgeted<String>> {
-    let _scratch = memory.reserve(schema_scratch_bytes(dtype, 0)?)?;
-    let mut output = BoundedJson::new(memory, MAX_JSON_BYTES)?;
+    let scope = scope.into();
+    let _scratch = crate::native_payload_schema::reserve_serialization(dtype, scope)?;
+    let mut output = BoundedJson::new(scope.memory(), MAX_JSON_BYTES)?;
     serde_json::to_writer(&mut output, dtype).map_err(collect_io_error)?;
     let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
     Ok(Budgeted::new(text, output.lease))
-}
-
-fn schema_scratch_bytes(dtype: &DType, depth: usize) -> Result<u64> {
-    if depth > 64 {
-        return Err(collect_error("result schema exceeds 64 nested levels"));
-    }
-    let mut bytes = 1024_u64;
-    let mut add = |child: &DType| -> Result<()> {
-        bytes = bytes
-            .checked_add(schema_scratch_bytes(child, depth + 1)?)
-            .ok_or_else(|| collect_error("result schema metadata overflow"))?;
-        Ok(())
-    };
-    match dtype {
-        DType::Struct(fields, _) => {
-            for child in fields.fields() {
-                add(&child)?;
-            }
-        }
-        DType::Union(fields, _) => {
-            for child in fields.variants() {
-                add(&child)?;
-            }
-        }
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => add(child)?,
-        DType::Map(map, _) => {
-            add(&map.key_dtype())?;
-            add(&map.value_dtype())?;
-        }
-        DType::Extension(extension) => add(extension.storage_dtype())?,
-        _ => {}
-    }
-    if bytes > MAX_JSON_BYTES as u64 {
-        return Err(collect_error("result schema scratch exceeds 8 MiB"));
-    }
-    Ok(bytes)
 }
 
 pub(super) fn write_scalar_json(

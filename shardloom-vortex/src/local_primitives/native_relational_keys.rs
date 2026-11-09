@@ -229,7 +229,10 @@ impl KeyColumn {
         float_policy: FloatPolicy,
     ) -> Result<Self> {
         let schema = if super::native_payload::is_nested(array.dtype()) {
-            Some(memory.reserve(crate::native_payload_schema::metadata_bytes(array.dtype())?)?)
+            Some(crate::native_payload_schema::reserve_metadata(
+                array.dtype(),
+                (memory, cancellation),
+            )?)
         } else {
             None
         };

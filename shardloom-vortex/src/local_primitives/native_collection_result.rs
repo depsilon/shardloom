@@ -31,9 +31,7 @@ pub(super) fn build(
     if values.is_empty() {
         return native_payload::defaults(dtype, 1, context);
     }
-    let credit = context
-        .memory()
-        .reserve(native_payload::metadata_bytes(dtype)?)?;
+    let credit = crate::native_payload_schema::reserve_metadata(dtype, context)?;
     let allocator =
         crate::owned_buffers::with_credit(context.native_session().host_allocator(), credit);
     let offsets = |end| {

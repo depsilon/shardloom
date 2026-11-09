@@ -13,7 +13,13 @@ retain their release-time limits.
 
 ## Admission contract
 
-| Boundary | Current source contract |
+The [November 9 wide-schema delivery](native-wide-schema-2026-11-09.md)
+supersedes the original nested width, logical-node and metadata-estimate limits
+below with shared memory admission. Depth 24 and the independent declaration,
+JSON and physical IPC boundaries remain. The table and original evidence record
+the October 9 acceptance; their historical observations are unchanged.
+
+| Boundary | Original accepted contract, October 9 |
 | --- | --- |
 | Copied, owned and batch input fields | Nonempty distinct names; growing native schema metadata uses the shared grant |
 | Resident batch composition | Retained payloads and growing containers use the shared grant; no fixed cumulative batch count |

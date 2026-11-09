@@ -27,7 +27,7 @@ impl Schema {
             .fields
             .iter()
             .try_fold(32_768_u64, |bytes, (name, dtype)| {
-                native_payload::metadata_bytes(dtype)?
+                native_payload::metadata_bytes(dtype, context)?
                     .checked_add(name.len() as u64 * 2)
                     .and_then(|field| field.checked_mul(8))
                     .and_then(|field| bytes.checked_add(field))
@@ -110,7 +110,7 @@ impl Schema {
                 })?
             });
         }
-        records::structure(&self.population.fields, columns, rows.len())
+        records::structure(&self.population.fields, columns, rows.len(), context)
     }
 
     pub(super) fn deliver(
