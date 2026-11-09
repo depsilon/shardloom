@@ -617,7 +617,7 @@ fn legacy_count(dtype: &DType) -> usize {
 fn legacy_dtype(dtype: &DType, index: usize) -> VortexResult<DType> {
     match dtype {
         DType::Struct(fields, _) => fields
-            .field_by_index(index)
+            .try_field_by_index(index)?
             .ok_or_else(|| vortex_err!("Missing file statistics field type at {index}")),
         dtype if index == 0 => Ok(dtype.clone()),
         _ => vortex_bail!("Missing file statistics field type at {index}"),

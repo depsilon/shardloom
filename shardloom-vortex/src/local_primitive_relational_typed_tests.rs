@@ -201,6 +201,7 @@ fn native_typed_payload_keys_preserve_empty_schema() {
 #[test]
 fn native_typed_payload_schema_rejects_other_metadata_and_decimal_domains() {
     let n = Nullability::Nullable;
+    let schema_memory = shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
     for dtype in [
         DType::Decimal(DecimalDType::new(39, 0), n),
         DType::Decimal(DecimalDType::new(10, -1), n),
@@ -210,9 +211,16 @@ fn native_typed_payload_schema_rejects_other_metadata_and_decimal_domains() {
             n,
         ),
     ] {
-        assert!(native_payload::metadata_bytes(&dtype).is_err(), "{dtype}");
         assert!(
-            native_payload::metadata_bytes(&DType::List(std::sync::Arc::new(dtype), n)).is_err()
+            native_payload::metadata_bytes(&dtype, &schema_memory).is_err(),
+            "{dtype}"
+        );
+        assert!(
+            native_payload::metadata_bytes(
+                &DType::List(std::sync::Arc::new(dtype), n),
+                &schema_memory
+            )
+            .is_err()
         );
     }
 
@@ -223,9 +231,16 @@ fn native_typed_payload_schema_rejects_other_metadata_and_decimal_domains() {
             Timestamp::new_with_tz(TimeUnit::Microseconds, Some("UTC".into()), n).erased(),
         ),
     ] {
-        assert!(native_payload::metadata_bytes(&dtype).is_ok(), "{dtype}");
         assert!(
-            native_payload::metadata_bytes(&DType::List(std::sync::Arc::new(dtype), n)).is_ok()
+            native_payload::metadata_bytes(&dtype, &schema_memory).is_ok(),
+            "{dtype}"
+        );
+        assert!(
+            native_payload::metadata_bytes(
+                &DType::List(std::sync::Arc::new(dtype), n),
+                &schema_memory
+            )
+            .is_ok()
         );
     }
 }
@@ -346,7 +361,13 @@ fn native_typed_payload_nested_gather_preserves_null_parent_and_leaf_types() {
     assert_eq!(output.dtype(), list.dtype());
     let native = VortexSession::default();
     let mut context = native.create_execution_ctx();
-    let column = native_json::Column::new(&output, &mut context, session.memory()).unwrap();
+    let column = native_json::Column::new(
+        &output,
+        &mut context,
+        session.memory(),
+        &CancellationToken::default(),
+    )
+    .unwrap();
     let mut rows = Vec::new();
     for row in 0..4 {
         let mut bytes = Vec::new();

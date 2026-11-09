@@ -122,7 +122,7 @@ impl Binder<'_> {
             .collect::<Vec<_>>();
         if definition.distinct {
             for (_, dtype) in &fields {
-                validate_key(dtype)?;
+                validate_key(dtype, self.schema_scope())?;
             }
         }
         self.charge_named_fields(&fields)?;

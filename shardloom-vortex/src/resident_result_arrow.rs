@@ -163,7 +163,7 @@ impl OwnedVortexResultBatch {
         let session = self.retained_session();
         let metadata = Arc::new(native_payload_schema::reserve_schema(
             self.dtype(),
-            session.memory(),
+            (session.memory(), &cancellation),
         )?);
         let DType::Struct(fields, Nullability::NonNullable) = self.dtype() else {
             return Err(failed(
@@ -284,8 +284,8 @@ impl NativeArrowBatchStream {
         };
         // Metadata is admitted before constructing canonical containers,
         // target fields, Arrow wrappers or the pointer-range inventory.
-        let metadata_bytes = native_payload_schema::schema_bytes(array.dtype())?;
-        let mut work = context.memory().reserve(metadata_bytes)?;
+        let mut work = native_payload_schema::reserve_schema(array.dtype(), context)?;
+        let metadata_bytes = work.bytes();
         let mut ctx = context.native_session().create_execution_ctx();
         let check = || context.check_cancelled();
         let limits = ConversionLimits {
@@ -348,6 +348,7 @@ impl NativeArrowBatchStream {
         let credit = Arc::new(ExportCredit {
             #[cfg(feature = "native-binary-objects")]
             _objects: crate::native_binary_type::contains(array.dtype())
+                .map_err(native_error)?
                 .then(|| crate::binary_object::Arena::get(context.native_session()))
                 .transpose()?,
             _conversion: work,

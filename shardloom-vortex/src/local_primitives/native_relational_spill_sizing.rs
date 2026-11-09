@@ -21,10 +21,14 @@ pub(super) struct RunWork {
 }
 
 impl RunWork {
-    pub(super) fn new(spec: &Spec, validation_rows: usize) -> Result<Self> {
+    pub(super) fn new(
+        spec: &Spec,
+        validation_rows: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
         Ok(Self {
             sizing: AdaptiveWorkSizer::default(),
-            cost: fields_cost(&spec.fields, 2)?,
+            cost: fields_cost(&spec.fields, 2, context)?,
             gather_scratch_per_row: spec.fields.iter().try_fold(0_u64, |bytes, (_, dtype)| {
                 bytes
                     .checked_add(super::super::native_payload::gather_scratch_per_row(dtype)?)

@@ -296,7 +296,7 @@ fn admit_collection_with_table(
                 _ => return Err(failed("missing native source adapter")),
             }
         };
-        let bytes = schema_bytes(&discovered)?;
+        let bytes = schema_bytes(&discovered, (memory, cancellation).into())?;
         credit.resize(add(
             credit.bytes(),
             bytes
@@ -397,7 +397,7 @@ pub(super) fn preparation_layout(
     // Keep original schema owners live while admitting the replacement schema,
     // reader field map and retained merged-schema structures.
     let mut replacement = memory.reserve(
-        schema_bytes(&file.schema)?
+        schema_bytes(&file.schema, (memory, cancellation).into())?
             .checked_mul(3)
             .ok_or_else(|| failed("preparation schema capacity overflow"))?,
     )?;
@@ -420,11 +420,11 @@ pub(super) fn preparation_layout(
     Ok(source)
 }
 
-fn schema_bytes(schema: &SchemaRef) -> Result<u64> {
+fn schema_bytes(schema: &SchemaRef, scope: crate::native_payload_schema::Scope<'_>) -> Result<u64> {
     schema.fields().iter().try_fold(8192_u64, |sum, field| {
         add(
             add(sum, field.name().len() as u64 * 4 + 1024)?,
-            crate::native_payload_schema::arrow_file_metadata_bytes(field.data_type())?,
+            crate::native_payload_schema::arrow_file_metadata_bytes(field.data_type(), scope)?,
         )
     })
 }

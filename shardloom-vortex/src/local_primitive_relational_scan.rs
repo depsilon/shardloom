@@ -70,7 +70,7 @@ pub(super) fn run(
                 return Ok(());
             }
             add(&metrics.data_scans, 1)?;
-            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2)?;
+            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
             let mut start = 0;
             while start < projection.source_rows() {
                 let selected = sizing.select((projection.source_rows() - start) as u64, context)?;
@@ -85,7 +85,7 @@ pub(super) fn run(
             let input = metrics.input.ok_or_else(|| {
                 super::batch_input::failed("streaming scan has no input provider")
             })?;
-            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2)?;
+            let mut sizing = Rows::from_fields(Owner::Scan, fields, SCAN_ROWS, 2, context)?;
             input.run(*index, context, metrics, &mut |source| {
                 add(&metrics.scans_started, 1)?;
                 if source.is_empty() {
@@ -171,7 +171,7 @@ fn run_file(
         // Honor downstream batch demand before reading a wide source, rather
         // than allocating an 8192-row range and only then splitting the output.
         let scan = scan.prepare().map_err(vortex_error)?;
-        let mut sizing = Rows::from_fields(Owner::Scan, fields, scan_rows, 2)?;
+        let mut sizing = Rows::from_fields(Owner::Scan, fields, scan_rows, 2, context)?;
         let mut start = 0;
         while start < file.row_count() {
             context.check_cancelled()?;

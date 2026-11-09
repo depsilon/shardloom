@@ -15,7 +15,7 @@ pub(super) fn finish(
     if ordinals.is_empty() {
         return context.check_cancelled();
     }
-    let cost = cost(&sort.spec.fields)?;
+    let cost = cost(&sort.spec.fields, context)?;
     let mut sizing = AdaptiveWorkSizer::default();
     let mut start = 0;
     while start < ordinals.len() {
@@ -47,8 +47,8 @@ pub(super) fn finish(
     Ok(())
 }
 
-fn cost(fields: &[(String, DType)]) -> Result<WorkCost> {
-    let mut cost = crate::native_work_sizing::fields_cost(fields, 2)?;
+fn cost(fields: &[(String, DType)], context: &NativeExecutionContext<'_>) -> Result<WorkCost> {
+    let mut cost = crate::native_work_sizing::fields_cost(fields, 2, context)?;
     // Selected ordinals, touched segments, offsets, chunk references and their
     // replacement overlap are new work. The full sorted ordinal vector and
     // retained source payloads already have credits in the live snapshot.

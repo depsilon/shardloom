@@ -111,7 +111,7 @@ fn ordered_join_hash_collisions_still_compare_exact_keys_and_pack_across_blocks(
             columns
                 .values
                 .push(logical_field_from_native_array(&record, DATA)?);
-            let record = private::structure(&layout.build.fields, columns, 41)?;
+            let record = private::structure(&layout.build.fields, columns, 41, context)?;
             let state = State::new(&policy, context)?;
             let mut order = Ordering::new(&layout.build, &state, 3, context)?;
             order.build(record, context)?;

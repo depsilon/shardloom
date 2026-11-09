@@ -237,7 +237,7 @@ impl Reducer<'_> {
             columns
                 .values
                 .push(records::unsigned(1, context, |_| Ok(0))?);
-            let key = records::structure(&self.layout.group_fields, columns, 1)?;
+            let key = records::structure(&self.layout.group_fields, columns, 1, context)?;
             self.group = Some(Group {
                 key: Batch::new(key, &[], context)?,
                 first: 0,
@@ -285,7 +285,7 @@ impl Reducer<'_> {
                 .values
                 .push(records::unsigned(1, context, |_| Ok(group.first))?);
             output.push(
-                records::structure(&self.layout.results.fields, columns, 1)?,
+                records::structure(&self.layout.results.fields, columns, 1, context)?,
                 context,
             )
         };

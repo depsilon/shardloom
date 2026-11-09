@@ -22,7 +22,16 @@ impl<'a> Batches<'a> {
     ) -> Result<Self> {
         // Native schemas outside the bounded copier's admission retain their
         // existing pass-through path. Batching does not narrow sink support.
-        let output = if produced && crate::native_payload_schema::schema_bytes(dtype).is_ok() {
+        let admitted = if produced {
+            match crate::native_payload_schema::reserve_schema(dtype, context) {
+                Ok(_) => true,
+                Err(shardloom_core::ShardLoomError::NotImplemented(_)) => false,
+                Err(error) => return Err(error),
+            }
+        } else {
+            false
+        };
+        let output = if admitted {
             Some(OutputBuffer::native_writer(dtype.clone(), ROWS, context)?)
         } else {
             None

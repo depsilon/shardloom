@@ -190,7 +190,8 @@
     "src/layouts/file_stats.rs": "4674a636eae4440ce4dc7a1f94663aac2e4a13db9a05d17c6fec4ceaa4ec4985",
     "src/layouts/flat/writer.rs": "369eee994f491071405bd194bf6df0acd647d79c9db6c43bd103a8864ec81638",
     "src/layouts/repartition.rs": "0b6e0ff419698818564132b196687de5b2e4992c1df8dad19f1349cd9fdac26a",
-    "src/layouts/struct_/reader.rs": "ca4f21df9bc0d8f2be100cfafeea93947195afac932ed2f1b95f8c9298d3647f",
+    "src/layouts/struct_/mod.rs": "e52c43574b0aef81f81a69b2a9f2546b64929be6140980ec6ff339eeab033e1e",
+    "src/layouts/struct_/reader.rs": "f4f181990e3140a4c9e71985c69b8557d59edb66b11a3a0ac8b9e5bfc5b38b13",
     "src/layouts/zoned/reader.rs": "f24c631a7006985cf135ad3144aefc9a131ce18a8a06696f18d2704aec6aa1bd",
     "src/layouts/zoned/writer.rs": "973456f4d3628d54ddc3dbf5f8080d62468106c080881304cd21d11f3b5b9dca",
     "src/reader.rs": "e63d1631f6fd6dc93abba36da38d242fbb7fe5534ee2b4d45f7c698779641c61",
@@ -203,7 +204,7 @@
   "added_files_sha256": {
     ".gitignore": "9e7e5b8470baad143c828fe1f9e34ad2d856cf515e63ab8654a9eff82c591ce1",
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "4cc9780c8a0850aa8a5be4e9942cb9b4667dcadfdf7e4cd7fc4583b248b89731",
+    "README.shardloom.md": "006dace5d7d88798c905a254060140a60fae931318e4669d27a787595a957468",
     "goldenfiles/bloom_filter_sbbf_xxhash3_64.metadata": "2e22fd435060cd5d3cf5e3ef39f79e198b35bd2c4af31974db36601b3a2f4c91",
     "goldenfiles/indexed.metadata": "790bb23fb33aa6cbd6f45a4c0e926fd47ee72bc628d834999e9ff45e1ae47dda",
     "src/layouts/file_stats_tests.rs": "983271dca25c4b5542388f377a130b8d22e7c5889210280e730c58ec5b4c7d76",
@@ -211,7 +212,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "4cc9780c8a0850aa8a5be4e9942cb9b4667dcadfdf7e4cd7fc4583b248b89731"
+    "sha256": "006dace5d7d88798c905a254060140a60fae931318e4669d27a787595a957468"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

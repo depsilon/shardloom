@@ -48,7 +48,7 @@ pub(super) fn run(
         .key
         .ok_or_else(|| failed("window DISTINCT has no key"))?;
     let dtype = &layout.group_fields[key].1;
-    let metadata = native_payload::metadata_bytes(dtype)?
+    let metadata = native_payload::metadata_bytes(dtype, context)?
         .checked_mul(4)
         .and_then(|bytes| bytes.checked_add(8192))
         .ok_or_else(|| failed("window distinct schema capacity overflow"))?;
@@ -166,7 +166,10 @@ fn flush_intervals(
         &spec.fields[2].1,
         context,
     )?);
-    output.build(records::structure(&spec.fields, columns, rows)?, context)?;
+    output.build(
+        records::structure(&spec.fields, columns, rows, context)?,
+        context,
+    )?;
     buffer.values.clear();
     Ok(())
 }
@@ -238,7 +241,7 @@ impl Events<'_, '_> {
                 )?);
         }
         self.order.build(
-            records::structure(&self.spec.fields, columns, rows)?,
+            records::structure(&self.spec.fields, columns, rows, context)?,
             context,
         )?;
         self.buffer.values.clear();

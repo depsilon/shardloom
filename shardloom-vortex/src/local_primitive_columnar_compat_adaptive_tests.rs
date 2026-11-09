@@ -126,7 +126,8 @@ fn adaptive_compatibility_canonicalization_shares_the_admitted_root_dtype() {
         .session
         .with_native_execution_context(&CancellationToken::default(), |execution| {
             let input = native_payload::detach(&array(), execution)?;
-            let credit = memory.reserve(sizing::canonical_metadata(&prepared.plan.dtype)?)?;
+            let credit =
+                memory.reserve(sizing::canonical_metadata(&prepared.plan.dtype, execution)?)?;
             let mut context = execution.native_session().create_execution_ctx();
             let (canonical, _) =
                 admitted_canonical(&input, &prepared.plan.dtype, &mut context, &prepared.limits)?;
@@ -188,10 +189,10 @@ fn adaptive_compatibility_writers_use_prepaid_workspace_and_regrow_after_pressur
                     &prepared.limits,
                 )?;
                 drop(measured);
-                let window = sizing::ConversionWindow::new(&prepared, initial, ROWS)?;
+                let window = sizing::ConversionWindow::new(&prepared, initial, ROWS, execution)?;
                 let cost =
                     window.cost(&writer, 0, owner.bytes(), 4, bytes.div_ceil(ROWS as u64))?;
-                let keep = sizing::canonical_metadata(&prepared.plan.dtype)?
+                let keep = sizing::canonical_metadata(&prepared.plan.dtype, execution)?
                     + cost.fixed_bytes
                     + 4 * cost.bytes_per_unit;
                 assert!(keep < initial);
@@ -259,7 +260,7 @@ fn adaptive_compatibility_minimum_denial_never_writes_a_batch_or_publishes() {
                     calls += 1;
                     let array = native_payload::detach(&array(), context)?;
                     let snapshot = memory.snapshot();
-                    let keep = sizing::canonical_metadata(&prepared.plan.dtype)? + 1;
+                    let keep = sizing::canonical_metadata(&prepared.plan.dtype, context)? + 1;
                     let _pressure =
                         memory.reserve(snapshot.limit_bytes - snapshot.reserved_bytes - keep)?;
                     consume(array)?;

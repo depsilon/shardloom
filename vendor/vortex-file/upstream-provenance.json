@@ -68,7 +68,7 @@
     "src/file.rs": "0696a904fc20de8925974d51b3c458d1d9ad5a0d09a931c029ed15c883fe260e",
     "src/footer/deserializer.rs": "3e3c3068769f50f58bf44c0cba4c70af2380cc735df37a2cb074ca843f694e9a",
     "src/footer/file_layout.rs": "282f0bb3a78cabce20cc458d8a4bec5d1d79c39d2d7db58aa9ed7fde02e544fd",
-    "src/footer/file_statistics.rs": "4b8ae9f75421f163549583472d88d209bdbde9831f485009090f10511abb11ab",
+    "src/footer/file_statistics.rs": "dfd49cb164f1af0771ba5d6926e06570188e802186f16162410f42b927326c47",
     "src/footer/mod.rs": "f79ab997d9321f0489d1a4845c000cf03f110c2838037611f630bb0d1f5e9341",
     "src/footer/postscript.rs": "13db5dc1209346462fe83e48bce06f1420eec98acdfb3d8ee841efdac03f410f",
     "src/footer/segment.rs": "75590b9474d658cb2a479d2bcb52cbbe969acd3908ea3435a3bfccdad4375bfc",
@@ -82,13 +82,13 @@
   "added_files_sha256": {
     ".gitignore": "9e7e5b8470baad143c828fe1f9e34ad2d856cf515e63ab8654a9eff82c591ce1",
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "f9410715d58a12a89b32f2a59a73c70c3bae7ceee419b71c02f183788e7efad2",
-    "src/footer/file_statistics_storage.rs": "d4f3ad39b5c677fcfec19798970f987e245d51de775b4dd8ce7d4a52ed826e95",
+    "README.shardloom.md": "04b8900244edfbc495b3322485ca901ef785dabc87b529417f351812cf00da5d",
+    "src/footer/file_statistics_storage.rs": "8e1ef70c428b4fb3ded45574307d3cbf2c2cea3af8cbab8dcb11b19997e18231",
     "src/footer/metadata.rs": "5f2a0594851736ca6d46010fc8392ce791ad531e3440865c3f0424ca7dc2678f"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "f9410715d58a12a89b32f2a59a73c70c3bae7ceee419b71c02f183788e7efad2"
+    "sha256": "04b8900244edfbc495b3322485ca901ef785dabc87b529417f351812cf00da5d"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

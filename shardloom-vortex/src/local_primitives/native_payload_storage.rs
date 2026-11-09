@@ -127,7 +127,7 @@ pub(in crate::local_primitives) fn decimal_key(
     }
     let allocator = crate::owned_buffers::with_credit(
         execution.host_allocator(),
-        memory.reserve(super::metadata_bytes(source.dtype())?)?,
+        crate::native_payload_schema::reserve_metadata(source.dtype(), (memory, cancellation))?,
     );
     let array = decimal_with::<true>(
         Some(&array),

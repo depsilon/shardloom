@@ -368,9 +368,7 @@ impl Expression {
         if let Some(array) = self.floating_literal_list(children, input.len(), context)? {
             return Ok(array);
         }
-        let _metadata = context
-            .memory()
-            .reserve(super::native_payload::metadata_bytes(&self.dtype)?)?;
+        let _metadata = crate::native_payload_schema::reserve_metadata(&self.dtype, context)?;
         let mut arrays = ReservedVec::new(context.memory())?;
         arrays.reserve(children.len())?;
         for child in children {
@@ -471,9 +469,7 @@ impl Expression {
         }
         let allocator = crate::owned_buffers::with_credit(
             context.native_session().host_allocator(),
-            context
-                .memory()
-                .reserve(super::native_payload::metadata_bytes(&self.dtype)?)?,
+            crate::native_payload_schema::reserve_metadata(&self.dtype, context)?,
         );
         // One admitted immutable child backs every row; no composite Scalar
         // cloning and no child expression evaluated across the whole input.

@@ -298,7 +298,7 @@ impl<'a> Binder<'a> {
         self.charge_named_fields(result.fields())?;
         for (name, dtype) in result.fields() {
             super::validate_name(name)?;
-            super::validate_key(dtype)?;
+            super::validate_key(dtype, self.schema_scope())?;
         }
         super::validate_unique(result.fields())?;
         self.charge(std::mem::size_of::<

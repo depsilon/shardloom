@@ -62,7 +62,7 @@ pub(crate) fn strategy(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<StrategyOwner> {
-    if !crate::native_binary_type::contains(dtype) {
+    if !crate::native_binary_type::contains(dtype).map_err(|cause| error("SCHEMA", cause))? {
         return Ok((base, None));
     }
     let (entries, credit) = reserved_vec(context.memory(), 0)?;
@@ -308,7 +308,9 @@ pub(crate) fn visit(
     callback: &mut impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<()> {
     cancellation.check()?;
-    if !crate::native_binary_type::contains(array.dtype()) {
+    if !crate::native_binary_type::contains(array.dtype())
+        .map_err(|cause| error("SCHEMA", cause))?
+    {
         return Ok(());
     }
     let map = |cause| error("DESCRIPTOR", cause);
@@ -330,7 +332,9 @@ pub(crate) fn visit(
         DType::Struct(_, _) => {
             let structure = array.clone().execute::<StructArray>(ctx).map_err(map)?;
             for child in structure.iter_unmasked_fields() {
-                if !crate::native_binary_type::contains(child.dtype()) {
+                if !crate::native_binary_type::contains(child.dtype())
+                    .map_err(|cause| error("SCHEMA", cause))?
+                {
                     continue;
                 }
                 if array.dtype().is_nullable() {

@@ -35,8 +35,12 @@ fn reopened_json(path: &std::path::Path) -> (DType, Json) {
                 let array = array.map_err(vortex_error)?;
                 // The native JSON boundary observes temporal integer storage. The
                 // provider's calendar-scalar constructor has a narrower range.
-                let column =
-                    runtime::native_json::Column::new(&array, &mut execution, context.memory())?;
+                let column = runtime::native_json::Column::new(
+                    &array,
+                    &mut execution,
+                    context.memory(),
+                    context.cancellation(),
+                )?;
                 for row in 0..array.len() {
                     let mut bytes = Vec::new();
                     column.write(row, &mut bytes, &mut execution, &cancellation)?;

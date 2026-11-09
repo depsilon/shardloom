@@ -6,6 +6,7 @@ use super::{
     Result, ScanSource, SetKind, VortexQueryPrimitiveKind, VortexQueryPrimitiveRequest,
     VortexRelationalPlan, failed, native_relational_join, native_relational_sort, vortex_error,
 };
+use crate::native_payload_schema::Scope as SchemaScope;
 use crate::relational_query::{
     VortexRelationalAsOfJoin, VortexRelationalJoin, VortexRelationalJoinColumn,
     VortexRelationalJoinKey, VortexRelationalJoinKind as JoinKind, VortexRelationalScan,
@@ -93,6 +94,10 @@ struct JoinInput<'a> {
 }
 
 impl<'a> Binder<'a> {
+    fn schema_scope(&self) -> SchemaScope<'_> {
+        (self.session.memory(), &self.cancellation).into()
+    }
+
     pub(super) fn shared_memory_pool(&self) -> shardloom_exec::live_memory::LiveMemoryPool {
         self.session.memory().clone()
     }
@@ -462,7 +467,7 @@ impl<'a> Binder<'a> {
                 let operation = BoundUnary::for_relation(
                     &unary.request,
                     &DType::struct_(input.fields.clone(), Nullability::NonNullable),
-                    self.session.memory(),
+                    self.schema_scope(),
                 )?;
                 if unary.request.kind == VortexQueryPrimitiveKind::PivotRows {
                     return self.complete_pivot(&input, operation);
@@ -472,9 +477,9 @@ impl<'a> Binder<'a> {
                 for (name, dtype) in operation.fields() {
                     validate_name(name)?;
                     if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
-                        validate_payload(dtype)?;
+                        validate_payload(dtype, self.schema_scope())?;
                     } else {
-                        validate_key(dtype)?;
+                        validate_key(dtype, self.schema_scope())?;
                     }
                 }
                 validate_unique(operation.fields())?;
@@ -632,7 +637,7 @@ impl<'a> Binder<'a> {
             .map(|name| {
                 validate_name(name)?;
                 let dtype = super::super::completed_result::source_field(dtype, name)?;
-                validate_payload(&dtype)?;
+                validate_payload(&dtype, self.schema_scope())?;
                 Ok((name.clone(), dtype))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -667,8 +672,11 @@ impl<'a> Binder<'a> {
         };
         for (_, dtype) in &fields {
             self.charge(
-                usize::try_from(super::super::native_payload::metadata_bytes(dtype)?)
-                    .map_err(vortex_error)?,
+                usize::try_from(super::super::native_payload::metadata_bytes(
+                    dtype,
+                    self.schema_scope(),
+                )?)
+                .map_err(vortex_error)?,
             )?;
         }
         Ok(Node {
@@ -770,7 +778,7 @@ impl<'a> Binder<'a> {
         for key in join.keys {
             let left_dtype = field(&left.fields, key.left.as_str())?;
             let right_dtype = field(&right.fields, key.right.as_str())?;
-            validate_key_pair(left_dtype, right_dtype)?;
+            validate_key_pair(left_dtype, right_dtype, self.schema_scope())?;
             left_keys.push(key.left.as_str().to_owned());
             right_keys.push(key.right.as_str().to_owned());
         }
@@ -848,7 +856,7 @@ impl<'a> Binder<'a> {
             .collect::<Result<Vec<_>>>()?;
         if set.kind != SetKind::UnionAll {
             for (_, dtype) in &fields {
-                validate_key(dtype)?;
+                validate_key(dtype, self.schema_scope())?;
             }
         }
         let names = fields.iter().map(|(name, _)| name.clone()).collect();
@@ -913,11 +921,13 @@ fn validate_scalar(dtype: &DType) -> Result<()> {
     Ok(())
 }
 
-fn validate_payload(dtype: &DType) -> Result<()> {
-    super::super::native_payload::metadata_bytes(dtype).map(|_| ())
+fn validate_payload(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
+    super::super::native_payload::metadata_bytes(dtype, scope).map(|_| ())
 }
 
-fn validate_key(dtype: &DType) -> Result<()> {
+fn validate_key(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
+    // Admit the full expanded walk before recursive semantic classification.
+    validate_payload(dtype, scope)?;
     if crate::native_vector::contains(dtype) {
         return Err(failed(
             "sparse and quantized vectors are payload-only; compare, group, order or join on ordinary columns",
@@ -934,7 +944,7 @@ fn validate_key(dtype: &DType) -> Result<()> {
         ));
     }
     if super::super::native_payload::is_nested(dtype) {
-        validate_payload(dtype)
+        Ok(())
     } else {
         validate_flat_operand(dtype)
     }
@@ -990,9 +1000,9 @@ fn integer(ptype: PType) -> Option<(bool, u8)> {
     })
 }
 
-fn validate_key_pair(left: &DType, right: &DType) -> Result<()> {
-    validate_key(left)?;
-    validate_key(right)?;
+fn validate_key_pair(left: &DType, right: &DType, scope: SchemaScope<'_>) -> Result<()> {
+    validate_key(left, scope)?;
+    validate_key(right, scope)?;
     if left.as_nonnullable() == right.as_nonnullable() {
         return Ok(());
     }

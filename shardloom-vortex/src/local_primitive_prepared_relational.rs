@@ -1404,7 +1404,7 @@ impl PreparedVortexRelational {
                     super::collect::JsonRows::new(context.memory(), max_batch_bytes, false)?;
                 sink.append_native(&array, context)?;
                 let result_schema_json =
-                    super::collect::serialize_result_schema(array.dtype(), context.memory())?;
+                    super::collect::serialize_result_schema(array.dtype(), context)?;
                 consume(super::collect::SerializedVortexResultBatch {
                     rows: array.len(),
                     values_json: sink.finish()?,

@@ -199,7 +199,9 @@ fn native_vector_storage_retains_every_primitive_width_and_nullability() {
                     let physical = physical(kind, integer, real, blocked, flags);
                     let dtype = dtype(parsed(kind, blocked), physical.clone()).unwrap();
                     assert_eq!(storage(&dtype), Some(&physical));
-                    assert!(crate::native_payload_schema::metadata_bytes(&dtype).is_ok());
+                    let memory =
+                        shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
+                    assert!(crate::native_payload_schema::metadata_bytes(&dtype, &memory).is_ok());
                     assert!(!crate::native_payload_schema::admitted_scalar(&dtype));
                     assert!(contains(&DType::List(dtype.clone().into(), true.into())));
                     #[cfg(feature = "universal-format-io")]

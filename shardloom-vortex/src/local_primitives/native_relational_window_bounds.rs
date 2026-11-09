@@ -188,7 +188,10 @@ fn flush(
             u64::try_from(buffer.values[row][interval].end).map_err(vortex_error)
         })?);
     }
-    order.build(records::structure(&spec.fields, columns, rows)?, context)?;
+    order.build(
+        records::structure(&spec.fields, columns, rows, context)?,
+        context,
+    )?;
     *written = end;
     buffer.values.clear();
     Ok(())

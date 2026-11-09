@@ -48,8 +48,8 @@ impl Schema {
             DType::Bool(Nullability::Nullable)
         };
         let metadata = context.memory().reserve(
-            native_payload::metadata_bytes(&plan.index_source)?
-                .checked_add(native_payload::metadata_bytes(&payload)?)
+            native_payload::metadata_bytes(&plan.index_source, context)?
+                .checked_add(native_payload::metadata_bytes(&payload, context)?)
                 .and_then(|bytes| bytes.checked_mul(4))
                 .and_then(|bytes| bytes.checked_add(16 * 1024))
                 .ok_or_else(|| failed("pivot record schema capacity overflow"))?,
@@ -138,7 +138,7 @@ impl Schema {
             };
             columns.values.push(array);
         }
-        records::structure(&self.spec.fields, columns, values.len())
+        records::structure(&self.spec.fields, columns, values.len(), context)
     }
 
     pub(super) fn read(&self, row: &Row, context: &NativeExecutionContext<'_>) -> Result<Entry> {

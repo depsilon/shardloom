@@ -118,7 +118,7 @@ impl StructReader {
                 }
                 let field_index = index - extra;
                 let dtype = struct_dt
-                    .field_by_index(field_index)
+                    .try_field_by_index(field_index)?
                     .ok_or_else(|| vortex_err!("Missing struct child dtype {field_index}"))?;
                 let name = struct_dt
                     .field_name(field_index)

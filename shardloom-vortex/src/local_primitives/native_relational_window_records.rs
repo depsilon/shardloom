@@ -168,7 +168,7 @@ impl Layout {
             .iter()
             .filter(|(name, _)| needed(name))
             .try_fold(16_384u64, |bytes, (name, dtype)| {
-                native_payload::metadata_bytes(dtype)?
+                native_payload::metadata_bytes(dtype, context)?
                     .checked_add(name.len() as u64 * 2)
                     .and_then(|field| field.checked_add(2048))
                     .and_then(|field| field.checked_mul(8))
@@ -296,7 +296,7 @@ impl Layout {
             )?
         };
         columns.values.push(payload);
-        records::structure(&self.source.fields, columns, rows)
+        records::structure(&self.source.fields, columns, rows, context)
     }
 
     pub(super) fn group_order(&self, group: &Group) -> Result<native_relational_sort::Spec> {
@@ -350,7 +350,7 @@ impl Layout {
             &records::u64_type(),
             context,
         )?);
-        records::structure(&self.group_fields, columns, source.len())
+        records::structure(&self.group_fields, columns, source.len(), context)
     }
 
     pub(super) fn group_results(&self, group: &Group) -> Result<native_relational_sort::Spec> {
@@ -449,7 +449,7 @@ impl<'p, 's> Values<'p, 's> {
                 )?
             });
         self.order.build(
-            records::structure(&self.layout.order.fields, columns, count)?,
+            records::structure(&self.layout.order.fields, columns, count, context)?,
             context,
         )?;
         self.rows = end;
@@ -519,7 +519,7 @@ impl<'p, 's> Ordinals<'p, 's> {
             Ok(self.values.values[row])
         })?)?;
         self.order.build(
-            records::structure(&self.spec.fields, columns, rows)?,
+            records::structure(&self.spec.fields, columns, rows, context)?,
             context,
         )?;
         self.values.values.clear();

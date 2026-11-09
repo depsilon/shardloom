@@ -61,15 +61,16 @@ impl Column {
         array: &ArrayRef,
         execution: &mut ExecutionCtx,
         memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
     ) -> Result<Self> {
-        let bytes = if native_payload::is_nested(array.dtype()) {
-            native_payload::metadata_bytes(array.dtype())?
+        cancellation.check()?;
+        let metadata = if native_payload::is_nested(array.dtype()) {
+            crate::native_payload_schema::reserve_metadata(array.dtype(), (memory, cancellation))?
         } else {
-            1024
+            memory.reserve(1024)?
         };
-        let metadata = memory.reserve(bytes)?;
         Ok(Self {
-            node: Node::new(array, execution)?,
+            node: Node::new(array, execution, cancellation)?,
             _metadata: metadata,
         })
     }
@@ -87,7 +88,12 @@ impl Column {
 }
 
 impl Node {
-    fn new(array: &ArrayRef, execution: &mut ExecutionCtx) -> Result<Self> {
+    fn new(
+        array: &ArrayRef,
+        execution: &mut ExecutionCtx,
+        cancellation: &CancellationToken,
+    ) -> Result<Self> {
+        cancellation.check()?;
         Ok(match array.dtype() {
             DType::Extension(_)
                 if crate::native_extensions::structured_payload_storage(array.dtype())
@@ -97,7 +103,7 @@ impl Node {
                     .clone()
                     .execute::<ExtensionArray>(execution)
                     .map_err(vortex_error)?;
-                Self::new(array.storage_array(), execution)?
+                Self::new(array.storage_array(), execution, cancellation)?
             }
             DType::Struct(..) => {
                 let array = array
@@ -108,14 +114,14 @@ impl Node {
                     names: array.names().clone(),
                     fields: array
                         .iter_unmasked_fields()
-                        .map(|field| Self::new(field, execution))
+                        .map(|field| Self::new(field, execution, cancellation))
                         .collect::<Result<_>>()?,
                     validity: array.struct_validity(),
                 }
             }
             DType::List(..) | DType::FixedSizeList(..) => {
                 let column = native_list::Column::new(array.clone(), execution)?;
-                let child = Box::new(Self::new(&column.elements, execution)?);
+                let child = Box::new(Self::new(&column.elements, execution, cancellation)?);
                 Self::List { column, child }
             }
             DType::Variant(_) => Self::Scalar(array.clone()),

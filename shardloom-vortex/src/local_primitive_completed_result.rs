@@ -44,7 +44,10 @@ fn failed(message: &str) -> ShardLoomError {
 pub(super) fn source_field(dtype: &DType, name: &str) -> Result<DType> {
     let field = dtype
         .as_struct_fields_opt()
-        .and_then(|fields| fields.field(name))
+        .map(|fields| fields.try_field(name))
+        .transpose()
+        .map_err(vortex_error)?
+        .flatten()
         .ok_or_else(|| failed(&format!("source column '{name}' is absent")))?;
     if dtype.is_nullable() {
         Ok(field.as_nullable())
@@ -191,7 +194,7 @@ impl<'consumer> CompletedRows<'consumer> {
         float_policy: shardloom_core::FloatPolicy,
         consume: &'consumer mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<Self> {
-        let mut result = Self::new_native(fields, memory)?;
+        let mut result = Self::new_native(fields, (memory, &cancellation))?;
         result.float_policy = float_policy;
         result.with_stream(batch_rows, cancellation, consume)
     }
@@ -213,14 +216,17 @@ impl<'consumer> CompletedRows<'consumer> {
         Ok(self)
     }
 
-    pub(super) fn new_native(
+    pub(super) fn new_native<'scope>(
         fields: Vec<(String, DType)>,
-        memory: &LiveMemoryPool,
+        scope: impl Into<crate::native_payload_schema::Scope<'scope>>,
     ) -> Result<Self> {
+        let scope = scope.into();
+        scope.check_cancelled()?;
+        let memory = scope.memory();
         if !Self::needs_native_schema(&fields) {
             return Self::new(fields, memory);
         }
-        let mut ownership = crate::native_payload_schema::reserve_fields(&fields, memory)?;
+        let mut ownership = crate::native_payload_schema::reserve_fields(&fields, scope)?;
         validate_names(&fields)?;
         ownership.resize(
             ownership
@@ -679,7 +685,10 @@ pub(super) fn prepare_stream(
             | super::VortexLocalPrimitiveRowExportFormat::Jsonl
             | super::VortexLocalPrimitiveRowExportFormat::Csv
     ) {
-        super::native_text_sink::validate_schema(&plan.dtype)?;
+        super::native_text_sink::validate_schema(
+            &plan.dtype,
+            (plan.session.memory(), cancellation).into(),
+        )?;
         return Ok(PreparedStreamWriter::Text(plan, format));
     }
     #[cfg(feature = "universal-format-io")]

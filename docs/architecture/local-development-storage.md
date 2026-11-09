@@ -134,6 +134,17 @@ the committed collection. Repeated identity checks and closed-handle checks
 preceded removal. The source milestone retains the compact retirement inventory
 and the original failed and passed replay outcomes. [Acceptance](../release/evidence/v1.1.0-source-milestone-2026-11-03/acceptance.json).
 
+During November 9 wide-schema validation, three verified debug-cache retirements
+removed 17,030, 13,741 and 9,426 regular files respectively. Each used repeated
+identities and closed-handle checks and retained its exact completed-check
+basis. Current input generations, the accepted vector-expression runtime/wheel,
+wide-schema comparison runtimes and release cache remained unchanged. The
+[wide-schema packet](../release/evidence/native-wide-schema-2026-11-09/README.md)
+preserves the inventories, original stopped/failed checks and later passing
+regeneration checks. No storage floor changed and no payload backup was created.
+These are reproducible debug artifacts; final runtime/wheel retention is a
+separate closeout after hosted acceptance.
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.

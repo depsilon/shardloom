@@ -1,4 +1,5 @@
 use super::*;
+use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::dtype::{FieldNames, Nullability, StructFields};
 
 fn physical(element: DType, rank: u32, flags: u8) -> DType {
@@ -148,7 +149,8 @@ fn variable_tensor_storage_preserves_all_five_nullability_flags() {
                 assert_eq!(super::storage(&dtype), Some(&storage));
                 assert_eq!(dtype.nullability(), storage.nullability());
                 assert!(!crate::native_payload_schema::admitted_scalar(&dtype));
-                assert!(crate::native_payload_schema::metadata_bytes(&dtype).is_ok());
+                let memory = LiveMemoryPool::new(32 << 20).unwrap();
+                assert!(crate::native_payload_schema::metadata_bytes(&dtype, &memory).is_ok());
             }
         }
     }

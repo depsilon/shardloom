@@ -84,7 +84,7 @@ fn reserve_fields(
     context: &NativeExecutionContext<'_>,
 ) -> Result<MemoryLease> {
     let bytes = fields.iter().try_fold(4096_u64, |bytes, (name, dtype)| {
-        let field = super::super::native_payload::metadata_bytes(dtype)?
+        let field = super::super::native_payload::metadata_bytes(dtype, context)?
             .checked_add(u64::try_from(name.len()).map_err(vortex_error)?)
             .and_then(|bytes| bytes.checked_add(1024))
             .and_then(|bytes| bytes.checked_mul(4))
@@ -216,7 +216,7 @@ impl Relation {
         payload: Payload,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Self> {
-        let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+        let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
         Ok(Self {
             dtype: dtype.clone(),
             rows,

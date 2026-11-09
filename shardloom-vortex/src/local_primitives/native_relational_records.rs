@@ -156,9 +156,10 @@ pub(super) fn structure(
     fields: &[(String, DType)],
     columns: ReservedVec<ArrayRef>,
     rows: usize,
+    context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let (mut columns, mut ownership) = columns.into_parts();
-    reserve_structure(fields, &mut ownership)?;
+    reserve_structure(fields, &mut ownership, context)?;
     let ordinal = fields
         .iter()
         .position(|(name, _)| name == ORDINAL)
@@ -184,10 +185,15 @@ pub(super) fn structure(
     structure_inner(fields, columns, rows)
 }
 
-fn reserve_structure(fields: &[(String, DType)], ownership: &mut MemoryLease) -> Result<()> {
+fn reserve_structure(
+    fields: &[(String, DType)],
+    ownership: &mut MemoryLease,
+    context: &NativeExecutionContext<'_>,
+) -> Result<()> {
     let metadata = fields.iter().try_fold(1024_u64, |bytes, (name, dtype)| {
-        native_payload::metadata_bytes(dtype)?
+        native_payload::metadata_bytes(dtype, context)?
             .checked_add(name.len() as u64 * 2)
+            .and_then(|bytes| bytes.checked_add(256))
             .and_then(|field| bytes.checked_add(field))
             .ok_or_else(|| failed("native record metadata capacity overflow"))
     })?;
@@ -206,7 +212,7 @@ pub(super) fn delivered(
     context: &NativeExecutionContext<'_>,
 ) -> Result<ArrayRef> {
     let (columns, mut ownership) = columns.into_parts();
-    reserve_structure(fields, &mut ownership)?;
+    reserve_structure(fields, &mut ownership, context)?;
     let array = structure_inner(fields, columns, rows)?;
     // Removing a private ordinal removes its ownership anchor. Compact through
     // the common builder so every surviving public child retains metadata.

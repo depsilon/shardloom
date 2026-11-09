@@ -133,7 +133,7 @@ impl VTable for Objects {
             "SL-BINARY-OBJECT-DIRECTORY: object layout child row count differs"
         );
         vortex_ensure!(
-            crate::native_binary_type::contains(args.dtype),
+            crate::native_binary_type::contains(args.dtype)?,
             "SL-BINARY-OBJECT-DIRECTORY: object layout has no object column"
         );
         let chunks = usize::try_from(header.chunks)?;

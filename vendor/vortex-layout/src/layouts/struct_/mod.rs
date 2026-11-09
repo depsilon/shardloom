@@ -210,7 +210,9 @@ impl Layout<Struct> {
         } else {
             dtype
                 .as_struct_fields_opt()
-                .and_then(|fields| fields.field_by_index(slot - 1))
+                .map(|fields| fields.try_field_by_index(slot - 1))
+                .transpose()?
+                .flatten()
                 .ok_or_else(|| vortex_err!("Missing field {}", slot - 1))
         }
     }

@@ -51,10 +51,11 @@ impl Binder<'_> {
                     },
                 );
             }
-            validate_payload(&expression.dtype)?;
+            validate_payload(&expression.dtype, self.schema_scope())?;
             self.charge(
                 usize::try_from(crate::local_primitives::native_payload::metadata_bytes(
                     &expression.dtype,
+                    self.schema_scope(),
                 )?)
                 .map_err(crate::local_primitives::vortex_error)?,
             )?;
@@ -132,7 +133,10 @@ impl Binder<'_> {
         self.charge_named_fields(&input.fields)?;
         for key in keys {
             validate_name(key.column.as_str())?;
-            validate_key(field(&input.fields, key.column.as_str())?)?;
+            validate_key(
+                field(&input.fields, key.column.as_str())?,
+                self.schema_scope(),
+            )?;
         }
         self.charge(
             input

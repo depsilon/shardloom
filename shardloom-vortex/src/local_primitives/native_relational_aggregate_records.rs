@@ -155,7 +155,11 @@ fn input_columns(spec: &aggregate::Spec, input_fields: &[(String, DType)]) -> Ve
     columns
 }
 
-fn descriptor_bytes(spec: &aggregate::Spec, input_fields: &[(String, DType)]) -> Result<u64> {
+fn descriptor_bytes(
+    spec: &aggregate::Spec,
+    input_fields: &[(String, DType)],
+    context: &NativeExecutionContext<'_>,
+) -> Result<u64> {
     // Eight copies cover both sorts, the scalar reducer and bounded mappings.
     let selected = |name: &String| {
         spec.group_names.contains(name)
@@ -169,7 +173,7 @@ fn descriptor_bytes(spec: &aggregate::Spec, input_fields: &[(String, DType)]) ->
         .filter(|(name, _)| selected(name))
         .chain(&spec.fields)
         .try_fold(4096_u64, |bytes, (name, dtype)| {
-            native_payload::metadata_bytes(dtype)?
+            native_payload::metadata_bytes(dtype, context)?
                 .checked_add(name.len() as u64 * 2)
                 .and_then(|field| field.checked_add(2048))
                 .and_then(|field| field.checked_mul(8))
@@ -191,7 +195,7 @@ fn descriptor_bytes(spec: &aggregate::Spec, input_fields: &[(String, DType)]) ->
                     .fields
                 {
                     extra = extra
-                        .checked_add(native_payload::metadata_bytes(dtype)?)
+                        .checked_add(native_payload::metadata_bytes(dtype, context)?)
                         .and_then(|value| value.checked_add(4096))
                         .ok_or_else(|| failed("collection descriptor capacity overflow"))?;
                 }
@@ -211,7 +215,7 @@ impl Layout {
     ) -> Result<Self> {
         let metadata = context
             .memory()
-            .reserve(descriptor_bytes(spec, input_fields)?)?;
+            .reserve(descriptor_bytes(spec, input_fields, context)?)?;
         let columns = input_columns(spec, input_fields);
         let column = |name: &str| {
             columns
@@ -539,7 +543,7 @@ impl Layout {
                     });
             }
         }
-        structure(&self.records.fields, columns, rows)
+        structure(&self.records.fields, columns, rows, context)
     }
 }
 

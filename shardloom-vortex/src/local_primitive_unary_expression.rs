@@ -71,8 +71,9 @@ impl Plan {
         source: &DType,
         columns: &[String],
         selected: &[String],
-        memory: &LiveMemoryPool,
+        scope: crate::native_payload_schema::Scope<'_>,
     ) -> Result<Self> {
+        let memory = scope.memory();
         let projection = request
             .expression_projection
             .as_ref()
@@ -106,7 +107,7 @@ impl Plan {
         for rewrite in &projection.rewrites {
             let target = position(rewrite.target_column().as_str())?;
             let input_dtype = fields[target].1.clone();
-            fields[target].1 = rewritten_dtype(&input_dtype, rewrite)?;
+            fields[target].1 = rewritten_dtype(&input_dtype, rewrite, scope)?;
             let dtype = fields[target].1.clone();
             let (comparison, replacement) = match rewrite {
                 Rewrite::MaskScalar { replacement, .. } => {
@@ -164,11 +165,15 @@ impl Plan {
     }
 }
 
-fn rewritten_dtype(dtype: &DType, rewrite: &Rewrite) -> Result<DType> {
+fn rewritten_dtype(
+    dtype: &DType,
+    rewrite: &Rewrite,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<DType> {
     if matches!(rewrite, Rewrite::ForwardFillNull { .. })
         && super::super::native_payload::is_nested(dtype)
     {
-        super::super::native_payload::metadata_bytes(dtype)?;
+        super::super::native_payload::metadata_bytes(dtype, scope)?;
         return Ok(dtype.clone());
     }
     if !crate::native_payload_schema::admitted_scalar(dtype) {

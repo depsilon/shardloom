@@ -324,10 +324,11 @@ fn native_relational_sql_unary_mixed_melt_does_not_widen_scalar_admission() {
     )
     .err()
     .expect("mixed scalar domains produce Variant, outside this composition contract");
+    assert!(matches!(error, ShardLoomError::NotImplemented(_)));
+    let message = error.to_string();
     assert!(
-        error
-            .to_string()
-            .contains("requires bool, integer, F16/F32/F64 or UTF8"),
-        "{error}"
+        message.contains("native payload schema: payload requires bool, integer, F16/F32/F64"),
+        "{message}"
     );
+    assert!(message.contains("no fallback execution was attempted"));
 }

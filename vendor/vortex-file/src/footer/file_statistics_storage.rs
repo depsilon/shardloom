@@ -175,8 +175,8 @@ pub(super) fn layout_shape(dtype: &DType) -> VortexResult<(usize, usize)> {
                 // The upstream traversal clones intermediate paths even when
                 // a descendant contributes no statistics entry.
                 let mut parts = path_capacity(depth)?;
-                for field in fields.fields() {
-                    let (child_count, child_parts) = walk(&field, add(depth, 1)?)?;
+                for field in fields.try_field_dtypes() {
+                    let (child_count, child_parts) = walk(field?, add(depth, 1)?)?;
                     count = add(count, child_count)?;
                     parts = add(parts, child_parts)?;
                 }
@@ -185,7 +185,7 @@ pub(super) fn layout_shape(dtype: &DType) -> VortexResult<(usize, usize)> {
                 }
                 Ok((count, parts))
             }
-            None if contains_variant(dtype) => Ok((0, path_capacity(depth)?)),
+            None if contains_variant(dtype)? => Ok((0, path_capacity(depth)?)),
             None => Ok((1, path_capacity(depth)?)),
         }
     }
@@ -199,15 +199,22 @@ fn path_capacity(depth: usize) -> VortexResult<usize> {
     Ok(collection_capacity(depth)?.max(multiply(depth, 2)?))
 }
 
-fn contains_variant(dtype: &DType) -> bool {
-    match dtype {
+fn contains_variant(dtype: &DType) -> VortexResult<bool> {
+    Ok(match dtype {
         DType::Variant(_) => true,
-        DType::Struct(fields, _) => fields.fields().any(|field| contains_variant(&field)),
-        DType::List(element, _) | DType::FixedSizeList(element, ..) => contains_variant(element),
-        DType::Map(map, _) => {
-            contains_variant(&map.key_dtype()) || contains_variant(&map.value_dtype())
+        DType::Struct(fields, _) => {
+            for field in fields.try_field_dtypes() {
+                if contains_variant(field?)? {
+                    return Ok(true);
+                }
+            }
+            false
         }
-        DType::Extension(extension) => contains_variant(extension.storage_dtype()),
+        DType::List(element, _) | DType::FixedSizeList(element, ..) => contains_variant(element)?,
+        DType::Map(map, _) => {
+            contains_variant(&map.key_dtype())? || contains_variant(&map.value_dtype())?
+        }
+        DType::Extension(extension) => contains_variant(extension.storage_dtype())?,
         _ => false,
-    }
+    })
 }

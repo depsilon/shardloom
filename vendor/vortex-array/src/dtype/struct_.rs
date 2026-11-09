@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-09: fallible field inspection and serialized
+// lazy initialization preserve allocation failures without duplicate parsing.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -9,6 +11,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 
 use itertools::Itertools;
+use parking_lot::Mutex;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -21,6 +24,7 @@ use crate::dtype::FieldName;
 use crate::dtype::FieldNames;
 use crate::dtype::PType;
 use crate::dtype::serde::flatbuffers::ViewedDType;
+use crate::memory::HostMemoryReservation;
 
 /// DType of a struct's field, either owned or a pointer to an underlying flatbuffer.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -30,7 +34,7 @@ pub struct FieldDType {
 
 impl From<ViewedDType> for FieldDType {
     fn from(value: ViewedDType) -> Self {
-        let view = FieldDTypeInner::View(value, Arc::new(OnceLock::new()));
+        let view = FieldDTypeInner::View(value, Arc::new(CachedDType::default()));
         Self { inner: view }
     }
 }
@@ -62,7 +66,30 @@ enum FieldDTypeInner {
     /// re-parsing each field is costly
     /// This form is quite ugly because in some cases we want to panic on
     /// parsing but return an error on others
-    View(ViewedDType, Arc<OnceLock<DType>>),
+    View(ViewedDType, Arc<CachedDType>),
+}
+
+#[derive(Debug, Default)]
+struct CachedDType {
+    value: OnceLock<DType>,
+    initialize: Mutex<()>,
+}
+
+impl CachedDType {
+    fn get_or_try_init(&self, view: &ViewedDType) -> VortexResult<&DType> {
+        if let Some(dtype) = self.value.get() {
+            return Ok(dtype);
+        }
+        // Fallible OnceLock initialization is not available on the supported
+        // toolchain. Serialize the first parse, including its temporary owners.
+        // A failed parse leaves the cell empty so a later admitted call can retry.
+        let _initialization = self.initialize.lock();
+        if let Some(dtype) = self.value.get() {
+            return Ok(dtype);
+        }
+        let parsed = DType::try_from(view.clone())?;
+        Ok(self.value.get_or_init(|| parsed))
+    }
 }
 
 impl PartialEq for FieldDTypeInner {
@@ -70,23 +97,20 @@ impl PartialEq for FieldDTypeInner {
         match (self, other) {
             (Self::Owned(lhs), Self::Owned(rhs)) => lhs == rhs,
             (Self::View(left_view, left_lock), Self::View(right_view, right_lock)) => {
-                let lhs = left_lock.get_or_init(|| {
-                    DType::try_from(left_view.clone())
-                        .vortex_expect("Failed to parse FieldDType into DType")
-                });
-                let rhs = right_lock.get_or_init(|| {
-                    DType::try_from(right_view.clone())
-                        .vortex_expect("Failed to parse FieldDType into DType")
-                });
+                let lhs = left_lock
+                    .get_or_try_init(left_view)
+                    .vortex_expect("Failed to parse FieldDType into DType");
+                let rhs = right_lock
+                    .get_or_try_init(right_view)
+                    .vortex_expect("Failed to parse FieldDType into DType");
 
                 lhs == rhs
             }
             (Self::View(view, lock), Self::Owned(owned))
             | (Self::Owned(owned), Self::View(view, lock)) => {
-                let view = lock.get_or_init(|| {
-                    DType::try_from(view.clone())
-                        .vortex_expect("Failed to parse FieldDType into DType")
-                });
+                let view = lock
+                    .get_or_try_init(view)
+                    .vortex_expect("Failed to parse FieldDType into DType");
                 owned == view
             }
         }
@@ -101,10 +125,9 @@ impl Hash for FieldDTypeInner {
                 owned.hash(state);
             }
             FieldDTypeInner::View(view, lock) => {
-                let owned = lock.get_or_init(|| {
-                    DType::try_from(view.clone())
-                        .vortex_expect("Failed to parse FieldDType into DType")
-                });
+                let owned = lock
+                    .get_or_try_init(view)
+                    .vortex_expect("Failed to parse FieldDType into DType");
                 owned.hash(state);
             }
         }
@@ -124,13 +147,7 @@ impl FieldDTypeInner {
     fn value_ref(&self) -> VortexResult<&DType> {
         match &self {
             FieldDTypeInner::Owned(owned) => Ok(owned),
-            FieldDTypeInner::View(view, lock) => {
-                if let Some(dtype) = lock.get() {
-                    return Ok(dtype);
-                }
-                let parsed = DType::try_from(view.clone())?;
-                Ok(lock.get_or_init(|| parsed))
-            }
+            FieldDTypeInner::View(view, lock) => lock.get_or_try_init(view),
         }
     }
 
@@ -249,6 +266,10 @@ struct StructFieldsInner {
     dtypes: Arc<[FieldDType]>,
     // Derived from names, maps from field name to first index.
     indices: OnceLock<HashMap<FieldName, usize>>,
+    // Declared last: containers, cached children and lookup storage are released
+    // before their provider reservation. Detached caller-owned names/DTypes are
+    // outside this container owner and require their caller's lifetime credit.
+    _metadata: Option<HostMemoryReservation>,
 }
 
 impl StructFieldsInner {
@@ -257,6 +278,7 @@ impl StructFieldsInner {
             names,
             dtypes,
             indices: OnceLock::new(),
+            _metadata: None,
         }
     }
 
@@ -320,6 +342,7 @@ impl StructFields {
             names: FieldNames::default(),
             dtypes: Arc::from([]),
             indices: OnceLock::new(),
+            _metadata: None,
         }))
     }
 
@@ -358,6 +381,16 @@ impl StructFields {
         )))
     }
 
+    pub(crate) fn from_reserved_fields(
+        names: FieldNames,
+        dtypes: Vec<FieldDType>,
+        metadata: HostMemoryReservation,
+    ) -> Self {
+        let mut fields = StructFieldsInner::from_fields(names, dtypes.into());
+        fields._metadata = Some(metadata);
+        Self(Arc::new(fields))
+    }
+
     /// Get the names of the fields in the struct
     pub fn names(&self) -> &FieldNames {
         &self.0.names
@@ -393,6 +426,14 @@ impl StructFields {
         )
     }
 
+    /// Inspect a named field without converting lazy parse or admission failures into a panic.
+    pub fn try_field(&self, name: impl AsRef<str>) -> VortexResult<Option<DType>> {
+        match self.find(name) {
+            Some(index) => self.try_field_by_index(index),
+            None => Ok(None),
+        }
+    }
+
     /// Get the [`DType`] of a field by index.
     pub fn field_by_index(&self, index: usize) -> Option<DType> {
         Some(
@@ -402,6 +443,17 @@ impl StructFields {
                 .value()
                 .vortex_expect("field DType must be valid"),
         )
+    }
+
+    /// Inspect a field without converting parse or allocation failures into a panic.
+    pub fn try_field_by_index(&self, index: usize) -> VortexResult<Option<DType>> {
+        self.0.dtypes.get(index).map(FieldDType::value).transpose()
+    }
+
+    /// Inspect borrowed field types through the same fallible lazy cache.
+    /// The returned types borrow this owner; no per-field DType clone is made.
+    pub fn try_field_dtypes(&self) -> impl ExactSizeIterator<Item = VortexResult<&DType>> + '_ {
+        self.0.dtypes.iter().map(|dt| dt.inner.value_ref())
     }
 
     /// Returns an ordered iterator over the fields.
@@ -521,6 +573,10 @@ where
 }
 
 #[cfg(test)]
+#[path = "struct_memory_tests.rs"]
+mod memory_tests;
+
+#[cfg(test)]
 mod test {
     use std::sync::Arc;
 
@@ -621,10 +677,10 @@ mod test {
         let FieldDTypeInner::View(_, cell) = &field.inner else {
             panic!("flatbuffer-backed field must be a View");
         };
-        assert!(cell.get().is_none());
+        assert!(cell.value.get().is_none());
 
         let first = field.value()?;
-        assert!(cell.get().is_some());
+        assert!(cell.value.get().is_some());
         let second = field.value()?;
         let (DType::Struct(first, _), DType::Struct(second, _)) = (&first, &second) else {
             panic!("field must parse to a struct");

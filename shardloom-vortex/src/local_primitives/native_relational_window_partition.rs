@@ -463,7 +463,7 @@ fn assemble(
             add(&mut report.lookup_blocks, lookup.blocks)?;
         }
         results.build(
-            private::structure(&result_spec.fields, columns, end - start)?,
+            private::structure(&result_spec.fields, columns, end - start, context)?,
             context,
         )?;
     }

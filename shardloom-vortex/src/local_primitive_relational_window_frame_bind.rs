@@ -41,7 +41,7 @@ pub(super) fn bind(
     let dtype = match function {
         frame::Function::Aggregate(function) => {
             if let Some(source) = source {
-                validate_key(source)?;
+                validate_key(source, binder.schema_scope())?;
             }
             super::super::aggregate::declared_reduction_dtype(function, source, decimal_output)?
         }
@@ -59,10 +59,10 @@ pub(super) fn bind(
         frame::Function::Aggregate(
             Aggregate::ArgMin | Aggregate::ArgMax | Aggregate::StringAgg,
         ) => column
-            .map(|column| validity_key(window, fields, column))
+            .map(|column| validity_key(window, fields, column, binder.schema_scope()))
             .transpose()?,
         frame::Function::Aggregate(_) => column
-            .map(|column| key(window, fields, column))
+            .map(|column| key(window, fields, column, binder.schema_scope()))
             .transpose()?,
         _ => None,
     };
@@ -80,14 +80,15 @@ pub(super) fn bind(
         ) => Some(*dtype),
         _ => None,
     };
-    let (secondary_key, selection_order) = aggregate_keys(declaration, fields, window)?;
+    let (secondary_key, selection_order) =
+        aggregate_keys(declaration, fields, window, binder.schema_scope())?;
     Ok((
         frame::Spec {
             function,
             column: column.map(str::to_owned),
             key: measure_key,
             secondary_key,
-            filter_key: aggregate_filter(declaration, fields, window)?,
+            filter_key: aggregate_filter(declaration, fields, window, binder.schema_scope())?,
             quantile_level,
             separator: if let Function::Aggregate(measure) = declaration {
                 measure.separator.clone()
@@ -139,12 +140,13 @@ fn aggregate_filter(
     declaration: &Function,
     fields: &[(String, DType)],
     window: &mut window::Spec,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<Option<usize>> {
     let Function::Aggregate(measure) = declaration else {
         return Ok(None);
     };
     super::super::aggregate::filter_column(measure, fields)?
-        .map(|column| key(window, fields, &column))
+        .map(|column| key(window, fields, &column, scope))
         .transpose()
 }
 
@@ -152,6 +154,7 @@ fn aggregate_keys(
     declaration: &Function,
     fields: &[(String, DType)],
     window: &mut window::Spec,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<(Option<usize>, Vec<window::OrderKey>)> {
     let Function::Aggregate(measure) = declaration else {
         return Ok((None, vec![]));
@@ -165,9 +168,9 @@ fn aggregate_keys(
             if function.is_pair() {
                 super::super::aggregate::reduction_dtype(function, Some(source))?;
             } else {
-                validate_key(source)?;
+                validate_key(source, scope)?;
             }
-            key(window, fields, column.as_str())
+            key(window, fields, column.as_str(), scope)
         })
         .transpose()?;
     let order = measure
@@ -175,7 +178,7 @@ fn aggregate_keys(
         .iter()
         .map(|order| {
             Ok(window::OrderKey {
-                key: key(window, fields, order.column.as_str())?,
+                key: key(window, fields, order.column.as_str(), scope)?,
                 descending: order.descending,
                 nulls: order.nulls,
             })
@@ -240,7 +243,12 @@ pub(super) fn policy(
     let order = if bounded_range {
         let requested = &expression.order_by[0];
         Some(window::OrderKey {
-            key: key(window, fields, requested.column.as_str())?,
+            key: key(
+                window,
+                fields,
+                requested.column.as_str(),
+                binder.schema_scope(),
+            )?,
             descending: requested.descending,
             nulls: requested.nulls,
         })

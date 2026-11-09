@@ -115,7 +115,7 @@ fn subquery_membership_hash_collisions_preserve_exact_groups_and_nullable_row_tr
                 columns
                     .values
                     .push(logical_field_from_native_array(&record, DATA)?);
-                let forged = private::structure(&layout.order.fields, columns, 41)?;
+                let forged = private::structure(&layout.order.fields, columns, 41, context)?;
                 let state = State::new(&policy, context)?;
                 let mut order = NativeOrder::new(&layout.order, &state, 3, context)?;
                 order.build(forged, context)?;

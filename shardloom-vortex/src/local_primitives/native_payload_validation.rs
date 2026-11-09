@@ -28,8 +28,7 @@ pub(in crate::local_primitives) fn validate_record(
             .iter()
             .any(|(_, dtype)| super::is_nested(dtype) || matches!(dtype, DType::Decimal(..)))
     {
-        let metadata =
-            crate::native_payload_schema::reserve_schema(array.dtype(), context.memory())?;
+        let metadata = crate::native_payload_schema::reserve_schema(array.dtype(), context)?;
         let allocator =
             crate::owned_buffers::with_credit(context.native_session().host_allocator(), metadata);
         let mut rows = ReservedVec::new(context.memory())?;

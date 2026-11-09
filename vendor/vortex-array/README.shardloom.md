@@ -1,5 +1,22 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 9 wide-schema admission
+
+FlatBuffer-backed struct metadata reserves its name, field, lazy-cache and
+lookup containers through the existing fallible host allocator before creating
+them. Each parsed child struct retains a separate reservation. Fallible field
+inspection reports first-touch allocation or parse failure; serialized cache
+initialization prevents concurrent callers from building duplicate temporary
+child schemas. Failure leaves the cache empty for a later admitted retry.
+
+The reservation follows the struct container and its clones, and drops after
+its fields, names and lookup table. Detached field-name or non-struct DType
+clones are caller-owned; this patch makes no whole-process allocation claim.
+ShardLoom retains its full schema credit on independent native and Arrow result
+owners. No serialized type identity, encoding, dependency or execution provider
+changes. The local regressions cover refusal, retry, concurrent first touch and
+the last retained child owner.
+
 ## November 8 provider migration
 
 The current provider is the published **0.93.0** archive. The dated sections
@@ -143,6 +160,14 @@ construction. The new row-function fixtures exercise deferred execution errors
 without creating an invalid value through an unchecked constructor.
 
 ## External memory reservations
+
+The November 9 wide-schema follow-up makes named lazy field lookup fallible.
+`GetItem` type binding and `Select` exclusion/simplification propagate lazy parse
+and admission errors. A refused first touch leaves the cache retryable and
+releases temporary credit. Existing caller-directed infallible field access,
+equality, hashing and formatting remain compatibility surfaces; native cold
+readers must resolve required metadata through fallible operations first.
+Expression regressions cover refusal, retry and final-owner release.
 
 `HostAllocator::reserve_external(len)` admits a provider's requested external
 heap bytes and returns an opaque lifetime owner. The provider must release the

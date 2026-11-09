@@ -722,7 +722,7 @@ fn owned_scalar(value: Value<'_>, dtype: &DType, lease: &mut MemoryLease) -> Res
             use shardloom_core::temporal::{TemporalKind, TemporalUnit, TemporalValue};
             // Admit owned names and zone metadata before constructing them.
             let initial = lease.bytes();
-            let allowance = crate::native_payload_schema::metadata_bytes(dtype)?;
+            let allowance = crate::native_payload_schema::metadata_bytes(dtype, lease.pool())?;
             lease.resize(
                 initial
                     .checked_add(allowance)

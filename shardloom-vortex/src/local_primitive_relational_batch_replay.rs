@@ -40,7 +40,7 @@ pub(super) struct Schema {
 
 impl Schema {
     pub(super) fn new(dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<Self> {
-        let metadata = crate::native_payload_schema::reserve_schema(dtype, context.memory())?;
+        let metadata = crate::native_payload_schema::reserve_schema(dtype, context)?;
         let fields = dtype
             .as_struct_fields_opt()
             .ok_or_else(|| failed("streaming replay requires a native record schema"))?;
@@ -192,6 +192,7 @@ impl<'p, 's> Recorder<'p, 's> {
             array.dtype(),
             self.copy_rows,
             2,
+            context,
         )?;
         let mut start = 0;
         while start < array.len() {

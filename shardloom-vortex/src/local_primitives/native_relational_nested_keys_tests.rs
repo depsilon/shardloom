@@ -232,6 +232,8 @@ fn native_nested_keys_schema_and_memory_are_admitted_before_provider_execution()
     let small = lists(&[Some(vec![Some(1)])], false);
     assert!(KeyColumn::new(&small, &mut context, &memory, &CancellationToken::default()).is_err());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+    // Give the independent depth check enough credit to reach its boundary.
+    let memory = LiveMemoryPool::new(128 << 10).unwrap();
     let mut dtype = DType::Utf8(Nullability::Nullable);
     for _ in 0..26 {
         dtype = DType::List(std::sync::Arc::new(dtype), Nullability::Nullable);

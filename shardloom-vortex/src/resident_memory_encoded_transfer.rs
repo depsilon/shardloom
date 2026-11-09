@@ -162,7 +162,7 @@ impl Plan {
         // directly. Constants and sparse fills never synthesize protobuf.
         let (metadata_limit, retained_buffers) =
             self.buffer_metadata_bounds(array, kind, buffers)?;
-        let schema_bytes = native_payload_schema::encoded_schema_bytes(array.dtype())?;
+        let schema_bytes = native_payload_schema::encoded_schema_bytes(array.dtype(), context)?;
         let retained = add(
             schema_bytes,
             add(

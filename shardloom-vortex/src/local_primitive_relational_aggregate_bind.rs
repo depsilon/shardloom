@@ -91,7 +91,7 @@ impl Binder<'_> {
         let mut groups = Vec::new();
         for column in group_by {
             self.charge_name(column.as_str())?;
-            validate_key(field(input_fields, column.as_str())?)?;
+            validate_key(field(input_fields, column.as_str())?, self.schema_scope())?;
             groups.push((
                 column.as_str().to_owned(),
                 field(input_fields, column.as_str())?.clone(),
@@ -159,7 +159,7 @@ impl Binder<'_> {
                 if function.is_pair() {
                     reduction_dtype(function, Some(source))?;
                 } else {
-                    validate_key(source)?;
+                    validate_key(source, self.schema_scope())?;
                 }
                 Ok(column.as_str().to_owned())
             })
@@ -176,7 +176,7 @@ impl Binder<'_> {
             None => return Err(failed("aggregate measure requires an input column")),
         };
         if let Some(source) = source {
-            validate_key(source)?;
+            validate_key(source, self.schema_scope())?;
         }
         let decimal_source = match (function, source) {
             (
@@ -238,7 +238,7 @@ impl Binder<'_> {
         for column in measure.input_columns() {
             validate_name(column.as_str())?;
             let dtype = field(input_fields, column.as_str())?;
-            validate_key(dtype)?;
+            validate_key(dtype, self.schema_scope())?;
             if !fields.iter().any(|(name, _)| name == column.as_str()) {
                 fields.push((column.as_str().to_owned(), dtype.clone()));
             }

@@ -82,7 +82,10 @@ impl Binder<'_> {
                         .checked_add(if dtype == &DType::Null {
                             4096
                         } else {
-                            crate::native_payload_schema::metadata_bytes(dtype)?
+                            crate::native_payload_schema::metadata_bytes(
+                                dtype,
+                                self.schema_scope(),
+                            )?
                         })
                         .and_then(|bytes| bytes.checked_add(name.len() as u64 + 512))
                         .ok_or_else(|| failed("grouping-set batch metadata overflow"))

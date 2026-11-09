@@ -90,9 +90,7 @@ fn check(index: usize, context: &NativeExecutionContext<'_>) -> Result<()> {
 fn allocator(dtype: &DType, context: &NativeExecutionContext<'_>) -> Result<HostAllocatorRef> {
     Ok(crate::owned_buffers::with_credit(
         context.native_session().host_allocator(),
-        context
-            .memory()
-            .reserve(native_payload::metadata_bytes(dtype)?)?,
+        crate::native_payload_schema::reserve_metadata(dtype, context)?,
     ))
 }
 

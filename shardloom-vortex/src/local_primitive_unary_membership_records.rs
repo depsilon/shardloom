@@ -43,7 +43,7 @@ impl Schema {
             .fields
             .iter()
             .try_fold(32_768_u64, |bytes, (name, dtype)| {
-                native_payload::metadata_bytes(dtype)?
+                native_payload::metadata_bytes(dtype, context)?
                     .checked_add(name.len() as u64 * 2)
                     .and_then(|field| field.checked_mul(8))
                     .and_then(|field| bytes.checked_add(field))
@@ -155,7 +155,7 @@ impl Schema {
             };
             columns.values.push(array);
         }
-        records::structure(&self.state.fields, columns, rows.len())
+        records::structure(&self.state.fields, columns, rows.len(), context)
     }
 
     pub(super) fn counts(
@@ -262,7 +262,7 @@ impl Schema {
         columns
             .values
             .push(records::unsigned(1, context, |_| Ok(ordinal))?);
-        records::structure(&self.output.fields, columns, 1)
+        records::structure(&self.output.fields, columns, 1, context)
     }
 
     pub(super) fn deliver(
@@ -377,7 +377,12 @@ impl<'p, 's> Identities<'p, 's> {
             context,
             |row| Ok(self.pending.values[row].ordinal),
         )?);
-        let array = records::structure(&self.spec.fields, columns, self.pending.values.len())?;
+        let array = records::structure(
+            &self.spec.fields,
+            columns,
+            self.pending.values.len(),
+            context,
+        )?;
         self.pending.values.clear();
         self.bytes = 0;
         self.order.build(array, context)

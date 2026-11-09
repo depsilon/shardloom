@@ -367,12 +367,25 @@ fn prepare_candidate(
     cancellation.check()?;
     if optional {
         let plan = super::row_export_scan_plan(request, source.dtype())?;
-        if !schema::retained_source_admitted(request, source.dtype(), &plan)? {
+        if !schema::retained_source_admitted(
+            request,
+            source.dtype(),
+            &plan,
+            (session.memory(), cancellation).into(),
+        )? {
             cancellation.check()?;
             return Ok(None);
         }
     }
-    let prepared = bind_unary(request, policy, physical_policy, source, session, metadata)?;
+    let prepared = bind_unary(
+        request,
+        policy,
+        physical_policy,
+        source,
+        session,
+        metadata,
+        (session.memory(), cancellation).into(),
+    )?;
     cancellation.check()?;
     Ok(Some(prepared))
 }
@@ -384,9 +397,10 @@ fn bind_unary(
     source: PreparedVortexSource,
     session: &ResidentVortexSession,
     metadata: MemoryLease,
+    scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<PreparedVortexUnary> {
     let plan = super::row_export_scan_plan(request, source.dtype())?;
-    let bound = BoundUnary::bind(request, source.dtype(), &plan, session.memory(), metadata)?;
+    let bound = BoundUnary::bind(request, source.dtype(), &plan, scope, metadata)?;
     Ok(PreparedVortexUnary {
         policy,
         physical_policy,
@@ -413,7 +427,15 @@ pub fn prepare_unary_from_source(
     let (policy, physical) = policy.with_physical_policy_for_request(request);
     let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
     let metadata = session.memory().reserve(memory::request_bytes(request)?)?;
-    bind_unary(request, policy, physical, source, &session, metadata)
+    bind_unary(
+        request,
+        policy,
+        physical,
+        source,
+        &session,
+        metadata,
+        session.memory().into(),
+    )
 }
 
 impl BoundUnary {
@@ -459,15 +481,18 @@ impl BoundUnary {
         self.sampling_preparation = None;
     }
 
-    pub(super) fn for_relation(
+    pub(super) fn for_relation<'scope>(
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,
-        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+        scope: impl Into<crate::native_payload_schema::Scope<'scope>>,
     ) -> Result<Self> {
+        let scope = scope.into();
+        scope.check_cancelled()?;
+        let memory = scope.memory();
         canonical(request, false)?;
         let metadata = memory.reserve(memory::request_bytes(request)?)?;
         let mut plan = super::row_export_scan_plan(request, dtype)?;
-        if !schema::retained_source_admitted(request, dtype, &plan)? {
+        if !schema::retained_source_admitted(request, dtype, &plan, scope)? {
             return Err(failed(
                 "composed unary state does not admit its selected input types",
             ));
@@ -475,7 +500,7 @@ impl BoundUnary {
         // The preceding relation already executed. Any predicate attached to
         // this operation is evaluated here, including scan-pushable predicates.
         plan.residual_predicate.clone_from(&request.predicate);
-        Self::bind(request, dtype, &plan, memory, metadata)
+        Self::bind(request, dtype, &plan, scope, metadata)
     }
 
     pub(super) fn fields(&self) -> &[(String, DType)] {
@@ -605,7 +630,7 @@ impl BoundUnary {
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,
         plan: &LocalVortexScanPlan,
-        memory: &shardloom_exec::live_memory::LiveMemoryPool,
+        scope: crate::native_payload_schema::Scope<'_>,
         mut metadata: MemoryLease,
     ) -> Result<Self> {
         let width = dtype
@@ -634,15 +659,15 @@ impl BoundUnary {
             melt,
             explode,
             pivot,
-        } = schema::bind(request, dtype, plan, memory)?;
+        } = schema::bind(request, dtype, plan, scope)?;
         // Validate declared types even for reports and empty sources.
         if request.kind == VortexQueryPrimitiveKind::ExplodeRows {
             drop(super::completed_result::CompletedRows::new_native(
                 fields.clone(),
-                memory,
+                scope,
             )?);
             for (_, dtype) in &fields {
-                let bytes = super::native_payload::metadata_bytes(dtype)?;
+                let bytes = super::native_payload::metadata_bytes(dtype, scope)?;
                 metadata.resize(
                     metadata
                         .bytes()
@@ -653,7 +678,7 @@ impl BoundUnary {
         } else {
             drop(super::completed_result::CompletedRows::new_native(
                 fields.clone(),
-                memory,
+                scope,
             )?);
         }
         let predicate = plan

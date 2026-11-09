@@ -66,7 +66,7 @@ fn pressure(
     available_rows: u64,
     context: &NativeExecutionContext<'_>,
 ) -> Result<MemoryLease> {
-    let cost = cost(&spec.fields)?;
+    let cost = cost(&spec.fields, context)?;
     // finish_prefix first creates the full stable ordinal vector. That owner
     // remains charged when output selection takes its snapshot.
     let keep = cost.fixed_bytes + available_rows * cost.bytes_per_unit + (ROWS * 8) as u64;

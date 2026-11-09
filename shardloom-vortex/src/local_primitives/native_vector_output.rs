@@ -47,13 +47,10 @@ impl Builder {
         ) {
             return Err(failed("vector result requires nonnull 64-bit components"));
         }
-        let allocator =
-            with_credit(
-                context.native_session().host_allocator(),
-                context.memory().reserve(
-                    crate::local_primitives::native_payload::metadata_bytes(dtype)?,
-                )?,
-            );
+        let allocator = with_credit(
+            context.native_session().host_allocator(),
+            crate::native_payload_schema::reserve_metadata(dtype, context)?,
+        );
         let (offsets, sizes) = if matches!(dtype, DType::List(_, _)) {
             let bytes = rows
                 .checked_mul(8)

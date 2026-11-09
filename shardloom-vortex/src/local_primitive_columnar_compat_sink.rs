@@ -199,7 +199,7 @@ pub(super) fn prepare_plan(
         return Ok(None);
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(&plan.dtype) {
+    if crate::native_binary_type::contains(&plan.dtype).map_err(vortex_error)? {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "this output format cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
@@ -255,13 +255,16 @@ pub(super) fn prepare_plan(
     let Some(fields) = plan.dtype.as_struct_fields_opt() else {
         return Ok(None);
     };
-    if fields.nfields() == 0
-        || fields.nfields() > limits.columns
-        || fields
-            .fields()
-            .any(|dtype| super::native_payload::metadata_bytes(&dtype).is_err())
-    {
+    if fields.nfields() == 0 || fields.nfields() > limits.columns {
         return Ok(None);
+    }
+    for dtype in fields.try_field_dtypes() {
+        if !crate::native_payload_schema::supported(
+            dtype.map_err(vortex_error)?,
+            plan.session.memory(),
+        )? {
+            return Ok(None);
+        }
     }
     let schema_metadata = Some(crate::native_payload_schema::reserve_schema(
         &plan.dtype,

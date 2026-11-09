@@ -18,6 +18,7 @@ impl Plan {
         request: &VortexQueryPrimitiveRequest,
         source: &DType,
         columns: &[String],
+        scope: crate::native_payload_schema::Scope<'_>,
     ) -> Result<Self> {
         let melt = super::super::required_melt_projection(request)?;
         let position = |name: &str| {
@@ -52,7 +53,7 @@ impl Plan {
             .map(|name| super::schema::source_field(source, name.as_str()))
             .collect::<Result<Vec<_>>>()?;
         for dtype in &dtypes {
-            super::super::native_payload::metadata_bytes(dtype)?;
+            super::super::native_payload::metadata_bytes(dtype, scope)?;
         }
         fields.push((
             melt.variable_column.clone(),
