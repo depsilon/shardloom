@@ -25,7 +25,7 @@ identities. Existing Mac Full43 observations do not predict Foundry performance.
 
 ## Host and execution contract
 
-Execution host: Foundry. Compute engine: ShardLoom.
+Primary transform route: Foundry hosts the job; ShardLoom is the compute engine.
 
 Use declared Foundry input handles, an optional thin adapter, the installed
 native Python package and ordinary `import shardloom` / `sl.context(...)`, then
@@ -34,6 +34,30 @@ supplies the input snapshot and owns platform publication. ShardLoom owns query
 planning/execution, native memory, workers, spill, cancellation and result
 lifetimes. No Spark, DataFusion, DuckDB, Polars or other engine executes
 unsupported ShardLoom work. Foundry hosting is compatible with that rule.
+
+The November 8 maintainer clarification makes installed native packages in
+ordinary single-node Python transforms the primary Foundry integration. Keep
+four routes explicit:
+
+| Route | Intended role |
+| --- | --- |
+| Native package in a single-node transform | Primary path for ordinary SQL/DataFrame use, datasets, incremental workflows and managed Iceberg. |
+| BYOC transform | Packaging alternative when native dependencies require a controlled container. |
+| External native worker with Foundry API/SDK access | Separate orchestration option with explicit compute host, scoped credentials, data access/export and publication contracts. |
+| Compute Module | Optional request-serving adapter when its job and replica model fits the workload; neither primary nor required. |
+
+Share native execution, schema/source identity, resources, dataset adapters and
+result publication across the applicable routes. None may require callers to
+go through a Compute Module to import the package or run a transform. Certify
+each selected route on its own evidence; a successful transform does not imply
+serving or scale-to-zero support, and missing Compute Module support does not
+block a certified transform workload. All routes remain unproved in a real
+enrollment until their acceptance runs succeed.
+
+The [portable serverless addition](native-serverless-execution-2026-11-08.md)
+queues shared worker and durable-artifact foundations after item 19, with one
+actual host selected from workload and environment evidence. It preserves the
+three deliverables below and gives Compute Modules no preferred-host status.
 
 The existing [starter](../../examples/foundry-lightweight-transform/README.md)
 builds a local CLI, imports from a checkout and writes simulated local outputs.
@@ -218,13 +242,16 @@ when needed. Ordinary transforms should use their supplied authorized handles.
 External production clients need scoped application authentication; do not
 introduce service credentials into the first transform just to use an SDK.
 
-Compute Modules and `python-compute-module` are later request-serving work.
-Verify their current API maturity and payload protocol before adoption; JSON
-item streaming is not Arrow batch transport, replica state is not durable
+Compute Modules and `python-compute-module` are optional later request-serving
+work. Verify their current API maturity and payload protocol before adoption;
+JSON item streaming is not Arrow batch transport, replica state is not durable
 query state, and several replicas do not distribute one ShardLoom query.
-Foundry's S3-compatible API is a later storage boundary and must preserve the
-platform's branching/transaction contract. These options do not block the
-three batch deliverables or authorize extra engines.
+A bounded externally scheduled worker may precede a complete ShardLoom REST
+service, with its own job-protocol, security, package and native-execution
+proof. Full REST serving retains its separate CG-23 acceptance. Foundry's
+S3-compatible API is a later storage boundary and must preserve the platform's
+branching/transaction contract. These options do not block the three batch
+deliverables or authorize extra engines.
 
 Replace the simulated starter with installed-package, transaction-backed
 examples as these deliverables land, keeping local fixtures clearly labeled.

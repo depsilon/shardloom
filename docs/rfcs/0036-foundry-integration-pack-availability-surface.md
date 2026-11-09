@@ -36,6 +36,15 @@ Foundry hosting ShardLoom is compatible with standalone native computation;
 historical local fixtures' false Foundry-invocation fields are not a deployment
 prohibition. No real-enrollment acceptance is claimed by this addition.
 
+The November 8 [portable serverless queue addition](../architecture/native-serverless-execution-2026-11-08.md)
+adds shared worker and durable-artifact foundations after the active rich-data
+work. The maintainer's clarification keeps installed native packages in
+ordinary single-node transforms as the primary Foundry route. BYOC and external
+orchestration remain alternatives; Compute Modules are optional request-serving
+work, neither the sole integration nor the preferred host. The native package,
+dataset/managed-table adapters and output transactions must work independently
+of Compute Modules and a running ShardLoom REST service.
+
 This RFC does not add runtime behavior, dependencies, package publication,
 release tags, container images, Foundry transforms, Foundry Artifact Repository
 publication, Compute Modules, external compute execution, virtual-table native
@@ -228,6 +237,13 @@ F10 workload-certified Foundry deployment
 
 A Foundry package at `F2` does not imply virtual-table support, Compute Module
 support, external compute pushdown, or workload-certified Foundry deployment.
+
+These levels name integration surfaces, not a mandatory deployment chain.
+Certification at `F10` applies to a declared workload and route. A transform
+deployment can meet the certification rule below without `F8` Compute Modules,
+a REST service, Marketplace distribution or app-serving integration. Report
+unproved routes separately; the selected route must still pass all applicable
+package, source/sink, correctness, resource, governance and publication checks.
 
 ## Foundry execution context
 
@@ -651,11 +667,24 @@ snapshot/fork semantics
 ShardLoom run mode: baseline | scenario_eval | unsupported
 ```
 
-## Compute Modules and BYOC
+## Deployment routes: transforms, BYOC, external workers and Compute Modules
 
-The first Foundry ETL path should be Conda package plus lightweight transform.
-BYOC is useful when the binary/runtime must be pinned in a container. Compute
-Modules are later, once `shardloom serve` or CG-23 REST is real.
+The primary Foundry ETL path is a pinned native package in a single-node
+Python transform, with ordinary ShardLoom SQL/DataFrame calls and declared
+inputs/outputs. Replace the historical CLI-wrapper-only recipe as specified
+in the [installed-native handoff](../architecture/native-foundry-integration-2026-10-25.md).
+BYOC is an alternative when the binary/runtime needs a controlled container.
+An externally hosted native worker may use a separately authorized Foundry
+API/SDK adapter; its host and data-export boundary must be explicit. None of
+these routes requires a Compute Module.
+
+Compute Modules are an optional request-serving adapter, with no primary or
+preferred-host role. The shared engine and artifact protocol must not depend
+on its job transport, replica lifecycle or SDK. A bounded externally scheduled
+worker may precede a complete `shardloom serve` implementation under the
+[serverless contract](../architecture/native-serverless-execution-2026-11-08.md).
+An optional Compute Module job adapter proves its actual protocol and scoped
+CG-23 obligations separately; a full REST surface retains the service gates.
 
 `FoundryByocImageReport`:
 
@@ -696,8 +725,12 @@ certificate schema version
 REST API readiness
 ```
 
-Compute Module support remains blocked until CG-23 API, security, packaging,
-and governance evidence exists.
+Compute Module support remains blocked until its actual adapter has native
+execution, API/protocol, security, packaging and governance evidence. The report
+fields above describe the proposed service surface; a bounded job adapter must
+report its admitted capabilities explicitly and cannot claim `shardloom serve`
+or general REST readiness. Missing Compute Module support does not block
+acceptance of independently proved package/transform or external-worker routes.
 
 ## Marketplace starter product
 
@@ -816,6 +849,8 @@ Do not:
 make Foundry a required dependency
 make users build Rust inside Foundry transforms
 use BYOC as the only path
+make Compute Modules the only or primary Foundry integration
+require Compute Modules or a REST service for the installed-package transform
 call Foundry-staged local files native object-store execution
 claim .vortex Foundry table output until source/sink evidence exists
 report Snowflake/Databricks/BigQuery/Spark compute as ShardLoom execution
@@ -840,10 +875,16 @@ The practical sequence is:
 8. Foundry virtual table and external-compute boundary reports.
 9. Data Health, lineage, transaction, branch, and schedule surfaces.
 10. Marketplace starter product.
-11. Compute Module REST/API surface after CG-23 runtime exists.
-12. Ontology/AIP/Workshop operational integration.
+11. Optional Compute Module adapter; full REST/API serving waits for its CG-23 runtime.
+12. Ontology/AIP/Workshop integration when required by the declared workload.
 13. Workload-certified Foundry deployment.
 ```
+
+The sequence is scoped by the chosen route: optional serving, BYOC, Marketplace
+and app surfaces are not prerequisites for a certified transform workload.
+The November 8 serverless addition shares worker/artifact foundations with
+this plan but does not replace the three working Foundry deliverables or
+preselect Compute Modules as its first host.
 
 This keeps ShardLoom available and useful in Foundry while preserving the core
 no-fallback, Vortex-native, certificate-first execution identity.

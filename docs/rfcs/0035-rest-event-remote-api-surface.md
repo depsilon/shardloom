@@ -35,6 +35,15 @@ claim. Public claims remain blocked until correctness, benchmark, native I/O,
 execution-certificate, workload-scope, API-surface, security/governance, and
 no-fallback evidence exists.
 
+The November 8 [portable serverless queue addition](../architecture/native-serverless-execution-2026-11-08.md)
+admits a future bounded, externally scheduled worker before a complete public
+REST service, after the active rich-data work. The worker reuses native plans,
+resources and durable result artifacts; its host adapter must prove admission,
+authorization, cancellation and publication. This does not change current
+runtime support or close CG-23. The Foundry integration remains native-package
+and transform-first, with Compute Modules optional and no dependency on them
+for package imports, dataset adapters or transform execution.
+
 ## CG-23 definition
 
 CG-23: REST, Event, and Remote API Surface

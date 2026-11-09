@@ -2,8 +2,9 @@
 
 # Shared exact vector expressions
 
-Status: implemented with passing local native, public and installed-package
-checks. The selected contract was frozen before native implementation and
+Status: merged in PR #1671 with all 58 PR checks and all 55 exact-main checks
+passing. Verified artifact retirement and post-retirement replay are complete.
+The selected contract was frozen before native implementation and
 observations. This resumes item 19 after the
 [provider upgrade and dependency closeout](native-provider-upgrade-2026-11-08.md).
 It does not complete item 19, item 20, RFC 0044 or CG-1 through CG-23.
@@ -252,9 +253,10 @@ credits likewise do not establish a whole-process RSS bound, zero-copy,
 zero-decode or file-I/O savings.
 
 Original failures, including the demonstrated literal-credit and public raw-copy
-defects and their passing regressions, remain in the packet. Hosted review, PR
-checks, exact-main checks and post-merge retirement are subsequent closeout
-steps; this frozen local record does not claim them retrospectively.
+defects and their passing regressions, remain in the packet. At that local
+checkpoint, hosted review, PR checks, exact-main checks and post-merge retirement
+remained subsequent closeout steps. The frozen local record is unchanged; the
+later outcome is recorded separately below.
 
 The [proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
 preserves that packet byte-for-byte. Both original PR #1671 Linux Python 3.13
@@ -265,5 +267,32 @@ and no observed failed assertions; neither is accepted. The same wheel passed
 the selected budget in each step observation. Test discovery, zero-skip policy,
 package/runtime inputs and the outer CI job limit are unchanged. All 21 focused
 proof/package tests and the fresh local installed run of 397 tests pass, including
-load and uninstall. The original runtime checks remain bound to unchanged inputs;
-fresh hosted checks at the follow-up commit are still required before merge.
+load and uninstall. The original runtime checks remain bound to unchanged inputs.
+These local observations preceded the fresh hosted checks below.
+
+## Hosted integration and cleanup
+
+[PR #1671](https://github.com/depsilon/shardloom/pull/1671) merged as
+`9c4ada03e1c30ed20fd2118c78a8be3fb69b0dd8` after all 58 checks passed at
+`3c632441e37b038720aa9045e6f461628f8a776a`, with no unresolved review findings.
+Each of the three fresh PR installed-wheel lanes passed all 397 tests with
+zero failures, errors or skips, plus isolated loading and uninstall. The
+[exact merged-main run](https://github.com/depsilon/shardloom/actions/runs/42547270332)
+then passed all 55 required checks. A local status-fetch interruption was
+preserved and recovered without restarting hosted jobs or changing their
+contract; it was not a test failure.
+
+Verified closeout retired 27,810 generated entries, including 25,117 regular
+files and six environment links. Repeated identities and closed-handle checks
+preceded removal. Current input generations, the accepted runtime and tested
+wheel, both committed packets and all original observations remained unchanged.
+Complete source-bound replay passed after retirement. The earlier unexecuted
+retirement plan remains historical; the executed inventory covers the proof
+follow-up as well as the original vector work.
+
+The separate storage-maintenance pass retired reproducible debug output and
+losslessly compacted older result records. It preserved original failures and
+current inputs; see the [storage record](local-development-storage.md).
+No package was published and no performance run was added. This closes the
+selected vector-expression delivery, while wider nested-schema admission,
+deep traversal and the remaining item-19 lifecycle obligations stay open.
