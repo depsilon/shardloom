@@ -12,6 +12,15 @@ workflows. Current local proof remains unchanged until those platform checks
 pass. Foundry may host the same ShardLoom engine without becoming its query
 execution provider.
 
+The November 8 [serverless queue addition](../architecture/native-serverless-execution-2026-11-08.md)
+preserves native packages in ordinary single-node transforms as the primary
+Foundry route. BYOC and externally hosted native workers are separate options;
+Compute Modules are an optional serving adapter, neither the sole path nor
+the preferred host. Certification is specific to the selected workload and
+route: transform acceptance does not depend on Compute Module support. This
+sequencing clarification adds no platform proof and changes none of the local
+readiness or blocked deployment statuses below.
+
 ## Scope
 
 Foundry is an optional integration pack. It must make ShardLoom easier to install, import, run,

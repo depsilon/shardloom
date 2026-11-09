@@ -89,18 +89,44 @@ the accepted provider runtime/wheel, the earlier vector-expression comparison
 runtime, current input generations and release cache remained unchanged. The
 fresh release build, public checks and all 397 installed-wheel tests subsequently
 passed. The [vector-expression packet](../release/evidence/native-vector-expressions-2026-11-08/README.md)
-preserves this retirement and every original failed observation. The provider
-runtime/wheel and the newly tested vector-expression runtime/wheel remain retained
-through hosted closeout. Storage floors are unchanged and no payload backup was
-created.
+preserves this retirement and every original failed observation. At local
+acceptance, the provider runtime/wheel and the newly tested vector-expression
+runtime/wheel remained retained through hosted closeout. The subsequent
+retirement below supersedes the provider artifacts. Storage floors are unchanged
+and no payload backup was created.
 
 The [proof-supervision follow-up](../release/evidence/native-vector-proof-supervision-2026-11-08/README.md)
 retains both original hosted deadline failures, the fresh local 397-test installed
 proof and the focused deadline regressions. The original vector-expression packet
 is unchanged; the follow-up stores only new observations and source bytes absent
 from that packet. The tested runtime is reused byte-for-byte. The original
-unexecuted retirement plan remains historical; closeout must use a new inventory
-covering the follow-up and retain the accepted runtime/wheel and both packets.
+unexecuted retirement plan remains historical; the subsequent closeout used a
+new inventory covering the follow-up and retained the accepted runtime/wheel
+and both packets.
+
+PR #1671 merged as `9c4ada03e1c30ed20fd2118c78a8be3fb69b0dd8` after all 58 PR
+checks passed with review clear; all 55 exact-main checks then passed. Its
+[verified closeout](native-vector-expressions-2026-11-08.md#hosted-integration-and-cleanup)
+retired 27,810 entries, including 25,117 obsolete regular files and six environment
+links, totaling 1,439,575,790 logical regular-file bytes. Repeated inventories,
+identities and closed-handle checks passed. Current inputs, the accepted
+vector-expression runtime and installed-tested wheel, both committed packets
+and original failed observations remained unchanged. Complete source-bound
+replay passed after retirement. Superseded provider and comparison runtimes,
+completed install environments and verified temporary source/evidence copies
+were retired without a payload backup or storage-limit change.
+
+The associated storage-maintenance pass separately retired 10,214 reproducible
+debug files (3,747,425,410 logical bytes), preserving the release cache and all
+retained runtime/input identities; both vector packets replayed afterward.
+Lossless result compaction retired another 19,720 raw result files
+(1,131,320,030 logical bytes). Their exact bytes remain recoverable from 637
+existing archives and ten verified compressed JSONL records totaling 1,526,244
+bytes; original failed summaries and archives are unchanged. The three
+operations retired 55,051 obsolete regular files totaling about 5.9 GiB of
+logical bytes, not a measurement of physical space reclaimed. Current input
+generations remain protected, including the retained ingest-ownership Vortex
+input; unclassified older outputs were not retired by this pass.
 
 The November 3 source milestone retired two temporary copies of the local I/O
 packet after relocated replay. All 66 files (375,519,166 logical bytes) matched
