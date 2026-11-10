@@ -256,13 +256,18 @@ Current autonomous execution order:
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.
     The later November 10 maintainer addition below preserves that program and
-    changes the immediate order: finish Variant field-expression integration
-    (UUID hosted closeout is complete), investigate recommendations 8 and 9 independently, then evaluate
+    changes the immediate order: finish the
+    [dictionary repair's hosted integration](native-dictionary-execution-repair-2026-11-10.md)
+    following the current-runtime observation (Variant and UUID hosted checks
+    passed), investigate recommendations 8 and 9 independently, then evaluate
     recommendation 10 under its separate resource objective. A then B remain
     queued after this first operator-state sequence. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
     spatial support and resource-admitted deep traversal remain in item 19.
   - Execution checklist:
+    - [ ] Complete hosted integration of the dictionary callback repair. Its
+      default/native suites and separate frozen 517-case correctness cohort pass;
+      preserve the failed original 10,000-case observation and its 96 failures.
     - [ ] Reconcile all fifteen hypotheses and saved accepted/rejected
       observations against the accepted head. Map case IDs and actual activation
       for index probes, repeated window updates, spill, repeated builds and
@@ -312,6 +317,19 @@ Current autonomous execution order:
     version new composed workflows separately. Counter changes alone cannot ship
     a candidate. No performance, release or CG-1 through CG-23 completion claim
     follows from queue admission.
+
+  **Current-runtime observation and later cohort policy.** The November 10
+  maintainer decision authorizes one current full10k observation, then relevant
+  predefined cohorts with exact saved-case reuse. That observation at
+  `8f426b3d2e774be2a9d30a731c33b8c830378d99` completed every attempt once but
+  yielded 9,904 successes, 76 dictionary panics and 20 CLI no-JSON errors. It has
+  no valid complete engine-time total. The separate
+  [repair evidence](native-dictionary-execution-repair-2026-11-10.md) verifies
+  all 96 repaired failures and 421 predefined controls. Freeze later selections
+  from mechanism exposure and controls, bind the actual baseline runtime and
+  exact requests, and measure missing baseline cases explicitly. Do not merge
+  repaired requests into the old observation, infer an optimization gain from
+  historical runtime totals, or rerun full10k routinely.
 
   **Operator-state contracts for recommendations 8–15.** These are investigation
   obligations, not accepted implementations or new phase IDs. The supplied
@@ -660,7 +678,7 @@ Variant field expressions, useful spatial support and deep traversal remain
 independent required obligations. Item 19, item 20, RFC 0044 and CG-1 through
 CG-23 are not closed by this finite verification.
 
-**Item 19 Variant field expressions: source and installed-runtime verification passed.**
+**Item 19 Variant field expressions: finite runtime and hosted checks passed.**
 The [field-expression contract](native-variant-expressions-2026-11-10.md) admits
 literal-path `variant_get`, typed `try_variant_get` and `is_variant_null` through
 the existing native binder and pinned Vortex provider. Complete default/native
@@ -670,13 +688,30 @@ pass. All 25 public/catalog/schema tests, including ten new public cases, and al
 441 isolated installed-wheel tests pass with zero skips. These cover all five write entry points,
 separate-process reopen, real spill/cancellation, computed joins/grouping/ranking,
 null/type fidelity and retained output ownership. The broader Python check passes
-with its optional skips retained. Final documentation, portable evidence and
-hosted acceptance remain pending.
+with its optional skips retained. Final documentation and portable source-bound
+evidence passed. PR #1676 merged as
+`8f426b3d2e774be2a9d30a731c33b8c830378d99` after all 58 PR checks passed with
+review clear; all 55 exact-main checks passed. The later current-runtime
+observation exposed a separate dictionary callback defect, covered by the
+[repair contract](native-dictionary-execution-repair-2026-11-10.md). Hosted checks
+do not override those original failed requests. Retained runtime/input evidence
+stays protected through the repair's closeout.
 Original failed observations and the guarded storage stop remain preserved.
 Useful spatial support and resource-admitted deep traversal remain required;
 item 19, item 20, RFC 0044 and CG-1 through CG-23 remain open. The shared pipeline
 and operator-state investigations above follow this unit; UUID hosted closeout
 is complete.
+
+**Native dictionary callback repair: local correctness acceptance passed.**
+The provider now respects Vortex's detached `ExecuteSlot` child while preserving
+the existing native dictionary metadata and credited fixed-width decoder.
+Default/native workspace suites pass 3,323/7,068 tests, with 37 existing native
+opt-in ignores. All 517 predefined CLI/Python requests pass, including every
+original failure and all 421 controls. Independent complete-result, engine-clock,
+no-fallback and input-integrity checks pass without another query execution.
+The [portable packet](../release/evidence/native-dictionary-execution-repair-2026-11-10/README.md)
+preserves the failed original observation separately. Hosted integration remains
+required; this correctness repair makes no full10k timing or optimization claim.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

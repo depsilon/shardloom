@@ -746,3 +746,7 @@ mod tests;
 #[cfg(test)]
 #[path = "native_provider_builder_tests.rs"]
 mod builder_tests;
+
+#[cfg(test)]
+#[path = "native_provider_dictionary_tests.rs"]
+mod dictionary_tests;

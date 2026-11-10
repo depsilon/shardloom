@@ -1,0 +1,1 @@
+{"candidate_outcomes": {"passed": 517}, "complete_10k_performance_claim": false, "original_attempts": 10000, "original_outcomes": {"crashed": 76, "harness_error": 20, "passed": 9904}, "passing_controls": 421, "query_executions": 0, "repaired_cases": 96, "source_fingerprint_sha256": "fa6efbc283a02bb16fe79c468cb9fbe930bac4a3f3b1fdd0e52449a7396a42bb", "status": "passed"}

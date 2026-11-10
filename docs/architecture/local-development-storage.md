@@ -212,6 +212,17 @@ checks, fresh release runtime and all 441 installed-wheel integrations later
 passed. The field-expression evidence retains the interrupted run, original
 failures and preparation-retirement manifest; final hosted retirement is separate.
 
+During the [dictionary callback repair](native-dictionary-execution-repair-2026-11-10.md),
+the first regression attempt stopped at the unchanged 12 GiB free-space floor.
+Verified debug-cache retirement removed 15,597 entries, including 13,280 regular
+files totaling 8,960,177,157 logical bytes, with no symlinks. Repeated identity
+and closed-handle checks preserved all 220 current input generations, 13 protected
+runtime/wheel/evidence files and the release cache. No payload backup or limit
+change was made. The original stopped attempt remains recorded. Default/native
+checks, a fresh release build and the isolated 517-case repair cohort subsequently
+passed. The failed original 10,000-case observation remains immutable evidence,
+and accepted/comparison runtimes remain protected through hosted closeout.
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.
