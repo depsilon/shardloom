@@ -185,8 +185,32 @@ superseded preparation runtimes. Current inputs, retained runtimes/wheels and
 the release cache remained unchanged. Full default/native tests, strict lint,
 the fresh release build and all 431 installed-wheel integrations subsequently
 passed. Original failures and the exact preparation retirement remain in the
-UUID packet. The new runtime/wheel and accepted Variant runtime/wheel remain
-retained through UUID hosted integration; its final retirement is separate.
+UUID packet. At local acceptance, the new runtime/wheel and accepted Variant
+runtime/wheel remained retained through UUID hosted integration. The following
+separate closeout supersedes that earlier Variant runtime/wheel.
+
+PR #1675 merged as `8df722749e3993bb27a9cdd573de8a2a3860bb34` after all 58 PR
+checks passed with review clear; all 55 exact-main checks then passed. Verified
+closeout retired 17,022 entries, including 15,663 regular files and three
+environment links, totaling 1,679,625,582 logical regular-file bytes. Repeated
+identities and closed-handle checks passed. All 220 current input generations,
+the accepted UUID runtime-r1 and installed-tested wheel, committed packets and
+original failures remained unchanged; complete source-bound replay passed
+after retirement. Superseded Variant runtime/wheel, UUID preparation runtime,
+completed staging/environment and verified temporary source/evidence copies
+were retired. No payload backup or storage-limit change occurred. The Variant
+field-expression evidence retains this separate hosted closeout.
+
+During Variant field-expression preparation, the unchanged free-space floor
+stopped a compile before tests ran. Verified retirement removed 15,624 entries,
+including 13,299 regular files and no symlinks, from the debug compiler cache
+and one superseded preparation runtime. Repeated identities and closed-handle
+checks preserved eight retained runtime/wheel files, all 220 current input
+generations and the release cache. No payload backup or storage-limit change
+was made. The complete default/native tests, strict lint, feature/supported-Rust
+checks, fresh release runtime and all 441 installed-wheel integrations later
+passed. The field-expression evidence retains the interrupted run, original
+failures and preparation-retirement manifest; final hosted retirement is separate.
 
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and

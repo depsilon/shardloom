@@ -24,6 +24,9 @@ pub(super) mod scalar;
 #[path = "native_relational_vector.rs"]
 pub(super) mod vector;
 
+#[path = "native_relational_variant.rs"]
+pub(super) mod variant;
+
 #[path = "native_relational_predicate_block.rs"]
 mod predicate_block;
 
@@ -274,6 +277,10 @@ impl Expression {
         args: &[Self],
         completed: Option<&[ArrayRef]>,
     ) -> Result<ArrayRef> {
+        if let scalar::Function::Variant(kernel) = function {
+            let value = args[0].evaluate_in_scope(input, context, completed)?;
+            return kernel.evaluate(&value, &self.dtype, context);
+        }
         if let scalar::Function::Vector(kernel) = function {
             // Rich arguments retain native arrays. Converting them to scalar
             // key owners first would reject list/extension storage and observe

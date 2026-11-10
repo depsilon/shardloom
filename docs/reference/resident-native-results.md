@@ -286,8 +286,18 @@ Arrow IPC and Parquet retain the standard extension identity. `to_arrow()` expos
 the canonical binary `metadata`/`value` children, and Python row objects retain
 those encoded children; SQL NULL remains distinct from a present Variant null.
 Use `context.from_result` to reconsume a completed native owner. Shredded physical
-types and depth remain bounded as documented; Variant keys, field expressions,
-row-literal hints and general JSON conversion are not admitted by this contract.
+types and depth remain bounded as documented. The subsequent
+[field-expression contract](../architecture/native-variant-expressions-2026-11-10.md)
+adds `variant_get(value, path)`, `try_variant_get(value, path, type)` and
+`is_variant_null(value)` in current source builds. Paths and target types are
+literal controls; missing fields and failed concrete conversions return SQL
+NULL, while an untyped present Variant null remains distinct. For example,
+`try_variant_get(payload, '$.customer.id', 'int64')` produces a nullable Int64
+column for ordinary native joins, grouping and ranking. Use JSON-quoted bracket
+fields for punctuation, such as `$["customer.name"]`. Target conversion follows
+the pinned provider's documented pairs and retains the caller's float policy.
+Variant keys, ordinary casts, row-literal hints and general JSON conversion
+remain outside these contracts.
 General Variant/extension operations, nested
 arithmetic/string operations and broader state-spill families remain explicit
 gaps. Current source builds admit typed literals, explicit CAST/TRY_CAST, exact

@@ -17,6 +17,8 @@ pub enum ScalarTypeRule {
     VectorSlice,
     VectorReduction,
     VectorNormalize,
+    VariantGet,
+    VariantIsNull,
     Utf8,
     Utf8Offsets,
     Utf8Length,
@@ -76,6 +78,12 @@ impl ScalarTypeRule {
             Self::VectorNormalize => {
                 "F16/F32/F64 dense vector -> same list kind/width with nonnull Float64 components and nullable parent; bounded-error normalization without embedding metadata"
             }
+            Self::VariantGet => {
+                "Variant and literal path -> nullable Variant; TRY_VARIANT_GET additionally requires a literal admitted target type and returns NULL on failed conversion"
+            }
+            Self::VariantIsNull => {
+                "Variant -> nonnull Boolean; true only for a present Variant null, false for SQL NULL"
+            }
             Self::Utf8 => "UTF8 arguments -> UTF8",
             Self::Utf8Offsets => "UTF8, integer offsets/lengths -> UTF8; Unicode code points",
             Self::Utf8Length => "UTF8 -> Int64 Unicode code-point count",
@@ -126,6 +134,7 @@ pub enum ScalarNullRule {
     Branches,
     RequiredControlValues,
     OrderedNull,
+    NullIsFalse,
 }
 
 impl ScalarNullRule {
@@ -142,6 +151,7 @@ impl ScalarNullRule {
                 "NULL controls or a selected NULL text value are errors; successful results are nonnull"
             }
             Self::OrderedNull => "NULL sorts below nonnull values; the result is nonnull",
+            Self::NullIsFalse => "SQL NULL produces false; the result is nonnull",
         }
     }
     #[must_use]
@@ -211,6 +221,39 @@ definitions!(
 
 definitions!(
     pub SCALARS,
+    (
+        "variant_get",
+        [],
+        2,
+        2,
+        VariantGet,
+        AlwaysNullable,
+        "variant_path",
+        false,
+        "Extract a native Variant field or zero-based index path; missing paths produce SQL NULL and present Variant null remains distinct."
+    ),
+    (
+        "try_variant_get",
+        [],
+        3,
+        3,
+        VariantGet,
+        AlwaysNullable,
+        "variant_path",
+        false,
+        "Extract a native Variant path as a literal target type; missing paths and failed conversions produce SQL NULL."
+    ),
+    (
+        "is_variant_null",
+        [],
+        1,
+        1,
+        VariantIsNull,
+        NullIsFalse,
+        "variant_null",
+        false,
+        "Test for a present Variant null; SQL NULL and other values produce false."
+    ),
     (
         "is_nan",
         [],

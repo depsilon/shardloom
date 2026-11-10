@@ -251,6 +251,172 @@ the ledger.
 
 Current autonomous execution order:
 
+- [ ] **Item 20 shared-pipeline and operator-state investigations — November 10 maintainer additions.**
+  - Scope: `v1_candidate_pending_feasibility`; the
+    [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
+    records the initial seven research candidates in existing RFC 0044 owners.
+    The later November 10 maintainer addition below preserves that program and
+    changes the immediate order: finish Variant field-expression integration
+    (UUID hosted closeout is complete), investigate recommendations 8 and 9 independently, then evaluate
+    recommendation 10 under its separate resource objective. A then B remain
+    queued after this first operator-state sequence. Select later extensions from
+    demonstrated exposure and value; keep managed-object growth separate. Required useful
+    spatial support and resource-admitted deep traversal remain in item 19.
+  - Execution checklist:
+    - [ ] Reconcile all fifteen hypotheses and saved accepted/rejected
+      observations against the accepted head. Map case IDs and actual activation
+      for index probes, repeated window updates, spill, repeated builds and
+      selected-run lookup before implementation. Freeze each protocol and reuse map.
+    - [ ] 8: evaluate one compact metadata layout for the shared native hash
+      index through complete joins, grouping and membership requests.
+    - [ ] 9: evaluate compatible SUM/AVG/COUNT and variance/standard-deviation
+      window traversal and state sharing independently of recommendation 8.
+    - [ ] 10: prove window-local deletion/recycling for bounded moving COUNT
+      DISTINCT, with an allocated-storage bound and separate throughput controls.
+    - [ ] A: prove unique-dimension inner/left mappings through two joins and
+      top-k with real wide output, complete controls and a retain/drop decision.
+    - [ ] B: prove one capability-admitted bounded direct grouped/count source
+      bridge into an existing native kernel and record its complete decision.
+    - [ ] C: attribute and remove one demonstrated repeated key/order/structural
+      fact reconstruction using existing native owners and compatible domains.
+    - [ ] D: prove completed inner/semi-join constraints in source demand and
+      Capillary with conservative pruning and full-population controls.
+    - [ ] E: prove selected-domain expression sharing/query-vector invariant
+      reuse, then exact scoring into bounded ranking with separate vector cases.
+    - [ ] F: attribute one pipeline imbalance and compare finite PulseWeave
+      feedback choices with sampling-overhead and small-query controls.
+    - [ ] G: verify managed-object insertion/capture costs and compare credited
+      amortized metadata growth with deduplication, publication and cleanup proof.
+    - [ ] 11: use actual spill exposure to prioritize admitted mergeable native
+      aggregate states; keep pressured-workload results separate from the stable 10k.
+    - [ ] 12: evaluate a charged spilled-join block directory, then separately
+      evaluate bounded probe grouping if the directory evidence warrants it.
+    - [ ] 13: test action-local completed join-build reuse against an explicitly
+      materialized invariant dimension, with one-use and changed-input controls.
+    - [ ] 14: establish meaningful selected-RunEnd activation before a cursor
+      experiment; preserve encoded results across adjacent operators as a later,
+      independently attributed experiment.
+    - [ ] 15: attach an executable grouped-COUNT incremental workflow to the
+      existing logical incremental/runtime queue, with a distinct workflow benchmark.
+    - [ ] Measure interactions only after individual acceptance; do not add
+      isolated savings or combine rolling DISTINCT and window sharing into one claim.
+    - [ ] Record every retain/drop outcome, required runtime/public/hosted checks
+      and artifact retirement; move completed details into the existing ledger.
+  - ShardLoom technique review: extend Vortex-native array/selection/source,
+    join/table/batch/ranking and aggregate owners. Use metadata-first demand,
+    Capillary admission, PulseWeave feedback and hard credited lifetimes; do not
+    introduce another execution family per source or user surface. Preserve route
+    timing/evidence tiers and both no-fallback certificate fields.
+  - Acceptance: correctness/resource/no-fallback checks precede lower complete-
+    cohort engine time. Preserve the stable 10k corpus and original rejections;
+    version new composed workflows separately. Counter changes alone cannot ship
+    a candidate. No performance, release or CG-1 through CG-23 completion claim
+    follows from queue admission.
+
+  **Operator-state contracts for recommendations 8–15.** These are investigation
+  obligations, not accepted implementations or new phase IDs. The supplied
+  research used `0cae77b4` and the then-open UUID PR #1675; inspect the accepted
+  source at each experiment start. No new timings accompany this intake.
+
+  A read-only check of all 10,000 archived `one.stdout.json` observations in the
+  [accepted shared-mechanisms evidence](../benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms/results.json)
+  reports zero observed spill bytes, `no_spill_io`, and no requested relational
+  spill throughout. The spill-byte diagnostic is reported for every case;
+  narrower absent provider fields remain unavailable. All 776 window declarations
+  contain one textual `OVER(...)` clause: 120 row-number, 219 LAG, 219 LEAD and
+  218 rolling SUM. Preserve these original cases as controls, add versioned
+  multi-output window cases, and measure spill candidates on an explicit pressured
+  cohort. This inventory ran no query and does not attribute family engine time
+  to probes, shared accumulators or spill work.
+
+  - **8 — Shared probe metadata.** The current
+    [RowIndex](../../shardloom-vortex/src/local_primitives/native_relational_index.rs)
+    loads a bucket's entry before checking its complete hash. Investigate compact
+    occupancy/fingerprint groups while preserving stable entry identities, exact
+    native equality and ordered duplicate chains. Fingerprints identify candidates
+    only. Charge metadata initialization, overlapping resize storage and retention.
+    Include tiny/high-cardinality tables, absent probes, skew, duplicates, strings
+    and deliberate collisions. Measure bucket probes, full-entry loads, equality
+    calls, resize work, peak charged memory and complete engine time; eligibility
+    must pay for metadata overhead on inexpensive inputs.
+  - **9 — Compatible window execution.** Existing partition/order and peer work
+    is already shared, and rolling states already advance incrementally. The
+    [resident evaluator](../../shardloom-vortex/src/local_primitives/native_relational_window.rs)
+    and [spill partition evaluator](../../shardloom-vortex/src/local_primitives/native_relational_window_partition.rs)
+    still evaluate framed outputs separately. Start with compatible additive
+    and moments families, retaining their current numerical algorithms and
+    output finalizers. Require identical observed input/domain, partition/order,
+    frame/exclusion, filter, null and arithmetic semantics; near matches stay
+    separate. Cover empty/excluded/null frames, backward movement and observable
+    error order. Attribute frame-bound evaluations, observations, state storage
+    and complete output. Paired moments and exact quantile families follow only
+    after their own compatibility proof.
+  - **10 — Active rolling DISTINCT.** The resident
+    [Distinct state](../../shardloom-vortex/src/local_primitives/native_relational_window_frame_state.rs)
+    decrements occurrence counts without deleting a zero-count index/count slot.
+    Introduce deletion/recycling only in a window-private owner; preserve the
+    append-only index contract elsewhere. The first objective is auxiliary
+    allocated slots/bytes proportional to maximum simultaneously active distinct
+    values, including bounded tombstone cleanup and resize overlap. The resident
+    input table remains separately retained. Test long unique partitions with
+    narrow moving frames, collisions, repeated/reappearing keys, exclusions and
+    denied growth/cancellation. Live-entry counts alone do not prove the bound.
+    Evaluate this resource objective separately from window fusion, with frozen
+    throughput controls; later SUM/AVG DISTINCT and more complex movement require
+    their own proof. Timing claims still require the complete timing gate.
+  - **11 — Mergeable spill states.** Target the general aggregate path that emits
+    base records, not a specialized path already reducing its inputs. Begin with
+    exact counts and admitted integer MIN/MAX, preserving keys, required ordinals,
+    validation and native run ownership. Define each merge algebra explicitly:
+    floating accumulation and checked-integer intermediate errors cannot change
+    through reassociation. DISTINCT, selectors, collections and exact quantiles
+    require separate contracts. Vary low/intermediate/near-unique cardinality under
+    confirmed spill; measure base/partial records, bytes, merge passes, preparation,
+    finalization and complete engine time.
+  - **12 — Spilled join lookup.** First test a charged directory of sorted-store
+    hash boundaries/block identities; cover complete equal-hash ranges spanning
+    blocks and retain exact key equality. Bound directory growth or admit a sparse
+    form under the same grant. Then independently test bounded probe batches that
+    share block reads/preparation, preserving probe/match ordinals, output order
+    and residual-error visitation. Confirm actual spill with random/ordered probes,
+    absent keys, skew, cross-block duplicates and narrow/wide payloads. Resident
+    joins receive no attributed benefit from this mechanism.
+  - **13 — Repeated immutable builds.** Split completed native table/index/key
+    identity from fresh probe match flags, cursors and output state. Start with
+    inner equality joins against an explicitly materialized invariant dimension
+    within one action; parameter-dependent retention and changing recursive
+    frontiers remain excluded. Bind reuse to source/domain/key/schema/semantic
+    identity and release after the last admitted consumer. Measure repeated
+    dimension scans/builds/inserts and retained bytes in hierarchy/report workflows,
+    including one-use and changed-input controls. Independent requests stay cold.
+  - **14 — Encoded-run activation.** First identify real selected-RunEnd work.
+    An increasing-selection cursor must preserve duplicate observations, sparse
+    large-gap behavior, arbitrary-gather routing and ordered floating arithmetic.
+    Keep the existing selection representation for this first experiment. A later
+    adjacent-operator experiment may preserve Constant/RunEnd results only after a
+    pinned Vortex provider check and arithmetic/diagnostic proof. Measure searches,
+    value extraction and expansion through complete consumers. The previously
+    rejected generic All/Range selection result remains rejected.
+  - **15 — Executable logical maintenance.** Extend the already queued planning
+    contracts with one native grouped COUNT workflow, then explicitly admitted
+    exact sums. Bind state to the committed source snapshot, complete change
+    interval, schema, semantics and output generation. Define updates as validated
+    old-row removal/new-row insertion where admitted; duplicate deliveries must
+    not apply twice, and gaps/replacements invalidate continuation. Checkpoint and
+    state/output publication must be consistent. Deleting extrema needs extra
+    state or explicit recomputation. Keep initial build, update and requested
+    delivery observations distinct; whole-output requests still pay delivery.
+    Reopening completed serverless artifacts does not admit arbitrary live-state
+    restoration. This is a separate repeated-workflow track from cold query timing.
+
+  PulseWeave/Capillary integration belongs at admitted work-unit and ownership
+  boundaries: index, window-state family, spill partition or probe batch. Keep
+  inner lookup/arithmetic loops simple. Preserve construction, delivery,
+  publication and cleanup clocks in diagnostic evidence while routine comparisons
+  continue to report engine time only. Instrumentation needs its own overhead
+  control. No source hypothesis, counter reduction or external-system result is
+  a ShardLoom performance result.
+
 **November 5 rich-data first delivery accepted and merged in #1658.** Item 19's
 [dense embedding and inline rich-column contract](native-dense-embedding-lifecycle-2026-11-05.md)
 adds versioned identity over native fixed-size Float32/Float64 lists and carries
@@ -468,12 +634,13 @@ review clear; all 55 exact-main checks passed. Verified retirement removed
 15,751 obsolete regular files and three environment links, preserving current
 inputs and the Variant runtime/wheel; complete replay passed afterward. The
 UUID packet below retains this separate hosted closeout without rewriting the
-original Variant acceptance. Variant comparison and field expressions remain
-unadmitted; deep traversal and useful spatial support remain required. Item 19,
+original Variant acceptance. That payload unit does not admit Variant comparison
+or field expressions; the field-expression continuation is tracked below.
+Deep traversal and useful spatial support remain required. Item 19,
 item 20, RFC 0044 and CG-1 through CG-23 retain their independent obligations.
 No performance run or package publication is included.
 
-**Item 19 UUID lifecycle: finite runtime verification complete.**
+**Item 19 UUID lifecycle: finite runtime and hosted acceptance complete.**
 The [UUID contract](native-uuid-lifecycle-2026-11-10.md) preserves the canonical
 128-bit domain through native payload and typed key owners. All 3,322 default
 and 7,052 native tests pass, with 37 native opt-in ignores. Arrow provider
@@ -483,10 +650,33 @@ zero skips. The proof includes dictionary metadata, actual spill, separate-
 process reopen and retained-child ownership. The
 [portable packet](../release/evidence/native-uuid-lifecycle-2026-11-10/README.md)
 binds unchanged preparation sources and the fresh runtime/wheel to final
-acceptance; hosted review, exact-main checks and retirement remain separate.
+acceptance. [PR #1675](https://github.com/depsilon/shardloom/pull/1675) merged as
+`8df722749e3993bb27a9cdd573de8a2a3860bb34` after all 58 PR checks passed with
+review clear; all 55 exact-main checks then passed. Verified retirement and
+post-retirement source-bound replay passed, preserving current inputs, the
+accepted UUID runtime/wheel and every original observation. The Variant
+field-expression evidence retains this separate hosted closeout.
 Variant field expressions, useful spatial support and deep traversal remain
 independent required obligations. Item 19, item 20, RFC 0044 and CG-1 through
 CG-23 are not closed by this finite verification.
+
+**Item 19 Variant field expressions: source and installed-runtime verification passed.**
+The [field-expression contract](native-variant-expressions-2026-11-10.md) admits
+literal-path `variant_get`, typed `try_variant_get` and `is_variant_null` through
+the existing native binder and pinned Vortex provider. Complete default/native
+workspace checks pass 3,323/7,065 tests, with 37 native opt-in ignores. Formatting,
+strict lint, seven feature configurations and two supported-Rust configurations
+pass. All 25 public/catalog/schema tests, including ten new public cases, and all
+441 isolated installed-wheel tests pass with zero skips. These cover all five write entry points,
+separate-process reopen, real spill/cancellation, computed joins/grouping/ranking,
+null/type fidelity and retained output ownership. The broader Python check passes
+with its optional skips retained. Final documentation, portable evidence and
+hosted acceptance remain pending.
+Original failed observations and the guarded storage stop remain preserved.
+Useful spatial support and resource-admitted deep traversal remain required;
+item 19, item 20, RFC 0044 and CG-1 through CG-23 remain open. The shared pipeline
+and operator-state investigations above follow this unit; UUID hosted closeout
+is complete.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

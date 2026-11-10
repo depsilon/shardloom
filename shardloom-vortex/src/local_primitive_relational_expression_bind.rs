@@ -29,6 +29,13 @@ mod decimal_functions;
 #[path = "local_primitive_relational_vector_bind.rs"]
 mod vector_functions;
 
+#[path = "local_primitive_relational_variant_bind.rs"]
+mod variant_functions;
+
+#[cfg(test)]
+#[path = "local_primitive_relational_variant_expression_tests.rs"]
+mod variant_tests;
+
 #[cfg(test)]
 #[path = "local_primitive_relational_literal_ownership_tests.rs"]
 mod literal_ownership_tests;
@@ -307,6 +314,12 @@ impl Binder<'_> {
         }
         if vector_functions::handles(definition.type_rule) {
             return vector_functions::bind(self, definition, args, fields, depth);
+        }
+        if matches!(
+            definition.type_rule,
+            ScalarTypeRule::VariantGet | ScalarTypeRule::VariantIsNull
+        ) {
+            return variant_functions::bind(self, definition, args, fields, depth);
         }
         self.charge_fields(args.len())?;
         let mut args = args
@@ -760,7 +773,9 @@ fn function_nullability(rule: ScalarNullRule, args: &[Expression]) -> Nullabilit
         ScalarNullRule::AlwaysNullable => true,
         ScalarNullRule::AllNullable => args.iter().all(|arg| arg.dtype.is_nullable()),
         ScalarNullRule::Branches => args[1..].iter().any(|arg| arg.dtype.is_nullable()),
-        ScalarNullRule::RequiredControlValues | ScalarNullRule::OrderedNull => false,
+        ScalarNullRule::RequiredControlValues
+        | ScalarNullRule::OrderedNull
+        | ScalarNullRule::NullIsFalse => false,
     };
     if nullable {
         Nullability::Nullable
@@ -907,6 +922,9 @@ fn typed_function_dtype(
         | T::VectorReduction
         | T::VectorNormalize => {
             return Err(failed("vector functions require native array binding"));
+        }
+        T::VariantGet | T::VariantIsNull => {
+            return Err(failed("Variant functions require native array binding"));
         }
         T::Utf8 | T::Utf8Offsets | T::Utf8Length | T::Utf8Predicate => {
             return text_function_dtype(rule, args, nullable);

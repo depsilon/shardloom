@@ -52,6 +52,7 @@ pub struct NativeExecutionContext<'a> {
     opened_sources: Mutex<OpenedSources>,
     adaptive_work: Mutex<crate::native_work_sizing::Reports>,
     capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
+    variant_expression_work: Mutex<crate::native_variant::ExpressionWork>,
 }
 
 #[derive(Default)]
@@ -99,11 +100,35 @@ impl RuntimeOwner {
             opened_sources: Mutex::new(OpenedSources::default()),
             adaptive_work: Mutex::default(),
             capability_decisions: Mutex::default(),
+            variant_expression_work: Mutex::default(),
         })
     }
 }
 
 impl NativeExecutionContext<'_> {
+    pub(crate) fn record_variant_expression(
+        &self,
+        rows: u64,
+        normalized: bool,
+        format_bridge: bool,
+    ) -> Result<()> {
+        self.variant_expression_work
+            .lock()
+            .map_err(|_| resident_error("Variant expression evidence poisoned"))?
+            .record(rows, normalized, format_bridge)
+    }
+
+    pub(crate) fn append_variant_expression_certificate(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        self.variant_expression_work
+            .lock()
+            .map_err(|_| resident_error("Variant expression evidence poisoned"))?
+            .append(certificate);
+        Ok(())
+    }
+
     /// Aggregate at owner boundaries only. No input values or per-row trace survive.
     pub(crate) fn record_capability_decision(
         &self,

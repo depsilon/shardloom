@@ -40,6 +40,7 @@ __all__ = (
     "quantile_cont", "quantile_disc", "timestamp_second", "timestamp_sub_seconds", "timestamp_year", "try_cast", "try_strptime",
     "vector_dimension", "tensor_shape", "vector_values", "vector_element", "vector_slice",
     "vector_dot", "vector_l2_distance", "vector_cosine_similarity", "vector_norm", "vector_normalize",
+    "variant_get", "try_variant_get", "is_variant_null",
     "sum_distinct", "avg_distinct", "trim", "typed_scalar_udf", "unhex", "upper", "url_domain", "var", "var_pop", "var_samp", "variance",
 )
 
@@ -67,6 +68,27 @@ def _vector_index(value):
 def vector_dimension(value) -> ColumnExpression:
     """Declare the native dimension inspector for a vector column or expression."""
     return _call("VECTOR_DIMENSION", _vector_operand(value))
+
+
+def variant_get(value, path: str) -> ColumnExpression:
+    """Extract a native Variant path, preserving present Variant null values."""
+    if type(path) is not str:
+        raise TypeError("Variant path must be a literal string")
+    return _call("VARIANT_GET", _column(value), lit(path))
+
+
+def try_variant_get(value, path: str, dtype: str) -> ColumnExpression:
+    """Extract an explicitly typed Variant value; absent or uncastable values are NULL."""
+    if type(path) is not str or type(dtype) is not str:
+        raise TypeError("Variant path and target type must be literal strings")
+    return _call("TRY_VARIANT_GET", _column(value), lit(path), lit(dtype))
+
+
+def is_variant_null(value) -> PredicateExpression:
+    """Test for an embedded Variant null; SQL NULL produces false."""
+    expression = _call("IS_VARIANT_NULL", _column(value))
+    return PredicateExpression(expression.sql, expression.source_bindings,
+        resource_limits=expression.resource_limits)
 
 
 def tensor_shape(value, layout="logical") -> ColumnExpression:

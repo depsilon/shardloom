@@ -1467,7 +1467,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "3b4d65b16651d099255e4e54c9dfd4ed63d27208b4200d3e790b3ce59b10c11e",
+    "source_identity": "622a42322b148b6e4067e4551ee57e5134454eec93b0db75befeee5158994173",
     "source_inputs": {
       "Cargo.lock": "2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b",
       "Cargo.toml": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7",
@@ -1485,7 +1485,7 @@
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "1d1ebd07d67b45c08bd9ca0ad1ecf27784dcc6af5323917ab3576f361281d1e0",
+      "python/src/shardloom/functions.py": "f4f1939acae02b59d790276dacc628e6a8f1d2128e37f42a6291eba2fcc47c78",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
       "python/src/shardloom/query.py": "bad6d96ea2d2b48dc12d5edc6b5252ca3d42c4580462fb035c7c2a6a27527d69",
@@ -4880,6 +4880,33 @@
         "source": "python/src/shardloom/functions.py",
         "signature": "(value) -> 'ColumnExpression'",
         "summary": "Declare dense vector normalization to F64 components."
+      },
+      {
+        "name": "variant_get",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, path: 'str') -> 'ColumnExpression'",
+        "summary": "Extract a native Variant path, preserving present Variant null values."
+      },
+      {
+        "name": "try_variant_get",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value, path: 'str', dtype: 'str') -> 'ColumnExpression'",
+        "summary": "Extract an explicitly typed Variant value; absent or uncastable values are NULL."
+      },
+      {
+        "name": "is_variant_null",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'PredicateExpression'",
+        "summary": "Test for an embedded Variant null; SQL NULL produces false."
       },
       {
         "name": "sum_distinct",

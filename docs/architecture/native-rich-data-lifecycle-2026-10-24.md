@@ -124,8 +124,9 @@ retains the original local-acceptance status. PR #1674 subsequently merged as
 checks and review clear. Verified retirement removed 15,751 obsolete regular
 files and three environment links; current inputs and the accepted Variant
 runtime/wheel remained unchanged, and complete replay passed afterward. The
-UUID packet below preserves that separate closeout. Variant field expressions,
-deeper traversal and useful spatial support remain required. This does not close
+UUID packet below preserves that separate closeout. Variant field expressions
+are tracked in the continuation below; deeper traversal and useful spatial
+support remain required. This does not close
 item 19 or any competitive gate.
 
 The [November 10 UUID unit](native-uuid-lifecycle-2026-11-10.md) implements
@@ -134,8 +135,24 @@ Complete default/native checks pass, along with the Arrow provider, 19 selected
 public/schema tests and all 431 isolated installed-wheel tests with zero skips.
 Its [source-bound evidence](../release/evidence/native-uuid-lifecycle-2026-11-10/README.md)
 keeps original preparation observations, final acceptance and hosted integration
-distinct. Variant field expressions, useful spatial support and deep traversal
+distinct. PR #1675 merged as `8df722749e3993bb27a9cdd573de8a2a3860bb34` with all
+58 PR checks and all 55 exact-main checks passing. Review is clear; verified
+retirement and source-bound replay passed with current inputs and the accepted
+UUID runtime/wheel unchanged. The field-expression evidence retains this
+separate closeout. Variant field expressions, useful spatial support and deep traversal
 remain required; this finite result does not close item 19.
+
+The [Variant field-expression continuation](native-variant-expressions-2026-11-10.md)
+implements literal-path extraction, explicit tolerant typed extraction and
+embedded-null inspection through the pinned Vortex provider. Complete default/native
+workspace, feature and supported-Rust checks pass. All 25 selected public/catalog/schema
+tests and all 441 isolated installed-wheel tests pass with zero skips against a
+fresh release runtime; the broader Python check also passes with its optional
+skips preserved. Its base now matches the accepted UUID merge without changing
+the implementation or index. Final documentation, portable evidence and hosted acceptance
+remain pending. General Variant
+keys/casts, useful spatial support and resource-admitted deep traversal are not
+admitted by these functions; this continuation does not close item 19.
 
 ## Competitive baseline and separate obligations
 

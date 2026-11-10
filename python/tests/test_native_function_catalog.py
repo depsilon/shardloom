@@ -48,6 +48,9 @@ TEMPORAL_CASES = {
 CASES = {
     **VECTOR_CASES,
     **TEMPORAL_CASES,
+    "variant_get": (["NULL", "'$'"], None),
+    "try_variant_get": (["NULL", "'$'", "'int64'"], None),
+    "is_variant_null": (["NULL"], False),
     "is_nan": (["1.0"], False), "is_infinite": (["1.0"], False),
     "is_finite": (["1.0"], True), "signbit": (["-0.0"], True),
     "decimal_rescale": (["125", "5", "1", "'half_even'"], Decimal("125.0")),
