@@ -63,7 +63,9 @@ pub(crate) fn admitted_scalar(dtype: &DType) -> bool {
     match dtype {
         DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) | DType::Primitive(_, _) => true,
         DType::Decimal(decimal, _) => admitted_decimal(*decimal),
-        DType::Extension(_) => temporal_storage(dtype).is_some(),
+        DType::Extension(_) => {
+            temporal_storage(dtype).is_some() || crate::native_uuid::storage(dtype).is_some()
+        }
         _ => false,
     }
 }
@@ -338,11 +340,20 @@ fn visit_dtype(
     allow_null: bool,
 ) -> Result<()> {
     budget.node(depth)?;
+    if crate::native_uuid::is_uuid(dtype) && crate::native_uuid::storage(dtype).is_none() {
+        return Err(failed(
+            "UUID requires unrestricted version metadata and sixteen nonnull UInt8 bytes",
+        ));
+    }
     match dtype {
         DType::Null if allow_null => {}
         DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) | DType::Variant(_) => {}
         DType::Primitive(_, _) => {}
         DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
+        DType::Extension(extension) if crate::native_uuid::storage(dtype).is_some() => {
+            budget.add(128)?;
+            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+        }
         #[cfg(feature = "native-binary-objects")]
         DType::Extension(extension) if crate::native_binary_type::storage(dtype).is_some() => {
             budget.add(128)?;
@@ -427,6 +438,9 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         (Some(name), _) if name == crate::native_variant::arrow::ID => {
             crate::native_variant::arrow::admitted(field)
         }
+        (Some(name), _) if name == crate::native_uuid::arrow::ID => {
+            crate::native_uuid::arrow::admitted(field)
+        }
         #[cfg(feature = "native-binary-objects")]
         (Some(name), _) if name == crate::native_binary_type::ID => {
             crate::native_binary_type::arrow::admitted(field)
@@ -482,21 +496,33 @@ pub(crate) fn arrow_metadata_bytes<'a>(
     Ok(budget.credit.bytes())
 }
 
-/// Variant metadata on an outer dictionary Field describes its values. Keep
-/// this scoped to admitted Variant fields instead of broadening encoded input.
+/// Admit a complete field so a logical extension never loses its declaration
+/// while its physical storage is inspected.
 #[cfg(feature = "universal-format-io")]
-pub(crate) fn arrow_variant_storage_bytes<'a>(
-    dtype: &arrow_schema::DataType,
+pub(crate) fn arrow_field_metadata_bytes<'a>(
+    field: &arrow_schema::Field,
     scope: impl Into<Scope<'a>>,
 ) -> Result<u64> {
     let mut budget = Budget::new(scope.into())?;
-    visit_arrow_variant(dtype, 0, &mut budget)?;
+    visit_arrow_field(field, 0, &mut budget)?;
+    Ok(budget.credit.bytes())
+}
+
+/// Canonical extension metadata on a dictionary Field describes its values.
+/// Only the explicitly admitted logical declaration selects its storage walk.
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn arrow_declared_storage_bytes<'a>(
+    field: &arrow_schema::Field,
+    scope: impl Into<Scope<'a>>,
+) -> Result<u64> {
+    let mut budget = Budget::new(scope.into())?;
+    visit_arrow_storage(field, 0, &mut budget)?;
     Ok(budget.credit.bytes())
 }
 
 #[cfg(feature = "universal-format-io")]
-pub(crate) fn validate_arrow_variant_declaration(dtype: &arrow_schema::DataType) -> Result<()> {
-    visit_arrow_variant(dtype, 0, &mut DeclarationBudget::default())
+pub(crate) fn validate_arrow_declared_storage(field: &arrow_schema::Field) -> Result<()> {
+    visit_arrow_storage(field, 0, &mut DeclarationBudget::default())
 }
 
 /// Classify inert caller-owned Arrow metadata when there is no execution grant.
@@ -581,10 +607,46 @@ fn visit_arrow_field(
     budget: &mut impl ArrowWalkBudget,
 ) -> Result<()> {
     budget.add(arrow_extension_metadata_bytes(child)?)?;
-    if crate::native_variant::arrow::is_variant(child) {
-        return visit_arrow_variant(child.data_type(), depth, budget);
+    visit_arrow_storage(child, depth, budget)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn visit_arrow_storage(
+    field: &arrow_schema::Field,
+    depth: usize,
+    budget: &mut impl ArrowWalkBudget,
+) -> Result<()> {
+    if crate::native_variant::arrow::is_variant(field) {
+        return visit_arrow_variant(field.data_type(), depth, budget);
     }
-    visit_arrow(child.data_type(), depth, budget)
+    if crate::native_uuid::arrow::is_uuid(field) {
+        if !crate::native_uuid::arrow::admitted(field) {
+            return Err(failed(
+                "UUID requires canonical arrow.uuid metadata and FixedSizeBinary(16) storage",
+            ));
+        }
+        return visit_arrow_uuid(field.data_type(), depth, budget);
+    }
+    visit_arrow(field.data_type(), depth, budget)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn visit_arrow_uuid(
+    dtype: &arrow_schema::DataType,
+    depth: usize,
+    budget: &mut impl ArrowWalkBudget,
+) -> Result<()> {
+    if !budget.node(dtype, depth)? {
+        return Ok(());
+    }
+    match dtype {
+        arrow_schema::DataType::Dictionary(keys, values) => {
+            visit_arrow(keys, depth + 1, budget)?;
+            visit_arrow_uuid(values, depth + 1, budget)
+        }
+        arrow_schema::DataType::FixedSizeBinary(16) => Ok(()),
+        _ => Err(unsupported()),
+    }
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -685,10 +747,16 @@ fn visit_arrow(
 /// of the experimental caller-owned encoded Arrow transport boundary.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub(crate) fn arrow_file_metadata_bytes<'a>(
-    dtype: &arrow_schema::DataType,
+    field: &arrow_schema::Field,
     scope: impl Into<Scope<'a>>,
 ) -> Result<u64> {
     let scope = scope.into();
+    if crate::native_uuid::arrow::is_uuid(field) || crate::native_variant::arrow::is_variant(field)
+    {
+        return arrow_field_metadata_bytes(field, scope);
+    }
+    let extension_bytes = arrow_extension_metadata_bytes(field)?;
+    let dtype = field.data_type();
     if let arrow_schema::DataType::Dictionary(keys, values) = dtype {
         if crate::vortex_ingest::dictionary_column_family(dtype).is_none() {
             return Err(unsupported());
@@ -698,9 +766,10 @@ pub(crate) fn arrow_file_metadata_bytes<'a>(
         return arrow_metadata_bytes(keys, scope)?
             .checked_add(arrow_metadata_bytes(values, scope)?)
             .and_then(|bytes| bytes.checked_add(1024))
+            .and_then(|bytes| bytes.checked_add(extension_bytes))
             .ok_or_else(|| failed("columnar schema metadata overflow"));
     }
-    arrow_metadata_bytes(dtype, scope)
+    arrow_field_metadata_bytes(field, scope)
 }
 
 // The experimental transport control does not broaden the logical-value

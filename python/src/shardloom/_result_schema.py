@@ -11,6 +11,7 @@ import datetime as dt
 from decimal import Decimal
 import json
 import math
+import uuid
 from typing import Any, Mapping, Sequence
 
 from .errors import ShardLoomProtocolError
@@ -81,6 +82,13 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
+        if payload.get("id") == "vortex.uuid":
+            if (set(payload) != {"id", "metadata", "storage_dtype"}
+                    or payload.get("metadata") != []
+                    or storage.name != "fixed_size_list" or storage.parameters[1] != 16
+                    or storage.parameters[0] != ResultType("uint8", False)):
+                raise ValueError("UUID requires empty metadata and sixteen nonnullable UInt8 bytes")
+            return ResultType("uuid", storage.nullable)
         if payload.get("id") in _vector.IDS.values():
             raw = payload.get("metadata")
             if (set(payload) != {"id", "metadata", "storage_dtype"} or not isinstance(raw, list)
@@ -197,6 +205,13 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool, variant_scalars
             raise ValueError("Variant encodings are unavailable in diagnostic JSON rows; use native Arrow export")
         if dtype.name == "null":
             raise ValueError("a null dtype requires a NULL value")
+        if dtype.name == "uuid":
+            if not isinstance(value, str):
+                raise ValueError("UUID result requires a canonical hyphenated string")
+            result = uuid.UUID(value)
+            if str(result) != value:
+                raise ValueError("UUID result requires a canonical hyphenated string")
+            return result
         if dtype.name == "bool" and type(value) is not bool:
             raise ValueError("boolean result requires a JSON boolean")
         if dtype.name.startswith(("int", "uint")):
@@ -252,8 +267,54 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool, variant_scalars
 def arrow_table(rows: Sequence[Mapping[str, Any]], fields: Sequence[tuple[str, ResultType]], pyarrow: Any) -> Any:
     schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow)
                              for name, dtype in fields])
-    return pyarrow.Table.from_pylist(
-        python_rows(rows, fields, temporal_objects=False, variant_scalars=False), schema=schema)
+    converted = python_rows(rows, fields, temporal_objects=False, variant_scalars=False)
+    if not any(_contains_uuid(dtype) for _, dtype in fields):
+        return pyarrow.Table.from_pylist(converted, schema=schema)
+    # PyArrow's Python-object converter does not build nested UUID extensions.
+    # This is explicit diagnostic-result conversion, never native execution.
+    arrays = [_arrow_array([row[name] for row in converted], dtype, pyarrow)
+              for name, dtype in fields]
+    return pyarrow.Table.from_arrays(arrays, schema=schema)
+
+
+def _contains_uuid(dtype: ResultType) -> bool:
+    if dtype.name == "struct":
+        return any(_contains_uuid(child) for _, child in dtype.parameters)
+    if dtype.name in {"list", "fixed_size_list"}:
+        return _contains_uuid(dtype.parameters[0])
+    return dtype.name == "uuid"
+
+
+def _arrow_array(values: Sequence[Any], dtype: ResultType, pyarrow: Any) -> Any:
+    arrow_type = _arrow_type(dtype, pyarrow)
+    if dtype.name == "uuid":
+        storage = pyarrow.array([None if value is None else value.bytes for value in values],
+                                type=pyarrow.binary(16))
+        return pyarrow.ExtensionArray.from_storage(arrow_type, storage)
+    if not _contains_uuid(dtype):
+        return pyarrow.array(values, type=arrow_type)
+    nulls = pyarrow.array([value is None for value in values], type=pyarrow.bool_())
+    if dtype.name == "struct":
+        children = [_arrow_array([None if value is None else value[name] for value in values], child, pyarrow)
+                    for name, child in dtype.parameters]
+        return pyarrow.StructArray.from_arrays(children, fields=list(arrow_type), mask=nulls)
+    if dtype.name == "list":
+        offsets = [0]
+        flattened = []
+        for value in values:
+            if value is not None:
+                flattened.extend(value)
+            offsets.append(len(flattened))
+        child = _arrow_array(flattened, dtype.parameters[0], pyarrow)
+        return pyarrow.ListArray.from_arrays(pyarrow.array(offsets, type=pyarrow.int32()), child,
+                                             type=arrow_type, mask=nulls)
+    # A fixed-size list needs its explicit parent length even at width zero.
+    size = dtype.parameters[1]
+    child = _arrow_array([item for value in values for item in (value if value is not None else [None] * size)],
+                         dtype.parameters[0], pyarrow)
+    validity = pyarrow.array([value is not None for value in values], type=pyarrow.bool_()).buffers()[1]
+    return pyarrow.Array.from_buffers(arrow_type, len(values), [validity], children=[child],
+                                      null_count=sum(value is None for value in values))
 
 
 def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:

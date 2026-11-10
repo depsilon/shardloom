@@ -16,6 +16,9 @@ use shardloom_plan::ProjectionRequest;
 #[path = "resident_variant_lifecycle_tests.rs"]
 mod variant_lifecycle;
 
+#[path = "resident_uuid_lifecycle_tests.rs"]
+mod uuid_lifecycle;
+
 fn batch(columns: Vec<(&str, ArrowArrayRef)>, nullable: bool) -> RecordBatch {
     let fields = columns
         .iter()

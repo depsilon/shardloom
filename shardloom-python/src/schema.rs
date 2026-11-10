@@ -35,6 +35,7 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
         DataType::Utf8 => "utf8",
         DataType::Binary if super::binary_object::field_is_object(field) => "binary_object",
         DataType::Binary => "binary",
+        DataType::FixedSizeBinary(16) if is_uuid(field) => "uuid",
         DataType::Date32 => "date32",
         DataType::Timestamp(TimeUnit::Microsecond, None) => "timestamp_micros",
         _ if temporal.is_some() => temporal
@@ -93,6 +94,18 @@ fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
     };
     result.set_item("type", name)?;
     Ok(result.unbind())
+}
+
+pub(super) fn is_uuid(field: &Field) -> bool {
+    *field.data_type() == DataType::FixedSizeBinary(16)
+        && field
+            .metadata()
+            .get("ARROW:extension:name")
+            .is_some_and(|name| name == "arrow.uuid")
+        && field
+            .metadata()
+            .get("ARROW:extension:metadata")
+            .is_none_or(String::is_empty)
 }
 
 fn structured_name(field: &Field, result: &Bound<'_, PyDict>) -> PyResult<&'static str> {

@@ -9295,7 +9295,9 @@
         "added_files_sha256": {
           "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
           "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-          "README.shardloom.md": "b26a5cf8f5c5f974c4e00941f8dc9392614cb033b87f1424c7339908f25b2dd2"
+          "README.shardloom.md": "3a94b1b6bdf89c388ae07f0743300c98d65482f2f5ea97ece2caf7886d212274",
+          "src/ffi_stream/schema.rs": "afd84abbcc36b93d7ecfde92b9f288335ef82d494d0713e9df71bd3e7218fbd2",
+          "src/ffi_stream/schema_tests.rs": "2dea57e31e16882f000305330c614e6790cf06d99ec54d681b4efdfb752efa96"
         },
         "additional_license_files": [
           {
@@ -9309,16 +9311,20 @@
         "license_url": "https://static.crates.io/crates/arrow-array/arrow-array-59.3.2.crate#LICENSE.txt",
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "b26a5cf8f5c5f974c4e00941f8dc9392614cb033b87f1424c7339908f25b2dd2"
+          "sha256": "3a94b1b6bdf89c388ae07f0743300c98d65482f2f5ea97ece2caf7886d212274"
         },
         "migration_status": "retained_local_contract_port",
         "modified_files_sha256": {
           "Cargo.toml": "234f3fe75431f807ed345c18eb863bf62260f3b63fa34f45e484aefbef80f363",
           "src/builder/fixed_size_list_builder.rs": "2c9eda37d4eb8274116e4e11498188ae52a46a2b5b79a35b534454b98dd35093",
-          "src/builder/union_builder.rs": "ae92f65f673f93a9819cba5f65536ef380b5f60fa5402e93558ed00a6073e70f"
+          "src/builder/union_builder.rs": "ae92f65f673f93a9819cba5f65536ef380b5f60fa5402e93558ed00a6073e70f",
+          "src/ffi_stream.rs": "0846a924e51b1451e1f574590334cf21353d659fb12a2e33b387a743603a59b8"
         },
         "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
         "notice_url": "https://static.crates.io/crates/arrow-array/arrow-array-59.3.2.crate#NOTICE.txt",
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
         "original_files_sha256": {
           "Cargo.lock": "c828b7aca597a6a976c982deeb43171f1e2ebb9964944c7a637654ed82154323",
           "Cargo.toml": "1e462b5c3d7fb44042cef29ccf1037fd27ceb9d8c9d871aae6bd12e46e3598c8",
@@ -9387,22 +9393,19 @@
           "src/trusted_len.rs": "38345d50859a7fadc406f12f521c7a20252454bef60a2682a731d04d0d698813",
           "src/types.rs": "0410e95297da4d0b02be3eb63499c851d5057e593b50c48af67f5f396b86155d"
         },
+        "predecessor": {
+          "provenance_path": "vendor/arrow-array/upstream-provenance.json",
+          "registry_archive_sha256": "2dae1d91737421e92c6dd7c7f9d0f2d25198fd6fc539738b628f4dad10adf533",
+          "source_commit": "0205283370712637305aba07a86f5854e833da6e",
+          "version": "59.3.1"
+        },
         "provider": "arrow-array",
         "registry_archive_file_count": 66,
         "registry_archive_sha256": "72b5b1682924f11ecf6929689c16cbc69efbb6dd141b06ad98ee1cb10d858c43",
         "registry_archive_uncompressed_bytes": 1743465,
         "source_of_truth": "https://static.crates.io/crates/arrow-array/arrow-array-59.3.2.crate",
-        "version": "59.3.2",
-        "omitted_files": {
-          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
-        },
         "vcs_info": null,
-        "predecessor": {
-          "source_commit": "0205283370712637305aba07a86f5854e833da6e",
-          "version": "59.3.1",
-          "registry_archive_sha256": "2dae1d91737421e92c6dd7c7f9d0f2d25198fd6fc539738b628f4dad10adf533",
-          "provenance_path": "vendor/arrow-array/upstream-provenance.json"
-        }
+        "version": "59.3.2"
       },
       "files": [
         {

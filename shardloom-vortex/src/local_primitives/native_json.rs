@@ -45,6 +45,7 @@ impl WriteCounts {
 
 enum Node {
     Scalar(ArrayRef),
+    Uuid(crate::native_uuid::Values),
     Struct {
         names: FieldNames,
         fields: Vec<Node>,
@@ -95,6 +96,9 @@ impl Node {
     ) -> Result<Self> {
         cancellation.check()?;
         Ok(match array.dtype() {
+            DType::Extension(_) if crate::native_uuid::is_uuid(array.dtype()) => {
+                Self::Uuid(crate::native_uuid::Values::new(array, execution)?)
+            }
             DType::Extension(_)
                 if crate::native_extensions::structured_payload_storage(array.dtype())
                     .is_some() =>
@@ -147,6 +151,19 @@ impl Node {
     ) -> Result<WriteCounts> {
         cancellation.check()?;
         match self {
+            Self::Uuid(values) => {
+                match values.value(row)? {
+                    None => writer.write_all(b"null").map_err(vortex_error)?,
+                    Some(value) => {
+                        serde_json::to_writer(&mut *writer, &crate::native_uuid::display(value))
+                            .map_err(vortex_error)?;
+                    }
+                }
+                Ok(WriteCounts {
+                    scalars: 1,
+                    utf8_bytes: 0,
+                })
+            }
             Self::Scalar(array) => {
                 let scalar = super::result_batch::scalar(array, row, execution)?;
                 let utf8_bytes = super::collect::write_scalar_json(writer, &scalar)?;

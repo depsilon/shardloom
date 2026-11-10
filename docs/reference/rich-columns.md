@@ -169,6 +169,44 @@ the tested shapes, refusal behavior and retained-owner boundaries.
 See the [implementation and acceptance contract](../architecture/native-dense-embedding-lifecycle-2026-11-05.md)
 for the native provider, ownership and verification boundaries.
 
+## UUID columns
+
+Import UUID columns from canonical Arrow `uuid` arrays, Arrow IPC, Parquet UUID
+logical annotations or native Vortex files. All sixteen bytes are retained,
+including nil and values with arbitrary version bits. SQL NULL remains distinct
+from nil. Ordinary native SQL and DataFrame operations support equality,
+ordering, joins, grouping, DISTINCT, MIN/MAX and typed selection. Ordering follows
+the unsigned big-endian bytes. UUID values do not compare implicitly with text,
+binary, numeric or temporal columns; UUID parsing, generation, arithmetic and
+casts are not part of this capability.
+
+```python
+import uuid
+import pyarrow as pa
+import shardloom as sl
+
+values = [uuid.UUID("01234567-89ab-cdef-fedc-ba9876543210"), None]
+storage = pa.array([None if value is None else value.bytes for value in values],
+                   type=pa.binary(16))
+table = pa.table({"uid": pa.ExtensionArray.from_storage(pa.uuid(), storage)})
+with sl.context(transport="native", memory_bytes=128 << 20) as context:
+    ids = context.from_arrow_table(table)
+    ids.write_vortex("ids.vortex", check=True)
+    result = context.read_vortex("ids.vortex").collect(check=True)
+    assert result.python_objects == [{"uid": value} for value in values]
+```
+
+Nested UUID fields and integer dictionary encodings retain their logical type
+through bounded results, explicit native spill, Vortex persistence and Arrow
+IPC/Parquet export. Explicit Python row conversion returns `uuid.UUID` objects;
+diagnostic JSON results use canonical lowercase UUID strings plus their typed
+schema. Bare binary columns are never inferred to be UUIDs. Arrow UUID metadata
+must be absent or empty, storage must be exactly sixteen bytes, and Vortex
+version-constrained UUID declarations are refused because the Arrow canonical
+type cannot preserve that restriction. See the
+[UUID lifecycle contract](../architecture/native-uuid-lifecycle-2026-11-10.md)
+for the verification status and remaining boundaries.
+
 ## Float16 and multiple vectors per row
 
 Use `t.float16()` for an explicit binary16 column or component type. Values such

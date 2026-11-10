@@ -1,0 +1,718 @@
+{
+  "status": "passed",
+  "receipt": {
+    "status": "passed",
+    "driver_sha256": "a65737539a0fad2ad1e1562d0c17ef052f3e29ae1f3670f61eeae3688be85497",
+    "original_packet": {
+      "acceptance.json": {
+        "bytes": 2335103,
+        "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+      },
+      "verification.tar.xz": {
+        "bytes": 70632948,
+        "sha256": "7fc9d25dfec56637883ab9dfc9b187c64941eea93353a773eee1aa2e4e3e920b"
+      },
+      "verify.py": {
+        "bytes": 41747,
+        "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+      }
+    },
+    "cases": [
+      {
+        "case": "original",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "original.log",
+        "log_identity": {
+          "bytes": 611,
+          "sha256": "3340d3abbd56f468daff804138e7fe415ed3656d3ad1b7524a8d8977ddbc66d0"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+          },
+          "verification.tar.xz": {
+            "bytes": 70632948,
+            "sha256": "7fc9d25dfec56637883ab9dfc9b187c64941eea93353a773eee1aa2e4e3e920b"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "relocated_source_only",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "relocated_source_only.log",
+        "log_identity": {
+          "bytes": 611,
+          "sha256": "3340d3abbd56f468daff804138e7fe415ed3656d3ad1b7524a8d8977ddbc66d0"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+          },
+          "verification.tar.xz": {
+            "bytes": 70632948,
+            "sha256": "7fc9d25dfec56637883ab9dfc9b187c64941eea93353a773eee1aa2e4e3e920b"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "archive_byte",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "archive_byte.log",
+        "log_identity": {
+          "bytes": 668,
+          "sha256": "abae39474d9d5d2e7a6585f137f184eb9847e11e5e0e9101556286c65db203cf"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+          },
+          "verification.tar.xz": {
+            "bytes": 70632948,
+            "sha256": "fc4cf8867bda37541bcd0f7e3bdd41ba1e483a0f526819757f3d32dda731d4b2"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "preparation_relabelled",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "preparation_relabelled.log",
+        "log_identity": {
+          "bytes": 590,
+          "sha256": "c9db5828a628640ff9c3361570aa3a29f5879714bc50423bbcfbbfab9218d456"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "ab0515b77e217290415099b919517a9c4f52dfccada21155dd5425d653952585"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612932,
+            "sha256": "725191208a1dd9a1d737cdce2c6b75565a9ce719f0840abdd8d220b66ea42804"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "adopted_tree_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "adopted_tree_changed.log",
+        "log_identity": {
+          "bytes": 658,
+          "sha256": "8466065c297239d2c0950b92fabb95c6d5648af81a0974850bdd6702959a0677"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "ac934fbac75225861c771386dc159e49b0e73694d84b65cb00fa3eb0610cbcbb"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612964,
+            "sha256": "0f069d9ca845f3370ac0bd6fc7426275b684cb42c63efd28dfb59d69830a4191"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "adopted_sources_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "adopted_sources_changed.log",
+        "log_identity": {
+          "bytes": 666,
+          "sha256": "38d7a78db78206dbb0ca11ad3661858faea339c2fca528a534324d1446a62a9c"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "0c87cb01f983eef46ccd26e17cf096f2114eaca36cfd4f54b9a0c5b04dc9ad1f"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612968,
+            "sha256": "55891b511ac705f74f60c4a006e340b8ecccbcfbaae931ded1c4e692038bca43"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_source_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_source_changed.log",
+        "log_identity": {
+          "bytes": 2024,
+          "sha256": "1b3111d73a9ff8d8ffe113c702a70f7d8fd427013f50b4289a4e18d8727f5c30"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335670,
+            "sha256": "6a75105e72fb76ae84ccb63de59649d208b3809429d64a2c053a1cb2bd814efa"
+          },
+          "verification.tar.xz": {
+            "bytes": 90613404,
+            "sha256": "9e64458918378cfd5940afc30112832b08d89a02e30cbe456f780ff5e38a4b61"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_source_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_source_changed.log",
+        "log_identity": {
+          "bytes": 644,
+          "sha256": "78173f65d5026ef409154b3872a02474ff2a9b56dd66c65be9a4fefc01355cf6"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335671,
+            "sha256": "c10805df79420988d6c510fc2a6cdd27ffc79d4fec67ce844967881b63b0bbc4"
+          },
+          "verification.tar.xz": {
+            "bytes": 90613744,
+            "sha256": "ebc7ce80e09d0309e511865ba86072adbc5e52b1ea4a2c89a8172240e456a062"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_lock_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_lock_changed.log",
+        "log_identity": {
+          "bytes": 644,
+          "sha256": "dde590854174a26e266fc34d069fb7f302c82b0e03541ad508d204f1bac771fc"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335670,
+            "sha256": "1d34f9c1f3a608a84edaf96ba2e1ba648fba8bdafa86bfec6e33e4ef2e7a64e2"
+          },
+          "verification.tar.xz": {
+            "bytes": 90617956,
+            "sha256": "2d9f52e4327fed8ae59cc1dfdf2f718a63b4d082e851dc0fdd00642c7bbefa2c"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "preparation_prior_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "preparation_prior_changed.log",
+        "log_identity": {
+          "bytes": 654,
+          "sha256": "898ac49e60495444ac1205302e059963172fa0a8305def08c02e9b0f3e0f9e66"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "75f583122e76694e25422ed1fb9e4231bccb9bb456f2780273cd472773478e80"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612900,
+            "sha256": "d0a9b751c7a5b908e71bc8c3ba5de7dc60607addf5514cc5ad9ec22a9d2eae5d"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "unclosed_process",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "unclosed_process.log",
+        "log_identity": {
+          "bytes": 661,
+          "sha256": "72344bed76a751a1e48edd5d0a475f5aa1317a72c0038b9d4980f8491c001ae1"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "8d771fdb6e9ffb3b210ec7dd7803d2adac053eac025005b5ffe3d7e5767d1ae8"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612952,
+            "sha256": "6944988bcab6d1a6b0e19a30615bbea53af3cc15f9f34d59940e72a5fc1de750"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_clippy_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_clippy_failed.log",
+        "log_identity": {
+          "bytes": 647,
+          "sha256": "4f6a3bc080b9fbe8bdb9ad936751a0c30d8afecc249828f3a341c59c85997137"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "9b67419a62a51d6f39387abe57993fced04d0652f728c6bcfa93acc38cc224b0"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612952,
+            "sha256": "fa93b02708500acc157f79dcb2b4df148711a767751b9ded5283e2b75f577bcd"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_test_missing.log",
+        "log_identity": {
+          "bytes": 1086,
+          "sha256": "fce6b443dffaffc41f64eba3f5cba815f5210289c57a0427b24d444b54588ebb"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "509dc5042f923e942ad62652663efdfbc4eb7a8bd4f04eef26248cc7d321228d"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612924,
+            "sha256": "7d493b6106957ce03fab5bebc6b3d8b15aa73ec267118a102545b8ee757b1779"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "public_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "public_test_missing.log",
+        "log_identity": {
+          "bytes": 938,
+          "sha256": "b72c2b4efcd1478b4d982bfa2839888f91a4cf8f37aee862d7fc9c426739734a"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "d35f6fbf1885a08c4886dbc55e70aec6a6b4aa0dafd4e53f130aa114109a3a3b"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612896,
+            "sha256": "ab866e20e47802e0cc641b177f6f3709b3fa688c7e8eaed59f8d8cf4d2174a55"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "public_test_skipped",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "public_test_skipped.log",
+        "log_identity": {
+          "bytes": 938,
+          "sha256": "cc7d620f0ffd2c879428a4dc9c3ba2ed813382ab10c1916b24694ddf743a2c4e"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "e5cc6ea7a0fbe6c15e30753181c3f6f17f3031a83e9955fd7348cc2207873808"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612912,
+            "sha256": "4c1fe1122ad4eeec1c31c8ba825bfa31622413cf47323c724a713b666e24c925"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "installed_skip",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "installed_skip.log",
+        "log_identity": {
+          "bytes": 900,
+          "sha256": "098cd69157578d940ccf99655129ede0cc9152cf89ecd3b36c2b4fb6f5690521"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "5138897807e0d043ac93b08bf5deb2f5b576d0ddf59d0c4a928e92e6c9e21650"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612948,
+            "sha256": "f641514f470d34cb91dbf6ab0ee09633a2ebe24aa7ca0f269afcba1e887cc367"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "installed_binary_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "installed_binary_changed.log",
+        "log_identity": {
+          "bytes": 1130,
+          "sha256": "c48e44ec9868369d5e4cc66ea07d23555bad21f4b4cd27d7cd1a0b7771567c53"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "852daa5a0a4b397584809045d92fea2ab190713df78c6bc0cd41e1edba3e694f"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612956,
+            "sha256": "cd333ebfab52dc1414d3724e1ab5b65054b968efac487c03a69d3b314230e518"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "wheel_python_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "wheel_python_changed.log",
+        "log_identity": {
+          "bytes": 1030,
+          "sha256": "eee23ce97dad75601997182865cb53263c71e35daca925188086286c9d2f2845"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "4996f28ccec48f36c2de27f506e53168f0185ee25633f3e174d01d4501484549"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612968,
+            "sha256": "8063a06be5492c3c2008f08d170f9b3371b74c66dd48ae7bd9c2b89cbd86a4f2"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "frozen_fixture_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "frozen_fixture_changed.log",
+        "log_identity": {
+          "bytes": 984,
+          "sha256": "5bebf87be161a054c9f797f35d017ba4dec564d8f3b68af2430f75cf5dcdf1e0"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "768381474a16cda399fd6dc861f4c3be06b88cc023b7a60e7d674acc1c0d8ca3"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612956,
+            "sha256": "4f539daddfb0b8d4611dc6e73d74d021849e0bbb0dfb83a9743bced838af5c04"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_test_missing.log",
+        "log_identity": {
+          "bytes": 1090,
+          "sha256": "ba8bccc623fcdf68823c1975587a536fe469da4bd41bac1fc12b65f7dbb5b4f8"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "1cafbc726c8caee1046d6cae017624b759967c470da133ad7a8655561861ce09"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612884,
+            "sha256": "55e87c4aec7317ae2c532fed3483f850b8e9cd8de0f636e0c20a8bab47721012"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "failure_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "failure_missing.log",
+        "log_identity": {
+          "bytes": 716,
+          "sha256": "592537f96bc3580cf8f4bbaec42df22e5733e066f66e8b161b115a74ce0c7d25"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2334936,
+            "sha256": "4bf40ab621d22f50de348802d97f1871ced286f8245511acc6a54f9f4c947e16"
+          },
+          "verification.tar.xz": {
+            "bytes": 90311784,
+            "sha256": "243570e237741432c4246fd7238806eecf100f66f9db0bc8a9069939acab334a"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "prior_main_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "prior_main_failed.log",
+        "log_identity": {
+          "bytes": 850,
+          "sha256": "cb87f594cb16e78cb22c958c83e4c3c465f2ce647dfa79b24915719a617cd3af"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "b2459d7d7a152df546f34dc15b949c5bbd6d4be8052e24439c887a9df3219371"
+          },
+          "verification.tar.xz": {
+            "bytes": 90613928,
+            "sha256": "61078e697bba002982abd86c7e9969769be3bfc7aa5071fdb0b1d96741b82036"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "prior_retirement_incomplete",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "prior_retirement_incomplete.log",
+        "log_identity": {
+          "bytes": 822,
+          "sha256": "18abe05068fad4bb41d4d9caefb5bd33aa3e76607823ce333368ff8f88f892c7"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2335103,
+            "sha256": "8889c6a0c235da083f8d70c6058f9bdc0f05f2d41650cec3e3f1b0c9196f79b5"
+          },
+          "verification.tar.xz": {
+            "bytes": 90612960,
+            "sha256": "f81af0b0fc82d3ca73b724718d89c5a4b3c5185efb61f35af89411ac7b728573"
+          },
+          "verify.py": {
+            "bytes": 41747,
+            "sha256": "04907feeae103e973277c6fa59c8589bb223e8e30bc2121b9f26756b427776c3"
+          }
+        },
+        "report_before": {
+          "bytes": 2335103,
+          "sha256": "6900df3d0b978631b87b21782d6573325ba3bd694142bf50aba15d691ec5d32e"
+        },
+        "original_packet_unchanged": true
+      }
+    ],
+    "positive_controls": 2,
+    "rejected_controls": 21
+  },
+  "logs": {
+    "original.log": "{\"controls_verified\": false, \"installed_tests\": 431, \"members\": 5845, \"native_execution_repeated\": false, \"native_tests\": 7, \"original_failures\": 15, \"preparation_roles_reused\": [\"build\", \"default_clippy\", \"default_tests\", \"features\", \"format\", \"freeze\", \"installed\", \"msrv\", \"native_clippy\", \"native_tests\", \"provider_arrow\", \"public\", \"python_core\"], \"provider_tests\": {\"arrow-array\": {\"failed\": 0, \"ignored\": 1, \"passed\": 778}}, \"public_tests\": 19, \"repository_checked\": false, \"roles\": 15, \"source_fingerprint_sha256\": \"d3a1730dc612db49eaa04feffee67ccb52a2791c7f18cee5f844693bd0a3dd5e\", \"status\": \"passed\"}\n",
+    "relocated_source_only.log": "{\"controls_verified\": false, \"installed_tests\": 431, \"members\": 5845, \"native_execution_repeated\": false, \"native_tests\": 7, \"original_failures\": 15, \"preparation_roles_reused\": [\"build\", \"default_clippy\", \"default_tests\", \"features\", \"format\", \"freeze\", \"installed\", \"msrv\", \"native_clippy\", \"native_tests\", \"provider_arrow\", \"public\", \"python_core\"], \"provider_tests\": {\"arrow-array\": {\"failed\": 0, \"ignored\": 1, \"passed\": 778}}, \"public_tests\": 19, \"repository_checked\": false, \"roles\": 15, \"source_fingerprint_sha256\": \"d3a1730dc612db49eaa04feffee67ccb52a2791c7f18cee5f844693bd0a3dd5e\", \"status\": \"passed\"}\n",
+    "archive_byte.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-w9mpy24y/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-w9mpy24y/verify.py\", line 182, in verify\n    assert len(archive_raw) < 90 << 20 and digest(archive_raw) == report['archive_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "preparation_relabelled.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-uminpfk5/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-uminpfk5/verify.py\", line 284, in verify\n    assert result['head'] == result['base'] == BASE\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "adopted_tree_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-dchold07/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-dchold07/verify.py\", line 263, in verify\n    assert adoption['tree'] == BASE_TREE and adoption['accepted_base_tree_unchanged']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "adopted_sources_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-713r551s/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-713r551s/verify.py\", line 265, in verify\n    assert adoption['branch_compare_and_set'] and adoption['before'] == adoption['after']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "native_source_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-3935yuhh/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-3935yuhh/verify.py\", line 299, in verify\n    assert set(deltas) <= (set() if role in {'docs', 'doc_contracts'} else STATUS_PROSE), (role, deltas)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('native_tests', {'docs/architecture/local-development-storage.md': {'before': {'sha256': 'b450e126adf9714248fb055a983c38aee4b69b640d82625c8b12e11595a5aa4a', 'bytes': 63331}, 'after': {'sha256': '9ec61688b8a1fd3939b619e66626902668536afbabd0bb551eb7fefc3e0bb4a0', 'bytes': 64887}}, 'docs/architecture/native-rich-data-lifecycle-2026-10-24.md': {'before': {'sha256': 'e3287dd48df8a1cd9770e44057d4e02a32a64af547e8020510483e2aed23083a', 'bytes': 22031}, 'after': {'sha256': '89dd77a1708c7c5e40ff32a4897b179fddf233e89c20dc396050e4d42f677917', 'bytes': 22601}}, 'docs/architecture/native-uuid-lifecycle-2026-11-10.md': {'before': {'sha256': 'eceed0f296c035aa0c0577bc3a542e44e21bccbd19acc53dcc3f82ddacd168c7', 'bytes': 6142}, 'after': {'sha256': '53ff3d44ca674427a772ecc2df3f9eb6bb66c3bf7efe0c3236cda187369d377a', 'bytes': 7968}}, 'docs/architecture/phased-execution-plan.md': {'before': {'sha256': '1185d3da11aba02c9ac48dea5b08c022a14664dcb27c5ec706be817044690ce0', 'bytes': 220584}, 'after': {'sha256': '55df2c20594286ff9964932461153ec53a41582ca0c673d70836cd832b49dc26', 'bytes': 221282}}, 'shardloom-vortex/src/native_uuid_values.rs': {'before': {'bytes': 3117, 'sha256': '2dff0986c7487bab84782a0d5d62685b26b9d2a23a347579bdcab32305c804bc'}, 'after': {'sha256': '1147dff071de6249664b1a2f6ed2a4373f1361e7ca320479f360a8684217e8dc', 'bytes': 3074}}})\n",
+    "provider_source_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-4w420ejd/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-4w420ejd/verify.py\", line 297, in verify\n    assert provider_inputs(result['build_sources']) == provider_inputs(source)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "provider_lock_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-mejjqri2/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-mejjqri2/verify.py\", line 297, in verify\n    assert provider_inputs(result['build_sources']) == provider_inputs(source)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "preparation_prior_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-z3upwfjg/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-z3upwfjg/verify.py\", line 277, in verify\n    assert result['prior_closeout_sha256'] == digest(data['prior/acceptance.json'])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "unclosed_process.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-omqv_nxq/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-omqv_nxq/verify.py\", line 272, in verify\n    assert result['process_group_drained'] and result['direct_child_reaped'], role\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_clippy\n",
+    "native_clippy_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-s08282aq/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-s08282aq/verify.py\", line 271, in verify\n    assert result['status'] == 'passed' and result['returncode'] == 0, role\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_clippy\n",
+    "native_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-hbzpja57/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-hbzpja57/verify.py\", line 334, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-hbzpja57/verify.py\", line 442, in verify_tests\n    assert re.search(rb'::' + re.escape(name.encode()) + rb' \\.\\.\\. ok$', log('native_tests'), re.MULTILINE), name\n           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_uuid_arrow_empty_invalid_declarations_fail_before_publication\n",
+    "public_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-vl8hixnk/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-vl8hixnk/verify.py\", line 334, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-vl8hixnk/verify.py\", line 452, in verify_tests\n    assert successful_methods(log('public'), MODULES) == expected_public\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "public_test_skipped.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-fnj9e7jc/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-fnj9e7jc/verify.py\", line 334, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-fnj9e7jc/verify.py\", line 452, in verify_tests\n    assert successful_methods(log('public'), MODULES) == expected_public\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "installed_skip.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-6zxkfgtr/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-6zxkfgtr/verify.py\", line 335, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-6zxkfgtr/verify.py\", line 500, in verify_runtime\n    assert all(installed['integration'][key] == 0 for key in ('failures', 'errors', 'skipped'))\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "installed_binary_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-tm1vo0n2/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-tm1vo0n2/verify.py\", line 335, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-tm1vo0n2/verify.py\", line 546, in verify_runtime\n    assert {Path(row['path']).name: row['sha256'] for row in frozen['files']} == {\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        'shardloom': installed['integrity']['cli_sha256'], 'lib_native.dylib': installed['integrity']['native_library_sha256']}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "wheel_python_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-29yzhzyz/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-29yzhzyz/verify.py\", line 335, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-29yzhzyz/verify.py\", line 552, in verify_runtime\n    assert wheel['python_sources'] == {name: info for name, info in source.items()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        if name.startswith('python/src/shardloom/') and name.endswith('.py')}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "frozen_fixture_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-5lsryg43/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-5lsryg43/verify.py\", line 334, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-5lsryg43/verify.py\", line 444, in verify_tests\n    assert report['frozen_references'] == {name: list(value) for name, value in FROZEN.items()}\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "provider_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-n5id0u71/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-n5id0u71/verify.py\", line 334, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-n5id0u71/verify.py\", line 481, in verify_tests\n    assert re.search(rb'::' + re.escape(method.encode()) + rb' \\.\\.\\. ok$', log('provider_arrow'), re.MULTILINE), method\n           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: conflicting_declarations_fail_instead_of_selecting_an_identity\n",
+    "failure_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-_1f16iud/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-_1f16iud/verify.py\", line 337, in verify\n    assert failures == [{key: row[key] for key in ('receipt', 'identity')} for row in report['original_failures']]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "prior_main_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-93zrw5zn/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-93zrw5zn/verify.py\", line 260, in verify\n    closeout = verify_prior(data, read, report)\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-93zrw5zn/verify.py\", line 396, in verify_prior\n    assert matching[0]['status'] == 'completed' and matching[0]['conclusion'] == 'success'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "prior_retirement_incomplete.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-8eqf2nkx/verify.py\", line 645, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-8eqf2nkx/verify.py\", line 260, in verify\n    closeout = verify_prior(data, read, report)\n  File \"/Users/dylan/LocalData/shardloom/uuid-lifecycle-2026-11-10/controls-r2/control-8eqf2nkx/verify.py\", line 416, in verify_prior\n    assert len(manifest['entries']) == plan['entries'] == retired['removed']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  "primary_sealer_sha256": "93c2be531c24b8af73db58a2b87f5fd10f77fe017c7f076ac7a415d45815f6aa"
+}

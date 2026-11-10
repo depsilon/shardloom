@@ -716,6 +716,11 @@ fn write_scalar_key(output: &mut impl std::fmt::Write, value: &ScalarValue) -> R
 
 fn owned_scalar(value: Value<'_>, dtype: &DType, lease: &mut MemoryLease) -> Result<ScalarValue> {
     Ok(match value {
+        Value::Uuid(_) => {
+            return Err(failed(
+                "UUID retained values require their native array owner",
+            ));
+        }
         Value::Null => ScalarValue::Null,
         Value::Bool(value) => ScalarValue::Boolean(value),
         Value::Int(value) if matches!(dtype, DType::Extension(_)) => {
@@ -807,6 +812,7 @@ impl OwnedStat {
 
 pub(super) fn owned_stat(value: Value<'_>, lease: &mut MemoryLease) -> Result<StatValue> {
     Ok(match value {
+        Value::Uuid(_) => return Err(failed("UUID values are outside primitive statistics")),
         Value::Null => StatValue::Null,
         Value::Bool(value) => StatValue::Boolean(value),
         Value::Int(value) => StatValue::Int64(value),
@@ -858,6 +864,7 @@ fn write_value_key(
 ) -> std::fmt::Result {
     match value {
         Value::Null => output.write_str("n:null"),
+        Value::Uuid(value) => write!(output, "uuid:{:032x}", u128::from_be_bytes(*value)),
         Value::Bool(value) => write!(output, "b:{value}"),
         Value::Int(value) if matches!(dtype, DType::Extension(_)) => {
             crate::native_temporal::write_key(output, dtype, *value)

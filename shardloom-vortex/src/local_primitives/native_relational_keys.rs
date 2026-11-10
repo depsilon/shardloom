@@ -18,6 +18,10 @@ mod typed_tests;
 #[path = "native_relational_value_preparation_tests.rs"]
 mod value_preparation_tests;
 
+#[cfg(test)]
+#[path = "native_relational_uuid_keys_tests.rs"]
+mod uuid_tests;
+
 #[path = "native_relational_nested_keys.rs"]
 mod nested;
 
@@ -60,6 +64,7 @@ pub(super) enum Cell {
     Date(i32),
     Timestamp(i64),
     Temporal(i64),
+    Uuid([u8; 16]),
 }
 
 pub(super) enum KeyColumn {
@@ -71,6 +76,7 @@ pub(super) enum KeyColumn {
     },
     Variable(VariableColumn),
     Decimal(DecimalColumn),
+    Uuid(crate::native_uuid::Values),
     Date(NativeNumericOwner),
     Timestamp(NativeNumericOwner),
     Temporal {
@@ -293,6 +299,9 @@ impl KeyColumn {
                     cancellation,
                 )?)
             }
+            DType::Extension(_) if crate::native_uuid::is_uuid(array.dtype()) => {
+                Self::Uuid(crate::native_uuid::Values::new(array, context)?)
+            }
             DType::Extension(_) => {
                 let dtype =
                     crate::native_temporal::temporal_dtype(array.dtype()).ok_or_else(|| {
@@ -343,6 +352,7 @@ impl KeyColumn {
             Self::Boolean { values, .. } => values.len(),
             Self::Variable(values) => values.rows,
             Self::Decimal(values) => values.values.len(),
+            Self::Uuid(values) => values.len(),
             Self::Nested(values) => values.len(),
         }
     }
@@ -352,7 +362,9 @@ impl KeyColumn {
     /// and mixed domains retain their original fallible comparison sequence.
     pub(super) fn same_flat_order_domain(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Null(_), Self::Null(_)) | (Self::Boolean { .. }, Self::Boolean { .. }) => true,
+            (Self::Null(_), Self::Null(_))
+            | (Self::Boolean { .. }, Self::Boolean { .. })
+            | (Self::Uuid(_), Self::Uuid(_)) => true,
             (Self::Numeric(left), Self::Numeric(right))
             | (Self::Date(left), Self::Date(right))
             | (Self::Timestamp(left), Self::Timestamp(right)) => {
@@ -401,6 +413,7 @@ impl KeyColumn {
                 }
             })),
             Self::Decimal(values) => values.cell(row),
+            Self::Uuid(values) => Ok(values.value(row)?.map_or(Cell::Null, Cell::Uuid)),
             Self::Date(values) => Ok(match temporal_value(values, row)? {
                 None => Cell::Null,
                 Some(value) => Cell::Date(i32::try_from(value).map_err(vortex_error)?),
@@ -499,6 +512,7 @@ impl KeyColumn {
             Self::Boolean { valid, .. } => !valid.value(row),
             Self::Variable(values) => values.index(row)?.is_none(),
             Self::Decimal(values) => !values.valid.value(row),
+            Self::Uuid(values) => values.value(row)?.is_none(),
             Self::Nested(values) => values.is_null(row)?,
         })
     }
@@ -617,6 +631,10 @@ impl KeyColumn {
                 hash.write_u8(10);
                 hash.write_i64(value);
             }
+            Cell::Uuid(value) => {
+                hash.write_u8(11);
+                hash.write(&value);
+            }
         }
         Ok(true)
     }
@@ -681,6 +699,7 @@ impl KeyColumn {
             Cell::Date(value) => write!(output, "D{value};"),
             Cell::Timestamp(value) => write!(output, "T{value};"),
             Cell::Temporal(value) => write!(output, "t{value};"),
+            Cell::Uuid(value) => write!(output, "U{:032x};", u128::from_be_bytes(value)),
         }
         .map_err(vortex_error)
     }
@@ -689,7 +708,7 @@ impl KeyColumn {
 pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
     use Cell::{
         Binary, Boolean, Date, Decimal, Float, NegativeInteger, NonnegativeInteger, Null, Temporal,
-        Timestamp, Utf8,
+        Timestamp, Utf8, Uuid,
     };
     Ok(match (left, right) {
         (Null, Null) => Ordering::Equal,
@@ -724,6 +743,7 @@ pub(super) fn compare_cells(left: Cell, right: Cell) -> Result<Ordering> {
             left.cmp(&right)
         }
         (Date(left), Date(right)) => left.cmp(&right),
+        (Uuid(left), Uuid(right)) => left.cmp(&right),
         _ => {
             return Err(failed(
                 "incompatible relational key types require an explicit cast",

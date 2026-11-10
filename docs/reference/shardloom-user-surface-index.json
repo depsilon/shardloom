@@ -1467,7 +1467,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "d0c5c7d41e769eece2b4a310c03bae01947d07e92d34936dd5304bfcdf2815f8",
+    "source_identity": "3b4d65b16651d099255e4e54c9dfd4ed63d27208b4200d3e790b3ce59b10c11e",
     "source_inputs": {
       "Cargo.lock": "2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b",
       "Cargo.toml": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7",
@@ -1476,7 +1476,7 @@
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "4f18975c0eebdcc296c41c4eb2c669a6337655871af161a439a810dfcb254bd0",
+      "python/src/shardloom/_result_schema.py": "dec1a6573bfa655a860807e4e9130985b0bedc6f8e4a6edfc209d5367c7d8ba8",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "8ab2cc51e5f632561493e0b47bd693552dd45d19fa07ae5676571a23a95d0dba",
@@ -1494,7 +1494,7 @@
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
       "python/src/shardloom/types.py": "2dcf5b80c08ddb359cf4bf556cf980480a3b7e64bfa9c27e9c951f3994f0e063",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
-      "shardloom-vortex/Cargo.toml": "8fa08b5bced627f3fd0a175aa0fb5e2c53473213560754f49e78b51fcb74aea0"
+      "shardloom-vortex/Cargo.toml": "bb37278519c725f2871f8e1ec096150d785e928ec3962faa5103b7004b081783"
     },
     "python_symbols": [
       {

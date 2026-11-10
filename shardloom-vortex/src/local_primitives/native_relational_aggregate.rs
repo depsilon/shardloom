@@ -1591,6 +1591,7 @@ fn final_value<'a>(state: &'a State, measure: &Measure) -> Result<Value<'a>> {
             Some(Cell::Binary(bytes)) => Value::Binary(Cow::Borrowed(bytes.as_slice())),
             Some(Cell::Decimal(value, dtype)) => Value::Decimal(*value, *dtype),
             Some(Cell::Date(value)) => Value::Int(i64::from(*value)),
+            Some(Cell::Uuid(value)) => Value::Uuid(*value),
         },
     })
 }

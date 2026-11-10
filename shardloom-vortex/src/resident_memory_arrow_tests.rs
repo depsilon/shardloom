@@ -126,7 +126,8 @@ fn local_file_dictionary_intake_preserves_strict_domain_and_schema_refusals() {
         let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
         session
             .with_native_execution_context(&CancellationToken::default(), |context| {
-                assert!(schema_metadata_bytes(&dtype, Origin::LocalFile, context).is_err());
+                let field = Field::new("value", dtype.clone(), true);
+                assert!(schema_metadata_bytes(&field, Origin::LocalFile, context).is_err());
                 Ok(())
             })
             .unwrap();

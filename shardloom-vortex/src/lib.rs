@@ -142,6 +142,8 @@ mod native_temporal;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_tensor;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
+mod native_uuid;
+#[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_variable_tensor;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_variant;

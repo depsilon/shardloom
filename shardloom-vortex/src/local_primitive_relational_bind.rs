@@ -957,6 +957,7 @@ fn validate_key(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
 
 fn validate_flat_operand(dtype: &DType) -> Result<()> {
     match dtype {
+        DType::Extension(_) if crate::native_uuid::storage(dtype).is_some() => Ok(()),
         DType::Binary(_) => Ok(()),
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             Ok(())

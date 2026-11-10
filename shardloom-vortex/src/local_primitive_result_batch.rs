@@ -10,7 +10,10 @@ use shardloom_core::{Result, ShardLoomError, StatValue};
 use vortex::{
     array::{
         ArrayRef, IntoArray as _, VortexSessionExecute as _,
-        arrays::{DecimalArray, ExtensionArray, PrimitiveArray, StructArray, VarBinArray},
+        arrays::{
+            DecimalArray, ExtensionArray, FixedSizeListArray, PrimitiveArray, StructArray,
+            VarBinArray,
+        },
         dtype::{DType, DecimalDType, FieldNames, PType},
         memory::{HostAllocatorRef, HostMemorySessionExt as _, WritableHostBuffer},
         validity::Validity,
@@ -55,6 +58,7 @@ pub(super) enum Value<'a> {
     Binary(Cow<'a, [u8]>),
     SharedBinary(ByteBuffer),
     Decimal(i128, DecimalDType),
+    Uuid([u8; 16]),
 }
 
 impl Value<'_> {
@@ -95,6 +99,7 @@ impl Value<'_> {
             Self::SharedText(value) => value.as_str().into(),
             Self::Binary(value) => super::binary_to_hex(&value).into(),
             Self::SharedBinary(value) => super::binary_to_hex(&value).into(),
+            Self::Uuid(value) => crate::native_uuid::display(value).into(),
             Self::Decimal(value, dtype) => format!(
                 "decimal128({},{}):{value}",
                 dtype.precision(),
@@ -114,6 +119,11 @@ pub(super) fn scalar_value(
     context: &mut vortex::array::ExecutionCtx,
 ) -> Result<Value<'static>> {
     use vortex::array::scalar::ScalarValue;
+    if crate::native_uuid::is_uuid(array.dtype()) {
+        return Ok(crate::native_uuid::Values::new(array, context)?
+            .value(row)?
+            .map_or(Value::Null, Value::Uuid));
+    }
     let scalar = scalar(array, row, context)?;
     Ok(match scalar.value() {
         None => Value::Null,
@@ -381,6 +391,7 @@ pub(super) fn width(dtype: &DType) -> Result<usize> {
         DType::Decimal(dtype, _) if crate::native_payload_schema::admitted_decimal(*dtype) => {
             Ok(16)
         }
+        DType::Extension(_) if crate::native_uuid::storage(dtype).is_some() => Ok(16),
         DType::Extension(_) => crate::native_payload_schema::temporal_storage(dtype)
             .map(|ptype| ptype.byte_width())
             .ok_or_else(|| failed("unsupported temporal output dtype")),
@@ -744,6 +755,14 @@ fn build_column_prefix_inner<'a, const PREFIX: bool>(
                         },
                     )?;
                 }
+                (DType::Extension(_), Value::Uuid(value))
+                    if crate::native_uuid::storage(dtype).is_some() =>
+                {
+                    if keep {
+                        data.as_mut_slice()[row * stride..(row + 1) * stride]
+                            .copy_from_slice(&value);
+                    }
+                }
                 (DType::Extension(_), value) => {
                     let Value::Int(ticks) = &value else {
                         return Err(failed("temporal output requires signed integer ticks"));
@@ -833,6 +852,20 @@ fn finish_column(
         DType::Primitive(ptype, _) => Ok(primitive(*ptype, data, validity)),
         DType::Decimal(decimal, _) => {
             DecimalArray::try_new(Buffer::<i128>::from_byte_buffer(data), *decimal, validity)
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)
+        }
+        DType::Extension(extension) if crate::native_uuid::storage(dtype).is_some() => {
+            let bytes = retain_empty_array_credit(
+                primitive(PType::U8, data, Validity::NonNullable),
+                allocator,
+            )
+            .map_err(vortex_error)?;
+            let storage = FixedSizeListArray::try_new(bytes, 16, validity, rows)
+                .map(vortex::array::IntoArray::into_array)
+                .map_err(vortex_error)?;
+            let storage = retain_empty_array_credit(storage, allocator).map_err(vortex_error)?;
+            ExtensionArray::try_new(extension.clone(), storage)
                 .map(vortex::array::IntoArray::into_array)
                 .map_err(vortex_error)
         }

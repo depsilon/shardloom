@@ -171,6 +171,45 @@ fn cancellation_during_name_walk_stops_traversal_and_releases_budget() {
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
+#[cfg(all(feature = "universal-format-io", feature = "vortex-write"))]
+#[test]
+fn native_uuid_shared_field_admission_retains_declarations_and_resource_limits() {
+    use arrow_schema::{DataType, Field};
+    let memory = LiveMemoryPool::new(32 << 10).unwrap();
+    let field = Field::new("id", DataType::FixedSizeBinary(16), true)
+        .with_metadata([("ARROW:extension:name".into(), "arrow.uuid".into())].into());
+    for declared in [
+        field.clone(),
+        field.clone().with_data_type(DataType::Dictionary(
+            Box::new(DataType::Int32),
+            Box::new(DataType::FixedSizeBinary(16)),
+        )),
+    ] {
+        assert!(arrow_field_metadata_bytes(&declared, &memory).unwrap() > 0);
+        assert!(arrow_file_metadata_bytes(&declared, &memory).unwrap() > 0);
+    }
+    for invalid in [
+        field
+            .clone()
+            .with_metadata(std::collections::HashMap::default()),
+        field.clone().with_data_type(DataType::FixedSizeBinary(15)),
+        field
+            .clone()
+            .with_metadata([("ARROW:extension:name".into(), "other.uuid".into())].into()),
+    ] {
+        assert!(arrow_field_metadata_bytes(&invalid, &memory).is_err());
+        assert!(arrow_file_metadata_bytes(&invalid, &memory).is_err());
+    }
+    let denied = LiveMemoryPool::new(1).unwrap();
+    assert!(arrow_file_metadata_bytes(&field, &denied).is_err());
+    assert!(denied.snapshot().denied_reservations > 0);
+    assert_eq!(denied.snapshot().reserved_bytes, 0);
+    let cancellation = CancellationToken::default();
+    cancellation.cancel();
+    assert!(arrow_file_metadata_bytes(&field, (&memory, &cancellation)).is_err());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn support_and_schema_validation_preserve_error_distinctions_and_release_credit() {
     let memory = LiveMemoryPool::new(1 << 20).unwrap();

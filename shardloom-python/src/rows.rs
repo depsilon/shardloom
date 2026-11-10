@@ -2,10 +2,10 @@
 //! Arrow exchange never call this endpoint. Python containers are caller memory.
 
 use arrow_array::{
-    Array, BinaryArray, BooleanArray, Date32Array, Decimal128Array, FixedSizeListArray,
-    Float16Array, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array,
-    ListArray, RecordBatch, StringArray, StructArray, TimestampMicrosecondArray, UInt8Array,
-    UInt16Array, UInt32Array, UInt64Array,
+    Array, BinaryArray, BooleanArray, Date32Array, Decimal128Array, FixedSizeBinaryArray,
+    FixedSizeListArray, Float16Array, Float32Array, Float64Array, Int8Array, Int16Array,
+    Int32Array, Int64Array, ListArray, RecordBatch, StringArray, StructArray,
+    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use arrow_schema::{DataType, Field, TimeUnit};
 use pyo3::{
@@ -31,6 +31,7 @@ pub(super) fn append_batch(
         wire_values,
         datetime: PyModule::import(py, "datetime")?,
         decimal: PyModule::import(py, "decimal")?.getattr("Decimal")?,
+        uuid: PyModule::import(py, "uuid")?.getattr("UUID")?,
         temporal_to_python: PyModule::import(py, "shardloom._result_schema")?
             .getattr("temporal_python_value")?,
         cancellation,
@@ -59,6 +60,7 @@ struct Conversion<'py> {
     wire_values: bool,
     datetime: Bound<'py, PyModule>,
     decimal: Bound<'py, PyAny>,
+    uuid: Bound<'py, PyAny>,
     temporal_to_python: Bound<'py, PyAny>,
     cancellation: &'py CancellationToken,
     owner: &'py super::binary_object::ObjectOwner,
@@ -96,19 +98,14 @@ impl Conversion<'_> {
             DataType::Float64 => scalar!(Float64Array),
             DataType::Utf8 => scalar!(StringArray),
             DataType::Binary => self.binary(field, downcast::<BinaryArray>(array)?.value(row)),
-            DataType::Decimal128(precision, scale) => {
-                let coefficient = downcast::<Decimal128Array>(array)?.value(row);
-                if self.wire_values {
-                    return format!("decimal128({precision},{scale}):{coefficient}")
-                        .into_py_any(py);
-                }
-                // Decimal(string) is exact and independent of the caller's
-                // decimal arithmetic context; no JSON/text data bridge is used.
-                Ok(self
-                    .decimal
-                    .call1((format!("{coefficient}e{}", -i16::from(*scale)),))?
-                    .unbind())
+            DataType::FixedSizeBinary(16) if super::schema::is_uuid(field) => {
+                self.uuid_value(downcast::<FixedSizeBinaryArray>(array)?.value(row))
             }
+            DataType::Decimal128(precision, scale) => self.decimal_value(
+                downcast::<Decimal128Array>(array)?.value(row),
+                *precision,
+                *scale,
+            ),
             DataType::Date32 => {
                 self.temporal(i64::from(downcast::<Date32Array>(array)?.value(row)), true)
             }
@@ -165,6 +162,29 @@ impl Conversion<'_> {
             dtype => Err(PyValueError::new_err(format!(
                 "native Python row conversion does not admit {dtype}; no fallback execution was attempted",
             ))),
+        }
+    }
+
+    fn decimal_value(&self, coefficient: i128, precision: u8, scale: i8) -> PyResult<Py<PyAny>> {
+        if self.wire_values {
+            return format!("decimal128({precision},{scale}):{coefficient}").into_py_any(self.py);
+        }
+        // Decimal(string) is exact and independent of the caller's
+        // decimal arithmetic context; no JSON/text data bridge is used.
+        Ok(self
+            .decimal
+            .call1((format!("{coefficient}e{}", -i16::from(scale)),))?
+            .unbind())
+    }
+
+    fn uuid_value(&self, bytes: &[u8]) -> PyResult<Py<PyAny>> {
+        let arguments = PyDict::new(self.py);
+        arguments.set_item("bytes", PyBytes::new(self.py, bytes))?;
+        let value = self.uuid.call((), Some(&arguments))?;
+        if self.wire_values {
+            Ok(value.str()?.into_any().unbind())
+        } else {
+            Ok(value.unbind())
         }
     }
 

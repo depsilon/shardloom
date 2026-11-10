@@ -424,7 +424,7 @@ fn schema_bytes(schema: &SchemaRef, scope: crate::native_payload_schema::Scope<'
     schema.fields().iter().try_fold(8192_u64, |sum, field| {
         add(
             add(sum, field.name().len() as u64 * 4 + 1024)?,
-            crate::native_payload_schema::arrow_file_metadata_bytes(field.data_type(), scope)?,
+            crate::native_payload_schema::arrow_file_metadata_bytes(field, scope)?,
         )
     })
 }
