@@ -9,10 +9,13 @@ This is a source reference. Aggregates, windows, casts and nested constructors h
 All listed functions execute within ShardLoom. The decoded reference-support flag in the
 [JSON catalog](native-scalar-functions.json) describes a test oracle, not an execution fallback.
 
-Definition source SHA-256: `bae736e424bd0f2309c1b9a8c0e1a282ba3017119aa93b6d9f0aef51effb67fe`.
+Definition source SHA-256: `d2bc73f1b414c5486d62452ceeca4f5d0c0ea2b802ab2f0327cb8a8b103611c4`.
 
 | Function | Aliases | Arguments | Values and types | Null behavior |
 | --- | --- | --- | --- | --- |
+| `variant_get` | — | 2 | Extract a native Variant field or zero-based index path; missing paths produce SQL NULL and present Variant null remains distinct. Variant and literal path -> nullable Variant; TRY_VARIANT_GET additionally requires a literal admitted target type and returns NULL on failed conversion | may produce null even with non-null inputs |
+| `try_variant_get` | — | 3 | Extract a native Variant path as a literal target type; missing paths and failed conversions produce SQL NULL. Variant and literal path -> nullable Variant; TRY_VARIANT_GET additionally requires a literal admitted target type and returns NULL on failed conversion | may produce null even with non-null inputs |
+| `is_variant_null` | — | 1 | Test for a present Variant null; SQL NULL and other values produce false. Variant -> nonnull Boolean; true only for a present Variant null, false for SQL NULL | SQL NULL produces false; the result is nonnull |
 | `is_nan` | — | 1 | Whether a floating value is NaN; distinct from NULL. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
 | `is_infinite` | — | 1 | Whether a floating value is positive or negative infinity. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |
 | `is_finite` | — | 1 | Whether a floating value is finite, including signed zeros and subnormals. F16/F32/F64 -> Boolean classification of original valid bits; NULL propagates under either float policy | null input produces null; nullable if any input is nullable |

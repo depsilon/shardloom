@@ -307,6 +307,8 @@ fn function_result_dtype(
         | T::VectorSlice
         | T::VectorReduction
         | T::VectorNormalize
+        | T::VariantGet
+        | T::VariantIsNull
         | T::DecimalOutput => Err(EvalFailure::unsupported(
             "function_call",
             "function has no admitted reference result type",

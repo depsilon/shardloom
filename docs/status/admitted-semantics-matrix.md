@@ -50,6 +50,13 @@ reference values; the validator does not normalize observed rows to make them
 match. Parser denials use `SL_UNSUPPORTED_SQL`; runtime/type/sink errors retain
 `SL_INVALID_INPUT`. Failed writers must preserve preexisting files.
 
+The historical `unsupported_variant_access` fixture ID now verifies type
+admission: `VARIANT_GET` accepts native Variant values, but rejects its CSV UTF8
+operand with `SL_INVALID_INPUT`. The valid literal path is `$.field`; this case
+is an invalid-shape diagnostic, not a blanket refusal of Variant field access.
+Positive native Variant extraction and conversion evidence is recorded in the
+[field-expression contract](../architecture/native-variant-expressions-2026-11-10.md).
+
 The matrix is a bounded regression suite, not a complete capability inventory.
 Native static nested source keys, selected expressions and retained state have a
 [contract](../architecture/native-nested-keys-state-2026-10-04.md) and
@@ -64,12 +71,12 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=151
-executable_fixture_count=124
-diagnostic_case_count=25
-unsupported_diagnostic_count=23
+matrix_row_count=153
+executable_fixture_count=128
+diagnostic_case_count=23
+unsupported_diagnostic_count=20
 runtime_error_diagnostic_count=1
-invalid_shape_diagnostic_count=1
+invalid_shape_diagnostic_count=2
 property_lane_count=10
 property_seed_order=20260521,20260618,20260619,20260620,20260621,20260622,20260623,20260624,20260625,20260626
 property_execution_performed=true

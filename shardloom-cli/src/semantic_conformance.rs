@@ -456,7 +456,7 @@ fn complex_dtype_blocker_rows() -> Vec<SemanticFixtureRow> {
             "variant access",
             "nested_extension_type_operations",
             "unsupported_diagnostic_certified",
-            "variant access fails deterministically until tag/value policy and projection fixtures land",
+            "the decoded reference evaluator rejects Variant casts and access; the separate native columnar binder admits literal field extraction under its provider contract",
             SemanticBlockerEvidence {
                 blocker_id: "gar-runtime-impl-4d-f2.variant_access_unsupported",
                 required_future_evidence: "variant_tag_policy,variant_projection_fixture,unsupported_tag_diagnostic",

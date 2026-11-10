@@ -11,6 +11,12 @@ use vortex::array::dtype::DType;
 #[path = "native_variant_arrow.rs"]
 pub(crate) mod arrow;
 
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "native_variant_expression_report.rs"]
+mod expression_report;
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) use expression_report::ExpressionWork;
+
 /// Call after the shared schema walk has bounded recursion and metadata.
 pub(crate) fn contains(dtype: &DType) -> bool {
     match dtype {

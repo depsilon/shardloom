@@ -3475,12 +3475,11 @@ fn validate_complex_dtype_policy_boundaries_with_sql_union(
         ));
     }
     if contains_function_call_outside_quotes(statement, "variant")
-        || contains_function_call_outside_quotes(statement, "variant_get")
         || contains_cast_target_matching(statement, "cast", target_is_variant_dtype)?
         || contains_cast_target_matching(statement, "try_cast", target_is_variant_dtype)?
     {
         return Err(unsupported_sql_error(
-            "variant access semantics are not admitted by the current complex dtype profile",
+            "Variant constructors and casts are not admitted by the current complex dtype profile; native Variant field functions have separate binder admission",
         ));
     }
     if contains_cast_target_matching(statement, "cast", target_is_union_dtype)?
@@ -17091,8 +17090,8 @@ mod tests {
                 "row constructors plus struct casts, equality, and access semantics are not admitted",
             ),
             (
-                "SELECT id,VARIANT_GET(payload, 'field') AS field FROM 'target/input.csv' LIMIT 5",
-                "variant access semantics are not admitted",
+                "SELECT CAST(payload AS variant) AS payload FROM 'target/input.csv' LIMIT 5",
+                "Variant constructors and casts are not admitted",
             ),
             (
                 "SELECT CAST(payload AS union) AS payload FROM 'target/input.csv' LIMIT 5",
@@ -17107,6 +17106,21 @@ mod tests {
                 "expected {expected:?}, got {error}"
             );
             assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn parser_variant_field_functions_reach_native_binding() {
+        for expression in [
+            "VARIANT_GET(payload, '$.field')",
+            "TRY_VARIANT_GET(payload, '$.field', 'int64')",
+            "IS_VARIANT_NULL(VARIANT_GET(payload, '$[0]'))",
+        ] {
+            validate_complex_dtype_policy_boundaries_with_sql_union(
+                &format!("SELECT {expression} FROM 'input.vortex'"),
+                false,
+            )
+            .expect("field functions are admitted by the shared native binder");
         }
     }
 

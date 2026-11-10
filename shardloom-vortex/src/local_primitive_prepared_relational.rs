@@ -1592,6 +1592,7 @@ impl PreparedVortexRelational {
         context
             .append_adaptive_work_certificate(&mut certificate.source_pushdown_report.proof_basis);
         context.append_capability_decisions(&mut certificate)?;
+        context.append_variant_expression_certificate(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(

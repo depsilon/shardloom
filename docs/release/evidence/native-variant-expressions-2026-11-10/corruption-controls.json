@@ -1,0 +1,718 @@
+{
+  "status": "passed",
+  "receipt": {
+    "status": "passed",
+    "driver_sha256": "b09a1b8a52d86afae4693cdf92dfdf3f6c73c514bfaa4d1fd86526e7f748e45e",
+    "original_packet": {
+      "acceptance.json": {
+        "bytes": 2314799,
+        "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+      },
+      "verification.tar.xz": {
+        "bytes": 70299868,
+        "sha256": "50dcb6ea1d97653bdfd8ef4250f4bada2e122b7050b4d3878d88d0c124520488"
+      },
+      "verify.py": {
+        "bytes": 40920,
+        "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+      }
+    },
+    "cases": [
+      {
+        "case": "original",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "original.log",
+        "log_identity": {
+          "bytes": 536,
+          "sha256": "acab04c2491c26b16631bd01d2d5c92766efaa663b78679cf5d9dd992e652091"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+          },
+          "verification.tar.xz": {
+            "bytes": 70299868,
+            "sha256": "50dcb6ea1d97653bdfd8ef4250f4bada2e122b7050b4d3878d88d0c124520488"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "relocated_source_only",
+        "expected": "accepted",
+        "returncode": 0,
+        "log": "relocated_source_only.log",
+        "log_identity": {
+          "bytes": 536,
+          "sha256": "acab04c2491c26b16631bd01d2d5c92766efaa663b78679cf5d9dd992e652091"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+          },
+          "verification.tar.xz": {
+            "bytes": 70299868,
+            "sha256": "50dcb6ea1d97653bdfd8ef4250f4bada2e122b7050b4d3878d88d0c124520488"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "archive_byte",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "archive_byte.log",
+        "log_identity": {
+          "bytes": 678,
+          "sha256": "643cc37905d49e518df9ef237f66071e439826edbe0e71af61052f52695dc45a"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+          },
+          "verification.tar.xz": {
+            "bytes": 70299868,
+            "sha256": "2b05af29848474bdc880ba556f120bc4095616d91654e6ae1b76bb5bfc3a9c6b"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "preparation_relabelled",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "preparation_relabelled.log",
+        "log_identity": {
+          "bytes": 642,
+          "sha256": "e4a321d6d6ae43e49f252b5169b6d485257911d3b07dfb45ea790eb609a9328d"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "494be0c1a4d787f90187f3e5f6a468ca46ef4980c9f085033a5b28cf357fcb0e"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073108,
+            "sha256": "eaebf72aebe42469999dc04e1a1e9e5231d616465b7d36d8383198c4dbf01092"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "adopted_tree_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "adopted_tree_changed.log",
+        "log_identity": {
+          "bytes": 668,
+          "sha256": "373f6bfab126726d5e0c1ee54a7471aa1e4ff1fecb39b1c569eed452d45d77b5"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "29356387c27feab413ec06edbb3f4e48d59a2cd4a5a6d8cbea525aca04f86362"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073072,
+            "sha256": "4a8de26e809ece103981a26b2d47620b49e87e543aecb02114af259f82bac278"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "adopted_sources_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "adopted_sources_changed.log",
+        "log_identity": {
+          "bytes": 676,
+          "sha256": "b8b6d15657dc166b841527b6470a1bdbf090486f928ba344ab7749bed416fa11"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "e6c4a4ac30d16b67cd88dba11f12862cedada67618a228283803863fd6030ded"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073092,
+            "sha256": "0f2d1a819c7b2c82d61c73d69dec0460fcde855695fcbe9e37260f9a7458c844"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_source_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_source_changed.log",
+        "log_identity": {
+          "bytes": 2063,
+          "sha256": "b67d76a11957eba2105462bae306584f9578ac961e231b0a9bc3aa244965196c"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2315390,
+            "sha256": "5f1b14b3ac703605ec4723bacbaa0ebc9c6a797306c1dc1231e38cdf68bf20ae"
+          },
+          "verification.tar.xz": {
+            "bytes": 87075820,
+            "sha256": "47551b0d83255c5fcd1091f56047ed876a180a16b7558e5710ccde0720f9b250"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_source_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_source_changed.log",
+        "log_identity": {
+          "bytes": 2055,
+          "sha256": "6eba68ecc4d524da86b058a7365c1b5716dbee833e1a867f93d415c7cef73171"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2315383,
+            "sha256": "f20565b947e78d9c55d3a29e38dfe46941d655bd041ad71eca9447e632b32a62"
+          },
+          "verification.tar.xz": {
+            "bytes": 87078372,
+            "sha256": "5e8057ff93a601473a1babf67d6e72ff96bee51114c752910b5a6b1b10752313"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "provider_lock_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "provider_lock_changed.log",
+        "log_identity": {
+          "bytes": 2004,
+          "sha256": "5e326bcd3c42b64012e2a905f31a699091cf8f9fa56667bec5cf721c92ce2951"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2315340,
+            "sha256": "99339c2cfa2847a79a2c519132e39f78568b2c969c7b9eaa7cfc1a3e9c5f4df2"
+          },
+          "verification.tar.xz": {
+            "bytes": 87100796,
+            "sha256": "4f36b742f17c07efe6c46af8050982d0c43e81ff9c2273cccd8ab63ac2d97dc6"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "preparation_prior_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "preparation_prior_changed.log",
+        "log_identity": {
+          "bytes": 688,
+          "sha256": "4047f42b2930ebbfcaff4a2effa1e41fae6a87810195161c493bdef815f5050d"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "8b6c0c67a2df0dcaa23d6198f473dbf1a6b8eccdef51ecb4e00a1d42a7a4aa60"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073060,
+            "sha256": "29cd72f3c6ba467fbf8340cefe118c6fba83b3e4525480c6814d22b318c9e38a"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "unclosed_process",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "unclosed_process.log",
+        "log_identity": {
+          "bytes": 671,
+          "sha256": "286a84613573614f5a53298a00daf3cc74b3c7f5b55f8c1cc648c6c1a6b24c45"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "9498eeec2cccdaf77b393d29c1bf6a3cf6fa4a110acb94a0fdb54d605a979a52"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073092,
+            "sha256": "b847f3cd37dd0cd1b5ed263f28d210553a7d84d779c3cbe1254fbec1d502b95b"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_clippy_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_clippy_failed.log",
+        "log_identity": {
+          "bytes": 657,
+          "sha256": "6eb58bb79c3c5539aad0feb28b6bda024758688e90b77eadaf6195b72d0db51f"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "71f8cbb2eaceffe487b489521eaac92e08868c0d9f3f68c3a1ca26bf23d63ef3"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073092,
+            "sha256": "4b31c59ce606ad0625cffcf49ae338bf9c6209a923ab57bbb5902a02cee03f98"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "native_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "native_test_missing.log",
+        "log_identity": {
+          "bytes": 1110,
+          "sha256": "c7549e9582480fcdc87f764c494f332e57e4f615bd4072734de8b23d3551ce21"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "ed4dfabb74c1e5a0f5d1cf47d0a359bec5e1e8d09d79af620ca2de88ad20c608"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073100,
+            "sha256": "d1742167899c0660f3d41998d3748fdda5c6677f5805aa666cbff1e0bcce783b"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "public_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "public_test_missing.log",
+        "log_identity": {
+          "bytes": 953,
+          "sha256": "8e23de3e69d2e137f4fbdf1e27b1c1eea2aac400a4d1027343e76117d94f4470"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "0335f0ba5e2213e24db93ca931d855424953ee1ac61c0e5a4a9206921ec1bbae"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073064,
+            "sha256": "d7788e553cf1cfdbeda5085307fffb56471ee0422d9d1e4658d35da45a30a3eb"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "public_test_skipped",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "public_test_skipped.log",
+        "log_identity": {
+          "bytes": 953,
+          "sha256": "e1e7613d9c476e0a8a92c7208bd43c700e7ee12a745b1be01d19b8eb37217d3a"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "8a76382a6b57a9efaa76fd9140a7d9332addf7063cca0092d3be1133a8596292"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073100,
+            "sha256": "b97a350390d4de20d4b2f08ace04f73b40fd214e529e90e25c76d0b258d168bd"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "installed_skip",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "installed_skip.log",
+        "log_identity": {
+          "bytes": 915,
+          "sha256": "82b2c81d3945bd58116920dff32f6fcf74a49f165bbcc35df7c0fd75237ca7c0"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "b1fdb196f6110481d13904bd36a5703f07b1d93a91248cd09e879013658973d4"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073096,
+            "sha256": "5e817fb372a9b0b73c116778630e2423a41c898427b3b17b39d8c48e6703d8dd"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "installed_binary_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "installed_binary_changed.log",
+        "log_identity": {
+          "bytes": 1145,
+          "sha256": "fbf45ec4099aecc8a4c124773750057842d1a6dfdb21e16897254e6054ce765d"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "77e65eb4fc41bee3e88cef4c3943fccbf4661d63e5a40c7a8d620c4a04e8a49e"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073116,
+            "sha256": "bd9636974380c31e1c04bcd9ea3f2f8682d533c5a18f24aa9c6279d097238766"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "wheel_python_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "wheel_python_changed.log",
+        "log_identity": {
+          "bytes": 1045,
+          "sha256": "afff616f1343a3b7190b2387d9d56c916777c52d5f21442c17c63e6472a2c946"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "bda9873191f2fdf9363e0d705ebc90643235a0928a8c03fdcb6ce3440e0c7128"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073100,
+            "sha256": "5b1cc33684fa19decd5ddbb31909cb93f8ee21983c8e72bcddbe3f967ddcd670"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "frozen_fixture_changed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "frozen_fixture_changed.log",
+        "log_identity": {
+          "bytes": 999,
+          "sha256": "023906db76e58b72ae6c64c9c4d8525144fb137c4958976c0ad70e9c2192f851"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "cc8101c34e5f403fc91051fe0310d8b9030b11c8980cccbad86ebca71eac4c7b"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073092,
+            "sha256": "1ba7d9698b5f89a4d8b126371aaf30fb8bd8cfb63a9368481d484807b529306e"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "path_test_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "path_test_missing.log",
+        "log_identity": {
+          "bytes": 1098,
+          "sha256": "b18fb4bc5925303bc78a15a340be1f3acc04eeaea083cd928957bd738d583661"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "1ed3404712317dc94044e63ba93090cdc318e6256ea4a2c461f3104f9df8d749"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073068,
+            "sha256": "d8713087b8713c13c3a5464bf1257ca309dfdb91a6ae775d343edcc31ccba986"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "failure_missing",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "failure_missing.log",
+        "log_identity": {
+          "bytes": 726,
+          "sha256": "103669c9077c54af4aa2e909fbff8062c00fb04ee63653d549115ea5c3b0e42f"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314627,
+            "sha256": "9e9231ffe21eb86e232635504e378d883d84e054484f18ce35575444c7b640d9"
+          },
+          "verification.tar.xz": {
+            "bytes": 86775684,
+            "sha256": "be3b0a77e9634ec50e0a23c0017650ce7c484af64404e35622fb7b8dcb07b9b1"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "prior_main_failed",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "prior_main_failed.log",
+        "log_identity": {
+          "bytes": 865,
+          "sha256": "df68b7124b193c751294015aa06657fe99cc53d363592ab3d11be507e50869cd"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "28e054014d19190f4a8c3879a51d3b99d4b7e4ccbd8f05cbaa359c80b5f8dd28"
+          },
+          "verification.tar.xz": {
+            "bytes": 87074100,
+            "sha256": "6d26bc9c6a1a2128d812397e397e03b60ffe8c0b0739882908667793419afe4b"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      },
+      {
+        "case": "prior_retirement_incomplete",
+        "expected": "rejected",
+        "returncode": 1,
+        "log": "prior_retirement_incomplete.log",
+        "log_identity": {
+          "bytes": 837,
+          "sha256": "5cc3aa45fa0f2319a6ff34a2552a79bc3f9f62f730012757e97bd9b7cf407641"
+        },
+        "tested_packet": {
+          "acceptance.json": {
+            "bytes": 2314799,
+            "sha256": "0875f854a34197562b6f7819a31cf2e62e8d5bd15dddbffc13f0c36739acf852"
+          },
+          "verification.tar.xz": {
+            "bytes": 87073092,
+            "sha256": "7e9039a9f989a9cbce68539fe1c6e99fe3ad419c8b6bf4058d92aadf46d40cee"
+          },
+          "verify.py": {
+            "bytes": 40920,
+            "sha256": "57b352a55d342c8d5fb03a08e032308d2fd58a5a6abcc3567ae82ed0b13d7f9e"
+          }
+        },
+        "report_before": {
+          "bytes": 2314799,
+          "sha256": "e785473c9732290756f0444173aa228cf4b631bcbd94c63b9d5cb6d938ceafdb"
+        },
+        "original_packet_unchanged": true
+      }
+    ],
+    "positive_controls": 2,
+    "rejected_controls": 21
+  },
+  "logs": {
+    "original.log": "{\"controls_verified\": false, \"installed_tests\": 441, \"members\": 5783, \"native_execution_repeated\": false, \"native_tests\": 13, \"original_failures\": 8, \"preparation_roles_reused\": [\"build\", \"default_clippy\", \"default_tests\", \"features\", \"format\", \"freeze\", \"installed\", \"msrv\", \"native_clippy\", \"native_tests\", \"public\", \"python_core\"], \"provider_tests\": {}, \"public_tests\": 25, \"repository_checked\": false, \"roles\": 14, \"source_fingerprint_sha256\": \"e767ebc5e86cbcc9b0a7ba8050f7cd489dab4e869d579e0bc0aeeb583c08daab\", \"status\": \"passed\"}\n",
+    "relocated_source_only.log": "{\"controls_verified\": false, \"installed_tests\": 441, \"members\": 5783, \"native_execution_repeated\": false, \"native_tests\": 13, \"original_failures\": 8, \"preparation_roles_reused\": [\"build\", \"default_clippy\", \"default_tests\", \"features\", \"format\", \"freeze\", \"installed\", \"msrv\", \"native_clippy\", \"native_tests\", \"public\", \"python_core\"], \"provider_tests\": {}, \"public_tests\": 25, \"repository_checked\": false, \"roles\": 14, \"source_fingerprint_sha256\": \"e767ebc5e86cbcc9b0a7ba8050f7cd489dab4e869d579e0bc0aeeb583c08daab\", \"status\": \"passed\"}\n",
+    "archive_byte.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-4tiwykq8/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-4tiwykq8/verify.py\", line 174, in verify\n    assert len(archive_raw) < 90 << 20 and digest(archive_raw) == report['archive_sha256']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "preparation_relabelled.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qv95qq7v/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qv95qq7v/verify.py\", line 270, in verify\n    assert result['head'] == BASE and result['base'] == PREPARATION_BASE\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "adopted_tree_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-jmybjmp_/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-jmybjmp_/verify.py\", line 247, in verify\n    assert adoption['tree'] == BASE_TREE and adoption['accepted_base_tree_unchanged']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "adopted_sources_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-tsxalb18/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-tsxalb18/verify.py\", line 249, in verify\n    assert adoption['branch_compare_and_set'] and adoption['before'] == adoption['after']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "native_source_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-f2i0g9pb/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-f2i0g9pb/verify.py\", line 285, in verify\n    assert set(deltas) <= (set() if role in {'docs', 'doc_contracts'} else STATUS_PROSE), (role, deltas)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('native_tests', {'docs/architecture/local-development-storage.md': {'before': {'sha256': '9ec61688b8a1fd3939b619e66626902668536afbabd0bb551eb7fefc3e0bb4a0', 'bytes': 64887}, 'after': {'sha256': '55a7ea53048f11d96bf7313e42447f9f45bb65ac95ef2c22d878da3a8b239361', 'bytes': 66578}}, 'docs/architecture/native-rich-data-lifecycle-2026-10-24.md': {'before': {'sha256': '8e0e92198481a07f7b4a6c7b70728c8f6add1ae34d4db60c8bbec8816b4b8292', 'bytes': 23187}, 'after': {'sha256': '81cf29e8250d4e3f2cff0626b3580a65f727a1c10a817a01c7213931f695fb08', 'bytes': 23804}}, 'docs/architecture/native-variant-expressions-2026-11-10.md': {'before': {'sha256': '3ef05b48dd0e3af18635c31b703fbdf10ce39e073f1cfb44a35a113e29c7d7c1', 'bytes': 8189}, 'after': {'sha256': 'feb080bf304cd1b3112cc80c796d4952f0b8048e1d7cb5597c1c793d4fb72b1e', 'bytes': 9076}}, 'docs/architecture/phased-execution-plan.md': {'before': {'sha256': '477a1b9ef8d06ecc03e41f4090c1fe339b63502f0c102ae3e50c56fdf2601b8a', 'bytes': 225092}, 'after': {'sha256': '72253077997680ec78faa9a9cb80870570ee07a9d19e0547501f23e63c2f4556', 'bytes': 235617}}, 'shardloom-vortex/src/local_primitives/native_relational_variant.rs': {'before': {'bytes': 7517, 'sha256': '8e70d064da83f882debfea31dc0949f27a8c5ad51b48615fa4008ef410e06409'}, 'after': {'sha256': '81ef1192fa63412bd48f1c1d0c34f8d4589f4d0e275f7fefcb4521d311625780', 'bytes': 7474}}})\n",
+    "provider_source_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-4npvpkbu/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-4npvpkbu/verify.py\", line 285, in verify\n    assert set(deltas) <= (set() if role in {'docs', 'doc_contracts'} else STATUS_PROSE), (role, deltas)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('native_tests', {'docs/architecture/local-development-storage.md': {'before': {'sha256': '9ec61688b8a1fd3939b619e66626902668536afbabd0bb551eb7fefc3e0bb4a0', 'bytes': 64887}, 'after': {'sha256': '55a7ea53048f11d96bf7313e42447f9f45bb65ac95ef2c22d878da3a8b239361', 'bytes': 66578}}, 'docs/architecture/native-rich-data-lifecycle-2026-10-24.md': {'before': {'sha256': '8e0e92198481a07f7b4a6c7b70728c8f6add1ae34d4db60c8bbec8816b4b8292', 'bytes': 23187}, 'after': {'sha256': '81cf29e8250d4e3f2cff0626b3580a65f727a1c10a817a01c7213931f695fb08', 'bytes': 23804}}, 'docs/architecture/native-variant-expressions-2026-11-10.md': {'before': {'sha256': '3ef05b48dd0e3af18635c31b703fbdf10ce39e073f1cfb44a35a113e29c7d7c1', 'bytes': 8189}, 'after': {'sha256': 'feb080bf304cd1b3112cc80c796d4952f0b8048e1d7cb5597c1c793d4fb72b1e', 'bytes': 9076}}, 'docs/architecture/phased-execution-plan.md': {'before': {'sha256': '477a1b9ef8d06ecc03e41f4090c1fe339b63502f0c102ae3e50c56fdf2601b8a', 'bytes': 225092}, 'after': {'sha256': '72253077997680ec78faa9a9cb80870570ee07a9d19e0547501f23e63c2f4556', 'bytes': 235617}}, 'vendor/vortex-array/src/scalar_fn/fns/variant_get/mod.rs': {'before': {'bytes': 28192, 'sha256': 'e06be6383c6429e5617668ee01fd1d2f2be634cb79086572c1361ca44e551518'}, 'after': {'sha256': '59abc04e6aeb21ce9842a2f3ade4b7cb2d0c9c1c31290b3d9482dc3c553dc10e', 'bytes': 28149}}})\n",
+    "provider_lock_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-57mrvduh/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-57mrvduh/verify.py\", line 285, in verify\n    assert set(deltas) <= (set() if role in {'docs', 'doc_contracts'} else STATUS_PROSE), (role, deltas)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('build', {'Cargo.lock': {'before': {'bytes': 117251, 'sha256': '9864d1128dd6ce51d6151d828c3ee2ab56c317375ac2824859cfcc8488738303'}, 'after': {'sha256': '2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b', 'bytes': 117208}}, 'docs/architecture/local-development-storage.md': {'before': {'sha256': '9ec61688b8a1fd3939b619e66626902668536afbabd0bb551eb7fefc3e0bb4a0', 'bytes': 64887}, 'after': {'sha256': '55a7ea53048f11d96bf7313e42447f9f45bb65ac95ef2c22d878da3a8b239361', 'bytes': 66578}}, 'docs/architecture/native-rich-data-lifecycle-2026-10-24.md': {'before': {'sha256': '8e0e92198481a07f7b4a6c7b70728c8f6add1ae34d4db60c8bbec8816b4b8292', 'bytes': 23187}, 'after': {'sha256': '81cf29e8250d4e3f2cff0626b3580a65f727a1c10a817a01c7213931f695fb08', 'bytes': 23804}}, 'docs/architecture/native-variant-expressions-2026-11-10.md': {'before': {'sha256': '3ef05b48dd0e3af18635c31b703fbdf10ce39e073f1cfb44a35a113e29c7d7c1', 'bytes': 8189}, 'after': {'sha256': 'feb080bf304cd1b3112cc80c796d4952f0b8048e1d7cb5597c1c793d4fb72b1e', 'bytes': 9076}}, 'docs/architecture/phased-execution-plan.md': {'before': {'sha256': '477a1b9ef8d06ecc03e41f4090c1fe339b63502f0c102ae3e50c56fdf2601b8a', 'bytes': 225092}, 'after': {'sha256': '72253077997680ec78faa9a9cb80870570ee07a9d19e0547501f23e63c2f4556', 'bytes': 235617}}})\n",
+    "preparation_prior_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-8rq6xc0n/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-8rq6xc0n/verify.py\", line 274, in verify\n    assert result['prior_closeout_sha256'] == digest(data['current/retained-baseline-r1.json'])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "unclosed_process.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-y173dm3n/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-y173dm3n/verify.py\", line 259, in verify\n    assert result['process_group_drained'] and result['direct_child_reaped'], role\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_clippy\n",
+    "native_clippy_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-_54bd0is/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-_54bd0is/verify.py\", line 258, in verify\n    assert result['status'] == 'passed' and result['returncode'] == 0, role\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_clippy\n",
+    "native_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-o5j_qgwk/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-o5j_qgwk/verify.py\", line 320, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-o5j_qgwk/verify.py\", line 428, in verify_tests\n    assert re.search(rb'::' + re.escape(name.encode()) + rb' \\.\\.\\. ok$', log('native_tests'), re.MULTILINE), name\n           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: native_variant_expression_aliased_binary_values_are_admitted_at_expanded_size\n",
+    "public_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-ujj0p36o/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-ujj0p36o/verify.py\", line 320, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-ujj0p36o/verify.py\", line 438, in verify_tests\n    assert successful_methods(log('public'), MODULES) == expected_public\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "public_test_skipped.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-c08uf0w1/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-c08uf0w1/verify.py\", line 320, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-c08uf0w1/verify.py\", line 438, in verify_tests\n    assert successful_methods(log('public'), MODULES) == expected_public\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "installed_skip.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-_vlfa3un/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-_vlfa3un/verify.py\", line 321, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-_vlfa3un/verify.py\", line 466, in verify_runtime\n    assert all(installed['integration'][key] == 0 for key in ('failures', 'errors', 'skipped'))\n           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "installed_binary_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-j7gxav4l/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-j7gxav4l/verify.py\", line 321, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-j7gxav4l/verify.py\", line 514, in verify_runtime\n    assert {Path(row['path']).name: row['sha256'] for row in frozen['files']} == {\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        'shardloom': installed['integrity']['cli_sha256'], 'lib_native.dylib': installed['integrity']['native_library_sha256']}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "wheel_python_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fkamx_gk/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fkamx_gk/verify.py\", line 321, in verify\n    installed = verify_runtime(data, read, source_raw, source, log, report, receipts)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fkamx_gk/verify.py\", line 520, in verify_runtime\n    assert wheel['python_sources'] == {name: info for name, info in source.items()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        if name.startswith('python/src/shardloom/') and name.endswith('.py')}\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "frozen_fixture_changed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qn7c1b9z/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qn7c1b9z/verify.py\", line 320, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qn7c1b9z/verify.py\", line 430, in verify_tests\n    assert report['frozen_references'] == {name: list(value) for name, value in FROZEN.items()}\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "path_test_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-zte49w3e/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-zte49w3e/verify.py\", line 320, in verify\n    native_tests, provider_checks = verify_tests(data, read, source_raw, log, report)\n                                    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-zte49w3e/verify.py\", line 428, in verify_tests\n    assert re.search(rb'::' + re.escape(name.encode()) + rb' \\.\\.\\. ok$', log('native_tests'), re.MULTILINE), name\n           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: variant_path_literals_preserve_names_and_refuse_unsupported_steps\n",
+    "failure_missing.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qkc54124/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-qkc54124/verify.py\", line 323, in verify\n    assert failures == [{key: row[key] for key in ('receipt', 'identity')} for row in report['original_failures']]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "prior_main_failed.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fhinixt5/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fhinixt5/verify.py\", line 244, in verify\n    closeout = verify_prior(data, read, report)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-fhinixt5/verify.py\", line 382, in verify_prior\n    assert matching[0]['status'] == 'completed' and matching[0]['conclusion'] == 'success'\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+    "prior_retirement_incomplete.log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-xb3h0fvk/verify.py\", line 617, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-xb3h0fvk/verify.py\", line 244, in verify\n    closeout = verify_prior(data, read, report)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/controls-r1/control-xb3h0fvk/verify.py\", line 402, in verify_prior\n    assert len(manifest['entries']) == plan['entries'] == retired['removed']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  "primary_sealer_sha256": "5627ca0a511712f1a44716818b89d15c39e1e22593328200dff1572aa3f68b09"
+}

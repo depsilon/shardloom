@@ -147,6 +147,13 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
         self.assertEqual(summary["status"], "passed", summary["blockers"])
         self.assertEqual(len(cases), conformance.EXPECTED_EXECUTABLE_FIXTURES)
         self.assertEqual(len(diagnostics), conformance.EXPECTED_DIAGNOSTIC_CASES)
+        for category, expected in (
+            ("unsupported_diagnostic", conformance.EXPECTED_UNSUPPORTED_DIAGNOSTICS),
+            ("runtime_error_diagnostic", conformance.EXPECTED_RUNTIME_ERROR_DIAGNOSTICS),
+            ("invalid_shape_diagnostic", conformance.EXPECTED_INVALID_SHAPE_DIAGNOSTICS),
+        ):
+            with self.subTest(category=category):
+                self.assertEqual(sum(case.support_state == category for case in diagnostics), expected)
         self.assertEqual(summary["row_count"], conformance.EXPECTED_ADMITTED_STAGE_COUNT_MIN)
         self.assertEqual(summary["v1_expected_validator_case_count"], conformance.EXPECTED_ADMITTED_VALIDATOR_CASES)
         self.assertEqual(summary["v1_required_runtime_row_count"], conformance.EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS)
@@ -192,6 +199,26 @@ class ReleaseReportProducerContractsTests(unittest.TestCase):
             result = json.loads(output.read_text())
             self.assertFalse(result["public_release_claim_allowed"])
             return {row["name"]: row for row in result["checks"]}
+
+    def test_readiness_accepts_admitted_diagnostics_and_rejects_stale_counts(self) -> None:
+        from python.tests.test_release_scripts import ReleaseScriptTests
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            ReleaseScriptTests()._write_v1_correctness_conformance_fixture_reports(conformance, root)
+            report = json.loads((root / conformance.ReportPaths().admitted_semantics).read_text())
+        name = "admitted-semantics-matrix-report.json"
+        gate = "admitted_semantics_matrix_validator"
+        self.assertEqual(self._readiness_checks({name: report})[gate]["blockers"], [])
+        for field, stale in (
+            ("unsupported_diagnostic_count", 21),
+            ("invalid_shape_diagnostic_count", 1),
+        ):
+            with self.subTest(field=field):
+                changed = copy.deepcopy(report)
+                changed[field] = stale
+                blockers = self._readiness_checks({name: changed})[gate]["blockers"]
+                self.assertTrue(any(field in item for item in blockers), blockers)
 
     def test_readiness_accepts_actual_route_reports_and_rejects_admitted_external_route(self) -> None:
         reports = {

@@ -61,7 +61,7 @@ Declare fixed-rank tensors with row-specific shapes using
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `3b4d65b16651d099255e4e54c9dfd4ed63d27208b4200d3e790b3ce59b10c11e` (SHA-256 of the listed source inputs).
+Source identity: `622a42322b148b6e4067e4551ee57e5134454eec93b0db75befeee5158994173` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -287,6 +287,9 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.functions.vector_cosine_similarity`](../../python/src/shardloom/functions.py) | function | Declare native cosine similarity between two dense vectors. |
 | [`shardloom.functions.vector_norm`](../../python/src/shardloom/functions.py) | function | Declare the Euclidean norm of a dense vector. |
 | [`shardloom.functions.vector_normalize`](../../python/src/shardloom/functions.py) | function | Declare dense vector normalization to F64 components. |
+| [`shardloom.functions.variant_get`](../../python/src/shardloom/functions.py) | function | Extract a native Variant path, preserving present Variant null values. |
+| [`shardloom.functions.try_variant_get`](../../python/src/shardloom/functions.py) | function | Extract an explicitly typed Variant value; absent or uncastable values are NULL. |
+| [`shardloom.functions.is_variant_null`](../../python/src/shardloom/functions.py) | function | Test for an embedded Variant null; SQL NULL produces false. |
 | [`shardloom.functions.sum_distinct`](../../python/src/shardloom/functions.py) | function | Declare native SUM over distinct non-null values. |
 | [`shardloom.functions.avg_distinct`](../../python/src/shardloom/functions.py) | function | Declare native AVG over distinct non-null values. |
 | [`shardloom.functions.trim`](../../python/src/shardloom/functions.py) | function | Declare native whitespace trimming. |
