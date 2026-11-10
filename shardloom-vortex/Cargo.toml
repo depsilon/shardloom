@@ -58,6 +58,7 @@ universal-format-io = [
     "dep:orc-rust",
     "dep:parquet",
     "parquet/variant_experimental",
+    "parquet/arrow_canonical_extension_types",
     "dep:flate2",
     "dep:zstd",
 ]

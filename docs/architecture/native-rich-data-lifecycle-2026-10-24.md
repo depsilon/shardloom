@@ -119,9 +119,23 @@ values, admitted shredding, nested fields and dictionary extension metadata.
 Finite native/runtime and installed-package verification is complete, including
 all 420 isolated installed-wheel tests with zero skips. Its
 [source-bound evidence](../release/evidence/native-variant-lifecycle-2026-11-09/README.md)
-keeps hosted integration separate. Variant field expressions, deeper traversal
-and standalone UUID/spatial work remain required. This does not close item 19
-or any competitive gate.
+retains the original local-acceptance status. PR #1674 subsequently merged as
+`0cae77b442c07d62911a50e2dc6b78067130beca` with 58 PR checks, 55 exact-main
+checks and review clear. Verified retirement removed 15,751 obsolete regular
+files and three environment links; current inputs and the accepted Variant
+runtime/wheel remained unchanged, and complete replay passed afterward. The
+UUID packet below preserves that separate closeout. Variant field expressions,
+deeper traversal and useful spatial support remain required. This does not close
+item 19 or any competitive gate.
+
+The [November 10 UUID unit](native-uuid-lifecycle-2026-11-10.md) implements
+canonical UUID preservation and shared native comparison/key operations.
+Complete default/native checks pass, along with the Arrow provider, 19 selected
+public/schema tests and all 431 isolated installed-wheel tests with zero skips.
+Its [source-bound evidence](../release/evidence/native-uuid-lifecycle-2026-11-10/README.md)
+keeps original preparation observations, final acceptance and hosted integration
+distinct. Variant field expressions, useful spatial support and deep traversal
+remain required; this finite result does not close item 19.
 
 ## Competitive baseline and separate obligations
 

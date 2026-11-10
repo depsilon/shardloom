@@ -129,7 +129,10 @@ pub(super) fn validate_field(field: &Field) -> Result<()> {
                 "invalid Arrow Variant declaration",
             ));
         }
-        return crate::native_payload_schema::validate_arrow_variant_declaration(field.data_type());
+        return crate::native_payload_schema::validate_arrow_declared_storage(field);
+    }
+    if crate::native_uuid::arrow::is_uuid(field) {
+        return crate::native_payload_schema::validate_arrow_declared_storage(field);
     }
     if family(field.data_type())?.is_some()
         && !crate::native_payload_schema::arrow_field_metadata_admitted(field)

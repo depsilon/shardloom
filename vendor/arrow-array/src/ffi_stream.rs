@@ -64,7 +64,7 @@ use std::{
 };
 
 use arrow_data::ffi::FFI_ArrowArray;
-use arrow_schema::{ArrowError, Schema, SchemaRef, ffi::FFI_ArrowSchema};
+use arrow_schema::{ArrowError, SchemaRef, ffi::FFI_ArrowSchema};
 
 use crate::RecordBatchOptions;
 use crate::array::Array;
@@ -73,6 +73,9 @@ use crate::ffi::from_ffi_and_data_type;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 type Result<T> = std::result::Result<T, ArrowError>;
+
+#[path = "ffi_stream/schema.rs"]
+mod stream_schema;
 
 // Errno values returned through the C stream interface, taken from libc so they match
 // the platform the consumer interprets them against.
@@ -306,7 +309,7 @@ fn get_stream_schema(stream_ptr: *mut FFI_ArrowArrayStream) -> Result<SchemaRef>
     let ret_code = unsafe { (*stream_ptr).get_schema.unwrap()(stream_ptr, &mut schema) };
 
     if ret_code == 0 {
-        let schema = Schema::try_from(&schema)?;
+        let schema = stream_schema::import(&schema)?;
         Ok(Arc::new(schema))
     } else {
         Err(ArrowError::CDataInterface(format!(
@@ -403,7 +406,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    use arrow_schema::Field;
+    use arrow_schema::{Field, Schema};
 
     use crate::array::Int32Array;
     use crate::ffi::from_ffi;

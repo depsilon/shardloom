@@ -550,6 +550,11 @@ fn literal_text<'a>(expression: &'a Expression, label: &str) -> Result<Option<&'
 }
 
 fn cast_dtype(source: &DType, target: &LogicalDType, tolerant: bool) -> Result<DType> {
+    if crate::native_uuid::is_uuid(source) {
+        return Err(failed(
+            "UUID casts are not admitted; preserve the typed UUID column",
+        ));
+    }
     let nullable = if tolerant || source.is_nullable() {
         Nullability::Nullable
     } else {

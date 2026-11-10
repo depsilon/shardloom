@@ -104,16 +104,7 @@ impl ResidentMemorySource {
                 ));
             }
             metadata_bytes = metadata_bytes
-                .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
-                .ok_or_else(|| memory_error("columnar extension metadata overflow"))?
-                .checked_add(if crate::native_variant::arrow::is_variant(field) {
-                    crate::native_payload_schema::arrow_variant_storage_bytes(
-                        field.data_type(),
-                        context,
-                    )?
-                } else {
-                    schema_metadata_bytes(field.data_type(), origin, context)?
-                })
+                .checked_add(schema_metadata_bytes(field, origin, context)?)
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
         // Controlled transfers may retain arbitrarily many backing buffers at a
@@ -210,14 +201,14 @@ impl ResidentMemorySource {
 }
 
 fn schema_metadata_bytes(
-    dtype: &arrow_schema::DataType,
+    field: &arrow_schema::Field,
     origin: Origin,
     context: &NativeExecutionContext<'_>,
 ) -> Result<u64> {
     match origin {
-        Origin::Caller => crate::native_payload_schema::arrow_metadata_bytes(dtype, context),
+        Origin::Caller => crate::native_payload_schema::arrow_field_metadata_bytes(field, context),
         Origin::LocalFile => {
-            crate::native_payload_schema::arrow_file_metadata_bytes(dtype, context)
+            crate::native_payload_schema::arrow_file_metadata_bytes(field, context)
         }
     }
 }

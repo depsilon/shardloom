@@ -1,4 +1,4 @@
-# ShardLoom zero-width Arrow list builder correction
+# ShardLoom Arrow array provider corrections
 
 This is the `arrow-array` 59.3.2 registry source, licensed Apache-2.0 AND MIT.
 `upstream-provenance.json` records the exact archive, original source members,
@@ -19,3 +19,19 @@ provider.
 The standalone strict Clippy check also requires the upstream union builder's
 values-only map iteration to use `values_mut()`; iteration and mutation are
 unchanged.
+
+The C stream importer preserves extension declarations carried by dictionary
+values. Arrow Rust represents these declarations on the containing field;
+the upstream schema conversion loses dictionary-value metadata. The original
+`ffi_stream/schema.rs` adapter retains the parsed physical shape, field flags,
+unrelated field metadata and nested child declarations. Contradictory extension
+identities or metadata on indices and values fail explicitly. Unannotated
+binary remains unannotated, and incomplete or unknown extension declarations
+remain visible to the consumer's admission policy.
+
+Original provider regressions cover dictionary chains, nested lists, structs,
+maps, unions and run-end values, matching and conflicting declarations and
+unannotated/incomplete cases. Public ShardLoom UUID tests exercise actual C
+stream data and file persistence. This changes schema import only; payload
+buffers and their release callbacks retain the existing provider ownership.
+The existing Apache-2.0/MIT provider and version remain unchanged.

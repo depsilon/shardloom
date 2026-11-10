@@ -21,6 +21,9 @@ use vortex::array::{
 mod variant;
 
 pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
+    if crate::native_uuid::storage(dtype).is_some() {
+        return Some(crate::native_uuid::arrow::field(name, dtype.is_nullable()));
+    }
     if matches!(dtype, DType::Variant(_)) {
         return Some(crate::native_variant::arrow::field(
             name,
@@ -68,6 +71,9 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Utf8(_) => DataType::Utf8,
         DType::Binary(_) => DataType::Binary,
         DType::Variant(_) => crate::native_variant::arrow::data_type(),
+        DType::Extension(_) if crate::native_uuid::storage(dtype).is_some() => {
+            DataType::FixedSizeBinary(16)
+        }
         #[cfg(feature = "native-binary-objects")]
         DType::Extension(_) if crate::native_binary_type::storage(dtype).is_some() => {
             DataType::Binary

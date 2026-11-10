@@ -13668,6 +13668,10 @@ fn arrow_field_family_with_float_policy(
     array: &dyn Array,
     policy: FloatPolicy,
 ) -> Result<String> {
+    if crate::native_uuid::arrow::is_uuid(field) {
+        nested::validate_field(field)?;
+        return Ok("uuid".into());
+    }
     if crate::native_variant::arrow::is_variant(field) {
         nested::validate_field(field)?;
         // Logical identity is imported from the Field. This is the existing

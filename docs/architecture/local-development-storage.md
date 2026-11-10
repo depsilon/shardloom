@@ -165,6 +165,29 @@ receipts. No storage floor changed and no payload backup was created. The newly
 tested runtime/wheel and active predecessors remain retained through hosted
 closeout; final runtime retirement is separate from these compiler/test cleanups.
 
+PR #1674 subsequently merged as `0cae77b442c07d62911a50e2dc6b78067130beca`
+after all 58 PR checks passed with review clear; all 55 exact-main checks passed.
+Verified closeout retired 17,121 entries, including 15,751 regular files and
+three environment links, totaling 1,721,762,403 logical regular-file bytes.
+Repeated identities and closed-handle checks passed. Current inputs, the
+accepted Variant runtime-r2 and installed-tested wheel, committed packets and
+original failed observations remained unchanged; complete source-bound replay
+passed afterward. Superseded vector-expression/wide-schema runtimes and wheels,
+the earlier Variant comparison runtime, completed install staging/environments
+and verified temporary source/evidence copies were retired. No payload backup
+or storage-limit change occurred. The
+[UUID evidence](../release/evidence/native-uuid-lifecycle-2026-11-10/README.md)
+retains the exact separate hosted closeout.
+
+During UUID preparation, verified retirement removed 14,187 entries, including
+12,071 reproducible regular files, from the debug compiler cache and two
+superseded preparation runtimes. Current inputs, retained runtimes/wheels and
+the release cache remained unchanged. Full default/native tests, strict lint,
+the fresh release build and all 431 installed-wheel integrations subsequently
+passed. Original failures and the exact preparation retirement remain in the
+UUID packet. The new runtime/wheel and accepted Variant runtime/wheel remain
+retained through UUID hosted integration; its final retirement is separate.
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.

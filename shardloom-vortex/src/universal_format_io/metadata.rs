@@ -75,10 +75,8 @@ pub fn inspect_local_columnar_schema(
     for field in schema.fields() {
         cancellation.check()?;
         bytes = bytes
-            .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
-            .ok_or_else(|| failed("schema extension metadata size overflow"))?
-            .checked_add(crate::native_payload_schema::arrow_metadata_bytes(
-                field.data_type(),
+            .checked_add(crate::native_payload_schema::arrow_file_metadata_bytes(
+                field,
                 (session.memory(), cancellation),
             )?)
             .ok_or_else(|| failed("schema metadata size overflow"))?;

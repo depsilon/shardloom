@@ -451,7 +451,7 @@ The frozen local packet remains historical; the subsequent exact-main
 observation is retained in the Variant evidence below. Depth 24 and complete
 deep traversal remain required item 19 work.
 
-**Item 19 Variant payload preservation: finite local verification complete.**
+**Item 19 Variant payload preservation: merged and verified.**
 The [Variant contract](native-variant-lifecycle-2026-11-09.md) preserves raw and
 admitted shredded values, SQL NULL versus present Variant null, nested fields
 and dictionary extension identity through ordinary SQL/DataFrame selection,
@@ -462,11 +462,31 @@ native opt-in ignores. All 15 selected public tests and 420 isolated installed-
 wheel tests pass with zero skips. Provider, feature and supported-Rust checks
 pass; the [portable packet](../release/evidence/native-variant-lifecycle-2026-11-09/README.md)
 binds original failures, final source/runtime and the exact test-declaration and
-generated-reference corrections. Hosted integration is a separate gate. Variant
-comparison and field expressions remain unadmitted; deep traversal and standalone
-UUID/spatial support remain required. Item 19, item 20, RFC 0044 and CG-1 through
-CG-23 retain their independent obligations. No performance run or package
-publication is included.
+generated-reference corrections. PR #1674 then merged as
+`0cae77b442c07d62911a50e2dc6b78067130beca` after all 58 PR checks passed with
+review clear; all 55 exact-main checks passed. Verified retirement removed
+15,751 obsolete regular files and three environment links, preserving current
+inputs and the Variant runtime/wheel; complete replay passed afterward. The
+UUID packet below retains this separate hosted closeout without rewriting the
+original Variant acceptance. Variant comparison and field expressions remain
+unadmitted; deep traversal and useful spatial support remain required. Item 19,
+item 20, RFC 0044 and CG-1 through CG-23 retain their independent obligations.
+No performance run or package publication is included.
+
+**Item 19 UUID lifecycle: finite runtime verification complete.**
+The [UUID contract](native-uuid-lifecycle-2026-11-10.md) preserves the canonical
+128-bit domain through native payload and typed key owners. All 3,322 default
+and 7,052 native tests pass, with 37 native opt-in ignores. Arrow provider
+tests/lint, all feature/supported-Rust checks, 19 public/schema tests and all
+431 isolated installed-wheel tests pass; public and installed selections have
+zero skips. The proof includes dictionary metadata, actual spill, separate-
+process reopen and retained-child ownership. The
+[portable packet](../release/evidence/native-uuid-lifecycle-2026-11-10/README.md)
+binds unchanged preparation sources and the fresh runtime/wheel to final
+acceptance; hosted review, exact-main checks and retirement remain separate.
+Variant field expressions, useful spatial support and deep traversal remain
+independent required obligations. Item 19, item 20, RFC 0044 and CG-1 through
+CG-23 are not closed by this finite verification.
 
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-

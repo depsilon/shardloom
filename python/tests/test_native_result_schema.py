@@ -7,6 +7,7 @@ import importlib.util
 import json
 import sys
 import unittest
+import uuid
 from pathlib import Path
 
 if not sys.flags.isolated:
@@ -30,6 +31,50 @@ def fields(declarations):
 
 
 class NativeResultSchemaTests(unittest.TestCase):
+    def test_uuid_metadata_and_canonical_wire_values_preserve_every_bit(self):
+        declaration = {"Extension": {"id": "vortex.uuid", "metadata": [],
+                                     "storage_dtype": {"FixedSizeList": [{"Primitive": ["u8", False]}, 16, True]}}}
+        native_fields = fields({"id": declaration})
+        values = [None, "00000000-0000-0000-0000-000000000000",
+                  "ffffffff-ffff-ffff-ffff-ffffffffffff", "01234567-89ab-cdef-fedc-ba9876543210"]
+        self.assertEqual(python_rows([{"id": value} for value in values], native_fields),
+                         [{"id": None if value is None else uuid.UUID(value)} for value in values])
+        for bad in (1, b"\0" * 16, "0123456789abcdeffedcba9876543210",
+                    "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", "{00000000-0000-0000-0000-000000000000}"):
+            with self.assertRaises(ShardLoomProtocolError):
+                python_rows([{"id": bad}], native_fields)
+        for mutate in (lambda wire: wire.update(metadata=[4]),
+                       lambda wire: wire.update(metadata=""),
+                       lambda wire: wire["storage_dtype"]["FixedSizeList"].__setitem__(1, 15),
+                       lambda wire: wire["storage_dtype"]["FixedSizeList"][0]["Primitive"].__setitem__(1, True)):
+            changed = json.loads(json.dumps(declaration))
+            mutate(changed["Extension"])
+            with self.assertRaises(ShardLoomProtocolError):
+                fields({"id": changed})
+
+    @unittest.skipUnless(importlib.util.find_spec("pyarrow"), "optional PyArrow conversion dependency")
+    def test_uuid_arrow_diagnostic_conversion_keeps_type_including_empty_and_nested(self):
+        pa = __import__("pyarrow")
+        declaration = {"Extension": {"id": "vortex.uuid", "metadata": [],
+                                     "storage_dtype": {"FixedSizeList": [{"Primitive": ["u8", False]}, 16, True]}}}
+        nested = {"Struct": [{"names": ["child"], "dtypes": [declaration]}, True]}
+        native_fields = fields({"id": declaration, "items": {"List": [declaration, True]},
+            "pair": {"FixedSizeList": [declaration, 2, True]},
+            "empty": {"FixedSizeList": [declaration, 0, True]}, "nested": nested})
+        value = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+        for rows in ([], [
+                {"id": value, "items": [None, value], "pair": [value, None], "empty": [], "nested": {"child": value}},
+                {"id": None, "items": None, "pair": None, "empty": None, "nested": None},
+                {"id": None, "items": [], "pair": [None, None], "empty": [], "nested": {"child": None}}]):
+            table = arrow_table(rows, native_fields, pa)
+            table.validate(full=True)
+            self.assertEqual(table.schema.field("id").type, pa.uuid())
+            self.assertEqual(table.schema.field("items").type.value_type, pa.uuid())
+            self.assertEqual(table.schema.field("pair").type.value_type, pa.uuid())
+            self.assertEqual(table.schema.field("empty").type.list_size, 0)
+            self.assertEqual(table.schema.field("nested").type.field("child").type, pa.uuid())
+            self.assertEqual(table.to_pylist(), python_rows(rows, native_fields))
+
     def test_variant_diagnostic_scalar_rows_preserve_legacy_melt_without_reconstruction(self):
         # The existing native mixed-MELT producer emits these complete scalar
         # rows with a Variant result dtype; keep Result.python_objects usable.

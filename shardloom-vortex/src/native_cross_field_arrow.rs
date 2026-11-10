@@ -279,25 +279,15 @@ pub(crate) fn validate_batch(
         check()?;
         if contains(field) {
             let _workspace = if let Some(memory) = memory {
-                let bytes = (if crate::native_variant::arrow::is_variant(field) {
-                    crate::native_payload_schema::arrow_variant_storage_bytes(
-                        field.data_type(),
-                        memory,
-                    )?
-                } else {
-                    crate::native_payload_schema::arrow_metadata_bytes(field.data_type(), memory)?
-                })
-                .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
-                .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
+                let bytes =
+                    crate::native_payload_schema::arrow_declared_storage_bytes(field, memory)?
+                        .checked_add(
+                            crate::native_payload_schema::arrow_extension_metadata_bytes(field)?,
+                        )
+                        .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
                 Some(memory.reserve(bytes)?)
             } else {
-                if crate::native_variant::arrow::is_variant(field) {
-                    crate::native_payload_schema::validate_arrow_variant_declaration(
-                        field.data_type(),
-                    )?;
-                } else {
-                    crate::native_payload_schema::validate_arrow_declaration(field.data_type())?;
-                }
+                crate::native_payload_schema::validate_arrow_declared_storage(field)?;
                 crate::native_payload_schema::arrow_extension_metadata_bytes(field)?;
                 None
             };
