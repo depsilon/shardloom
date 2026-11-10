@@ -88,6 +88,31 @@ impl PivotValue for ScalarValue {
     }
 }
 
+fn bind_inputs(
+    dtype: &DType,
+    columns: &[String],
+    names: &[&str; 3],
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<([usize; 3], Vec<DType>)> {
+    let mut indices = [0; 3];
+    let mut dtypes = Vec::with_capacity(3);
+    for (index, name) in names.iter().enumerate() {
+        indices[index] = columns
+            .iter()
+            .position(|column| column == name)
+            .ok_or_else(|| failed("pivot source column is absent"))?;
+        let dtype = super::schema::source_field(dtype, name)?;
+        native_payload::metadata_bytes(&dtype, scope)?;
+        if crate::native_variant::contains(&dtype) {
+            return Err(failed(
+                "pivot requires comparable values; Variant values are payload-only",
+            ));
+        }
+        dtypes.push(dtype);
+    }
+    Ok((indices, dtypes))
+}
+
 impl Plan {
     pub(super) fn bind(
         request: &VortexQueryPrimitiveRequest,
@@ -108,17 +133,7 @@ impl Plan {
             projection.pivot_column.as_str(),
             projection.value_column.as_str(),
         ];
-        let mut indices = [0; 3];
-        let mut dtypes = Vec::with_capacity(3);
-        for (index, name) in names.iter().enumerate() {
-            indices[index] = columns
-                .iter()
-                .position(|column| column == name)
-                .ok_or_else(|| failed("pivot source column is absent"))?;
-            let dtype = super::schema::source_field(dtype, name)?;
-            native_payload::metadata_bytes(&dtype, scope)?;
-            dtypes.push(dtype);
-        }
+        let (indices, dtypes) = bind_inputs(dtype, columns, &names, scope)?;
         let nested_value = native_payload::is_nested(&dtypes[2]);
         let nested_extrema = nested_value && matches!(aggregate.as_str(), "min" | "max");
         if projection.margins && native_payload::is_nested(&dtypes[0]) {
@@ -233,11 +248,17 @@ fn validate_typed_margins(margins: bool, index: &DType, cell: &DType) -> Result<
         ) || matches!(
             cell,
             DType::Binary(_) | DType::Decimal(..) | DType::Extension(_)
-        ) || native_payload::is_nested(cell))
+        ) || native_output_type(cell))
     {
         return Err(failed("typed pivot margins require a UTF8 index"));
     }
     Ok(())
+}
+
+// Pivot's Variant outputs are synthesized scalar fill/margin values. Its
+// input admission above rejects carried Variant values and their key semantics.
+fn native_output_type(dtype: &DType) -> bool {
+    !matches!(dtype, DType::Variant(_)) && native_payload::is_nested(dtype)
 }
 
 pub(super) struct Pivot {
@@ -735,7 +756,7 @@ impl ResidentCompletedPivot {
         let native = self
             .fields
             .iter()
-            .any(|(_, dtype)| native_payload::is_nested(dtype));
+            .any(|(_, dtype)| native_output_type(dtype));
         loop {
             context.check_cancelled()?;
             let count = (self.rows - offset).min(BATCH_ROWS);
@@ -768,7 +789,7 @@ impl ResidentCompletedPivot {
         arrays.reserve(self.fields.len())?;
         for (column, (_, dtype)) in self.fields.iter().enumerate() {
             context.check_cancelled()?;
-            let array = if native_payload::is_nested(dtype) {
+            let array = if native_output_type(dtype) {
                 native_payload::retained_column(dtype, count, context, |row| {
                     self.native_value(compiled, offset + row, column)
                 })?

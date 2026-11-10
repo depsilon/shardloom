@@ -106,7 +106,14 @@ impl ResidentMemorySource {
             metadata_bytes = metadata_bytes
                 .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
                 .ok_or_else(|| memory_error("columnar extension metadata overflow"))?
-                .checked_add(schema_metadata_bytes(field.data_type(), origin, context)?)
+                .checked_add(if crate::native_variant::arrow::is_variant(field) {
+                    crate::native_payload_schema::arrow_variant_storage_bytes(
+                        field.data_type(),
+                        context,
+                    )?
+                } else {
+                    schema_metadata_bytes(field.data_type(), origin, context)?
+                })
                 .ok_or_else(|| memory_error("columnar schema metadata overflow"))?;
         }
         // Controlled transfers may retain arbitrarily many backing buffers at a
@@ -144,7 +151,7 @@ impl ResidentMemorySource {
             nested::validate_values_with_float_policy(
                 field.name(),
                 column.as_ref(),
-                context.float_policy(),
+                nested::field_float_policy(field, context.float_policy()),
             )?;
             columns.push(data);
         }

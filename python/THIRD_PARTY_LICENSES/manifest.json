@@ -1418,11 +1418,11 @@
     },
     {
       "name": "chrono",
-      "version": "0.4.44",
+      "version": "0.4.45",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
       "license": "MIT OR Apache-2.0",
       "repository": "https://github.com/chronotope/chrono",
-      "crate_checksum_sha256": "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0",
+      "crate_checksum_sha256": "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327",
       "files": [
         {
           "text": "texts/946c9835d8034d24404f8cfec5f4654cee5dad17e944afc3d06d742cf2882831.txt",
@@ -4949,6 +4949,72 @@
       ]
     },
     {
+      "name": "parquet-variant",
+      "version": "59.3.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/arrow-rs",
+      "crate_checksum_sha256": "4d0085fde95ccfae0b8d703acd1245bda8855a0bf996eba848e8e2f9995f8606",
+      "files": [
+        {
+          "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
+          "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "bytes": 11577,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#LICENSE.txt"
+        },
+        {
+          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
+          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "bytes": 470,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#NOTICE.txt"
+        }
+      ]
+    },
+    {
+      "name": "parquet-variant-compute",
+      "version": "59.3.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/arrow-rs",
+      "crate_checksum_sha256": "e1f9036efdea8177c84895f409a442e3960a8ccc642792760d8d48415542bb3a",
+      "files": [
+        {
+          "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
+          "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "bytes": 11577,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#LICENSE.txt"
+        },
+        {
+          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
+          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "bytes": 470,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#NOTICE.txt"
+        }
+      ]
+    },
+    {
+      "name": "parquet-variant-json",
+      "version": "59.3.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/apache/arrow-rs",
+      "crate_checksum_sha256": "50ae7a6fdff86cdd5075653039b62e2ba674b0aae9228022cd74dc9cf71d7353",
+      "files": [
+        {
+          "text": "texts/03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72.txt",
+          "sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+          "bytes": 11577,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#LICENSE.txt"
+        },
+        {
+          "text": "texts/e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6.txt",
+          "sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+          "bytes": 470,
+          "upstream_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#NOTICE.txt"
+        }
+      ]
+    },
+    {
       "name": "paste",
       "version": "1.0.15",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -7823,6 +7889,22 @@
       ]
     },
     {
+      "name": "vortex-json",
+      "version": "0.93.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/vortex-data/vortex",
+      "crate_checksum_sha256": "7d250825e99850c410b116d9e3ac4feb1c69190c6cd0bc52ba9293bf4608430b",
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
       "name": "vortex-mask",
       "version": "0.93.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -7861,6 +7943,22 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/vortex-data/vortex",
       "crate_checksum_sha256": "b8c9586ed842315cc51d617f583525a130f44c76154568b2e685e779e6984078",
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-parquet-variant",
+      "version": "0.93.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/vortex-data/vortex",
+      "crate_checksum_sha256": "6aac64cb0b59a696f8fd578675a9bd19a6866c4abe2744536856e516cb5f0677",
       "files": [
         {
           "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
@@ -14932,13 +15030,14 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d"
+          "sha256": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d"
         },
         "supplemental_test_files": {},
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d",
-          "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f"
+          "README.shardloom.md": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d",
+          "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f",
+          "src/variant_chunks.rs": "ac34d676e5cc7cd98ec31c9ab3cf72fa2c843e2ca1d0070d8c54ccdbe594c078"
         },
         "original_files_sha256": {
           ".cargo_vcs_info.json": "77feffc83eed39d77cd208c6c5e7b7aa7323a2eac2c6bb8b380d967fcdc13981",
@@ -14980,7 +15079,7 @@
         "modified_files_sha256": {
           "Cargo.toml": "75f8550231fa5f8facbef923f63cac3136649f4beafc973d8471b43a8ad61b3a",
           "src/lib.rs": "73d2cf769267a8d34d39210a50fd1fbbf71c6077cca19e683d413658ea397603",
-          "src/session.rs": "94c7471b136ff8a2eaeb1633e15316702d27028edfe05b766107e177c72f5765"
+          "src/session.rs": "ca342b62e60f9dddae5812a9b1b1a3a6e4b5b77414f481c4d481af23ecae7a23"
         },
         "vcs_info": {
           "git": {

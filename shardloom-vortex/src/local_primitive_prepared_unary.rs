@@ -500,7 +500,17 @@ impl BoundUnary {
         // The preceding relation already executed. Any predicate attached to
         // this operation is evaluated here, including scan-pushable predicates.
         plan.residual_predicate.clone_from(&request.predicate);
-        Self::bind(request, dtype, &plan, scope, metadata)
+        let bound = Self::bind(request, dtype, &plan, scope, metadata)?;
+        if bound
+            .melt
+            .as_ref()
+            .is_some_and(melt::Plan::synthesizes_variant)
+        {
+            return Err(ShardLoomError::NotImplemented(
+                "prepared native unary: composed melt does not synthesize mixed scalar Variant values; no fallback execution was attempted".into(),
+            ));
+        }
+        Ok(bound)
     }
 
     pub(super) fn fields(&self) -> &[(String, DType)] {

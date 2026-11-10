@@ -77,6 +77,8 @@ REQUIRED_JSON_POINTERS = (
     "native_nested_composition.denied_nested_writers",
     "native_typed_payloads.reference",
     "native_typed_payloads.types",
+    "native_variant_payloads.reference",
+    "native_variant_payloads.typed_persistence_formats",
     "native_typed_keys.reference",
     "native_typed_keys.types",
     "native_typed_unary.reference",
@@ -409,6 +411,25 @@ def validate(repo_root: Path) -> tuple[dict[str, Any], list[str]]:
         blockers.append(f"{JSON_PATH}: admitted static nested types must retain all eight local writers")
     if "CSV_uses_quoted_JSON_text_cells_without_native_dtype_persistence" not in nested.get("writer_fidelity", ""):
         blockers.append(f"{JSON_PATH}: nested CSV must declare its JSON text and dtype-loss boundary")
+
+    variant = payload.get("native_variant_payloads", {})
+    for field, expected in (
+        ("reference", "docs/architecture/native-variant-lifecycle-2026-11-09.md"),
+        ("arrow_extension_name", "arrow.parquet.variant"),
+        ("result_type", "variant"),
+        ("maximum_value_depth", 24), ("maximum_storage_wrapper_depth", 64),
+        ("typed_persistence_formats", ["vortex", "arrow_ipc", "parquet"]),
+    ):
+        if variant.get(field) != expected:
+            blockers.append(f"{JSON_PATH}: native_variant_payloads.{field} differs from its contract")
+    for field in ("sql_null_distinct_from_variant_null", "nested_fields", "dictionary_extension_import",
+                  "complete_raw_value_preservation", "bounded_delivery", "native_spill"):
+        if variant.get(field) is not True:
+            blockers.append(f"{JSON_PATH}: native_variant_payloads.{field} must be true")
+    for field in ("keys", "field_expressions", "row_literal_schema_hints", "general_json_conversion",
+                  "total_rss_bound", "fallback_attempted", "external_engine_invoked"):
+        if variant.get(field) is not False:
+            blockers.append(f"{JSON_PATH}: native_variant_payloads.{field} must be false")
 
     typed = payload.get("native_typed_payloads", {})
     types = {"binary", "decimal128", "date32", "timestamp_micros"}

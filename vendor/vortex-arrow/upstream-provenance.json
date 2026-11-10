@@ -13,13 +13,14 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d"
+    "sha256": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d"
   },
   "supplemental_test_files": {},
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "6a3e05eb29d838cb3371d25827037632b84c7a109402f13a439a2490cbadc07d",
-    "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f"
+    "README.shardloom.md": "ef97a1c1ae8fe81433f38d0f940286b975d402ff55b9696b685ad7845bbaf68d",
+    "src/preserved_decimal.rs": "90c52f2f7a7a5e6122c9990c3db24f85b163cd5a68d0898e34b5f32ee5fe965f",
+    "src/variant_chunks.rs": "ac34d676e5cc7cd98ec31c9ab3cf72fa2c843e2ca1d0070d8c54ccdbe594c078"
   },
   "original_files_sha256": {
     ".cargo_vcs_info.json": "77feffc83eed39d77cd208c6c5e7b7aa7323a2eac2c6bb8b380d967fcdc13981",
@@ -61,7 +62,7 @@
   "modified_files_sha256": {
     "Cargo.toml": "75f8550231fa5f8facbef923f63cac3136649f4beafc973d8471b43a8ad61b3a",
     "src/lib.rs": "73d2cf769267a8d34d39210a50fd1fbbf71c6077cca19e683d413658ea397603",
-    "src/session.rs": "94c7471b136ff8a2eaeb1633e15316702d27028edfe05b766107e177c72f5765"
+    "src/session.rs": "ca342b62e60f9dddae5812a9b1b1a3a6e4b5b77414f481c4d481af23ecae7a23"
   },
   "vcs_info": {
     "git": {

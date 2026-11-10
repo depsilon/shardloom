@@ -123,6 +123,14 @@ pub(super) fn family(dtype: &DataType) -> Result<Option<&'static str>> {
 }
 
 pub(super) fn validate_field(field: &Field) -> Result<()> {
+    if crate::native_variant::arrow::is_variant(field) {
+        if !crate::native_variant::arrow::admitted(field) {
+            return Err(crate::native_variant::failed(
+                "invalid Arrow Variant declaration",
+            ));
+        }
+        return crate::native_payload_schema::validate_arrow_variant_declaration(field.data_type());
+    }
     if family(field.data_type())?.is_some()
         && !crate::native_payload_schema::arrow_field_metadata_admitted(field)
     {
@@ -165,11 +173,17 @@ pub(crate) fn validate_values_with_float_policy(
         DataType::Decimal256(precision, _) => {
             decimal!(arrow_array::types::Decimal256Type, precision)
         }
-        DataType::List(_) => validate_list_values(column, array.as_list::<i32>(), float_policy),
-        DataType::LargeList(_) => {
-            validate_list_values(column, array.as_list::<i64>(), float_policy)
-        }
-        DataType::FixedSizeList(..) => {
+        DataType::List(field) => validate_list_values(
+            column,
+            array.as_list::<i32>(),
+            field_float_policy(field, float_policy),
+        ),
+        DataType::LargeList(field) => validate_list_values(
+            column,
+            array.as_list::<i64>(),
+            field_float_policy(field, float_policy),
+        ),
+        DataType::FixedSizeList(field, _) => {
             let list = array.as_fixed_size_list();
             let width = usize::try_from(list.value_length()).map_err(|_| {
                 ShardLoomError::InvalidOperation(format!(
@@ -182,13 +196,19 @@ pub(crate) fn validate_values_with_float_policy(
                     list.values().as_ref(),
                     start * width,
                     end * width,
-                    float_policy,
+                    field_float_policy(field, float_policy),
                 )
             })
         }
-        DataType::Struct(_) => for_valid_parent_ranges(array, |start, end| {
-            for child in array.as_struct().columns() {
-                validate_child_range(column, child.as_ref(), start, end, float_policy)?;
+        DataType::Struct(fields) => for_valid_parent_ranges(array, |start, end| {
+            for (field, child) in fields.iter().zip(array.as_struct().columns()) {
+                validate_child_range(
+                    column,
+                    child.as_ref(),
+                    start,
+                    end,
+                    field_float_policy(field, float_policy),
+                )?;
             }
             Ok(())
         }),
@@ -196,6 +216,16 @@ pub(crate) fn validate_values_with_float_policy(
             super::reject_columnar_non_finite_floats(column, array)
         }
         _ => Ok(()),
+    }
+}
+
+/// Variant carriage does not observe typed floating components numerically.
+/// Cross-field validation still checks its encoded/shredded values.
+pub(crate) fn field_float_policy(field: &Field, policy: FloatPolicy) -> FloatPolicy {
+    if crate::native_variant::arrow::is_variant(field) {
+        FloatPolicy::Extended
+    } else {
+        policy
     }
 }
 

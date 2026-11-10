@@ -155,6 +155,7 @@ pub(super) fn bind(
         .iter()
         .map(|name| position(name))
         .collect::<Result<Vec<_>>>()?;
+    validate_duplicate_keys(request.kind, dtype, &keys, scope)?;
     let weight_index = request
         .sample_weight_column
         .as_ref()
@@ -208,6 +209,29 @@ pub(super) fn bind(
         explode,
         pivot,
     })
+}
+
+fn validate_duplicate_keys(
+    kind: Kind,
+    dtype: &DType,
+    keys: &[String],
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<()> {
+    if matches!(
+        kind,
+        Kind::DistinctRows | Kind::DropDuplicateRows | Kind::DuplicateMaskRows
+    ) {
+        for name in keys {
+            let field = source_field(dtype, name)?;
+            super::super::native_payload::metadata_bytes(&field, scope)?;
+            if crate::native_variant::contains(&field) {
+                return Err(failed(
+                    "Variant values are payload-only; duplicate keys require ordinary columns",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn fixed_fields(

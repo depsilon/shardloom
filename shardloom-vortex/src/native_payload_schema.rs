@@ -340,7 +340,7 @@ fn visit_dtype(
     budget.node(depth)?;
     match dtype {
         DType::Null if allow_null => {}
-        DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) => {}
+        DType::Bool(_) | DType::Utf8(_) | DType::Binary(_) | DType::Variant(_) => {}
         DType::Primitive(_, _) => {}
         DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
         #[cfg(feature = "native-binary-objects")]
@@ -424,6 +424,9 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         field.metadata().get("ARROW:extension:metadata"),
     ) {
         (None, None) => true,
+        (Some(name), _) if name == crate::native_variant::arrow::ID => {
+            crate::native_variant::arrow::admitted(field)
+        }
         #[cfg(feature = "native-binary-objects")]
         (Some(name), _) if name == crate::native_binary_type::ID => {
             crate::native_binary_type::arrow::admitted(field)
@@ -477,6 +480,23 @@ pub(crate) fn arrow_metadata_bytes<'a>(
     let mut budget = Budget::new(scope.into())?;
     visit_arrow(dtype, 0, &mut budget)?;
     Ok(budget.credit.bytes())
+}
+
+/// Variant metadata on an outer dictionary Field describes its values. Keep
+/// this scoped to admitted Variant fields instead of broadening encoded input.
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn arrow_variant_storage_bytes<'a>(
+    dtype: &arrow_schema::DataType,
+    scope: impl Into<Scope<'a>>,
+) -> Result<u64> {
+    let mut budget = Budget::new(scope.into())?;
+    visit_arrow_variant(dtype, 0, &mut budget)?;
+    Ok(budget.credit.bytes())
+}
+
+#[cfg(feature = "universal-format-io")]
+pub(crate) fn validate_arrow_variant_declaration(dtype: &arrow_schema::DataType) -> Result<()> {
+    visit_arrow_variant(dtype, 0, &mut DeclarationBudget::default())
 }
 
 /// Classify inert caller-owned Arrow metadata when there is no execution grant.
@@ -561,7 +581,27 @@ fn visit_arrow_field(
     budget: &mut impl ArrowWalkBudget,
 ) -> Result<()> {
     budget.add(arrow_extension_metadata_bytes(child)?)?;
+    if crate::native_variant::arrow::is_variant(child) {
+        return visit_arrow_variant(child.data_type(), depth, budget);
+    }
     visit_arrow(child.data_type(), depth, budget)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn visit_arrow_variant(
+    dtype: &arrow_schema::DataType,
+    depth: usize,
+    budget: &mut impl ArrowWalkBudget,
+) -> Result<()> {
+    if let arrow_schema::DataType::Dictionary(keys, values) = dtype {
+        if !budget.node(dtype, depth)? {
+            return Ok(());
+        }
+        visit_arrow(keys, depth + 1, budget)?;
+        visit_arrow_variant(values, depth + 1, budget)
+    } else {
+        visit_arrow(dtype, depth, budget)
+    }
 }
 
 #[cfg(feature = "universal-format-io")]

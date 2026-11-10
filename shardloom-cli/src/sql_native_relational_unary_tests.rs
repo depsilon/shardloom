@@ -327,7 +327,7 @@ fn native_relational_sql_unary_mixed_melt_does_not_widen_scalar_admission() {
     assert!(matches!(error, ShardLoomError::NotImplemented(_)));
     let message = error.to_string();
     assert!(
-        message.contains("native payload schema: payload requires bool, integer, F16/F32/F64"),
+        message.contains("composed melt does not synthesize mixed scalar Variant values"),
         "{message}"
     );
     assert!(message.contains("no fallback execution was attempted"));

@@ -21,6 +21,7 @@ fn contains(field: &Field) -> bool {
         .get(NAME)
         .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
         || crate::native_vector::arrow::kind(field).is_some()
+        || crate::native_variant::arrow::is_variant(field)
     {
         return true;
     }
@@ -36,6 +37,7 @@ fn contains(field: &Field) -> bool {
 /// Compile metadata once per field. The existing bounded schema grant covers
 /// the small traversal tree and JSON scratch; no per-row shape vector is made.
 enum Validator {
+    Variant,
     Tensor(Metadata, usize),
     Vector(crate::native_vector::Metadata),
     Struct(Vec<(usize, Self)>),
@@ -46,6 +48,12 @@ enum Validator {
 
 impl Validator {
     fn new(field: &Field) -> Result<Self> {
+        if crate::native_variant::arrow::is_variant(field) {
+            if !crate::native_variant::arrow::admitted(field) {
+                return Err(failed("invalid Variant storage declaration"));
+            }
+            return Ok(Self::Variant);
+        }
         if crate::native_vector::arrow::kind(field).is_some() {
             let dtype = crate::native_vector::arrow::dtype(field).map_err(failed)?;
             return Ok(Self::Vector(
@@ -98,6 +106,7 @@ impl Validator {
         array: &dyn Array,
         start: usize,
         end: usize,
+        memory: Option<&LiveMemoryPool>,
         check: &dyn Fn() -> Result<()>,
     ) -> Result<()> {
         check()?;
@@ -105,6 +114,9 @@ impl Validator {
             return Err(failed("rich-value parent coordinates exceed child values"));
         }
         valid_ranges(array, start, end, |start, end| match self {
+            Self::Variant => {
+                crate::native_variant::arrow::validate(array, start, end, memory, check)
+            }
             Self::Tensor(metadata, rank) => {
                 validate_tensor(metadata, *rank, array, start, end, check)
             }
@@ -116,7 +128,7 @@ impl Validator {
                     .as_struct_opt()
                     .ok_or_else(|| failed("expected struct storage"))?;
                 for (index, validator) in fields {
-                    validator.validate(array.column(*index).as_ref(), start, end, check)?;
+                    validator.validate(array.column(*index).as_ref(), start, end, memory, check)?;
                 }
                 Ok(())
             }
@@ -126,6 +138,7 @@ impl Validator {
                     .ok_or_else(|| failed("expected list storage"))?,
                 start,
                 end,
+                memory,
                 check,
             ),
             Self::LargeList(child) => child.validate_list(
@@ -134,6 +147,7 @@ impl Validator {
                     .ok_or_else(|| failed("expected large-list storage"))?,
                 start,
                 end,
+                memory,
                 check,
             ),
             Self::Fixed(child, width) => {
@@ -146,7 +160,7 @@ impl Validator {
                 let end = end
                     .checked_mul(*width)
                     .ok_or_else(|| failed("shape offset overflow"))?;
-                child.validate(array.values().as_ref(), start, end, check)
+                child.validate(array.values().as_ref(), start, end, memory, check)
             }
         })
     }
@@ -156,12 +170,14 @@ impl Validator {
         array: &GenericListArray<O>,
         start: usize,
         end: usize,
+        memory: Option<&LiveMemoryPool>,
         check: &dyn Fn() -> Result<()>,
     ) -> Result<()> {
         self.validate(
             array.values().as_ref(),
             array.value_offsets()[start].as_usize(),
             array.value_offsets()[end].as_usize(),
+            memory,
             check,
         )
     }
@@ -263,19 +279,29 @@ pub(crate) fn validate_batch(
         check()?;
         if contains(field) {
             let _workspace = if let Some(memory) = memory {
-                let bytes =
+                let bytes = (if crate::native_variant::arrow::is_variant(field) {
+                    crate::native_payload_schema::arrow_variant_storage_bytes(
+                        field.data_type(),
+                        memory,
+                    )?
+                } else {
                     crate::native_payload_schema::arrow_metadata_bytes(field.data_type(), memory)?
-                        .checked_add(
-                            crate::native_payload_schema::arrow_extension_metadata_bytes(field)?,
-                        )
-                        .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
+                })
+                .checked_add(crate::native_payload_schema::arrow_extension_metadata_bytes(field)?)
+                .ok_or_else(|| failed("rich-value schema workspace overflow"))?;
                 Some(memory.reserve(bytes)?)
             } else {
-                crate::native_payload_schema::validate_arrow_declaration(field.data_type())?;
+                if crate::native_variant::arrow::is_variant(field) {
+                    crate::native_payload_schema::validate_arrow_variant_declaration(
+                        field.data_type(),
+                    )?;
+                } else {
+                    crate::native_payload_schema::validate_arrow_declaration(field.data_type())?;
+                }
                 crate::native_payload_schema::arrow_extension_metadata_bytes(field)?;
                 None
             };
-            Validator::new(field)?.validate(array.as_ref(), 0, array.len(), check)?;
+            Validator::new(field)?.validate(array.as_ref(), 0, array.len(), memory, check)?;
         }
     }
     check()

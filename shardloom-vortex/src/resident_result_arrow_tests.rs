@@ -13,6 +13,9 @@ use arrow_array::{
 use shardloom_core::{DatasetUri, ExecutionResourceOrigin, ExecutionResources};
 use shardloom_plan::ProjectionRequest;
 
+#[path = "resident_variant_lifecycle_tests.rs"]
+mod variant_lifecycle;
+
 fn batch(columns: Vec<(&str, ArrowArrayRef)>, nullable: bool) -> RecordBatch {
     let fields = columns
         .iter()
@@ -54,6 +57,145 @@ fn native(input: RecordBatch, bytes: u64) -> (Arc<OwnedVortexResultBatch>, Resid
 }
 
 #[test]
+fn native_variant_arrow_result_preserves_identity_encoded_values_and_final_child_owner() {
+    use parquet_variant::{Variant, VariantBuilder};
+    let encoded = [
+        Variant::Int64(i64::MIN),
+        Variant::Null,
+        Variant::Double(-0.0),
+    ]
+    .into_iter()
+    .map(|value| VariantBuilder::new().with_value(value).finish())
+    .collect::<Vec<_>>();
+    let metadata: ArrowArrayRef = Arc::new(BinaryArray::from_iter_values(
+        encoded.iter().map(|(metadata, _)| metadata.as_slice()),
+    ));
+    let values: ArrowArrayRef = Arc::new(BinaryArray::from_iter_values(
+        encoded.iter().map(|(_, value)| value.as_slice()),
+    ));
+    let field = crate::native_variant::arrow::field("payload", true);
+    let DataType::Struct(fields) = field.data_type() else {
+        unreachable!()
+    };
+    let payload: ArrowArrayRef = Arc::new(arrow_array::StructArray::new(
+        fields.clone(),
+        vec![metadata, values],
+        Some(vec![true, true, false].into()),
+    ));
+    let input = RecordBatch::try_new(Arc::new(Schema::new(vec![field])), vec![payload]).unwrap();
+    let (result, session) = native(input.clone(), 32 << 20);
+    let memory = session.memory().clone();
+    let mut stream = result.arrow_batches(CancellationToken::default()).unwrap();
+    assert_eq!(stream.schema(), input.schema());
+    let output = stream.next_batch().unwrap().unwrap();
+    assert_eq!(output, input);
+    assert!(stream.next_batch().unwrap().is_none());
+    let retained = output.column(0).as_struct().column(1).clone();
+    drop((stream, output, result, session));
+    assert!(memory.snapshot().reserved_bytes > 0);
+    assert_eq!(retained.as_binary::<i32>().value(1), &[0]);
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_variant_shredded_objects_keep_raw_residuals_and_floating_bits() {
+    use parquet_variant::{Variant, VariantBuilder};
+    let bits = 0x7ff8_0000_0000_0042;
+    let mut builder = VariantBuilder::new().with_field_names(["score", "extra"]);
+    let mut object = builder.new_object();
+    object.insert("extra", Variant::Int64(7));
+    object.finish();
+    let (metadata, residual) = builder.finish();
+    let row_count = 5;
+    let schema_fields = |items: Vec<(&str, ArrowArrayRef)>| {
+        let fields = items
+            .iter()
+            .map(|(name, array)| Field::new(*name, array.data_type().clone(), true))
+            .collect::<Vec<_>>();
+        (
+            fields.into(),
+            items
+                .into_iter()
+                .map(|(_, array)| array)
+                .collect::<Vec<_>>(),
+        )
+    };
+    let (fields, columns) = schema_fields(vec![
+        (
+            "value",
+            Arc::new(BinaryArray::from(vec![None::<&[u8]>; row_count])),
+        ),
+        (
+            "typed_value",
+            Arc::new(Float64Array::from(vec![
+                Some(1.5),
+                Some(-0.0),
+                Some(f64::from_bits(bits)),
+                None,
+                None,
+            ])),
+        ),
+    ]);
+    let score: ArrowArrayRef = Arc::new(arrow_array::StructArray::new(fields, columns, None));
+    let (fields, columns) = schema_fields(vec![("score", score)]);
+    let typed: ArrowArrayRef = Arc::new(arrow_array::StructArray::new(
+        fields,
+        columns,
+        Some(vec![true, true, true, false, false].into()),
+    ));
+    let metadata: ArrowArrayRef =
+        Arc::new(BinaryArray::from_vec(vec![metadata.as_slice(); row_count]));
+    let raw: ArrowArrayRef = Arc::new(BinaryArray::from(vec![
+        None,
+        Some(residual.as_slice()),
+        None,
+        None,
+        Some(&[255][..]),
+    ]));
+    let fields = vec![
+        Field::new("metadata", DataType::Binary, false),
+        Field::new("value", DataType::Binary, true),
+        Field::new("typed_value", typed.data_type().clone(), true),
+    ];
+    let payload: ArrowArrayRef = Arc::new(arrow_array::StructArray::new(
+        fields.into(),
+        vec![metadata, raw, typed],
+        Some(vec![true, true, true, true, false].into()),
+    ));
+    let field = crate::native_variant::arrow::field("payload", true)
+        .with_data_type(payload.data_type().clone());
+    let input = RecordBatch::try_new(Arc::new(Schema::new(vec![field])), vec![payload]).unwrap();
+    let (result, session) = native(input, 32 << 20);
+    let mut stream = result.arrow_batches(CancellationToken::default()).unwrap();
+    let output = stream.next_batch().unwrap().unwrap();
+    let payload = output.column(0).as_struct();
+    for (row, expected) in [1.5_f64.to_bits(), (-0.0_f64).to_bits(), bits]
+        .into_iter()
+        .enumerate()
+    {
+        let value = Variant::try_new(
+            payload.column(0).as_binary::<i32>().value(row),
+            payload.column(1).as_binary::<i32>().value(row),
+        )
+        .unwrap();
+        let object = value.as_object().unwrap();
+        let Variant::Double(score) = object.get("score").unwrap() else {
+            panic!("expected a double")
+        };
+        assert_eq!(score.to_bits(), expected);
+        assert_eq!(object.get("extra"), (row == 1).then_some(Variant::Int64(7)));
+    }
+    assert!(payload.is_valid(3));
+    // An absent raw value with no shredded value denotes Variant null. Its
+    // outer struct is still valid, unlike the SQL-null row immediately after it.
+    assert!(payload.column(1).is_null(3));
+    assert!(payload.is_null(4));
+    drop((stream, output, result));
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn native_arrow_export_keeps_rich_types_and_full_domain_values_without_rows() {
     let input = rich_type_arrow_fixture();
     let (result, session) = native(input.clone(), 64 << 20);
@@ -81,6 +223,80 @@ fn native_arrow_export_keeps_rich_types_and_full_domain_values_without_rows() {
     );
     drop(exported);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_variant_dictionary_arrow_import_preserves_extension_nulls_and_order() {
+    use arrow_array::{DictionaryArray, types::Int8Type};
+    use parquet_variant::{Variant, VariantBuilder};
+    let encoded = [Variant::from("first"), Variant::Null, Variant::Int64(42)]
+        .into_iter()
+        .map(|value| VariantBuilder::new().with_value(value).finish())
+        .collect::<Vec<_>>();
+    let field = crate::native_variant::arrow::field("payload", true);
+    let DataType::Struct(fields) = field.data_type() else {
+        unreachable!()
+    };
+    let values: ArrowArrayRef = Arc::new(arrow_array::StructArray::new(
+        fields.clone(),
+        vec![
+            Arc::new(BinaryArray::from_iter_values(
+                encoded.iter().map(|row| row.0.as_slice()),
+            )),
+            Arc::new(BinaryArray::from_iter_values(
+                encoded.iter().map(|row| row.1.as_slice()),
+            )),
+        ],
+        None,
+    ));
+    let dictionary: ArrowArrayRef = Arc::new(
+        DictionaryArray::<Int8Type>::try_new(
+            Int8Array::from(vec![Some(2), None, Some(1), Some(0), Some(2)]),
+            values,
+        )
+        .unwrap(),
+    );
+    let field = field.with_data_type(dictionary.data_type().clone());
+    let input = RecordBatch::try_new(Arc::new(Schema::new(vec![field])), vec![dictionary]).unwrap();
+    let (result, session) = native(input, 32 << 20);
+    let mut stream = result.arrow_batches(CancellationToken::default()).unwrap();
+    assert_eq!(
+        stream
+            .schema()
+            .field(0)
+            .metadata()
+            .get("ARROW:extension:name")
+            .unwrap(),
+        "arrow.parquet.variant"
+    );
+    let output = stream.next_batch().unwrap().unwrap();
+    let values = output.column(0).as_struct();
+    for (row, expected) in [
+        Some(Variant::Int64(42)),
+        None,
+        Some(Variant::Null),
+        Some(Variant::from("first")),
+        Some(Variant::Int64(42)),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if let Some(expected) = expected {
+            assert!(values.is_valid(row));
+            assert_eq!(
+                Variant::try_new(
+                    values.column(0).as_binary::<i32>().value(row),
+                    values.column(1).as_binary::<i32>().value(row)
+                )
+                .unwrap(),
+                expected
+            );
+        } else {
+            assert!(values.is_null(row));
+        }
+    }
+    drop((stream, output, result));
+    assert_eq!(session.memory().snapshot().reserved_bytes, 0);
 }
 
 fn rich_type_arrow_fixture() -> RecordBatch {

@@ -438,6 +438,36 @@ performance run or package publication is part of this unit. Sparse/quantized
 arithmetic, ANN and implicit multi-vector reduction remain unadmitted. Item 19,
 item 20, RFC 0044 and CG-1 through CG-23 remain open at their existing boundaries.
 
+**Item 19 wide nested schemas: merged and verified.** The
+[wide-schema unit](native-wide-schema-2026-11-09.md) replaces the former nested
+width, expanded-node and metadata-estimate ceilings with operation memory
+admission. PR #1673 merged as `e85e379588d8ea74a6ce6ee72e3e407ad15a3b49`
+after all 58 PR checks passed with review clear; all 55 exact-main checks then
+passed. Parent PR #1672 also merged, preserving ordinary single-node Foundry
+transforms as the primary route and Compute Modules as optional work. Verified
+retirement removed 25,652 completed regular files and six environment links;
+current inputs and retained runtimes/wheels stayed unchanged and replay passed.
+The frozen local packet remains historical; the subsequent exact-main
+observation is retained in the Variant evidence below. Depth 24 and complete
+deep traversal remain required item 19 work.
+
+**Item 19 Variant payload preservation: finite local verification complete.**
+The [Variant contract](native-variant-lifecycle-2026-11-09.md) preserves raw and
+admitted shredded values, SQL NULL versus present Variant null, nested fields
+and dictionary extension identity through ordinary SQL/DataFrame selection,
+joins, bounded delivery, actual native spill, typed output and fresh-process
+reopening. Explicit Arrow/Parquet export retains logical values and extension
+identity. Default/native workspace checks pass 3,322/7,045 tests, with 37 existing
+native opt-in ignores. All 15 selected public tests and 420 isolated installed-
+wheel tests pass with zero skips. Provider, feature and supported-Rust checks
+pass; the [portable packet](../release/evidence/native-variant-lifecycle-2026-11-09/README.md)
+binds original failures, final source/runtime and the exact test-declaration and
+generated-reference corrections. Hosted integration is a separate gate. Variant
+comparison and field expressions remain unadmitted; deep traversal and standalone
+UUID/spatial support remain required. Item 19, item 20, RFC 0044 and CG-1 through
+CG-23 retain their independent obligations. No performance run or package
+publication is included.
+
 **November 4 selection and public-construction disposition: dropped.** The
 coordinated follow-up from merged #1656 completed one isolated original 10,000-
 request pass. All results passed, but engine time increased from 1,513.095098453

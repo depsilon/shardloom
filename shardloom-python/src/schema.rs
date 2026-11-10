@@ -101,6 +101,7 @@ fn structured_name(field: &Field, result: &Bound<'_, PyDict>) -> PyResult<&'stat
         .get("ARROW:extension:name")
         .map(String::as_str)
     {
+        Some("arrow.parquet.variant") => return Ok("variant"),
         Some("shardloom.sparse_vector.v1") => {
             ("sparse_vector", "vector result is missing metadata")
         }

@@ -143,9 +143,14 @@ pub(super) fn write(
                     let json = columns
                         .iter()
                         .map(|column| {
-                            if format != Format::Csv
-                                || super::native_payload::is_nested(column.dtype())
-                            {
+                            // Variant carriage uses native owners, but its
+                            // scalar CSV values keep the existing cell encoding.
+                            let nested_csv = super::native_payload::is_nested(column.dtype())
+                                && !matches!(
+                                    column.dtype(),
+                                    vortex::array::dtype::DType::Variant(_)
+                                );
+                            if format != Format::Csv || nested_csv {
                                 super::native_json::Column::new(
                                     column,
                                     &mut scalar_context,
