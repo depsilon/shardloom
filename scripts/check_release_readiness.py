@@ -38,7 +38,9 @@ from check_v1_correctness_conformance import (
     EXPECTED_DIAGNOSTIC_CASES,
     EXPECTED_EXECUTABLE_FIXTURES,
     EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
+    EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
     EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+    EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
     EXPECTED_SOURCE_INPUT_FORMATS,
     EXPECTED_UNSUPPORTED_DIAGNOSTICS,
     MATRIX_EXPECTED_COUNTS,
@@ -604,12 +606,12 @@ def main() -> int:
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
             )
-        if admitted_semantics.get("runtime_error_diagnostic_count") != 1:
+        if admitted_semantics.get("runtime_error_diagnostic_count") != EXPECTED_RUNTIME_ERROR_DIAGNOSTICS:
             admitted_semantics_blockers.append(
                 "admitted semantics runtime_error_diagnostic_count="
                 + str(admitted_semantics.get("runtime_error_diagnostic_count", "missing"))
             )
-        if admitted_semantics.get("invalid_shape_diagnostic_count") != 1:
+        if admitted_semantics.get("invalid_shape_diagnostic_count") != EXPECTED_INVALID_SHAPE_DIAGNOSTICS:
             admitted_semantics_blockers.append(
                 "admitted semantics invalid_shape_diagnostic_count="
                 + str(admitted_semantics.get("invalid_shape_diagnostic_count", "missing"))

@@ -3671,14 +3671,19 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization",
         ),
         UnsupportedCase(
+            # Retain the fixture ID for historical evidence. Native Variant access
+            # is admitted; this CSV UTF8 operand must still fail type admission.
             case_id="unsupported_variant_access",
             source_name="variant-unsupported.csv",
             source_text="id,payload\n1,alpha\n",
             statement_template=(
-                "SELECT id,VARIANT_GET(payload, 'field') AS field FROM '{source}' LIMIT 10"
+                "SELECT id,VARIANT_GET(payload, '$.field') AS field FROM '{source}' LIMIT 10"
             ),
-            diagnostic_code='SL_UNSUPPORTED_SQL',
-            diagnostic_fragment="variant access semantics are not admitted",
+            diagnostic_code='SL_INVALID_INPUT',
+            diagnostic_fragment="Variant functions require a native Variant operand",
+            support_state="invalid_shape_diagnostic",
+            oracle_boundary="deterministic_invalid_shape_diagnostic",
+            stage_kind="invalid_shape_diagnostic",
         ),
         UnsupportedCase(
             case_id="unsupported_union_dtype_cast",

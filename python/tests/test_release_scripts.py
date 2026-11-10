@@ -3792,20 +3792,27 @@ class ReleaseScriptTests(unittest.TestCase):
             },
         )
 
+        def diagnostic_kind(case_id: str) -> str:
+            if case_id.startswith("runtime_error_"):
+                return "runtime_error_diagnostic"
+            if case_id.startswith("invalid_shape_") or case_id == "unsupported_variant_access":
+                return "invalid_shape_diagnostic"
+            return "unsupported_diagnostic"
+
         unsupported_cases = sorted(
             case
             for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
-            if case.startswith("unsupported_")
+            if diagnostic_kind(case) == "unsupported_diagnostic"
         )
         runtime_error_cases = sorted(
             case
             for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
-            if case.startswith("runtime_error_")
+            if diagnostic_kind(case) == "runtime_error_diagnostic"
         )
         invalid_shape_cases = sorted(
             case
             for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
-            if case.startswith("invalid_shape_")
+            if diagnostic_kind(case) == "invalid_shape_diagnostic"
         )
         semantic_stage_rows = [
             {
@@ -3827,13 +3834,6 @@ class ReleaseScriptTests(unittest.TestCase):
             }
             for index, case_id in enumerate(sorted(module.REQUIRED_SEMANTIC_CASE_IDS))
         ]
-
-        def diagnostic_kind(case_id: str) -> str:
-            if case_id.startswith("runtime_error_"):
-                return "runtime_error_diagnostic"
-            if case_id.startswith("invalid_shape_"):
-                return "invalid_shape_diagnostic"
-            return "unsupported_diagnostic"
 
         unsupported_stage_rows = [
             {
@@ -3899,6 +3899,10 @@ class ReleaseScriptTests(unittest.TestCase):
             {
                 "schema_version": "shardloom.admitted_semantics_matrix_report.v1",
                 "status": "passed",
+                "matrix_status": "passed",
+                "ansi_sql_claim_allowed": False,
+                "package_publication_performed": False,
+                "secrets_required": False,
                 "blockers": [],
                 "executable_fixture_count": module.EXPECTED_EXECUTABLE_FIXTURES,
                 "diagnostic_case_count": module.EXPECTED_DIAGNOSTIC_CASES,

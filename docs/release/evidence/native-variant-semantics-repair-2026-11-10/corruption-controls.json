@@ -1,0 +1,128 @@
+{
+  "status": "passed",
+  "original_packet": {
+    "acceptance.json": {
+      "bytes": 1104757,
+      "sha256": "cdad1ec5c96b544247839a6bf89915722262266d78001e08eb4431f374f3cebd"
+    },
+    "verification.tar.xz": {
+      "bytes": 1983472,
+      "sha256": "731220f566a3b6b49b93e0f604db4e48b6886f846efc4a6ecfcdaad5b14d6cf1"
+    },
+    "verify.py": {
+      "bytes": 16825,
+      "sha256": "5785d0446165b62c763b8a59fab2639267d656f385bc1f5aa85ff422045354f9"
+    }
+  },
+  "verifier": {
+    "bytes": 16825,
+    "sha256": "5785d0446165b62c763b8a59fab2639267d656f385bc1f5aa85ff422045354f9"
+  },
+  "driver": {
+    "bytes": 4603,
+    "sha256": "047b77ecd30bfad9b6cb2bbc7c0b182992bc7ad458ca87244a3eb21396120091"
+  },
+  "cases": [
+    {
+      "case": "original",
+      "returncode": 0,
+      "log": "{\"changed_paths\": 9, \"controls_verified\": false, \"hosted_failures\": 1, \"original_local_failures\": 8, \"production_inputs_changed\": false, \"release_tests\": 184, \"repair_local_failures\": 3, \"repository_checked\": true, \"source_fingerprint_sha256\": \"7be3ace0a74f709354d6faa5a30ee5ecac70c58291edb3adc2f0bc61af5c5159\", \"stages\": 153, \"status\": \"passed\"}\n",
+      "log_identity": {
+        "bytes": 347,
+        "sha256": "0e2806a64d54f97a5ac33e1850870638692ada9e64f47fe8c39d049e84152a32"
+      }
+    },
+    {
+      "case": "relocated",
+      "returncode": 0,
+      "log": "{\"changed_paths\": 9, \"controls_verified\": false, \"hosted_failures\": 1, \"original_local_failures\": 8, \"production_inputs_changed\": false, \"release_tests\": 184, \"repair_local_failures\": 3, \"repository_checked\": false, \"source_fingerprint_sha256\": \"7be3ace0a74f709354d6faa5a30ee5ecac70c58291edb3adc2f0bc61af5c5159\", \"stages\": 153, \"status\": \"passed\"}\n",
+      "log_identity": {
+        "bytes": 348,
+        "sha256": "1cc2524225394ef6e981d823ee987e12f00e592fc84b57e0ab8c4dee0e2fe71c"
+      }
+    },
+    {
+      "case": "archive_byte",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/archive_byte/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/archive_byte/native-variant-semantics-repair-2026-11-10/verify.py\", line 109, in verify\n    data = read_archive(packet, report)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/archive_byte/native-variant-semantics-repair-2026-11-10/verify.py\", line 63, in read_archive\n    assert len(raw) < 16 << 20 and identity(raw) == report['archive']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "log_identity": {
+        "bytes": 952,
+        "sha256": "2c96a7b1e3992d51cc6661ad9c15ce18ff0b5289c394fc8124abe7b6d134f36b"
+      }
+    },
+    {
+      "case": "production_delta",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/production_delta/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/production_delta/native-variant-semantics-repair-2026-11-10/verify.py\", line 103, in verify\n    assert set(difference) == CHANGED and report['source_deltas'] == difference\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "log_identity": {
+        "bytes": 756,
+        "sha256": "e6949efe4456069c11f1b27defee985017b4b7b3d99d863c2b071fbd02e90f7b"
+      }
+    },
+    {
+      "case": "hosted_failure_missing",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/hosted_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/hosted_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 176, in verify\n    zipped = data['hosted-failure-r1/release-runtime-core-evidence.zip']\n             ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nKeyError: 'hosted-failure-r1/release-runtime-core-evidence.zip'\n",
+      "log_identity": {
+        "bytes": 803,
+        "sha256": "32c83ffee8f519a2145758001e8c478a078532a5be52f1103db7bfe90c226623"
+      }
+    },
+    {
+      "case": "local_failure_missing",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/local_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/local_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 151, in verify\n    guard(stem, passed=False)\n    ~~~~~^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/local_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 121, in guard\n    receipt = read(stem + '.json')\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/local_failure_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 118, in read\n    return json.loads(data[name])\n                      ~~~~^^^^^^\nKeyError: 'release-script-repair-r2.json'\n",
+      "log_identity": {
+        "bytes": 1168,
+        "sha256": "18c6316af7f1cb96e52583348fcc51d2ed992ec352d9c3f5b77320fe96fe4a6e"
+      }
+    },
+    {
+      "case": "semantic_fallback",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/semantic_fallback/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/semantic_fallback/native-variant-semantics-repair-2026-11-10/verify.py\", line 186, in verify\n    assert matrix['fallback_attempted'] is matrix['external_engine_invoked'] is False\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "log_identity": {
+        "bytes": 770,
+        "sha256": "b72d26235123b364112d01a66fcd690963909502e24c0c6b1163e0809b5ec389"
+      }
+    },
+    {
+      "case": "failed_test_receipt",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/failed_test_receipt/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/failed_test_receipt/native-variant-semantics-repair-2026-11-10/verify.py\", line 146, in verify\n    receipt = guard(stem)\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/failed_test_receipt/native-variant-semantics-repair-2026-11-10/verify.py\", line 122, in guard\n    assert receipt['status'] == ('passed' if passed else 'failed')\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "log_identity": {
+        "bytes": 947,
+        "sha256": "72a91cb0d7fc3f8f6f03e2df316d7b9f24231f729be53e62e656646fcb35061d"
+      }
+    },
+    {
+      "case": "runtime_identity",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/runtime_identity/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/runtime_identity/native-variant-semantics-repair-2026-11-10/verify.py\", line 105, in verify\n    assert report['runtime_and_wheel'] == accepted['runtime_and_wheel']\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+      "log_identity": {
+        "bytes": 740,
+        "sha256": "c46c2d2655db9dd534db114c108596278da10e6d14575a6f3841f0cfbb769178"
+      }
+    },
+    {
+      "case": "original_packet_changed",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/original_packet_changed/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/original_packet_changed/native-variant-semantics-repair-2026-11-10/verify.py\", line 91, in verify\n    assert identity((original / name).read_bytes()) == info, name\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: acceptance.json\n",
+      "log_identity": {
+        "bytes": 752,
+        "sha256": "559e2938cc200bba348d34153fe9e368b7d2c3988bf927f55304f40bf1640a26"
+      }
+    },
+    {
+      "case": "source_scope_missing",
+      "returncode": 1,
+      "log": "Traceback (most recent call last):\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/source_scope_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 261, in <module>\n    print(json.dumps(verify(args.packet, args.repo_root, args.require_controls), sort_keys=True))\n                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/dylan/LocalData/shardloom/variant-expressions-2026-11-10/repair-controls-r1/source_scope_missing/native-variant-semantics-repair-2026-11-10/verify.py\", line 225, in verify\n    assert paths == set(source), 'source path inventory differs'\n           ^^^^^^^^^^^^^^^^^^^^\nAssertionError: source path inventory differs\n",
+      "log_identity": {
+        "bytes": 732,
+        "sha256": "035f7424fd0b7dc4ca48cd9cc6c0c185211d20892113f7ce27da21b5d42bfd78"
+      }
+    }
+  ],
+  "positive_controls": 2,
+  "rejected_controls": 9
+}
