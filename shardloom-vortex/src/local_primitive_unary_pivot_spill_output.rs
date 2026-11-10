@@ -51,7 +51,7 @@ impl Completed {
             let native = self
                 .fields
                 .iter()
-                .any(|(_, dtype)| native_payload::is_nested(dtype));
+                .any(|(_, dtype)| super::super::native_output_type(dtype));
             while offset < self.rows {
                 context.check_cancelled()?;
                 let count = (self.rows - offset).min(BATCH_ROWS);
@@ -221,7 +221,7 @@ impl Completed {
         arrays.reserve(self.fields.len())?;
         for (column, (_, dtype)) in self.fields.iter().enumerate() {
             context.check_cancelled()?;
-            let array = if native_payload::is_nested(dtype) {
+            let array = if super::super::native_output_type(dtype) {
                 native_payload::retained_column(dtype, indices.len(), context, |row| {
                     self.native_value(access, indices[row], column, plan, context)
                 })?

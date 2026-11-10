@@ -17,7 +17,16 @@ use vortex::array::{
     dtype::{DType, PType},
 };
 
+#[path = "native_arrow_variant.rs"]
+mod variant;
+
 pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
+    if matches!(dtype, DType::Variant(_)) {
+        return Some(crate::native_variant::arrow::field(
+            name,
+            dtype.is_nullable(),
+        ));
+    }
     #[cfg(feature = "native-binary-objects")]
     if crate::native_binary_type::storage(dtype).is_some() {
         return crate::native_binary_type::arrow::field(name, dtype).ok();
@@ -58,6 +67,7 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         DType::Bool(_) => DataType::Boolean,
         DType::Utf8(_) => DataType::Utf8,
         DType::Binary(_) => DataType::Binary,
+        DType::Variant(_) => crate::native_variant::arrow::data_type(),
         #[cfg(feature = "native-binary-objects")]
         DType::Extension(_) if crate::native_binary_type::storage(dtype).is_some() => {
             DataType::Binary
@@ -242,6 +252,7 @@ pub(crate) fn canonical(
         limits,
     )?;
     match array.dtype() {
+        DType::Variant(_) => variant::prepare(array, ctx, limits, expanded, 0),
         DType::Extension(_)
             if crate::native_extensions::payload_storage(array.dtype()).is_some() =>
         {

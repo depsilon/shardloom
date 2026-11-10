@@ -928,6 +928,11 @@ fn validate_payload(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
 fn validate_key(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
     // Admit the full expanded walk before recursive semantic classification.
     validate_payload(dtype, scope)?;
+    if crate::native_variant::contains(dtype) {
+        return Err(failed(
+            "Variant values are payload-only; compare, group, order or join on ordinary columns",
+        ));
+    }
     if crate::native_vector::contains(dtype) {
         return Err(failed(
             "sparse and quantized vectors are payload-only; compare, group, order or join on ordinary columns",

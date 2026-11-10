@@ -9,7 +9,8 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+if not sys.flags.isolated:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from shardloom._result_schema import arrow_table, python_rows, schema_fields
 from shardloom.errors import ShardLoomProtocolError
@@ -29,6 +30,49 @@ def fields(declarations):
 
 
 class NativeResultSchemaTests(unittest.TestCase):
+    def test_variant_diagnostic_scalar_rows_preserve_legacy_melt_without_reconstruction(self):
+        # The existing native mixed-MELT producer emits these complete scalar
+        # rows with a Variant result dtype; keep Result.python_objects usable.
+        expected = [
+            {"account_key": 1, "kind": "amount", "cell": (1 << 64) - 1},
+            {"account_key": 1, "kind": "label", "cell": "π"},
+            {"account_key": None, "kind": "amount", "cell": 0},
+            {"account_key": None, "kind": "label", "cell": None},
+            {"account_key": 3, "kind": "amount", "cell": 42},
+            {"account_key": 3, "kind": "label", "cell": "end"},
+        ]
+        declarations = {"account_key": {"Primitive": ["u64", True]},
+                        "kind": {"Utf8": False}, "cell": {"Variant": True}}
+        report = Result(None, "collect", OutputEnvelope.from_field_mapping({
+            "result_values_json": json.dumps(expected),
+            "result_schema_json": json.dumps(schema(declarations)),
+            "result_schema_format": FORMAT,
+        }))
+        self.assertEqual(report.python_objects, tuple(expected))
+        native_fields = fields({"payload": {"Variant": True}})
+        self.assertEqual(native_fields[0][1].name, "variant")
+        for value in (7, True, 2.5, "text", None):
+            self.assertEqual(python_rows([{"payload": value}], native_fields), [{"payload": value}])
+        for value in ({"key": "value"}, [7], {"metadata": "010000", "value": "00"}):
+            with self.assertRaisesRegex(ShardLoomProtocolError, "native Arrow export"):
+                python_rows([{"payload": value}], native_fields)
+
+    @unittest.skipUnless(importlib.util.find_spec("pyarrow"), "optional PyArrow conversion dependency")
+    def test_variant_arrow_requires_encoded_values_and_keeps_empty_identity(self):
+        pa = __import__("pyarrow")
+        native_fields = fields({"payload": {"Variant": True}})
+        table = arrow_table([], native_fields, pa)
+        self.assertEqual(table.schema.field("payload").metadata,
+                         {b"ARROW:extension:name": b"arrow.parquet.variant", b"ARROW:extension:metadata": b""})
+        self.assertFalse(table.schema.field("payload").type.field("metadata").nullable)
+        with self.assertRaisesRegex(ShardLoomProtocolError, "native Arrow export"):
+            arrow_table([{"payload": 7}], native_fields, pa)
+        nested = fields({"nested": schema({"cell": {"Variant": True}})})
+        rows = [{"nested": {"cell": 7}}]
+        self.assertEqual(python_rows(rows, nested), rows)
+        with self.assertRaisesRegex(ShardLoomProtocolError, "native Arrow export"):
+            arrow_table(rows, nested, pa)
+
     def test_empty_report_retains_exact_field_names_order_types_and_nullability(self):
         declarations = {"n,λ": {"Primitive": ["i64", True]},
                         "t\"ext": {"Utf8": False}, "flag": {"Bool": True}}

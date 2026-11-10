@@ -91,14 +91,19 @@ fn array(memory: &LiveMemoryPool) -> ArrayRef {
 fn native_writer_pins_frozen_core_edition_and_rejects_opt_in_buffer_encoding() {
     use vortex::{
         array::{VortexSessionExecute as _, iter::ArrayIteratorExt as _},
-        editions::{CORE_2026_08_3, EditionSessionExt as _},
+        editions::{CORE_2026_08_3, EditionId, EditionSessionExt as _},
         encodings::zstd::ZstdBuffers,
         file::OpenOptionsSessionExt as _,
     };
 
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(runtime.handle());
-    assert_eq!(session.enabled_editions().editions(), [CORE_2026_08_3]);
+    // Variant is in frozen core. Its optional provider also registers the
+    // separate JSON dtype family, without widening ShardLoom payload admission.
+    let enabled = session.enabled_editions().editions();
+    assert_eq!(enabled.len(), 2);
+    assert!(enabled.contains(&CORE_2026_08_3));
+    assert!(enabled.contains(&EditionId::new("json", 2026, 8, 0)));
     assert!(!session.editions().find(&CORE_2026_08_3).unwrap().is_draft());
     let memory = LiveMemoryPool::new(1 << 20).unwrap();
     let input = array(&memory);

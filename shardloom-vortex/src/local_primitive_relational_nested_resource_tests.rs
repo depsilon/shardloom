@@ -23,6 +23,9 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
         Nullability::NonNullable,
     );
     assert!(native_payload::metadata_bytes(&wide, &memory).is_ok());
+    assert!(
+        native_payload::metadata_bytes(&DType::Variant(Nullability::Nullable), &memory).is_ok()
+    );
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     for dtype in [
         deep,
@@ -31,7 +34,6 @@ fn native_nested_schema_admission_bounds_recursive_metadata_and_rejects_unowned_
             vortex::array::dtype::DecimalDType::new(39, 0),
             Nullability::Nullable,
         ),
-        DType::Variant(Nullability::Nullable),
     ] {
         assert!(
             native_payload::metadata_bytes(&dtype, &memory).is_err(),

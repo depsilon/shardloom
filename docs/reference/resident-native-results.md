@@ -279,6 +279,15 @@ must match except for nullability. The
 [local acceptance report](../benchmarks/native-nested-keys-state-full43-2026-10-04.md)
 records complete results, resource/failure proof and regression checks. The unit
 merged in PR #1516 after all 37 hosted checks passed.
+The [Variant payload contract](../architecture/native-variant-lifecycle-2026-11-09.md)
+adds canonical Arrow Variant intake and preserves complete encoded values through
+ordinary native selection, joins, bounded delivery, spill and Vortex persistence.
+Arrow IPC and Parquet retain the standard extension identity. `to_arrow()` exposes
+the canonical binary `metadata`/`value` children, and Python row objects retain
+those encoded children; SQL NULL remains distinct from a present Variant null.
+Use `context.from_result` to reconsume a completed native owner. Shredded physical
+types and depth remain bounded as documented; Variant keys, field expressions,
+row-literal hints and general JSON conversion are not admitted by this contract.
 General Variant/extension operations, nested
 arithmetic/string operations and broader state-spill families remain explicit
 gaps. Current source builds admit typed literals, explicit CAST/TRY_CAST, exact

@@ -113,6 +113,16 @@ distance semantics. Do not build a second semi-structured store or a complete
 GIS product. Tensor/vector providers and lower precision retain the same
 read–compute–write–reopen proof requirements below.
 
+The [November 9 Variant unit](native-variant-lifecycle-2026-11-09.md) implements
+payload preservation with the pinned 0.93 provider, including complete encoded
+values, admitted shredding, nested fields and dictionary extension metadata.
+Finite native/runtime and installed-package verification is complete, including
+all 420 isolated installed-wheel tests with zero skips. Its
+[source-bound evidence](../release/evidence/native-variant-lifecycle-2026-11-09/README.md)
+keeps hosted integration separate. Variant field expressions, deeper traversal
+and standalone UUID/spatial work remain required. This does not close item 19
+or any competitive gate.
+
 ## Competitive baseline and separate obligations
 
 The maintainer's subsequent October 24 clarification makes ordinary rich columns

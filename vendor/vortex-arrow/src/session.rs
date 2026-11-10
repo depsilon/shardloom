@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom, 2026-11-08: scoped decimal storage preservation after
 // ancestor-aware validation at an admitted Arrow boundary.
+// Modified by ShardLoom, 2026-11-09: export Variant chunks before plugin
+// canonicalization can hide them behind a self-repeating core wrapper.
 
 //! Plugin layer for moving Arrow extension types in and out of Vortex.
 //!
@@ -93,6 +95,9 @@ use crate::convert::remove_nulls;
 use crate::convert::trim_map_entries;
 use crate::convert::trim_offsets;
 use crate::dtype::from_arrow_data_type;
+
+#[path = "variant_chunks.rs"]
+mod variant_chunks;
 use crate::dtype::to_data_type_naive;
 use crate::executor::execute_arrow_naive;
 use crate::run_end_import::run_end_from_arrow;
@@ -1119,6 +1124,10 @@ impl ArrowExporter<'_> {
                 &arrow_field
             }
         };
+
+        if let Some(exported) = variant_chunks::export(self, &array, target_field, ctx)? {
+            return Ok(exported);
+        }
 
         if let Some(arrow_ext_name) = target_field.metadata().get(EXTENSION_TYPE_NAME_KEY) {
             let arrow_ext_id = Id::new(arrow_ext_name);

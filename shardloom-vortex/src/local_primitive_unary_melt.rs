@@ -11,6 +11,7 @@ pub(super) struct Plan {
     pub(super) fields: Vec<(String, DType)>,
     ids: Vec<usize>,
     values: Vec<usize>,
+    native_values: bool,
 }
 
 impl Plan {
@@ -59,12 +60,26 @@ impl Plan {
             melt.variable_column.clone(),
             DType::Utf8(Nullability::NonNullable),
         ));
-        fields.push((melt.value_column.clone(), common_dtype(&dtypes)?));
+        let value_dtype = common_dtype(&dtypes)?;
+        let native_values = super::super::native_payload::is_nested(&value_dtype)
+            && dtypes
+                .iter()
+                .all(|dtype| dtype.eq_ignore_nullability(&value_dtype));
+        fields.push((melt.value_column.clone(), value_dtype));
         Ok(Self {
             fields,
             ids,
             values,
+            native_values,
         })
+    }
+
+    pub(super) fn synthesizes_variant(&self) -> bool {
+        !self.native_values
+            && self
+                .fields
+                .last()
+                .is_some_and(|(_, dtype)| matches!(dtype, DType::Variant(_)))
     }
 }
 
@@ -199,7 +214,9 @@ fn emit(
     if compiled
         .fields
         .iter()
+        .take(compiled.ids.len())
         .any(|(_, dtype)| super::super::native_payload::is_nested(dtype))
+        || compiled.native_values
     {
         output.emit_native(selected.values.len(), context, || {
             native_melt(
@@ -289,7 +306,7 @@ fn native_melt(
         .last()
         .ok_or_else(|| failed("melt output dtype absent"))?
         .1;
-    let value = if super::super::native_payload::is_nested(dtype) {
+    let value = if compiled.native_values {
         let mut arrays = ReservedVec::new(context.memory())?;
         arrays.reserve(compiled.values.len())?;
         let source_rows = batch.column(compiled.values[0])?.len();

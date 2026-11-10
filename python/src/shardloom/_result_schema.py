@@ -170,17 +170,18 @@ def _dtype(wire: Any, depth: int) -> ResultType:
 
 
 def python_rows(rows: Sequence[Mapping[str, Any]], fields: Sequence[tuple[str, ResultType]],
-                *, temporal_objects: bool = True) -> list[dict[str, Any]]:
+                *, temporal_objects: bool = True, variant_scalars: bool = True) -> list[dict[str, Any]]:
     names = tuple(name for name, _ in fields)
     result = []
     for row in rows:
         if not isinstance(row, Mapping) or set(row) != set(names):
             raise ShardLoomProtocolError("native result values do not match their ordered schema")
-        result.append({name: _python_value(row[name], dtype, temporal_objects) for name, dtype in fields})
+        result.append({name: _python_value(row[name], dtype, temporal_objects, variant_scalars)
+                       for name, dtype in fields})
     return result
 
 
-def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
+def _python_value(value: Any, dtype: ResultType, temporal: bool, variant_scalars: bool) -> Any:
     if value is None:
         if not dtype.nullable:
             raise ShardLoomProtocolError("NULL value in a nonnullable native result field")
@@ -188,6 +189,12 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
     try:
         if dtype.name == "binary_object":
             raise ValueError("managed binary object values are unavailable in diagnostic JSON rows; use typed native row export")
+        if dtype.name == "variant":
+            # Legacy mixed-MELT rows already contain rendered JSON scalars.
+            # Returning those values does not reconstruct a Variant encoding.
+            if variant_scalars and type(value) in {bool, int, float, str}:
+                return value
+            raise ValueError("Variant encodings are unavailable in diagnostic JSON rows; use native Arrow export")
         if dtype.name == "null":
             raise ValueError("a null dtype requires a NULL value")
         if dtype.name == "bool" and type(value) is not bool:
@@ -225,17 +232,18 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
         if dtype.name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
             if not isinstance(value, list) or (dtype.name != "list" and len(value) != dtype.parameters[1]):
                 raise ValueError("invalid native list payload")
-            return [_python_value(item, dtype.parameters[0], temporal) for item in value]
+            return [_python_value(item, dtype.parameters[0], temporal, variant_scalars) for item in value]
         if dtype.name in _vector.KINDS:
             storage, metadata = dtype.parameters
             _vector.validate_value(dtype.name, value, storage, metadata)
-            return _python_value(value, storage, temporal)
+            return _python_value(value, storage, temporal, variant_scalars)
         if dtype.name == "variable_shape_tensor":
             storage, metadata = dtype.parameters
             _variable_tensor.validate_value(value, storage, metadata)
-            return _python_value(value, storage, temporal)
+            return _python_value(value, storage, temporal, variant_scalars)
         if dtype.name == "struct":
-            return python_rows([value], dtype.parameters, temporal_objects=temporal)[0]
+            return python_rows([value], dtype.parameters, temporal_objects=temporal,
+                               variant_scalars=variant_scalars)[0]
         return value
     except (ValueError, TypeError, OverflowError) as error:
         raise ShardLoomProtocolError(f"native {dtype.label} value cannot be converted: {error}") from error
@@ -244,7 +252,8 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool) -> Any:
 def arrow_table(rows: Sequence[Mapping[str, Any]], fields: Sequence[tuple[str, ResultType]], pyarrow: Any) -> Any:
     schema = pyarrow.schema([_arrow_field(name, dtype, pyarrow)
                              for name, dtype in fields])
-    return pyarrow.Table.from_pylist(python_rows(rows, fields, temporal_objects=False), schema=schema)
+    return pyarrow.Table.from_pylist(
+        python_rows(rows, fields, temporal_objects=False, variant_scalars=False), schema=schema)
 
 
 def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
@@ -264,6 +273,9 @@ def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
     elif dtype.name == "binary_object":
         metadata = {b"ARROW:extension:name": _BINARY_OBJECT_EXTENSION_ID.encode("utf-8"),
                     b"ARROW:extension:metadata": _BINARY_OBJECT_METADATA}
+    elif dtype.name == "variant":
+        metadata = {b"ARROW:extension:name": b"arrow.parquet.variant",
+                    b"ARROW:extension:metadata": b""}
     return pyarrow.field(name, _arrow_type(dtype, pyarrow), nullable=dtype.nullable, metadata=metadata)
 
 
@@ -282,7 +294,8 @@ def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
     if (temporal := arrow_temporal_type(dtype.name, pyarrow)) is not None:
         return temporal
     if dtype.name == "variant":
-        raise ShardLoomProtocolError("Arrow conversion does not admit native variant result fields")
+        return pyarrow.struct([pyarrow.field("metadata", pyarrow.binary(), nullable=False),
+                               pyarrow.field("value", pyarrow.binary(), nullable=True)])
     name = {"bool": "bool_", "utf8": "string", "binary_object": "binary"}.get(dtype.name, dtype.name)
     return getattr(pyarrow, name)()
 

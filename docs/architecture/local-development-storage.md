@@ -142,8 +142,28 @@ wide-schema comparison runtimes and release cache remained unchanged. The
 [wide-schema packet](../release/evidence/native-wide-schema-2026-11-09/README.md)
 preserves the inventories, original stopped/failed checks and later passing
 regeneration checks. No storage floor changed and no payload backup was created.
-These are reproducible debug artifacts; final runtime/wheel retention is a
-separate closeout after hosted acceptance.
+These are reproducible debug artifacts. The subsequent wide-schema ready-PR
+closeout retired 25,652 regular files and six environment links after repeated
+identities and closed-handle checks. Current inputs, both retained runtime/wheel
+sets and the compact packet remained unchanged; replay passed after retirement.
+PRs #1672 and #1673 then merged, and all 55 checks on exact main
+`e85e379588d8ea74a6ce6ee72e3e407ad15a3b49` passed. The local packet and
+ready-PR closeout retain their original pre-merge status; the later main result
+is preserved with the Variant evidence below.
+
+During November 9 Variant validation, verified debug-cache retirements removed
+13,137 and 7,118 reproducible regular files. A separate retirement removed 41
+regular files from six exact interrupted-test fixture directories. Repeated
+identities and closed-handle checks preceded removal. Current input generations,
+the accepted vector-expression and wide-schema runtimes/wheels, the Variant
+comparison runtime and the release cache remained unchanged. The original
+free-space refusals remain recorded; the complete native suite subsequently
+passed with four test workers and unchanged cases, deadlines and storage limits.
+The [Variant packet](../release/evidence/native-variant-lifecycle-2026-11-09/README.md)
+retains each operation's exact completed or interrupted basis, manifests and
+receipts. No storage floor changed and no payload backup was created. The newly
+tested runtime/wheel and active predecessors remain retained through hosted
+closeout; final runtime retirement is separate from these compiler/test cleanups.
 
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and

@@ -1,5 +1,32 @@
 # Vortex Upstream Dependency Review
 
+## November 9, 2026 optional Variant providers
+
+The [Variant payload unit](../architecture/native-variant-lifecycle-2026-11-09.md)
+enables the existing Vortex 0.93.0 Parquet Variant provider and the Parquet 59.3.2
+Variant feature behind the existing optional native boundaries. The five new
+registry crates are `vortex-parquet-variant`, `vortex-json`, `parquet-variant`,
+`parquet-variant-compute` and `parquet-variant-json`. All declare Apache-2.0.
+They parse, validate, preserve or explicitly convert typed Variant storage;
+none is a query-engine integration or an execution fallback. Chrono moves from
+0.4.44 to the provider-required 0.4.45, retaining MIT/Apache-2.0 licensing.
+The default build does not acquire the optional Variant graph.
+
+Variant belongs to the selected frozen core edition. Its initializer also
+registers the independent JSON dtype edition; that provider registration does
+not change ShardLoom's payload or expression admission. The native writer's
+frozen-core and opt-in-buffer refusal checks remain enforced.
+
+Registry archive checksums match the lockfile. The Vortex crates retain their
+published dirty VCS marker at `c1439e69bf833fc702a60335ed674a1674ca358d`.
+The published Variant subcrate archives omit legal texts; the bundle supplies
+the reviewed Vortex license and the same-release Parquet workspace LICENSE and
+NOTICE, checked against the actual Parquet 59.3.2 archive members. The Chrono
+license text is unchanged. The bundle now covers 436 registry packages, 15 path
+patches, 837 legal-file records and 249 distinct texts. The scoped
+`vortex-arrow` chunk-export change is documented and member-hashed separately.
+This dependency review is not a runtime-acceptance or publication claim.
+
 ## November 8, 2026 coordinated provider local acceptance
 
 The [current migration](../architecture/native-provider-upgrade-2026-11-08.md)

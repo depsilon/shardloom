@@ -42,7 +42,7 @@ release-user-surfaces = [
     "native-binary-objects",
 ]
 native-binary-objects = ["universal-format-io", "vortex-write", "vortex-local-primitives"]
-upstream-vortex = ["dep:vortex", "dep:bytes"]
+upstream-vortex = ["dep:vortex", "dep:bytes", "vortex/parquet-variant", "dep:parquet-variant"]
 native-temporal = ["shardloom-core/temporal-calendar"]
 universal-format-io = [
     "native-temporal",
@@ -57,6 +57,7 @@ universal-format-io = [
     "dep:arrow-schema",
     "dep:orc-rust",
     "dep:parquet",
+    "parquet/variant_experimental",
     "dep:flate2",
     "dep:zstd",
 ]
@@ -84,6 +85,7 @@ flate2 = { version = "=1.1.10", optional = true }
 hashbrown = { workspace = true, optional = true }
 orc-rust = { version = "=0.9.0", default-features = false, optional = true }
 parquet = { workspace = true, optional = true }
+parquet-variant = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 regex = { workspace = true }
 rustc-hash = { workspace = true }

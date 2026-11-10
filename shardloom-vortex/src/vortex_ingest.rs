@@ -12303,8 +12303,8 @@ fn validate_stream_record_batch_shape(
     for projected_column in &source_shape.projected_columns {
         nested::validate_field(schema.field(projected_column.reader_index))?;
         let array = batch.column(projected_column.reader_index);
-        let family = arrow_column_family_with_float_policy(
-            &projected_column.column,
+        let family = arrow_field_family_with_float_policy(
+            schema.field(projected_column.reader_index),
             array.as_ref(),
             float_policy,
         )?;
@@ -13500,7 +13500,8 @@ fn columnar_column_families(
             for batch in &source.batches {
                 nested::validate_field(batch.schema().field(projected_column.reader_index))?;
                 let array = batch.column(projected_column.reader_index);
-                let candidate = arrow_column_family(&projected_column.column, array.as_ref())?;
+                let candidate = arrow_field_family_with_float_policy(
+                    batch.schema().field(projected_column.reader_index), array.as_ref(), FloatPolicy::Strict)?;
                 if candidate == "float64" {
                     reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
                 }
@@ -13656,9 +13657,25 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
     Ok(())
 }
 
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[cfg(all(test, feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
     arrow_column_family_with_float_policy(column, array, FloatPolicy::Strict)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn arrow_field_family_with_float_policy(
+    field: &arrow_schema::Field,
+    array: &dyn Array,
+    policy: FloatPolicy,
+) -> Result<String> {
+    if crate::native_variant::arrow::is_variant(field) {
+        nested::validate_field(field)?;
+        // Logical identity is imported from the Field. This is the existing
+        // physical source-family classification used by the reader.
+        nested::validate_values_with_float_policy(field.name(), array, FloatPolicy::Extended)?;
+        return Ok("struct".into());
+    }
+    arrow_column_family_with_float_policy(field.name(), array, policy)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

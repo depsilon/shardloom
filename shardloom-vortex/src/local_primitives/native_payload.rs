@@ -32,6 +32,11 @@ pub(super) use storage::decimal_key;
 
 #[path = "native_payload_tensor.rs"]
 mod tensor;
+#[path = "native_payload_variant.rs"]
+mod variant;
+#[cfg(all(test, feature = "vortex-write"))]
+#[path = "native_payload_variant_tests.rs"]
+mod variant_tests;
 #[path = "native_payload_vector.rs"]
 mod vector;
 
@@ -125,7 +130,7 @@ impl CopyState<'_> {
 pub(super) fn is_nested(dtype: &DType) -> bool {
     matches!(
         dtype,
-        DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..)
+        DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..) | DType::Variant(..)
     ) || crate::native_extensions::payload_storage(dtype).is_some()
 }
 
@@ -488,6 +493,9 @@ fn copy_rows<const RETAIN: bool>(
     allocator: &HostAllocatorRef,
 ) -> Result<ArrayRef> {
     context.check_cancelled()?;
+    if matches!(dtype, DType::Variant(_)) {
+        return variant::copy::<RETAIN>(source, rows, dtype, copy, context, allocator, 0);
+    }
     if let DType::Extension(extension) = dtype
         && crate::native_extensions::payload_storage(dtype).is_some()
     {
