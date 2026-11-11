@@ -2,7 +2,7 @@
 
 # Compact metadata for the shared native row index
 
-Status: recommendation 8 locally retained; hosted integration pending.
+Status: recommendation 8 retained and integrated; verified retirement complete.
 This is a bounded item 20 / RFC 0044 experiment under the
 [shared-pipeline program](native-shared-pipeline-investigations-2026-11-10.md).
 Recommendations 9 and 10 remain independent. Item 19, item 20, RFC 0044 and
@@ -151,8 +151,26 @@ cleanup, no-fallback claims and archive bytes. Original diagnostic, lint and
 packaging failures are preserved with their corrected disposition; no failed
 proof attempt prompted a scored query rerun.
 
-Hosted checks, review, exact-main acceptance and verified task-owned retirement
-remain the final integration steps. No package is published and no installed-wheel
-claim is made. Recommendation 9 next needs new multi-output window cases: the
-original corpus's one-`OVER` window requests cannot prove shared traversal.
-Recommendation 10 retains its separate allocated-storage objective.
+## Hosted integration and retirement
+
+PR #1678 merged as `a640475ae66bc36cefcae42088dc23da6776e8ed`, with the same
+source tree as the reviewed head. All 58 PR checks and 55 exact-main checks
+passed with review clear. The original hosted inventory failure and corrected
+registry remain separate observations; the successful main workflow was not
+restarted. Source-bound and portable evidence replay passed after retirement.
+
+Verified retirement removed 40 task-owned roots containing 5,826 entries,
+including 5,822 regular files and no symlinks, totaling 1,508,581,322 logical
+bytes. Repeated identities and closed-handle checks passed; all 220 input
+generations and 633 retained files stayed unchanged. The superseded dictionary
+runtime, redundant raw ledgers and reconstructible packet/source copies were
+retired with exact retained replacements. The accepted index runtime remains
+retained for the independent window comparison. No payload backup, storage-limit
+change, package publication or installed-index-wheel claim is made.
+
+The [window evidence packet](../benchmarks/evidence/native-shared-window-state-2026-11-11/README.md)
+preserves the index closeout receipt. Recommendation 9's
+[separate outcome](native-shared-window-state-2026-11-11.md) includes versioned
+multi-output requests because the original one-`OVER` window cases cannot prove
+shared traversal. Recommendation 10 retains its separate allocated-storage
+objective.

@@ -107,10 +107,29 @@ pub(crate) struct Counts {
     pub(crate) join_output_rows: u64,
     pub(crate) join_output_cells: u64,
     pub(crate) join_payload_validation_only_cells: u64,
+    pub(crate) window_frame_bound_evaluations: u64,
+    pub(crate) window_state_construction_attempts: u64,
+    pub(crate) window_state_admissions: u64,
+    pub(crate) window_state_admitted_bytes: u64,
+    pub(crate) window_moment_state_construction_attempts: u64,
+    pub(crate) window_moment_state_admissions: u64,
+    pub(crate) window_moment_state_admitted_bytes: u64,
+    pub(crate) window_add_observation_attempts: u64,
+    pub(crate) window_remove_observation_attempts: u64,
+    pub(crate) window_additive_value_observations: u64,
+    pub(crate) window_moment_value_observations: u64,
+    pub(crate) window_state_finalizers: u64,
+    pub(crate) window_moment_finalizers: u64,
+    pub(crate) window_resident_frame_writes: u64,
+    pub(crate) window_shared_groups: u64,
+    pub(crate) window_shared_outputs: u64,
+    pub(crate) window_exceptional_suffix_functions: u64,
+    pub(crate) window_companion_cancellation_checks: u64,
 }
 
 thread_local! {
     static ACTIVE: RefCell<Option<Counts>> = const { RefCell::new(None) };
+    static WINDOW_CANCEL: RefCell<Option<(u64, shardloom_exec::compute_pool::CancellationToken)>> = const { RefCell::new(None) };
 }
 
 pub(crate) struct Session;
@@ -124,6 +143,23 @@ impl Session {
         Self
     }
 
+    pub(crate) fn cancel_after_window_writes(
+        writes: u64,
+        token: &shardloom_exec::compute_pool::CancellationToken,
+    ) {
+        assert!(writes > 0);
+        ACTIVE.with_borrow(|active| {
+            assert!(active.as_ref().unwrap().window_resident_frame_writes < writes);
+        });
+        WINDOW_CANCEL.with_borrow_mut(|cancel| {
+            assert!(
+                cancel.is_none(),
+                "window cancellation hook cannot be nested"
+            );
+            *cancel = Some((writes, token.clone()));
+        });
+    }
+
     pub(crate) fn finish(self) -> Counts {
         let counts =
             ACTIVE.with_borrow_mut(|active| active.take().expect("active native observation"));
@@ -135,13 +171,25 @@ impl Session {
 impl Drop for Session {
     fn drop(&mut self) {
         ACTIVE.with_borrow_mut(|active| *active = None);
+        WINDOW_CANCEL.with_borrow_mut(|cancel| *cancel = None);
     }
 }
 
 pub(super) fn record(change: impl FnOnce(&mut Counts)) {
-    ACTIVE.with_borrow_mut(|active| {
+    let writes = ACTIVE.with_borrow_mut(|active| {
         if let Some(counts) = active {
             change(counts);
+            Some(counts.window_resident_frame_writes)
+        } else {
+            None
+        }
+    });
+    WINDOW_CANCEL.with_borrow_mut(|cancel| {
+        if cancel
+            .as_ref()
+            .is_some_and(|(limit, _)| writes.is_some_and(|writes| writes >= *limit))
+        {
+            cancel.take().unwrap().1.cancel();
         }
     });
 }

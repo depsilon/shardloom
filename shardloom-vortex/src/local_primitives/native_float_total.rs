@@ -112,8 +112,7 @@ impl Default for Total {
 }
 
 impl Total {
-    #[cfg(test)]
-    fn count(&self) -> u64 {
+    pub(super) fn count(&self) -> u64 {
         self.count
     }
 

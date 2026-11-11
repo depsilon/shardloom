@@ -36,6 +36,10 @@ impl Cursor {
         peer_edge: &mut impl FnMut(usize) -> Result<usize>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Range<usize>> {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_frame_bound_evaluations += 1;
+        });
         let start = endpoint(
             frame,
             &frame.start,

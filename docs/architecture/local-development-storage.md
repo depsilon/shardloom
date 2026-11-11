@@ -234,6 +234,28 @@ retirement. The repaired runtime remains retained for the
 that candidate's tested runtime through its hosted acceptance. No storage limit
 changed and no payload backup was created.
 
+Shared-index PR #1678 subsequently merged as
+`a640475ae66bc36cefcae42088dc23da6776e8ed` after all 58 PR checks passed with
+review clear; all 55 exact-main checks passed. Verified retirement removed
+40 task-owned roots containing 5,826 entries, including 5,822 regular files
+and no symlinks, totaling 1,508,581,322 logical bytes. Repeated identities and
+closed-handle checks passed; 633 retained files and all 220 input generations
+remained unchanged. The superseded dictionary runtime, four redundant raw
+ledgers and reconstructible packet/source copies were retired with exact
+retained replacements. Both post-retirement replays passed. The accepted index
+runtime remains retained for the independent window comparison. No storage
+limit changed and no payload backup was created.
+
+During [compatible-window validation](native-shared-window-state-2026-11-11.md),
+verified debug-cache retirement removed 11,934 entries, including 10,163 regular
+files and no symlinks, totaling 7,001,904,381 logical bytes. Repeated identities
+and closed-handle checks preserved 146 protected runtime/evidence files, all
+220 input generations and the release cache. The fresh release build and fixed
+1,212-case candidate subsequently passed. Its tested runtime and the accepted
+index runtime remain retained through hosted integration; final retirement is
+separate. Original failures and compact retirement receipts remain preserved.
+No storage floor changed and no payload backup was created.
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.

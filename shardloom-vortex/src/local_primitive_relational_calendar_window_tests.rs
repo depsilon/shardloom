@@ -15,6 +15,9 @@ mod edge_tests;
 #[path = "local_primitive_relational_calendar_window_pressure_tests.rs"]
 mod pressure_tests;
 
+#[path = "local_primitive_relational_calendar_shared_tests.rs"]
+mod shared_tests;
+
 #[derive(Clone)]
 struct Row {
     key: Option<i64>,

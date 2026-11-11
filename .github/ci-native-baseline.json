@@ -64,6 +64,7 @@
     "local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen",
     "local_primitives::prepared_relational::tests::probe_attribution_tests::native_row_index_complete_request_attribution",
     "local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen",
+    "local_primitives::prepared_relational::tests::window_spill_tests::shared_tests::attribution_tests::native_compatible_window_complete_request_attribution",
     "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
     "local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic",
     "local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture",
