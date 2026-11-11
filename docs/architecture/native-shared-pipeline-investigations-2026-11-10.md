@@ -17,8 +17,11 @@ initial A/B sequence then remains: fact-position-preserving joins into ranking,
 followed by one bounded direct-source bridge into an existing optimized
 operator. The dictionary repair's hosted integration and retirement now pass
 alongside Variant and UUID. Recommendation 8's
-[fixed shared-index candidate is locally retained](native-shared-index-metadata-2026-11-10.md)
-and awaits hosted integration; recommendation 9 is next. Carry later mechanisms
+[fixed shared-index candidate is integrated](native-shared-index-metadata-2026-11-10.md)
+with exact-main checks and retirement complete. Recommendation 9's
+[compatible-window candidate is locally retained](native-shared-window-state-2026-11-11.md)
+and awaits hosted integration; recommendation 10 follows with its independent
+allocated-storage objective. Carry later mechanisms
 only where those paths or separate attribution demonstrate a consumer benefit.
 The separate required spatial and resource-admitted deep-traversal obligations
 under item 19 remain open.
@@ -176,8 +179,15 @@ The baseline combines 433 exact saved repair observations and 2,019 new missing
 cases; the candidate runs each case once. This is not a new valid full10k result.
 Debug-only attribution is separate from the ordinary release runtime. The small
 net gain, every family regression and extra credited metadata/container bytes
-remain in its decision record. Window sharing and rolling DISTINCT are unscored
-and retain their own acceptance contracts.
+remain in its decision record. Recommendation 9 independently passes all 1,212
+fixed window cases: engine sum 340.599417211 → 299.797880547 seconds. Its baseline
+combines 188 exact saved index observations and 1,024 newly measured cases;
+436 versioned arithmetic/moments compositions have independent references.
+Each candidate case runs once, and complete saved-result replay passes. Separate
+debug checks prove reduced traversal and state admissions while preserving
+output writes and numerical/error contracts. This is a selected-cohort result,
+not a new full10k or Full43 claim. Rolling DISTINCT remains unscored with its
+independent allocated-storage acceptance contract.
 
 The [October 25 workflow rejection](../benchmarks/native-workflow-drop-2026-10-25.md),
 October 28 join-probe reuse outcome and

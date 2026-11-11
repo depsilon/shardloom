@@ -274,15 +274,23 @@ Current autonomous execution order:
       observations against the accepted head. Map case IDs and actual activation
       for index probes, repeated window updates, spill, repeated builds and
       selected-run lookup before implementation. Freeze each protocol and reuse map.
-    - [ ] 8: evaluate one compact metadata layout for the shared native hash
+    - [x] 8: evaluate one compact metadata layout for the shared native hash
       index through complete joins, grouping and membership requests. The
-      [fixed candidate is locally retained](native-shared-index-metadata-2026-11-10.md):
+      [fixed candidate is retained and integrated](native-shared-index-metadata-2026-11-10.md):
       all 2,452 cases pass; engine sum 320.508980218 → 319.977114074 seconds.
       The baseline explicitly reuses 433 repair observations and measures 2,019
       missing cases. All family regressions and the 320-byte tiny-owner cost
-      remain recorded. Hosted integration and final retirement are pending.
+      remain recorded. PR #1678 merged as `a640475ae66bc36cefcae42088dc23da6776e8ed`;
+      all 58 PR and 55 exact-main checks passed with review clear. Verified
+      retirement and post-retirement replays completed.
     - [ ] 9: evaluate compatible SUM/AVG/COUNT and variance/standard-deviation
       window traversal and state sharing independently of recommendation 8.
+      The [fixed resident candidate is locally retained](native-shared-window-state-2026-11-11.md):
+      all 1,212 cases pass; engine sum 340.599417211 → 299.797880547 seconds.
+      The baseline reuses 188 exact index observations and measures 1,024 missing
+      cases; 436 versioned multi-output requests have independent references.
+      Default/native tests, diagnostic work and fresh release provenance pass.
+      Hosted integration and final retirement remain pending.
     - [ ] 10: prove window-local deletion/recycling for bounded moving COUNT
       DISTINCT, with an allocated-storage bound and separate throughput controls.
     - [ ] A: prove unique-dimension inner/left mappings through two joins and
@@ -354,7 +362,7 @@ Current autonomous execution order:
   cohort. This inventory ran no query and does not attribute family engine time
   to probes, shared accumulators or spill work.
 
-  - **8 — Shared probe metadata.** The current
+  - **8 — Shared probe metadata.** At intake, the
     [RowIndex](../../shardloom-vortex/src/local_primitives/native_relational_index.rs)
     loads a bucket's entry before checking its complete hash. Investigate compact
     occupancy/fingerprint groups while preserving stable entry identities, exact
@@ -363,12 +371,17 @@ Current autonomous execution order:
     Include tiny/high-cardinality tables, absent probes, skew, duplicates, strings
     and deliberate collisions. Measure bucket probes, full-entry loads, equality
     calls, resize work, peak charged memory and complete engine time; eligibility
-    must pay for metadata overhead on inexpensive inputs.
+    must pay for metadata overhead on inexpensive inputs. The retained
+    [compact-metadata outcome](native-shared-index-metadata-2026-11-10.md) now
+    implements bounded eligibility in this owner.
   - **9 — Compatible window execution.** Existing partition/order and peer work
     is already shared, and rolling states already advance incrementally. The
     [resident evaluator](../../shardloom-vortex/src/local_primitives/native_relational_window.rs)
     and [spill partition evaluator](../../shardloom-vortex/src/local_primitives/native_relational_window_partition.rs)
-    still evaluate framed outputs separately. Start with compatible additive
+    originally evaluated framed outputs separately. The retained
+    [resident candidate](native-shared-window-state-2026-11-11.md) shares
+    compatible contiguous additive and moments outputs; stored/spilled outputs
+    remain separate. The original investigation begins with compatible additive
     and moments families, retaining their current numerical algorithms and
     output finalizers. Require identical observed input/domain, partition/order,
     frame/exclusion, filter, null and arithmetic semantics; near matches stay

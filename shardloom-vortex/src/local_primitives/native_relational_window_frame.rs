@@ -8,6 +8,11 @@ mod input;
 mod moments;
 #[path = "native_relational_window_selection.rs"]
 pub(super) mod selection;
+#[path = "native_relational_window_shared_identity.rs"]
+mod shared_identity;
+#[cfg(test)]
+#[path = "native_relational_window_shared_identity_tests.rs"]
+mod shared_identity_tests;
 #[path = "native_relational_window_frame_state.rs"]
 mod state;
 
@@ -21,6 +26,7 @@ pub(super) use bounds::{
     Cursor, Position, difference, intervals, monotone, validate_intervals, validate_ranges,
 };
 pub(super) use input::{Input, Resident};
+pub(super) use shared_identity::can_share;
 pub(super) use state::{State, Value};
 
 #[derive(Clone, Copy, PartialEq, Eq)]

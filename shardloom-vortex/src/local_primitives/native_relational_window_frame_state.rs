@@ -66,11 +66,14 @@ pub(in super::super) struct State {
 
 impl State {
     pub(in super::super) fn new(spec: &Spec, memory: &LiveMemoryPool) -> Result<Self> {
-        let ownership = memory.reserve(
-            u64::try_from(std::mem::size_of::<Self>())
-                .map_err(|_| failed("window state size overflow"))?,
-        )?;
-        Ok(Self {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_state_construction_attempts += 1;
+        });
+        let state_bytes = u64::try_from(std::mem::size_of::<Self>())
+            .map_err(|_| failed("window state size overflow"))?;
+        let ownership = memory.reserve(state_bytes)?;
+        let state = Self {
             ranges: [0..0, 0..0, 0..0],
             counts: [0; 3],
             floats: [native_float_total::Total::default(); 3],
@@ -115,7 +118,13 @@ impl State {
                 None
             },
             _ownership: ownership,
-        })
+        };
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_state_admissions += 1;
+            counts.window_state_admitted_bytes += state_bytes;
+        });
+        Ok(state)
     }
 
     pub(in super::super) fn advance(
@@ -189,7 +198,73 @@ impl State {
         self.finish(spec, context)
     }
 
+    /// Advance the primary exactly as the one-output path does, exposing only
+    /// the moments traversal's existing local summary to borrowed finalizers.
+    pub(in super::super) fn advance_shared(
+        &mut self,
+        next: [Range<usize>; 3],
+        spec: &Spec,
+        rows: usize,
+        input: &mut impl Input,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<(Value, Option<super::moments::Summary>)> {
+        let Some(moments) = &mut self.moments else {
+            return self
+                .advance(next, spec, rows, input, context)
+                .map(|value| (value, None));
+        };
+        if spec.frame.can_rewind() {
+            super::validate_ranges(&next, rows)?;
+        } else {
+            super::validate_intervals(&self.ranges, &next, rows)?;
+        }
+        let Function::Aggregate(function) = spec.function else {
+            return Err(failed("statistical window state has no aggregate function"));
+        };
+        let summary = moments.advance_summary(&next, spec, input, context)?;
+        let value = summary.finish(function)?;
+        self.ranges = next;
+        Ok((Value::Float(value), Some(summary)))
+    }
+
+    pub(in super::super) fn finish_shared(
+        &self,
+        primary: &Spec,
+        companion: &Spec,
+        summary: Option<super::moments::Summary>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Value> {
+        if let Some(summary) = summary {
+            let Function::Aggregate(function) = companion.function else {
+                return Err(failed("statistical window state has no aggregate function"));
+            };
+            return summary.finish(function).map(Value::Float);
+        }
+        if companion.function == Function::Aggregate(Aggregate::Count) {
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record(|counts| {
+                counts.window_state_finalizers += 1;
+            });
+            let count = (0..self.floats.len()).try_fold(0u64, |count, index| {
+                let part = if primary.decimal.is_some() {
+                    self.decimals[index].count()
+                } else {
+                    self.floats[index].count()
+                };
+                count
+                    .checked_add(part)
+                    .ok_or_else(|| failed("window count overflow"))
+            })?;
+            return Ok(Value::Count(count));
+        }
+        self.finish(companion, context)
+    }
+
     fn finish(&self, spec: &Spec, context: &NativeExecutionContext<'_>) -> Result<Value> {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_state_finalizers += 1;
+        });
         match spec.function {
             Function::Aggregate(function) if function.is_collection() => {
                 let (arena, root) = self
@@ -318,6 +393,11 @@ impl State {
         input: &mut impl Input,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_add_observation_attempts += u64::from(add);
+            counts.window_remove_observation_attempts += u64::from(!add);
+        });
         if !super::admitted(row, spec, input, context)? {
             return Ok(());
         }
@@ -407,6 +487,10 @@ impl State {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let value = input.raw_cell(row, key, context)?;
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_additive_value_observations += 1;
+        });
         if let Some(dtype) = spec.decimal {
             let Cell::Decimal(value, actual) = value else {
                 return Err(failed("window decimal observation changed type"));

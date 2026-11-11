@@ -20,7 +20,7 @@ use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use std::ops::Range;
 
 #[derive(Clone, Copy)]
-enum Summary {
+pub(in super::super) enum Summary {
     Single(Moments),
     Pair(PairedMoments),
 }
@@ -58,7 +58,11 @@ impl Summary {
         }
     }
 
-    fn finish(self, function: Aggregate) -> Result<Option<f64>> {
+    pub(super) fn finish(self, function: Aggregate) -> Result<Option<f64>> {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_moment_finalizers += 1;
+        });
         match self {
             Self::Single(value) => value.finish(function.sample(), function.standard_deviation()),
             Self::Pair(value) => value.finish(function.sample(), function == Aggregate::Corr),
@@ -167,6 +171,10 @@ fn observe(
             .secondary_key
             .map(|key| input.raw_cell(row, key, context))
             .transpose()?;
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_moment_value_observations += 1;
+        });
         summary.observe(&primary, secondary.as_ref(), context.float_policy())?;
     }
     Ok(())
@@ -179,18 +187,27 @@ pub(super) struct Ranges {
 
 impl Ranges {
     pub(super) fn new(memory: &LiveMemoryPool) -> Result<Box<Self>> {
-        let ownership = memory.reserve(
-            u64::try_from(std::mem::size_of::<Self>())
-                .map_err(|_| failed("statistical window state size overflow"))?,
-        )?;
-        Ok(Box::new(Self {
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_moment_state_construction_attempts += 1;
+        });
+        let state_bytes = u64::try_from(std::mem::size_of::<Self>())
+            .map_err(|_| failed("statistical window state size overflow"))?;
+        let ownership = memory.reserve(state_bytes)?;
+        let state = Box::new(Self {
             covers: [
                 Cover::new(memory)?,
                 Cover::new(memory)?,
                 Cover::new(memory)?,
             ],
             _ownership: ownership,
-        }))
+        });
+        #[cfg(all(test, debug_assertions))]
+        crate::local_primitives::native_relational_observation::record(|counts| {
+            counts.window_moment_state_admissions += 1;
+            counts.window_moment_state_admitted_bytes += state_bytes;
+        });
+        Ok(state)
     }
 
     pub(super) fn advance(
@@ -203,11 +220,25 @@ impl Ranges {
         let Function::Aggregate(function) = spec.function else {
             return Err(failed("statistical window state has no aggregate function"));
         };
+        self.advance_summary(ranges, spec, input, context)?
+            .finish(function)
+    }
+
+    pub(super) fn advance_summary(
+        &mut self,
+        ranges: &[Range<usize>; 3],
+        spec: &Spec,
+        input: &mut impl Input,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Summary> {
+        let Function::Aggregate(function) = spec.function else {
+            return Err(failed("statistical window state has no aggregate function"));
+        };
         let mut summary = Summary::new(function);
         for (cover, range) in self.covers.iter_mut().zip(ranges) {
             summary.merge(cover.advance(range, function, spec, input, context)?)?;
         }
-        summary.finish(function)
+        Ok(summary)
     }
 }
 

@@ -32,6 +32,8 @@ use vortex::array::{
 
 #[path = "native_relational_window_group_order.rs"]
 mod partition_order;
+#[path = "native_relational_window_shared.rs"]
+mod shared;
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct OrderKey {
@@ -346,17 +348,7 @@ impl<'a> Window<'a> {
         }
         if has_frames {
             peers.push(rows.len())?;
-            for &function in &group.functions {
-                if let Some(frame) = &self.spec.frames[function] {
-                    self.evaluate_frame(
-                        frame,
-                        rows,
-                        &peers.values,
-                        &mut values[function],
-                        context,
-                    )?;
-                }
-            }
+            self.evaluate_frames(&group.functions, rows, &peers.values, values, context)?;
         }
         for &function in &group.functions {
             if let Some(spec) = &self.spec.fills[function] {
@@ -427,6 +419,10 @@ impl<'a> Window<'a> {
                         context,
                     )?,
             )?;
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record(|counts| {
+                counts.window_resident_frame_writes += 1;
+            });
         }
         Ok(())
     }
