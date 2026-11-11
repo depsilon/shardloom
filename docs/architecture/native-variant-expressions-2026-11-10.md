@@ -2,7 +2,7 @@
 
 # Native Variant field expressions
 
-Status: source and installed-runtime verification passed; final acceptance pending,
+Status: finite source, installed-runtime and hosted checks passed,
 November 10, 2026. This is the required
 field-expression work within [item 19](native-rich-data-lifecycle-2026-10-24.md).
 Useful spatial support and resource-admitted deep traversal remain separate
@@ -13,7 +13,14 @@ Its 58 PR checks and 55 exact-main checks passed with review clear, followed by
 verified retirement and source-bound replay. The preparation head and merge
 have identical source trees; adoption preserved the implementation, working
 diff and index. Final documentation checks and the portable evidence packet
-must bind this closeout to the unchanged tested runtime.
+bind this closeout to the unchanged tested runtime. PR #1676 merged as
+`8f426b3d2e774be2a9d30a731c33b8c830378d99` after all 58 PR checks passed with
+review clear; all 55 exact-main checks passed. The subsequent current-runtime
+observation exposed a separate dictionary callback defect. Its
+[repair](native-dictionary-execution-repair-2026-11-10.md) preserves all original
+failures and verifies a separate 517-case cohort. Hosted checks establish their
+finite coverage and do not certify that failed full10k observation. Current
+runtime/input evidence remains protected through the repair's closeout.
 
 ## User contract
 
@@ -124,8 +131,8 @@ checks pass 3,323/7,065 tests respectively, with 37 native opt-in ignores;
 formatting, strict lint, seven feature configurations and two supported-Rust
 configurations pass. The broader Python check reports 868 runs from 1,301
 declared cases, with 63 optional/environment skip records and no failures/errors.
-Final documentation, portable source binding and hosted acceptance remain
-required. The original parser, fixture,
+Final documentation, portable source binding and hosted checks passed. The
+original parser, fixture,
 all-null and free-space failures remain recorded. The free-space stop executed
 no tests; verified retirement preserved accepted/comparison runtimes, current
 inputs and release compiler output, without changing storage limits.

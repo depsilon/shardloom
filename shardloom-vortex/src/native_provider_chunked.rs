@@ -7,7 +7,10 @@
 
 use super::*;
 use vortex::array::{
-    arrays::{BoolArray, chunked::ChunkedArrayExt as _, varbinview::VarBinViewArrayExt as _},
+    arrays::{
+        BoolArray, chunked::ChunkedArrayExt as _, dict::DictSlots,
+        varbinview::VarBinViewArrayExt as _,
+    },
     builders::{AdmittedVarBinViewBuilder, VarBinViewBuilder},
 };
 use vortex::encodings::zstd::Zstd;
@@ -20,7 +23,7 @@ mod fixed_width;
 /// node is no longer the root. Other decoder trees keep their explicit scratch
 /// exclusions inside the existing fixed-width builder.
 pub(super) fn execute_shared_dictionary(
-    _child: &ArrayRef,
+    child: &ArrayRef,
     parent: &ArrayRef,
     child_idx: usize,
     ctx: &mut ExecutionCtx,
@@ -29,7 +32,7 @@ pub(super) fn execute_shared_dictionary(
         return Ok(None);
     };
     if child_idx != 0
-        || !dict.codes().is::<Chunked>()
+        || !child.is::<Chunked>()
         || !matches!(
             parent.dtype(),
             DType::Primitive(..) | DType::Bool(_) | DType::Decimal(..)
@@ -44,7 +47,29 @@ pub(super) fn execute_shared_dictionary(
     else {
         return Ok(None);
     };
-    fixed_width::decode(parent, ctx, &memory).map(Some)
+    // ExecuteSlot detaches codes before invoking a kernel against the suspended
+    // parent. The supplied child is authoritative; reading dict.codes() here
+    // would panic. Ordinary eager callbacks can keep the existing complete node.
+    if parent.slots()[DictSlots::CODES]
+        .as_ref()
+        .is_some_and(|codes| ArrayRef::ptr_eq(codes, child))
+    {
+        return fixed_width::decode(parent, ctx, &memory).map(Some);
+    }
+    let complete = Array::<Dict>::try_from_parts(ArrayParts::new(
+        Dict,
+        parent.dtype().clone(),
+        parent.len(),
+        dict.data().clone(),
+        DictSlots {
+            codes: child.clone(),
+            values: dict.values().clone(),
+        }
+        .into_slots(),
+    ))?
+    .into_array();
+    complete.statistics().inherit_from(parent.statistics());
+    fixed_width::decode(&complete, ctx, &memory).map(Some)
 }
 
 pub(super) fn execute(

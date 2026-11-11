@@ -1,0 +1,93 @@
+{
+  "schema": "shardloom.dictionary_packet_controls.v1",
+  "status": "passed",
+  "query_executions": 0,
+  "packet_manifest": {
+    "bytes": 5391421,
+    "sha256": "ef1a70bc0472d8f2481685f6d75f085de992c7c3be9fa02ae60329b2a67331bf"
+  },
+  "semantic_controls": "inner verification after archive validation; rebound log case proves test membership is checked independently of its digest",
+  "cases": [
+    {
+      "name": "native_test_failure",
+      "status": "rejected"
+    },
+    {
+      "name": "undrained_native_process",
+      "status": "rejected"
+    },
+    {
+      "name": "mutable_source_validation",
+      "status": "rejected"
+    },
+    {
+      "name": "provider_source_changed",
+      "status": "rejected"
+    },
+    {
+      "name": "provider_lock_changed",
+      "status": "rejected"
+    },
+    {
+      "name": "supplemental_protocol_source_changed",
+      "status": "rejected"
+    },
+    {
+      "name": "regression_test_missing_with_rebound_log",
+      "status": "rejected"
+    },
+    {
+      "name": "runtime_library_mismatch",
+      "status": "rejected"
+    },
+    {
+      "name": "original_failed_check_omitted",
+      "status": "rejected"
+    },
+    {
+      "name": "original_failure_laundered_as_performance_pass",
+      "status": "rejected"
+    },
+    {
+      "name": "repair_cohort_laundered_as_full10k",
+      "status": "rejected"
+    },
+    {
+      "name": "failed_request_omitted",
+      "status": "rejected"
+    },
+    {
+      "name": "archive_byte_changed",
+      "status": "rejected"
+    },
+    {
+      "name": "relocated_source_only",
+      "status": "passed",
+      "replay": {
+        "candidate_outcomes": {
+          "passed": 517
+        },
+        "complete_10k_performance_claim": false,
+        "original_attempts": 10000,
+        "original_outcomes": {
+          "crashed": 76,
+          "harness_error": 20,
+          "passed": 9904
+        },
+        "passing_controls": 421,
+        "query_executions": 0,
+        "repaired_cases": 96,
+        "source_fingerprint_sha256": "fa6efbc283a02bb16fe79c468cb9fbe930bac4a3f3b1fdd0e52449a7396a42bb",
+        "status": "passed"
+      }
+    }
+  ],
+  "verifier": {
+    "bytes": 31674,
+    "sha256": "5ec4e8b26626bebe511d52e6764b33f49e75717269398d79e50db3645501cfcd"
+  },
+  "control_source": {
+    "bytes": 7691,
+    "sha256": "e3417a90deaa992d2de434dbe4a265da164f26b8f17a2e66e5c89336242af856"
+  }
+}

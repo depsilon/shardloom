@@ -11,9 +11,12 @@ The [phased plan](phased-execution-plan.md#planned) alone owns execution order.
 
 Preserve native structure, prepared computation and validated knowledge across
 compatible consumers, and expose useful choices to PulseWeave and Capillary.
-Begin with two experiments after the in-flight Variant expression unit and UUID
-integration: fact-position-preserving joins into ranking, then one bounded
-direct-source bridge into an existing optimized operator. Carry later mechanisms
+The later operator-state intake places recommendations 8 and 9 first, with
+independent decisions, followed by recommendation 10's resource objective. The
+initial A/B sequence then remains: fact-position-preserving joins into ranking,
+followed by one bounded direct-source bridge into an existing optimized
+operator. Complete the dictionary repair's hosted integration first; the Variant
+and UUID hosted checks have passed. Carry later mechanisms
 only where those paths or separate attribution demonstrate a consumer benefit.
 The separate required spatial and resource-admitted deep-traversal obligations
 under item 19 remain open.
@@ -34,6 +37,16 @@ estimate recoverable time. They are historical source-bound observations, not
 new measurements of the current rich-data runtime. The
 [interpretation and request-shape evidence](../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md)
 remain unchanged.
+
+The subsequently requested current-runtime full10k observation completed all
+attempts but contained 96 failures. Its total engine time is unavailable. The
+[dictionary repair](native-dictionary-execution-repair-2026-11-10.md) passes a
+separate predefined cohort of all 96 failures and 421 passing controls. Preserve
+both observations. Later experiments use relevant selections frozen before the
+candidate, exact saved-case reuse from the declared baseline runtime, and a
+predefined baseline measurement for any missing cases. The maintainer did not
+request routine full10k repeats. New multi-output windows or pressured spill
+compositions retain their own versioned baseline/candidate protocols.
 
 ## Intake dispositions and shared owners
 

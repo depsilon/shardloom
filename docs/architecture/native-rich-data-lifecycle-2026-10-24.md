@@ -149,8 +149,14 @@ workspace, feature and supported-Rust checks pass. All 25 selected public/catalo
 tests and all 441 isolated installed-wheel tests pass with zero skips against a
 fresh release runtime; the broader Python check also passes with its optional
 skips preserved. Its base now matches the accepted UUID merge without changing
-the implementation or index. Final documentation, portable evidence and hosted acceptance
-remain pending. General Variant
+the implementation or index. Final documentation and portable evidence passed;
+PR #1676 merged as `8f426b3d2e774be2a9d30a731c33b8c830378d99` after 58 PR checks,
+followed by 55 passing exact-main checks. The subsequent full10k observation
+exposed a separate dictionary callback defect; the
+[repair evidence](native-dictionary-execution-repair-2026-11-10.md) preserves that
+failed observation and passes all 96 affected requests plus 421 predefined
+controls. Runtime/input evidence remains protected through repair closeout.
+General Variant
 keys/casts, useful spatial support and resource-admitted deep traversal are not
 admitted by these functions; this continuation does not close item 19.
 
