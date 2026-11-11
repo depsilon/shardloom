@@ -61,6 +61,9 @@ mod pivot_spill_tests;
 mod prepared_sample_cost_tests;
 #[path = "local_primitive_relational_prepared_sample_tests.rs"]
 mod prepared_sample_tests;
+#[cfg(debug_assertions)]
+#[path = "local_primitive_relational_probe_attribution_tests.rs"]
+mod probe_attribution_tests;
 #[path = "local_primitive_relational_provider_tests.rs"]
 mod provider_tests;
 #[path = "local_primitive_relational_retained_tests.rs"]
