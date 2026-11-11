@@ -1,0 +1,31 @@
+{
+  "baseline_cases": 2452,
+  "candidate_cases": 2452,
+  "complete_10k_performance_claim": false,
+  "controls": null,
+  "diagnostics": {
+    "complete_requests": 22,
+    "cyclic_calls": 8,
+    "diagnostic_corruptions_rejected": 14,
+    "engine_time_attribution": null,
+    "large_entry_reads_after": 30671,
+    "large_entry_reads_before": 86369
+  },
+  "disposition": "retain_candidate",
+  "engine_execution_seconds": {
+    "baseline": 320.508980218,
+    "candidate": 319.977114074
+  },
+  "new_baseline_cases": 2019,
+  "outcomes": {
+    "baseline": {
+      "passed": 2452
+    },
+    "candidate": {
+      "passed": 2452
+    }
+  },
+  "query_executions": 0,
+  "reused_baseline_cases": 433,
+  "status": "passed_source_bound_replay"
+}

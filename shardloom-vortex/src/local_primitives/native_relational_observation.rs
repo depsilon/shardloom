@@ -4,6 +4,20 @@ use std::cell::RefCell;
 
 #[derive(Default, Debug, serde::Serialize)]
 pub(crate) struct Counts {
+    pub(crate) row_index_lookups: u64,
+    pub(crate) row_index_probe_slots: u64,
+    pub(crate) row_index_bucket_reads: u64,
+    pub(crate) row_index_entry_reads: u64,
+    pub(crate) row_index_equality_calls: u64,
+    pub(crate) row_index_fingerprint_candidates: u64,
+    pub(crate) row_index_large_lookups: u64,
+    pub(crate) row_index_large_entry_reads: u64,
+    pub(crate) row_index_large_fingerprint_candidates: u64,
+    pub(crate) row_index_metadata_groups: u64,
+    pub(crate) row_index_bucket_initialization_bytes: u64,
+    pub(crate) row_index_metadata_initialization_bytes: u64,
+    pub(crate) row_index_rehash_entries: u64,
+    pub(crate) row_index_vacancy_reads: u64,
     pub(crate) key_columns: u64,
     pub(crate) key_cache_batches: u64,
     pub(crate) key_cache_slots: u64,

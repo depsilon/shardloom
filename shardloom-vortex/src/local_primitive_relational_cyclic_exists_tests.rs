@@ -179,7 +179,19 @@ fn cyclic_candidate_counts_actual_work_for_all_four_frozen_targets() {
         };
         let memory = prepared.session.memory().clone();
         for call in 0..2 {
+            #[cfg(debug_assertions)]
+            let probe_session =
+                crate::local_primitives::native_relational_observation::Session::start();
             let counts = complete(&prepared, &expected, 2048, wide);
+            #[cfg(debug_assertions)]
+            {
+                let probes = probe_session.finish();
+                assert!(probes.row_index_large_lookups > 0);
+                eprintln!(
+                    "CYCLIC_ROW_INDEX_WORK {}",
+                    json!({"case":case,"call":call,"observations":probes})
+                );
+            }
             let visits = if matches!(case, "rare" | "absent") {
                 262_144
             } else {

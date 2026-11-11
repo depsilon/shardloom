@@ -221,7 +221,18 @@ runtime/wheel/evidence files and the release cache. No payload backup or limit
 change was made. The original stopped attempt remains recorded. Default/native
 checks, a fresh release build and the isolated 517-case repair cohort subsequently
 passed. The failed original 10,000-case observation remains immutable evidence,
-and accepted/comparison runtimes remain protected through hosted closeout.
+and accepted/comparison runtimes remained protected through hosted closeout.
+PR #1677 subsequently merged as `037b6801320aa0bfe939ba10aed9304198b77a5a`
+after all 58 PR checks passed with review clear; all 55 exact-main checks passed.
+Verified retirement removed 47 task-owned roots containing 28,975 entries,
+including 27,400 regular files and four symlinks. An earlier hardlink stop and
+the separate retirement of 54 verified fixture aliases remain recorded; their
+five retained originals were preserved. All 220 input generations and 551
+retained files stayed unchanged, and all three portable replays passed after
+retirement. The repaired runtime remains retained for the
+[shared-index comparison](native-shared-index-metadata-2026-11-10.md), alongside
+that candidate's tested runtime through its hosted acceptance. No storage limit
+changed and no payload backup was created.
 
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and

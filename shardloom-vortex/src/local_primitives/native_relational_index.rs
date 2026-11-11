@@ -6,6 +6,9 @@ use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::{compute_pool::CancellationToken, live_memory::LiveMemoryPool};
 
 const EMPTY: usize = usize::MAX;
+const EMPTY_CONTROL: u8 = 0x80;
+const GROUP_BYTES: usize = 8;
+const HIGH_BITS: u64 = 0x8080_8080_8080_8080;
 
 struct Entry {
     hash: u64,
@@ -20,6 +23,7 @@ struct Link {
 
 pub(super) struct RowIndex {
     buckets: ReservedVec<usize>,
+    controls: Option<ReservedVec<u8>>,
     entries: ReservedVec<Entry>,
     links: ReservedVec<Link>,
     memory: LiveMemoryPool,
@@ -29,6 +33,7 @@ impl RowIndex {
     pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
         Ok(Self {
             buckets: ReservedVec::new(memory)?,
+            controls: None,
             entries: ReservedVec::new(memory)?,
             links: ReservedVec::new(memory)?,
             memory: memory.clone(),
@@ -42,8 +47,16 @@ impl RowIndex {
         mut equal: impl FnMut(usize) -> Result<bool>,
     ) -> Result<Option<usize>> {
         cancellation.check()?;
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.row_index_lookups += 1;
+            counts.row_index_large_lookups += u64::from(self.buckets.values.len() >= 128);
+        });
         if self.buckets.values.is_empty() {
             return Ok(None);
+        }
+        if let Some(controls) = &self.controls {
+            return self.find_with_controls(hash, &controls.values, cancellation, equal);
         }
         let mut bucket = compound_count_partial::bucket(hash, self.buckets.values.len());
         let mut visited = 0usize;
@@ -51,18 +64,96 @@ impl RowIndex {
             if visited.is_multiple_of(1024) {
                 cancellation.check()?;
             }
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.row_index_probe_slots += 1;
+                counts.row_index_bucket_reads += 1;
+            });
             let position = self.buckets.values[bucket];
             if position == EMPTY {
                 cancellation.check()?;
                 return Ok(None);
             }
             let entry = &self.entries.values[position];
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.row_index_entry_reads += 1;
+                counts.row_index_fingerprint_candidates +=
+                    u64::from(entry.hash >> 57 == hash >> 57);
+                if self.buckets.values.len() >= 128 {
+                    counts.row_index_large_entry_reads += 1;
+                    counts.row_index_large_fingerprint_candidates +=
+                        u64::from(entry.hash >> 57 == hash >> 57);
+                }
+                counts.row_index_equality_calls += u64::from(entry.hash == hash);
+            });
             if entry.hash == hash && equal(entry.first)? {
                 cancellation.check()?;
                 return Ok(Some(position));
             }
             bucket = (bucket + 1) & (self.buckets.values.len() - 1);
             visited += 1;
+        }
+    }
+
+    fn find_with_controls(
+        &self,
+        hash: u64,
+        controls: &[u8],
+        cancellation: &CancellationToken,
+        mut equal: impl FnMut(usize) -> Result<bool>,
+    ) -> Result<Option<usize>> {
+        let mask = self.buckets.values.len() - 1;
+        let fingerprint = fingerprint(hash);
+        let mut bucket = compound_count_partial::bucket(hash, self.buckets.values.len());
+        let mut visited = 0usize;
+        loop {
+            if visited.is_multiple_of(1024) {
+                cancellation.check()?;
+            }
+            let (mut matches, empty) = probe_group(controls, bucket, fingerprint);
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.row_index_metadata_groups += 1;
+            });
+            #[cfg(all(test, debug_assertions))]
+            let mut consumed = 0usize;
+            while matches != 0 {
+                let lane = matches.trailing_zeros() as usize / 8;
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.row_index_probe_slots += (lane + 1 - consumed) as u64;
+                    counts.row_index_bucket_reads += 1;
+                    consumed = lane + 1;
+                });
+                let position = self.buckets.values[(bucket + lane) & mask];
+                let entry = &self.entries.values[position];
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record(|counts| {
+                    counts.row_index_entry_reads += 1;
+                    counts.row_index_large_entry_reads += 1;
+                    counts.row_index_fingerprint_candidates += 1;
+                    counts.row_index_large_fingerprint_candidates += 1;
+                    counts.row_index_equality_calls += u64::from(entry.hash == hash);
+                });
+                if entry.hash == hash && equal(entry.first)? {
+                    cancellation.check()?;
+                    return Ok(Some(position));
+                }
+                matches &= matches - 1;
+            }
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                // A word load can inspect beyond the logical stopping point.
+                // Count only through the first empty slot, or this full group.
+                counts.row_index_probe_slots += ((empty + 1).min(GROUP_BYTES) - consumed) as u64;
+            });
+            if empty < GROUP_BYTES {
+                cancellation.check()?;
+                return Ok(None);
+            }
+            bucket = (bucket + GROUP_BYTES) & mask;
+            visited += GROUP_BYTES;
         }
     }
 
@@ -139,7 +230,11 @@ impl RowIndex {
             first: row,
             duplicate_tail: EMPTY,
         });
-        self.buckets.values[vacant.expect("new entry has a vacant bucket")] = position;
+        let bucket = vacant.expect("new entry has a vacant bucket");
+        self.buckets.values[bucket] = position;
+        if let Some(controls) = &mut self.controls {
+            publish_control(&mut controls.values, bucket, hash);
+        }
         Ok((position, true))
     }
 
@@ -159,16 +254,29 @@ impl RowIndex {
             .and_then(usize::checked_next_power_of_two)
             .ok_or_else(failed)?
             .max(16);
-        // Both bucket arrays retain their own credits until rehash is complete.
+        // Old buckets and controls remain charged while replacements are built.
         let mut next = ReservedVec::new(&self.memory)?;
         next.reserve(capacity)?;
         next.values.resize(capacity, EMPTY);
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| {
+            counts.row_index_bucket_initialization_bytes += (capacity * size_of::<usize>()) as u64;
+        });
+        let mut next_controls = optional_controls(&self.memory, capacity)?;
         for (position, entry) in self.entries.values.iter().enumerate() {
             let bucket = vacant_bucket(&next.values, entry.hash, cancellation)?;
             next.values[bucket] = position;
+            if let Some(controls) = &mut next_controls {
+                publish_control(&mut controls.values, bucket, entry.hash);
+            }
+            #[cfg(all(test, debug_assertions))]
+            super::native_relational_observation::record(|counts| {
+                counts.row_index_rehash_entries += 1;
+            });
         }
         cancellation.check()?;
         self.buckets = next;
+        self.controls = next_controls;
         Ok(())
     }
 
@@ -190,6 +298,62 @@ impl RowIndex {
     pub(super) fn unique_rows(&self) -> usize {
         self.entries.values.len()
     }
+}
+
+fn fingerprint(hash: u64) -> u8 {
+    (hash >> 57) as u8
+}
+
+fn optional_controls(memory: &LiveMemoryPool, capacity: usize) -> Result<Option<ReservedVec<u8>>> {
+    if capacity < 128 {
+        return Ok(None);
+    }
+    let bytes = capacity.checked_add(GROUP_BYTES - 1).ok_or_else(failed)?;
+    let snapshot = memory.snapshot();
+    let available = snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes);
+    if u64::try_from(bytes).map_err(|_| failed())? > available / 16 {
+        return Ok(None);
+    }
+    // A fresh container reserves exactly capacity + 7 bytes. Once admitted,
+    // allocation errors propagate; they are not optional-layout decisions.
+    let mut controls = ReservedVec::new(memory)?;
+    controls.reserve(bytes)?;
+    controls.values.resize(bytes, EMPTY_CONTROL);
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| {
+        counts.row_index_metadata_initialization_bytes += bytes as u64;
+    });
+    Ok(Some(controls))
+}
+
+fn publish_control(controls: &mut [u8], bucket: usize, hash: u64) {
+    controls[bucket] = fingerprint(hash);
+    if bucket < GROUP_BYTES - 1 {
+        controls[controls.len() - (GROUP_BYTES - 1) + bucket] = fingerprint(hash);
+    }
+}
+
+fn matching_controls(word: u64, fingerprint: u8) -> u64 {
+    let different = word ^ (u64::from(fingerprint) * 0x0101_0101_0101_0101);
+    // Each masked byte plus 127 is at most 254: no inter-byte carry can create
+    // a false match. A high bit remains clear exactly for a zero difference.
+    !(different | ((different & 0x7f7f_7f7f_7f7f_7f7f) + 0x7f7f_7f7f_7f7f_7f7f)) & HIGH_BITS
+}
+
+fn probe_group(controls: &[u8], bucket: usize, fingerprint: u8) -> (u64, usize) {
+    // Seven mirrored controls preserve linear visitation for every wraparound
+    // start. Little-endian conversion makes lane order independent of the host.
+    let word = u64::from_le_bytes(
+        controls[bucket..bucket + GROUP_BYTES]
+            .try_into()
+            .expect("probe group and mirrored tail are present"),
+    );
+    let empty = (word & HIGH_BITS).trailing_zeros() as usize / 8;
+    let mut matches = matching_controls(word, fingerprint);
+    if empty < GROUP_BYTES {
+        matches &= (1u64 << (8 * empty)) - 1;
+    }
+    (matches, empty)
 }
 
 pub(super) struct Rows<'a> {
@@ -223,12 +387,16 @@ fn vacant_bucket(buckets: &[usize], hash: u64, cancellation: &CancellationToken)
     let mut bucket = compound_count_partial::bucket(hash, buckets.len());
     let mut visited = 0usize;
     while buckets[bucket] != EMPTY {
+        #[cfg(all(test, debug_assertions))]
+        super::native_relational_observation::record(|counts| counts.row_index_vacancy_reads += 1);
         if visited.is_multiple_of(1024) {
             cancellation.check()?;
         }
         bucket = (bucket + 1) & (buckets.len() - 1);
         visited += 1;
     }
+    #[cfg(all(test, debug_assertions))]
+    super::native_relational_observation::record(|counts| counts.row_index_vacancy_reads += 1);
     cancellation.check()?;
     Ok(bucket)
 }
@@ -241,8 +409,53 @@ fn failed() -> ShardLoomError {
 }
 
 #[cfg(test)]
+#[path = "native_relational_index_metadata_tests.rs"]
+mod metadata_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(debug_assertions)]
+    fn probe_observations_distinguish_entry_reads_fingerprints_and_exact_equality() {
+        let memory = LiveMemoryPool::new(4096).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        // Both initial buckets are zero, but their high-bit fingerprints differ.
+        index.insert(0, 10, &cancellation, |_| Ok(false)).unwrap();
+        index
+            .insert((1 << 57) | 16, 20, &cancellation, |_| Ok(false))
+            .unwrap();
+        let session = super::super::native_relational_observation::Session::start();
+        assert_eq!(
+            index
+                .find(32, &cancellation, |_| panic!("full hash differs"))
+                .unwrap(),
+            None
+        );
+        let counts = session.finish();
+        assert_eq!(counts.row_index_lookups, 1);
+        assert_eq!(counts.row_index_probe_slots, 3);
+        assert_eq!(counts.row_index_bucket_reads, 3);
+        assert_eq!(counts.row_index_entry_reads, 2);
+        assert_eq!(counts.row_index_fingerprint_candidates, 1);
+        assert_eq!(counts.row_index_equality_calls, 0);
+        let session = super::super::native_relational_observation::Session::start();
+        assert_eq!(
+            index.find(0, &cancellation, |row| Ok(row == 10)).unwrap(),
+            Some(0)
+        );
+        let counts = session.finish();
+        assert_eq!(counts.row_index_lookups, 1);
+        assert_eq!(counts.row_index_probe_slots, 1);
+        assert_eq!(counts.row_index_bucket_reads, 1);
+        assert_eq!(counts.row_index_entry_reads, 1);
+        assert_eq!(counts.row_index_fingerprint_candidates, 1);
+        assert_eq!(counts.row_index_equality_calls, 1);
+        drop(index);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
 
     #[test]
     fn unique_rows_fit_entry_and_bucket_grant_without_duplicate_storage() {
@@ -472,6 +685,63 @@ mod tests {
         assert_eq!(denied.unique_rows(), 0);
         assert_eq!(denied.find(0, &cancellation, |_| Ok(true)).unwrap(), None);
         drop(denied);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+
+    #[test]
+    fn populated_bucket_growth_denial_keeps_entry_ids_and_duplicate_chains() {
+        const GRANT: u64 = 1 << 20;
+        let memory = LiveMemoryPool::new(GRANT).unwrap();
+        let cancellation = CancellationToken::default();
+        let mut index = RowIndex::new(&memory).unwrap();
+        let positions: Vec<_> = (0..64)
+            .map(|row| index.insert(7, row, &cancellation, |_| Ok(false)).unwrap())
+            .collect();
+        for row in [1003, 2003] {
+            assert_eq!(
+                index
+                    .insert(7, row, &cancellation, |old| Ok(old == 3))
+                    .unwrap(),
+                positions[3]
+            );
+        }
+        assert_eq!(index.buckets.values.len(), 128);
+        // Admit entry capacity first, so the denied operation reaches replacement
+        // bucket admission with a populated table and an existing duplicate chain.
+        index.entries.reserve_one().unwrap();
+        let before = index.buckets.values.clone();
+        let reserved = memory.snapshot().reserved_bytes;
+        let hold = memory.reserve(GRANT - reserved).unwrap();
+        assert!(index.insert(7, 64, &cancellation, |_| Ok(false)).is_err());
+        assert_eq!(memory.snapshot().reserved_bytes, GRANT);
+        assert_eq!(index.buckets.values, before);
+        assert_eq!(index.unique_rows(), 64);
+        let check_existing = |index: &RowIndex| {
+            for (row, position) in positions.iter().copied().enumerate() {
+                assert_eq!(
+                    index.find(7, &cancellation, |old| Ok(old == row)).unwrap(),
+                    Some(position)
+                );
+                let expected = if row == 3 {
+                    vec![3, 1003, 2003]
+                } else {
+                    vec![row]
+                };
+                assert_eq!(index.rows(position).unwrap().collect::<Vec<_>>(), expected);
+            }
+        };
+        check_existing(&index);
+        drop(hold);
+        assert_eq!(memory.snapshot().reserved_bytes, reserved);
+        assert_eq!(
+            index.insert(7, 64, &cancellation, |_| Ok(false)).unwrap(),
+            64
+        );
+        assert_eq!(index.buckets.values.len(), 256);
+        assert_eq!(index.unique_rows(), 65);
+        check_existing(&index);
+        assert_eq!(index.rows(64).unwrap().collect::<Vec<_>>(), [64]);
+        drop(index);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 

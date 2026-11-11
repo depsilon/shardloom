@@ -256,24 +256,31 @@ Current autonomous execution order:
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.
     The later November 10 maintainer addition below preserves that program and
-    changes the immediate order: finish the
+    changes the immediate order: complete the
     [dictionary repair's hosted integration](native-dictionary-execution-repair-2026-11-10.md)
-    following the current-runtime observation (Variant and UUID hosted checks
-    passed), investigate recommendations 8 and 9 independently, then evaluate
+    following the current-runtime observation (dictionary PR #1677, Variant and
+    UUID hosted checks now pass), investigate recommendations 8 and 9 independently, then evaluate
     recommendation 10 under its separate resource objective. A then B remain
     queued after this first operator-state sequence. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
     spatial support and resource-admitted deep traversal remain in item 19.
   - Execution checklist:
-    - [ ] Complete hosted integration of the dictionary callback repair. Its
-      default/native suites and separate frozen 517-case correctness cohort pass;
-      preserve the failed original 10,000-case observation and its 96 failures.
+    - [x] Complete hosted integration of the dictionary callback repair. PR #1677
+      merged as `037b6801320aa0bfe939ba10aed9304198b77a5a`; all 58 PR and 55
+      exact-main checks passed, review was clear and verified retirement/replay
+      completed. Its separate frozen 517-case cohort passes. Preserve the failed
+      original 10,000-case observation and its 96 failures.
     - [ ] Reconcile all fifteen hypotheses and saved accepted/rejected
       observations against the accepted head. Map case IDs and actual activation
       for index probes, repeated window updates, spill, repeated builds and
       selected-run lookup before implementation. Freeze each protocol and reuse map.
     - [ ] 8: evaluate one compact metadata layout for the shared native hash
-      index through complete joins, grouping and membership requests.
+      index through complete joins, grouping and membership requests. The
+      [fixed candidate is locally retained](native-shared-index-metadata-2026-11-10.md):
+      all 2,452 cases pass; engine sum 320.508980218 → 319.977114074 seconds.
+      The baseline explicitly reuses 433 repair observations and measures 2,019
+      missing cases. All family regressions and the 320-byte tiny-owner cost
+      remain recorded. Hosted integration and final retirement are pending.
     - [ ] 9: evaluate compatible SUM/AVG/COUNT and variance/standard-deviation
       window traversal and state sharing independently of recommendation 8.
     - [ ] 10: prove window-local deletion/recycling for bounded moving COUNT

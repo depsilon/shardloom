@@ -15,8 +15,10 @@ The later operator-state intake places recommendations 8 and 9 first, with
 independent decisions, followed by recommendation 10's resource objective. The
 initial A/B sequence then remains: fact-position-preserving joins into ranking,
 followed by one bounded direct-source bridge into an existing optimized
-operator. Complete the dictionary repair's hosted integration first; the Variant
-and UUID hosted checks have passed. Carry later mechanisms
+operator. The dictionary repair's hosted integration and retirement now pass
+alongside Variant and UUID. Recommendation 8's
+[fixed shared-index candidate is locally retained](native-shared-index-metadata-2026-11-10.md)
+and awaits hosted integration; recommendation 9 is next. Carry later mechanisms
 only where those paths or separate attribution demonstrate a consumer benefit.
 The separate required spatial and resource-admitted deep-traversal obligations
 under item 19 remain open.
@@ -168,7 +170,14 @@ outputs precede performance acceptance. Lower complete-cohort engine time ships;
 higher or unchanged drops, with no minimum percentage. Counter reductions and
 small target wins cannot substitute for the complete gate. Preserve every
 failure, regression and changed disposition. Additional instrumentation needs
-its own measured overhead control. No new benchmark has run for this program.
+its own measured overhead control. Recommendation 8's complete frozen cohort
+passes with engine sum 320.508980218 → 319.977114074 seconds across 2,452 cases.
+The baseline combines 433 exact saved repair observations and 2,019 new missing
+cases; the candidate runs each case once. This is not a new valid full10k result.
+Debug-only attribution is separate from the ordinary release runtime. The small
+net gain, every family regression and extra credited metadata/container bytes
+remain in its decision record. Window sharing and rolling DISTINCT are unscored
+and retain their own acceptance contracts.
 
 The [October 25 workflow rejection](../benchmarks/native-workflow-drop-2026-10-25.md),
 October 28 join-probe reuse outcome and
