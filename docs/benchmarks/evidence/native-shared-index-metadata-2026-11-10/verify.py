@@ -57,6 +57,9 @@ STATUS_PROSE = {
     'docs/architecture/native-shared-index-metadata-2026-11-10.md',
     'docs/architecture/local-development-storage.md',
 }
+CI_POLICY_PATH = '.github/ci-native-baseline.json'
+CI_POLICY_HEAD = 'c935ed5036c9dce061bcf91724a6423a069004f4'
+CI_DIAGNOSTIC = 'local_primitives::prepared_relational::tests::probe_attribution_tests::native_row_index_complete_request_attribution'
 ORIGINAL_FAILURES = {'baseline-attribution-r1.json', 'baseline-attribution-r2.json',
                      'candidate-diagnostic-comparison-r1.json', 'native-clippy-r1.json'}
 CONTROL_NAMES = {
@@ -67,6 +70,7 @@ CONTROL_NAMES = {
     'candidate_case_omitted', 'baseline_reuse_corrupted', 'candidate_no_fallback_denied',
     'gain_disposition_corrupted', 'original_failure_omitted', 'full10k_claim',
     'archive_byte_changed',
+    'ci_policy_extra_skip', 'ci_policy_existing_skip_removed', 'ci_policy_weights_changed',
 }
 
 
@@ -200,12 +204,52 @@ class Packet:
         return record
 
 
+def verify_ci_policy(packet, source):
+    record = packet.guard('current/ci-policy-r1',
+        ['/opt/homebrew/opt/python@3.13/libexec/bin/python3', '-B', ORIGINAL_ROOT + '/tools/check_ci_policy.py'])
+    assert record['base'] == BASE and record['head'] == CI_POLICY_HEAD
+    late = record['build_sources']
+    changed = {key for key in set(late) | set(source) if late.get(key) != source.get(key)}
+    assert CI_POLICY_PATH in changed and changed <= STATUS_PROSE | {CI_POLICY_PATH}
+    before_raw = packet.data['source-blobs/' + source[CI_POLICY_PATH]['sha256']]
+    after_raw = packet.data['source-blobs/' + late[CI_POLICY_PATH]['sha256']]
+    before, after = json.loads(before_raw), json.loads(after_raw)
+    assert len(before['ignored_tests']) == 33 and CI_DIAGNOSTIC not in before['ignored_tests']
+    assert after == {**before, 'ignored_tests': sorted([*before['ignored_tests'], CI_DIAGNOSTIC])}
+    anchor = b'    "local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen",\n'
+    assert before_raw.count(anchor) == 1
+    assert after_raw == before_raw.replace(anchor, ('    "' + CI_DIAGNOSTIC + '",\n').encode() + anchor)
+    result = packet.read('current/ci-policy-r1.log')
+    assert result['status'] == 'passed' and result['source_head'] == CI_POLICY_HEAD
+    assert result['query_executions'] == result['native_test_executions'] == 0
+    assert result['before'] == identity(before_raw) and result['after'] == identity(after_raw)
+    assert result['added_ignored_tests'] == [CI_DIAGNOSTIC] and result['removed_ignored_tests'] == []
+    assert result['old_policy_rejected'] and result['local_inventory_matches_passed_native_log']
+    assert result['native_log'] == identity(packet.data['current/native-tests-r1.log'])
+    assert result['projected_ignored'] == 34 and result['local_ignored'] == 35
+    assert result['exact_hosted_inventory_still_required']
+    assert result['unit_test_command'] == ['/opt/homebrew/opt/python@3.13/bin/python3.13',
+        '-B', '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_ci_native_tests.py', '-v']
+    assert re.search(r'Ran 17 tests in [\d.]+s\n\nOK\n', result['unit_test_stderr'])
+    assert packet.report['ci_policy_correction'] == dict(path=CI_POLICY_PATH,
+        before=identity(before_raw), after=identity(after_raw), added_ignored_test=CI_DIAGNOSTIC,
+        existing_ignored_tests_unchanged=True, runtime_and_test_source_unchanged=True,
+        query_executions=0)
+    for job, marker in ((130369718429, 'native ignored-test policy changed'),
+                        (130374427684, 'AssertionError')):
+        response = packet.read(f'current/hosted-failure-r1/job-{job}-connector.json')
+        assert not response.get('isError')
+        assert marker in response['structuredContent']['content']
+    return late[CI_POLICY_PATH]
+
+
 def verify_sources(report, data, repo=None):
     packet = Packet(report, data)
     build = packet.read('current/release-build-r1.json')
     source = build['build_sources']
     assert report['source_base'] == BASE and report['candidate_source_snapshot'] == source
     assert report['candidate_source_fingerprint_sha256'] == fingerprint(source)
+    ci_policy = verify_ci_policy(packet, source)
     for name, command in CHECKS.items():
         record = packet.guard('current/' + name, command, source)
         assert record['base'] == record['head'] == BASE
@@ -293,6 +337,8 @@ def verify_sources(report, data, repo=None):
         for name, item in target.items():
             if name in STATUS_PROSE:
                 continue
+            if name == CI_POLICY_PATH and report['disposition'] == 'retain_candidate':
+                item = ci_policy
             path = repo / name
             if 'symlink' in item:
                 assert path.is_symlink() and str(path.readlink()) == item['symlink']

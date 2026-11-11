@@ -25,9 +25,12 @@ python3 -B docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/veri
 After copying this directory elsewhere, run `python3 -B verify.py --require-controls`
 inside that directory for source-only replay. Source-bound replay additionally
 checks the checkout against the exact validated candidate, allowing only the
-four declared status documents to advance.
+four declared status documents to advance and one separately verified exact
+insertion into CI's ignored-test registry. That insertion registers the new
+opt-in diagnostic; it changes no existing skip, scheduling estimate or runtime
+source. The original hosted inventory failure is retained.
 
-`corruption-controls.json` binds two positive replays and 17 rejected corruptions
+`corruption-controls.json` binds two positive replays and 20 rejected corruptions
 to this exact manifest, verifier and archives. `control-observations/` preserves
 their raw stdout/stderr. The archived diagnostic verifier separately checks all
 22 complete diagnostic requests, eight cyclic calls and 14 counter corruptions.

@@ -5,9 +5,9 @@
     "-B",
     "/Users/dylan/LocalData/shardloom/shared-index-metadata-2026-11-10/tools/check_index_packet_controls.py",
     "--packet",
-    "/Users/dylan/LocalData/shardloom/shared-index-metadata-2026-11-10/packet-final-r1",
+    "/Users/dylan/LocalData/shardloom/shared-index-metadata-2026-11-10/packet-final-r2",
     "--execution-name",
-    "packet-controls-r1"
+    "packet-controls-r2"
   ],
   "cwd": "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo",
   "protected_runtime_and_wheel": {
@@ -2364,16 +2364,20 @@
   "build_inventory_policy": "periodic",
   "evidence_inventory_policy": "periodic",
   "active_output": null,
-  "head": "037b6801320aa0bfe939ba10aed9304198b77a5a",
-  "working_tree": " M docs/architecture/local-development-storage.md\n M docs/architecture/native-shared-pipeline-investigations-2026-11-10.md\n M docs/architecture/phased-execution-plan.md\n M shardloom-vortex/src/local_primitive_relational_cyclic_exists_tests.rs\n M shardloom-vortex/src/local_primitive_relational_tests.rs\n M shardloom-vortex/src/local_primitives/native_relational_index.rs\n M shardloom-vortex/src/local_primitives/native_relational_observation.rs\n?? docs/architecture/native-shared-index-metadata-2026-11-10.md\n?? docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/\n?? shardloom-vortex/src/local_primitive_relational_probe_attribution_tests.rs\n?? shardloom-vortex/src/local_primitives/native_relational_index_metadata_tests.rs\n",
+  "head": "c935ed5036c9dce061bcf91724a6423a069004f4",
+  "working_tree": " M .github/ci-native-baseline.json\n M docs/architecture/native-shared-index-metadata-2026-11-10.md\n M docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/README.md\n",
   "changed_source_inventory": {
+    ".github/ci-native-baseline.json": {
+      "sha256": "cdad5413eb4e9b932d7108c726bd3fa63b0b7dcb9b7b00f1fad7d0feff38124e",
+      "bytes": 13521
+    },
     "docs/architecture/local-development-storage.md": {
       "sha256": "681c5f437a03c52ea6d493e8cfa63015d9555706a2e2adc10c5c8ec3e54288fe",
       "bytes": 68193
     },
     "docs/architecture/native-shared-index-metadata-2026-11-10.md": {
-      "sha256": "6f6270d29420912de730b02e0875e7dfe1157d33e9d4208df5e24a12e4f39903",
-      "bytes": 8665
+      "sha256": "7572ac1a28579ad53c2f4d57eba1618af7e8d5cd3564192b5d51c224333c669c",
+      "bytes": 9623
     },
     "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": {
       "sha256": "7937d99f121e4ed10a980eb5a4206faa9c477bbfd721dcdcecd5a24adda0baa6",
@@ -2384,8 +2388,224 @@
       "bytes": 238668
     },
     "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/README.md": {
-      "sha256": "25bf6af3e727c7422c4e26913b7d0c0663ef1bc0b7c0e01b7a8d1008cb14f10c",
-      "bytes": 2166
+      "sha256": "33636a66d3fc6b052bdf642910efcfa7db1a505184bfcffe14c6adaed90c8366",
+      "bytes": 2413
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/acceptance.json": {
+      "sha256": "1fed731a9cd1c9d8dae3b2e2ea7830b81a10489aec51537b1e2f5bb98fe2e61e",
+      "bytes": 5419194
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/archive_byte_changed.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/archive_byte_changed.stdout.log": {
+      "sha256": "09caffcc35ac16aab1acc3ced173d0a54edf22fa88b2814522371145d284912c",
+      "bytes": 88
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/baseline_reuse_corrupted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/baseline_reuse_corrupted.stdout.log": {
+      "sha256": "de4e9b078fd3d24012c634d7f95bde5f7dd03d5eae9cae498f18d867c73f72ce",
+      "bytes": 94
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_case_omitted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_case_omitted.stdout.log": {
+      "sha256": "ce453f4e2855c0a003c519ba426fcd650b2a92a671378f0037057c56cc1f3ee5",
+      "bytes": 92
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_engine_total_corrupted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_engine_total_corrupted.stdout.log": {
+      "sha256": "0016bc932d25449f7e0889774f4aab95a0858ea0044afb0a4106f3bed62409d3",
+      "bytes": 102
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_no_fallback_denied.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/candidate_no_fallback_denied.stdout.log": {
+      "sha256": "b4694a4424310d5e595ba3356c883710f69d63ce7db5b93914dadd051c31d877",
+      "bytes": 98
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/consumer_test_missing_with_rebound_log.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/consumer_test_missing_with_rebound_log.stdout.log": {
+      "sha256": "31d7bd2c71b99022b919365f9b022a2cfafacffb327c69a0dd2cfd98f5416ec7",
+      "bytes": 108
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/diagnostic_entry_count_corrupted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/diagnostic_entry_count_corrupted.stdout.log": {
+      "sha256": "b346ccafb3a984bf5ecb91ed923bbc3aa7285d24881e95af37bddfb2af448550",
+      "bytes": 102
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/full10k_claim.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/full10k_claim.stdout.log": {
+      "sha256": "1abfa8d81426d8fa1deca8a3a8eb68da9a123be495aa06e924a8d3425a302c64",
+      "bytes": 83
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/gain_disposition_corrupted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/gain_disposition_corrupted.stdout.log": {
+      "sha256": "95bba694290c13c2b4c2794ed701de40f9c9118ef2ee21cac9be08ac0da68f2a",
+      "bytes": 96
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/index_source_changed.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/index_source_changed.stdout.log": {
+      "sha256": "ffb887731dfc2330f93f86a9b4ca73f5674a8de6e06beb2ad3f2957e3bc7281e",
+      "bytes": 90
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/metadata_test_missing_with_rebound_log.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/metadata_test_missing_with_rebound_log.stdout.log": {
+      "sha256": "167951993c59abd474c5492adba78ed3cb6e892fd0372a907202d072c01fad45",
+      "bytes": 108
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/mutable_source_validation.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/mutable_source_validation.stdout.log": {
+      "sha256": "1bd17829e6f969fd83db93af04d89d7d2121476f52d3198172c90bb8890c6bb1",
+      "bytes": 95
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/native_test_failure.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/native_test_failure.stdout.log": {
+      "sha256": "5599451ce3dbb2fc0b87154c8cc77de9dd9f14cc11d167ea181034012d5a0e33",
+      "bytes": 89
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/original_failure_omitted.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/original_failure_omitted.stdout.log": {
+      "sha256": "9b61395d5041726d634654d3967ed8e9894fbb7e2467bca157a9ef5392c3c99b",
+      "bytes": 94
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/relocated.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/relocated.stdout.log": {
+      "sha256": "4d25ebbb56bbc630ca65f318840b72db1fd00d618d7d15db84610c853d7714a1",
+      "bytes": 729
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/root_lock_changed.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/root_lock_changed.stdout.log": {
+      "sha256": "e57f00b1eb2e18b8825e103c63e794b19a76f7a40efe67c12a512ab4c3004fa2",
+      "bytes": 87
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/runtime_library_mismatch.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/runtime_library_mismatch.stdout.log": {
+      "sha256": "4a5e637b9633ed9def20c7e0bb136da32765fa1b7f8861e24eae3ffa98b1e965",
+      "bytes": 94
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/source-bound.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/source-bound.stdout.log": {
+      "sha256": "4d25ebbb56bbc630ca65f318840b72db1fd00d618d7d15db84610c853d7714a1",
+      "bytes": 729
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/undrained_native_process.stderr.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/control-observations/undrained_native_process.stdout.log": {
+      "sha256": "e6d8ea5736fd4463ed8a15f0fb953af5fffc612415f17899f35a36e35ef06f4f",
+      "bytes": 94
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/controls-execution.json": {
+      "sha256": "beadea9880adcd4c2961a3ee3625625ca2f62de2523f666d8688028b028c387a",
+      "bytes": 1079077
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/controls-execution.log": {
+      "sha256": "e2bd7c5694d1cf4f98cabb63b7f672ff926416c359ebdc73b1096d56d703a66a",
+      "bytes": 96
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/corruption-controls.json": {
+      "sha256": "e99ab727043136397dd779c66c947568b8d3720f10e7c38d010e73440872b084",
+      "bytes": 531862
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/packaging-execution.json": {
+      "sha256": "cd95b5f8c0ced2739da8d42f18b30ef6c608ada345d00ef62b85e7a56650b19a",
+      "bytes": 1078693
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/packaging-execution.log": {
+      "sha256": "c14214eaf6bd390c153b699ebf169626da6af0090645324d0897b04729396139",
+      "bytes": 627
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-001.tar.xz": {
+      "sha256": "71ebcf483e6d27bfee759eeb2bb20a1ed7ed740b6ce771841ed109c826d1aeb7",
+      "bytes": 2526216
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-002.tar.xz": {
+      "sha256": "b27d8507ed366255bfa2a62639d4898c4f120a25627623ca49dcb05b9f78dd7c",
+      "bytes": 4768196
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-003.tar.xz": {
+      "sha256": "3d5c4931052fe7ca99cdd3e3561c2358e4edbf9bafe55ba2f2f61f5ba2c2ecec",
+      "bytes": 22580360
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-004.tar.xz": {
+      "sha256": "6b74a61e4fbae2c77f471273a58bde9af16019eedcaf81a259571d50e5a443d5",
+      "bytes": 28343272
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-005.tar.xz": {
+      "sha256": "58353e87cd84ee98a7bc836d5d742ca4db5cb4cc11cce67d5fe2360e5f8080ac",
+      "bytes": 28421680
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-006.tar.xz": {
+      "sha256": "19cef09d02cef3d17b268143eba4810af932f46f6847c4486733be6e398e730f",
+      "bytes": 19674060
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-007.tar.xz": {
+      "sha256": "66572ae719ec2363cb7c98059c4953518ecf93e76778e2430f33af8b13dbb049",
+      "bytes": 12932172
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-008.tar.xz": {
+      "sha256": "9bbb13d5e2ef4561800f83c6fc2ec32f644d3243b8ddbe83bc8d27bb851bb447",
+      "bytes": 6779744
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verification-009.tar.xz": {
+      "sha256": "bcf0de9a2f56ed3a6ba7080fd1a7c97ecb2a982c760633342d66f0e59b9728e0",
+      "bytes": 8607208
+    },
+    "docs/benchmarks/evidence/native-shared-index-metadata-2026-11-10/verify.py": {
+      "sha256": "36dcb8b7ae691d2311832a280b8dcebfee68928d6a84b94a1913a29279bcee4c",
+      "bytes": 39373
     },
     "shardloom-vortex/src/local_primitive_relational_cyclic_exists_tests.rs": {
       "sha256": "10a63a206fd4222c8880a31ca54301247c82fe78164bbeed68ce066b76bde99b",
@@ -2430,8 +2650,8 @@
       "bytes": 2292
     },
     ".github/ci-native-baseline.json": {
-      "sha256": "56176bdac4e729971a2ed235fcb8077f490a3a747fb4fdce2f243d8b1801b97c",
-      "bytes": 13397
+      "sha256": "cdad5413eb4e9b932d7108c726bd3fa63b0b7dcb9b7b00f1fad7d0feff38124e",
+      "bytes": 13521
     },
     ".github/codeql/codeql-config.yml": {
       "sha256": "b28d96746166f8f2107fa27519b00520135899c7caa475908f5a2472d832602b",
@@ -3798,8 +4018,8 @@
       "bytes": 48627
     },
     "docs/architecture/native-shared-index-metadata-2026-11-10.md": {
-      "sha256": "6f6270d29420912de730b02e0875e7dfe1157d33e9d4208df5e24a12e4f39903",
-      "bytes": 8665
+      "sha256": "7572ac1a28579ad53c2f4d57eba1618af7e8d5cd3564192b5d51c224333c669c",
+      "bytes": 9623
     },
     "docs/architecture/native-shared-owner-optimizations-2026-10-30.md": {
       "sha256": "41844933b5d910455e793da6b421297694e96f29824a737d480de1ff3081810c",
@@ -25082,7 +25302,7 @@
       "bytes": 157
     }
   },
-  "build_source_fingerprint_sha256": "ee05c08ee2fc584f7b79050922881ddae57942f5b5d615bd4090e3f1abcd3a57",
+  "build_source_fingerprint_sha256": "124916d463049f060676bedfe53f035b432a871add81d3f82c8ed693f50b70a6",
   "build_source_path_count": 5667,
   "build_source_scope_exclusions": [
     "docs/benchmarks/evidence/",
@@ -25105,19 +25325,19 @@
   },
   "build_source_verification": {
     "pre_execution": {
-      "head": "037b6801320aa0bfe939ba10aed9304198b77a5a",
+      "head": "c935ed5036c9dce061bcf91724a6423a069004f4",
       "head_matches": true,
       "path_set_matches": true,
       "path_count": 5667,
-      "fingerprint_sha256": "ee05c08ee2fc584f7b79050922881ddae57942f5b5d615bd4090e3f1abcd3a57",
+      "fingerprint_sha256": "124916d463049f060676bedfe53f035b432a871add81d3f82c8ed693f50b70a6",
       "changed_paths": []
     },
     "post_execution": {
-      "head": "037b6801320aa0bfe939ba10aed9304198b77a5a",
+      "head": "c935ed5036c9dce061bcf91724a6423a069004f4",
       "head_matches": true,
       "path_set_matches": true,
       "path_count": 5667,
-      "fingerprint_sha256": "ee05c08ee2fc584f7b79050922881ddae57942f5b5d615bd4090e3f1abcd3a57",
+      "fingerprint_sha256": "124916d463049f060676bedfe53f035b432a871add81d3f82c8ed693f50b70a6",
       "changed_paths": []
     }
   },
@@ -25139,8 +25359,8 @@
       "bytes": 8451
     },
     "/Users/dylan/LocalData/shardloom/shared-index-metadata-2026-11-10/tools/check_index_packet_controls.py": {
-      "sha256": "24a11727df61840506018db68e5d15af462ff3130031949aafcfdc570b60c3d9",
-      "bytes": 11257
+      "sha256": "924239422990fc3b1b689c6296c16674199e63fcfcd1538815b6911af9ebe010",
+      "bytes": 12827
     }
   },
   "driver_sha256": "66c35f3dc6694512f75fabcf702af553f36a170bc4685327af16d662bd17e3c5",
@@ -25156,10 +25376,10 @@
   "supervisor_sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
   "storage_last_observation": {
     "output": {
-      "workspace_bytes": 1122189312,
+      "workspace_bytes": 1423540224,
       "log_bytes": 0,
       "max_log_bytes": 201326592,
-      "free_bytes": 16218365952,
+      "free_bytes": 15576571904,
       "reserved_candidate_bytes": 134217728,
       "reserved_log_bytes": 0
     },
@@ -25167,7 +25387,7 @@
       "workspace_bytes": 9040596992,
       "log_bytes": 0,
       "max_log_bytes": 201326592,
-      "free_bytes": 16218365952,
+      "free_bytes": 15576571904,
       "reserved_candidate_bytes": 134217728,
       "reserved_log_bytes": 0
     }
@@ -25227,6 +25447,14 @@
         "cargo"
       ],
       "child_started": true,
+      "forced": false
+    },
+    {
+      "scopes": [
+        "output",
+        "cargo"
+      ],
+      "child_started": true,
       "forced": true
     }
   ],
@@ -25237,10 +25465,10 @@
   "interrupted_signal": null,
   "process_group_drained": true,
   "direct_child_reaped": true,
-  "pid": 18448,
+  "pid": 22307,
   "output_bytes": 96,
   "group_absence_unproved_at_cleanup": false,
   "returncode": 0,
-  "seconds": 164.104836124985,
-  "log_sha256": "e2bd7c5694d1cf4f98cabb63b7f672ff926416c359ebdc73b1096d56d703a66a"
+  "seconds": 183.4526794590056,
+  "log_sha256": "37a0cc9f21dff6079dadadf69f6c60ad04eadd05f33417ad0ef13c8871ba3dea"
 }

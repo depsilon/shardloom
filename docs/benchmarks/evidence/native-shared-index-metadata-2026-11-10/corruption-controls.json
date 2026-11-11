@@ -2,7 +2,7 @@
   "status": "passed",
   "query_executions": 0,
   "positive_controls": 2,
-  "rejected_corruptions": 17,
+  "rejected_corruptions": 20,
   "controls": [
     {
       "name": "source_bound",
@@ -31,6 +31,21 @@
     {
       "failure_type": "AssertionError",
       "name": "candidate_no_fallback_denied",
+      "outcome": "rejected"
+    },
+    {
+      "failure_type": "AssertionError",
+      "name": "ci_policy_existing_skip_removed",
+      "outcome": "rejected"
+    },
+    {
+      "failure_type": "AssertionError",
+      "name": "ci_policy_extra_skip",
+      "outcome": "rejected"
+    },
+    {
+      "failure_type": "AssertionError",
+      "name": "ci_policy_weights_changed",
       "outcome": "rejected"
     },
     {
@@ -99,8 +114,8 @@
     }
   ],
   "acceptance_manifest": {
-    "bytes": 5419194,
-    "sha256": "1fed731a9cd1c9d8dae3b2e2ea7830b81a10489aec51537b1e2f5bb98fe2e61e"
+    "bytes": 5469381,
+    "sha256": "4e92ac7d5ced494be1a911c9f3c29365d6ba31c37574b6d0572f815e0289405d"
   },
   "archives": [
     {
@@ -153,7 +168,11 @@
         "current/candidate-replay-r1.json",
         "current/candidate-replay-r1.log",
         "current/candidate-verified-r1.json",
+        "current/ci-policy-r1.json",
+        "current/ci-policy-r1.log",
         "current/cohort-comparison-summary-r1.json",
+        "current/committed-source-replay-r1.json",
+        "current/committed-source-replay-r1.log",
         "current/contribution-governance-r1.json",
         "current/default-clippy-r1.json",
         "current/default-clippy-r1.log",
@@ -165,37 +184,95 @@
         "current/doc-contracts-r1.log",
         "current/docs-checks-r1.json",
         "current/docs-checks-r1.log",
+        "current/draft-compaction-r1.json",
+        "current/draft-compaction-r1.log",
         "current/failure-dispositions-r1.json",
         "current/final-source-validation-r1.json",
         "current/format-r1.json",
         "current/format-r1.log",
         "current/freeze-runtime-r1.json",
         "current/freeze-runtime-r1.log",
+        "current/hosted-contract-r1.json",
+        "current/hosted-failure-r1/checks-connector.json",
+        "current/hosted-failure-r1/job-130369718429-connector.json",
+        "current/hosted-failure-r1/job-130369718429.log",
+        "current/hosted-failure-r1/job-130374427684-connector.json",
+        "current/hosted-failure-r1/job-130374427684.log",
+        "current/hosted-failure-r1/workflows-connector.json",
         "current/native-clippy-r1.json",
         "current/native-clippy-r1.log",
         "current/native-clippy-r2.json",
         "current/native-clippy-r2.log",
         "current/native-tests-r1.json",
         "current/native-tests-r1.log",
-        "current/packet-r1/acceptance.json",
-        "current/packet-r1/verify.py",
-        "current/packet-r2/acceptance.json",
-        "current/packet-r2/verify.py"
+        "current/packet-controls-r1.json",
+        "current/packet-controls-r1.log",
+        "current/packet-final-r1/acceptance.json",
+        "current/packet-final-r1/control-observations/archive_byte_changed.stderr.log",
+        "current/packet-final-r1/control-observations/archive_byte_changed.stdout.log",
+        "current/packet-final-r1/control-observations/baseline_reuse_corrupted.stderr.log",
+        "current/packet-final-r1/control-observations/baseline_reuse_corrupted.stdout.log",
+        "current/packet-final-r1/control-observations/candidate_case_omitted.stderr.log",
+        "current/packet-final-r1/control-observations/candidate_case_omitted.stdout.log",
+        "current/packet-final-r1/control-observations/candidate_engine_total_corrupted.stderr.log",
+        "current/packet-final-r1/control-observations/candidate_engine_total_corrupted.stdout.log",
+        "current/packet-final-r1/control-observations/candidate_no_fallback_denied.stderr.log",
+        "current/packet-final-r1/control-observations/candidate_no_fallback_denied.stdout.log",
+        "current/packet-final-r1/control-observations/consumer_test_missing_with_rebound_log.stderr.log",
+        "current/packet-final-r1/control-observations/consumer_test_missing_with_rebound_log.stdout.log",
+        "current/packet-final-r1/control-observations/diagnostic_entry_count_corrupted.stderr.log",
+        "current/packet-final-r1/control-observations/diagnostic_entry_count_corrupted.stdout.log",
+        "current/packet-final-r1/control-observations/full10k_claim.stderr.log",
+        "current/packet-final-r1/control-observations/full10k_claim.stdout.log",
+        "current/packet-final-r1/control-observations/gain_disposition_corrupted.stderr.log",
+        "current/packet-final-r1/control-observations/gain_disposition_corrupted.stdout.log",
+        "current/packet-final-r1/control-observations/index_source_changed.stderr.log",
+        "current/packet-final-r1/control-observations/index_source_changed.stdout.log",
+        "current/packet-final-r1/control-observations/metadata_test_missing_with_rebound_log.stderr.log",
+        "current/packet-final-r1/control-observations/metadata_test_missing_with_rebound_log.stdout.log",
+        "current/packet-final-r1/control-observations/mutable_source_validation.stderr.log",
+        "current/packet-final-r1/control-observations/mutable_source_validation.stdout.log",
+        "current/packet-final-r1/control-observations/native_test_failure.stderr.log",
+        "current/packet-final-r1/control-observations/native_test_failure.stdout.log",
+        "current/packet-final-r1/control-observations/original_failure_omitted.stderr.log",
+        "current/packet-final-r1/control-observations/original_failure_omitted.stdout.log",
+        "current/packet-final-r1/control-observations/relocated.stderr.log",
+        "current/packet-final-r1/control-observations/relocated.stdout.log",
+        "current/packet-final-r1/control-observations/root_lock_changed.stderr.log",
+        "current/packet-final-r1/control-observations/root_lock_changed.stdout.log",
+        "current/packet-final-r1/control-observations/runtime_library_mismatch.stderr.log",
+        "current/packet-final-r1/control-observations/runtime_library_mismatch.stdout.log",
+        "current/packet-final-r1/control-observations/source-bound.stderr.log",
+        "current/packet-final-r1/control-observations/source-bound.stdout.log",
+        "current/packet-final-r1/control-observations/undrained_native_process.stderr.log",
+        "current/packet-final-r1/control-observations/undrained_native_process.stdout.log",
+        "current/packet-final-r1/corruption-controls.json",
+        "current/packet-final-r1/verify.py"
       ],
-      "bytes": 2526216,
-      "sha256": "71ebcf483e6d27bfee759eeb2bb20a1ed7ed740b6ce771841ed109c826d1aeb7"
+      "bytes": 2662536,
+      "sha256": "7b34ce25014b93b4c8a9f57f556017a3cbb4eb920cc52a529a975dc7b4551dc7"
     },
     {
       "path": "verification-002.tar.xz",
       "members": [
+        "current/packet-r1/acceptance.json",
+        "current/packet-r1/verify.py",
+        "current/packet-r2/acceptance.json",
+        "current/packet-r2/verify.py",
         "current/packet-r3/acceptance.json",
         "current/packet-r3/verify.py",
+        "current/portable-ci-preflight-r1.json",
+        "current/portable-ci-preflight-r1.log",
+        "current/portable-ci-preflight-r2.json",
+        "current/portable-ci-preflight-r2.log",
         "current/portable-collection-preflight-r1.json",
         "current/portable-collection-preflight-r1.log",
         "current/portable-collection-preflight-r2.json",
         "current/portable-collection-preflight-r2.log",
         "current/portable-collection-preflight-r3.json",
         "current/portable-collection-preflight-r3.log",
+        "current/portable-final-r1.json",
+        "current/portable-final-r1.log",
         "current/portable-packet-r1.json",
         "current/portable-packet-r1.log",
         "current/portable-packet-r2.json",
@@ -205,11 +282,14 @@
         "current/portable-preflight-r1.json",
         "current/portable-replay-preflight-r1.json",
         "current/portable-replay-preflight-r1.log",
+        "current/pr1678-created-r1.json",
         "current/public-status-docs-r1.json",
         "current/release-build-r1.json",
         "current/release-build-r1.log",
+        "current/repository-packet-copy-proof-r1.json",
         "current/runtime-library-copy-r1.json",
         "current/runtime-r1-identity.json",
+        "current/tools/check_ci_policy.py",
         "current/tools/check_docs.py",
         "current/tools/check_index_diagnostics.py",
         "current/tools/check_index_packet_controls.py",
@@ -305,8 +385,8 @@
         "harness/scripts/run_clickbench_query_uat.py",
         "harness/scripts/timed_native_command.py"
       ],
-      "bytes": 4768196,
-      "sha256": "b27d8507ed366255bfa2a62639d4898c4f120a25627623ca49dcb05b9f78dd7c"
+      "bytes": 4793788,
+      "sha256": "3f24f21354dae578c2efe9b14c061d5be5d5220b90a6a492e7156a5c7a73307f"
     },
     {
       "path": "verification-003.tar.xz",
@@ -531,6 +611,7 @@
         "source-blobs/02b327dc2d11db37aaace5e93ee88d3b89714677587fed78d60fa879ef80a7eb",
         "source-blobs/02b6499c439387f14adbc1630e149641fcacba20532bc246701101d1595540e0",
         "source-blobs/02c348b38c209e5cd28916b41976ac19737cd310ca0acef78d5af79575458977",
+        "source-blobs/02c50713dd2aba8cd4cb3c935b7f00040faee99fb385cc3e8c49b9aab53d964e",
         "source-blobs/02d118774e9ef77156bcec07ef74c9b38e9edb74fdd8a4cf9ba9f2583ecfe158",
         "source-blobs/02d76b47f065ce9d19ac9e70579372c4660e8bf908d9821cbbb38c49f2c29adb",
         "source-blobs/02e55534e2c38c3db0d508b4cd9a77f81ee20034b3057bcc48c5b18f7af56c5a",
@@ -1276,6 +1357,7 @@
         "source-blobs/248378d0a3383c173fb925f17141b88e71580b3ba17ddc6ac3d2a344683232ab",
         "source-blobs/24995fb26845639af777c108fb0f8ce99f221765c8c25a537845a16d895f60c5",
         "source-blobs/249fdb6694467dd615b259f7ddde07be3f8ae5a72cecebb0e24f6629af4215fe",
+        "source-blobs/24a11727df61840506018db68e5d15af462ff3130031949aafcfdc570b60c3d9",
         "source-blobs/24a1424fcc2b64af7e2056090ad77ab40aad093049f4697391b5ed8253279adf",
         "source-blobs/24c76e53c1fc3ce696ffe6da4308f7630721e3783c6716d82229213239d54220",
         "source-blobs/24e3beed0ad44073fb8728576924637c9662c3a0f10566275b9be60c0c561533",
@@ -1551,8 +1633,8 @@
         "source-blobs/305372c77a1569a80eb731767cf627af416bd4e0109da84123688f56f397e32a",
         "source-blobs/3057b51fe98be40e6f7173b8ba27fc0c95d464de5f29250751d944e192b05d52"
       ],
-      "bytes": 19674060,
-      "sha256": "19cef09d02cef3d17b268143eba4810af932f46f6847c4486733be6e398e730f"
+      "bytes": 19678792,
+      "sha256": "8979bf9aa49409e70067486a7883d890767eab1b6740779c82f815921cdd6237"
     },
     {
       "path": "verification-007.tar.xz",
@@ -1700,6 +1782,7 @@
         "source-blobs/36b46a95cd9c61d630596169525c946ded010e34c93454835e225e298f9b07cf",
         "source-blobs/36c0eab353b3e57984ba8fc076b850f3c8e5429a1edd08acd46cf357c4b21cea",
         "source-blobs/36c105aa22379ee996083dcdb8472233472c19c6677990720fbab1755e7bfc09",
+        "source-blobs/36dcb8b7ae691d2311832a280b8dcebfee68928d6a84b94a1913a29279bcee4c",
         "source-blobs/36ddcb79799d56d5098f4cdb42777873a5ddd9ae6f40d8cfa316abafde6c658a",
         "source-blobs/36e57e00a8c6cf0d1d8dd5d6d305e39f2a5d4b2cafa4b4d6ef3bd7747547e76c",
         "source-blobs/36ec0b5b02dd0be0eb3bd54914bbf68f6632b63ed3f12bae08ed22645c6646bb",
@@ -1789,6 +1872,7 @@
         "source-blobs/3af65a956216ff1ccac2afc49d5b6b140d207e9911222f9411a54cf6c3a7695f",
         "source-blobs/3b0692e50556c91982632e6a36dc744097dfeee7c32ac6af62231408b83084d1",
         "source-blobs/3b0adbb7316ed230b0509c460be374219b98f4f2f1335e73140fe144018fbf9a",
+        "source-blobs/3b168b21fee77fd29a5c6610db20cd066472980cef127224f3ef25a336c4cc64",
         "source-blobs/3b1c1c6a9a52613dd01f33e642d26f3bd474288638a360dc85a7be622e7eaffb",
         "source-blobs/3b3800720f96b5f3c1e9f3ef48b8f31b9a7fdeec53f0d258b7a941fb0e858f4f",
         "source-blobs/3b47c8854f872f90fcf68a7b7c3a0bc626125b6cae07a5dd933290c61f3c30f6",
@@ -2965,6 +3049,7 @@
         "source-blobs/6f11d32d73b2e98e853a00d415fc406fcd9c87e961e343d98d8b95c306b27853",
         "source-blobs/6f18e7ffc197e9d3b7d70dc07238ad51fe2dec3b2789bfcaa91c1f49b1ffaf53",
         "source-blobs/6f1e746f249e1a77acc2a6e9cfaa0561b680b190bdb32473de1908e88bda2bec",
+        "source-blobs/6f3d47b3e16aff9369211e3936063b9ecd31ec49658a4073df51144927c6d127",
         "source-blobs/6f4470ed753e0819d8ec6d81796d55367e89a7e8981a2f24f11991e2513db0ba",
         "source-blobs/6f45549e65442152bd5044e633dee783bc5ec6bdeabb0135cdd0b70c3a3ce70f",
         "source-blobs/6f4ee07fe1074aaa452be50f84575580880a2c1e6b8f6e590bd2a067c17edde5",
@@ -3105,6 +3190,7 @@
         "source-blobs/7565c9a6d2045a9f2ec336dce015e9de55db88c380b7b9827fc156eda1a7df60",
         "source-blobs/756991b37a9c02fe351ed9149abede5fd9249f15d550b4b750af1952f0974a79",
         "source-blobs/7570235986bb9ccd437b696d72d6866172797c5a6a78cd93c1c8c366e51b788e",
+        "source-blobs/7572ac1a28579ad53c2f4d57eba1618af7e8d5cd3564192b5d51c224333c669c",
         "source-blobs/7576269ea71f767b99297934c0b2367532690f8c4badc695edf8e04ab6a1e545",
         "source-blobs/757b513b0bdce6bd531833a7cf86ea0da4a42a0f3a8b0d03797c9f3200fcb928",
         "source-blobs/757e7dc6291e5eb889e1851df69e2d8ff198b03255735812f572f9e4829072f3",
@@ -3453,7 +3539,14 @@
         "source-blobs/85b06e52054c2cb565bc66960080d418d6d353c5203ef7405487aeb755290774",
         "source-blobs/85bcb2bd35af79b8fbf9ef201486594972d6da842b99d7f7eab18ddc1084a783",
         "source-blobs/85bdb7d81f26d103252df8385415672d27973323d2e55dd79cefa0a57201b28d",
-        "source-blobs/85d656a99545cdec3e775062e9f3f3507c6e993cfee45ae69dafe658b0abb90a",
+        "source-blobs/85d656a99545cdec3e775062e9f3f3507c6e993cfee45ae69dafe658b0abb90a"
+      ],
+      "bytes": 12922676,
+      "sha256": "c271fdca1c96770b4fbee6d9db757dd26cc3ad20ec7ab6c0dd20a77aea88537d"
+    },
+    {
+      "path": "verification-008.tar.xz",
+      "members": [
         "source-blobs/85dfad583dfb80989eefa5d102a8ae09658e74932371a1be679988c9f29b87d7",
         "source-blobs/85f18a1874113ab71a50c7a0b26159a02f40c7aca3f237c8cbdafa5e9dc25aa4",
         "source-blobs/8604389700a2c304baeb74bb366b2142def4460e57ab12f147e6e354013b35f0",
@@ -3461,14 +3554,7 @@
         "source-blobs/860a81dee3b136b3ab88f1f299ef616be6e01bfe2c86abcf62130a1e3b2453db",
         "source-blobs/861321d11c4a76a1577797912dcefe47b791b992416732385f10ddb6919e561a",
         "source-blobs/86134695a800c4f11ab1061d37796b333eba5342d750acdad3d209ce618b380c",
-        "source-blobs/861399f8c21c042b110517e76dc6b63a2b334276c8cf17412fc3c8908ca8dc17"
-      ],
-      "bytes": 12932172,
-      "sha256": "66572ae719ec2363cb7c98059c4953518ecf93e76778e2430f33af8b13dbb049"
-    },
-    {
-      "path": "verification-008.tar.xz",
-      "members": [
+        "source-blobs/861399f8c21c042b110517e76dc6b63a2b334276c8cf17412fc3c8908ca8dc17",
         "source-blobs/861a6fe1b3ffa93ea3e67ba7e0d3c0a37e6bcf7b3de900d58703da3796d397c9",
         "source-blobs/861d5361cde48646b3d4f7e8cdbc4c03b4b1f30e519be5be2a198d97dc9117a8",
         "source-blobs/864fc343b1a124d5384b1ffc940d4437bbc5ef181d58370d24818f453712485a",
@@ -4997,6 +5083,7 @@
         "source-blobs/cd703ca99490561616167415215274a30f7b2a8ccd5312409945a22cc0af6aa6",
         "source-blobs/cd91cbb4182b1f561181109366407a178fac727f676fed52cdbe2672d62e45d9",
         "source-blobs/cd9dbc9e60ca3b212bb906f2d9de1b749b4e57af528e8e3aac0bf26ed2aa3542",
+        "source-blobs/cdad5413eb4e9b932d7108c726bd3fa63b0b7dcb9b7b00f1fad7d0feff38124e",
         "source-blobs/cdadeb9eb0261b9ad7dc7e908bb460c515c68adc21481672541233e45a22db41",
         "source-blobs/cdb8ff4d4a66b8d49de3bc213f3a0cefff453052ba9d75468927670b0a171e49",
         "source-blobs/cdc06b7cfe4f8a306e7dfca2f287210d25b9c57b0ddc43c8e65e2a4c55d602cc",
@@ -5239,6 +5326,7 @@
         "source-blobs/d8b672c4610a9560ff8c543f2d9017e0d9db7c58ee3e7393dda8ba0327b32505",
         "source-blobs/d8e9317319a7cb723273ae8821adceb05ab195641cdbcf6f2d8007597107347e",
         "source-blobs/d8f00a35a51c311057de5762da72b96f624e7240330f10ab0a2c19489ddba15b",
+        "source-blobs/d90eb5edc3b1ab3d21e47def10d547f2a7f449b1cb9cd31ce4d2d69aa2d86e31",
         "source-blobs/d929250f5bee74798da28966339b1dee733bb6d489060d8319ff06565113d4db",
         "source-blobs/d93be9bf3ae71b21055d63d4480e257ef900f1d93712f0aa10495b30b3124b92",
         "source-blobs/d95bce818bfd04b2ffc39d156c5238320b4a746d5e7932adb152d7d2dbd36d22",
@@ -5594,20 +5682,20 @@
         "source-blobs/e8670fa401d1b4d235f88b486d29bf4d3214d20d42854869505d1caa1520890e",
         "source-blobs/e86e23362e5b54ad9d213c1d0e6671d2ee68a2bd4223649a4d7eae78901bdc6c",
         "source-blobs/e8911da1afefc340565d4263edd9daca2f7242b25d145255476708c01e671af7",
-        "source-blobs/e8d3901c28744304957435401f88b9114a73ad95f35bf569e20c4feeb7e2db35",
+        "source-blobs/e8d3901c28744304957435401f88b9114a73ad95f35bf569e20c4feeb7e2db35"
+      ],
+      "bytes": 6783180,
+      "sha256": "5c728385a7b98ae1074343379a32e4dc1c7a08ab6a5217947d2d71cfe50e759e"
+    },
+    {
+      "path": "verification-009.tar.xz",
+      "members": [
         "source-blobs/e8edd4b2e68532723e3e8b1421506bdbf77ff2b94c37237240d9beb864849729",
         "source-blobs/e900d2fb8e599a18fdbc2c7c8d226ea55a5332a12190871a2a7e55b4ebd028f2",
         "source-blobs/e90f5146121e76367b4a850e7db969c1634539143a59edca23d24273ab639c70",
         "source-blobs/e91e86c095114fd7cd767b8f0ac361125fa8f5a31abc640f4d667086d82d6f6b",
         "source-blobs/e924ef62f0142703ecdf514187d5a93f3013da0fe426e90f8fa9c78f9a886a2b",
-        "source-blobs/e927553d47273f75f10564a8c9dfea12b8b92ebee62a145df375f32202562838"
-      ],
-      "bytes": 6779744,
-      "sha256": "9bbb13d5e2ef4561800f83c6fc2ec32f644d3243b8ddbe83bc8d27bb851bb447"
-    },
-    {
-      "path": "verification-009.tar.xz",
-      "members": [
+        "source-blobs/e927553d47273f75f10564a8c9dfea12b8b92ebee62a145df375f32202562838",
         "source-blobs/e92a0866fcd3877deef0cc3de225012f775c3133b144354ccb743d93dd52da47",
         "source-blobs/e92d4dc48037fb98be4b782387d9a8566fd14125d08dd0a65642bfc51438461d",
         "source-blobs/e9340376f4041d2f84c0f2b1a8b2b395e5a3bc8b84d123d8cf876a394091959a",
@@ -6113,18 +6201,18 @@
         "source-blobs/ffdcad2af48210c5de696a31f8851e813cd93ec62310abf18381135e33b6da13",
         "source-blobs/ffec41387088bbca31672cf9bcda0ee284ad3a99fb21ef4445b8d204c1c03046"
       ],
-      "bytes": 8607208,
-      "sha256": "bcf0de9a2f56ed3a6ba7080fd1a7c97ecb2a982c760633342d66f0e59b9728e0"
+      "bytes": 8626532,
+      "sha256": "7d09e413aff0fffecdabad053ddc5cae510a3eb58a70a5ab1a2efb521a7049e3"
     }
   ],
   "sources": {
     "verify_index_packet.py": {
-      "bytes": 39373,
-      "sha256": "36dcb8b7ae691d2311832a280b8dcebfee68928d6a84b94a1913a29279bcee4c"
+      "bytes": 42728,
+      "sha256": "a4d1d0a35abe7124dbfcc0a6edd9b056ebbb9506c9df6c3eab609448ebddde4f"
     },
     "check_index_packet_controls.py": {
-      "bytes": 11257,
-      "sha256": "24a11727df61840506018db68e5d15af462ff3130031949aafcfdc570b60c3d9"
+      "bytes": 12827,
+      "sha256": "924239422990fc3b1b689c6296c16674199e63fcfcd1538815b6911af9ebe010"
     }
   },
   "observations": [
@@ -6177,6 +6265,36 @@
       "path": "control-observations/candidate_no_fallback_denied.stdout.log",
       "bytes": 98,
       "sha256": "b4694a4424310d5e595ba3356c883710f69d63ce7db5b93914dadd051c31d877"
+    },
+    {
+      "path": "control-observations/ci_policy_existing_skip_removed.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "control-observations/ci_policy_existing_skip_removed.stdout.log",
+      "bytes": 101,
+      "sha256": "db54470e41b777bf4257f1e712221c9ba590710c671a0c1fbaebcca979473dae"
+    },
+    {
+      "path": "control-observations/ci_policy_extra_skip.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "control-observations/ci_policy_extra_skip.stdout.log",
+      "bytes": 90,
+      "sha256": "bef55e1dce62c9c18e42a4091bec6974dd91fb8174c91a0ca6adc0c266a297a1"
+    },
+    {
+      "path": "control-observations/ci_policy_weights_changed.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "control-observations/ci_policy_weights_changed.stdout.log",
+      "bytes": 95,
+      "sha256": "73d70379ed22f843074e4dfd9da38b71f8b4cc742f78a85f2c43043ac635ed44"
     },
     {
       "path": "control-observations/consumer_test_missing_with_rebound_log.stderr.log",

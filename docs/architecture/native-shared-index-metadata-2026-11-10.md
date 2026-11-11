@@ -133,6 +133,18 @@ populated growth denial/retry, cancellation and refunds.
 The ordinary release CLI and native library are freshly built from that same
 validated source. Documentation receipts may differ only in the four named
 status documents; runtime, tests, dependencies and harness bytes remain exact.
+The first hosted native build compiled successfully but its inventory preparation
+rejected the new opt-in attribution test, which was missing from CI's explicit
+ignored-test registry. The correction adds only that exact test name: the 33
+existing entries and all scheduling estimates stay unchanged. The CI feature
+selection therefore registers 34 ignored tests; the broader local workspace
+selection above records 38. A separate receipt reproduces rejection by the old
+registry, verifies complete partition coverage with the corrected registry, and
+passes all 17 native-runner unit checks. Exact hosted executable discovery remains
+required. The portable verifier admits only this byte-exact registry insertion
+in addition to status prose and rejects added skips, removed entries and changed
+scheduling estimates. The original hosted failures and earlier packet controls
+remain preserved. No runtime source, test body, dependency or scored request changes.
 The packet requires source-bound and relocated saved-result replay plus negative
 controls for altered source, results, clocks, missing tests/cases, resource
 cleanup, no-fallback claims and archive bytes. Original diagnostic, lint and
