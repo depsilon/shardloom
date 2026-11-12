@@ -24,8 +24,12 @@ There is no new complete 10k total or additive savings claim.
 The declaration exposure audit for H, I and J is complete below. Next match the
 identified shapes to actual owner activation and removable work, then freeze
 independent experiments. Declaration counts alone do not admit a candidate.
-Rolling DISTINCT remains the current independent resource investigation. Existing
-A/B join-mapping and bounded source-bridge work remain foundations. K and L have
+Rolling DISTINCT's first candidate was dropped and its hosted/retirement closeout
+is complete. The [A join-mapping candidate](native-join-payload-mapping-2026-11-12.md)
+also passes correctness but is dropped under the complete engine-time rule;
+portable replay and all 30 corruption controls pass; hosted closeout is pending.
+B's bounded source-bridge investigation
+remains next. These foundations do not admit H/I/J by themselves. K and L have
 separate semantic gates; M is conditional topology research; N requires actual
 dictionary activation. Do not restart a previously rejected mechanism unchanged.
 

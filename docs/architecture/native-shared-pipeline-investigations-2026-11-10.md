@@ -26,8 +26,14 @@ verified retirement and post-retirement replay. Recommendation 10's
 all 1,090 cases pass and the auxiliary allocation bound is proved, but complete
 engine time rises from 310.690303040 to 311.414365730 seconds. Accepted runtime
 and CI sources are restored; portable replay and all 23 corruption controls
-pass. Hosted closeout and final retirement remain pending. Investigation A is
-next. The November 11
+pass. PR #1680, all 58 PR and 55 exact-main checks, clear review, verified
+retirement and post-retirement replay are complete. Investigation A's
+[fixed join-mapping candidate is dropped](native-join-payload-mapping-2026-11-12.md):
+all 940 cases pass, but complete engine time rises from 653.057359901 to
+739.927898219 seconds. Its runtime changes are restored; an independently
+verified CI cleanup correction remains. Complete portable replay and all 30
+corruption controls pass; hosted closeout remains before B.
+The November 11
 [structural-work addition](native-structural-work-investigations-2026-11-11.md)
 adds H–N below. Its complete 10,000-declaration exposure audit identifies new
 workload needs and candidate shapes; physical activation and removable-work
@@ -215,7 +221,10 @@ output writes and numerical/error contracts. This is a selected-cohort result,
 not a new full10k or Full43 claim. The first rolling DISTINCT candidate passes
 its independent auxiliary allocation proof and all 1,090 complete requests,
 but is dropped because complete engine time rises from 310.690303040 to
-311.414365730 seconds. No resource-only exception or repeat trial is implied.
+311.414365730 seconds. Investigation A independently passes all 940 requests
+and its 102-fixture payload/ownership proof, but is dropped because complete
+engine time rises from 653.057359901 to 739.927898219 seconds. No resource-only
+exception or repeat trial is implied by either result.
 
 The [October 25 workflow rejection](../benchmarks/native-workflow-drop-2026-10-25.md),
 October 28 join-probe reuse outcome and
