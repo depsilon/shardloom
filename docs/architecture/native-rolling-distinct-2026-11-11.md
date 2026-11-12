@@ -2,13 +2,18 @@
 
 Status: first fixed candidate rejected, November 11, 2026. The accepted runtime
 and CI policy are restored byte-for-byte. Portable replay and all 23 corruption
-controls pass. Hosted closeout remains pending; no candidate runtime change is retained.
+controls pass. PR #1680 merged as `e10fc31e4ada819038711dd3a4658c3ad10a91f0`
+after all 58 PR checks passed with review clear; all 55 exact-main checks,
+verified retirement and post-retirement replay passed. No candidate runtime
+change is retained.
 
 This closes the first recommendation 10 experiment in the
 [shared-pipeline investigations](native-shared-pipeline-investigations-2026-11-10.md),
 within item 20 and RFC 0044. It does not complete that item, the broader RFC or
-CG-1 through CG-23. Investigation A is next under the
-[maintained phase plan](phased-execution-plan.md#planned).
+CG-1 through CG-23. The subsequent
+[investigation A](native-join-payload-mapping-2026-11-12.md) has its own fixed
+decision; the [maintained phase plan](phased-execution-plan.md#planned) owns
+the remaining queue.
 
 ## Fixed decision and complete cohort
 
@@ -147,9 +152,10 @@ During preparation, verified retirement removed 10,162 reproducible debug files
 among 11,933 entries after completed tests, lint and actual CI discovery.
 Repeated identities and closed-handle checks preserved current inputs, accepted
 runtimes and the release cache. No storage floor changed and no payload backup
-was created. Final retirement of the rejected runtime and temporary evidence
-copies follows portable replay and hosted closeout; compact results and exact
-candidate sources remain retained.
+was created. Final verified retirement subsequently removed 5,844 entries,
+including 5,839 regular files and 683,048,532 logical bytes. Accepted runtime,
+all 220 input generations, compact results and exact candidate sources remained
+protected. Portable replay passed after retirement; no rollback payload was kept.
 
 A materially different future candidate requires its own attribution and frozen
 protocol. This first result does not authorize another trial, a resource-only

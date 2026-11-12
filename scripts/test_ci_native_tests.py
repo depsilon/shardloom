@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import math
 import json
+import os
 from pathlib import Path
+import signal
+import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 import ci_native_tests as native
 
@@ -192,6 +195,53 @@ class ProcessAndEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "deadline"):
             self.run_case("import time\ntime.sleep(30)\n", timeout=0.01)
         self.assertEqual(json.loads((self.results / "0/report.json").read_text())["status"], "failed")
+
+    def test_signal_error_preserves_original_leak_refusal_and_receipt(self) -> None:
+        original = os.killpg
+
+        def signal_group(group, number):
+            if number == signal.SIGKILL:
+                raise PermissionError("injected final signal denial")
+            return original(group, number)
+
+        with patch.object(native.os, "killpg", side_effect=signal_group):
+            with self.assertRaisesRegex(RuntimeError, "left a child process"):
+                self.run_case("import subprocess, sys\n"
+                              "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+                              f"print({self.log!r})\n")
+        receipt = json.loads((self.results / "0/report.json").read_text())
+        self.assertEqual(receipt["status"], "failed")
+        self.assertFalse(receipt["children_drained"])
+        self.assertIn("left a child process", receipt["error"])
+        self.assertEqual(receipt["cleanup_errors"],
+                         ["SIGKILL: PermissionError: injected final signal denial"])
+        self.assertEqual(receipt["log_sha256"], native.sha(self.results / "0/tests.log"))
+
+    def test_cleanup_failure_cannot_leave_a_passing_partition_receipt(self) -> None:
+        with patch.object(native, "cleanup_partition", return_value=["injected reap failure"]):
+            with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
+                self.run_case(f"print({self.log!r})\n")
+        receipt = json.loads((self.results / "0/report.json").read_text())
+        self.assertEqual(receipt["status"], "failed")
+        self.assertEqual(receipt["cleanup_errors"], ["injected reap failure"])
+        with self.assertRaises(ValueError):
+            self.check_aggregate()
+        # A status-only rewrite must not erase recorded cleanup failure.
+        receipt["status"] = "passed"
+        (self.results / "0/report.json").write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, "evidence"):
+            self.check_aggregate()
+
+    def test_cleanup_reaping_remains_bounded_after_both_signals(self) -> None:
+        process = Mock(pid=123)
+        process.wait.side_effect = subprocess.TimeoutExpired("fixture", 2)
+        with patch.object(native.os, "killpg") as send:
+            errors = native.cleanup_partition(process)
+        self.assertEqual(send.call_args_list,
+                         [call(123, signal.SIGTERM), call(123, signal.SIGKILL)])
+        self.assertEqual(process.wait.call_args_list,
+                         [call(timeout=2), call(timeout=2)])
+        self.assertEqual(errors, ["direct child did not exit after cleanup"])
 
     def test_missing_duplicate_and_stale_receipts_fail(self) -> None:
         self.run_case(f"print({self.log!r})\n")

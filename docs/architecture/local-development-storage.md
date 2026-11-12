@@ -262,9 +262,23 @@ files and no symlinks, totaling 7,003,094,877 logical bytes. Repeated identities
 and closed-handle checks preserved current inputs, accepted runtimes and the
 release cache. The candidate subsequently passed all 1,090 requests but was
 rejected under the complete-cohort engine-time rule. Its source snapshots and
-observations remain retained, and the accepted runtime is unchanged. Retirement
-of the rejected runtime is separate and follows portable/hosted closeout.
+observations remain retained, and the accepted runtime is unchanged. Following
+PR #1680 and all 58 PR/55 exact-main checks, verified final retirement removed
+5,844 entries, including 5,839 regular files and 683,048,532 logical bytes.
+Accepted runtime and all 220 input generations remained unchanged, and portable
+replay passed after retirement.
 No storage floor changed and no payload backup was created.
+
+During the [join payload mapping investigation](native-join-payload-mapping-2026-11-12.md),
+verified debug-cache retirement removed 11,933 entries, including 10,162 regular
+files and no symlinks, totaling 7,005,916,644 logical bytes. Repeated identities
+and closed-handle checks preserved all 220 input generations, accepted runtime
+and release cache. The fresh release and all 441 installed-package tests passed.
+The fixed 940-request candidate passed correctness but lost on total engine
+time, so its runtime changes were restored. Its rejected runtime, wheel and
+temporary environments await final verified retirement after portable/hosted
+closeout. Original observations and compact source/result evidence remain
+protected; no storage floor changed and no payload backup was created.
 
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and

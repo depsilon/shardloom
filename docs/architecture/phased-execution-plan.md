@@ -310,10 +310,17 @@ Current autonomous execution order:
       to 311.414365730 seconds. Its auxiliary allocated-storage bound passes
       216 cases; that does not override the throughput gate. Accepted runtime,
       tests and CI policy are restored exactly. Portable replay and all 23
-      corruption controls pass. Hosted closeout and final retirement are
-      pending; no candidate implementation ships.
-    - [ ] A: prove unique-dimension inner/left mappings through two joins and
-      top-k with real wide output, complete controls and a retain/drop decision.
+      corruption controls pass. PR #1680 merged as
+      `e10fc31e4ada819038711dd3a4658c3ad10a91f0`; all 58 PR and 55 exact-main
+      checks passed with review clear. Verified retirement and post-retirement
+      replay completed; no candidate implementation ships.
+    - [x] A: evaluate unique-dimension inner/left mappings through two joins and
+      top-k with real wide output. The [fixed candidate is dropped](native-join-payload-mapping-2026-11-12.md):
+      all 940 cases pass, but complete engine time rises from 653.057359901 to
+      739.927898219 seconds. Runtime/tests/ignored registration are restored;
+      the independently verified CI cleanup correction remains. Complete
+      portable replay and all 30 corruption controls pass. Hosted closeout
+      remains before B begins.
     - [ ] B: prove one capability-admitted bounded direct grouped/count source
       bridge into an existing native kernel and record its complete decision.
     - [ ] C: attribute and remove one demonstrated repeated key/order/structural

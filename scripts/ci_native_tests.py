@@ -130,6 +130,26 @@ def parse_results(output: str, expected: list[str], ignored: list[str]) -> dict:
     return {"passed": len(expected) - len(ignored), "ignored": len(ignored), "tests": expected}
 
 
+def cleanup_partition(process: subprocess.Popen) -> list[str]:
+    """Keep cleanup errors as evidence and bound direct-child reaping."""
+    errors = []
+    for number in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(process.pid, number)
+        except ProcessLookupError:
+            pass
+        except OSError as error:
+            errors.append(f"{signal.Signals(number).name}: {type(error).__name__}: {error}")
+        try:
+            process.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            if number == signal.SIGKILL:
+                errors.append("direct child did not exit after cleanup")
+        except OSError as error:
+            errors.append(f"reap: {type(error).__name__}: {error}")
+    return errors
+
+
 def run_partition(directory: Path, partition: int, output: Path, *, root: Path = ROOT,
                   timeout: float = 3600) -> dict:
     manifest, suite = verify_plan(directory, root=root)
@@ -177,25 +197,21 @@ def run_partition(directory: Path, partition: int, output: Path, *, root: Path =
         receipt.update(status="failed", error=f"{type(error).__name__}: {error}")
         raise
     finally:
-        if process is not None:
-            # Include fault-injection children, even when the harness parent exited.
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    pass
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-            except ProcessLookupError:
-                pass
-            process.wait()
+        # Include fault-injection children even after the harness parent exits.
+        # A cleanup signal can fail while an orphan exits; preserve the original
+        # refusal and its receipt instead of masking it with a second exception.
+        errors = cleanup_partition(process) if process is not None else []
+        cleanup_invalidated_pass = bool(errors) and receipt["status"] == "passed"
+        if errors:
+            receipt["cleanup_errors"] = errors
+        if cleanup_invalidated_pass:
+            receipt.update(status="failed", error="native partition cleanup failed")
         receipt["seconds"] = time.monotonic() - started
         if log.exists():
             receipt["log_sha256"] = sha(log)
         write_json(output / "report.json", receipt)
+        if cleanup_invalidated_pass:
+            raise RuntimeError(receipt["error"])
     return receipt
 
 
@@ -215,6 +231,7 @@ def aggregate(directory: Path, reports: Path, *, root: Path = ROOT) -> dict:
         actual = parse_results(log.read_text(), owned, ignored)
         if (row.get("schema_version") != "shardloom.ci_native_partition.v1"
                 or row["status"] != "passed" or row["returncode"] != 0
+                or row.get("cleanup_errors")
                 or row.get("children_drained") is not True or row.get("test_threads") != 1
                 or row.get("revision") != manifest["identity"]["revision"]
                 or row["artifact_manifest_sha256"] != sha(directory / "manifest.json")
