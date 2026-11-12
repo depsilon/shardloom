@@ -1,7 +1,9 @@
 # Compatible resident window traversal and state
 
-Status: recommendation 9 locally retained after complete verification,
-November 11, 2026. Hosted integration and final retirement remain pending.
+Status: recommendation 9 retained and integrated, November 11, 2026.
+PR #1679 merged as `591fdb42f6ffcd5e9003b4a5c130324d7a34a62c`; all 58 PR
+and 55 exact-main checks passed, review was clear, and verified retirement
+and post-retirement replay completed. The local observations below are unchanged.
 This is recommendation 9 in the
 [shared-pipeline investigations](native-shared-pipeline-investigations-2026-11-10.md),
 within item 20 and RFC 0044. It does not complete that item, the broader RFC, or
@@ -160,3 +162,29 @@ They caused no scored-query repeat. Documentation checks, portable replay,
 corruption controls, hosted checks and final retirement complete integration.
 No package publication or installed-wheel claim is made. Recommendation 10's
 rolling-DISTINCT allocated-storage objective is a separate investigation.
+
+## Hosted integration and retirement
+
+[PR #1679](https://github.com/depsilon/shardloom/pull/1679) merged the exact
+tested tree `4674fd245f1a09c84d8aed3226f2dcc01b366dda`, with parents
+`a640475ae66bc36cefcae42088dc23da6776e8ed` and
+`293c498fa20f6ec372a9372632f8a61a11f83cc8`. All 58 PR and 55 exact-main
+checks passed; the completed review had no findings or unresolved threads.
+The original failed local premerge verification remains recorded alongside
+its corrected successful receipt; no hosted job was restarted.
+
+Verified retirement removed 5,819 regular files among 5,824 entries, with no
+symlinks, totaling 688,908,701 logical bytes. It retired the superseded index
+runtime and redundant source/raw-ledger copies after exact identity and
+closed-handle checks. The accepted window runtime, 220 current input generations,
+compact complete results, original failures and three unique historical source
+declarations remain retained. Both portable evidence replays passed afterward.
+No storage limit changed and no payload backup or package publication was made.
+
+The completed local closeout receipt has SHA-256
+`97b80163c9c91d1186acc86522e808fa8563c8d9dd88be9a4ff1b71e316768a0`.
+Its retirement manifest has SHA-256
+`c6c26c7cf6f58a861cd314e71de7344212746eb04199a450038c9eb78a56c938`.
+The next investigation must bind this completed closeout and retained runtime;
+the old index-based window guard refers to retired artifacts and cannot be reused
+unchanged. Item 20, RFC 0044 and CG-1 through CG-23 remain open.
