@@ -44,6 +44,13 @@ The supplement does not rewrite the original verifier, manifests, archives,
 results or controls. Original source-bound verification remains valid against
 checkpoint commit `3181484789a9dc4b2cd66a335da50d91b831c360`.
 
+The current entrypoint explicitly rejects Python `-O` and `-OO` before loading
+the original CI verifier. That implementation remains byte-exact in
+`ci-toolchain/verified-overlay-v1.py`; the entrypoint verifies its fixed identity.
+The separate entrypoint correction records both optimized-mode rejections and
+successful repository/relocated replay. Earlier validation receipts retain their
+original verifier identity.
+
 The verifier replays all 2,543 saved results and checks all 60 failures without
 executing a query, compiler or reference engine. Git applies the preserved patch
 only inside a temporary directory to compare every reconstructed prototype byte.

@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo/docs/benchmarks/evidence/native-direct-count-bridge-2026-11-12/verify_ci.py", line 11, in <module>
+    raise RuntimeError('evidence verification requires assertion checks')
+RuntimeError: evidence verification requires assertion checks
