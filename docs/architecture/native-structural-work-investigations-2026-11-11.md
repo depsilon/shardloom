@@ -27,9 +27,13 @@ independent experiments. Declaration counts alone do not admit a candidate.
 Rolling DISTINCT's first candidate was dropped and its hosted/retirement closeout
 is complete. The [A join-mapping candidate](native-join-payload-mapping-2026-11-12.md)
 also passes correctness but is dropped under the complete engine-time rule;
-portable replay and all 30 corruption controls pass; hosted closeout is pending.
-B's bounded source-bridge investigation
-remains next. These foundations do not admit H/I/J by themselves. K and L have
+portable replay and all 30 corruption controls pass. PR #1681, all 58 PR and
+55 exact-main checks, clear review, verified retirement and post-retirement
+replay are complete. The [B COUNT checkpoint](native-direct-count-bridge-2026-11-12.md)
+records an invalid baseline with 60 failed controls, no candidate benchmark
+execution and exact restoration of accepted runtime/test/CI sources. B remains
+pending a versioned harness correction and complete comparison. These foundations
+do not admit H/I/J by themselves. K and L have
 separate semantic gates; M is conditional topology research; N requires actual
 dictionary activation. Do not restart a previously rejected mechanism unchanged.
 

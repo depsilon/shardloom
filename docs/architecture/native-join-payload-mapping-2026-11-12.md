@@ -6,7 +6,10 @@ Status: first fixed candidate rejected, November 12, 2026. All 940 requests
 pass, but complete engine time increases. Native implementation, candidate
 tests and ignored-test registration are restored to the accepted base. An
 independently verified CI cleanup correction remains. Portable packaging and
-all 30 corruption controls pass; hosted closeout is pending.
+all 30 corruption controls pass. PR #1681 merged as
+`3a0608b12e40435fab1adc4afefbaa4173932737`; all 58 PR and 55 exact-main checks
+passed with review clear. Verified retirement and post-retirement replay are
+complete; the compatible-window runtime remains accepted.
 
 This records investigation A in the
 [shared-pipeline program](native-shared-pipeline-investigations-2026-11-10.md),
@@ -150,6 +153,10 @@ Verified preparation retirement removed 11,933 debug-cache entries, including
 10,162 regular files and 7,005,916,644 logical bytes. Repeated identities and
 closed-handle checks preserved all 220 input generations, accepted runtime and
 release cache. Storage limits are unchanged and no payload backup was created.
-Final retirement of rejected binaries and temporary package environments follows
-portable replay and hosted closeout. This result authorizes neither an unchanged
+Final retirement of rejected binaries and temporary package environments completed
+after portable replay and hosted closeout. All 220 input generations and the
+accepted runtime remained unchanged; portable replay passed after retirement.
+The subsequent [B checkpoint](native-direct-count-bridge-2026-11-12.md) preserves
+an invalid baseline and does not accept a COUNT runtime change.
+This result authorizes neither an unchanged
 retry nor a resource-only acceptance exception.

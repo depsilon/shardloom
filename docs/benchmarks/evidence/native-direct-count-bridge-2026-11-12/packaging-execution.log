@@ -1,0 +1,145 @@
+{
+  "baseline_cases": 2543,
+  "candidate_cases": 0,
+  "complete_10k_performance_claim": false,
+  "controls": null,
+  "diagnostics": {
+    "candidate_debug_requests": 19,
+    "feasibility_requests_per_profile": 19,
+    "performance_claim": false,
+    "query_executions": 0,
+    "reductions": [
+      {
+        "case_id": "v2_single_key_reducer_1ce650d076aaa48b",
+        "input_rows": 3100,
+        "partial_groups": 1193,
+        "removed_updates": 1907
+      },
+      {
+        "case_id": "v2_single_key_reducer_2aee47f0dd25d75b",
+        "input_rows": 3100,
+        "partial_groups": 20,
+        "removed_updates": 3080
+      },
+      {
+        "case_id": "v2_single_key_reducer_425a02436adfae97",
+        "input_rows": 4096,
+        "partial_groups": 20,
+        "removed_updates": 4076
+      },
+      {
+        "case_id": "v2_single_key_reducer_564378827c86a58a",
+        "input_rows": 4096,
+        "partial_groups": 20,
+        "removed_updates": 4076
+      },
+      {
+        "case_id": "v2_single_key_reducer_580dc90e525766d1",
+        "input_rows": 3100,
+        "partial_groups": 2538,
+        "removed_updates": 562
+      },
+      {
+        "case_id": "v2_single_key_reducer_5d853e86fc9a82c3",
+        "input_rows": 349721,
+        "partial_groups": 2450,
+        "removed_updates": 347271
+      },
+      {
+        "case_id": "v2_single_key_reducer_a478e76f989fb391",
+        "input_rows": 374616,
+        "partial_groups": 341754,
+        "removed_updates": 32862
+      },
+      {
+        "case_id": "v2_single_key_reducer_a56dde8b9bd5d428",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "v2_single_key_reducer_ad4f2df4a0ba64cb",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "v2_single_key_reducer_e7532ee13849dd45",
+        "input_rows": 2037,
+        "partial_groups": 2029,
+        "removed_updates": 8
+      },
+      {
+        "case_id": "v2_single_key_reducer_ece05214c308a237",
+        "input_rows": 4096,
+        "partial_groups": 20,
+        "removed_updates": 4076
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_repeat-memory",
+        "input_rows": 65536,
+        "partial_groups": 544,
+        "removed_updates": 64992
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_repeat-batch-project",
+        "input_rows": 63883,
+        "partial_groups": 1071,
+        "removed_updates": 62812
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_unique-batch",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_tiny-source-order",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_empty-batch",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_nullable-count-source-order",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_nullable-key-memory",
+        "input_rows": 0,
+        "partial_groups": 0,
+        "removed_updates": 0
+      },
+      {
+        "case_id": "direct_count_diagnostic_v2_constant-key-batch",
+        "input_rows": 32768,
+        "partial_groups": 32,
+        "removed_updates": 32736
+      }
+    ],
+    "whole_query_memory_claim": false
+  },
+  "disposition": "not_admitted_invalid_baseline",
+  "engine_execution_seconds": null,
+  "full43_claim": false,
+  "investigation_b_complete": false,
+  "new_baseline_cases": 2384,
+  "outcomes": {
+    "baseline": {
+      "engine_error": 30,
+      "engine_rejected": 15,
+      "incorrect": 15,
+      "passed": 2483
+    }
+  },
+  "query_executions": 0,
+  "reused_baseline_cases": 159,
+  "status": "passed_source_bound_replay"
+}

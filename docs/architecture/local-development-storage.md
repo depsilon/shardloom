@@ -275,10 +275,27 @@ files and no symlinks, totaling 7,005,916,644 logical bytes. Repeated identities
 and closed-handle checks preserved all 220 input generations, accepted runtime
 and release cache. The fresh release and all 441 installed-package tests passed.
 The fixed 940-request candidate passed correctness but lost on total engine
-time, so its runtime changes were restored. Its rejected runtime, wheel and
-temporary environments await final verified retirement after portable/hosted
-closeout. Original observations and compact source/result evidence remain
+time, so its runtime changes were restored. PR #1681 subsequently passed all
+58 PR and 55 exact-main checks with review clear. Final verified retirement
+removed rejected runtime, wheel and temporary environments; the accepted runtime
+and all 220 input generations remained unchanged, and portable replay passed
+after retirement. Original observations and compact source/result evidence remain
 protected; no storage floor changed and no payload backup was created.
+
+During the [direct COUNT bridge investigation](native-direct-count-bridge-2026-11-12.md),
+the original native-test attempt stopped at the unchanged storage floor. Verified
+preparation retirement removed seven superseded diagnostic/release-cache roots:
+6,202 entries, 5,298 regular files, no symlinks and 5,836,885,344 logical bytes.
+The succeeding default/native checks, release build and 441 installed-package
+tests passed. The fixed baseline was invalid: all 2,543 results are preserved,
+including 60 harness/declaration failures, and no candidate benchmark query ran.
+All 19 prototype runtime/test/registration paths were restored to the accepted
+repository; exact prototype bytes and a reapplicable patch remain in evidence.
+The compatible-window runtime and all 220 input generations stay protected.
+Final retirement of the unadmitted prototype's executables and environments is
+conditional on this checkpoint's portable replay and hosted closeout. B remains
+pending; retirement does not discard its failed observation or imply a speed
+decision. No storage floor changes or payload backups are authorized.
 
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
