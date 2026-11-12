@@ -1,0 +1,70 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Direct COUNT invalid-baseline checkpoint
+
+This packet preserves investigation B's unadmitted prototype and failed fixed
+baseline. Of 2,543 cases, 2,483 pass and 60 retain their original failed statuses.
+All 2,258 original controls pass. No candidate benchmark query ran; complete
+engine time and a candidate gain/loss comparison are unavailable. B remains
+pending. Runtime, tests and CI registration were restored to the accepted source.
+
+See the [architecture record](../../../architecture/native-direct-count-bridge-2026-11-12.md)
+for the unsigned SQL spelling and mixed COUNT/SUM schema mismatches, prototype
+validation and exact continuation contract. The prior A closeout, original failed
+full10k observation and all earlier failures remain distinct evidence.
+
+`acceptance.json` uses `shardloom.direct_count_checkpoint.v1` with disposition
+`not_admitted_invalid_baseline`. Identity-checked `verification-*.tar.xz`
+archives contain complete saved results, references, request/source proof,
+restoration receipts and the reapplicable prototype patch. Archive members are
+bounded to 24 MiB, each uncompressed archive to 48 MiB, each compressed archive
+below 64 MiB and the logical packet below 512 MiB. Runtime, wheel and input
+payloads are not duplicated.
+
+From this directory, with standard-library Python 3.13 and Git available:
+
+```bash
+python3 -B verify.py --require-controls
+```
+
+For current source-bound verification from the repository root, including the
+separately recorded CI compiler pin:
+
+```bash
+python3 -B docs/benchmarks/evidence/native-direct-count-bridge-2026-11-12/verify_ci.py --repo-root .
+```
+
+`verify_ci.py` also runs without `--repo-root` for a relocated packet. It requires
+the original 33 corruption controls. Its `ci-toolchain` supplement preserves
+the first hosted Rust 1.100.0 Clippy failure and binds the exact workflow pin to
+the already validated Rust 1.99.0. All 16 toolchain inputs change together;
+jobs, test/lint commands and the minimum-version lane are unchanged. The gate
+matrix, 14 CI-plan tests, formatting and five additional corruption checks pass.
+The supplement does not rewrite the original verifier, manifests, archives,
+results or controls. Original source-bound verification remains valid against
+checkpoint commit `3181484789a9dc4b2cd66a335da50d91b831c360`.
+
+The current entrypoint explicitly rejects Python `-O` and `-OO` before loading
+the original CI verifier. That implementation remains byte-exact in
+`ci-toolchain/verified-overlay-v1.py`; the entrypoint verifies its fixed identity.
+The separate entrypoint correction records both optimized-mode rejections and
+successful repository/relocated replay. Earlier validation receipts retain their
+original verifier identity.
+
+`ci-toolchain-components` records the subsequent fresh-runner setup correction:
+all 16 pinned setup steps explicitly request `rustfmt, clippy`. It preserves
+both missing-tool failures and the exact action source, along with the gate
+matrix, 14 CI-plan tests, formatting and six corruption checks. The current
+verifier admits only this exact addition to the preserved pinned workflow.
+Earlier workflow snapshots, verifiers and validation reports remain unchanged.
+
+The verifier replays all 2,543 saved results and checks all 60 failures without
+executing a query, compiler or reference engine. Git applies the preserved patch
+only inside a temporary directory to compare every reconstructed prototype byte.
+Two positive controls cover the repository and a relocated packet; 33 corruption
+controls challenge source, tests, CI, installed proof, diagnostics, complete
+results, references, restoration, claims and archive identity. Their original
+logs and receipts accompany the packet. Passing this verifier validates the
+checkpoint's evidence; it does not turn the failed baseline into a valid result
+or complete investigation B. Hosted integration and later retirement receipts
+are separate from the immutable local checkpoint.

@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "workflow": {
+    "bytes": 69628,
+    "sha256": "295de0309912e87170cc206134ee66113f6f3a1ec1dfe4af38e917048728b69c"
+  },
+  "before": {
+    "bytes": 69046,
+    "sha256": "a99da8d902fc7729c6beefba12c5df60141d89dd9e09c8dd0b5905c74a9e4a28"
+  },
+  "toolchain_inputs_pinned": 16,
+  "toolchain": "1.99.0",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "strict_lint_commands_unchanged": true,
+  "msrv_lane_unchanged": true,
+  "pipeline_tests": 14,
+  "rejected_corruptions": [
+    "changed_runtime_source",
+    "different_compiler",
+    "disabled_lint",
+    "floating_compiler",
+    "omitted_job"
+  ],
+  "source_fingerprint_sha256": "820ffa310033b787e49ab8e7f374f30e30371e35e2a581678619ce1c60b981d8",
+  "checks": {
+    "matrix": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_ci_gate_matrix.py",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/direct-count-bridge-2026-11-12/ci-toolchain-checks-r1/ci-gate-matrix.json"
+      ],
+      "returncode": 0,
+      "stdout": {
+        "bytes": 107,
+        "sha256": "88f61d647fecf962de19d3b3f747f1b7ff9b22776b2622b57bd6b4f9fe977fee"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "pipeline": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts",
+        "-p",
+        "test_ci_execution_plan.py"
+      ],
+      "returncode": 0,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "bytes": 113,
+        "sha256": "0e6e560bc8eb34ecefeab9599e38137ec3613f8c4ec3a94c23ef711dc5763e12"
+      }
+    },
+    "format": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "helper": {
+    "bytes": 6453,
+    "sha256": "b7a239eb349142e0a74a7160fb78704cfd16306292ac1a069d2af2aa3fab0a53"
+  },
+  "verifier": {
+    "bytes": 4386,
+    "sha256": "314ebb9c72c2bf3af74d67e555df0eb94686771533f462f5635f1ea4900d20a3"
+  }
+}

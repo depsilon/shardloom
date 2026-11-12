@@ -264,7 +264,8 @@ Current autonomous execution order:
     [structural-work intake](native-structural-work-investigations-2026-11-11.md)
     adds H–N. The complete 10,000-declaration exposure audit for H/I/J is recorded;
     physical activation and removable-work attribution remain prerequisites to
-    their independent experiments. A then B remain queued after the first operator-state sequence;
+    their independent experiments. A is closed; B's invalid-baseline checkpoint
+    remains pending a versioned harness correction and complete comparison;
     H/I/J are the priority structural candidates after those foundations, when
     their exposure gates pass. K/L retain separate semantic gates, M remains
     topology research and N is dictionary-activation-gated. Select later extensions from
@@ -319,10 +320,21 @@ Current autonomous execution order:
       all 940 cases pass, but complete engine time rises from 653.057359901 to
       739.927898219 seconds. Runtime/tests/ignored registration are restored;
       the independently verified CI cleanup correction remains. Complete
-      portable replay and all 30 corruption controls pass. Hosted closeout
-      remains before B begins.
+      portable replay and all 30 corruption controls pass. PR #1681 merged as
+      `3a0608b12e40435fab1adc4afefbaa4173932737`; all 58 PR and 55 exact-main
+      checks passed with review clear. Verified retirement and post-retirement
+      replay completed. The compatible-window runtime remains accepted.
     - [ ] B: prove one capability-admitted bounded direct grouped/count source
       bridge into an existing native kernel and record its complete decision.
+      The [November 12 checkpoint](native-direct-count-bridge-2026-11-12.md)
+      preserves the validated prototype, but its fixed baseline has 2,483 passing
+      results and 60 harness/declaration mismatches among 2,543 cases. All 2,258
+      original controls pass. No candidate benchmark query ran, no complete
+      engine total or gain/loss decision exists, and accepted runtime/test/CI
+      sources are restored exactly. Correct the unsigned SQL transport spelling
+      and mixed COUNT/SUM result declaration in new versioned artifacts, audit
+      unchanged-request reuse, then freeze a corrected complete protocol.
+      B stays pending; this checkpoint does not admit H/I/J implementation.
     - [ ] C: attribute and remove one demonstrated repeated key/order/structural
       fact reconstruction using existing native owners and compatible domains.
     - [ ] D: prove completed inner/semi-join constraints in source demand and

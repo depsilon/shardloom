@@ -16,6 +16,8 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # Upgrade deliberately after validating the full matrix with the new compiler.
+  SHARDLOOM_RUST_TOOLCHAIN: "1.99.0"
   PYTHONUNBUFFERED: "1"
 
 jobs:
@@ -31,7 +33,8 @@ jobs:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: ci-work-shaping-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
@@ -92,7 +95,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: rust-baseline-${{ matrix.lane }}
@@ -143,7 +147,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: feature-${{ matrix.lane }}
@@ -159,7 +164,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: native-test-ci-native-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
@@ -188,7 +194,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8
         with:
           name: native-test-executable
@@ -218,7 +225,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           workspaces: . -> target/providers
@@ -242,7 +250,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - name: Reject failed or missing native producers
         env:
           NATIVE_NEEDS: ${{ toJSON(needs) }}
@@ -273,7 +282,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: native-cli-debug-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
@@ -298,7 +308,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: native-cli-release-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
@@ -521,7 +532,8 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - name: Cache Windows native package validation
         if: ${{ matrix.os == 'windows-latest' }}
         uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
@@ -556,7 +568,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.10"
@@ -597,7 +610,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.13"
@@ -750,7 +764,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           prefix-key: python-package-nodebug-v1
@@ -784,7 +799,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
@@ -823,7 +839,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # Swatinem/rust-cache@v2
         with:
           key: release-runtime-core-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
@@ -911,7 +928,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.SHARDLOOM_RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7.1.0
         with:
           python-version: "3.11"

@@ -32,7 +32,13 @@ retirement and post-retirement replay are complete. Investigation A's
 all 940 cases pass, but complete engine time rises from 653.057359901 to
 739.927898219 seconds. Its runtime changes are restored; an independently
 verified CI cleanup correction remains. Complete portable replay and all 30
-corruption controls pass; hosted closeout remains before B.
+corruption controls pass. PR #1681 merged as `3a0608b12`, with all 58 PR and
+55 exact-main checks, clear review, verified retirement and post-retirement
+replay complete. The [B COUNT checkpoint](native-direct-count-bridge-2026-11-12.md)
+preserves a locally validated prototype and an invalid 2,543-case baseline:
+2,483 pass and 60 retain their failed status. No candidate benchmark query ran.
+Accepted runtime/test/CI sources are restored; B remains pending a versioned
+harness correction and complete comparison. It has no gain/loss disposition.
 The November 11
 [structural-work addition](native-structural-work-investigations-2026-11-11.md)
 adds H–N below. Its complete 10,000-declaration exposure audit identifies new

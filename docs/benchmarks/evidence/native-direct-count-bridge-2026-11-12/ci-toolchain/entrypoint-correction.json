@@ -1,0 +1,45 @@
+{
+  "candidate_admitted": false,
+  "disposition": "Require assertion checks before loading the byte-exact original CI overlay; preserve all prior reports and their original source identities.",
+  "entrypoint": {
+    "bytes": 1384,
+    "sha256": "87dcf1985179df80035148241aee1720d1deb7fb04e1b38af8762b11366d98c4"
+  },
+  "evidence": {
+    "entrypoint-O.stderr.log": {
+      "bytes": 359,
+      "sha256": "502cc55171e072f81c0200d549aeb14caa12fbe852e8c779ab29ec3ec0de5dd6"
+    },
+    "entrypoint-OO.stderr.log": {
+      "bytes": 359,
+      "sha256": "502cc55171e072f81c0200d549aeb14caa12fbe852e8c779ab29ec3ec0de5dd6"
+    },
+    "entrypoint-checker.py": {
+      "bytes": 1977,
+      "sha256": "15ccb03bac35635dc5f69a57303f4e0f3134e449a521c169f69846c8affc5227"
+    },
+    "entrypoint-execution.json.gz": {
+      "bytes": 330874,
+      "sha256": "4082f7bdcbf5cf7b1d31eafdc74bfc9ee5d58f7affa06a3e33a54a4147e2ac92"
+    },
+    "entrypoint-report.json": {
+      "bytes": 11085,
+      "sha256": "af7024c683682392f5b805c5b9cf24cbb0e523e83a9fccfb66016a94145462b4"
+    }
+  },
+  "investigation_b_complete": false,
+  "original_overlay": {
+    "bytes": 8255,
+    "sha256": "79aeec770544dbdf1879fa16dd2d99b763cc6f21bbc8a8fdae7d35e26b4dd513"
+  },
+  "previous_evidence_head": "e510a39881938e8b1cfa8484d2945ef9f284f871",
+  "query_executions": 0,
+  "rejected_optimized_modes": [
+    "-O",
+    "-OO"
+  ],
+  "relocated_replay": "passed",
+  "schema": "shardloom.direct_count_ci_entrypoint.v1",
+  "source_bound_replay": "passed",
+  "status": "passed"
+}

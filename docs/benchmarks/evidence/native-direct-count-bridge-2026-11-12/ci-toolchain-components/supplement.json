@@ -1,0 +1,101 @@
+{
+  "after": {
+    "bytes": 70236,
+    "sha256": "623d5e840073872d6537e4e5fec1175f002cbb62cf2e57ea0b5021fb0208dfa2"
+  },
+  "before": {
+    "bytes": 69628,
+    "sha256": "295de0309912e87170cc206134ee66113f6f3a1ec1dfe4af38e917048728b69c"
+  },
+  "candidate_admitted": false,
+  "components": [
+    "rustfmt",
+    "clippy"
+  ],
+  "current_entrypoint": {
+    "bytes": 5256,
+    "sha256": "ad3323c103f00dfa5e7e4147890210e7c93d81f0c2fa86f4f4910d2db3a8e61b"
+  },
+  "disposition": "Explicitly install rustfmt and Clippy with the pinned toolchain in all sixteen setup steps; preserve all jobs, commands, prior failures and original COUNT observations.",
+  "evidence": {
+    "action-source-connector.json": {
+      "bytes": 14344,
+      "sha256": "3ffa850221e6b00c759de8b976e634ea5394dd506999ad204c1d280594d5960b"
+    },
+    "clippy-failure-connector.json": {
+      "bytes": 43884,
+      "sha256": "9a9924c64cf588d9ae795a2d53b6f28351bb137ddbe2e2b1cf8428c05ec4d624"
+    },
+    "components.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "components.stdout.log": {
+      "bytes": 182,
+      "sha256": "68bd08e33e003b9aab4a3533de7f4e8ac65a11a3b2b1438bdfe23a702d0a9ce8"
+    },
+    "fmt-failure-connector.json": {
+      "bytes": 44322,
+      "sha256": "eb7ff820490926772fceb5076e7c26baca9c965a30d6af1ca43795acf0b9a3bd"
+    },
+    "format.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "format.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "local-checker.py": {
+      "bytes": 4242,
+      "sha256": "d0206404c85f0d172f95d9bd36f9c1acc5cfc2a11ad789e6b347db64393d29fa"
+    },
+    "local-execution.json.gz": {
+      "bytes": 331274,
+      "sha256": "b395d492611b306bed0df310d2f3c1fd8fe616e6e8932266b6457fecb886a396"
+    },
+    "local-validation.json": {
+      "bytes": 2270,
+      "sha256": "72d679200d0fe7dfcc64c008a74f6c0bbad5e9ff124109476ac4c26bfd9f774a"
+    },
+    "matrix.json": {
+      "bytes": 35080,
+      "sha256": "5a7adccf326a0bcb5e9ebb43e43b79bff60c106f2ce436d1f5e360afea9a21de"
+    },
+    "matrix.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "matrix.stdout.log": {
+      "bytes": 99,
+      "sha256": "d7f606ab264136f6d6a728c9e9f0f0b269753d069e3efc0b99a6a1edf458f8d3"
+    },
+    "pipeline.stderr.log": {
+      "bytes": 113,
+      "sha256": "36add4cb4a7eebcf9976dcf98e3e78289b33e4121daa2d4192a7bce63a6b8f94"
+    },
+    "pipeline.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "workflow.yml": {
+      "bytes": 70236,
+      "sha256": "623d5e840073872d6537e4e5fec1175f002cbb62cf2e57ea0b5021fb0208dfa2"
+    }
+  },
+  "investigation_b_complete": false,
+  "original_entrypoint": {
+    "bytes": 1384,
+    "sha256": "87dcf1985179df80035148241aee1720d1deb7fb04e1b38af8762b11366d98c4"
+  },
+  "original_supplement": {
+    "bytes": 5840,
+    "sha256": "aa1040dbd72487ae6b55e6a77a07b85a519dbce31e0b5100a4b77e1cec1e97e7"
+  },
+  "path": ".github/workflows/ci.yml",
+  "previous_evidence_head": "d241b09114e65ce3d0fcf51cc805f14f3ed2f182",
+  "query_executions": 0,
+  "schema": "shardloom.direct_count_ci_components.v1",
+  "status": "validated_ci_setup",
+  "toolchain": "1.99.0"
+}
