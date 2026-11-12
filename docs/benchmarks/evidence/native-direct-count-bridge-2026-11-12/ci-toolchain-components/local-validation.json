@@ -1,0 +1,76 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "component_inputs": 16,
+  "pipeline_tests": 14,
+  "rejected_corruptions": [
+    "changed_runtime_source",
+    "disabled_lint",
+    "missing_clippy",
+    "missing_components",
+    "missing_rustfmt",
+    "omitted_job"
+  ],
+  "workflow": {
+    "bytes": 70236,
+    "sha256": "623d5e840073872d6537e4e5fec1175f002cbb62cf2e57ea0b5021fb0208dfa2"
+  },
+  "before": {
+    "bytes": 69628,
+    "sha256": "295de0309912e87170cc206134ee66113f6f3a1ec1dfe4af38e917048728b69c"
+  },
+  "entrypoint": {
+    "bytes": 5256,
+    "sha256": "ad3323c103f00dfa5e7e4147890210e7c93d81f0c2fa86f4f4910d2db3a8e61b"
+  },
+  "checker": {
+    "bytes": 4242,
+    "sha256": "d0206404c85f0d172f95d9bd36f9c1acc5cfc2a11ad789e6b347db64393d29fa"
+  },
+  "source_fingerprint_sha256": "22e162172ca2d117c194423e586441162b8a4d23753b2839824311304e661649",
+  "components": [
+    "rustfmt",
+    "clippy"
+  ],
+  "toolchain": "1.99.0",
+  "action_source_verified": true,
+  "local_component_installation_verified": true,
+  "observations": {
+    "matrix.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "components.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "format.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pipeline.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "matrix.json": {
+      "bytes": 35080,
+      "sha256": "5a7adccf326a0bcb5e9ebb43e43b79bff60c106f2ce436d1f5e360afea9a21de"
+    },
+    "matrix.stdout.log": {
+      "bytes": 99,
+      "sha256": "d7f606ab264136f6d6a728c9e9f0f0b269753d069e3efc0b99a6a1edf458f8d3"
+    },
+    "pipeline.stderr.log": {
+      "bytes": 113,
+      "sha256": "36add4cb4a7eebcf9976dcf98e3e78289b33e4121daa2d4192a7bce63a6b8f94"
+    },
+    "components.stdout.log": {
+      "bytes": 182,
+      "sha256": "68bd08e33e003b9aab4a3533de7f4e8ac65a11a3b2b1438bdfe23a702d0a9ce8"
+    },
+    "format.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

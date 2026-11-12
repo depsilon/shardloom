@@ -1,0 +1,7 @@
+cargo-aarch64-apple-darwin
+clippy-aarch64-apple-darwin
+llvm-tools-aarch64-apple-darwin
+rust-src
+rust-std-aarch64-apple-darwin
+rustc-aarch64-apple-darwin
+rustfmt-aarch64-apple-darwin

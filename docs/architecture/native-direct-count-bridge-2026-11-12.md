@@ -126,6 +126,13 @@ strict lint command and the Rust 1.96 minimum-version lane remains unchanged.
 This pin requires deliberate validation before the next compiler upgrade.
 There is no runtime, dependency or benchmark change in this correction.
 
+Fresh hosted installations exposed a second setup requirement: the action's
+minimal installation does not include Clippy or rustfmt unless requested.
+All 16 setup steps now explicitly install both components. The missing-tool
+failures remain separate evidence in `ci-toolchain-components`, alongside the
+pinned action source, unchanged-job/command checks and six rejected corruptions.
+This completes the compiler setup without changing lint policy or engine code.
+
 The original hosted failure and the pin's local checks are preserved in the
 packet's separate `ci-toolchain` supplement. Fourteen CI-plan tests, the gate
 matrix and formatting pass; five corruptions challenge the compiler pin,

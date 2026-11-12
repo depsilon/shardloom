@@ -51,6 +51,13 @@ The separate entrypoint correction records both optimized-mode rejections and
 successful repository/relocated replay. Earlier validation receipts retain their
 original verifier identity.
 
+`ci-toolchain-components` records the subsequent fresh-runner setup correction:
+all 16 pinned setup steps explicitly request `rustfmt, clippy`. It preserves
+both missing-tool failures and the exact action source, along with the gate
+matrix, 14 CI-plan tests, formatting and six corruption checks. The current
+verifier admits only this exact addition to the preserved pinned workflow.
+Earlier workflow snapshots, verifiers and validation reports remain unchanged.
+
 The verifier replays all 2,543 saved results and checks all 60 failures without
 executing a query, compiler or reference engine. Git applies the preserved patch
 only inside a temporary directory to compare every reconstructed prototype byte.
