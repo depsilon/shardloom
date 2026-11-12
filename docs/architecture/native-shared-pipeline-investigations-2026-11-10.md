@@ -2,7 +2,7 @@
 
 # Shared execution across native pipelines
 
-Status: maintainer-requested investigation program, November 10, 2026.
+Status: maintainer-requested investigation program, November 10–11, 2026.
 `v1_candidate_pending_feasibility`; `claim_gate_status=not_claim_grade`.
 This extends item 20 and RFC 0044. It creates no new phase or competitive gate.
 The [phased plan](phased-execution-plan.md#planned) alone owns execution order.
@@ -19,9 +19,19 @@ operator. The dictionary repair's hosted integration and retirement now pass
 alongside Variant and UUID. Recommendation 8's
 [fixed shared-index candidate is integrated](native-shared-index-metadata-2026-11-10.md)
 with exact-main checks and retirement complete. Recommendation 9's
-[compatible-window candidate is locally retained](native-shared-window-state-2026-11-11.md)
-and awaits hosted integration; recommendation 10 follows with its independent
-allocated-storage objective. Carry later mechanisms
+[compatible-window candidate is integrated](native-shared-window-state-2026-11-11.md)
+as PR #1679 at `591fdb42`, with all 58 PR and 55 exact-main checks, clear review,
+verified retirement and post-retirement replay. Recommendation 10's
+[first fixed candidate is dropped](native-rolling-distinct-2026-11-11.md):
+all 1,090 cases pass and the auxiliary allocation bound is proved, but complete
+engine time rises from 310.690303040 to 311.414365730 seconds. Accepted runtime
+and CI sources are restored; portable replay and all 23 corruption controls
+pass. Hosted closeout and final retirement remain pending. Investigation A is
+next. The November 11
+[structural-work addition](native-structural-work-investigations-2026-11-11.md)
+adds H–N below. Its complete 10,000-declaration exposure audit identifies new
+workload needs and candidate shapes; physical activation and removable-work
+attribution remain open before independent experiments. The existing A/B sequence remains a foundation. Carry later mechanisms
 only where those paths or separate attribution demonstrate a consumer benefit.
 The separate required spatial and resource-admitted deep-traversal obligations
 under item 19 remain open.
@@ -55,8 +65,10 @@ compositions retain their own versioned baseline/candidate protocols.
 
 ## Intake dispositions and shared owners
 
-All seven proposals are accepted for investigation and merged into existing
-runtime obligations. None is accepted as a performance implementation yet.
+The original A–G and November 11 H–N proposals are accepted for investigation
+and attached to existing runtime obligations. None of these lettered hypotheses
+is accepted as a performance implementation yet. The earlier operator-state
+recommendations 8–15 retain their own recorded dispositions.
 
 | Order | Proposed work | Existing owners and concrete decision artifact |
 |---|---|---|
@@ -67,6 +79,20 @@ runtime obligations. None is accepted as a performance implementation yet.
 | E | Share typed preparation across consumers and exact ranking | Extend current expression preparation/reuse and vector span owners. Produce source/domain/policy identity, last-consumer lifetime and constant-query-norm protocols. |
 | F | Add measured pipeline feedback to PulseWeave | Extend current work sizing and finite concurrency decisions after useful execution choices exist. Produce one starvation/blocking attribution and an overhead-bounded feedback comparison. |
 | G | Amortize managed-object metadata growth | Inspect the actual capture/publication and arena insertion call sites separately. Produce a credited growth/index strategy and distinct-object scaling/lifecycle comparison. Generalize only for a second matching consumer. |
+| H | Share eligible same-source scalar COUNT summaries | Extend restricted decorrelation, source identity and native aggregate/window attachment. Prove selected demand and inner-population equivalence before eliminating per-row inner execution. |
+| I | Form downstream batches from surviving rows | Extend admitted filter/join boundaries and consumer preparation; charge retained backing bytes and prove fewer downstream invocations. |
+| J | Normalize eligible full-sort keys once | Extend validated full ordering with one fixed-width key representation and bulk algorithm; preserve ordered-input and Top-K controls. |
+| K | Traverse physical Variant paths and shared prefixes | Extend C/E and the rich-data provider with exact raw/typed conversion and complete selected-value validation. |
+| L | Represent satisfied demand and owed completion | Extend existing continuation/completion owners for one pure native-memory route; prove stop/drain semantics independently of cancellation. |
+| M | Select native multiway plans by exact key region | Conditional research using exact degrees and two legal plans; require fewer enumerated combinations after all split/build/reconciliation costs. |
+| N | Retain dictionary-domain text results into a consumer | Conditional provider extension to encoded execution; require real dictionary activation, exact transformed equality and detached-code identity. |
+
+The [November 11 contracts](native-structural-work-investigations-2026-11-11.md)
+record source checks, primary research, initial scopes, semantic risks and
+decisive counters for H–N. Their exposure audit does not revive the rejected
+generic decorrelation, finite-demand, typed-heap, range-selection or pair-
+enumerating multiway experiments unchanged. It adds no broad rewrite, phase ID,
+dependency, measured gain or new complete 10k result.
 
 The current [prepared relational dispatcher](../../shardloom-vortex/src/local_primitive_prepared_relational.rs)
 declines the specialized route for multiple or nonfile sources. The existing
@@ -186,8 +212,10 @@ combines 188 exact saved index observations and 1,024 newly measured cases;
 Each candidate case runs once, and complete saved-result replay passes. Separate
 debug checks prove reduced traversal and state admissions while preserving
 output writes and numerical/error contracts. This is a selected-cohort result,
-not a new full10k or Full43 claim. Rolling DISTINCT remains unscored with its
-independent allocated-storage acceptance contract.
+not a new full10k or Full43 claim. The first rolling DISTINCT candidate passes
+its independent auxiliary allocation proof and all 1,090 complete requests,
+but is dropped because complete engine time rises from 310.690303040 to
+311.414365730 seconds. No resource-only exception or repeat trial is implied.
 
 The [October 25 workflow rejection](../benchmarks/native-workflow-drop-2026-10-25.md),
 October 28 join-probe reuse outcome and

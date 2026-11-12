@@ -256,6 +256,16 @@ index runtime remain retained through hosted integration; final retirement is
 separate. Original failures and compact retirement receipts remain preserved.
 No storage floor changed and no payload backup was created.
 
+During the [rolling DISTINCT investigation](native-rolling-distinct-2026-11-11.md),
+verified debug-cache retirement removed 11,933 entries, including 10,162 regular
+files and no symlinks, totaling 7,003,094,877 logical bytes. Repeated identities
+and closed-handle checks preserved current inputs, accepted runtimes and the
+release cache. The candidate subsequently passed all 1,090 requests but was
+rejected under the complete-cohort engine-time rule. Its source snapshots and
+observations remain retained, and the accepted runtime is unchanged. Retirement
+of the rejected runtime is separate and follows portable/hosted closeout.
+No storage floor changed and no payload backup was created.
+
 The October 20 maintainer decision applies to **all ShardLoom local generated
 storage**, including prior investigations, release verification, build caches and
 worktree outputs. Cleanup is not limited to the experiment that reaches a limit.

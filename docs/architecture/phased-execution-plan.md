@@ -251,7 +251,7 @@ the ledger.
 
 Current autonomous execution order:
 
-- [ ] **Item 20 shared-pipeline and operator-state investigations — November 10 maintainer additions.**
+- [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.
@@ -260,8 +260,14 @@ Current autonomous execution order:
     [dictionary repair's hosted integration](native-dictionary-execution-repair-2026-11-10.md)
     following the current-runtime observation (dictionary PR #1677, Variant and
     UUID hosted checks now pass), investigate recommendations 8 and 9 independently, then evaluate
-    recommendation 10 under its separate resource objective. A then B remain
-    queued after this first operator-state sequence. Select later extensions from
+    recommendation 10 under its separate resource objective. The November 11
+    [structural-work intake](native-structural-work-investigations-2026-11-11.md)
+    adds H–N. The complete 10,000-declaration exposure audit for H/I/J is recorded;
+    physical activation and removable-work attribution remain prerequisites to
+    their independent experiments. A then B remain queued after the first operator-state sequence;
+    H/I/J are the priority structural candidates after those foundations, when
+    their exposure gates pass. K/L retain separate semantic gates, M remains
+    topology research and N is dictionary-activation-gated. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
     spatial support and resource-admitted deep traversal remain in item 19.
   - Execution checklist:
@@ -270,7 +276,12 @@ Current autonomous execution order:
       exact-main checks passed, review was clear and verified retirement/replay
       completed. Its separate frozen 517-case cohort passes. Preserve the failed
       original 10,000-case observation and its 96 failures.
-    - [ ] Reconcile all fifteen hypotheses and saved accepted/rejected
+    - [x] Audit frozen declarations for H/I/J: no scalar-correlated COUNT;
+      1,046 filtered-expression aggregate requests, 580 join chains and 68
+      single fixed-width sorts without an immediate LIMIT parent. Preserve
+      all matching IDs and counter gaps in the [exposure record](native-structural-work-investigations-2026-11-11.md#frozen-declaration-exposure-audit).
+      These are syntactic candidates, not measured activation or cost.
+    - [ ] Reconcile the original fifteen hypotheses, the seven H–N additions and saved accepted/rejected
       observations against the accepted head. Map case IDs and actual activation
       for index probes, repeated window updates, spill, repeated builds and
       selected-run lookup before implementation. Freeze each protocol and reuse map.
@@ -283,16 +294,24 @@ Current autonomous execution order:
       remain recorded. PR #1678 merged as `a640475ae66bc36cefcae42088dc23da6776e8ed`;
       all 58 PR and 55 exact-main checks passed with review clear. Verified
       retirement and post-retirement replays completed.
-    - [ ] 9: evaluate compatible SUM/AVG/COUNT and variance/standard-deviation
+    - [x] 9: evaluate compatible SUM/AVG/COUNT and variance/standard-deviation
       window traversal and state sharing independently of recommendation 8.
-      The [fixed resident candidate is locally retained](native-shared-window-state-2026-11-11.md):
+      The [fixed resident candidate is retained and integrated](native-shared-window-state-2026-11-11.md):
       all 1,212 cases pass; engine sum 340.599417211 → 299.797880547 seconds.
       The baseline reuses 188 exact index observations and measures 1,024 missing
       cases; 436 versioned multi-output requests have independent references.
       Default/native tests, diagnostic work and fresh release provenance pass.
-      Hosted integration and final retirement remain pending.
-    - [ ] 10: prove window-local deletion/recycling for bounded moving COUNT
-      DISTINCT, with an allocated-storage bound and separate throughput controls.
+      PR #1679 merged as `591fdb42f6ffcd5e9003b4a5c130324d7a34a62c` after all
+      58 PR checks passed; all 55 exact-main checks, clear review, verified
+      retirement and post-retirement replay completed.
+    - [x] 10: complete the first bounded moving COUNT DISTINCT investigation.
+      The [fixed candidate is dropped](native-rolling-distinct-2026-11-11.md):
+      all 1,090 cases pass, but complete engine time rises from 310.690303040
+      to 311.414365730 seconds. Its auxiliary allocated-storage bound passes
+      216 cases; that does not override the throughput gate. Accepted runtime,
+      tests and CI policy are restored exactly. Portable replay and all 23
+      corruption controls pass. Hosted closeout and final retirement are
+      pending; no candidate implementation ships.
     - [ ] A: prove unique-dimension inner/left mappings through two joins and
       top-k with real wide output, complete controls and a retain/drop decision.
     - [ ] B: prove one capability-admitted bounded direct grouped/count source
@@ -307,6 +326,30 @@ Current autonomous execution order:
       feedback choices with sampling-overhead and small-query controls.
     - [ ] G: verify managed-object insertion/capture costs and compare credited
       amortized metadata growth with deduplication, publication and cleanup proof.
+    - [ ] Audit H/I/J exposure: map exact scalar-summary, sparse-intermediate
+      and disordered-full-sort shapes to existing owners/counters, quantify
+      demonstrated work and version missing compositions before candidate code.
+    - [ ] H: prove one same-snapshot, nonnullable fixed-width scalar COUNT
+      rewrite into an existing native summary/window plus exact row attachment.
+      Preserve inner population, outer demand, errors, multiplicity and order.
+    - [ ] I: prove survivor-based downstream batching at one filter/join
+      boundary, charging pinned backing bytes and requiring fewer actual
+      consumer preparations; include dense/wide/tiny and finite-demand controls.
+    - [ ] J: evaluate normalized fixed-width keys plus one bulk full-sort
+      algorithm after full validation; preserve ordered-input and Top-K paths,
+      stable ties and scratch admission, with window/ASOF consumers scoped.
+    - [ ] K: evaluate physical Variant path extraction and shared prefixes
+      under exact raw/typed conversion and complete selected-value validation;
+      compare 1/4/16 paths, large unused subtrees and raw/shredded controls.
+    - [ ] L: prove successful demand satisfaction versus owed completion for
+      one pure validated native-memory route; preserve late errors, observations,
+      effects, retained/recursive completion and truthful consumption evidence.
+    - [ ] M: conditionally compare two legal native three-way inner-join plans
+      over exact heavy/light key regions; require fewer candidate combinations,
+      with all degree/split/build/reconciliation costs and uniform controls.
+    - [ ] N: establish active dictionary exposure, then evaluate eligible
+      text transforms over values retained into group/filter consumers; preserve
+      merged-value equality, cross-dictionary identity and the detached-code repair.
     - [ ] 11: use actual spill exposure to prioritize admitted mergeable native
       aggregate states; keep pressured-workload results separate from the stable 10k.
     - [ ] 12: evaluate a charged spilled-join block directory, then separately
