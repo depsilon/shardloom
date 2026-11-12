@@ -118,6 +118,24 @@ test or ignored-test registration ships with this checkpoint.
 
 ## Evidence and continuation contract
 
+PR #1682's first hosted CI run selected Rust 1.100.0 through the floating
+`stable` toolchain. Its stricter Clippy checks rejected unchanged decimal/schema
+loops. The separate CI correction pins all 16 toolchain inputs to Rust 1.99.0,
+the compiler used for the preserved local validation. Every job, test command,
+strict lint command and the Rust 1.96 minimum-version lane remains unchanged.
+This pin requires deliberate validation before the next compiler upgrade.
+There is no runtime, dependency or benchmark change in this correction.
+
+The original hosted failure and the pin's local checks are preserved in the
+packet's separate `ci-toolchain` supplement. Fourteen CI-plan tests, the gate
+matrix and formatting pass; five corruptions challenge the compiler pin,
+lint/job preservation and unchanged runtime source. `verify_ci.py` verifies
+the current source with this one explicit workflow exception, then replays the
+unchanged original packet and all 33 original corruption controls. The original
+`verify.py`, acceptance manifest, archives and failed baseline remain byte-exact.
+The original source-bound command applies to the first checkpoint commit;
+the supplemented command applies after the CI correction.
+
 The [portable packet](../benchmarks/evidence/native-direct-count-bridge-2026-11-12/README.md)
 binds original source, validation, diagnostic observations, independent references,
 the complete failed baseline, exact reuse, source restoration and proposal patch.

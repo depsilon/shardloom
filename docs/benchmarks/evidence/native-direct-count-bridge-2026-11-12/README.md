@@ -27,11 +27,22 @@ From this directory, with standard-library Python 3.13 and Git available:
 python3 -B verify.py --require-controls
 ```
 
-For source-bound verification from the repository root:
+For current source-bound verification from the repository root, including the
+separately recorded CI compiler pin:
 
 ```bash
-python3 -B docs/benchmarks/evidence/native-direct-count-bridge-2026-11-12/verify.py --repo-root . --require-controls
+python3 -B docs/benchmarks/evidence/native-direct-count-bridge-2026-11-12/verify_ci.py --repo-root .
 ```
+
+`verify_ci.py` also runs without `--repo-root` for a relocated packet. It requires
+the original 33 corruption controls. Its `ci-toolchain` supplement preserves
+the first hosted Rust 1.100.0 Clippy failure and binds the exact workflow pin to
+the already validated Rust 1.99.0. All 16 toolchain inputs change together;
+jobs, test/lint commands and the minimum-version lane are unchanged. The gate
+matrix, 14 CI-plan tests, formatting and five additional corruption checks pass.
+The supplement does not rewrite the original verifier, manifests, archives,
+results or controls. Original source-bound verification remains valid against
+checkpoint commit `3181484789a9dc4b2cd66a335da50d91b831c360`.
 
 The verifier replays all 2,543 saved results and checks all 60 failures without
 executing a query, compiler or reference engine. Git applies the preserved patch

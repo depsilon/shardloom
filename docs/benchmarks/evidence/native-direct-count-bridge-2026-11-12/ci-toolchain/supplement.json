@@ -1,0 +1,151 @@
+{
+  "after": {
+    "bytes": 69628,
+    "sha256": "295de0309912e87170cc206134ee66113f6f3a1ec1dfe4af38e917048728b69c"
+  },
+  "before": {
+    "bytes": 69046,
+    "sha256": "a99da8d902fc7729c6beefba12c5df60141d89dd9e09c8dd0b5905c74a9e4a28"
+  },
+  "candidate_admitted": false,
+  "current_verifier": {
+    "bytes": 8255,
+    "sha256": "79aeec770544dbdf1879fa16dd2d99b763cc6f21bbc8a8fdae7d35e26b4dd513"
+  },
+  "evidence": {
+    "ci-toolchain/checks-connector.json": {
+      "bytes": 338070,
+      "sha256": "8f45f19e8b50aa07469193e6608c160b3b5e1d70763822984584ac633e924762"
+    },
+    "ci-toolchain/checks-later-connector.json": {
+      "bytes": 362576,
+      "sha256": "f289c5aa5af926625e0d2a30880392b0b37d999e92046d8f3b8d55245ec593c7"
+    },
+    "ci-toolchain/ci-gate-matrix.json": {
+      "bytes": 35080,
+      "sha256": "5a7adccf326a0bcb5e9ebb43e43b79bff60c106f2ce436d1f5e360afea9a21de"
+    },
+    "ci-toolchain/format.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/format.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/initial-checks/ci-gate-matrix.json": {
+      "bytes": 35080,
+      "sha256": "5a7adccf326a0bcb5e9ebb43e43b79bff60c106f2ce436d1f5e360afea9a21de"
+    },
+    "ci-toolchain/initial-checks/format.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/initial-checks/format.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/initial-checks/matrix.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/initial-checks/matrix.stdout.log": {
+      "bytes": 107,
+      "sha256": "88f61d647fecf962de19d3b3f747f1b7ff9b22776b2622b57bd6b4f9fe977fee"
+    },
+    "ci-toolchain/initial-checks/pipeline.stderr.log": {
+      "bytes": 113,
+      "sha256": "0e6e560bc8eb34ecefeab9599e38137ec3613f8c4ec3a94c23ef711dc5763e12"
+    },
+    "ci-toolchain/initial-checks/pipeline.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/initial-local-checker.py": {
+      "bytes": 4386,
+      "sha256": "314ebb9c72c2bf3af74d67e555df0eb94686771533f462f5635f1ea4900d20a3"
+    },
+    "ci-toolchain/initial-local-execution.json": {
+      "bytes": 1244478,
+      "sha256": "badf5b459447b72372b432ce935f3890a80dbea4e0ff5cb8834b2ff1d78e0aca"
+    },
+    "ci-toolchain/initial-local-execution.log": {
+      "bytes": 2562,
+      "sha256": "d7740c9c94e0550cbdd40d8d7709db56b675c1b85f2c997ecd1cdbdd8a68f4a9"
+    },
+    "ci-toolchain/initial-local-validation.json": {
+      "bytes": 2562,
+      "sha256": "d7740c9c94e0550cbdd40d8d7709db56b675c1b85f2c997ecd1cdbdd8a68f4a9"
+    },
+    "ci-toolchain/initial-verifier.py": {
+      "bytes": 6453,
+      "sha256": "b7a239eb349142e0a74a7160fb78704cfd16306292ac1a069d2af2aa3fab0a53"
+    },
+    "ci-toolchain/lint-logs-connector.json": {
+      "bytes": 70177,
+      "sha256": "c513acc6b4de17f8ace15ebea29ab134d14517a9c1df3623f69734e299e76556"
+    },
+    "ci-toolchain/lint-steps-connector.json": {
+      "bytes": 1502,
+      "sha256": "680e5818d307b34e16ab04d164f93829b8352c9fabfd526828a71291d2557dfb"
+    },
+    "ci-toolchain/local-checker.py": {
+      "bytes": 4386,
+      "sha256": "4f9458223c40000457a313bcf0abae85671b95e98301339554276ecb7dfc407f"
+    },
+    "ci-toolchain/local-execution.json": {
+      "bytes": 1244697,
+      "sha256": "6c1f4a788f94b92ac9e5aefbd20fa1b9458724822ded995f0e8a8e1ab1ddb54d"
+    },
+    "ci-toolchain/local-execution.log": {
+      "bytes": 2562,
+      "sha256": "df80326289ab981be28aaf56fd2dbdcc2948aa6cc4da4205c5806952f923cede"
+    },
+    "ci-toolchain/local-validation.json": {
+      "bytes": 2562,
+      "sha256": "df80326289ab981be28aaf56fd2dbdcc2948aa6cc4da4205c5806952f923cede"
+    },
+    "ci-toolchain/matrix.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/matrix.stdout.log": {
+      "bytes": 107,
+      "sha256": "886182fb25c6de7dd763052cfed6c01819a9669ca7a4f9dde6ddca0d6b3195fc"
+    },
+    "ci-toolchain/pipeline.stderr.log": {
+      "bytes": 113,
+      "sha256": "c5319ca75da3cea06584fc59c257175569d95a5368e6fd8e1f8493f063e769c6"
+    },
+    "ci-toolchain/pipeline.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ci-toolchain/workflow.yml": {
+      "bytes": 69628,
+      "sha256": "295de0309912e87170cc206134ee66113f6f3a1ec1dfe4af38e917048728b69c"
+    }
+  },
+  "failure_disposition": "Preserve the original Rust 1.100.0 Clippy failure separately from the invalid COUNT baseline; no benchmark rerun or result revision.",
+  "investigation_b_complete": false,
+  "original_acceptance": {
+    "bytes": 5655225,
+    "sha256": "f167609c2a51715eb74bff83378b6e048bcfb0a2638485134d955a828249a985"
+  },
+  "original_controls": {
+    "bytes": 567190,
+    "sha256": "f83e2c4043b688ec39f897c24fa1ee84df2fa858c51f8e21c2e27d94eb6166ad"
+  },
+  "original_pr_head": "3181484789a9dc4b2cd66a335da50d91b831c360",
+  "original_verifier": {
+    "bytes": 73603,
+    "sha256": "80288534ef7d3916130c80de07be1037767aff5e2f00c05b900a0dd4b5bf3818"
+  },
+  "path": ".github/workflows/ci.yml",
+  "pr": 1682,
+  "query_executions": 0,
+  "schema": "shardloom.direct_count_ci_toolchain.v1",
+  "scope": "Explicitly pin the sixteen CI toolchain inputs to the already validated compiler; all jobs and commands, MSRV and runtime source are unchanged.",
+  "status": "validated_ci_only_pin",
+  "toolchain": "1.99.0"
+}
