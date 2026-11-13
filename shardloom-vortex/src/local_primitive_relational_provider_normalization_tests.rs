@@ -169,11 +169,13 @@ fn projection_provider_does_not_move_filter_across_range_or_skip_computation() {
         vec![("key", column("key"))],
     );
     for plan in [range_then_filter, computed, range(fixture.scan(), 1, 1)] {
-        assert!(
-            !prepare_relational(&plan, policy())
-                .unwrap()
-                .root_has_file_kernel()
-        );
+        for equivalent in [plan.clone(), plan.compact_streaming()] {
+            assert!(
+                !prepare_relational(&equivalent, policy())
+                    .unwrap()
+                    .root_has_file_kernel()
+            );
+        }
     }
 }
 

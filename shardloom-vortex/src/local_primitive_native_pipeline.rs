@@ -8,7 +8,7 @@
 use super::PreparedRoot;
 use super::{
     CancellationToken, Metrics, NativeExecutionContext, Node, NodeKind, PreparedVortexRelational,
-    PreparedVortexSource, ResidentVortexSession, Result, ScanSource, SubqueryRelation,
+    PreparedVortexSource, ResidentVortexSession, Result, SubqueryRelation,
     VortexLocalPrimitiveExecutionPolicy, add, failed, provider,
 };
 use shardloom_core::{
@@ -85,7 +85,7 @@ impl Compiler<'_> {
             node.kind = *kernel.declaration;
         }
         if self.file_kernels
-            && let Some(index) = single_file(node)
+            && let Some(index) = provider::single_file(node)
         {
             let source = self
                 .sources
@@ -149,21 +149,6 @@ impl Compiler<'_> {
                 }
             }
         }
-    }
-}
-
-fn single_file(node: &Node) -> Option<usize> {
-    match &node.kind {
-        NodeKind::Scan {
-            source: ScanSource::File(index),
-            ..
-        } => Some(*index),
-        NodeKind::Project { input, .. }
-        | NodeKind::Filter { input, .. }
-        | NodeKind::Aggregate { input, .. }
-        | NodeKind::Sort { input, .. }
-        | NodeKind::Limit { input, .. } => single_file(input),
-        _ => None,
     }
 }
 

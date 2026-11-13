@@ -3465,25 +3465,15 @@ fn local_primitive_native_io_safe(
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
     }
+    if local_primitive_empty_count_source_scan(request, report) {
+        return true;
+    }
     if local_primitive_empty_unary_source_scan(report)
         || local_primitive_empty_unary_predicate_scan(request, report)
     {
         return true;
     }
-    // A completed sort over an authoritative empty source has neither
-    // candidates nor materialized input. Its empty typed output is certified
-    // from the footer and completed scan, not from invented data-read work.
-    if request.kind == VortexQueryPrimitiveKind::SortRows
-        && request
-            .sort_rows
-            .as_ref()
-            .is_some_and(|sort| sort.spill.is_none())
-        && report.rows_projected == Some(0)
-        && report.source_order_limit_input_rows == Some(0)
-        && report.source_order_limit_rows_output == Some(0)
-        && report.embedded_layout.metadata_persisted_in_artifact
-        && local_primitive_empty_source_scan(report)
-    {
+    if local_primitive_empty_sort_source_scan(request, report) {
         return true;
     }
     // An authoritative source row count and a completed native scan prove that fresh
@@ -3524,6 +3514,40 @@ fn local_primitive_native_io_safe(
         return false;
     }
     report.upstream_scan_called && report.data_read && report.streaming_scan_used
+}
+
+fn local_primitive_empty_count_source_scan(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    // A completed predicate count over an authoritative empty source reads no
+    // arrays. The source population and completed scan prove zero; inventing a
+    // data-read flag would make its certificate less faithful to execution.
+    request.kind == VortexQueryPrimitiveKind::CountWhere
+        && request.predicate.is_some()
+        && report.rows_projected.is_none()
+        && report.filter_pushdown_applied
+        && report.upstream_filter_expression_used
+        && local_primitive_empty_source_scan(report)
+}
+
+fn local_primitive_empty_sort_source_scan(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    // A completed sort over an authoritative empty source has neither
+    // candidates nor materialized input. Its empty typed output is certified
+    // from the footer and completed scan, not from invented data-read work.
+    request.kind == VortexQueryPrimitiveKind::SortRows
+        && request
+            .sort_rows
+            .as_ref()
+            .is_some_and(|sort| sort.spill.is_none())
+        && report.rows_projected == Some(0)
+        && report.source_order_limit_input_rows == Some(0)
+        && report.source_order_limit_rows_output == Some(0)
+        && report.embedded_layout.metadata_persisted_in_artifact
+        && local_primitive_empty_source_scan(report)
 }
 
 fn local_primitive_empty_aggregate_source_scan(

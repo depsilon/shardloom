@@ -108,6 +108,68 @@ fn parquet_demand_nested_ranges_and_aliases_request_one_complete_source_prefix()
 }
 
 #[test]
+fn parquet_demand_flat_ranges_and_aliases_preserve_the_same_source_prefix() {
+    let fixture = ParquetFixture::new();
+    fixture.corrupt_chunk(3, 0);
+    let plan = limit(
+        project(limit(fixture.scan(&[], None), 2, 8), &[("n", "renamed")]),
+        1,
+        3,
+    )
+    .compact_streaming();
+    let prepared = fixture.prepare(&plan);
+    let initial = prepared.snapshot().memory.reserved_bytes;
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    assert_eq!(
+        json_rows(&result),
+        (3..6).map(|n| json!({"renamed":n})).collect::<Vec<_>>()
+    );
+    let input = result.execution.input.as_ref().unwrap();
+    assert_eq!(input.columnar_projected_columns, 1);
+    assert_eq!(input.columnar_row_groups_read, 2);
+    assert_eq!(input.columnar_rows_decoded, 6);
+    assert_eq!(input.columnar_requested_prefix_rows, 6);
+    assert_eq!(input.columnar_prefix_sources, 1);
+    assert!(input.end_of_input_observed && input.output_ownership_detached);
+    drop(result);
+    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+}
+
+#[test]
+fn parquet_demand_flat_fallible_projection_still_observes_late_errors() {
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![Field::new("text", DataType::Utf8, false)])),
+        vec![Arc::new(StringArray::from(vec!["1", "2", "3", "invalid"]))],
+    )
+    .unwrap();
+    let fixture = ParquetFixture::with_batch_rows(batch, EnabledStatistics::None, 2);
+    let projected = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
+        input: fixture.scan(&[], None),
+        expressions: vec![(
+            "casted".into(),
+            Expression::cast(
+                ExprId::new("cast").unwrap(),
+                column("text"),
+                LogicalDType::Int64,
+            ),
+        )],
+    }));
+    for count in [0, 1] {
+        let prepared = fixture.prepare(&limit(projected.clone(), 0, count).compact_streaming());
+        let initial = prepared.snapshot().memory.reserved_bytes;
+        assert!(
+            prepared
+                .collect_jsonl(&CancellationToken::default())
+                .is_err()
+        );
+        assert_eq!(prepared.snapshot().completed_executions, 0);
+        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    }
+}
+
+#[test]
 fn parquet_demand_zero_prefix_preserves_schema_without_reading_corrupt_pages() {
     let fixture = ParquetFixture::new();
     fixture.corrupt_chunk(0, 0);

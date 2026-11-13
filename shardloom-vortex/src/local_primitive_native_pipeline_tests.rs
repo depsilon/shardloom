@@ -7,6 +7,9 @@ use crate::{
 };
 use serde_json::json;
 
+#[path = "local_primitive_native_pipeline_coverage_tests.rs"]
+mod coverage_tests;
+
 fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
     VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input,

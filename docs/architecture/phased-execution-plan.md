@@ -251,6 +251,17 @@ the ledger.
 
 Current autonomous execution order:
 
+- [ ] **November 13 optimization coverage priority.** The maintainer requests
+  complete optimization coverage across the supported engine. The
+  [coverage contract](native-optimization-coverage-2026-11-13.md) starts with
+  mechanism/opportunity inventory and equivalent-pipeline integration gaps,
+  then closes verified omissions through existing item-20/RFC-0044 owners.
+  Planning-only features, missing evidence and unimplemented mechanisms remain
+  uncovered. Preserve existing semantic/resource gates, rejected candidates and
+  the invalid direct COUNT baseline. PR #1683's hosted acceptance remains a
+  separate prerequisite; item 19, item 20 and CG-1 through CG-23 are not closed
+  by this priority or by file-kernel invocation counts.
+
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)

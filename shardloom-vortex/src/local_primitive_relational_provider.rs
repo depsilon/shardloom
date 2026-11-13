@@ -24,7 +24,13 @@ use vortex::array::{
 mod memory;
 #[path = "local_primitive_relational_provider_plan.rs"]
 mod plan;
-pub(super) use plan::scan_predicate;
+#[path = "local_primitive_relational_provider_view.rs"]
+mod view;
+pub(super) use plan::{conjoin, scan_predicate};
+
+pub(super) fn single_file(node: &Node) -> Option<usize> {
+    view::View::Node(node).single_file()
+}
 
 pub(super) struct Prepared {
     strategy: Strategy,

@@ -200,30 +200,32 @@ fn subtract(name: &str, offset: i64) -> Expression {
 }
 
 fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQueryPrimitiveKind) {
-    let optimized = prepare_relational(plan, policy()).unwrap();
-    assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
     let mut general = prepare_relational(plan, policy()).unwrap();
     general.remove_file_kernels_for_reference().unwrap();
     let expected = general
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
-    let baseline = optimized.snapshot().memory.reserved_bytes;
-    for completed in 1..=2 {
-        let result = optimized
-            .collect_jsonl(&CancellationToken::default())
-            .unwrap();
-        assert_eq!(json_rows(&result), json_rows(&expected));
-        assert_eq!(
-            result.result_schema_json.value(),
-            expected.result_schema_json.value()
-        );
-        let report = result.execution.primitive_execution.as_ref().unwrap();
-        assert_eq!(report.primitive_kind, kind);
-        assert!(!report.fallback_execution_allowed);
-        assert_eq!(result.execution.runtime.prepared_source_opens, 1);
-        assert_eq!(result.execution.runtime.completed_executions, completed);
-        drop(result);
-        assert_eq!(optimized.snapshot().memory.reserved_bytes, baseline);
+    for equivalent in [plan.clone(), plan.clone().compact_streaming()] {
+        let optimized = prepare_relational(&equivalent, policy()).unwrap();
+        assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
+        let baseline = optimized.snapshot().memory.reserved_bytes;
+        for completed in 1..=2 {
+            let result = optimized
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            assert_eq!(json_rows(&result), json_rows(&expected));
+            assert_eq!(
+                result.result_schema_json.value(),
+                expected.result_schema_json.value()
+            );
+            let report = result.execution.primitive_execution.as_ref().unwrap();
+            assert_eq!(report.primitive_kind, kind);
+            assert!(!report.fallback_execution_allowed);
+            assert_eq!(result.execution.runtime.prepared_source_opens, 1);
+            assert_eq!(result.execution.runtime.completed_executions, completed);
+            drop(result);
+            assert_eq!(optimized.snapshot().memory.reserved_bytes, baseline);
+        }
     }
 }
 

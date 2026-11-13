@@ -1,14 +1,14 @@
 //! Narrow fully bound operator inputs and normalize safe predicates into the
 //! native file/batch scan. Expressions keep their original evaluation order.
 
-use super::super::SubqueryRelation;
-use super::{Binder, Node, NodeKind, Result, Side, failed, field};
+use super::super::{PipelineKind, PipelineStage, SubqueryRelation};
+use super::{Binder, DType, Node, NodeKind, Result, Side, failed, field};
 use crate::local_primitives::{
     self as native,
     native_relational_expression::{Expression as BoundExpression, Kind},
     prepared_relational::{ScanSource, provider},
 };
-use shardloom_core::{ColumnRef, PredicateExpr};
+use shardloom_core::ColumnRef;
 use shardloom_plan::ProjectionRequest;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -87,24 +87,21 @@ impl Binder<'_> {
                 expressions,
             } => {
                 self.charge_named_fields(&input.fields)?;
-                let mut retained: BTreeSet<String> =
-                    needed.into_iter().map(str::to_owned).collect();
-                for ((name, _), expression) in input.fields.iter().zip(expressions.iter()) {
-                    // Every computed expression retains its original execution
-                    // and error order, even when its output is not requested.
-                    if !matches!(expression.kind, Kind::Column(_)) {
-                        retained.insert(name.clone());
-                    }
-                }
-                let mut index = 0;
-                expressions.retain(|_| {
-                    let keep = retained.contains(&input.fields[index].0);
-                    index += 1;
-                    keep
-                });
-                input.fields.retain(|(name, _)| retained.contains(name));
-                BoundExpression::bind_projection_reuse(expressions);
+                retain_projection(
+                    &mut input.fields,
+                    expressions,
+                    needed.into_iter().map(str::to_owned).collect(),
+                );
                 self.narrow_scan_projection(child, expressions)?;
+            }
+            NodeKind::Pipeline {
+                input: child,
+                stages,
+            } => {
+                self.narrow_pipeline_demand(child, stages, needed)?;
+                input
+                    .fields
+                    .clone_from(stages.last().map_or(&child.fields, |stage| &stage.fields));
             }
             NodeKind::Window { input: child, spec } => {
                 self.charge_named_fields(&input.fields)?;
@@ -154,6 +151,65 @@ impl Binder<'_> {
             }
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn narrow_pipeline_demand<'name>(
+        &mut self,
+        input: &mut Node,
+        stages: &mut [PipelineStage],
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        // Apply the same projection/filter/range rules in reverse dataflow
+        // order, without allocating temporary nodes for a flat declaration.
+        self.charge_named_fields(stages.last().map_or(&input.fields, |stage| &stage.fields))?;
+        let mut needed: BTreeSet<String> = needed.into_iter().map(str::to_owned).collect();
+        if stages
+            .last()
+            .map_or(&input.fields, |stage| &stage.fields)
+            .iter()
+            .all(|(name, _)| needed.contains(name))
+        {
+            // Earlier binding already propagated this complete demand. Merely
+            // renaming the same fields must not recharge every previous stage.
+            return Ok(());
+        }
+        for stage in stages.iter_mut().rev() {
+            self.cancellation.check()?;
+            self.charge_named_fields(&stage.fields)?;
+            match &mut stage.kind {
+                PipelineKind::Project(expressions) => {
+                    retain_projection(&mut stage.fields, expressions, needed);
+                    needed = BTreeSet::new();
+                    for expression in expressions {
+                        expression.visit_columns(&mut |name| {
+                            needed.insert(name.to_owned());
+                            Ok(())
+                        })?;
+                    }
+                }
+                PipelineKind::Filter(predicate) => {
+                    predicate.visit_columns(&mut |name| {
+                        needed.insert(name.to_owned());
+                        Ok(())
+                    })?;
+                }
+                PipelineKind::Limit { .. } => {}
+                PipelineKind::Observe(_) | PipelineKind::ApplicationBatch(_) => {
+                    unreachable!("source-demand admission excludes effect/completion barriers")
+                }
+            }
+        }
+        self.narrow_source_demand(input, needed.iter().map(String::as_str))?;
+        // Pass-through stages use the narrowed upstream schema. Project stages
+        // already retain their own aliases and all computed outputs.
+        let mut fields = &input.fields;
+        for stage in stages {
+            if !matches!(stage.kind, PipelineKind::Project(_)) {
+                stage.fields.clone_from(fields);
+            }
+            fields = &stage.fields;
         }
         Ok(())
     }
@@ -240,6 +296,16 @@ impl Binder<'_> {
             | NodeKind::Limit { input, .. }
             | NodeKind::Project { input, .. }
             | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
+            NodeKind::Pipeline { input, stages } => {
+                stages.iter().all(|stage| {
+                    matches!(
+                        stage.kind,
+                        PipelineKind::Project(_)
+                            | PipelineKind::Filter(_)
+                            | PipelineKind::Limit { .. }
+                    )
+                }) && self.scan_accepts_source_demand(input)
+            }
             NodeKind::Join { left, right, .. } => {
                 self.scan_accepts_source_demand(left) && self.scan_accepts_source_demand(right)
             }
@@ -407,29 +473,19 @@ impl Binder<'_> {
                 NodeKind::Project { input, expressions } => {
                     // Even an unused computed column may fail. Only traverse
                     // encoded column views, never a computed projection.
-                    if expressions
-                        .iter()
-                        .any(|expr| !matches!(expr.kind, Kind::Column(_)))
-                    {
+                    if !remap_aliases(&node.fields, expressions, &mut aliases) {
                         return Ok(false);
                     }
-                    let columns = node
-                        .fields
-                        .iter()
-                        .zip(expressions.iter())
-                        .map(|((name, _), expression)| {
-                            let Kind::Column(source) = &expression.kind else {
-                                unreachable!("checked column-only projection")
-                            };
-                            (name.as_str(), source.as_str())
-                        })
-                        .collect::<BTreeMap<_, _>>();
-                    for name in aliases.values_mut() {
-                        let Some(source) = columns.get(name.as_str()) else {
+                    node = input;
+                }
+                NodeKind::Pipeline { input, stages } => {
+                    for stage in stages.iter().rev() {
+                        let PipelineKind::Project(expressions) = &stage.kind else {
                             return Ok(false);
                         };
-                        name.clear();
-                        name.push_str(source);
+                        if !remap_aliases(&stage.fields, expressions, &mut aliases) {
+                            return Ok(false);
+                        }
                     }
                     node = input;
                 }
@@ -453,14 +509,21 @@ impl Binder<'_> {
                         dtype,
                         native::VortexQueryPrimitiveKind::FilterAndProject,
                     )?;
+                    // Keep existing physical rewrites, while using Vortex's
+                    // conjunct extraction and balanced builder. Flat programs
+                    // must not create an unbounded recursive AND chain. The
+                    // original predicates' binding credits cover these borrowed
+                    // expression handles and the overlapping balanced tree.
                     plan.filter = Some(match plan.filter.take() {
-                        Some(prior) => vortex::array::expr::and(prior, filter),
+                        Some(prior) => vortex::array::expr::and_collect(
+                            vortex::expr::forms::conjuncts(&prior)
+                                .into_iter()
+                                .chain(std::iter::once(filter)),
+                        )
+                        .expect("a new filter is always present"),
                         None => filter,
                     });
-                    *prior_predicate = Some(match prior_predicate.take() {
-                        Some(prior) => PredicateExpr::And(vec![prior, predicate]),
-                        None => predicate,
-                    });
+                    *prior_predicate = Some(provider::conjoin(prior_predicate.take(), predicate));
                     self.refresh_batch_projection(source, columns, plan)?;
                     return Ok(true);
                 }
@@ -498,21 +561,79 @@ impl Binder<'_> {
     }
 }
 
-fn alias_scan_width(node: &Node) -> Option<usize> {
-    match &node.kind {
-        NodeKind::Project { input, expressions }
-            if expressions
-                .iter()
-                .all(|expression| matches!(expression.kind, Kind::Column(_))) =>
-        {
-            Some(node.fields.len().max(alias_scan_width(input)?))
+fn retain_projection(
+    fields: &mut Vec<(String, DType)>,
+    expressions: &mut Vec<BoundExpression>,
+    mut retained: BTreeSet<String>,
+) {
+    // Every computed expression retains its original execution and error
+    // order, even when its output is not requested by the consumer.
+    for ((name, _), expression) in fields.iter().zip(expressions.iter()) {
+        if !matches!(expression.kind, Kind::Column(_)) {
+            retained.insert(name.clone());
         }
-        NodeKind::Scan {
-            source: ScanSource::File(_) | ScanSource::Batch { .. },
-            plan,
-            residual,
-            ..
-        } if residual.is_none() && plan.source_order_limit.is_none() => Some(node.fields.len()),
-        _ => None,
+    }
+    let mut index = 0;
+    expressions.retain(|_| {
+        let keep = retained.contains(&fields[index].0);
+        index += 1;
+        keep
+    });
+    fields.retain(|(name, _)| retained.contains(name));
+    BoundExpression::bind_projection_reuse(expressions);
+}
+
+fn remap_aliases(
+    fields: &[(String, DType)],
+    expressions: &[BoundExpression],
+    aliases: &mut BTreeMap<String, String>,
+) -> bool {
+    let mut columns = BTreeMap::new();
+    for ((name, _), expression) in fields.iter().zip(expressions) {
+        let Kind::Column(source) = &expression.kind else {
+            return false;
+        };
+        columns.insert(name.as_str(), source.as_str());
+    }
+    for name in aliases.values_mut() {
+        let Some(source) = columns.get(name.as_str()) else {
+            return false;
+        };
+        name.clear();
+        name.push_str(source);
+    }
+    true
+}
+
+fn alias_scan_width(mut node: &Node) -> Option<usize> {
+    let mut width = 0;
+    loop {
+        width = width.max(node.fields.len());
+        node = match &node.kind {
+            NodeKind::Project { input, expressions }
+                if super::super::transform::column_projection(expressions) =>
+            {
+                input
+            }
+            NodeKind::Pipeline { input, stages } => {
+                for stage in stages {
+                    let PipelineKind::Project(expressions) = &stage.kind else {
+                        return None;
+                    };
+                    if !super::super::transform::column_projection(expressions) {
+                        return None;
+                    }
+                    width = width.max(stage.fields.len());
+                }
+                input
+            }
+            NodeKind::Scan {
+                source: ScanSource::File(_) | ScanSource::Batch { .. },
+                plan,
+                residual,
+                ..
+            } if residual.is_none() && plan.source_order_limit.is_none() => return Some(width),
+            _ => return None,
+        };
     }
 }
