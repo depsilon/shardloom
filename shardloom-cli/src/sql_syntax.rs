@@ -6775,6 +6775,9 @@ fn selected_additive_alias(raw: &str, projections: &ParsedProjectionList) -> Opt
 
 fn selected_expression_alias(raw: &str, projections: &ParsedProjectionList) -> Option<String> {
     selected_additive_alias(raw, projections).or_else(|| {
+        if !scalar_expression::composed(raw).ok()? {
+            return None;
+        }
         projections
             .generic_expression_projections
             .iter()

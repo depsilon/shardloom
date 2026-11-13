@@ -272,6 +272,14 @@ Current autonomous execution order:
     demonstrated exposure and value; keep managed-object growth separate. Required useful
     spatial support and resource-admitted deep traversal remain in item 19.
   - Execution checklist:
+    - [x] Implement the November 12 requested
+      [single native pipeline](native-pipeline-consolidation-2026-11-12.md)
+      before further performance investigations. The frozen
+      [original 10,000-case observation](../benchmarks/native-pipeline-consolidation-2026-11-12.md)
+      passes every complete result. The November 13 correction admits minute
+      EXTRACT/DATE_TRUNC SQL through the shared compiler with separate tests;
+      it postdates that measured runtime. Hosted PR integration remains separate,
+      and item 19, item 20 and CG-1 through CG-23 remain open.
     - [x] Complete hosted integration of the dictionary callback repair. PR #1677
       merged as `037b6801320aa0bfe939ba10aed9304198b77a5a`; all 58 PR and 55
       exact-main checks passed, review was clear and verified retirement/replay

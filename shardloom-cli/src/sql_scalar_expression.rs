@@ -270,6 +270,11 @@ impl Parser {
             return Err(unsupported_sql_error("scalar function has trailing input"));
         }
         let inner = &raw[open + 1..close];
+        if matches!(name.as_str(), "extract" | "date_trunc") && inner.trim_end().ends_with(',') {
+            return Err(unsupported_sql_error(
+                "minute SQL arguments must not end with a comma",
+            ));
+        }
         // SQL spellings normalize into the existing native scalar declarations.
         // Operand recursion, type admission and evaluation retain their owners.
         let (name, arguments) = match name.as_str() {
@@ -620,12 +625,15 @@ mod tests {
             "EXTRACT('minute' FROM t)",
             "EXTRACT(minute FROM)",
             "EXTRACT(minute FROM t,u)",
+            "EXTRACT(minute FROM t,)",
             "EXTRACT(minute FROM t FROM u)",
             "EXTRACT(minute FROM t) trailing",
             "EXTRACT(minute FROM t",
             "DATE_TRUNC()",
             "DATE_TRUNC('minute')",
             "DATE_TRUNC('minute',t,u)",
+            "DATE_TRUNC('minute',t,)",
+            "DATE_TRUNC('minute',t, )",
             "DATE_TRUNC('hour',t)",
             "DATE_TRUNC(minute,t)",
             "DATE_TRUNC(NULL,t)",
