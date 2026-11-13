@@ -284,6 +284,51 @@ Current autonomous execution order:
   [portable evidence packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
   preserves the source-bound validation. Item 19, item 20, RFC 0044 and CG-1
   through CG-23 remain open.
+  The latest maintainer instruction prioritizes these active implementation
+  deliverables, with public execution, semantic and activation evidence:
+  - [ ] Finish the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md),
+    preserving complete validation and accepting only a measured cohort gain.
+  - [ ] Close Vortex scan reporting/decision gaps and demonstrated missed
+    projection, predicate or pruning opportunities; distinguish missing evidence
+    from missing execution.
+  - [ ] Connect remaining direct-source COUNT and file-backed cyclic semi-join
+    opportunities through native shared owners and valid new evidence.
+  - [ ] Expand uncovered multi-window, correlated-subquery, melt/pivot,
+    sampling and rich expression compositions across the public surfaces.
+  - [ ] Implement general native runtime filters, skew handling and cross-query
+    reuse under their existing RFC contracts; identify and reuse partial
+    implementations, preserving generation, effect and resource boundaries.
+
+- [ ] **November 13 metadata and encoded-consumer investigations — follow the
+  active optimization-coverage implementation above.** The maintainer's supplied
+  research is incorporated as major investigation and implementation work in the
+  [follow-on contract](native-metadata-encoded-consumer-investigations-2026-11-13.md).
+  Recheck actual source/provider activation, develop the missing shared engine
+  connections, and retain changes only after their semantic, resource, ownership,
+  no-fallback and complete-operation evidence passes. Reading the research or
+  adding counters alone does not complete an item. Existing item-20 owners and
+  item-19 spatial obligations remain canonical; these are not new phase IDs.
+  - [ ] Complete individually proved aggregate measures from metadata while
+    scanning only unresolved measures/columns through the same finalizer.
+  - [ ] Extend existing N with dictionary-domain text transforms retained into
+    filter/group/distinct consumers and compatible shared outputs.
+  - [ ] Investigate a conservative FSST candidate prefilter and separately
+    bounded exact-table matcher reuse, with selective/dense and hardware controls.
+  - [ ] Merge exact stored aggregate partials for fully covered regions with
+    scanned residual regions; separately prove constant-group-key completion.
+  - [ ] Carry reusable exact source/domain facts to admit ALP/FastLanes
+    predicates where typed comparison and failure semantics are preserved.
+  - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
+    admission first, then text signatures and spatial bounds where warranted.
+  - [ ] Assess codec/consumer choices together; extend existing I with separate
+    pruning/read/consumer units, and investigate distinct bounded CPU expression
+    fusion only after new attribution beyond the prior dropped candidate.
+  - [ ] Advance item-19 spatial execution through native coordinate/offset
+    arrays, conservative bounds and exact surviving-candidate kernels.
+  Preserve all prior FSST, text-zoning, fusion and layout observations. Extend
+  the fixed 10k with versioned encoding/metadata/selectivity controls where it
+  lacks exposure. No speculative codec default, duplicate N/I/spatial queue,
+  broad unmeasured rewrite, new fallback engine or competitive claim is admitted.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the

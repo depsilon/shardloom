@@ -232,6 +232,13 @@ support or renewed admission of the rejected topology.
 
 ## N: dictionary-domain text expressions into a consumer
 
+The [November 13 follow-on intake](native-metadata-encoded-consumer-investigations-2026-11-13.md)
+extends this N owner with lower/upper/trim/length/regex activation, retained
+filter/group/distinct consumers and compatible shared outputs. It also extends
+I's separation of pruning regions, physical reads and survivor batches. These
+additions follow the active optimization-coverage implementation; they do not
+create duplicate N/I items or relax the following proof requirements.
+
 Check actual dictionary activation and an expensive repeated text transformation
 before implementation. The pinned Vortex 0.93
 [dictionary scalar-function rule](../../vendor/vortex-array/src/arrays/dict/compute/rules.rs)
