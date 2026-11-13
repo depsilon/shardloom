@@ -5,7 +5,7 @@
 Status: implemented and validated locally under the November 12 maintainer
 instruction. The [one-pass observation](../benchmarks/native-pipeline-consolidation-2026-11-12.md)
 passes all 10,000 original cases; the report preserves the exact validation
-scope, original failures and explicit SQL-admission gaps. No hosted integration
+scope, original failures and the later SQL-admission correction below. No hosted integration
 or publication is claimed.
 This work precedes the remaining item-20 performance investigations. It extends
 the existing planner, native operator, resource and diagnostics owners; it adds
@@ -110,13 +110,39 @@ own a `PreparedVortexRelational` plan; file specializations are internal operato
 in that plan. Direct low-level primitive commands retain their explicit kernel
 contracts. They do not receive arbitrary unsupported relational plans.
 
-The complete CLI unit/integration suite passes after updating route metadata
-expectations. The shared SQL frontend currently rejects the legacy
+The initial CLI unit/integration suite passed after updating route metadata
+expectations. At that observation, the shared SQL frontend rejected the legacy
 `EXTRACT(minute FROM ...)` and `DATE_TRUNC('minute', ...)` forms during route
 admission. Their old primitive-summary recognition remains available as inert
 metadata; it no longer routes complete SQL around the shared compiler. These are
 explicit syntax-admission gaps, not evidence that native calendar kernels are
 absent. Do not restore the deleted executor split to admit them.
+
+### November 13 SQL minute correction
+
+The maintainer requested both spellings before opening the consolidated PR.
+The bounded shared scalar parser now normalizes `EXTRACT(minute FROM expression)`
+to `extract_minute(expression)` and `DATE_TRUNC('minute', expression)` to
+`date_trunc_minute(expression)`. Operands compose through the same parser,
+including predicates, aggregates, lazy scalars and relational bindings. Selected
+scalar expressions in GROUP BY and ORDER BY resolve by complete parsed identity
+to their existing output alias; constants and operands cannot be discarded.
+
+This remains `use_vortex_native_provider`: existing native expression binding,
+minute kernels and Vortex arrays own values, nulls and output types. No new
+kernel, dependency, executor or Arrow execution representation is added. The
+existing integer-epoch-second and timestamp-text contracts are preserved;
+signed truncation floors negative epochs and nulls propagate. Typed timestamps
+retain their explicit native helpers (`timestamp_minute`, `temporal_extract`,
+`temporal_trunc`); these epoch-second spellings cannot reinterpret timestamp
+ticks. Other EXTRACT fields and DATE_TRUNC units remain explicitly unsupported.
+
+Regression coverage includes complete results for negative/positive minute
+boundaries, null and empty inputs, text and unsigned epochs, composed operands,
+grouping, ordering, LIMIT/OFFSET, invalid syntax, parser depth and typed-unit
+rejection. Installed-package coverage collects, streams and persists both SQL
+forms through native Vortex. This correction postdates the frozen 10,000-case
+observation; its original runtime, packet and measured values remain unchanged.
 
 Installed-surface validation exposed implicit aggregate output-name drift and
 missing declaration-reuse report fields. The shared binder now preserves the

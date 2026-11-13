@@ -67,13 +67,16 @@ likewise did not mean that the remaining queries lacked native implementations.
 
 ## Remaining support and cost observations
 
-Two legacy SQL forms outside this 10,000-case corpus are explicitly rejected
-by the shared frontend: `EXTRACT(minute FROM ...)` and
+At the measured runtime, two legacy SQL forms outside this 10,000-case corpus
+were explicitly rejected by the shared frontend: `EXTRACT(minute FROM ...)` and
 `DATE_TRUNC('minute', ...)`. Their route diagnostic is
 `cg21.route.native_relational_not_admitted` with `UnsupportedSql`. Native
-calendar kernels still exist; the gap is admission of those SQL spellings into
-the common compiler. Future support must enter this pipeline. The complete
-corpus result does not claim universal SQL coverage.
+calendar kernels already existed; the gap was admission of those SQL spellings
+into the common compiler. The [November 13 correction](../architecture/native-pipeline-consolidation-2026-11-12.md#november-13-sql-minute-correction)
+adds both forms to that compiler with the existing epoch-second/text contracts
+and separate correctness tests. It postdates this observation and does not
+change its runtime, immutable packet or timing claims. The complete corpus
+result does not claim universal SQL coverage.
 
 File collections retain complete values, schema, order, streaming and output
 semantics through shared scans and aggregation/sort operators. They no longer

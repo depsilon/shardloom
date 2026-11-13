@@ -543,6 +543,47 @@ class NativePrimitiveBindingTests(unittest.TestCase):
         finally:
             session.close()
 
+    def test_minute_sql_forms_collect_stream_and_persist_native_vortex(self):
+        path = self.root / "minute-sql.vortex"
+        self._write_table_fixture(path, self.pa.table({
+            "EventTime": self.pa.array([-61, -1, 0, 59, 60, 61, 120, None], type=self.pa.int64()),
+        }))
+        cases = [
+            ("EXTRACT(minute FROM EventTime)",
+             [{"m": 0, "n": 2}, {"m": 1, "n": 2}, {"m": 2, "n": 1},
+              {"m": 58, "n": 1}, {"m": 59, "n": 1}, {"m": None, "n": 1}]),
+            ("DATE_TRUNC('minute',EventTime)",
+             [{"m": -120, "n": 1}, {"m": -60, "n": 1}, {"m": 0, "n": 2},
+              {"m": 60, "n": 2}, {"m": 120, "n": 1}, {"m": None, "n": 1}]),
+        ]
+        session = self.native.Session(
+            self.native.ExecutionResources(self.memory_bytes, self.max_parallelism)
+        )
+        try:
+            for index, (expression, expected) in enumerate(cases):
+                with self.subTest(expression=expression):
+                    plan = session.sql(
+                        f"SELECT {expression} AS m,COUNT(*) AS n FROM '{path}' "
+                        f"GROUP BY {expression} ORDER BY {expression} NULLS LAST"
+                    )
+                    result = plan.collect()
+                    table = self.pa.RecordBatchReader.from_stream(result).read_all()
+                    self.assertEqual(table.to_pylist(), expected)
+                    self.assertEqual(table.schema.names, ["m", "n"])
+                    self.assertEqual(table.schema.field("m").type, self.pa.int64())
+                    self.assertEqual(result.report["fallback_attempted"], "false")
+                    self.assertEqual(result.report["external_engine_invoked"], "false")
+                    with plan.iter_batches() as stream:
+                        streamed = [row for batch in stream for row in
+                                    self.pa.RecordBatchReader.from_stream(batch).read_all().to_pylist()]
+                    self.assertEqual(streamed, expected)
+                    destination = self.root / f"minute-result-{index}.vortex"
+                    plan.write(destination, "write_vortex")
+                    reopened = session.sql(f"SELECT * FROM '{destination}' ORDER BY m NULLS LAST").collect()
+                    self.assertEqual(self.pa.RecordBatchReader.from_stream(reopened).read_all().to_pylist(), expected)
+        finally:
+            session.close()
+
     def test_sql_collection_and_compatibility_writes_preserve_complete_rows(self):
         source_path = self.root / "schema-regression.vortex"
         table = self.pa.table({

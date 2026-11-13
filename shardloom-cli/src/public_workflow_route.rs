@@ -18356,7 +18356,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_pipeline_reports_missing_extract_minute_sql_syntax() {
+    fn shared_pipeline_admits_extract_minute_sql_syntax() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -18384,12 +18384,10 @@ mod tests {
             .expect("aggregate payload");
 
         if cfg!(all(feature = "vortex-local-primitives", unix)) {
-            assert_eq!(plan.status, CommandStatus::Unsupported);
-            assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
-            assert!(
-                plan.diagnostics
-                    .iter()
-                    .any(|diagnostic| diagnostic.code == DiagnosticCode::UnsupportedSql)
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
             );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
@@ -18444,7 +18442,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_pipeline_reports_missing_date_trunc_sql_syntax() {
+    fn shared_pipeline_admits_date_trunc_minute_sql_syntax() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -18472,12 +18470,10 @@ mod tests {
             .expect("aggregate payload");
 
         if cfg!(all(feature = "vortex-local-primitives", unix)) {
-            assert_eq!(plan.status, CommandStatus::Unsupported);
-            assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
-            assert!(
-                plan.diagnostics
-                    .iter()
-                    .any(|diagnostic| diagnostic.code == DiagnosticCode::UnsupportedSql)
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
             );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
