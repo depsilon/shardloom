@@ -118,6 +118,15 @@ errors. The existing validated join output mask is one example of reducing
 materialization while retaining selected-value validation; it does not establish
 source-read avoidance for every operator.
 
+The subsequent bounded-sort audit reproduces a separate equivalence error:
+the file shortcut can omit invalid hidden or non-winning payload values that
+the original Sort validates. The
+[admission correction](native-optimization-coverage-2026-11-13.md#preserve-the-sort-payload-contract-during-file-kernel-admission)
+retains the shared Sort whenever that extra validation is required, while
+preserving eligible integer/text-key and prior-projection kernels. This closes
+the observed correctness discrepancy; it does not count as an optimized
+Vortex demand connection or a performance improvement.
+
 ## Breadth and evidence limits
 
 The corrected historical source inventory verifies 255 unique source/design

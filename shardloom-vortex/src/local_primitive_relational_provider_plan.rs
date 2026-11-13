@@ -30,6 +30,63 @@ pub(super) struct Lowered {
     pub(super) output: Vec<String>,
 }
 
+/// A Sort observes its original payload, including hidden output fields and
+/// rows outside a later range. The bounded file kernel observes only retained
+/// payloads, so it cannot replace fallible typed payload validation. Inspect the
+/// bound Sort schema: a projection before Sort may already have removed fields.
+pub(super) fn sort_requires_payload_validation(root: &Node) -> bool {
+    let mut plan = View::Node(root);
+    loop {
+        plan = match plan.kind() {
+            Step::Sort { input, spec } => {
+                return spec.fields.iter().any(|(name, dtype)| match dtype {
+                    DType::Null | DType::Bool(_) => false,
+                    DType::Primitive(ptype, _) => !ptype.is_int(),
+                    // The file kernel validates every decoded text key before
+                    // candidate cutoff. Non-key text is late payload and can
+                    // still contain malformed bytes outside the winning rows.
+                    DType::Utf8(_) => column_origin(input, name).is_none_or(|source| {
+                        !spec
+                            .keys
+                            .iter()
+                            .any(|key| column_origin(input, key.column.as_str()) == Some(source))
+                    }),
+                    _ => true,
+                });
+            }
+            Step::Project { input, .. } | Step::Limit { input, .. } => input,
+            // Called only after a complete SortRows lowering. Other plans do
+            // not acquire a payload obligation from an unrelated source field.
+            _ => return true,
+        };
+    }
+}
+
+fn column_origin<'a>(mut plan: View<'a>, mut name: &'a str) -> Option<&'a str> {
+    loop {
+        plan = match plan.kind() {
+            Step::Scan {
+                source: ScanSource::File(_),
+                ..
+            } => return Some(name),
+            Step::Filter { input, .. } => input,
+            Step::Project { input, expressions } => {
+                let (_, expression) = plan
+                    .fields()
+                    .iter()
+                    .zip(expressions)
+                    .find(|((field, _), _)| field == name)?;
+                let E::Column(source) = &expression.kind else {
+                    return None;
+                };
+                name = source;
+                input
+            }
+            _ => return None,
+        };
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 enum Value {
     Column(String),

@@ -272,7 +272,11 @@ Current autonomous execution order:
   existing owners, exact test evidence and remaining work. Continue Vortex
   demand/validation coverage, per-opportunity decisions, missing current
   compositions and planned mechanisms. Current admission restrictions do not
-  close missing opportunities. Item 19, item 20 and CG-1 through CG-23 remain open.
+  close missing opportunities. The bounded-sort audit also reproduces skipped
+  hidden/outside-prefix payload validation in the file shortcut; its admission
+  correction preserves the existing shared Sort obligation and remains separate
+  from the pending Vortex work-reduction claim. Item 19, item 20 and CG-1 through
+  CG-23 remain open.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the

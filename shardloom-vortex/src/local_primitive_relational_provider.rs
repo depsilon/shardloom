@@ -112,6 +112,11 @@ pub(super) fn prepare(
             "bound_semantics_have_no_equivalent_file_provider",
         ));
     };
+    if lowered.request.kind == Kind::SortRows && plan::sort_requires_payload_validation(root) {
+        return Ok(Selection::declined(
+            "sort_payload_validation_requires_shared_relational_execution",
+        ));
+    }
     let bytes = memory::retained(&lowered.request, &lowered.output, &names)?;
     let capacity = memory.snapshot();
     if bytes
@@ -157,18 +162,7 @@ pub(super) fn prepare(
             "ordering_requires_explicit_typed_null_semantics",
         ));
     }
-    if lowered.output.len() != root.fields.len()
-        || lowered
-            .output
-            .iter()
-            .zip(&root.fields)
-            .any(|(name, (_, dtype))| {
-                fields
-                    .iter()
-                    .find(|(field, _)| field == name)
-                    .is_none_or(|(_, candidate)| candidate != dtype)
-            })
-    {
+    if !provider_schema_matches(&lowered.output, &root.fields, &fields) {
         return Ok(Selection::declined(
             "provider_result_schema_is_not_equivalent",
         ));
@@ -182,6 +176,20 @@ pub(super) fn prepare(
         }),
         reason: "equivalent_bound_native_file_provider_selected",
     })
+}
+
+fn provider_schema_matches(
+    output: &[String],
+    declared: &[(String, DType)],
+    provided: &[(String, DType)],
+) -> bool {
+    output.len() == declared.len()
+        && output.iter().zip(declared).all(|(name, (_, dtype))| {
+            provided
+                .iter()
+                .find(|(field, _)| field == name)
+                .is_some_and(|(_, candidate)| candidate == dtype)
+        })
 }
 
 fn prepare_strategy(

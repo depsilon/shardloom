@@ -175,6 +175,41 @@ combined into a synthetic current 10,000-query result. The
 broader remaining work, including 3,706 Vortex declarations without a comparable
 saved scan contract and missing per-opportunity decisions for other owners.
 
+## Preserve the Sort payload contract during file-kernel admission
+
+A bounded file SortRows kernel observes its ordering keys and winning payloads.
+The bound relational Sort additionally validates its original declared payload,
+including fields hidden by a later projection and rows outside a later range.
+Checking only the final provider output schema therefore does not prove that
+the two operations are equivalent. The regression reproduces skipped NaN
+validation for narrow and wide records, and skipped malformed text when source
+columns occupy separate Vortex layout children.
+
+Admission now inspects the original bound Sort schema before selecting that
+file kernel. Floating and rich payload types, and text not covered by an ordering
+key, retain the existing shared native Sort. Integer, boolean and null payloads
+do not introduce the additional value-domain checks; text ordering keys retain
+the file kernel's complete decoded-key validation, including the same source
+text carried under another alias. A projection before Sort
+may already remove an unused field and remains eligible. A projection after
+Sort cannot erase its validation obligation. Aggregate lowering retains its
+independent output-validation contract.
+
+The decision uses metadata only, for both nested and flat declarations. It
+does not retry a failed kernel, run a second source scan during admission, or
+change the source generation, native execution, resource or cancellation owners.
+The Vortex-first decision remains `use_vortex_native_provider`: existing Vortex
+arrays, scans and native payload validators supply the implementation. No new
+provider abstraction or dependency is introduced.
+
+This is a correctness correction, not a performance optimization or completed
+Vortex source-demand connection. A valid wide source can do more work on the
+shared Sort because its established validation was previously skipped. Further
+work reduction must preserve the complete validation domain, parent masks and
+failure behavior, and pass its own source-bound comparison. The six new tests
+cover invalid and valid payloads, prior filtering/projection, text ordering,
+flat/nested declarations, both physical layouts and exact resource refunds.
+
 ## Acceptance and remaining work
 
 - Prove matching complete results and optimization admission for equivalent

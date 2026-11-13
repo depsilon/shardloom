@@ -11,6 +11,9 @@ use shardloom_core::{ComparisonOp, ExprId, Expression, ExpressionKind, ScalarVal
 #[path = "local_primitive_relational_provider_normalization_tests.rs"]
 mod normalization_tests;
 
+#[path = "local_primitive_relational_provider_payload_tests.rs"]
+mod payload_tests;
+
 fn column(name: &str) -> Expression {
     Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
 }

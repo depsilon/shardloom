@@ -111,6 +111,18 @@ impl Fixture {
     }
 
     fn with_metadata(array: ArrayRef, chunk_rows: usize, metadata: Vec<(&str, Vec<u8>)>) -> Self {
+        let strategy = super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
+            array.len().div_ceil(chunk_rows).max(1),
+        );
+        Self::with_strategy(array, chunk_rows, metadata, strategy)
+    }
+
+    fn with_strategy(
+        array: ArrayRef,
+        chunk_rows: usize,
+        metadata: Vec<(&str, Vec<u8>)>,
+        strategy: std::sync::Arc<dyn vortex::layout::LayoutStrategy>,
+    ) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-relational-{}-{}",
             std::process::id(),
@@ -125,11 +137,7 @@ impl Fixture {
         let mut writer = session
             .write_options()
             .with_metadata_segments(metadata)
-            .with_strategy(
-                super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
-                    array.len().div_ceil(chunk_rows).max(1),
-                ),
-            )
+            .with_strategy(strategy)
             .with_file_statistics(Vec::new())
             .blocking(&runtime)
             .writer(&mut file, array.dtype().clone());
