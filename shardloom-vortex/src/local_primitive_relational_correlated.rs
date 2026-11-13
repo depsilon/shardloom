@@ -79,7 +79,7 @@ impl PreparedVortexRelational {
                                 declaration.source_metadata.clone(),
                             );
                             let plan = (declaration.lower)(&mut preparation)?;
-                            let root = preparation.binding.bind(&plan, 0)?;
+                            let mut root = preparation.binding.bind(&plan, 0)?;
                             preparation.binding.ensure_consumed()?;
                             bind::validate_subquery_relation(
                                 spec,
@@ -87,6 +87,7 @@ impl PreparedVortexRelational {
                                 &root.fields,
                                 context.into(),
                             )?;
+                            self.compile_native_node(&mut root, context)?;
                             self.complete_subquery(
                                 spec,
                                 &root,

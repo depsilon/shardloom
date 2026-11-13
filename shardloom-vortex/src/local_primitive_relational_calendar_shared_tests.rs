@@ -167,7 +167,7 @@ fn compatible_window_calendar_retreat_keeps_each_family_and_exclusion_exact() {
                     VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
                 resources.resource_envelope.memory_budget_bytes = 32 << 20;
                 let resident = prepare_relational(&plan, resources).unwrap();
-                assert!(resident.provider.is_none());
+                assert!(!resident.root_has_file_kernel());
                 let schema = shared_schema();
                 assert_eq!(resident.output_dtype().as_ref(), Some(&schema));
                 let baseline = resident.snapshot().memory.reserved_bytes;

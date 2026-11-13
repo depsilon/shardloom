@@ -503,7 +503,7 @@ fn observe(case: &str, rows: usize) -> Value {
     })
     .unwrap();
     assert!(
-        prepared.provider.is_none(),
+        !prepared.root_has_file_kernel(),
         "diagnostic targets the shared native owner"
     );
     assert_eq!(prepared.output_dtype().as_ref(), Some(&schema));

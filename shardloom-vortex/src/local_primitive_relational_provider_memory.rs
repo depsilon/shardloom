@@ -162,6 +162,10 @@ pub(super) fn scratch(root: &Node) -> Result<Option<u64>> {
 /// This credit replaces scratch once lowering has dropped its temporary maps.
 pub(super) fn retained(request: &Request, output: &[String], names: &[String]) -> Result<u64> {
     let mut size = Size(0);
+    // Physical wrapper plus the moved semantic enum; children and programs keep
+    // their original binding reservations, and are not copied by compilation.
+    size.add(std::mem::size_of::<super::super::native_pipeline::FileKernel>())?;
+    size.add(std::mem::size_of::<super::super::NodeKind>())?;
     size.add(std::mem::size_of_val(request))?;
     if let Some(uri) = &request.source_uri {
         size.name(uri.as_str())?;

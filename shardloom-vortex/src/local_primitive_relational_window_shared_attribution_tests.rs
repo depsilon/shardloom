@@ -305,7 +305,7 @@ fn observe(case: &str, rows: usize) -> Value {
         Ok(declaration(&outputs))
     })
     .unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert_eq!(prepared.output_dtype().as_ref(), Some(&schema));
     let memory = prepared.session.memory().clone();
     let initial = memory.snapshot().reserved_bytes;
@@ -438,7 +438,7 @@ fn wide_window_outputs_observe_cancellation_and_refund_before_publication() {
         let mut resources = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
         resources.resource_envelope.memory_budget_bytes = GRANT;
         let prepared = prepare_relational(&plan, resources).unwrap();
-        assert!(prepared.provider.is_none());
+        assert!(!prepared.root_has_file_kernel());
         assert_eq!(prepared.snapshot().admitted_max_parallelism, 1);
         assert_eq!(prepared.snapshot().provider_background_workers, 0);
         let memory = prepared.session.memory().clone();

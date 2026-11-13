@@ -21,7 +21,7 @@ impl Node {
     pub(super) fn before_column_projections(&self) -> &Self {
         let mut node = self;
         loop {
-            node = match &node.kind {
+            node = match node.semantic_kind() {
                 NodeKind::Project { input, expressions } if column_projection(expressions) => input,
                 NodeKind::Pipeline { input, stages } if stages.iter().all(|stage| {
                     matches!(&stage.kind, PipelineKind::Project(expressions) if column_projection(expressions))
@@ -318,7 +318,7 @@ impl PreparedVortexRelational {
 }
 
 fn prepared_prefix_input(input: &Node, spec: &native_relational_sort::Spec) -> bool {
-    match &input.before_column_projections().kind {
+    match input.before_column_projections().semantic_kind() {
         // These non-spilling owners validate every emitted payload before the
         // consumer sees it. Aggregate keys and join output share native gather;
         // computed aggregate/window values use the checked result builders.

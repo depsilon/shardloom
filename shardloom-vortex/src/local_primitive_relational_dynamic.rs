@@ -135,8 +135,6 @@ pub fn prepare_relational_with_dynamic_inputs_in_session_controlled(
         batch_sources,
         source_paths,
         root: PreparedRoot::Dynamic(Box::new(lower)),
-        provider: None,
-        provider_selection_reason: "deferred_schema_requires_relational_execution",
         policy,
         binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -255,8 +253,9 @@ impl PreparedVortexRelational {
                     binding: bind::Binder::for_execution(self, context, &metrics, None)?,
                 };
                 let plan = lower(&mut preparation)?;
-                let root = preparation.binding.bind(&plan, 0)?;
+                let mut root = preparation.binding.bind(&plan, 0)?;
                 preparation.binding.ensure_consumed()?;
+                self.compile_native_node(&mut root, context)?;
                 let result = consume(&root, &metrics)?;
                 // Binding and its reservations stay alive until all native
                 // consumers have finished. They never escape into a later call.

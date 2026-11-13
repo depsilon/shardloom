@@ -7964,6 +7964,16 @@ fn infer_native_vortex_route_payload(
 /// Syntactic strategy admission only; no source/cache probing during routing.
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 fn uses_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
+    // Complete file SQL and direct compatibility declarations enter the same
+    // query compiler. Explicit low-level primitive commands remain kernel APIs.
+    if request.sql_statement.is_some()
+        && request.native_operator_options == NativeOperatorOptions::Automatic
+        && request.input_format.as_deref() == Some("vortex")
+        && request.execution_policy != "direct"
+        && request.requested_output != "prepare"
+    {
+        return true;
+    }
     cfg!(all(
         feature = "vortex-write",
         feature = "universal-format-io"
@@ -7982,7 +7992,7 @@ fn uses_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
 
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 fn uses_primitive_source_demand(request: &PublicWorkflowRouteRequest) -> bool {
-    uses_source_demand(request)
+    normalized_vortex_primitive(request).is_some()
         && (request.native_operator_options == NativeOperatorOptions::Explicit
             || request.sql_statement.is_none())
 }
@@ -13317,6 +13327,18 @@ fn leading_quoted_sql_literal_with_consumed(raw: &str) -> Option<(String, usize)
 
 #[cfg(test)]
 mod tests {
+    fn native_sql_pipeline_field<'a>(unified: &'a str, legacy: &'a str) -> &'a str {
+        if cfg!(all(feature = "vortex-local-primitives", unix)) {
+            unified
+        } else {
+            legacy
+        }
+    }
+
+    fn native_sql_pipeline_route(legacy: &str) -> &str {
+        native_sql_pipeline_field("native_vortex_relational_collect", legacy)
+    }
+
     #[test]
     fn sql_predicate_summary_requires_lossless_literal_representation() {
         for (sql, expected) in [
@@ -15858,9 +15880,15 @@ mod tests {
         let attachments = execution_attachment_fields("run", &request, &plan);
 
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_count_where")
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
-        assert_eq!(field(&fields, "native_vortex_operation_family"), "count");
+        assert_eq!(
+            field(&fields, "native_vortex_operation_family"),
+            native_sql_pipeline_field("general_query", "count")
+        );
         assert_eq!(
             field(&attachments, "public_workflow_vortex_predicate"),
             "neq:AdvEngineID:0"
@@ -17383,7 +17411,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17394,7 +17425,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
     }
@@ -17429,7 +17460,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17440,7 +17474,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
         assert!(aggregate.contains(r#""column":"ResolutionWidth""#));
@@ -17476,7 +17510,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17487,7 +17524,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
         assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
@@ -17523,7 +17560,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17534,7 +17574,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
         assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
@@ -17576,7 +17616,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17587,7 +17630,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(field(&fields, "vortex_predicate"), "neq:SearchPhrase:");
         assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
@@ -17624,7 +17667,10 @@ mod tests {
         let fields = route_fields(&effective_request, &plan);
 
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_count_where")
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "vortex_aggregate_present"), "false");
@@ -17660,7 +17706,10 @@ mod tests {
         let fields = route_fields(&request, &plan);
 
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_filter_project");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_filter_project")
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "filter_project");
         let lowered = effective_public_workflow_request(&request);
         assert_eq!(
@@ -17703,7 +17752,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -17751,7 +17803,10 @@ mod tests {
         let fields = route_fields(&effective_request, &plan);
 
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_count_where")
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
@@ -17876,7 +17931,10 @@ mod tests {
             plan.blocker_id,
             plan.blocker_reason
         );
-        assert_eq!(plan.route_id, "native_vortex_count_where");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_count_where")
+        );
         assert_eq!(field(&fields, "vortex_primitive"), "count_where");
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
     }
@@ -17927,7 +17985,10 @@ mod tests {
                 plan.blocker_id,
                 plan.blocker_reason
             );
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
         }
@@ -18052,7 +18113,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -18102,7 +18166,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -18152,7 +18219,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_sort_rows");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_sort_rows")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -18161,7 +18231,10 @@ mod tests {
             );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "sort_rows");
-        assert_eq!(field(&fields, "native_vortex_operation_family"), "top_n");
+        assert_eq!(
+            field(&fields, "native_vortex_operation_family"),
+            native_sql_pipeline_field("general_query", "top_n")
+        );
         assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
         assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
         assert_eq!(field(&fields, "vortex_sort_rows_present"), "true");
@@ -18201,7 +18274,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(field(&fields, "vortex_source_order_limit"), "25");
@@ -18242,7 +18318,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert!(aggregate.contains(r#""function":"regex_domain""#));
@@ -18277,7 +18356,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_infers_native_vortex_sql_extract_minute_grouped_topk_route() {
+    fn shared_pipeline_reports_missing_extract_minute_sql_syntax() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -18304,9 +18383,14 @@ mod tests {
             .as_ref()
             .expect("aggregate payload");
 
-        if cfg!(feature = "vortex-local-primitives") {
-            assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        if cfg!(all(feature = "vortex-local-primitives", unix)) {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
+            assert!(
+                plan.diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == DiagnosticCode::UnsupportedSql)
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert!(aggregate.contains(r#""function":"extract_minute""#));
@@ -18345,7 +18429,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert!(aggregate.contains(r#""function":"add_offset""#));
@@ -18357,7 +18444,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_infers_native_vortex_sql_date_trunc_grouped_topk_route() {
+    fn shared_pipeline_reports_missing_date_trunc_sql_syntax() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -18384,9 +18471,14 @@ mod tests {
             .as_ref()
             .expect("aggregate payload");
 
-        if cfg!(feature = "vortex-local-primitives") {
-            assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        if cfg!(all(feature = "vortex-local-primitives", unix)) {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(plan.blocker_id, "cg21.route.native_relational_not_admitted");
+            assert!(
+                plan.diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == DiagnosticCode::UnsupportedSql)
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
@@ -18426,7 +18518,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert!(aggregate.contains(r#""function":"case_search_adv_zero_referer_else_empty""#));
@@ -18467,7 +18562,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         }
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert!(aggregate.contains(r#""function":"constant_int""#));
@@ -18506,7 +18604,10 @@ mod tests {
 
         if cfg!(feature = "vortex-local-primitives") {
             assert_eq!(plan.status, CommandStatus::Success);
-            assert_eq!(plan.route_id, "native_vortex_aggregate");
+            assert_eq!(
+                plan.route_id,
+                native_sql_pipeline_route("native_vortex_aggregate")
+            );
         } else {
             assert_eq!(plan.status, CommandStatus::Unsupported);
             assert_eq!(
@@ -18517,7 +18618,7 @@ mod tests {
         assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
-            "aggregate"
+            native_sql_pipeline_field("general_query", "aggregate")
         );
         assert_eq!(
             field(&fields, "vortex_predicate"),
@@ -18680,8 +18781,14 @@ mod tests {
         );
         assert_eq!(request.input_format.as_deref(), Some("vortex"));
         assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_count_all");
-        assert_eq!(plan.resolved_internal_command, "vortex-run");
+        assert_eq!(
+            plan.route_id,
+            native_sql_pipeline_route("native_vortex_count_all")
+        );
+        assert_eq!(
+            plan.resolved_internal_command,
+            native_sql_pipeline_field("native-vortex-relational", "vortex-run")
+        );
     }
 
     #[test]

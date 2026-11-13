@@ -3521,7 +3521,9 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
     ]);
     assert!(!success);
     assert!(
-        stdout.contains("aggregate compute requires admitted native array decoding"),
+        stdout.contains(
+            "relational keys, computed columns and result delivery require explicit materialization"
+        ),
         "{stdout}"
     );
     assert!(!stdout.contains("failed to open"), "{stdout}");
@@ -3550,6 +3552,52 @@ fn zero_decode_aggregate_rejects_before_source_open_but_metadata_count_remains_a
         "json",
     ]);
     assert!(success, "{stdout}");
+    assert!(
+        stdout.contains(&field("fallback_attempted", "false")),
+        "{stdout}"
+    );
+}
+
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[test]
+fn file_sql_metadata_count_uses_the_shared_pipeline_without_decoding() {
+    let fixture = local_primitive_struct_fixture();
+    let statement = format!("SELECT COUNT(*) FROM '{fixture}'");
+    let (success, stdout) = run_facade(&[
+        "run",
+        "sql",
+        "--input",
+        &fixture,
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--sql",
+        &statement,
+        "--bounded",
+        "true",
+        "--materialization-policy",
+        "zero_decode",
+        "--memory-gb",
+        "4",
+        "--max-parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+    assert!(success, "{stdout}");
+    assert!(
+        stdout.contains(&field(
+            "relational_provider_selection_reason",
+            "native_operator_pipeline"
+        )),
+        "{stdout}"
+    );
+    let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        complete_result::rows(&report),
+        vec![serde_json::json!({"count_all":5})]
+    );
     assert!(
         stdout.contains(&field("fallback_attempted", "false")),
         "{stdout}"

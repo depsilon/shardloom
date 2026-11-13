@@ -12,7 +12,7 @@ use super::{
     project_count_where_predicate_columns,
 };
 use crate::resident_session::{
-    PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
+    NativeExecutionContext, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use std::fmt::Write as _;
@@ -226,6 +226,28 @@ pub fn prepare_count_where_from_source_controlled(
     cancellation.check()?;
     let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
     prepare_count_where(request, policy, &session, Some(source), cancellation)
+}
+
+/// Bind a deferred file kernel without reacquiring its active query's lock.
+pub(super) fn prepare_count_where_from_source_in_context(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    context: &NativeExecutionContext<'_>,
+) -> Result<PreparedVortexCountWhere> {
+    let session = super::prepared_dispatch::source_session_with_context(
+        &source,
+        request,
+        Some(policy),
+        Some(context),
+    )?;
+    prepare_count_where(
+        request,
+        policy,
+        &session,
+        Some(source),
+        context.cancellation(),
+    )
 }
 
 fn prepare_count_where(

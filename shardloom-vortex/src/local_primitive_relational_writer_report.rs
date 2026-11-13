@@ -13,6 +13,13 @@ impl ExecutedVortexRelational {
     #[allow(clippy::too_many_lines, clippy::used_underscore_binding)] // Exhaustive report copy must duplicate the existing retained metadata leases.
     pub(super) fn duplicate_for_writer(&self) -> Result<Self> {
         let metadata = self._metadata.pool().reserve(self._metadata.bytes())?;
+        let mut pipeline_metadata = [None, None, None, None];
+        for (target, source) in pipeline_metadata.iter_mut().zip(&self._pipeline_metadata) {
+            *target = source
+                .as_ref()
+                .map(|lease| lease.pool().reserve(lease.bytes()))
+                .transpose()?;
+        }
         let observation_metadata = self
             ._observation_metadata
             .as_ref()
@@ -33,6 +40,7 @@ impl ExecutedVortexRelational {
             recursion_limit: self.recursion_limit,
             observations,
             _observation_metadata: observation_metadata,
+            _pipeline_metadata: pipeline_metadata,
             primitive_execution: self.primitive_execution.clone(),
             provider_selection_reason: self.provider_selection_reason,
             resources: self.resources,

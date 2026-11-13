@@ -85,7 +85,9 @@ pub(super) fn route_admitted_statement(
             "relational execution requires native Vortex normalization",
         ));
     }
-    if request.materialization_policy == "zero_decode" {
+    if request.materialization_policy == "zero_decode"
+        && super::normalized_vortex_primitive(request) != Some(super::PublicVortexPrimitive::Count)
+    {
         return Some(denied(
             "relational keys, computed columns and result delivery require explicit materialization; choose bounded materialization",
         ));

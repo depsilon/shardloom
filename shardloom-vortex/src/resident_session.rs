@@ -850,6 +850,22 @@ impl PreparedVortexSource {
             .0
             .runtime
             .enter(CallClass::Metadata, CancellationToken::default())?;
+        self.validate_file_metadata_held(expected)
+    }
+
+    /// Deferred native planning borrows the query's existing admission.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn validate_file_metadata_in_context(
+        &self,
+        expected: &Metadata,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        self.retained_session()
+            .validate_execution_context(context)?;
+        self.validate_file_metadata_held(expected)
+    }
+
+    fn validate_file_metadata_held(&self, expected: &Metadata) -> Result<()> {
         let identity = self.0.identity.as_ref().ok_or_else(|| {
             resident_error("file metadata admission is not available for an in-memory source")
         })?;

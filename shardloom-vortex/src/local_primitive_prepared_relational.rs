@@ -72,6 +72,8 @@ pub use dynamic::{
 mod correlated;
 #[path = "local_primitive_relational_cyclic_exists.rs"]
 mod cyclic_exists;
+#[path = "local_primitive_native_pipeline.rs"]
+mod native_pipeline;
 #[path = "local_primitive_relational_provider.rs"]
 mod provider;
 #[path = "local_primitive_relational_report.rs"]
@@ -137,12 +139,13 @@ pub struct ExecutedVortexRelational {
     /// successful publication; failed actions never return a completed report.
     pub observations: Vec<CompletedVortexRelationalObservation>,
     _observation_metadata: Option<MemoryLease>,
-    /// Actual primitive report, selected after complete typed validation.
-    /// Projection-only file scans, general relational, memory and streaming
-    /// providers use the relational certificate without a primitive report.
+    _pipeline_metadata: [Option<MemoryLease>; 4],
+    /// A primitive report only when one file kernel produced the entire result.
+    /// Composed plans, projections, memory and streaming inputs use the complete
+    /// pipeline certificate; nested kernels contribute their own evidence there.
     pub primitive_execution: Option<super::VortexLocalPrimitiveExecutionReport>,
-    /// Deterministic native selection outcome from the bound plan. This is an
-    /// admission/semantics reason, not a measured explanation of elapsed time.
+    /// Legacy field retained for report compatibility. Identifies the unified
+    /// native operator pipeline; it is not a performance attribution.
     pub provider_selection_reason: &'static str,
     pub resources: shardloom_core::ExecutionResources,
     /// Immutable semantics selected by the owner of this execution.
@@ -297,8 +300,6 @@ pub struct PreparedVortexRelational {
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     source_paths: Vec<PathBuf>,
     root: PreparedRoot,
-    provider: Option<provider::Prepared>,
-    provider_selection_reason: &'static str,
     #[cfg_attr(not(feature = "vortex-write"), allow(dead_code))]
     policy: VortexLocalPrimitiveExecutionPolicy,
     // Every build retains the lease; ranked demand additionally reads its bound.
@@ -347,7 +348,7 @@ impl Node {
     /// zero rows. In particular, a LIMIT cannot certify a partial fixpoint or
     /// hide validation of an explicitly retained definition.
     fn requires_completion(&self) -> bool {
-        match &self.kind {
+        match self.semantic_kind() {
             NodeKind::Pipeline { input, stages } => {
                 stages.iter().any(|stage| stage.kind.requires_completion())
                     || input.requires_completion()
@@ -369,7 +370,10 @@ impl Node {
                 input.requires_completion()
                     || matches!(relation, SubqueryRelation::Bound(relation) if relation.requires_completion())
             }
-            NodeKind::Retained(_) | NodeKind::Recursive { .. } => true,
+            NodeKind::Unadmitted
+            | NodeKind::FileKernel(_)
+            | NodeKind::Retained(_)
+            | NodeKind::Recursive { .. } => true,
             NodeKind::Scan { .. }
             | NodeKind::Outer
             | NodeKind::RecursiveInput(_)
@@ -381,7 +385,8 @@ impl Node {
     /// overflowing or unknown bound stays unknown; no input is sampled/replayed.
     fn upper_rows(&self, sources: &[PreparedVortexSource]) -> Option<u64> {
         use crate::relational_query::VortexRelationalJoinKind as JoinKind;
-        match &self.kind {
+        match self.semantic_kind() {
+            NodeKind::Unadmitted | NodeKind::FileKernel(_) => None,
             NodeKind::CompletedPivot { rows, .. } => Some(*rows as u64),
             NodeKind::Retained(binding) => binding.upper_rows(sources),
             // Row expansion is not bounded by source cardinality.
@@ -478,6 +483,9 @@ enum ScanSource {
 }
 
 enum NodeKind {
+    /// An interrupted or absent physical admission must never execute.
+    Unadmitted,
+    FileKernel(Box<native_pipeline::FileKernel>),
     Retained(retained::Binding),
     Recursive {
         identity: crate::relational_query::VortexRelationalRecursionId,
@@ -836,17 +844,7 @@ fn prepare_relational_with_owner(
     if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
         root.admit_sampling_preparation(session.memory())?;
     }
-    let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(
-            &root,
-            &sources[0],
-            policy,
-            session.memory(),
-            session.float_policy(),
-        )?
-    } else {
-        provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
-    };
+    native_pipeline::compile(&mut root, &sources, &session, policy, true, cancellation)?;
     Ok(PreparedVortexRelational {
         session,
         sources,
@@ -854,8 +852,6 @@ fn prepare_relational_with_owner(
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
-        provider: provider.provider,
-        provider_selection_reason: provider.reason,
         policy,
         binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -892,17 +888,14 @@ pub fn prepare_relational_in_session(
     if sources.is_empty() && batch_sources.is_empty() && memory_sources.len() == 1 {
         root.admit_sampling_preparation(session.memory())?;
     }
-    let provider = if sources.len() == 1 && memory_sources.is_empty() && batch_sources.is_empty() {
-        provider::prepare(
-            &root,
-            &sources[0],
-            policy,
-            session.memory(),
-            session.float_policy(),
-        )?
-    } else {
-        provider::Selection::declined("multiple_or_nonfile_sources_require_relational_execution")
-    };
+    native_pipeline::compile(
+        &mut root,
+        &sources,
+        session,
+        policy,
+        true,
+        &CancellationToken::default(),
+    )?;
     Ok(PreparedVortexRelational {
         session: session.clone(),
         sources,
@@ -910,8 +903,6 @@ pub fn prepare_relational_in_session(
         batch_sources,
         source_paths,
         root: PreparedRoot::Bound(Box::new(root)),
-        provider: provider.provider,
-        provider_selection_reason: provider.reason,
         policy,
         binding_metadata: metadata,
         #[cfg(feature = "vortex-write")]
@@ -954,6 +945,7 @@ enum FileScanBatching {
 
 #[derive(Default)]
 struct Metrics<'a> {
+    pipeline: native_pipeline::Evidence,
     application: RefCell<Option<ReservedVec<application::Observation>>>,
     composition: retained::State,
     observations: RefCell<Option<ReservedVec<CompletedVortexRelationalObservation>>>,
@@ -1190,10 +1182,18 @@ impl PreparedVortexRelational {
             )?,
         );
         self.spill = Some(policy);
-        // Explicit relational spill keeps its established operator strategy.
-        // Never select a non-spill provider then retry after resource failure.
-        self.provider = None;
-        self.provider_selection_reason = "explicit_relational_spill_policy";
+        // Select spill-capable operators in the same plan before execution.
+        // No failed kernel can retry through a different executor.
+        if let PreparedRoot::Bound(root) = &mut self.root {
+            native_pipeline::compile(
+                root,
+                &self.sources,
+                &self.session,
+                self.policy,
+                false,
+                &CancellationToken::default(),
+            )?;
+        }
         self.disable_sampling_preparation();
         Ok(self)
     }
@@ -1480,6 +1480,7 @@ impl PreparedVortexRelational {
             )
             .ok_or_else(|| failed("spill report metadata capacity overflow"))?;
         let metadata = context.memory().reserve(metadata_bytes)?;
+        metrics.pipeline.begin_root(root);
         let mut rows = 0u64;
         let mut batches = 0u64;
         let mut bytes = 0u64;
@@ -1519,12 +1520,8 @@ impl PreparedVortexRelational {
             consume(array)?;
             context.check_cancelled()
         };
-        let provider = if let Some(provider) = &self.provider {
-            Some(provider.consume(context, metrics, batch_rows, &mut emit)?)
-        } else {
-            self.run(root, context, metrics, batch_rows, None, &mut emit)?;
-            None
-        };
+        self.run(root, context, metrics, batch_rows, None, &mut emit)?;
+        let provider = metrics.pipeline.take_root_execution(root);
         let mut input = metrics
             .input
             .map(|input| input.completed(context, metrics))
@@ -1594,6 +1591,7 @@ impl PreparedVortexRelational {
         context.append_capability_decisions(&mut certificate)?;
         context.append_variant_expression_certificate(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
+        let pipeline_metadata = metrics.pipeline.append_certificate(&mut certificate);
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(
                 || (vec![], None),
@@ -1608,8 +1606,9 @@ impl PreparedVortexRelational {
                 recursion_limit: context.recursion_limit(),
                 observations,
                 _observation_metadata: observation_metadata,
+                _pipeline_metadata: pipeline_metadata,
                 primitive_execution,
-                provider_selection_reason: self.provider_selection_reason,
+                provider_selection_reason: native_pipeline::NAME,
                 resources: self.policy.resource_envelope.declared_resources,
                 float_policy: context.float_policy(),
                 output_rows: rows,
@@ -1705,7 +1704,19 @@ impl PreparedVortexRelational {
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<()> {
         context.check_cancelled()?;
+        native_pipeline::record_operator(metrics)?;
         match &node.kind {
+            NodeKind::Unadmitted => Err(failed(
+                "native_pipeline_missing_operator: no native implementation was admitted",
+            )),
+            NodeKind::FileKernel(kernel) => {
+                let executed = kernel
+                    .operation
+                    .consume(context, metrics, batch_rows, consume)?;
+                metrics
+                    .pipeline
+                    .record(executed, kernel.admission_reason, context)
+            }
             NodeKind::Retained(binding) => {
                 self.run_retained(binding, context, metrics, batch_rows, consume)
             }

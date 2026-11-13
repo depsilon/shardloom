@@ -1,33 +1,18 @@
-//! Complete embedded operations over the same native prepared providers as CLI.
-//! This is dispatch and ownership only; it defines no expression or query semantics.
+//! Embedded query ownership over the shared native operator pipeline.
+//! SQL, typed declarations and workflows retain the same execution object.
 
 use super::super as workflow;
 use arrow_array::RecordBatch;
-use shardloom_core::{ExecutionResources, Result, ShardLoomError};
-use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+use shardloom_core::{ExecutionResources, Result};
+use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_vortex::{
-    VortexLocalPrimitiveExecutionPolicy, VortexLocalPrimitiveRowExportFormat as Format,
-    VortexLocalPrimitiveRowExportReport as OutputReport, VortexQueryPrimitiveRequest,
-    local_primitives::{
-        partitioned_native::{ExecutedVortexPartitioned, PartitionedNativeOperation},
-        prepared_aggregate::{ExecutedVortexAggregate, PreparedVortexAggregate},
-        prepared_count::{ExecutedVortexCountWhere, PreparedVortexCountWhere},
-        prepared_dispatch::{self, ExecutedVortexSort},
-        prepared_relational::{
-            ExecutedVortexRelational, PreparedVortexRelational, VortexRelationalBatchInput,
-            WrittenVortexRelational,
-        },
-        prepared_unary::{ExecutedVortexUnary, PreparedVortexUnary},
+    VortexLocalPrimitiveRowExportFormat as Format,
+    local_primitives::prepared_relational::{
+        ExecutedVortexRelational, PreparedVortexRelational, VortexRelationalBatchInput,
     },
-    resident_session::{
-        NativeArrowBatchDelivery, NativeArrowExportReport, OwnedVortexResultBatch,
-        PreparedVortexCount, PreparedVortexSource, ResidentSessionSnapshot, ResidentVortexSession,
-    },
+    resident_session::{NativeArrowExportReport, OwnedVortexResultBatch},
 };
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 
 #[path = "native_runtime_workflow.rs"]
 mod declaration;
@@ -56,71 +41,18 @@ impl<'i> NativeArrowInput<'i> {
     }
 }
 
-/// One prepared operation, retaining providers and the original resource owner.
+/// One native operator plan with its original resource owner.
 pub struct PreparedNativeOperation {
     resources: ExecutionResources,
-    kind: PreparedKind,
+    operation: Box<PreparedVortexRelational>,
     reusable: bool,
 }
 
-enum PreparedKind {
-    Relational(Box<PreparedVortexRelational>),
-    Primitive(Box<PreparedPrimitive>),
-}
-
-struct PreparedPrimitive {
-    shared: Arc<PrimitiveMetadata>,
-    session: ResidentVortexSession,
-    provider: PrimitiveProvider,
-}
-
-struct PrimitiveMetadata {
-    request: VortexQueryPrimitiveRequest,
-    argument: String,
-    binding: workflow::NativeVortexInputBinding,
-    sources: Vec<PreparedVortexSource>,
-    source_uris: Vec<shardloom_core::DatasetUri>,
-    preparation_fields: Vec<(String, String)>,
-    policy: VortexLocalPrimitiveExecutionPolicy,
-    _metadata: MemoryLease,
-}
-
-enum PrimitiveProvider {
-    Count(Vec<PreparedVortexCount>),
-    CountWhere(Box<PreparedVortexCountWhere>),
-    Unary(Box<PreparedVortexUnary>),
-    Aggregate(Box<PreparedVortexAggregate>),
-    Sort,
-    Partitioned,
-    Relational(Box<PreparedVortexRelational>),
-}
-
-/// The actual provider report keeps its metadata owners alive with the result.
+/// The complete pipeline report keeps its metadata owners alive with the result.
 pub struct ExecutedNativeOperation {
     pub resources: ExecutionResources,
-    kind: ExecutedKind,
+    report: Box<ExecutedVortexRelational>,
     timing: Option<shardloom_vortex::local_primitives::query_timing::QueryTiming>,
-}
-
-enum ExecutedKind {
-    Relational(Box<ExecutedVortexRelational>),
-    Primitive {
-        report: PrimitiveExecution,
-        shared: Arc<PrimitiveMetadata>,
-    },
-}
-
-enum PrimitiveExecution {
-    Count {
-        count: u64,
-        runtime: ResidentSessionSnapshot,
-    },
-    CountWhere(Box<ExecutedVortexCountWhere>),
-    Unary(Box<ExecutedVortexUnary>),
-    Aggregate(Box<ExecutedVortexAggregate>),
-    Sort(Box<ExecutedVortexSort>),
-    Partitioned(Box<ExecutedVortexPartitioned>),
-    Relational(Box<ExecutedVortexRelational>),
 }
 
 /// Complete native values and evidence. No data is rendered into the report.
@@ -147,7 +79,7 @@ impl PreparedNativeOperation {
     pub fn relational(operation: PreparedVortexRelational, resources: ExecutionResources) -> Self {
         Self {
             resources,
-            kind: PreparedKind::Relational(Box::new(operation)),
+            operation: Box::new(operation),
             reusable: true,
         }
     }
@@ -177,26 +109,15 @@ impl PreparedNativeOperation {
         input: Option<NativeArrowInput<'_>>,
     ) -> Result<ExecutedOwnedNativeOperation> {
         let started = std::time::Instant::now();
-        let mut completed = match &self.kind {
-            PreparedKind::Relational(operation) => {
-                let completed = if let Some(input) = input {
-                    input.bind(operation)?.execute_native(cancellation)?
-                } else {
-                    operation.execute_native(cancellation)?
-                };
-                ExecutedOwnedNativeOperation {
-                    execution: self.relational_execution(completed.execution),
-                    result: completed.result,
-                }
-            }
-            PreparedKind::Primitive(operation) => {
-                no_streaming_input(input.is_some())?;
-                let (report, result) = operation.execute_native(cancellation)?;
-                ExecutedOwnedNativeOperation {
-                    execution: self.primitive_execution(operation, report),
-                    result,
-                }
-            }
+        let operation = &self.operation;
+        let completed = if let Some(input) = input {
+            input.bind(operation)?.execute_native(cancellation)?
+        } else {
+            operation.execute_native(cancellation)?
+        };
+        let mut completed = ExecutedOwnedNativeOperation {
+            execution: self.relational_execution(completed.execution),
+            result: completed.result,
         };
         completed.execution.timing = Some(
             shardloom_vortex::local_primitives::query_timing::QueryTiming {
@@ -233,33 +154,21 @@ impl PreparedNativeOperation {
         input: Option<NativeArrowInput<'_>>,
         consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedArrowNativeOperation> {
-        match &self.kind {
-            PreparedKind::Relational(operation) => {
-                let completed = if let Some(input) = input {
-                    input
-                        .bind(operation)?
-                        .for_each_arrow_batch(cancellation, consume)?
-                } else {
-                    operation.for_each_arrow_batch(cancellation, consume)?
-                };
-                Ok(ExecutedArrowNativeOperation {
-                    execution: self.relational_execution(completed.execution),
-                    export: completed.export,
-                })
-            }
-            PreparedKind::Primitive(operation) => {
-                no_streaming_input(input.is_some())?;
-                let (report, export) = operation.for_each_arrow_batch(cancellation, consume)?;
-                Ok(ExecutedArrowNativeOperation {
-                    execution: self.primitive_execution(operation, report),
-                    export,
-                })
-            }
-        }
+        let operation = &self.operation;
+        let completed = if let Some(input) = input {
+            input
+                .bind(operation)?
+                .for_each_arrow_batch(cancellation, consume)?
+        } else {
+            operation.for_each_arrow_batch(cancellation, consume)?
+        };
+        Ok(ExecutedArrowNativeOperation {
+            execution: self.relational_execution(completed.execution),
+            export: completed.export,
+        })
     }
 
     /// Select the finite output-window policy through the actual native plan.
-    /// Primitive and effectful input paths keep ordinary consumer demand.
     /// # Errors
     /// Propagates native policy, source, resource, input and consumer failures.
     pub fn for_each_arrow_batch_with_output_window(
@@ -272,54 +181,28 @@ impl PreparedNativeOperation {
         ) -> Result<()>,
         consume: impl FnMut(RecordBatch) -> Result<()>,
     ) -> Result<ExecutedArrowNativeOperation> {
-        match &self.kind {
-            PreparedKind::Relational(operation) => {
-                let completed = if let Some(input) = input {
-                    input
-                        .bind(operation)?
-                        .for_each_arrow_batch_with_output_window(
-                            cancellation,
-                            requested,
-                            initialize,
-                            consume,
-                        )?
-                } else {
-                    operation.for_each_arrow_batch_with_output_window(
-                        cancellation,
-                        requested,
-                        initialize,
-                        consume,
-                    )?
-                };
-                Ok(ExecutedArrowNativeOperation {
-                    execution: self.relational_execution(completed.execution),
-                    export: completed.export,
-                })
-            }
-            PreparedKind::Primitive(operation) => {
-                no_streaming_input(input.is_some())?;
-                if let PrimitiveProvider::Relational(relational) = &operation.provider {
-                    // File-backed primitive declarations can share the native
-                    // relational producer. Initialize their ordinary policy
-                    // inside that producer's existing execution clock.
-                    let completed = relational.for_each_arrow_batch_with_output_window(
-                        cancellation,
-                        || false,
-                        initialize,
-                        consume,
-                    )?;
-                    return Ok(ExecutedArrowNativeOperation {
-                        execution: self.primitive_execution(
-                            operation,
-                            PrimitiveExecution::Relational(Box::new(completed.execution)),
-                        ),
-                        export: completed.export,
-                    });
-                }
-                initialize(None)?;
-                self.for_each_arrow_batch_with_inputs(cancellation, input, consume)
-            }
-        }
+        let operation = &self.operation;
+        let completed = if let Some(input) = input {
+            input
+                .bind(operation)?
+                .for_each_arrow_batch_with_output_window(
+                    cancellation,
+                    requested,
+                    initialize,
+                    consume,
+                )?
+        } else {
+            operation.for_each_arrow_batch_with_output_window(
+                cancellation,
+                requested,
+                initialize,
+                consume,
+            )?
+        };
+        Ok(ExecutedArrowNativeOperation {
+            execution: self.relational_execution(completed.execution),
+            export: completed.export,
+        })
     }
 
     /// Execute and publish through the provider's existing native writer.
@@ -358,43 +241,26 @@ impl PreparedNativeOperation {
         input: Option<NativeArrowInput<'_>>,
         reused: bool,
     ) -> Result<Vec<(String, String)>> {
+        let operation = &self.operation;
         let targets = [workflow::NativeVortexPrimitiveRowExportTarget {
             role: "primary",
             path: path.to_path_buf(),
             format,
         }];
-        match &self.kind {
-            PreparedKind::Relational(operation) => {
-                let written = if let Some(input) = input {
-                    input.bind(operation)?.write_controlled(
-                        path,
-                        format,
-                        overwrite,
-                        cancellation,
-                    )?
-                } else {
-                    operation.write_controlled(path, format, overwrite, cancellation)?
-                };
-                let mut fields = super::written_fields(&written, reused);
-                workflow::append_native_vortex_primitive_row_export_target_fields(
-                    &mut fields,
-                    &targets,
-                    std::slice::from_ref(&written.output),
-                );
-                Ok(fields)
-            }
-            PreparedKind::Primitive(operation) => {
-                no_streaming_input(input.is_some())?;
-                let report = operation.write(path, format, overwrite, cancellation)?;
-                let mut fields = operation.written_fields(&report, self.resources, reused);
-                workflow::append_native_vortex_primitive_row_export_target_fields(
-                    &mut fields,
-                    &targets,
-                    std::slice::from_ref(&report),
-                );
-                Ok(fields)
-            }
-        }
+        let written = if let Some(input) = input {
+            input
+                .bind(operation)?
+                .write_controlled(path, format, overwrite, cancellation)?
+        } else {
+            operation.write_controlled(path, format, overwrite, cancellation)?
+        };
+        let mut fields = super::written_fields(&written, reused);
+        workflow::append_native_vortex_primitive_row_export_target_fields(
+            &mut fields,
+            &targets,
+            std::slice::from_ref(&written.output),
+        );
+        Ok(fields)
     }
 
     /// Stage and publish every target using the shared native fanout contract.
@@ -441,68 +307,21 @@ impl PreparedNativeOperation {
         input: Option<NativeArrowInput<'_>>,
         reused: bool,
     ) -> Result<Vec<(String, String)>> {
-        match &self.kind {
-            PreparedKind::Relational(operation) => {
-                if let Some(input) = input {
-                    super::written_stream_fanout_fields(
-                        targets,
-                        input.bind(operation)?.write_many_controlled(
-                            targets,
-                            overwrite,
-                            cancellation,
-                        )?,
-                        reused,
-                    )
-                } else {
-                    super::written_stream_fanout_fields(
-                        targets,
-                        operation.write_many_shared_controlled(targets, overwrite, cancellation)?,
-                        reused,
-                    )
-                }
-            }
-            PreparedKind::Primitive(operation) => {
-                no_streaming_input(input.is_some())?;
-                let (reports, execution, replay) =
-                    operation.write_many(targets, overwrite, cancellation)?;
-                let primary = reports
-                    .first()
-                    .ok_or_else(|| failed("fanout produced no output"))?;
-                let mut fields = operation.written_fields(primary, self.resources, reused);
-                if let Some(execution) = execution {
-                    fields.extend(
-                        self.primitive_execution(operation, execution)
-                            .fields(reused)?,
-                    );
-                }
-                let targets = targets
-                    .iter()
-                    .enumerate()
-                    .map(
-                        |(index, (path, format))| workflow::NativeVortexPrimitiveRowExportTarget {
-                            role: if index == 0 { "primary" } else { "fanout" },
-                            path: path.clone(),
-                            format: *format,
-                        },
-                    )
-                    .collect::<Vec<_>>();
-                workflow::append_native_vortex_primitive_row_export_target_fields_with_execution(
-                    &mut fields,
-                    &targets,
-                    &reports,
-                    1,
-                    if replay.is_some() {
-                        "native_query_once_with_credited_result_replay"
-                    } else {
-                        "native_query_once_direct_output"
-                    },
-                );
-                workflow::resident_relational::append_output_replay_fields(
-                    &mut fields,
-                    replay.as_ref(),
-                );
-                Ok(fields)
-            }
+        let operation = &self.operation;
+        if let Some(input) = input {
+            super::written_stream_fanout_fields(
+                targets,
+                input
+                    .bind(operation)?
+                    .write_many_controlled(targets, overwrite, cancellation)?,
+                reused,
+            )
+        } else {
+            super::written_stream_fanout_fields(
+                targets,
+                operation.write_many_shared_controlled(targets, overwrite, cancellation)?,
+                reused,
+            )
         }
     }
 
@@ -510,572 +329,18 @@ impl PreparedNativeOperation {
         ExecutedNativeOperation {
             resources: self.resources,
             timing: None,
-            kind: ExecutedKind::Relational(Box::new(report)),
+            report: Box::new(report),
         }
-    }
-
-    fn primitive_execution(
-        &self,
-        operation: &PreparedPrimitive,
-        report: PrimitiveExecution,
-    ) -> ExecutedNativeOperation {
-        ExecutedNativeOperation {
-            resources: self.resources,
-            timing: None,
-            kind: ExecutedKind::Primitive {
-                report,
-                shared: Arc::clone(&operation.shared),
-            },
-        }
-    }
-}
-
-impl PreparedPrimitive {
-    fn for_each_native_batch(
-        &self,
-        cancellation: &CancellationToken,
-        consume: &mut shardloom_vortex::resident_session::NativeBatchConsumer<'_>,
-    ) -> Result<PrimitiveExecution> {
-        cancellation.check()?;
-        Ok(match &self.provider {
-            PrimitiveProvider::Count(_) | PrimitiveProvider::CountWhere(_) => {
-                let (execution, result) = self.execute_native(cancellation)?;
-                result.for_each_native_batch(cancellation, consume)?;
-                self.validate_sources(cancellation)?;
-                execution
-            }
-            PrimitiveProvider::Unary(operation) => PrimitiveExecution::Unary(Box::new(
-                operation.for_each_batch(cancellation, consume)?,
-            )),
-            PrimitiveProvider::Aggregate(operation) => PrimitiveExecution::Aggregate(Box::new(
-                operation.for_each_batch(cancellation, consume)?,
-            )),
-            PrimitiveProvider::Sort => {
-                PrimitiveExecution::Sort(Box::new(prepared_dispatch::for_each_sort_batch(
-                    &self.shared.request,
-                    self.shared.policy,
-                    self.source()?,
-                    cancellation,
-                    consume,
-                )?))
-            }
-            PrimitiveProvider::Partitioned => PrimitiveExecution::Partitioned(Box::new(
-                self.partitioned(cancellation)?
-                    .for_each_batch(cancellation, consume)?,
-            )),
-            PrimitiveProvider::Relational(_) => {
-                return Err(failed("relational fanout must use its shared owner"));
-            }
-        })
-    }
-
-    fn write_many(
-        &self,
-        targets: &[(PathBuf, Format)],
-        overwrite: bool,
-        cancellation: &CancellationToken,
-    ) -> Result<(
-        Vec<OutputReport>,
-        Option<PrimitiveExecution>,
-        Option<
-            shardloom_vortex::local_primitives::prepared_relational::VortexRelationalOutputReplay,
-        >,
-    )> {
-        shardloom_vortex::local_primitives::output_fanout::preflight_targets(targets, overwrite)?;
-        for (path, _) in targets {
-            self.validate_output(path, cancellation)?;
-        }
-        if let [(path, format)] = targets {
-            return Ok((
-                vec![self.write(path, *format, overwrite, cancellation)?],
-                None,
-                None,
-            ));
-        }
-        let (mut outputs, execution, replay) = if let PrimitiveProvider::Relational(operation) =
-            &self.provider
-        {
-            let result =
-                operation.write_many_shared_controlled(targets, overwrite, cancellation)?;
-            (
-                result.outputs,
-                PrimitiveExecution::Relational(Box::new(result.execution)),
-                result.replay,
-            )
-        } else {
-            let result = shardloom_vortex::local_primitives::prepared_relational::write_produced_many_controlled(
-                &self.session, self.shared.policy, &self.shared.request, &self.shared.sources,
-                targets, overwrite, cancellation,
-                |consume| self.for_each_native_batch(cancellation, consume),
-            )?;
-            (result.outputs, result.execution, Some(result.replay))
-        };
-        for output in &mut outputs {
-            output.primitive_kind = self.shared.request.kind;
-            let report = match &execution {
-                PrimitiveExecution::Count { .. } => None,
-                PrimitiveExecution::CountWhere(v) => Some(&v.report),
-                PrimitiveExecution::Unary(v) => Some(&v.report),
-                PrimitiveExecution::Aggregate(v) => Some(&v.report),
-                PrimitiveExecution::Sort(v) => Some(&v.report),
-                PrimitiveExecution::Partitioned(v) => Some(&v.report),
-                PrimitiveExecution::Relational(v) => {
-                    output.rows_scanned = v.scan_rows_delivered;
-                    output.arrays_read_count = usize::try_from(v.scan_batches)
-                        .map_err(|_| failed("native scan count overflow"))?;
-                    let source = &v.native_io_certificate.side_effects;
-                    output.evidence.side_effects.data_read |= source.data_read;
-                    output.evidence.side_effects.data_decoded |= source.data_decoded;
-                    output.evidence.side_effects.data_materialized |= source.data_materialized;
-                    output.evidence.side_effects.row_read |= source.row_read;
-                    output.evidence.side_effects.arrow_converted |= source.arrow_converted;
-                    output.evidence.side_effects.spill_io_performed |= source.spill_io_performed;
-                    None
-                }
-            };
-            if let Some(report) = report {
-                output.rows_scanned = report.rows_scanned;
-                output.arrays_read_count = report.arrays_read_count;
-                output.max_chunk_rows = report.max_chunk_rows;
-                output.state_budget = report.state_budget.clone();
-                output.physical_policy = report.physical_policy.clone();
-                output.source_order_limit_requested = report.source_order_limit_requested;
-                output.evidence.upstream_scan_called = report.upstream_scan_called;
-                output.evidence.side_effects.data_read |= report.data_read;
-                output.evidence.side_effects.data_decoded |= report.data_decoded;
-                output.evidence.side_effects.data_materialized |= report.data_materialized;
-                output.evidence.side_effects.row_read |= report.row_read;
-                output.evidence.side_effects.spill_io_performed |= report.spill_io_performed;
-                output.evidence.pushdown =
-                    shardloom_vortex::VortexLocalPrimitiveRowExportPushdownEvidence {
-                        filter_pushdown_applied: report.filter_pushdown_applied,
-                        projection_pushdown_applied: report.projection_pushdown_applied,
-                        source_order_limit_applied: report.source_order_limit_applied,
-                    };
-            }
-        }
-        Ok((outputs, Some(execution), replay))
-    }
-
-    fn execute_native(
-        &self,
-        cancellation: &CancellationToken,
-    ) -> Result<(PrimitiveExecution, OwnedVortexResultBatch)> {
-        cancellation.check()?;
-        Ok(match &self.provider {
-            PrimitiveProvider::Count(counts) => {
-                let mut count = 0_u64;
-                for operation in counts {
-                    count = count
-                        .checked_add(operation.execute_with_cancellation(cancellation)?)
-                        .ok_or_else(|| failed("combined native footer count overflow"))?;
-                }
-                let result = self.session.own_count_result(count, cancellation)?;
-                self.validate_sources(cancellation)?;
-                (
-                    PrimitiveExecution::Count {
-                        count,
-                        runtime: self.session.snapshot(),
-                    },
-                    result,
-                )
-            }
-            PrimitiveProvider::CountWhere(operation) => {
-                let completed = operation.execute_native_result(cancellation)?;
-                (
-                    PrimitiveExecution::CountWhere(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-            PrimitiveProvider::Unary(operation) => {
-                let completed = operation.execute_native_result(cancellation)?;
-                (
-                    PrimitiveExecution::Unary(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-            PrimitiveProvider::Aggregate(operation) => {
-                let completed = operation.execute_native_result(cancellation)?;
-                (
-                    PrimitiveExecution::Aggregate(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-            PrimitiveProvider::Sort => {
-                let completed = prepared_dispatch::execute_sort_native_result(
-                    &self.shared.request,
-                    self.shared.policy,
-                    self.source()?,
-                    cancellation,
-                )?;
-                (
-                    PrimitiveExecution::Sort(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-            PrimitiveProvider::Partitioned => {
-                let completed = self
-                    .partitioned(cancellation)?
-                    .execute_native_result(cancellation)?;
-                (
-                    PrimitiveExecution::Partitioned(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-            PrimitiveProvider::Relational(operation) => {
-                let completed = operation.execute_native(cancellation)?;
-                (
-                    PrimitiveExecution::Relational(Box::new(completed.execution)),
-                    completed.result,
-                )
-            }
-        })
-    }
-
-    fn for_each_arrow_batch(
-        &self,
-        cancellation: &CancellationToken,
-        mut consume: impl FnMut(RecordBatch) -> Result<()>,
-    ) -> Result<(PrimitiveExecution, NativeArrowExportReport)> {
-        if matches!(
-            self.provider,
-            PrimitiveProvider::Count(_) | PrimitiveProvider::CountWhere(_)
-        ) {
-            // A count owns exactly one scalar batch; this never collects a table
-            // merely to simulate incremental delivery.
-            let (execution, result) = self.execute_native(cancellation)?;
-            let mut stream = Arc::new(result).arrow_batches(cancellation.clone())?;
-            while let Some(batch) = stream.next_batch()? {
-                consume(batch)?;
-            }
-            self.validate_sources(cancellation)?;
-            return Ok((execution, stream.report()));
-        }
-        if let PrimitiveProvider::Relational(operation) = &self.provider {
-            let completed = operation.for_each_arrow_batch(cancellation, consume)?;
-            return Ok((
-                PrimitiveExecution::Relational(Box::new(completed.execution)),
-                completed.export,
-            ));
-        }
-        let mut delivery = NativeArrowBatchDelivery::new(&self.session, cancellation, consume);
-        let (report, rows) = match &self.provider {
-            PrimitiveProvider::Unary(operation) => {
-                let report = operation
-                    .for_each_batch(cancellation, |array, context| delivery.push(array, context))?;
-                let rows = output_rows(&report.report)?;
-                (PrimitiveExecution::Unary(Box::new(report)), rows)
-            }
-            PrimitiveProvider::Aggregate(operation) => {
-                let report = operation
-                    .for_each_batch(cancellation, |array, context| delivery.push(array, context))?;
-                let rows = output_rows(&report.report)?;
-                (PrimitiveExecution::Aggregate(Box::new(report)), rows)
-            }
-            PrimitiveProvider::Sort => {
-                let report = prepared_dispatch::for_each_sort_batch(
-                    &self.shared.request,
-                    self.shared.policy,
-                    self.source()?,
-                    cancellation,
-                    |array, context| delivery.push(array, context),
-                )?;
-                let rows = output_rows(&report.report)?;
-                (PrimitiveExecution::Sort(Box::new(report)), rows)
-            }
-            PrimitiveProvider::Partitioned => {
-                let report = self
-                    .partitioned(cancellation)?
-                    .for_each_batch(cancellation, |array, context| delivery.push(array, context))?;
-                let rows = output_rows(&report.report)?;
-                (PrimitiveExecution::Partitioned(Box::new(report)), rows)
-            }
-            _ => return Err(failed("native batch provider was not selected")),
-        };
-        Ok((report, delivery.finish(rows)?))
-    }
-
-    fn source(&self) -> Result<&PreparedVortexSource> {
-        self.shared
-            .sources
-            .first()
-            .ok_or_else(|| failed("retained source is absent"))
-    }
-
-    fn partitioned(
-        &self,
-        cancellation: &CancellationToken,
-    ) -> Result<PartitionedNativeOperation<'_>> {
-        PartitionedNativeOperation::new(
-            &self.shared.request,
-            self.shared.policy,
-            &self.shared.source_uris,
-            &self.shared.sources,
-            cancellation,
-        )
-    }
-
-    fn validate_sources(&self, cancellation: &CancellationToken) -> Result<()> {
-        for source in &self.shared.sources {
-            cancellation.check()?;
-            source.validate_generation()?;
-        }
-        cancellation.check()
-    }
-
-    fn validate_output(&self, path: &Path, cancellation: &CancellationToken) -> Result<()> {
-        self.validate_sources(cancellation)?;
-        for source in &self.shared.sources {
-            if source.aliases_file(path)? {
-                return Err(failed("source and output must be different files"));
-            }
-        }
-        Ok(())
-    }
-
-    fn write(
-        &self,
-        path: &Path,
-        format: Format,
-        overwrite: bool,
-        cancellation: &CancellationToken,
-    ) -> Result<OutputReport> {
-        self.validate_output(path, cancellation)?;
-        match &self.provider {
-            PrimitiveProvider::Relational(operation) => operation
-                .write_controlled(path, format, overwrite, cancellation)
-                .map(WrittenVortexRelational::into_output_report),
-            PrimitiveProvider::Unary(operation) => {
-                operation.write_controlled(path, format, overwrite, cancellation)
-            }
-            PrimitiveProvider::Aggregate(operation) => {
-                operation.write_controlled(path, format, overwrite, cancellation)
-            }
-            PrimitiveProvider::Sort => prepared_dispatch::try_write_source_controlled(
-                &self.shared.request,
-                path,
-                format,
-                overwrite,
-                self.shared.policy,
-                self.source()?.clone(),
-                cancellation,
-            )?
-            .ok_or_else(|| failed("native sort writer was not admitted")),
-            PrimitiveProvider::Partitioned => self.partitioned(cancellation)?.write_controlled(
-                path,
-                format,
-                overwrite,
-                cancellation,
-            ),
-            PrimitiveProvider::Count(_) | PrimitiveProvider::CountWhere(_) => {
-                self.write_count(path, format, overwrite, cancellation)
-            }
-        }
-    }
-
-    fn write_count(
-        &self,
-        path: &Path,
-        format: Format,
-        overwrite: bool,
-        cancellation: &CancellationToken,
-    ) -> Result<OutputReport> {
-        shardloom_vortex::local_primitives::prepared_count::write_count_result_controlled(
-            &self.shared.request,
-            path,
-            format,
-            overwrite,
-            self.shared.policy,
-            &self.shared.sources,
-            cancellation,
-            || {
-                let (execution, result) = self.execute_native(cancellation)?;
-                match execution {
-                    PrimitiveExecution::Count { .. } => Ok((None, result)),
-                    PrimitiveExecution::CountWhere(execution) => {
-                        Ok((Some(execution.report), result))
-                    }
-                    _ => Err(failed("count writer requires a count producer")),
-                }
-            },
-        )
-    }
-
-    fn written_fields(
-        &self,
-        report: &OutputReport,
-        resources: ExecutionResources,
-        reused: bool,
-    ) -> Vec<(String, String)> {
-        let mut fields = self.shared.binding.evidence_fields();
-        fields.extend(self.shared.preparation_fields.clone());
-        workflow::append_native_vortex_primitive_row_export_fields(&mut fields, report);
-        crate::execution_resources::append_declaration_fields(&mut fields, resources);
-        crate::execution_resources::append_admission_fields(
-            &mut fields,
-            resources.memory_bytes(),
-            resources.max_parallelism(),
-            "shared_native_operation_owner",
-        );
-        crate::execution_resources::append_resident_snapshot_fields(
-            &mut fields,
-            &self.session.snapshot(),
-        );
-        fields.push((
-            "resident_native_preparation_reused".into(),
-            reused.to_string(),
-        ));
-        fields
     }
 }
 
 impl ExecutedNativeOperation {
     /// Reuse public report serializers. Values remain in their native owner.
     /// # Errors
-    /// Rejects incomplete native footer-count evidence.
-    #[allow(clippy::too_many_lines)] // Keep each native provider's report and runtime owner together.
+    /// Propagates report serialization failures.
     pub fn fields(&self, reused: bool) -> Result<Vec<(String, String)>> {
-        let ExecutedKind::Primitive { report, shared } = &self.kind else {
-            let ExecutedKind::Relational(report) = &self.kind else {
-                unreachable!()
-            };
-            let mut fields = super::execution_fields(report, reused);
-            crate::execution_resources::append_query_timing_fields(&mut fields, self.timing);
-            return Ok(fields);
-        };
-        let mut fields = shared.binding.evidence_fields();
-        fields.extend(shared.preparation_fields.clone());
-        crate::execution_resources::append_declaration_fields(&mut fields, self.resources);
-        crate::execution_resources::append_admission_fields(
-            &mut fields,
-            self.resources.memory_bytes(),
-            self.resources.max_parallelism(),
-            "shared_native_operation_owner",
-        );
-        let runtime = match report {
-            PrimitiveExecution::Count { count, runtime } => {
-                let certificate = workflow::resident_count::count_certificate(
-                    &shared.binding,
-                    *count,
-                    *runtime,
-                    !reused,
-                )?;
-                fields.extend(workflow::resident_count::count_fields(
-                    *count, *runtime, !reused,
-                ));
-                workflow::resident_count::append_effect_fields(&mut fields);
-                workflow::vortex_primitive_execution::append_vortex_footer_count_report_fields(
-                    &mut fields,
-                );
-                workflow::vortex_primitive_execution::append_vortex_local_primitive_native_io_certificate_fields(&mut fields, Some(&certificate));
-                workflow::vortex_primitive_execution::append_vortex_local_primitive_execution_certificate_fields(&mut fields, None);
-                crate::execution_resources::append_spill_observation_fields(
-                    &mut fields,
-                    false,
-                    Some(0),
-                );
-                runtime
-            }
-            PrimitiveExecution::CountWhere(report) => {
-                primitive_fields(
-                    &mut fields,
-                    &shared.argument,
-                    &report.report,
-                    &report.native_io_certificate,
-                );
-                fields.push(("count".into(), report.count.to_string()));
-                &report.runtime
-            }
-            PrimitiveExecution::Unary(report) => {
-                primitive_fields(
-                    &mut fields,
-                    &shared.argument,
-                    &report.report,
-                    &report.native_io_certificate,
-                );
-                &report.runtime
-            }
-            PrimitiveExecution::Aggregate(report) => {
-                primitive_fields(
-                    &mut fields,
-                    &shared.argument,
-                    &report.report,
-                    &report.native_io_certificate,
-                );
-                &report.runtime
-            }
-            PrimitiveExecution::Sort(report) => {
-                primitive_fields(
-                    &mut fields,
-                    &shared.argument,
-                    &report.report,
-                    &report.native_io_certificate,
-                );
-                &report.runtime
-            }
-            PrimitiveExecution::Partitioned(report) => {
-                primitive_fields(
-                    &mut fields,
-                    &shared.argument,
-                    &report.report,
-                    &report.native_io_certificate,
-                );
-                &report.runtime
-            }
-            PrimitiveExecution::Relational(report) => {
-                fields.extend(super::execution_fields(report, reused));
-                &report.runtime
-            }
-        };
-        crate::execution_resources::append_resident_snapshot_fields(&mut fields, runtime);
-        fields.extend([
-            ("result_payload_complete".into(), "true".into()),
-            (
-                "native_result_payload".into(),
-                "retained_native_arrays".into(),
-            ),
-            (
-                "resident_native_preparation_reused".into(),
-                reused.to_string(),
-            ),
-        ]);
+        let mut fields = super::execution_fields(&self.report, reused);
         crate::execution_resources::append_query_timing_fields(&mut fields, self.timing);
         Ok(fields)
     }
-}
-
-fn primitive_fields(
-    fields: &mut Vec<(String, String)>,
-    argument: &str,
-    report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport,
-    certificate: &shardloom_core::NativeIoCertificate,
-) {
-    workflow::append_native_vortex_materializing_primitive_fields(
-        fields,
-        report,
-        argument,
-        Some(certificate),
-        None,
-    );
-}
-
-fn output_rows(report: &shardloom_vortex::VortexLocalPrimitiveExecutionReport) -> Result<u64> {
-    report
-        .rows_projected
-        .ok_or_else(|| failed("native producer omitted its output cardinality"))
-}
-
-fn no_streaming_input(present: bool) -> Result<()> {
-    if present {
-        return Err(failed(
-            "primitive file requests do not accept a separate streaming source",
-        ));
-    }
-    Ok(())
-}
-
-fn failed(message: &str) -> ShardLoomError {
-    ShardLoomError::InvalidOperation(format!(
-        "native operation: {message}; no fallback execution was attempted"
-    ))
 }

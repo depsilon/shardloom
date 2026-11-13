@@ -102,6 +102,14 @@ fn native_dynamic_pivot_prepares_without_execution_and_scans_once_per_fresh_call
         assert_eq!(result.execution.scan_rows_delivered, 4);
         assert_eq!(result.execution.runtime.completed_executions, call);
         assert!(result.execution.native_io_certificate.is_certified());
+        assert!(
+            result
+                .execution
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis
+                .contains("native_pipeline_file_kernel_invocations=1 ")
+        );
         drop(result);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }

@@ -251,6 +251,17 @@ the ledger.
 
 Current autonomous execution order:
 
+- [ ] **One native execution pipeline — November 12 maintainer priority.**
+  Complete the [native pipeline consolidation](native-pipeline-consolidation-2026-11-12.md)
+  before further investigations below: remove the whole-query file-provider-or-general
+  execution branch, compose the admitted native operators in one plan, fail explicitly
+  for missing support, and keep persisted preparation optional. Preserve existing
+  implemented operator semantics and all source/resource/output owners. After the
+  required checks, run the original 10,000 declarations once and report coverage,
+  successful-case engine time and exact matched-case comparisons with the preceding
+  accepted observation. An incomplete pass has no complete-10,000 engine total.
+  Existing investigation outcomes and CG-1 through CG-23 remain independent.
+
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)

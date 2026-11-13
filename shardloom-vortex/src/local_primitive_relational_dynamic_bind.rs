@@ -259,7 +259,11 @@ impl<'a> Binder<'a> {
             .ok_or_else(|| failed("native relation reference is absent or was consumed twice"))
     }
 
-    pub(super) fn complete_pivot(&mut self, input: &Node, operation: BoundUnary) -> Result<Node> {
+    pub(super) fn complete_pivot(
+        &mut self,
+        input: &mut Node,
+        operation: BoundUnary,
+    ) -> Result<Node> {
         let execution = self
             .execution
             .as_ref()
@@ -271,6 +275,9 @@ impl<'a> Binder<'a> {
                 "correlated dynamic pivot requires per-parameter schema binding",
             ));
         }
+        execution
+            .owner
+            .compile_native_node(input, execution.context)?;
         let result = operation.complete_relation_pivot(
             execution.context,
             #[cfg(all(feature = "vortex-write", unix))]
