@@ -461,37 +461,52 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Limit(limit) => self.limit(limit, depth),
             VortexRelationalPlan::Pipeline(pipeline) => self.pipeline(pipeline, depth),
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
-            VortexRelationalPlan::Unary(unary) => {
-                let mut input = Box::new(self.bind(&unary.input, depth + 1)?);
-                self.charge_named_fields(&input.fields)?;
-                let operation = BoundUnary::for_relation(
-                    &unary.request,
-                    &DType::struct_(input.fields.clone(), Nullability::NonNullable),
-                    self.schema_scope(),
-                )?;
-                if unary.request.kind == VortexQueryPrimitiveKind::PivotRows {
-                    return self.complete_pivot(&mut input, operation);
-                }
-                validate_width(operation.fields().len())?;
-                self.charge_named_fields(operation.fields())?;
-                for (name, dtype) in operation.fields() {
-                    validate_name(name)?;
-                    if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
-                        validate_payload(dtype, self.schema_scope())?;
-                    } else {
-                        validate_key(dtype, self.schema_scope())?;
-                    }
-                }
-                validate_unique(operation.fields())?;
-                Ok(Node {
-                    fields: operation.fields().to_vec(),
-                    kind: NodeKind::Unary {
-                        input,
-                        operation: Box::new(operation),
-                    },
-                })
+            VortexRelationalPlan::Unary(unary) => self.unary(unary, depth),
+        }
+    }
+
+    fn unary(
+        &mut self,
+        unary: &crate::relational_query::VortexRelationalUnary,
+        depth: usize,
+    ) -> Result<Node> {
+        let mut input = Box::new(self.bind(&unary.input, depth + 1)?);
+        self.charge_named_fields(&input.fields)?;
+        let operation = BoundUnary::for_relation(
+            &unary.request,
+            &DType::struct_(input.fields.clone(), Nullability::NonNullable),
+            self.schema_scope(),
+        )?;
+        // The bound operation already includes every key, value, weight and
+        // hidden predicate input. Its explicit projection may narrow an owned
+        // source without pushing a prefix across population/completion barriers.
+        if operation.input_columns().len() < input.fields.len() {
+            self.narrow_source_demand(
+                &mut input,
+                operation.input_columns().iter().map(String::as_str),
+            )?;
+        }
+        if unary.request.kind == VortexQueryPrimitiveKind::PivotRows {
+            return self.complete_pivot(&mut input, operation);
+        }
+        validate_width(operation.fields().len())?;
+        self.charge_named_fields(operation.fields())?;
+        for (name, dtype) in operation.fields() {
+            validate_name(name)?;
+            if unary.request.kind == VortexQueryPrimitiveKind::ExplodeRows {
+                validate_payload(dtype, self.schema_scope())?;
+            } else {
+                validate_key(dtype, self.schema_scope())?;
             }
         }
+        validate_unique(operation.fields())?;
+        Ok(Node {
+            fields: operation.fields().to_vec(),
+            kind: NodeKind::Unary {
+                input,
+                operation: Box::new(operation),
+            },
+        })
     }
 
     pub(super) fn seed_source(

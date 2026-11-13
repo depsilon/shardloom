@@ -54,6 +54,9 @@ mod metadata_tests;
 #[path = "local_primitive_relational_source_demand_count_tests.rs"]
 mod count_tests;
 
+#[path = "local_primitive_relational_source_demand_cardinality_tests.rs"]
+mod cardinality_tests;
+
 #[path = "local_primitive_relational_source_demand_mapped_tests.rs"]
 mod mapped_tests;
 

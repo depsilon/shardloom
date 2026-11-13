@@ -8,7 +8,7 @@ use crate::local_primitives::{
     native_relational_expression::{Expression as BoundExpression, Kind},
     prepared_relational::{ScanSource, provider},
 };
-use shardloom_core::ColumnRef;
+use shardloom_core::{ColumnRef, PredicateExpr};
 use shardloom_plan::ProjectionRequest;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -67,15 +67,7 @@ impl Binder<'_> {
                 input: child,
                 predicate,
             } => {
-                // The predicate still executes in the same place on every
-                // admitted row. Its hidden columns remain in the child shape.
-                self.charge_named_fields(&child.fields)?;
-                let mut columns: BTreeSet<String> = needed.into_iter().map(str::to_owned).collect();
-                predicate.visit_columns(&mut |name| {
-                    columns.insert(name.to_owned());
-                    Ok(())
-                })?;
-                self.narrow_source_demand(child, columns.iter().map(String::as_str))?;
+                self.narrow_filter_demand(child, predicate, needed)?;
                 input.fields.clone_from(&child.fields);
             }
             NodeKind::Limit { input: child, .. } => {
@@ -87,6 +79,14 @@ impl Binder<'_> {
             } => {
                 self.narrow_sort_demand(child, spec, needed)?;
                 input.fields.clone_from(&child.fields);
+            }
+            NodeKind::Unary {
+                input: child,
+                operation,
+            } => {
+                self.narrow_unary_demand(child, operation, needed)?;
+                input.fields.clear();
+                input.fields.extend_from_slice(operation.fields());
             }
             NodeKind::Project {
                 input: child,
@@ -158,6 +158,47 @@ impl Binder<'_> {
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
         }
+        Ok(())
+    }
+
+    fn narrow_filter_demand<'name>(
+        &mut self,
+        input: &mut Node,
+        predicate: &BoundExpression,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        // The predicate still executes in the same place on every admitted
+        // row. Its hidden columns remain in the child shape.
+        self.charge_named_fields(&input.fields)?;
+        let mut columns: BTreeSet<String> = needed.into_iter().map(str::to_owned).collect();
+        predicate.visit_columns(&mut |name| {
+            columns.insert(name.to_owned());
+            Ok(())
+        })?;
+        self.narrow_source_demand(input, columns.iter().map(String::as_str))
+    }
+
+    fn narrow_unary_demand<'name>(
+        &mut self,
+        input: &mut Node,
+        operation: &mut native::prepared_unary::BoundUnary,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        self.charge_named_fields(operation.fields())?;
+        let needed: BTreeSet<_> = needed.into_iter().collect();
+        let Some(narrowed) = operation.narrow_explode_output(
+            &needed,
+            &DType::struct_(
+                input.fields.clone(),
+                vortex::array::dtype::Nullability::NonNullable,
+            ),
+            self.schema_scope(),
+        )?
+        else {
+            return Ok(());
+        };
+        self.narrow_source_demand(input, narrowed.input_columns().iter().map(String::as_str))?;
+        *operation = narrowed;
         Ok(())
     }
 
@@ -329,6 +370,9 @@ impl Binder<'_> {
             | NodeKind::Project { input, .. }
             | NodeKind::Sort { input, .. }
             | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
+            NodeKind::Unary { input, operation } if operation.accepts_output_demand() => {
+                self.scan_accepts_source_demand(input)
+            }
             NodeKind::Pipeline { input, stages } => {
                 stages.iter().all(|stage| {
                     matches!(
@@ -417,6 +461,7 @@ impl Binder<'_> {
             plan,
             columns,
             residual,
+            predicate,
             ..
         } = &mut input.kind
         else {
@@ -444,15 +489,30 @@ impl Binder<'_> {
             }
         }
         // COUNT(*) and constant projections still consume the real source row
-        // population. Retain one admitted field rather than invent row counts.
+        // population. Prefer a field already read by the predicate, retaining
+        // its nullable values as a row carrier rather than counting them.
+        let mut hidden_carrier = false;
         if projected.is_empty() {
-            projected.push(ColumnRef::new(
-                &input
-                    .fields
-                    .first()
-                    .ok_or_else(|| failed("scan has no row-bearing field"))?
-                    .0,
-            )?);
+            let owned = matches!(source, ScanSource::Batch { index, .. }
+                if !self.batch_sources.values[*index].external());
+            let name = input
+                .fields
+                .iter()
+                .find(|(name, _)| {
+                    predicate
+                        .as_ref()
+                        .is_some_and(|predicate| predicate_uses_column(predicate, name))
+                })
+                .map(|(name, _)| name.as_str())
+                .or_else(|| {
+                    owned
+                        .then(|| predicate.as_ref().and_then(first_predicate_column))
+                        .flatten()
+                })
+                .or_else(|| input.fields.first().map(|(name, _)| name.as_str()))
+                .ok_or_else(|| failed("scan has no row-bearing field"))?;
+            hidden_carrier = !input.fields.iter().any(|(field, _)| field == name);
+            projected.push(ColumnRef::new(name)?);
         }
         let mut narrowed = native::projection_scan_plan(
             self.scan_dtype(source).expect("supported scan source"),
@@ -462,7 +522,20 @@ impl Binder<'_> {
         let fields = narrowed
             .projected_columns
             .iter()
-            .map(|name| Ok((name.clone(), field(&input.fields, name)?.clone())))
+            .map(|name| {
+                let dtype = if hidden_carrier {
+                    // The original declaration and predicate were already
+                    // validated. Only an owned source's value-free consumer
+                    // can expose this required predicate field as its carrier.
+                    native::completed_result::source_field(
+                        self.scan_dtype(source).expect("supported scan source"),
+                        name,
+                    )?
+                } else {
+                    field(&input.fields, name)?.clone()
+                };
+                Ok((name.clone(), dtype))
+            })
             .collect::<Result<Vec<_>>>()?;
         narrowed.filter = plan.filter.take();
         narrowed.embedded_derived_column_rewrites =
@@ -592,6 +665,23 @@ impl Binder<'_> {
         }
         Ok(())
     }
+}
+
+fn predicate_uses_column(predicate: &PredicateExpr, name: &str) -> bool {
+    predicate
+        .column()
+        .is_some_and(|column| column.as_str() == name)
+        || matches!(predicate, PredicateExpr::And(children) if children.iter().any(|child| predicate_uses_column(child, name)))
+}
+
+fn first_predicate_column(predicate: &PredicateExpr) -> Option<&str> {
+    predicate
+        .column()
+        .map(ColumnRef::as_str)
+        .or_else(|| match predicate {
+            PredicateExpr::And(children) => children.iter().find_map(first_predicate_column),
+            _ => None,
+        })
 }
 
 fn retain_projection(
