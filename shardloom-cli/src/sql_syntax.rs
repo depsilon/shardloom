@@ -6735,7 +6735,7 @@ fn parse_group_by_list(
                 })?,
             };
         }
-        if let Some(alias) = selected_additive_alias(&column, projections) {
+        if let Some(alias) = selected_expression_alias(&column, projections) {
             column = alias;
         }
         validate_sql_column_ref(&column)?;
@@ -6773,7 +6773,26 @@ fn selected_additive_alias(raw: &str, projections: &ParsedProjectionList) -> Opt
         })
 }
 
-/// Resolve selected arithmetic and aggregate expressions to their bound names.
+fn selected_expression_alias(raw: &str, projections: &ParsedProjectionList) -> Option<String> {
+    selected_additive_alias(raw, projections).or_else(|| {
+        if !scalar_expression::composed(raw).ok()? {
+            return None;
+        }
+        projections
+            .generic_expression_projections
+            .iter()
+            .find_map(|projection| {
+                // Reuse the selected expression's ID namespace so equality compares
+                // complete parsed declarations, including constants and bindings.
+                let expression =
+                    scalar_expression::parse(raw, &format!("project.generic.{}", projection.alias))
+                        .ok()?;
+                (expression == projection.expression).then(|| projection.alias.clone())
+            })
+    })
+}
+
+/// Resolve selected scalar and aggregate expressions to their bound names.
 /// Unprojected ORDER BY aggregates share the existing hidden HAVING reductions.
 /// Direction/null syntax and duplicate keys still use the ordinary order parser.
 fn parse_selected_order_by(
@@ -6799,7 +6818,7 @@ fn parse_selected_order_by(
             end -= 1;
         }
         let expression = tokens[..end].join(" ");
-        let mut alias = selected_additive_alias(&expression, projections);
+        let mut alias = selected_expression_alias(&expression, projections);
         if alias.is_none() && parse_aggregate_projection(&expression)?.is_some() {
             let selected = projections
                 .aggregates

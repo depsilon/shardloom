@@ -264,14 +264,53 @@ impl Parser {
         depth: usize,
     ) -> Result<Expression, ShardLoomError> {
         let name = raw[..open].trim().to_ascii_lowercase();
-        let definition = shardloom_core::expression::builtins::scalar(&name)
-            .ok_or_else(|| unsupported_sql_error("function has no admitted scalar declaration"))?;
         let close = matching_closing_parenthesis(raw, open)?
             .ok_or_else(|| unsupported_sql_error("scalar function parentheses must be balanced"))?;
         if !raw[close + 1..].trim().is_empty() {
             return Err(unsupported_sql_error("scalar function has trailing input"));
         }
-        let arguments = split_sql_csv(&raw[open + 1..close])?;
+        let inner = &raw[open + 1..close];
+        if matches!(name.as_str(), "extract" | "date_trunc") && inner.trim_end().ends_with(',') {
+            return Err(unsupported_sql_error(
+                "minute SQL arguments must not end with a comma",
+            ));
+        }
+        // SQL spellings normalize into the existing native scalar declarations.
+        // Operand recursion, type admission and evaluation retain their owners.
+        let (name, arguments) = match name.as_str() {
+            "extract" => {
+                let from = find_keyword_outside_quotes_and_parentheses(inner, "from")?.ok_or_else(
+                    || unsupported_sql_error("EXTRACT requires minute FROM expression"),
+                )?;
+                if !inner[..from].trim().eq_ignore_ascii_case("minute") {
+                    return Err(unsupported_sql_error(
+                        "EXTRACT admits only the minute field",
+                    ));
+                }
+                (
+                    "extract_minute".to_owned(),
+                    split_sql_csv(&inner[from + 4..])?,
+                )
+            }
+            "date_trunc" => {
+                let arguments = split_sql_csv(inner)?;
+                let [unit, source] = arguments.as_slice() else {
+                    return Err(unsupported_sql_error(
+                        "DATE_TRUNC requires 'minute', expression",
+                    ));
+                };
+                if !matches!(parse_sql_literal(unit), Ok(ScalarValue::Utf8(unit)) if unit.eq_ignore_ascii_case("minute"))
+                {
+                    return Err(unsupported_sql_error(
+                        "DATE_TRUNC admits only the literal 'minute' unit",
+                    ));
+                }
+                ("date_trunc_minute".to_owned(), vec![source.clone()])
+            }
+            _ => (name, split_sql_csv(inner)?),
+        };
+        let definition = shardloom_core::expression::builtins::scalar(&name)
+            .ok_or_else(|| unsupported_sql_error("function has no admitted scalar declaration"))?;
         if !definition.accepts_arity(arguments.len()) {
             return Err(unsupported_sql_error(&format!(
                 "function '{}' requires {} through {} arguments",
@@ -374,7 +413,9 @@ fn condition_expression(predicate: &ParsedPredicate) -> Result<Expression, Shard
 }
 
 fn scalar_function(name: &str) -> bool {
-    shardloom_core::expression::builtins::scalar(name).is_some()
+    name.eq_ignore_ascii_case("extract")
+        || name.eq_ignore_ascii_case("date_trunc")
+        || shardloom_core::expression::builtins::scalar(name).is_some()
 }
 
 /// Existing simple forms retain their route metadata; composed forms use the
@@ -550,6 +591,79 @@ mod tests {
     use super::super::parse_sql_local_source_statement;
     use super::*;
     use shardloom_core::{ExpressionEvaluationStatus, ExpressionInputRow, evaluate_expression};
+
+    #[test]
+    fn minute_sql_forms_lower_to_native_declarations_and_preserve_parser_limits() {
+        for (sql, native) in [
+            (
+                "eXtRaCt ( MiNuTe FrOm COALESCE(t, 60) + 1 )",
+                "extract_minute(COALESCE(t,60)+1)",
+            ),
+            (
+                "DATE_TRUNC('MINUTE', COALESCE(t, 60) + 1)",
+                "date_trunc_minute(COALESCE(t,60)+1)",
+            ),
+            (
+                "EXTRACT(minute FROM (SELECT value FROM range(1,2)))",
+                "extract_minute((SELECT value FROM range(1,2)))",
+            ),
+            (
+                "DATE_TRUNC('minute', 'from, minute')",
+                "date_trunc_minute('from, minute')",
+            ),
+        ] {
+            assert_eq!(
+                parse(sql, "minute").unwrap(),
+                parse(native, "minute").unwrap()
+            );
+            assert!(composed(sql).unwrap());
+        }
+        for sql in [
+            "EXTRACT()",
+            "EXTRACT(minute)",
+            "EXTRACT(hour FROM t)",
+            "EXTRACT('minute' FROM t)",
+            "EXTRACT(minute FROM)",
+            "EXTRACT(minute FROM t,u)",
+            "EXTRACT(minute FROM t,)",
+            "EXTRACT(minute FROM t FROM u)",
+            "EXTRACT(minute FROM t) trailing",
+            "EXTRACT(minute FROM t",
+            "DATE_TRUNC()",
+            "DATE_TRUNC('minute')",
+            "DATE_TRUNC('minute',t,u)",
+            "DATE_TRUNC('minute',t,)",
+            "DATE_TRUNC('minute',t, )",
+            "DATE_TRUNC('hour',t)",
+            "DATE_TRUNC(minute,t)",
+            "DATE_TRUNC(NULL,t)",
+            "DATE_TRUNC(:unit,t)",
+            "DATE_TRUNC('minute',t) trailing",
+        ] {
+            assert!(parse(sql, "minute").is_err(), "{sql}");
+        }
+        let nested = |depth| {
+            format!(
+                "{}t{}",
+                "EXTRACT(minute FROM ".repeat(depth),
+                ")".repeat(depth)
+            )
+        };
+        assert!(parse(&nested(24), "minute").is_ok());
+        assert!(parse(&nested(25), "minute").is_err());
+    }
+
+    #[test]
+    fn minute_sql_group_and_order_matching_preserves_the_complete_operand() {
+        for clause in [
+            "GROUP BY DATE_TRUNC('minute',t+1)",
+            "ORDER BY DATE_TRUNC('minute',u)",
+            "ORDER BY EXTRACT(minute FROM t)",
+        ] {
+            let sql = format!("SELECT DATE_TRUNC('minute',t) AS m FROM 'input.vortex' {clause}");
+            assert!(parse_sql_local_source_statement(&sql).is_err(), "{sql}");
+        }
+    }
 
     #[test]
     fn vector_array_declarations_compose_without_losing_parser_budgets() {

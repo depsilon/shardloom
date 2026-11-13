@@ -92,6 +92,71 @@ fn binding(source: ResidentMemorySource) -> SqlSourceBinding {
     }
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn file_sql_and_explicit_workflow_share_native_pipeline_and_preserve_output_names() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex")
+        .display()
+        .to_string();
+    let session = session();
+    let sql = prepare_sql_operation(
+        &format!("SELECT COUNT(*) AS actual FROM '{path}'"),
+        allocation(),
+        &session,
+        &[SqlSourceBinding {
+            reference: path.clone(),
+            source: SqlSource::File {
+                format: "vortex".into(),
+                schema: None,
+            },
+        }],
+        None,
+        &CancellationToken::default(),
+    )
+    .unwrap();
+    let primitive = NativeWorkflowDeclaration::new(vec![
+        "python".into(),
+        "--input".into(),
+        path,
+        "--input-format".into(),
+        "vortex".into(),
+        "--request".into(),
+        "collect".into(),
+        "--bounded".into(),
+        "true".into(),
+        "--memory-bytes".into(),
+        allocation().memory_bytes().to_string(),
+        "--max-parallelism".into(),
+        "1".into(),
+        "--vortex-primitive".into(),
+        "count".into(),
+        "--sql".into(),
+        "SELECT unused FROM advisory.vortex".into(),
+    ])
+    .unwrap()
+    .prepare(allocation(), &session, &CancellationToken::default())
+    .unwrap();
+    for (operation, name) in [(sql, "actual"), (primitive, "count_all")] {
+        let baseline = session.snapshot().memory.reserved_bytes;
+        for reused in [false, true] {
+            let result = operation
+                .execute_native(&CancellationToken::default(), None)
+                .unwrap();
+            let json = result.result.to_bounded_json(&[name.into()], 4096).unwrap();
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(json.value()).unwrap(),
+                serde_json::json!([{name: 5}])
+            );
+            let fields = result.execution.fields(reused).unwrap();
+            assert!(fields.iter().any(|(key, value)| {
+                key == "relational_provider_selection_reason" && value == "native_operator_pipeline"
+            }));
+        }
+        assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+    }
+}
+
 fn integers(
     result: &Arc<shardloom_vortex::resident_session::OwnedVortexResultBatch>,
     column: usize,

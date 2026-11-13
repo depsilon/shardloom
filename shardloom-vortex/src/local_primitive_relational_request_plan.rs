@@ -49,12 +49,24 @@ pub(super) fn lower(request: &Request, input: Plan, dtype: &DType) -> Result<Pla
         Kind::ExpressionProjectRows if request.structured_projection.is_some() => {
             crate::local_primitives::prepared_dispatch::structured_projection_plan(request, input)
         }
-        _ => {
+        Kind::DistinctRows
+        | Kind::DropDuplicateRows
+        | Kind::DuplicateMaskRows
+        | Kind::TailRows
+        | Kind::SampleRows
+        | Kind::ExpressionProjectRows
+        | Kind::MeltRows
+        | Kind::ExplodeRows
+        | Kind::PivotRows
+        | Kind::RollingWindowRows => {
             let mut request = request.clone();
             request.source_uri = None;
             request.predicate = None;
             Ok(Plan::Unary(Box::new(Unary { input, request })))
         }
+        Kind::Unsupported => Err(failed(
+            "native_pipeline_missing_operator: unsupported primitive has no native implementation",
+        )),
     }
 }
 

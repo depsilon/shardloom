@@ -1,0 +1,957 @@
+{
+  "schema": "shardloom.native_pipeline_compact_evidence.v1",
+  "source_commit": "3a861917ad6852e6a35ac8642d78c4d31451f29f",
+  "source_tree": "b4410a94b6969a1da4806986e8aecf70b2538c24",
+  "files": {
+    "README.md": {
+      "bytes": 3388,
+      "sha256": "7f789cfb0298ba586e61c489e28dea5053ea5252d3078480b9080641da27cd25"
+    },
+    "cases.jsonl.gz": {
+      "bytes": 833620,
+      "sha256": "9da4d86ad162f9d1a83ec4405d3df9905566df032db5393121a0dc93707c40ab"
+    },
+    "certificates.jsonl.gz": {
+      "bytes": 1776126,
+      "sha256": "d9a0d9ca4df986971e8572a029eacbf0c741fcbc70777c197c775cc0c9b2b22a"
+    },
+    "observations.tar.gz": {
+      "bytes": 19572297,
+      "sha256": "e8fb0e072aa3528d6c98cd714d1766b87664fd7b5b2683299552444823974ad3"
+    },
+    "pipeline-audit.json": {
+      "bytes": 2000,
+      "sha256": "fc9af810c14b6a8ae712d7acbe53ce038d81749be4371ba2ecc6927792608533"
+    },
+    "previous-cases.jsonl.gz": {
+      "bytes": 1398340,
+      "sha256": "df556f111e16c44eec083f83e4a5f53f9d713bb8e62230d5a4e84ae40b77726d"
+    },
+    "previous-summary.json": {
+      "bytes": 13396,
+      "sha256": "bd81ab961ff83251aa4f10926ae8030e358c76f2521da6fe66cdb3300104d51b"
+    },
+    "summary.json": {
+      "bytes": 8848,
+      "sha256": "0804808087d3f91087f224c5109d54856b87891d01aae0ea7157d44c412c8638"
+    },
+    "validation-inventory.json": {
+      "bytes": 21462,
+      "sha256": "7637d2515108e33dbe683c02453660d2dc264b818711e83dae7d826d274184cf"
+    },
+    "verify.py": {
+      "bytes": 13784,
+      "sha256": "7fc01080457b44792f5e7c3cebc07879444634231d397687be5a00b1622a1d8e"
+    }
+  },
+  "archive_members": {
+    "current/audit_pipeline_certificates.py": {
+      "bytes": 4409,
+      "sha256": "d820a6dd2b46e2e3ca8a278d2ce5792645b929d2839ed11ead19c94f56d0c722",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/audit_pipeline_certificates.py"
+    },
+    "current/cli-pipeline-tests-r1.json": {
+      "bytes": 1005667,
+      "sha256": "63726f3ab94f924b820ef9eff7d2c1e6cbb5f9485ea3351863e86a1d0ebac363",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r1.json"
+    },
+    "current/cli-pipeline-tests-r10.json": {
+      "bytes": 1006010,
+      "sha256": "e167febef927d8fcd12197334279aabc8503edea4868a713e800de53926e9329",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r10.json"
+    },
+    "current/cli-pipeline-tests-r2.json": {
+      "bytes": 1005675,
+      "sha256": "9ed3164f8c33bc8051597b51feedceace1056ca492c032adea1106f45e83221d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r2.json"
+    },
+    "current/cli-pipeline-tests-r3.json": {
+      "bytes": 1005672,
+      "sha256": "331d92f07e047b0fbd572ef1c64a550ca91255c19bdefa73e58a3a6446a352f7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r3.json"
+    },
+    "current/cli-pipeline-tests-r4.json": {
+      "bytes": 1005674,
+      "sha256": "5b66d8affbe3b0a58dde3e2e77817bd9defe6f688526cf38c6e0b153da78b41a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r4.json"
+    },
+    "current/cli-pipeline-tests-r5.json": {
+      "bytes": 1005675,
+      "sha256": "4ac6b77ee560267e5f16c5ff23ef1c8c28a893be74fcc03f3223a8c82bc0d3b6",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r5.json"
+    },
+    "current/cli-pipeline-tests-r6.json": {
+      "bytes": 1005675,
+      "sha256": "c86b526d191d658c203178ce62f5ab4e0160113925f30fb24e05ed66474dafd6",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r6.json"
+    },
+    "current/cli-pipeline-tests-r7.json": {
+      "bytes": 1005672,
+      "sha256": "0ea2e955d9429da49d907a85e15ff0043dd114efddce174c54851a22e2dfd116",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r7.json"
+    },
+    "current/cli-pipeline-tests-r8.json": {
+      "bytes": 1006156,
+      "sha256": "a692e2d5186fab1e71d4d4de05580ace2667a37b9f8938a5326e29e7d4573b36",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r8.json"
+    },
+    "current/cli-pipeline-tests-r9.json": {
+      "bytes": 1006222,
+      "sha256": "e971495649db6f02d28486a45a713b9f4415e2ce2bcac89a9538006bd0b982a1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/cli-pipeline-tests-r9.json"
+    },
+    "current/default-clippy-final-r2.json": {
+      "bytes": 1008201,
+      "sha256": "119679bf840a510ca77dcea2e25a2edf3015b4d58d25d345f6040852cd986a61",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-final-r2.json"
+    },
+    "current/default-clippy-final-r3.json": {
+      "bytes": 1008279,
+      "sha256": "0b73972ab3cc026b590628359d629de87834e8c1ee41cce78254506dc34d15c7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-final-r3.json"
+    },
+    "current/default-clippy-final-r4.json": {
+      "bytes": 1006165,
+      "sha256": "7030423b9a676260b8881edbbef665e1ea510c25fafcf498de08796b43462d5b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-final-r4.json"
+    },
+    "current/default-clippy-final-r5.json": {
+      "bytes": 1005951,
+      "sha256": "259e6754b342236be6f16407d465d7549df0c6bb54a558d292cac8e78e6689df",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-final-r5.json"
+    },
+    "current/default-clippy-final.json": {
+      "bytes": 1008201,
+      "sha256": "ba11c3d35db31bf5d46280ce759ccfe491daa9b71bc3373f145ed787263dd1bb",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-final.json"
+    },
+    "current/default-clippy-r1.json": {
+      "bytes": 1005647,
+      "sha256": "c3c0953ff2cba1b637ec6b7f86df711921d3410f69c9b16b794f7b027d2a61c0",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-clippy-r1.json"
+    },
+    "current/default-tests-final-r2.json": {
+      "bytes": 1008166,
+      "sha256": "2145f98ce3b89c9e4becf19dca61acd488385110a1b5f62f9772f1da26f2ca06",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-final-r2.json"
+    },
+    "current/default-tests-final-r3.json": {
+      "bytes": 1008243,
+      "sha256": "bf30210e15963e08a26eafa2d8ec58a6043b603f89f55f71ba168d9c90549caa",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-final-r3.json"
+    },
+    "current/default-tests-final-r4.json": {
+      "bytes": 1006128,
+      "sha256": "074d6fbdb774a73772ad6db8c542de6fe128f00759a0bf9fe749463e7d1cef6d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-final-r4.json"
+    },
+    "current/default-tests-final-r5.json": {
+      "bytes": 1005918,
+      "sha256": "73a906074c7d8182769dd663af9aec35658ae459e5e89d9484c40c50b071190d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-final-r5.json"
+    },
+    "current/default-tests-final.json": {
+      "bytes": 1008163,
+      "sha256": "3994c671aca6a05e2d853f1e7f63029ae6ff2e01e2d452bde37705ae054c38a0",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-final.json"
+    },
+    "current/default-tests-r1.json": {
+      "bytes": 1005611,
+      "sha256": "6dd7d996b6f339d81afce5f789255f0ab5d569b1872110dd27a0ecd571d29ce8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/default-tests-r1.json"
+    },
+    "current/export_certificates.py": {
+      "bytes": 2852,
+      "sha256": "b272ef8965cfe0622a8a0229bf4a23adaf12f0e9b221601172509183aeee6a3a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/export_certificates.py"
+    },
+    "current/finish_checks_r4.py": {
+      "bytes": 872,
+      "sha256": "e9ab039e0bf54f40d2c2113b9fb1af1f0b3981a96222761ceabec3ebc4cb7c38",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/finish_checks_r4.py"
+    },
+    "current/finish_checks_r5.py": {
+      "bytes": 1101,
+      "sha256": "42b67b65547644793e83adea2994a3d0bee3e362b5cda77c01121751af282ce3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/finish_checks_r5.py"
+    },
+    "current/fmt-final-r2.json": {
+      "bytes": 1008122,
+      "sha256": "a536d12eed439ac393148dcbd7af85de354eb793482685a018700742634f0027",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-final-r2.json"
+    },
+    "current/fmt-final-r3.json": {
+      "bytes": 1008202,
+      "sha256": "2f7ea3cdeafa71cbb82bd783ee43ca61a22d4fa720c58bc0e2242698da93c84d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-final-r3.json"
+    },
+    "current/fmt-final-r4.json": {
+      "bytes": 1006089,
+      "sha256": "d6c5878ec01ecc95e610d3aadf905e345cb66e09fc9940b5814c212ca735161a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-final-r4.json"
+    },
+    "current/fmt-final-r5.json": {
+      "bytes": 1005876,
+      "sha256": "29a6b0bc7e2f6f9e151656ffc1aa475c0a1796c2ac3ede7e08e65db56c85da8e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-final-r5.json"
+    },
+    "current/fmt-final.json": {
+      "bytes": 1008121,
+      "sha256": "8d0a8fe1aec9620f97e3542e3234d473287aae10be40a4a9db63ae5fa1bd132c",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-final.json"
+    },
+    "current/fmt-r1.json": {
+      "bytes": 1005571,
+      "sha256": "bb6f04791dbcfd2ab8ea05b1db872bb8d19d979bd0b07612bac751e01a830e8a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/fmt-r1.json"
+    },
+    "current/freeze_runtime.py": {
+      "bytes": 1955,
+      "sha256": "278756f1f470b14edb1dacbea01e70b09a9e949506217193350ea8a55793b326",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/freeze_runtime.py"
+    },
+    "current/freeze_runtime_r2.py": {
+      "bytes": 1955,
+      "sha256": "944a8953b47e83d71a6f427db7b5e5d51302f2f2e3a5089f89fe29e2c59a5cbf",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/freeze_runtime_r2.py"
+    },
+    "current/freeze_runtime_r3.py": {
+      "bytes": 1955,
+      "sha256": "8a6084801e9011d7074d91560ad7d2a2c40e7116bd0cb6e0476d7631499b7683",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/freeze_runtime_r3.py"
+    },
+    "current/full10k-protocol-r1.json": {
+      "bytes": 34948,
+      "sha256": "eac846f2f931741b0abb65a35c786b89db8341b006f8dcf058e6b663247edf20",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-protocol-r1.json"
+    },
+    "current/full10k-r1/binding.json": {
+      "bytes": 34969,
+      "sha256": "48b0c0c9c398cc951d53884e126cc490605eef77ef11ffbcf0d36c3ef2a3f458",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/binding.json"
+    },
+    "current/full10k-r1/certificate-export-r1.json": {
+      "bytes": 606,
+      "sha256": "1726a38ad7fa67bacbfe870b6abab6b940d2e70bb5718d42f18f441cf4bf37f3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/certificate-export-r1.json"
+    },
+    "current/full10k-r1/complete.json": {
+      "bytes": 34618,
+      "sha256": "736f5e48f1be48871cbf59c0b1d06842d84650b50599def35c98c4a84adda44d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/complete.json"
+    },
+    "current/full10k-supervision-r1.json": {
+      "bytes": 11965,
+      "sha256": "38e74a0c6d73a21fc255c9cbcd8bbb1b42bf7e046739ca3b73fb157834b2128b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-supervision-r1.json"
+    },
+    "current/full10k-supervision-r1.log": {
+      "bytes": 8469,
+      "sha256": "8dfe11940ea35d8c5d586a709fc565acd3e13a643a22fad0ca6e7a381451d364",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-supervision-r1.log"
+    },
+    "current/guard_checks.py": {
+      "bytes": 6011,
+      "sha256": "4577d04c6650cf52af9ddf3d6feaa3c815638569abed65f9056a943783a5e5b9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/guard_checks.py"
+    },
+    "current/installed-wheel-r1.json": {
+      "bytes": 1006416,
+      "sha256": "1040028867c54029fec645db6217072ca3d0504cb2709a52d45621d5d46729c6",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1.json"
+    },
+    "current/installed-wheel-r1/build.log": {
+      "bytes": 701,
+      "sha256": "f7596a1799a1c1c24332f5022094c52b25554e5744cb8cfec7018837f7aba7f2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/build.log"
+    },
+    "current/installed-wheel-r1/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/create_environment.log"
+    },
+    "current/installed-wheel-r1/install.log": {
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/install.log"
+    },
+    "current/installed-wheel-r1/install_optional_consumer.log": {
+      "bytes": 6190,
+      "sha256": "b147d7ca73968e7bd71ef39b28ff99dbe2e37b2a8e9b0527e11cbec06deded93",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/install_optional_consumer.log"
+    },
+    "current/installed-wheel-r1/integration.json": {
+      "bytes": 90,
+      "sha256": "dc06f6c4f08cc4ef83ec429fdac4d1aa52917ee03d4ea9016a3fea6165bc1bca",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/integration.json"
+    },
+    "current/installed-wheel-r1/integration.log": {
+      "bytes": 112043,
+      "sha256": "fced97b277c4e2de5b1ee4c01c2c1f0eddad0fd0d23cacd79b97bf59e100b32e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/integration.log"
+    },
+    "current/installed-wheel-r1/load.log": {
+      "bytes": 648,
+      "sha256": "b86a9d30f856311d17df4a2308f54089fdc12b2332f47339c3349d4a202ffdc8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/load.log"
+    },
+    "current/installed-wheel-r1/report.json": {
+      "bytes": 8620,
+      "sha256": "5ff1231576b9b5d1aebc7260c1df20a51ad4f5077e09ed67847a79b52961b972",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r1/report.json"
+    },
+    "current/installed-wheel-r2.json": {
+      "bytes": 1006417,
+      "sha256": "7c4af8e96aa4e9e3ad3d5ad977dc98376e5a83853e6b5ce5ee064f9f00aa5cb8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2.json"
+    },
+    "current/installed-wheel-r2/build.log": {
+      "bytes": 701,
+      "sha256": "261bdd590590a472a310d4bdb0838882698e6fe6d5ed31a522eb2a4a793d7c41",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/build.log"
+    },
+    "current/installed-wheel-r2/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/create_environment.log"
+    },
+    "current/installed-wheel-r2/install.log": {
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/install.log"
+    },
+    "current/installed-wheel-r2/install_optional_consumer.log": {
+      "bytes": 6190,
+      "sha256": "b147d7ca73968e7bd71ef39b28ff99dbe2e37b2a8e9b0527e11cbec06deded93",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/install_optional_consumer.log"
+    },
+    "current/installed-wheel-r2/integration.json": {
+      "bytes": 89,
+      "sha256": "dc42412e3774fafa3812965736e86fb09603d3f57df2e67bf78cb25a40afc895",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/integration.json"
+    },
+    "current/installed-wheel-r2/integration.log": {
+      "bytes": 90387,
+      "sha256": "ba068af11ca6460b26dabfc76610696dc8b4ce4dde91a77ad05467c1edad3fe2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/integration.log"
+    },
+    "current/installed-wheel-r2/load.log": {
+      "bytes": 648,
+      "sha256": "df3b14f2240ca48b3b76b60274cdf813de277e6077e68472893cb79ad1d0ef7d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/load.log"
+    },
+    "current/installed-wheel-r2/report.json": {
+      "bytes": 8620,
+      "sha256": "0896d686a679fc414e5d5f4404deb1a02e5b99aae54335fc2586556492860fb2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r2/report.json"
+    },
+    "current/installed-wheel-r3.json": {
+      "bytes": 1006417,
+      "sha256": "cac244936646f79f7c748ea778c42e272de778f9ecf2845f9e2daf417d8d8562",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3.json"
+    },
+    "current/installed-wheel-r3/build.log": {
+      "bytes": 701,
+      "sha256": "19439669bf2cc42bfd8296336af9fcd6f76b80e68fba46ef0e8abbd4e64bab63",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/build.log"
+    },
+    "current/installed-wheel-r3/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/create_environment.log"
+    },
+    "current/installed-wheel-r3/install.log": {
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/install.log"
+    },
+    "current/installed-wheel-r3/install_optional_consumer.log": {
+      "bytes": 6190,
+      "sha256": "b147d7ca73968e7bd71ef39b28ff99dbe2e37b2a8e9b0527e11cbec06deded93",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/install_optional_consumer.log"
+    },
+    "current/installed-wheel-r3/integration.json": {
+      "bytes": 89,
+      "sha256": "8c89c97c014250ee1f9f7f12d7d5939f8d872606925d54fa578db08cb397eeb2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/integration.json"
+    },
+    "current/installed-wheel-r3/integration.log": {
+      "bytes": 88603,
+      "sha256": "2c45bdfe4c5112c7730d10a9ec9b16c987d0ad9df74bcc201bc9244a69eeb024",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/integration.log"
+    },
+    "current/installed-wheel-r3/load.log": {
+      "bytes": 648,
+      "sha256": "bbb6fa9c7f5fc10834eb1d44290d11bf715ddbb3946094e74ddfbc538f78eb21",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/load.log"
+    },
+    "current/installed-wheel-r3/report.json": {
+      "bytes": 10741,
+      "sha256": "4f194ecabe0bc17c276a92248b8623ef69839fc809ab23e47354ddd75ce08626",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/report.json"
+    },
+    "current/installed-wheel-r3/uninstall.log": {
+      "bytes": 118,
+      "sha256": "7c8e8ce04e6137e77061d311de835802a2b2692fd61cd326b9e3df1a5d60e223",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/uninstall.log"
+    },
+    "current/installed-wheel-r3/verify_uninstalled.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/installed-wheel-r3/verify_uninstalled.log"
+    },
+    "current/logs/cli-pipeline-tests-r1.log": {
+      "bytes": 564903,
+      "sha256": "61b2f877554302c6191a79d8d342acced638aa4122ca2e63c542f26dc8ac1eb0",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r1.log"
+    },
+    "current/logs/cli-pipeline-tests-r10.log": {
+      "bytes": 612485,
+      "sha256": "5f706c4f3fa293e7cc88a148cd7955cdd41da4f4ef18376aa84b995d07e72e17",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r10.log"
+    },
+    "current/logs/cli-pipeline-tests-r2.log": {
+      "bytes": 556810,
+      "sha256": "30fc8a6ceab4d4bf44f4575841b3fd3c0c2c9abacf7da8acd5f57c86f862911d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r2.log"
+    },
+    "current/logs/cli-pipeline-tests-r3.log": {
+      "bytes": 1034,
+      "sha256": "92839bb56b52308e2be8b98aea8410703783ec85bee748c0fb5a453513cc6cbd",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r3.log"
+    },
+    "current/logs/cli-pipeline-tests-r4.log": {
+      "bytes": 615853,
+      "sha256": "9b87ac1abb6644a27a58ed0a7f99ce6721a3865f9fae8de057b800859f74152e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r4.log"
+    },
+    "current/logs/cli-pipeline-tests-r5.log": {
+      "bytes": 615873,
+      "sha256": "085502efd046f2db47eae34c56115f93b1fca22c896e98eaea59da65d29a2141",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r5.log"
+    },
+    "current/logs/cli-pipeline-tests-r6.log": {
+      "bytes": 661438,
+      "sha256": "87c2f9881dab305c7e7a9a62b6b005fb25aa629bb622c908c2eb528c08402dd8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r6.log"
+    },
+    "current/logs/cli-pipeline-tests-r7.log": {
+      "bytes": 612114,
+      "sha256": "fcafded975d62496ad2b38caf6c8b75616ae0348d271530bfecbc56e0af37560",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r7.log"
+    },
+    "current/logs/cli-pipeline-tests-r8.log": {
+      "bytes": 612609,
+      "sha256": "2d45796a17d48cdc68b3616e0f6bafc656e8406975d83168ab599c6e7fc109e5",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r8.log"
+    },
+    "current/logs/cli-pipeline-tests-r9.log": {
+      "bytes": 612487,
+      "sha256": "da071b120f74bc65396836c816c44fd5a15d137944b30fb21099d83bf62c7d9b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/cli-pipeline-tests-r9.log"
+    },
+    "current/logs/default-clippy-final-r2.log": {
+      "bytes": 191,
+      "sha256": "0621ad4e14f50667ac9c4125caa2111e84a4df1ada8869932d9fa5a056291ffc",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-final-r2.log"
+    },
+    "current/logs/default-clippy-final-r3.log": {
+      "bytes": 60,
+      "sha256": "f694a9e074374d315f58b8a63ce849858b1b8708cf56b3d194218605bd2a9d6e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-final-r3.log"
+    },
+    "current/logs/default-clippy-final-r4.log": {
+      "bytes": 60,
+      "sha256": "4b395c9c76c7f7fb5221d30df7320c7a2387ff3842c426dbee6a59a54b5cffab",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-final-r4.log"
+    },
+    "current/logs/default-clippy-final-r5.log": {
+      "bytes": 60,
+      "sha256": "28a6f3d37cf90a7b4882c1d9c37f8cc06abe21655dbc9dda5f38f0ad52d73a54",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-final-r5.log"
+    },
+    "current/logs/default-clippy-final.log": {
+      "bytes": 1597,
+      "sha256": "913e8fcec555d63f22dcdf128db4b877f1e9116022b5e471cde51ec612aabf67",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-final.log"
+    },
+    "current/logs/default-clippy-r1.log": {
+      "bytes": 60,
+      "sha256": "bd78efc584786aedeff4a2938ba22269233ac68fe183a1ecbdd47ccc783b7a43",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-clippy-r1.log"
+    },
+    "current/logs/default-tests-final-r2.log": {
+      "bytes": 487069,
+      "sha256": "b46ec27eedaf0e15fa46d667ea5367213565d849c0705100c4e956d95803deab",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-final-r2.log"
+    },
+    "current/logs/default-tests-final-r3.log": {
+      "bytes": 486937,
+      "sha256": "5b431061924a5e0e48d785304c252623105cd1b995312ed0a756bd905531b5b7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-final-r3.log"
+    },
+    "current/logs/default-tests-final-r4.log": {
+      "bytes": 486937,
+      "sha256": "a109c997ddcd423b4f95d2bdc3b03d97610199ff7f80fde902d99e31ca2a3b95",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-final-r4.log"
+    },
+    "current/logs/default-tests-final-r5.log": {
+      "bytes": 486937,
+      "sha256": "4b1304b3723c9923987163cbb9ee0ede177c1215e22a001d4c9437e8747744d8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-final-r5.log"
+    },
+    "current/logs/default-tests-final.log": {
+      "bytes": 487064,
+      "sha256": "7562b98b76c6fd96076f24e60071a5fa09a6b73450da51339b47b7361c8c1f16",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-final.log"
+    },
+    "current/logs/default-tests-r1.log": {
+      "bytes": 486957,
+      "sha256": "db705c0c938c1c7f0818c95155ddcfba68c72be90ecb37503a2e1cf06810bcc3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/default-tests-r1.log"
+    },
+    "current/logs/fmt-final-r2.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-final-r2.log"
+    },
+    "current/logs/fmt-final-r3.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-final-r3.log"
+    },
+    "current/logs/fmt-final-r4.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-final-r4.log"
+    },
+    "current/logs/fmt-final-r5.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-final-r5.log"
+    },
+    "current/logs/fmt-final.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-final.log"
+    },
+    "current/logs/fmt-r1.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/fmt-r1.log"
+    },
+    "current/logs/installed-wheel-r1.log": {
+      "bytes": 1434,
+      "sha256": "e8e7f2706889f452be39dce96658753b825b988c346ce702ddc34f9d4cae905c",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/installed-wheel-r1.log"
+    },
+    "current/logs/installed-wheel-r2.log": {
+      "bytes": 1434,
+      "sha256": "7d967dbcc0edeea33cba82494170963b8d4620b63a2ca363bfd48aa085132139",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/installed-wheel-r2.log"
+    },
+    "current/logs/installed-wheel-r3.log": {
+      "bytes": 10741,
+      "sha256": "4f194ecabe0bc17c276a92248b8623ef69839fc809ab23e47354ddd75ce08626",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/installed-wheel-r3.log"
+    },
+    "current/logs/native-check-r1.log": {
+      "bytes": 4111,
+      "sha256": "0daeada1c1226d3f85dab9b725b126a230b036a85e85cffec9f4725161ca762a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-check-r1.log"
+    },
+    "current/logs/native-clippy-final-r2.log": {
+      "bytes": 198,
+      "sha256": "f93c04631bd848a043a220e4074052633fd11a4a21b4674016ec8ede408fd3c1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-final-r2.log"
+    },
+    "current/logs/native-clippy-final-r3.log": {
+      "bytes": 1120,
+      "sha256": "afdd9697b6c624a4945ef6dac7be9728823daedf5113c0463f8e8649b3a674e0",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-final-r3.log"
+    },
+    "current/logs/native-clippy-final-r4.log": {
+      "bytes": 328,
+      "sha256": "b8eaab34b4840284d9c5e2c677f21599aa120f626b69cc0b92f23805a08665c3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-final-r4.log"
+    },
+    "current/logs/native-clippy-final-r5.log": {
+      "bytes": 328,
+      "sha256": "4ca1db3124ea52eda2cf7247e73e432e7af22651b37a0b952f59bf49443ccd3b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-final-r5.log"
+    },
+    "current/logs/native-clippy-final.log": {
+      "bytes": 466,
+      "sha256": "c598d5e85925272493065329d01e6447cd755a87fa3bf9e50b01b99e03915d4a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-final.log"
+    },
+    "current/logs/native-clippy-r1.log": {
+      "bytes": 2433,
+      "sha256": "074d9e9f410bc39c287fa744fbbbd64b5b4db5c127a29214f5c548f4b099b8f1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-r1.log"
+    },
+    "current/logs/native-clippy-r2.log": {
+      "bytes": 619,
+      "sha256": "7a68fd8e3e35d1b4faa4f9202b6610e4f0ce32fa9a43c267b7f3ffba1f522ef2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-r2.log"
+    },
+    "current/logs/native-clippy-r3.log": {
+      "bytes": 832,
+      "sha256": "82450510f81669cb7e918d46abc1c6616547d90ace36f4376f0a16dcde253259",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-r3.log"
+    },
+    "current/logs/native-clippy-r4.log": {
+      "bytes": 1088,
+      "sha256": "f4cd06279d2acd3b322fcfe44588bdc75fc8a285c2f5c18433e18198587e13f7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-r4.log"
+    },
+    "current/logs/native-clippy-r5.log": {
+      "bytes": 1306,
+      "sha256": "67add36d01e8a377acde887bc88cc7115762097e954c4e8d1de22e2624adfdaa",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-clippy-r5.log"
+    },
+    "current/logs/native-tests-final.log": {
+      "bytes": 1274603,
+      "sha256": "76231755d1c85f8be42e4f74f0f74f8b502d51c18f25a13350373dfe14934574",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-tests-final.log"
+    },
+    "current/logs/native-tests-identity-r1.log": {
+      "bytes": 33391,
+      "sha256": "ce3bbc0e67b40cf78c38f3d99a55fef4b08fea5a0a0f370b709f170c40b73ee4",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-tests-identity-r1.log"
+    },
+    "current/logs/native-tests-provider-r1.log": {
+      "bytes": 36738,
+      "sha256": "24e934cc6903e9930f6000b21f234320516b297e66a89bee8677709a238c8c47",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/native-tests-provider-r1.log"
+    },
+    "current/logs/pipeline-tests-r1.log": {
+      "bytes": 2294,
+      "sha256": "28f7de4236132efd44bdaa6c8d27734f9afc2947c6a50721ea9537e094fa28fb",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/pipeline-tests-r1.log"
+    },
+    "current/logs/pipeline-tests-r2.log": {
+      "bytes": 2287,
+      "sha256": "173da1cc56fbb709c18d70d6eb124480e8ec5b0447705ad94cf8f373f857109e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/pipeline-tests-r2.log"
+    },
+    "current/logs/relational-tests-r1.log": {
+      "bytes": 38402,
+      "sha256": "0cdb16af7625cf853c4d7d18be0cbedb5327c4e488f40e709ab0e35d91c6914c",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/relational-tests-r1.log"
+    },
+    "current/logs/release-build-r1.log": {
+      "bytes": 468,
+      "sha256": "5f071ee99039d837879ef30611bf8bad2762e0b388edaf21d6edbdf305592fc1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/release-build-r1.log"
+    },
+    "current/logs/release-build-r2.log": {
+      "bytes": 331,
+      "sha256": "087be9bab7ed92e6e1d6567a8a704838dc8386b82e0716936d0c6bc32854f9c2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/release-build-r2.log"
+    },
+    "current/logs/release-build-r3.log": {
+      "bytes": 331,
+      "sha256": "087be9bab7ed92e6e1d6567a8a704838dc8386b82e0716936d0c6bc32854f9c2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/logs/release-build-r3.log"
+    },
+    "current/native-check-r1.json": {
+      "bytes": 1004544,
+      "sha256": "25cbd19904294fe97a9c7bcc02793fdb27928ce62b1b59804aaf7c35809a2b3a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-check-r1.json"
+    },
+    "current/native-clippy-final-r2.json": {
+      "bytes": 1008386,
+      "sha256": "6004a8ef89cb936cc0160f4d99c833c9ec7c6098bdcc9f79d392fc3862d19419",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-final-r2.json"
+    },
+    "current/native-clippy-final-r3.json": {
+      "bytes": 1006275,
+      "sha256": "d46a30af631c7357b64d50c1daacb1ef4c617cdf621881978430cd733684f6b9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-final-r3.json"
+    },
+    "current/native-clippy-final-r4.json": {
+      "bytes": 1006272,
+      "sha256": "c8b689b28f0cd1c52e9779317e80a17105524191177ec68e84aa200cc18a1e1e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-final-r4.json"
+    },
+    "current/native-clippy-final-r5.json": {
+      "bytes": 1006061,
+      "sha256": "f3e58932134a16e0c2bce69092b494741976f3e6818b206227ca87d1a28bceb5",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-final-r5.json"
+    },
+    "current/native-clippy-final.json": {
+      "bytes": 1008307,
+      "sha256": "b4cdc797f7af55c33809e2804b3a4be3303bff918a2bb250f5db8b19fb89dc46",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-final.json"
+    },
+    "current/native-clippy-r1.json": {
+      "bytes": 1004762,
+      "sha256": "b57dab00f24bb5dd5b850c6b99c31ed99e728f0fbd8502dcc38209379fcb8e7e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-r1.json"
+    },
+    "current/native-clippy-r2.json": {
+      "bytes": 1004760,
+      "sha256": "9cae9d149f355cbcf0df7e55a5b9e8f651a39d33e0f4561a4e2b6e7fec7f7739",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-r2.json"
+    },
+    "current/native-clippy-r3.json": {
+      "bytes": 1005758,
+      "sha256": "775c41fb9a0681174997dcd8722299dfb37ea88db942919ca37b16bc54e2e603",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-r3.json"
+    },
+    "current/native-clippy-r4.json": {
+      "bytes": 1005757,
+      "sha256": "f1db254b3d12a1a44faa4685ab6d415d5b82c7ddc8749e80702a7f87b14be2da",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-r4.json"
+    },
+    "current/native-clippy-r5.json": {
+      "bytes": 1005757,
+      "sha256": "e8f1bb302109244f3f2696a56d03f710d471f6f1b5bc245ce74dc9f2b21a191f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-clippy-r5.json"
+    },
+    "current/native-test-reconciliation-r1.json": {
+      "bytes": 1007414,
+      "sha256": "f0f731dac8b5611065194166d14a0b3d0c2b2ffa06eb9a32b85f1f10f976b4fb",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-test-reconciliation-r1.json"
+    },
+    "current/native-test-reconciliation-r3.json": {
+      "bytes": 1010770,
+      "sha256": "2de8472496b3892308373d0b62aa61525fbf6e6d6dde6bf8aad3fb08dc5027ad",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-test-reconciliation-r3.json"
+    },
+    "current/native-tests-final.json": {
+      "bytes": 1008299,
+      "sha256": "5dc3fb41d029a6d195ba309c58fd413c897b481975af252460289b1c3b99ceab",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-tests-final.json"
+    },
+    "current/native-tests-identity-r1.json": {
+      "bytes": 1008380,
+      "sha256": "c698798e59cd67fef0ca0a85bced0e1129fbc0013a1b890030bda70862fb3390",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-tests-identity-r1.json"
+    },
+    "current/native-tests-provider-r1.json": {
+      "bytes": 1008400,
+      "sha256": "04f42de1384c094d9eb69a6b681c5876b1467fa0d7e1d2ed06db6cf415547606",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/native-tests-provider-r1.json"
+    },
+    "current/package_evidence.py": {
+      "bytes": 5784,
+      "sha256": "bc2d6ae0ed2d019f43b3c52105a55b33399664cf5d803f972c9d8244a0429a91",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/package_evidence.py"
+    },
+    "current/pipeline-stall-r1.sample.txt": {
+      "bytes": 85295,
+      "sha256": "50da2813b919567d2855559ccc99d184decc01946f8b3e84d6084edd8fc917b0",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/pipeline-stall-r1.sample.txt"
+    },
+    "current/pipeline-tests-r1.json": {
+      "bytes": 1004999,
+      "sha256": "9c6e2aff92a7328799f218175ee07fd402ea490b407904e73879314f5051d9e5",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/pipeline-tests-r1.json"
+    },
+    "current/pipeline-tests-r2.json": {
+      "bytes": 1004786,
+      "sha256": "490140b4067ec0a0aaad77297340005176496948d6df013e3ea82fe72902934c",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/pipeline-tests-r2.json"
+    },
+    "current/pipeline_runtime.py": {
+      "bytes": 5264,
+      "sha256": "b1e6253f41c1b78073f3ff41e1de2ee8733ff3837276191860509a476cd8ae17",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/pipeline_runtime.py"
+    },
+    "current/prepare_wheel_tools.py": {
+      "bytes": 2475,
+      "sha256": "16d332998846457b8b811f446f7d81ca1c361543703dd11c9ca2fa907acb1818",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/prepare_wheel_tools.py"
+    },
+    "current/reconcile_native_tests.py": {
+      "bytes": 4994,
+      "sha256": "f62fdb5495fdce7ff1e56065e1bc4537188a3a4af0c0bbfc22ab1efa817735e9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/reconcile_native_tests.py"
+    },
+    "current/reconcile_native_tests_r2.py": {
+      "bytes": 4919,
+      "sha256": "ce59f977cb2122662e342c726e40e1db0a8e43b6babc451ac46d9400b09d2c0d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/reconcile_native_tests_r2.py"
+    },
+    "current/reconcile_native_tests_r3.py": {
+      "bytes": 5335,
+      "sha256": "d2c249180ccf647dd221a7663f96d6da7c54387196071134b9409f4fcfc4eb43",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/reconcile_native_tests_r3.py"
+    },
+    "current/relational-tests-r1.json": {
+      "bytes": 1005023,
+      "sha256": "20e105496ee32ff5c2f3a1cec0c47730d4b7ab444aeac1a56be4c29340bc2282",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/relational-tests-r1.json"
+    },
+    "current/release-build-r1.json": {
+      "bytes": 1005838,
+      "sha256": "e06a4601d8b7bed0091cb2fb8190c80df2f5759a3234207ffcfbc3d44fdd333d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/release-build-r1.json"
+    },
+    "current/release-build-r2.json": {
+      "bytes": 1005838,
+      "sha256": "6ad0d37877142c75ef555e733a7f7d5b8b3e41531c51641586d0bae97b1d4d14",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/release-build-r2.json"
+    },
+    "current/release-build-r3.json": {
+      "bytes": 1005838,
+      "sha256": "af06d73724cd2891cc2c7549a950b69f62cf35663eecc22f650ae104937602b5",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/release-build-r3.json"
+    },
+    "current/replay_10k.py": {
+      "bytes": 9831,
+      "sha256": "522694e7413efa9bc587ef42a684f8ebe79f8dacbe6641640ae5c3764c0d1b76",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/replay_10k.py"
+    },
+    "current/retire_intermediates.py": {
+      "bytes": 8318,
+      "sha256": "07c15a5acc77a3e4bd3c24847f91602da18856058f4cbff07200996c10456941",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/retire_intermediates.py"
+    },
+    "current/retirement-r1/manifest.json.xz": {
+      "bytes": 1113188,
+      "sha256": "b5e974d2ea8e7c1c1ede41cf7281a0ac112206aad97b7d3faa1c1fa63edc1281",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/retirement-r1/manifest.json.xz"
+    },
+    "current/retirement-r1/plan.json": {
+      "bytes": 603,
+      "sha256": "e906b3c0a7e4e9dfcd5ea4ed7e5ff8f10a51ba13fd8f40c99a2ea5b4e8c059c1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/retirement-r1/plan.json"
+    },
+    "current/retirement-r1/receipt.json": {
+      "bytes": 542,
+      "sha256": "5132fabdd7c1221013a0c5b62910574aecf9b1956028c67d0649b8ddd0820e81",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/retirement-r1/receipt.json"
+    },
+    "current/run_10k.py": {
+      "bytes": 5438,
+      "sha256": "1724409f82fc5eae20c22b5e6c0347c93199ce11e58c5448e902b023c4a61b22",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/run_10k.py"
+    },
+    "current/runtime-r1-identity.json": {
+      "bytes": 1293,
+      "sha256": "a83fd0ced310c8be92387552a904d686b81fa2a1d8aaf8a932f07607e17ce761",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/runtime-r1-identity.json"
+    },
+    "current/runtime-r2-identity.json": {
+      "bytes": 1293,
+      "sha256": "9db03e0258052aced01e34947ea5c12262d7977edfca95eb1128ee31add679e4",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/runtime-r2-identity.json"
+    },
+    "current/runtime-r3-identity.json": {
+      "bytes": 1293,
+      "sha256": "b1763fe07493f078187b7138336f5be2b23c3d61087c385e3a76f8af9e31f30f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/runtime-r3-identity.json"
+    },
+    "current/supervise_10k.py": {
+      "bytes": 4029,
+      "sha256": "cf692406c05c122c5e3ed191155464d682042331cdfac27bce8453722890e492",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/supervise_10k.py"
+    },
+    "current/test-expectation-before-r1/local_primitive_relational_identity_project_tests.rs": {
+      "bytes": 6958,
+      "sha256": "46723f030e374fe9f22e411b05bc03c44a6987663b497d89cc24ebbe349cdd95",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/test-expectation-before-r1/local_primitive_relational_identity_project_tests.rs"
+    },
+    "current/test-expectation-before-r1/local_primitive_relational_provider_tests.rs": {
+      "bytes": 40710,
+      "sha256": "ae9d13abe77a72aacbb3a76a6e382859876c19a286592c259d186460c7bc1e0f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/test-expectation-before-r1/local_primitive_relational_provider_tests.rs"
+    },
+    "current/test-expectation-before-r1/manifest.json": {
+      "bytes": 368,
+      "sha256": "5f88c3c9bdf4f908514cfc5dbb876a457bf4117d920fe386ce10670d247c4c6f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/test-expectation-before-r1/manifest.json"
+    },
+    "current/test-expectation-repair-r1.patch": {
+      "bytes": 4930,
+      "sha256": "f3c2a833cd5b685966ee78214173f648ffdb5a310e2d7d93d5e1fa6fcfdd7359",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/test-expectation-repair-r1.patch"
+    },
+    "current/validate_runtime.py": {
+      "bytes": 2670,
+      "sha256": "1920525d32c0e311278c2cd2ec9f66e84f347af2f49268007a26b95fd935e15d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/validate_runtime.py"
+    },
+    "current/validation-before-10k.json": {
+      "bytes": 1813,
+      "sha256": "b5bdba60964b7dc5bb26bba2c2752b10f4a80a68c3e89cbc8ffccb6f89d27116",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/validation-before-10k.json"
+    },
+    "current/validation-inventory-r1.json": {
+      "bytes": 21462,
+      "sha256": "7637d2515108e33dbe683c02453660d2dc264b818711e83dae7d826d274184cf",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/validation-inventory-r1.json"
+    },
+    "current/wheel-tools-r1/create-environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/create-environment.log"
+    },
+    "current/wheel-tools-r1/download.log": {
+      "bytes": 8564,
+      "sha256": "7331ea7d0ec806785f55f10546413b7ef811a963781162313f05dbbc5d5b48a2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/download.log"
+    },
+    "current/wheel-tools-r1/install-build-tools.log": {
+      "bytes": 1642,
+      "sha256": "f4465bb6e9ac9b745717252bff1a95d97650ac8e3c76789d81f518ef65d56488",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/install-build-tools.log"
+    },
+    "current/wheel-tools-r1/report.json": {
+      "bytes": 6750,
+      "sha256": "3d7d223d5492d5217f641772f10987a0b4f465705a547a9562a630e0f43f0ea4",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/report.json"
+    },
+    "helpers/retire_shared_intermediates_r2.py": {
+      "bytes": 12364,
+      "sha256": "19082efec1eaf8df1f894f5047f9efa3c58f1aed206424be3d04c28899b4482e",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/retire_shared_intermediates_r2.py"
+    },
+    "original/design.json": {
+      "bytes": 7021163,
+      "sha256": "fd0a2604c9abc888a7a24ba75078569fc33e354b16cc98372977c15306a39216",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/design.json"
+    },
+    "original/frozen.json": {
+      "bytes": 190099,
+      "sha256": "38c7a349ec04645e094248d20cfd3d8325e33a63ad76dd9bdc1543412bf7681d",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/frozen.json"
+    },
+    "original/inputs.json": {
+      "bytes": 46729,
+      "sha256": "b5200fa5b31f311fffd44bfb2701651a62a4d18b1ecbeff16eddc6949a491c21",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/inputs.json"
+    },
+    "original/native-preparation/complete.json": {
+      "bytes": 69370,
+      "sha256": "132de62fdd3711e2b9104acfd521cbe68aabfc79598cd1236df69bb9e37d5fd8",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/complete.json"
+    },
+    "source/commits.json": {
+      "bytes": 545,
+      "sha256": "4d404670c393d395696f81adfdea370eb2b9d106e6e45ace79ec71395d911a8e",
+      "origin": "local Git history"
+    },
+    "source/implementation.patch": {
+      "bytes": 204403,
+      "sha256": "d3f1ac1cfa13b150aaaba34cb93114d48a922a5e15af656b290e4043512379c1",
+      "origin": "git diff 8b84361fe26afc816a9ad252ed95fffa1a7f99e8 3a861917ad6852e6a35ac8642d78c4d31451f29f"
+    }
+  },
+  "direct_origins": {
+    "summary.json": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-summary-r1.json",
+    "cases.jsonl.gz": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-cases-r1.jsonl.gz",
+    "previous-summary.json": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-r1/verified-summary-r1.json",
+    "previous-cases.jsonl.gz": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-r1/verified-cases-r1.jsonl.gz",
+    "certificates.jsonl.gz": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/certificate-cases-r1.jsonl.gz",
+    "pipeline-audit.json": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/pipeline-certificate-audit-r1.json",
+    "validation-inventory.json": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/validation-inventory-r1.json"
+  },
+  "query_executions_during_packaging": 0,
+  "full_correctness_replay": "Completed against all original independent reference ledgers; raw result/reference ledgers remain local.",
+  "compact_verification": "Hashes, exact case/order matching, engine clocks, selected raw certificate fields and recorded validation history; not independent full-answer replay.",
+  "published": false
+}

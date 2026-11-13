@@ -77,6 +77,7 @@ pub(super) fn prepare(
     policy: VortexLocalPrimitiveExecutionPolicy,
     memory: &LiveMemoryPool,
     float_policy: shardloom_core::FloatPolicy,
+    context: Option<&NativeExecutionContext<'_>>,
 ) -> Result<Selection> {
     if float_policy == shardloom_core::FloatPolicy::Extended {
         return Ok(Selection::declined(
@@ -119,7 +120,12 @@ pub(super) fn prepare(
     }
     metadata.resize(bytes)?;
     let request = lowered.request;
-    native::prepared_dispatch::source_session(source, &request, Some(policy))?;
+    native::prepared_dispatch::source_session_with_context(
+        source,
+        &request,
+        Some(policy),
+        context,
+    )?;
     if native::prepared_dispatch::request_requires_relational(source, &request)? {
         return Ok(Selection::declined(
             "source_types_require_relational_execution",
@@ -161,7 +167,7 @@ pub(super) fn prepare(
             "provider_result_schema_is_not_equivalent",
         ));
     }
-    let strategy = prepare_strategy(request, source, policy)?;
+    let strategy = prepare_strategy(request, source, policy, context)?;
     Ok(Selection {
         provider: Some(Prepared {
             strategy,
@@ -176,6 +182,7 @@ fn prepare_strategy(
     request: Request,
     source: &PreparedVortexSource,
     policy: VortexLocalPrimitiveExecutionPolicy,
+    context: Option<&NativeExecutionContext<'_>>,
 ) -> Result<Strategy> {
     Ok(match request.kind {
         Kind::CountAll => Strategy::Count {
@@ -183,18 +190,25 @@ fn prepare_strategy(
             source: source.clone(),
             policy,
         },
-        Kind::CountWhere => Strategy::CountWhere(Box::new(
-            native::prepared_count::prepare_count_where_from_source(
+        Kind::CountWhere => Strategy::CountWhere(Box::new(match context {
+            Some(context) => native::prepared_count::prepare_count_where_from_source_in_context(
+                &request,
+                policy,
+                source.clone(),
+                context,
+            )?,
+            None => native::prepared_count::prepare_count_where_from_source(
                 &request,
                 policy,
                 source.clone(),
             )?,
-        )),
+        })),
         Kind::SimpleAggregate => Strategy::Aggregate(Box::new(
-            native::prepared_aggregate::prepare_aggregate_from_source(
+            native::prepared_aggregate::prepare_aggregate_from_source_with_context(
                 &request,
                 policy,
                 source.clone(),
+                context,
             )?,
         )),
         Kind::SortRows => Strategy::Sort {

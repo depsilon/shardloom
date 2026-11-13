@@ -466,7 +466,22 @@ pub fn prepare_aggregate_from_source(
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: PreparedVortexSource,
 ) -> Result<PreparedVortexAggregate> {
-    let session = super::prepared_dispatch::source_session(&source, request, Some(policy))?;
+    prepare_aggregate_from_source_with_context(request, policy, source, None)
+}
+
+/// Compilation during a dynamic query must retain that query's admission.
+pub(super) fn prepare_aggregate_from_source_with_context(
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+    source: PreparedVortexSource,
+    context: Option<&NativeExecutionContext<'_>>,
+) -> Result<PreparedVortexAggregate> {
+    let session = super::prepared_dispatch::source_session_with_context(
+        &source,
+        request,
+        Some(policy),
+        context,
+    )?;
     let (policy, physical_policy) = prepared_policy(request, policy, &session)?;
     prepare_bound_aggregate(
         request,
@@ -474,7 +489,7 @@ pub fn prepare_aggregate_from_source(
         physical_policy,
         &session,
         PreparedAggregateSource::File(source),
-        None,
+        context,
     )
 }
 

@@ -107,37 +107,51 @@ fn prepared_file_prefix_requires_every_projected_integer_to_be_a_sort_key() {
         // The outer sort consumes the completed inner range. A specialized
         // single-sort file request cannot represent this composition.
         let inner = range(sort(project(fixture.scan(), fields), "k"), 2, 1);
-        let prepared = prepare_relational(&sort(inner, "k"), policy()).unwrap();
-        let result = prepared
-            .collect_jsonl(&CancellationToken::default())
-            .unwrap();
-        let rows = json_rows(&result);
-        assert_eq!(
-            rows.iter()
-                .map(|row| row["k"].as_i64().unwrap())
-                .collect::<Vec<_>>(),
-            [1, 2]
-        );
-        if keep_payload {
+        let plan = sort(inner, "k");
+        for file_kernels in [true, false] {
+            let mut prepared = prepare_relational(&plan, policy()).unwrap();
+            if !file_kernels {
+                prepared.remove_file_kernels_for_reference().unwrap();
+            }
+            let result = prepared
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            let rows = json_rows(&result);
             assert_eq!(
                 rows.iter()
-                    .map(|row| row["payload"].as_i64().unwrap())
+                    .map(|row| row["k"].as_i64().unwrap())
                     .collect::<Vec<_>>(),
-                [11, 12]
+                [1, 2]
             );
+            if keep_payload {
+                assert_eq!(
+                    rows.iter()
+                        .map(|row| row["payload"].as_i64().unwrap())
+                        .collect::<Vec<_>>(),
+                    [11, 12]
+                );
+            }
+            let proof = &result
+                .execution
+                .native_io_certificate
+                .source_pushdown_report
+                .proof_basis;
+            // Compilation now admits the inner bounded sort as one file kernel.
+            // The reference plan still proves the key-only prefix admission rule.
+            let expected = if file_kernels || keep_payload { 0 } else { 6 };
+            assert!(
+                proof
+                    .split_whitespace()
+                    .any(|field| field
+                        == format!("streaming_ordering_prefix_rows_validated={expected}")),
+                "expected the prefix to validate {expected} fixture rows"
+            );
+            assert!(proof.split_whitespace().any(|field| field
+                == format!(
+                    "native_pipeline_file_kernel_invocations={}",
+                    u64::from(file_kernels)
+                )));
         }
-        let proof = &result
-            .execution
-            .native_io_certificate
-            .source_pushdown_report
-            .proof_basis;
-        let expected = if keep_payload { 0 } else { 6 };
-        assert!(
-            proof.split_whitespace().any(
-                |field| field == format!("streaming_ordering_prefix_rows_validated={expected}")
-            ),
-            "expected the prefix to validate {expected} fixture rows"
-        );
     }
 }
 fn fixture() -> Fixture {
@@ -187,9 +201,9 @@ fn subtract(name: &str, offset: i64) -> Expression {
 
 fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQueryPrimitiveKind) {
     let optimized = prepare_relational(plan, policy()).unwrap();
-    assert!(optimized.provider.is_some(), "expected {kind:?}");
+    assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
     let mut general = prepare_relational(plan, policy()).unwrap();
-    general.provider = None;
+    general.remove_file_kernels_for_reference().unwrap();
     let expected = general
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -329,10 +343,9 @@ fn shared_provider_preserves_operator_order_and_does_not_hide_invalid_projection
         0,
     );
     assert!(
-        prepare_relational(&limited_then_filtered, policy())
+        !prepare_relational(&limited_then_filtered, policy())
             .unwrap()
-            .provider
-            .is_none()
+            .root_has_file_kernel()
     );
     let projected = VortexRelationalPlan::Project(Box::new(VortexRelationalProject {
         input: fixture.scan(),
@@ -350,7 +363,7 @@ fn shared_provider_preserves_operator_order_and_does_not_hide_invalid_projection
     );
     let zero = range(sort(fixture.scan(), "amount"), 0, 2);
     let prepared = prepare_relational(&zero, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert_eq!(prepared.execute_owned().unwrap().execution.output_rows, 0);
 }
 
@@ -364,7 +377,7 @@ fn shared_provider_final_consumer_cancellation_and_generation_failure_are_termin
             range(sort(fixture.scan(), "amount"), 2, 0)
         };
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        assert!(prepared.provider.is_some());
+        assert!(prepared.root_has_file_kernel());
         let token = CancellationToken::default();
         assert!(
             prepared
@@ -435,7 +448,7 @@ fn shared_provider_derived_unsigned_signed_groups_and_measures_keep_exact_domain
         vec![measure("sum", Some("shifted"), "sum")],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert!(prepared.execute_owned().is_err());
 }
 
@@ -536,7 +549,7 @@ fn shared_provider_temporal_and_domain_functions_match_general_in_compositions()
     );
     let optimized = prepare_relational(&plan, policy()).unwrap();
     let mut general = prepare_relational(&plan, policy()).unwrap();
-    general.provider = None;
+    general.remove_file_kernels_for_reference().unwrap();
     assert!(optimized.execute_owned().is_err());
     assert!(general.execute_owned().is_err());
 }
@@ -569,7 +582,7 @@ fn shared_provider_does_not_confuse_character_and_byte_length() {
         vec![measure("avg", Some("size"), "mean")],
     );
     let prepared = prepare_relational(&chars, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert_eq!(
         json_rows(
             &prepared
@@ -651,7 +664,7 @@ fn shared_provider_conditional_groups_use_expression_roles_and_preserve_nullable
     };
     sort.keys[0].nulls = None;
     let prepared = prepare_relational(&sorted, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert!(prepared.execute_owned().is_err());
 }
 
@@ -734,7 +747,7 @@ fn shared_provider_does_not_assume_nullable_or_empty_measures_have_values() {
     );
     for plan in [nullable, empty_scalar] {
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        assert!(prepared.provider.is_none());
+        assert!(!prepared.root_has_file_kernel());
         assert!(prepared.execute_owned().is_err());
     }
 }
@@ -757,7 +770,7 @@ fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json:
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
         assert_eq!(json_rows(&result), expected);
-        assert!(prepared.provider.is_none());
+        assert!(!prepared.root_has_file_kernel());
         assert!(result.execution.primitive_execution.is_none());
         assert_eq!(result.execution.runtime.completed_executions, completed);
         drop(result);
@@ -1135,10 +1148,10 @@ fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
     let PreparedRoot::Bound(root) = &prepared.root else {
         unreachable!()
     };
-    let NodeKind::Project { input, .. } = &root.kind else {
+    let NodeKind::Project { input, .. } = root.semantic_kind() else {
         panic!("alias must remain an encoded projection")
     };
-    let NodeKind::Scan { plan, columns, .. } = &input.kind else {
+    let NodeKind::Scan { plan, columns, .. } = input.semantic_kind() else {
         panic!("filter should use the existing native scan")
     };
     assert!(plan.filter.is_some());
@@ -1193,7 +1206,7 @@ fn shared_provider_predicates_preserve_typed_null_literal_and_numeric_domains() 
         vec![measure("count", None, "rows")],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert_eq!(
         json_rows(
             &prepared
@@ -1218,7 +1231,7 @@ fn shared_provider_predicates_preserve_typed_null_literal_and_numeric_domains() 
             vec![measure("count", None, "rows")],
         );
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        assert!(prepared.provider.is_none());
+        assert!(!prepared.root_has_file_kernel());
         assert_eq!(
             json_rows(
                 &prepared
@@ -1247,6 +1260,6 @@ fn shared_provider_predicates_preserve_typed_null_literal_and_numeric_domains() 
         vec![measure("count", None, "rows")],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     assert!(prepared.execute_owned().is_err());
 }

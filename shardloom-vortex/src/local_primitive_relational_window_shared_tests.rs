@@ -122,7 +122,7 @@ fn same_error(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &str, ca
         assert_eq!(emitted, 0);
         assert_eq!(prepared.snapshot().completed_executions, 0);
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
-        assert!(prepared.provider.is_none(), "{case}, stored={stored}");
+        assert!(!prepared.root_has_file_kernel(), "{case}, stored={stored}");
         #[cfg(debug_assertions)]
         eprintln!(
             "WINDOW_SHARED_ERROR_WORK {}",
@@ -684,7 +684,7 @@ fn compatible_window_extended_nonfinites_keep_counts_bits_and_finite_recovery() 
                 let memory = session.memory().clone();
                 let mut prepared =
                     prepare_relational_in_session(&plan, policy(), &session).unwrap();
-                assert!(prepared.provider.is_none());
+                assert!(!prepared.root_has_file_kernel());
                 if spill {
                     let workspace = fixture.0.join("window-runs");
                     fs::create_dir_all(&workspace).unwrap();

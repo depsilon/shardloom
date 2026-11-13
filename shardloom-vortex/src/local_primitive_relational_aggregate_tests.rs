@@ -233,7 +233,7 @@ fn integer_extrema_pair_reaches_the_native_bound_grouped_runtime() {
         Ok(plan)
     })
     .unwrap();
-    assert!(prepared.provider.is_none());
+    assert!(!prepared.root_has_file_kernel());
     let baseline = prepared.session.memory().snapshot().reserved_bytes;
     let groups: Vec<_> = (0..2053i64).map(|row| row % 2).collect();
     let values: Vec<_> = (0..2053i64)

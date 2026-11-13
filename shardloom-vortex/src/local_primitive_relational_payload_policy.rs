@@ -32,7 +32,7 @@ fn origin(expression: &Expression) -> Origin<'_> {
 
 impl Node {
     pub(super) fn carries_unobserved(&self, name: &str) -> bool {
-        match &self.kind {
+        match self.semantic_kind() {
             NodeKind::Project { input, expressions } => self
                 .fields
                 .iter()

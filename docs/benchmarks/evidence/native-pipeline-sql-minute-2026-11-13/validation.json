@@ -1,0 +1,480 @@
+{
+  "archive": {
+    "bytes": 5121233,
+    "sha256": "0c3fbd221b88c432e1c29d8097d6de197e3e29f7af67be64bb22863c1fb21a6d"
+  },
+  "archive_members": {
+    "contribution-governance.json": {
+      "bytes": 2433,
+      "sha256": "47f90ce218398eb7212c59786c49e2495e8850db548424e60c47d0c1f5c9a2ae"
+    },
+    "default-clippy-r1.json": {
+      "bytes": 1005965,
+      "sha256": "d0ad34035c6cf84500d129463b2eec8c8efc28f102497fcadfd6004a3b861786"
+    },
+    "default-clippy-r2.json": {
+      "bytes": 1005966,
+      "sha256": "d012ad956f3d8b9e01c0ad4626c0756a5e044140bb7cf4bec86a5bf06f2823bc"
+    },
+    "default-tests-r1.json": {
+      "bytes": 1005931,
+      "sha256": "b267bbf1c03c597ea9de5248978baf3f5b523a89457cb6863e13c60160533e71"
+    },
+    "default-tests-r2.json": {
+      "bytes": 1005930,
+      "sha256": "78618c8dd50ebcc20365b1e5228cc4d430ace40d7cb61ce70acc62eb31209039"
+    },
+    "fmt-r1.json": {
+      "bytes": 1005889,
+      "sha256": "610d1c1fe62310bd6cbb9c32981ba15a80346942875ac9383a81d53da26effa0"
+    },
+    "fmt-r2.json": {
+      "bytes": 1005889,
+      "sha256": "c8c9334f86aa4fe9dafc7a7d8599f6a5acf8083290165a1407f0877b198b42e2"
+    },
+    "freeze_runtime.py": {
+      "bytes": 2809,
+      "sha256": "88e446fcaeacb5e4cfb4d732567abd9f95fbc7cc781fa29491563fedabfe87f4"
+    },
+    "guard_checks.py": {
+      "bytes": 6009,
+      "sha256": "697cdb7cb2622a3089dae62aab8377e07819b882add7a7dcaae940bb3e5c6dd1"
+    },
+    "installed-wheel-r1.json": {
+      "bytes": 1006584,
+      "sha256": "a221d4a11c9d0851ccb1ec380e2b62dd14720adcdaf3d2178b9a23b6179a735d"
+    },
+    "installed-wheel-r1/build.log": {
+      "bytes": 701,
+      "sha256": "682b0033283907c1856a315a33e2a41adb73e1ce7e22779ea5f6e2be49260bcb"
+    },
+    "installed-wheel-r1/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "installed-wheel-r1/install.log": {
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d"
+    },
+    "installed-wheel-r1/install_optional_consumer.log": {
+      "bytes": 6190,
+      "sha256": "b147d7ca73968e7bd71ef39b28ff99dbe2e37b2a8e9b0527e11cbec06deded93"
+    },
+    "installed-wheel-r1/integration.json": {
+      "bytes": 89,
+      "sha256": "95fff1c5eddb38b8c805a8388e1227f1babb793d7b21899b34a696cf2f6936ee"
+    },
+    "installed-wheel-r1/integration.log": {
+      "bytes": 88796,
+      "sha256": "e05c0c0efacb45f55641e109c717fbfbaac7541e0eca5a6a26ba7dbb29e92d48"
+    },
+    "installed-wheel-r1/load.log": {
+      "bytes": 639,
+      "sha256": "b13b5f30d11938af777c330b75bae0b81cfab3f245c5af1175becc438e14d98a"
+    },
+    "installed-wheel-r1/report.json": {
+      "bytes": 10688,
+      "sha256": "14af8080c4b94a531fa9c52782e1d2408d7be1e9630cc32f1dc1c4e52d12a227"
+    },
+    "installed-wheel-r1/uninstall.log": {
+      "bytes": 118,
+      "sha256": "7c8e8ce04e6137e77061d311de835802a2b2692fd61cd326b9e3df1a5d60e223"
+    },
+    "installed-wheel-r1/verify_uninstalled.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "logs/default-clippy-r1.log": {
+      "bytes": 191,
+      "sha256": "e0809014fe7257a5ffbcf807439ccf9864dc0fd10409f1feb651a3c5f506b00e"
+    },
+    "logs/default-clippy-r2.log": {
+      "bytes": 191,
+      "sha256": "083f5546d24e7fd802bb51b80d3a9597c57bc366af85ddfb61e8f624aab6c4a3"
+    },
+    "logs/default-tests-r1.log": {
+      "bytes": 487342,
+      "sha256": "0c3fa85445e1a5064a2cf90ac1b8f5e6b2410a445eeb8554f39fc46d4096fe8a"
+    },
+    "logs/default-tests-r2.log": {
+      "bytes": 487341,
+      "sha256": "411a938afceb09a8fa7a84e4534ecd57fcf81be2910b5162940a47ac9b4fa93b"
+    },
+    "logs/fmt-r1.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "logs/fmt-r2.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "logs/installed-wheel-r1.log": {
+      "bytes": 10688,
+      "sha256": "14af8080c4b94a531fa9c52782e1d2408d7be1e9630cc32f1dc1c4e52d12a227"
+    },
+    "logs/minute-focused-r1.log": {
+      "bytes": 2363,
+      "sha256": "8e6089d8ca5abd6b3ec85941eb72d78529834561f230ec2105fb1cc7f245ea6b"
+    },
+    "logs/minute-focused-r2.log": {
+      "bytes": 1795,
+      "sha256": "c43269c5f5c53375a32073f8106361b41de4d95e5fcfc7f7bc17207dd4132029"
+    },
+    "logs/minute-focused-r3.log": {
+      "bytes": 1796,
+      "sha256": "75842da0cb2946116ffdd6e7e10ef53fdf4e00116087f4d47433d488be0b139c"
+    },
+    "logs/native-cli-python-tests-r1.log": {
+      "bytes": 613365,
+      "sha256": "cbea75027f283ffda156a9985b96ad3c33f807aa2247907a809fb9d08b2f0e17"
+    },
+    "logs/native-cli-python-tests-r2.log": {
+      "bytes": 613365,
+      "sha256": "47eab97f594c75c8180f0c2ac14730e10a730079ba548945e4aa51eba0e811ef"
+    },
+    "logs/native-clippy-r1.log": {
+      "bytes": 328,
+      "sha256": "875badaf2196b1a587c39ec23a2be9fb648a2dc323b416c280721e0a95830589"
+    },
+    "logs/native-clippy-r2.log": {
+      "bytes": 328,
+      "sha256": "ec8a2942ebeedde3fc3955226b2a2cec36f4a47fbbfd2e8ebb62eccd7178b782"
+    },
+    "logs/release-build-r1.log": {
+      "bytes": 268,
+      "sha256": "6791b9ea3aa9dcd8f4f9dab1c8163c88ee5f4bc194b7a69cd17f935c65fd9c48"
+    },
+    "logs/release-build-r2.log": {
+      "bytes": 331,
+      "sha256": "86ccd19e172cea992bc9e2645dd6c747adbc967bea69e83fb557fb7eb3eb8c8e"
+    },
+    "minute-focused-r1.json": {
+      "bytes": 1006399,
+      "sha256": "b46fdb2c64840c83454123ed94ce5d1b06a328099b3f7e5a05a325548c4290c8"
+    },
+    "minute-focused-r2.json": {
+      "bytes": 1006397,
+      "sha256": "17255e0986a766edb01fb3afadcde66f87da9a7e19a342b8f396f81ec58e8009"
+    },
+    "minute-focused-r3.json": {
+      "bytes": 1006156,
+      "sha256": "65eb4f650e67a85bc05d9f2dce99604199262134b85157786200f7c216c26c50"
+    },
+    "native-cli-python-tests-r1.json": {
+      "bytes": 1006023,
+      "sha256": "7e229dacbe97a3a08d74d397e99aea20ecf90b009dd5bb0bc39965d4f8e74811"
+    },
+    "native-cli-python-tests-r2.json": {
+      "bytes": 1006024,
+      "sha256": "075f20d66d8b423b4a3aa981b7eb5730203f12c4ace745b83e45e7c10976a799"
+    },
+    "native-clippy-r1.json": {
+      "bytes": 1006073,
+      "sha256": "b903af295a95a72a8c7909f221592cc880c176655c111f38a517e7731397ca8f"
+    },
+    "native-clippy-r2.json": {
+      "bytes": 1006073,
+      "sha256": "b0f3aeebd4a8cda315379599753ea576c68b9e9baec97c6d510dfd2cdc49a129"
+    },
+    "old-packet-replay-r1.json": {
+      "bytes": 625,
+      "sha256": "8ede715c9b6daecea36ff9af34c30aa1f9b77f14636940902b815f35ff9cc708"
+    },
+    "pack_validation.py": {
+      "bytes": 5149,
+      "sha256": "c60c6596bf4d0ed02c6c4c140a2fb95a6b147800330287d909b74d42f4744891"
+    },
+    "prepare_wheel_tools.py": {
+      "bytes": 2409,
+      "sha256": "bf61a4524a33f499b6618d7cb985497c1f5f0629bde99091524fc93c664e2313"
+    },
+    "release-build-r1-stop-reason.json": {
+      "bytes": 581,
+      "sha256": "b7ed8e5da01b2f824b548395241298ea7ae4373ae2104b3241c3c09b09604293"
+    },
+    "release-build-r1.json": {
+      "bytes": 1006230,
+      "sha256": "e937a73502fcde84394f3126cbaf0a0e84eb4ff957aec659982e26d89ffd3994"
+    },
+    "release-build-r2.json": {
+      "bytes": 1006017,
+      "sha256": "ff0c7d9c9d42814b43fe76055b9622884a88e99fa59719341a0902792f9bd26b"
+    },
+    "runtime-r1-identity.json": {
+      "bytes": 831,
+      "sha256": "863300139dbbc96946a93485753eed996a6436c6ef7593b6eddc0feaf0270dfd"
+    },
+    "wheel-tools-r1/create-environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wheel-tools-r1/install-build-tools.log": {
+      "bytes": 2077,
+      "sha256": "9eac9cc21d068851bdae7686638ef1d2e67e086f7340d58fd37c925d4db27efe"
+    },
+    "wheel-tools-r1/report.json": {
+      "bytes": 5720,
+      "sha256": "497fc8ffcb3d6399a44d00c768f4492d5ff9c5bd7b66ebe6f86f2b28ee49b9b5"
+    }
+  },
+  "benchmark_executions": 0,
+  "checks": {
+    "default-clippy-r2": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": "logs/default-clippy-r2.log",
+      "receipt": "default-clippy-r2.json",
+      "receipt_identity": {
+        "bytes": 1005966,
+        "sha256": "d012ad956f3d8b9e01c0ad4626c0756a5e044140bb7cf4bec86a5bf06f2823bc"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed"
+    },
+    "default-tests-r2": {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "log": "logs/default-tests-r2.log",
+      "receipt": "default-tests-r2.json",
+      "receipt_identity": {
+        "bytes": 1005930,
+        "sha256": "78618c8dd50ebcc20365b1e5228cc4d430ace40d7cb61ce70acc62eb31209039"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3325
+      }
+    },
+    "fmt-r2": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log": "logs/fmt-r2.log",
+      "receipt": "fmt-r2.json",
+      "receipt_identity": {
+        "bytes": 1005889,
+        "sha256": "c8c9334f86aa4fe9dafc7a7d8599f6a5acf8083290165a1407f0877b198b42e2"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed"
+    },
+    "installed-wheel-r1": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/wheel-tools-r1/venv/bin/python",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/installed-wheel-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/runtime-r1/lib_native.dylib",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/runtime-r1/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/wheelhouse"
+      ],
+      "log": "logs/installed-wheel-r1.log",
+      "receipt": "installed-wheel-r1.json",
+      "receipt_identity": {
+        "bytes": 1006584,
+        "sha256": "a221d4a11c9d0851ccb1ec380e2b62dd14720adcdaf3d2178b9a23b6179a735d"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed"
+    },
+    "minute-focused-r3": {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "minute_sql",
+        "--",
+        "--nocapture"
+      ],
+      "log": "logs/minute-focused-r3.log",
+      "receipt": "minute-focused-r3.json",
+      "receipt_identity": {
+        "bytes": 1006156,
+        "sha256": "65eb4f650e67a85bc05d9f2dce99604199262134b85157786200f7c216c26c50"
+      },
+      "recorded_head": "1163dc667db68413cb58c171394c0e24520bda22",
+      "source_files_match_build": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 8
+      }
+    },
+    "native-cli-python-tests-r2": {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "log": "logs/native-cli-python-tests-r2.log",
+      "receipt": "native-cli-python-tests-r2.json",
+      "receipt_identity": {
+        "bytes": 1006024,
+        "sha256": "075f20d66d8b423b4a3aa981b7eb5730203f12c4ace745b83e45e7c10976a799"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 3,
+        "passed": 1567
+      }
+    },
+    "native-clippy-r2": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "shardloom-python/python-native,shardloom-vortex/native-encoded-exchange-experiment",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": "logs/native-clippy-r2.log",
+      "receipt": "native-clippy-r2.json",
+      "receipt_identity": {
+        "bytes": 1006073,
+        "sha256": "b0f3aeebd4a8cda315379599753ea576c68b9e9baec97c6d510dfd2cdc49a129"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed"
+    },
+    "release-build-r2": {
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--release",
+        "--features",
+        "release-user-surfaces",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python"
+      ],
+      "log": "logs/release-build-r2.log",
+      "receipt": "release-build-r2.json",
+      "receipt_identity": {
+        "bytes": 1006017,
+        "sha256": "ff0c7d9c9d42814b43fe76055b9622884a88e99fa59719341a0902792f9bd26b"
+      },
+      "recorded_head": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+      "source_files_match_build": true,
+      "status": "passed"
+    }
+  },
+  "focused_recorded_head_note": "Focused r3 began while the local commit metadata advanced; its full source inventory equals the final build. All broad final checks and installed proof record the final source commit.",
+  "installed": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "status": "passed",
+    "tests": 442
+  },
+  "old_packet_replay": {
+    "cases": 10000,
+    "manifest_sha256": "78bb627339595fdfdb35a770781b910ccc9385a9a732fb3ce495f3adff0104f0",
+    "previous_same_cases_engine_seconds": 1540.711839539,
+    "query_executions": 0,
+    "scope": "Compact identities, counts, complete saved clock comparison, selected raw certificate fields and validation history; full answer correctness was replayed locally against the original reference ledgers and is not independently rerun by this compact verifier.",
+    "status": "passed",
+    "successful_engine_seconds": 1514.235435577,
+    "unsuccessful_cases": 0,
+    "verified_archive_members": 179,
+    "verified_packet_files": 10
+  },
+  "preserved_observations": [
+    {
+      "disposition": "Original 6-pass/1-fail test run: invalid integer-to-timestamp fixture corrected to supported text conversion; positive typed-helper control added.",
+      "receipt": "minute-focused-r1.json"
+    },
+    {
+      "disposition": "Stopped deliberately for final parser review correction; process group drained. Not a completed build.",
+      "receipt": "release-build-r1.json"
+    }
+  ],
+  "publication_attempted": false,
+  "runtime": {
+    "benchmark_executions": 0,
+    "build_receipt": "release-build-r2.json",
+    "build_receipt_identity": {
+      "bytes": 1006017,
+      "sha256": "ff0c7d9c9d42814b43fe76055b9622884a88e99fa59719341a0902792f9bd26b"
+    },
+    "files": {
+      "runtime-r1/lib_native.dylib": {
+        "bytes": 80099632,
+        "sha256": "4b1d42997222afc76128656fb77ad9afcf020ae3528f80d6839c4b6579bf5816"
+      },
+      "runtime-r1/shardloom": {
+        "bytes": 79422096,
+        "sha256": "f3401ca3cb7790192210b2a88c17d8daab02833c7f467af57ed9e917b9db7519"
+      }
+    },
+    "profile": "release",
+    "publication_attempted": false,
+    "source_commit": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+    "source_fingerprint_sha256": "14995629e7b45566e1856bdd9a475bc62a1bb2d892ef4a9f7ede9172dcd8c6f1",
+    "source_tree": "b6e9cce4dc326e3ce07ae15664dc9fddb2c3e77f",
+    "status": "passed"
+  },
+  "schema": "shardloom.native_pipeline_sql_minute_validation.v1",
+  "scope": "Correctness and installed-package validation of SQL minute syntax; no new performance observation.",
+  "source_commit": "ab6dd9ed50c08030d0571254b40f068d03bd3fb2",
+  "source_fingerprint_sha256": "14995629e7b45566e1856bdd9a475bc62a1bb2d892ef4a9f7ede9172dcd8c6f1",
+  "source_tree": "b6e9cce4dc326e3ce07ae15664dc9fddb2c3e77f",
+  "status": "passed"
+}

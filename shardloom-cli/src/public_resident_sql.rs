@@ -57,12 +57,12 @@ pub(super) fn request_requires_relational(
 }
 
 /// Retain names already assigned by the primitive SQL declaration when its
-/// arithmetic or HAVING moves to the typed binder. Only aliases are made explicit;
+/// operations move to the typed binder. Only aliases are made explicit;
 /// the complete expressions, clauses and source spelling are preserved.
 pub(super) fn typed_statement<'a>(
     statement: &'a str,
     request: &PublicWorkflowRouteRequest,
-    preserve_having_names: bool,
+    preserve_primitive_names: bool,
 ) -> std::borrow::Cow<'a, str> {
     use std::borrow::Cow;
     if request.vortex_aggregate.is_none() {
@@ -71,7 +71,7 @@ pub(super) fn typed_statement<'a>(
     let Some(shape) = super::parse_native_vortex_sql_single_source_shape(statement) else {
         return Cow::Borrowed(statement);
     };
-    let mut typed_semantics = preserve_having_names && shape.having.is_some();
+    let mut typed_semantics = preserve_primitive_names;
     let mut changed = false;
     let projections = super::split_sql_projection_list(&shape.projection)
         .into_iter()

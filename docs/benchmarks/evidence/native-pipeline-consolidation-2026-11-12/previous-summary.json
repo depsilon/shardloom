@@ -1,0 +1,375 @@
+{
+  "status": "passed_complete_current_runtime_observation",
+  "query_executions_during_replay": 0,
+  "source_commit": "8b84361fe26afc816a9ad252ed95fffa1a7f99e8",
+  "source_tree": "f172a52bbbef4d64c7b0f5e9a5b5d87033e2cf2b",
+  "complete_results": 10000,
+  "attempts_per_case": 1,
+  "requested_repeats": 0,
+  "primary_clock": "engine_execution_seconds",
+  "engine_execution_seconds": 1540.711839539,
+  "historical_engine_execution_seconds": 1513.095098453,
+  "historical_change_percent": 1.8251821127591716,
+  "historical_source": {
+    "head": "ecef3a10a18e144c86eacb55ee680b3f89251362",
+    "build_source": "ecef3a10a18e144c86eacb55ee680b3f89251362",
+    "source_root": "/Users/dylan/.codex/worktrees/native-shared-mechanisms/shardloom-local-repo",
+    "runtime_directory": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-runtime-r1",
+    "runtime": {
+      "binary": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-runtime-r1/shardloom",
+        "generation": {
+          "device": 16777233,
+          "inode": 157880856,
+          "bytes": 82474144,
+          "mtime_ns": 1793772431370611422,
+          "ctime_ns": 1793772542413587820
+        },
+        "sha256": "9de340a42c5707754bc1e946c76e07e3cca586ceeeaf084f036ce328d53f2795"
+      },
+      "library": {
+        "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-runtime-r1/_native.abi3.so",
+        "generation": {
+          "device": 16777233,
+          "inode": 157880858,
+          "bytes": 82863872,
+          "mtime_ns": 1793772279500418436,
+          "ctime_ns": 1793772542507294892
+        },
+        "sha256": "c8edbedb98c1d190d8e5ec2faff437d1798de2ca9f9eade2ddcfb0b61859497d"
+      }
+    },
+    "manifest": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-runtime-r1/manifest.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 157880860,
+        "bytes": 578940,
+        "mtime_ns": 1793772542579171495,
+        "ctime_ns": 1793772542579171495
+      },
+      "sha256": "0fa11bb8012be162fea2e4c0678d45ba85c0d292731c2e96834596c8cef0b40d"
+    },
+    "build": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/mechanism-release-build-r1.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 157880822,
+        "bytes": 3926,
+        "mtime_ns": 1793772431579060115,
+        "ctime_ns": 1793772431579060115
+      },
+      "sha256": "e2bcc8c64df5ced2e2b0069cedddcc5f1dbdd1e4efef021d0fd1ccf425cfd9fa"
+    },
+    "selection": "all 10000 primary native declarations in original manifest order",
+    "previous_native": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/updated-native-10k-r1/complete.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 157595539,
+        "bytes": 7972,
+        "mtime_ns": 1793753796991243398,
+        "ctime_ns": 1793753796991243398
+      },
+      "sha256": "f1fc2ee2a0cd19416ba0b16a2e777aaa73ac55e5d2e6cedba44324a5fc79037c"
+    },
+    "legacy_native": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/observe-native/complete.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 156907993,
+        "bytes": 2512,
+        "mtime_ns": 1793730625261461615,
+        "ctime_ns": 1793730625261461615
+      },
+      "sha256": "91344c152d66c2739b41a95e0f59f0234a87daf662027c50819967d2b8f7a93c"
+    },
+    "cached_polars": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/observe-polars/complete.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 156833758,
+        "bytes": 1648,
+        "mtime_ns": 1793725123502553605,
+        "ctime_ns": 1793725123502553605
+      },
+      "sha256": "f77ee67a28816e531aa307adf0b536f19e0947335dd138af11dc59a033a5e71a"
+    },
+    "prepared": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/native-preparation/complete.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 156834077,
+        "bytes": 69370,
+        "mtime_ns": 1793725195952133832,
+        "ctime_ns": 1793725195952133832
+      },
+      "sha256": "132de62fdd3711e2b9104acfd521cbe68aabfc79598cd1236df69bb9e37d5fd8"
+    },
+    "original_freeze": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/frozen.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 156759432,
+        "bytes": 190099,
+        "mtime_ns": 1793723108683518517,
+        "ctime_ns": 1793723108683518517
+      },
+      "sha256": "38c7a349ec04645e094248d20cfd3d8325e33a63ad76dd9bdc1543412bf7681d"
+    },
+    "acceptance": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-local-acceptance-r1.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 157941515,
+        "bytes": 2019,
+        "mtime_ns": 1793772862647524460,
+        "ctime_ns": 1793772862647524460
+      },
+      "sha256": "92133b06d67251276f00854f9a74403f99d9c83ed02f748d1c2723f46870a39e"
+    },
+    "driver": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/run_shared_10k.py",
+      "generation": {
+        "device": 16777233,
+        "inode": 157655622,
+        "bytes": 20348,
+        "mtime_ns": 1793770447209583854,
+        "ctime_ns": 1793770447209583854
+      },
+      "sha256": "8836d5d1769aeca5037387de54b36bdb35c3e72e8a06385c4aa3771ff8f7693d"
+    },
+    "admission_helper": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/run_investigation_cohort_r2.py",
+      "generation": {
+        "device": 16777233,
+        "inode": 157089996,
+        "bytes": 47092,
+        "mtime_ns": 1793742147340747977,
+        "ctime_ns": 1793742147340747977
+      },
+      "sha256": "b44b21a739c0287bfb502292137ed056c4d91e9d1901327eaf429efdec12c7ec"
+    },
+    "original_worker": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_worker.py",
+      "generation": {
+        "device": 16777233,
+        "inode": 157012691,
+        "bytes": 3710,
+        "mtime_ns": 1793723083000000000,
+        "ctime_ns": 1793741498179212243
+      },
+      "sha256": "e549a9774664f19b7248ee2c93c8c696f07be1f7d9ef31fd10a40afae98c602f"
+    },
+    "admission": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-admission-r1.json",
+      "generation": {
+        "device": 16777233,
+        "inode": 157941535,
+        "bytes": 450,
+        "mtime_ns": 1793772900622398990,
+        "ctime_ns": 1793772900622398990
+      },
+      "sha256": "991bd1cd5b6eb209304b9a513a8bb55a6eeae3f6c561d87589590f2ca71e2585"
+    },
+    "supervisor": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/guard_shared_mechanisms.py",
+      "generation": {
+        "device": 16777233,
+        "inode": 157617239,
+        "bytes": 7508,
+        "mtime_ns": 1793761191692555121,
+        "ctime_ns": 1793761191692555121
+      },
+      "sha256": "43e891f202c8753297ed6dce15a65e962a34b5481a3b2b74850e11c656bff887"
+    },
+    "isolation_driver": {
+      "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/tools/isolate_shared_10k.py",
+      "generation": {
+        "device": 16777233,
+        "inode": 157671215,
+        "bytes": 4464,
+        "mtime_ns": 1793770988947912320,
+        "ctime_ns": 1793770988947912320
+      },
+      "sha256": "31694cfe44a47abb868830dac86c1f94b35bbdbebde0282e77b942f1fa4dff1a"
+    },
+    "warmups": 0,
+    "attempts_per_case": 1,
+    "alternate_attempts": 0
+  },
+  "comparison_limitation": "Same frozen requests and engine clock; cumulative source/provider changes separate these observations. No individual-change attribution or isolated #8/#9 speed claim.",
+  "families": {
+    "composite": {
+      "cases": 1,
+      "current_engine_seconds": 0.206554167,
+      "historical_engine_seconds": 0.19741525
+    },
+    "cte_composition": {
+      "cases": 392,
+      "current_engine_seconds": 31.592408387,
+      "historical_engine_seconds": 31.902485379
+    },
+    "distinct": {
+      "cases": 200,
+      "current_engine_seconds": 14.074740869,
+      "historical_engine_seconds": 15.817243546
+    },
+    "global_aggregation": {
+      "cases": 264,
+      "current_engine_seconds": 7.352820414,
+      "historical_engine_seconds": 6.961825172
+    },
+    "grouped_aggregation": {
+      "cases": 1756,
+      "current_engine_seconds": 99.547358723,
+      "historical_engine_seconds": 94.474149479
+    },
+    "joins": {
+      "cases": 2612,
+      "current_engine_seconds": 438.099118529,
+      "historical_engine_seconds": 427.421712469
+    },
+    "multiway_joins": {
+      "cases": 580,
+      "current_engine_seconds": 143.81930666,
+      "historical_engine_seconds": 143.973395709
+    },
+    "nested": {
+      "cases": 196,
+      "current_engine_seconds": 18.753125462,
+      "historical_engine_seconds": 19.318140922
+    },
+    "nullable": {
+      "cases": 205,
+      "current_engine_seconds": 39.553255413,
+      "historical_engine_seconds": 40.305313588
+    },
+    "numeric": {
+      "cases": 201,
+      "current_engine_seconds": 29.158723839,
+      "historical_engine_seconds": 29.104344584
+    },
+    "ordering": {
+      "cases": 206,
+      "current_engine_seconds": 187.702305599,
+      "historical_engine_seconds": 171.173029974
+    },
+    "predicates": {
+      "cases": 410,
+      "current_engine_seconds": 15.775131038,
+      "historical_engine_seconds": 15.395207454
+    },
+    "projection": {
+      "cases": 26,
+      "current_engine_seconds": 1.00621425,
+      "historical_engine_seconds": 1.045284663
+    },
+    "sets": {
+      "cases": 789,
+      "current_engine_seconds": 126.786741636,
+      "historical_engine_seconds": 128.122667833
+    },
+    "strings": {
+      "cases": 399,
+      "current_engine_seconds": 64.597024815,
+      "historical_engine_seconds": 64.820896006
+    },
+    "subqueries": {
+      "cases": 392,
+      "current_engine_seconds": 110.550027754,
+      "historical_engine_seconds": 115.633911835
+    },
+    "temporal": {
+      "cases": 595,
+      "current_engine_seconds": 46.43001582,
+      "historical_engine_seconds": 45.110790842
+    },
+    "windows": {
+      "cases": 776,
+      "current_engine_seconds": 165.706966164,
+      "historical_engine_seconds": 162.317283748
+    }
+  },
+  "case_rows": {
+    "path": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-r1/verified-cases-r1.jsonl.gz",
+    "generation": {
+      "device": 16777234,
+      "inode": 171506164,
+      "bytes": 1398340,
+      "mtime_ns": 1794534428276029279,
+      "ctime_ns": 1794534430373736830
+    },
+    "sha256": "df556f111e16c44eec083f83e4a5f53f9d713bb8e62230d5a4e84ae40b77726d"
+  },
+  "complete": {
+    "path": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-r1/complete.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 171506140,
+      "bytes": 19829,
+      "mtime_ns": 1794534341477924767,
+      "ctime_ns": 1794534341477924767
+    },
+    "sha256": "e4b53734a7d9380cf0183599606562d94d66ac3c10224d62b06ad6d7cf28e109"
+  },
+  "ledger": {
+    "path": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-r1/attempts.sqlite",
+    "generation": {
+      "device": 16777234,
+      "inode": 171434210,
+      "bytes": 134778880,
+      "mtime_ns": 1794534339417561708,
+      "ctime_ns": 1794534339417561708
+    },
+    "sha256": "51559e78c594ab99161117e7b01ad33bf535f7bf086e881dc66d87aff3340ce1"
+  },
+  "historical_complete": {
+    "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-10k-r1/complete.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 158013230,
+      "bytes": 9723,
+      "mtime_ns": 1793776254014375326,
+      "ctime_ns": 1793776254014375326
+    },
+    "sha256": "cc7faa4b14bfd040679624e4082ec8738ad764afc583f015a50a5e349108c613"
+  },
+  "historical_ledger": {
+    "path": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/shared-mechanisms-10k-r1/attempts.sqlite",
+    "generation": {
+      "device": 16777233,
+      "inode": 157941603,
+      "bytes": 134811648,
+      "mtime_ns": 1793776251439389473,
+      "ctime_ns": 1793776251439389473
+    },
+    "sha256": "e6961c5efce3968829db84a7de042ddc6e0cbe6a54364a277cebd5480453cc1f"
+  },
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/current-state-uat-2026-11-12/full10k-protocol-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 171434206,
+      "bytes": 20180,
+      "mtime_ns": 1794531426042355247,
+      "ctime_ns": 1794531426042355247
+    },
+    "sha256": "4108c6b7316baca78458c6ce1aa776ae8f145e6cc7d0696cdcae2ce102d6814e"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/shared-operator-state-2026-11-10/tools/replay_current_10k.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 169061032,
+      "bytes": 7590,
+      "mtime_ns": 1794343564300376684,
+      "ctime_ns": 1794343564300376684
+    },
+    "sha256": "ae60d8d90bb7845983da04c492e71a8f02d377c4c9644a301bf95e1c4d6289a4"
+  },
+  "native_no_fallback": true,
+  "independent_expected_results_replayed": true,
+  "all_engine_clocks_valid": true,
+  "warm_reuse_measured": false
+}

@@ -94,9 +94,9 @@ fn projection_provider_preserves_aliases_nulls_filter_order_and_limit() {
     ];
     for plan in plans {
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        assert!(prepared.provider.is_some());
+        assert!(prepared.root_has_file_kernel());
         let mut general = prepare_relational(&plan, policy()).unwrap();
-        general.provider = None;
+        general.remove_file_kernels_for_reference().unwrap();
         let expected = general
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -124,7 +124,7 @@ fn projection_provider_preserves_aliases_nulls_filter_order_and_limit() {
 fn projection_provider_respects_bounded_delivery_and_terminal_consumer_failure() {
     let fixture = fixture();
     let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
-    assert!(prepared.provider.is_some());
+    assert!(prepared.root_has_file_kernel());
     let mut rows = 0;
     prepared
         .for_each_json_batch(&CancellationToken::default(), 1, 4096, |batch| {
@@ -170,10 +170,9 @@ fn projection_provider_does_not_move_filter_across_range_or_skip_computation() {
     );
     for plan in [range_then_filter, computed, range(fixture.scan(), 1, 1)] {
         assert!(
-            prepare_relational(&plan, policy())
+            !prepare_relational(&plan, policy())
                 .unwrap()
-                .provider
-                .is_none()
+                .root_has_file_kernel()
         );
     }
 }
@@ -183,7 +182,7 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
     let fixture = fixture();
     let plan = aggregate(fixture.scan(), &[], vec![measure("count", None, "rows")]);
     let mut prepared = prepare_relational(&plan, policy()).unwrap();
-    prepared.provider = None;
+    prepared.remove_file_kernels_for_reference().unwrap();
     let memory = prepared.session.memory();
     let baseline = memory.snapshot().reserved_bytes;
     let available = 128 * 1024;
@@ -205,6 +204,7 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
         policy(),
         memory,
         shardloom_core::FloatPolicy::Strict,
+        None,
     )
     .unwrap();
     assert!(
@@ -221,7 +221,8 @@ fn provider_admission_uses_its_own_capacity_and_releases_it_on_drop() {
             &prepared.sources[0],
             policy(),
             memory,
-            shardloom_core::FloatPolicy::Strict
+            shardloom_core::FloatPolicy::Strict,
+            None,
         )
         .unwrap()
         .provider

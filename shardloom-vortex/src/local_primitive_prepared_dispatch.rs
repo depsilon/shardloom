@@ -221,13 +221,26 @@ pub(super) fn source_session(
     request: &VortexQueryPrimitiveRequest,
     policy: Option<VortexLocalPrimitiveExecutionPolicy>,
 ) -> Result<ResidentVortexSession> {
+    source_session_with_context(source, request, policy, None)
+}
+
+pub(super) fn source_session_with_context(
+    source: &PreparedVortexSource,
+    request: &VortexQueryPrimitiveRequest,
+    policy: Option<VortexLocalPrimitiveExecutionPolicy>,
+    context: Option<&crate::resident_session::NativeExecutionContext<'_>>,
+) -> Result<ResidentVortexSession> {
     let uri = request
         .source_uri
         .as_ref()
         .ok_or_else(|| failed("source URI is absent"))?;
     let path = super::local_vortex_path(uri, request.kind)?
         .ok_or_else(|| failed("requires one local native source"))?;
-    source.validate_file_metadata(&std::fs::metadata(path).map_err(super::vortex_error)?)?;
+    let metadata = std::fs::metadata(path).map_err(super::vortex_error)?;
+    match context {
+        Some(context) => source.validate_file_metadata_in_context(&metadata, context)?,
+        None => source.validate_file_metadata(&metadata)?,
+    }
     let session = source.retained_session();
     if let Some(policy) = policy {
         let snapshot = session.snapshot();

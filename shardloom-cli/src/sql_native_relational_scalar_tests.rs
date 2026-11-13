@@ -2,6 +2,95 @@ use super::memory_tests::verify_memory;
 use super::*;
 
 #[test]
+fn native_minute_sql_forms_preserve_epoch_boundaries_and_nulls() {
+    verify_memory(
+        "SELECT column_1 AS t,EXTRACT(minute FROM column_1) AS m,DATE_TRUNC('minute',column_1) AS bucket FROM (VALUES (-61),(-60),(-1),(0),(59),(60),(61),(3599),(3600),(NULL)) AS v ORDER BY t NULLS LAST",
+        &json!([
+            {"t":-61,"m":58,"bucket":-120},
+            {"t":-60,"m":59,"bucket":-60},
+            {"t":-1,"m":59,"bucket":-60},
+            {"t":0,"m":0,"bucket":0},
+            {"t":59,"m":0,"bucket":0},
+            {"t":60,"m":1,"bucket":60},
+            {"t":61,"m":1,"bucket":60},
+            {"t":3599,"m":59,"bucket":3540},
+            {"t":3600,"m":0,"bucket":3600},
+            {"t":null,"m":null,"bucket":null},
+        ]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM NULL) AS m,DATE_TRUNC('minute',NULL) AS bucket",
+        &json!([{"m":null,"bucket":null}]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM value) AS m,DATE_TRUNC('minute',value) AS bucket FROM range(0,0)",
+        &json!([]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM CAST(3599 AS uint64)) AS m,DATE_TRUNC('minute',CAST(3599 AS uint64)) AS bucket",
+        &json!([{"m":59,"bucket":3540}]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM '2024-02-29 12:34:56') AS m,DATE_TRUNC('minute','2024-02-29 12:34:56') AS bucket",
+        &json!([{"m":34,"bucket":"2024-02-29 12:34:00"}]),
+    );
+}
+
+#[test]
+fn native_minute_sql_forms_compose_in_predicates_aggregates_and_lazy_scalars() {
+    verify_memory(
+        "SELECT column_1 AS t,EXTRACT(minute FROM COALESCE(column_1,59)+1) AS m FROM (VALUES (59),(60),(119),(NULL)) AS v WHERE EXTRACT(minute FROM COALESCE(column_1,59)+1)=1 ORDER BY t NULLS LAST",
+        &json!([{"t":59,"m":1},{"t":60,"m":1},{"t":null,"m":1}]),
+    );
+    verify_memory(
+        "SELECT SUM(EXTRACT(minute FROM value*60)) AS total FROM range(0,3)",
+        &json!([{"total":3.0}]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM (SELECT 120)) AS m,DATE_TRUNC('minute',CASE WHEN TRUE THEN 61 ELSE 1/0 END) AS bucket",
+        &json!([{"m":2,"bucket":60}]),
+    );
+}
+
+#[test]
+fn native_minute_sql_forms_reuse_selected_group_and_order_expressions() {
+    verify_memory(
+        "SELECT DATE_TRUNC('minute',column_1) AS m,COUNT(*) AS n FROM (VALUES (121),(60),(59),(61),(120),(NULL)) AS v GROUP BY date_trunc('MINUTE', column_1) ORDER BY DATE_TRUNC('minute',column_1) DESC NULLS LAST LIMIT 2 OFFSET 1",
+        &json!([{"m":60,"n":2},{"m":0,"n":1}]),
+    );
+    verify_memory(
+        "SELECT EXTRACT(minute FROM column_1+1) AS m,COUNT(*) AS n FROM (VALUES (59),(60),(119),(NULL)) AS v GROUP BY m ORDER BY EXTRACT(MINUTE FROM column_1 + 1) NULLS FIRST",
+        &json!([{"m":null,"n":1},{"m":1,"n":2},{"m":2,"n":1}]),
+    );
+}
+
+#[test]
+fn native_minute_sql_forms_keep_typed_timestamp_units_explicit() {
+    verify_memory(
+        "SELECT TIMESTAMP_MINUTE(CAST('1970-01-01T00:01:00Z' AS timestamp_micros)) AS m",
+        &json!([{"m":1}]),
+    );
+    for expression in [
+        "EXTRACT(minute FROM CAST('1970-01-01T00:01:00Z' AS timestamp_micros))",
+        "DATE_TRUNC('minute',CAST('1970-01-01T00:01:00Z' AS timestamp_micros))",
+    ] {
+        let error = prepare(
+            &format!("SELECT {expression} AS m"),
+            VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
+            |_| panic!("memory only"),
+        )
+        .err()
+        .expect("epoch-second helpers must not reinterpret typed microseconds");
+        assert!(
+            error
+                .to_string()
+                .contains("minute functions require integer epoch seconds or timestamp text"),
+            "{error}"
+        );
+    }
+}
+
+#[test]
 fn native_relational_predicate_values_preserve_selected_case_and_coalesce_demand() {
     for (sql, expected) in [
         (

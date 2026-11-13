@@ -543,6 +543,47 @@ class NativePrimitiveBindingTests(unittest.TestCase):
         finally:
             session.close()
 
+    def test_minute_sql_forms_collect_stream_and_persist_native_vortex(self):
+        path = self.root / "minute-sql.vortex"
+        self._write_table_fixture(path, self.pa.table({
+            "EventTime": self.pa.array([-61, -1, 0, 59, 60, 61, 120, None], type=self.pa.int64()),
+        }))
+        cases = [
+            ("EXTRACT(minute FROM EventTime)",
+             [{"m": 0, "n": 2}, {"m": 1, "n": 2}, {"m": 2, "n": 1},
+              {"m": 58, "n": 1}, {"m": 59, "n": 1}, {"m": None, "n": 1}]),
+            ("DATE_TRUNC('minute',EventTime)",
+             [{"m": -120, "n": 1}, {"m": -60, "n": 1}, {"m": 0, "n": 2},
+              {"m": 60, "n": 2}, {"m": 120, "n": 1}, {"m": None, "n": 1}]),
+        ]
+        session = self.native.Session(
+            self.native.ExecutionResources(self.memory_bytes, self.max_parallelism)
+        )
+        try:
+            for index, (expression, expected) in enumerate(cases):
+                with self.subTest(expression=expression):
+                    plan = session.sql(
+                        f"SELECT {expression} AS m,COUNT(*) AS n FROM '{path}' "
+                        f"GROUP BY {expression} ORDER BY {expression} NULLS LAST"
+                    )
+                    result = plan.collect()
+                    table = self.pa.RecordBatchReader.from_stream(result).read_all()
+                    self.assertEqual(table.to_pylist(), expected)
+                    self.assertEqual(table.schema.names, ["m", "n"])
+                    self.assertEqual(table.schema.field("m").type, self.pa.int64())
+                    self.assertEqual(result.report["fallback_attempted"], "false")
+                    self.assertEqual(result.report["external_engine_invoked"], "false")
+                    with plan.iter_batches() as stream:
+                        streamed = [row for batch in stream for row in
+                                    self.pa.RecordBatchReader.from_stream(batch).read_all().to_pylist()]
+                    self.assertEqual(streamed, expected)
+                    destination = self.root / f"minute-result-{index}.vortex"
+                    plan.write(destination, "write_vortex")
+                    reopened = session.sql(f"SELECT * FROM '{destination}' ORDER BY m NULLS LAST").collect()
+                    self.assertEqual(self.pa.RecordBatchReader.from_stream(reopened).read_all().to_pylist(), expected)
+        finally:
+            session.close()
+
     def test_sql_collection_and_compatibility_writes_preserve_complete_rows(self):
         source_path = self.root / "schema-regression.vortex"
         table = self.pa.table({
@@ -618,11 +659,11 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                     for output_format in ("vortex",) + formats:
                         destination = self.root / f"count-{input_format}-{threshold}.{output_format}"
                         writer_report = counted.write(destination, f"write_{output_format}")
-                        # This policy flag belongs to the legacy Vortex
-                        # primitive; direct CSV uses the shared batch writer.
+                        # Both inputs now use the same native pipeline writer;
+                        # source format does not select a legacy writer policy.
                         self.assertEqual(
                             writer_report["local_primitive_physical_policy_writer_coalescing_enabled"],
-                            "true" if input_format == "vortex" else "false",
+                            "false",
                         )
                         if input_format == "csv":
                             self.assertEqual(writer_report["native_source_demand_sources"], "1")
@@ -1210,7 +1251,7 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                 }],
             )
             self.assertEqual(
-                partitioned.report["local_primitive_aggregate_result_serialized_json_round_trip"], "false"
+                partitioned.report["native_result_serialized_json_round_trip"], "false"
             )
             session = self.native.Session(self.native.ExecutionResources(self.memory_bytes, self.max_parallelism))
             try:
@@ -1497,10 +1538,11 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                     [self.pa.int64()] * len(fields),
                 )
                 self.assertEqual(collected_table.to_pylist(), expected)
-                self.assertIn(
-                    "partitioned_row_ref_final_k_materialization;reason=wide_output_projection",
-                    collected.report["local_primitive_late_materialization_status"],
-                )
+                # Collections now compose ordinary native scan/sort operators.
+                # Do not claim the removed whole-query partitioned optimization.
+                proof = collected.report["local_primitive_native_io_pushdown_proof_basis"]
+                self.assertIn("native_execution_pipeline=native_operator_pipeline", proof)
+                self.assertIn("native_pipeline_catch_all_execution=false", proof)
                 del collected, collected_table
 
                 with plan.iter_batches() as stream:

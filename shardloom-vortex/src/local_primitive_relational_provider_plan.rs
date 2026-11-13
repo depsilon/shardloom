@@ -471,7 +471,7 @@ fn lower_sort(
 fn input(plan: &Node, source: &DType) -> Option<Input> {
     match &plan.kind {
         NodeKind::Scan {
-            source: ScanSource::File(0),
+            source: ScanSource::File(_),
             source_uri,
             predicate,
             plan: scan,

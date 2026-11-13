@@ -119,6 +119,7 @@ pub(crate) fn prepare_native_in_session(
         metadata,
         schema_aliases,
         super::PublicSourcePreparations::default(),
+        None,
     )
     .map(|(operation, reusable, _)| (operation, reusable))
 }
@@ -133,6 +134,7 @@ pub(super) fn prepare_native_with_sources(
     mut metadata: shardloom_exec::live_memory::MemoryLease,
     schema_aliases: Option<&BTreeMap<String, DatasetUri>>,
     preparations: super::PublicSourcePreparations,
+    sql_statement: Option<&str>,
 ) -> Result<(PreparedVortexRelational, bool, usize)> {
     cancellation.check()?;
     let policy = native_vortex_materializing_policy(request)?;
@@ -213,7 +215,21 @@ pub(super) fn prepare_native_with_sources(
                 sources = resolved.sources;
                 register_local_sources(&sources, schemas)?;
                 let resolved = resolved.resolved;
-                let mut lowered = declaration.lower(schemas, &resolved, cancellation)?;
+                let named = super::named_file_sql_declaration(
+                    sql_statement,
+                    request,
+                    declaration,
+                    &sources,
+                    session,
+                    schemas,
+                    cancellation,
+                    &mut metadata,
+                )?;
+                let mut lowered = named.as_ref().unwrap_or(declaration).lower(
+                    schemas,
+                    &resolved,
+                    cancellation,
+                )?;
                 native_relational::prune_bound_plan(&mut lowered.plan, schemas, cancellation)?;
                 Ok(lowered.plan)
             },

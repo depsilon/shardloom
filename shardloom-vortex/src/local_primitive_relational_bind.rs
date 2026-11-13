@@ -462,7 +462,7 @@ impl<'a> Binder<'a> {
             VortexRelationalPlan::Pipeline(pipeline) => self.pipeline(pipeline, depth),
             VortexRelationalPlan::Aggregate(aggregate) => self.aggregate(aggregate, depth),
             VortexRelationalPlan::Unary(unary) => {
-                let input = Box::new(self.bind(&unary.input, depth + 1)?);
+                let mut input = Box::new(self.bind(&unary.input, depth + 1)?);
                 self.charge_named_fields(&input.fields)?;
                 let operation = BoundUnary::for_relation(
                     &unary.request,
@@ -470,7 +470,7 @@ impl<'a> Binder<'a> {
                     self.schema_scope(),
                 )?;
                 if unary.request.kind == VortexQueryPrimitiveKind::PivotRows {
-                    return self.complete_pivot(&input, operation);
+                    return self.complete_pivot(&mut input, operation);
                 }
                 validate_width(operation.fields().len())?;
                 self.charge_named_fields(operation.fields())?;

@@ -53,6 +53,8 @@ mod memory_tests;
 mod multiway_tests;
 #[path = "local_primitive_relational_native_ownership_tests.rs"]
 mod native_ownership_tests;
+#[path = "local_primitive_native_pipeline_tests.rs"]
+mod native_pipeline_tests;
 #[path = "local_primitive_relational_nested_tests.rs"]
 mod nested_tests;
 #[path = "local_primitive_relational_pivot_spill_tests.rs"]

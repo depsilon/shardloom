@@ -117,7 +117,7 @@ fn native_grouped_cost_attribution() {
     })
     .unwrap();
     assert!(
-        prepared.provider.is_none(),
+        !prepared.root_has_file_kernel(),
         "diagnostic requires the shared relational owner"
     );
     let memory = prepared.session.memory().clone();

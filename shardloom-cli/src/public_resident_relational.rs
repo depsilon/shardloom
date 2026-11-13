@@ -85,7 +85,9 @@ pub(super) fn route_admitted_statement(
             "relational execution requires native Vortex normalization",
         ));
     }
-    if request.materialization_policy == "zero_decode" {
+    if request.materialization_policy == "zero_decode"
+        && super::normalized_vortex_primitive(request) != Some(super::PublicVortexPrimitive::Count)
+    {
         return Some(denied(
             "relational keys, computed columns and result delivery require explicit materialization; choose bounded materialization",
         ));
@@ -578,6 +580,10 @@ pub(super) fn append_execution(
         result.provider_selection_reason.into(),
     ));
     fields.push(("float_policy".into(), result.float_policy.as_str().into()));
+    fields.push((
+        "native_result_serialized_json_round_trip".into(),
+        "false".into(),
+    ));
     fields.push((
         "recursion_limit".into(),
         result.recursion_limit.get().to_string(),
@@ -1104,8 +1110,18 @@ fn append_columnar_input_scope(
     }
 }
 
-fn schema_binding_fields(result: &ExecutedVortexRelational, reused: bool) -> [(String, String); 4] {
+fn schema_binding_fields(result: &ExecutedVortexRelational, reused: bool) -> [(String, String); 6] {
     [
+        // Historical field: preparation here is the retained query declaration,
+        // never a claim that a persisted source was created or reused.
+        (
+            "resident_native_preparation_reused".into(),
+            reused.to_string(),
+        ),
+        (
+            "resident_native_preparation_scope".into(),
+            "native_query_declaration;persisted_source_preparation_is_independent".into(),
+        ),
         (
             "resident_relational_declaration_reused".into(),
             reused.to_string(),

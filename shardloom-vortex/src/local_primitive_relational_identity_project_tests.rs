@@ -44,7 +44,10 @@ fn native_identity_projection_normalizes_nested_nullable_and_empty_input() {
             plan = project(plan, vec![("z", col("z")), ("a", col("a"))]);
         }
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        assert!(matches!(root(&prepared).kind, NodeKind::Scan { .. }));
+        assert!(matches!(
+            root(&prepared).semantic_kind(),
+            NodeKind::Scan { .. }
+        ));
         assert_eq!(
             root(&prepared).fields,
             vec![
@@ -135,7 +138,10 @@ fn native_identity_projection_keeps_reordered_renamed_subset_and_computed_fields
         ),
     ] {
         let prepared = prepare_relational(&project(fixture.scan(), expressions), policy()).unwrap();
-        assert!(matches!(root(&prepared).kind, NodeKind::Project { .. }));
+        assert!(matches!(
+            root(&prepared).semantic_kind(),
+            NodeKind::Project { .. }
+        ));
         assert_eq!(
             root(&prepared)
                 .fields

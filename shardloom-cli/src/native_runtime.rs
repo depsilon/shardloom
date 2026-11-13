@@ -317,10 +317,8 @@ pub fn prepare_sql_with_spill(
     Ok(operation)
 }
 
-/// Prepare complete SQL using the same file-provider selection as the public
-/// CLI. Retained memory, streaming inputs and unmatched relational declarations
-/// use the shared relational binder. Selection happens before source access;
-/// execution errors do not cause provider retries.
+/// Prepare complete SQL through the shared native operator pipeline for every
+/// source. File kernels are admitted inside that plan after complete binding.
 /// # Errors
 /// Returns the shared resource, SQL, source, spill and provider admission errors.
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -338,15 +336,6 @@ pub fn prepare_sql_operation(
         shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::from_resources(resources)?,
         session,
     )?;
-    if bindings
-        .iter()
-        .all(|binding| matches!(binding.source, SqlSource::File { .. }))
-    {
-        let request = sql_request(statement, resources, bindings, spill)?;
-        if let Some(declaration) = NativeWorkflowDeclaration::from_sql_request(request)? {
-            return declaration.prepare(resources, session, cancellation);
-        }
-    }
     let request = sql_request(statement, resources, bindings, spill)?;
     let (operation, reusable) = resident_relational::prepare_in_session_with_reuse(
         statement,

@@ -73,25 +73,35 @@ def _prior_refusals():
 
 def _cold_reopen(kind, path, grant):
     _load_native()
+    import pyarrow as pa
     import shardloom as sl
     from shardloom.errors import ShardLoomCommandError
     with sl.context(transport="native", memory_bytes=grant, max_parallelism=1) as context:
+        result = table = None
         try:
             result = context.read_vortex(path).collect(check=True)
+            table = result.to_arrow()
         except ShardLoomCommandError as error:
             assert "memory reservation denied" in str(error), str(error)
             assert not error.envelope.fallback.attempted
             assert not error.envelope.field_bool("external_engine_invoked")
             report = {"status": "refused", "codes": [item.code for item in error.diagnostics]}
+        except pa.ArrowInvalid as error:
+            # Arrow export reserves its own metadata/buffers under the same
+            # grant. A collected result need not have room for that extra copy.
+            assert "memory reservation denied" in str(error), str(error)
+            assert "fallback execution was not attempted" in str(error), str(error)
+            assert result is not None
+            assert not result.envelope.field_bool("fallback_attempted")
+            assert not result.envelope.field_bool("external_engine_invoked")
+            report = {"status": "refused", "phase": "arrow_export"}
         else:
-            import pyarrow as pa
-            table = result.to_arrow()
             assert digest(table.to_pylist()) == digest([row(kind, 1), row(kind, 2)])
             assert _schema_shape(table.schema) == _schema_shape(arrow_schema(pa, kind))
             assert not result.envelope.field_bool("fallback_attempted")
             assert not result.envelope.field_bool("external_engine_invoked")
             report = {"status": "values_passed"}
-            del table, result
+        del table, result
         session = context.client._native_backend.session
     gc.collect()
     assert session.snapshot()["reserved_bytes"] == 0, session.snapshot()

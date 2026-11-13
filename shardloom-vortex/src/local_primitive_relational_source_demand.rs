@@ -108,6 +108,9 @@ fn scans(
     ) -> Result<()>,
 ) -> Result<bool> {
     match &mut node.kind {
+        NodeKind::Unadmitted | NodeKind::FileKernel(_) => Err(failed(
+            "source demand must be bound before native pipeline compilation",
+        )),
         NodeKind::Scan {
             source,
             columns,
