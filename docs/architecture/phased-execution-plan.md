@@ -274,9 +274,16 @@ Current autonomous execution order:
   compositions and planned mechanisms. Current admission restrictions do not
   close missing opportunities. The bounded-sort audit also reproduces skipped
   hidden/outside-prefix payload validation in the file shortcut; its admission
-  correction preserves the existing shared Sort obligation and remains separate
-  from the pending Vortex work-reduction claim. Item 19, item 20 and CG-1 through
-  CG-23 remain open.
+  correction is now covered by a source-bound 388-case cohort at
+  `4d5fa4a46268380a634e78f057abba087f4042f5`. It removes all 21 prior file-Sort
+  shortcuts while retaining all 36 other file-kernel cases. The candidate's
+  337.804658081 engine seconds correct omitted mandatory validation; separate
+  historical groups are not combined and do not establish speedup or optimized
+  Vortex demand. Answers, schemas, certificates and clocks pass independent
+  replay, with native-pipeline/no-fallback and resource checks. The
+  [portable evidence packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
+  preserves the source-bound validation. Item 19, item 20, RFC 0044 and CG-1
+  through CG-23 remain open.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the

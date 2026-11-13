@@ -207,3 +207,45 @@ The [mechanism inventory](../architecture/native-optimization-inventory-2026-11-
 records the full audit and outstanding integration/decision evidence. These
 connections close 194 specific excessive-column observations. They do not close
 item 19, item 20, RFC 0044 or CG-1 through CG-23, or establish competitive superiority.
+
+## Sort payload validation correction
+
+The bounded file-Sort shortcut omitted mandatory validation for hidden or
+non-winning payload values. The correction retains shared Sort for those cases.
+All 21 prior file-Sort shortcuts are removed; all 36 other file-kernel cases
+remain admitted. A source-bound 388-case cohort at
+`4d5fa4a46268380a634e78f057abba087f4042f5` completes one execution per case,
+with independently replayed answers, schemas, certificates and engine clocks.
+Every case reports the native pipeline, with no catch-all, external fallback,
+denied reservation or spill. All ten owned-source controls retain the same
+column counts.
+
+The measured candidate total is 337.804658081 engine seconds. Its historical
+comparisons remain four separate groups because their baselines come from two
+source commits; these totals are not combined into a synthetic baseline:
+
+| Group | Cases | Baseline source | Baseline engine seconds | Candidate engine seconds |
+| --- | ---: | --- | ---: | ---: |
+| Owned source controls | 10 | `cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8` | 0.521766793 | 0.637267499 |
+| Vortex, no file kernel | 321 | `9f4580c723f876f087d3e75fb56153b4b099ef20` | 253.571914075 | 250.922701375 |
+| Vortex, other file kernel | 36 | `9f4580c723f876f087d3e75fb56153b4b099ef20` | 18.020221127 | 17.696910084 |
+| Vortex, prior file Sort | 21 | `9f4580c723f876f087d3e75fb56153b4b099ef20` | 0.191429042 | 68.547779123 |
+
+The higher Sort-group cost corrects previously omitted mandatory validation;
+this is not a speedup or an optimized Vortex source-demand claim. The complete
+answers were replayed locally against independent references. The
+[portable packet](evidence/native-sort-payload-validation-2026-11-13/README.md)
+contains 120 archived members in a 28,559,515-byte archive and a standard-library
+verifier. Relocation replay, 19 negative controls and refusal to run under
+optimized Python pass. The portable verifier does not repeat full-oracle answer
+validation.
+
+At the measured source, default validation passes 3,325 tests and native
+validation passes 7,145 tests with 39 ignored, including the full native library
+suite (4,172 passed, 36 ignored). The installed package passes 442 tests with
+zero skips. All 5,691 compared source identities match fingerprint
+`1f1882408d996c1b5a9ccb42c89adceb84036b8592ac8d523b10b0e4637baaff`.
+These source-bound checks and the original failed/stopped observations are
+preserved in the packet. Existing narrower-column claims remain scoped to their
+own cohorts. This correction does not close item 19, item 20, RFC 0044 or CG-1
+through CG-23.

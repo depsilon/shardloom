@@ -127,6 +127,18 @@ preserving eligible integer/text-key and prior-projection kernels. This closes
 the observed correctness discrepancy; it does not count as an optimized
 Vortex demand connection or a performance improvement.
 
+The follow-up [388-case correction cohort](../benchmarks/native-optimization-coverage-2026-11-13.md#sort-payload-validation-correction)
+removes all 21 previously reported file-Sort shortcuts and retains all 36
+other file-kernel cases. Its 337.804658081-second candidate total is a
+correctness result, not a speedup claim; its four historical groups preserve
+their separate baseline source identities. The ten owned-source controls retain
+their column counts. The source-bound packet verifies the native pipeline,
+absence of catch-all/fallback execution, denied reservations and spill, and
+preserves validation evidence for 3,325 default tests, 7,145 native tests (39
+ignored), and 442 installed tests with no skips. All 5,691 source identities
+match the measured fingerprint. This does not make a missing per-opportunity
+or Vortex source-work counter complete.
+
 ## Breadth and evidence limits
 
 The corrected historical source inventory verifies 255 unique source/design

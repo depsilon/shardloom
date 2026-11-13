@@ -210,6 +210,28 @@ failure behavior, and pass its own source-bound comparison. The six new tests
 cover invalid and valid payloads, prior filtering/projection, text ordering,
 flat/nested declarations, both physical layouts and exact resource refunds.
 
+The [source-bound correction cohort](../benchmarks/native-optimization-coverage-2026-11-13.md#sort-payload-validation-correction)
+contains 388 complete cases at `4d5fa4a46268380a634e78f057abba087f4042f5`,
+one execution each. Answers, schemas, certificates and engine clocks were
+independently replayed; every case reports the common native pipeline without
+catch-all execution, external fallback, denied reservations or spill. All 21
+prior file-Sort shortcuts were removed, while all 36 other file-kernel cases
+remain. The ten owned-source controls retain identical column counts. The
+337.804658081-second candidate sum corrects skipped validation and is not a
+speedup claim. Its historical groups retain separate baselines from `cac86e8b0`
+and `9f4580c72`; they are not a combined historical total.
+
+At this source, 3,325 default and 7,145 native tests pass (39 native ignored,
+including 4,172 passes and 36 ignores in the full native library suite), and
+the installed package passes 442 tests with no skips. The source-bound checks
+compare 5,691 identities against fingerprint
+`1f1882408d996c1b5a9ccb42c89adceb84036b8592ac8d523b10b0e4637baaff`. The
+[portable packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
+preserves 120 members; relocation replay, 19 negative controls and optimized
+Python refusal pass. Its verifier does not repeat the full oracle. This evidence
+does not complete Vortex demand coverage or close item 19, item 20, RFC 0044 or
+CG-1 through CG-23.
+
 ## Acceptance and remaining work
 
 - Prove matching complete results and optimization admission for equivalent
