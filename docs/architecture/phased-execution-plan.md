@@ -286,8 +286,11 @@ Current autonomous execution order:
   through CG-23 remain open.
   The latest maintainer instruction prioritizes these active implementation
   deliverables, with public execution, semantic and activation evidence:
-  - [ ] Finish the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md),
-    preserving complete validation and accepting only a measured cohort gain.
+  - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
+    at `788a8925e`: complete validation, default/native/package checks, all 388
+    answers and unchanged pipeline counts pass; the same-baseline engine total
+    decreases from 337.804658081 to 327.589944482 seconds. Portable replay and
+    all 26 negative/refusal controls pass; broader coverage stays open.
   - [ ] Close Vortex scan reporting/decision gaps and demonstrated missed
     projection, predicate or pruning opportunities; distinguish missing evidence
     from missing execution.

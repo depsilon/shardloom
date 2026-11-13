@@ -1,0 +1,582 @@
+{
+  "schema": "shardloom.shared_sort_prefix_validation_evidence.v1",
+  "source_commit": "788a8925e587316ed6f6c3d9ca114fef29937bd5",
+  "baseline_source_commit": "4d5fa4a46268380a634e78f057abba087f4042f5",
+  "rust_source_files": [
+    "shardloom-vortex/src/local_primitives/native_payload.rs",
+    "shardloom-vortex/src/local_primitives/native_payload_validation.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_rich_tests.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_tests.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_sort_tests.rs"
+  ],
+  "external_artifacts": [
+    {
+      "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-r1/attempts.sqlite",
+      "bytes": 4411392,
+      "sha256": "40b56991cedf16b1b3cab4b6f67aa18146574f33098493ea1187e995d2469b15"
+    }
+  ],
+  "query_executions_during_packaging": 0,
+  "published": false,
+  "cohort_summary": {
+    "bytes": 5192,
+    "sha256": "827bf8cf9a13cf749956143328ec6e06d0253685f76c8bfe2535216407351664"
+  },
+  "cohort": {
+    "bytes": 28209855,
+    "sha256": "84ca50a07e43c198fe1cbd47250902a79f868981839b8b7d96c256c324be1957"
+  },
+  "files": {
+    "README.md": {
+      "bytes": 1010,
+      "sha256": "584ace4be247d55cd3b93bb8f4f55068f46ff3d1e4e8a5544820f39355dccd32"
+    },
+    "observations.tar.gz": {
+      "bytes": 12114323,
+      "sha256": "8d3450babe7d2b5a5d118396ab398cf654a4a354755ad7435af8f40425b32f05"
+    },
+    "verify.py": {
+      "bytes": 32385,
+      "sha256": "ecb015bba91f4c5fc01da30ae3cb720de9f295f36e84d2e56ad1cb57b203d41b"
+    }
+  },
+  "archive_members": {
+    "current/freeze_prefix_cohort.py": {
+      "bytes": 10869,
+      "sha256": "34e730468f46a5fc4ef16ab23a27def24a122837e38ac09ff28772cebf63ac23",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/freeze_prefix_cohort.py"
+    },
+    "current/freeze_prefix_runtime.py": {
+      "bytes": 2616,
+      "sha256": "b91573a49dc2d440b003b3448a3cf133c675b233b811a1eec4b9e72781ac84cf",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/freeze_prefix_runtime.py"
+    },
+    "current/guard_checks.py": {
+      "bytes": 544,
+      "sha256": "f84308b6822138b87b2902244c00fdffb45fdc824eee94cf41fd67d36bbd181f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/guard_checks.py"
+    },
+    "current/logs/prefix-default-clippy-r1.log": {
+      "bytes": 60,
+      "sha256": "f1d0e587f4eaf9c5f6803d3e9210c0e1b536942252f03191c763f7b78b97cc4a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-default-clippy-r1.log"
+    },
+    "current/logs/prefix-default-tests-r1.log": {
+      "bytes": 487210,
+      "sha256": "6ebc8a09afd3eabb6fa249e617a2bbf29586171d5e80f737024e604af572a44a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-default-tests-r1.log"
+    },
+    "current/logs/prefix-fmt-r1.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-fmt-r1.log"
+    },
+    "current/logs/prefix-installed-wheel-r1.log": {
+      "bytes": 10842,
+      "sha256": "2af2d59e1440da9c695b1333805529bba8e20922ae50a60609d8f8804221c9b2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-installed-wheel-r1.log"
+    },
+    "current/logs/prefix-native-clippy-r1.log": {
+      "bytes": 619,
+      "sha256": "e482d6e37fe787c0dfc06393512ccbf371af33152070b34da4c367b37b1853b8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-native-clippy-r1.log"
+    },
+    "current/logs/prefix-native-tests-r1.log": {
+      "bytes": 1280271,
+      "sha256": "3b5082f4878a9717e4a114188e03688fd21a8ca32e1473441063e54cf1d583a9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-native-tests-r1.log"
+    },
+    "current/logs/prefix-release-build-r1.log": {
+      "bytes": 468,
+      "sha256": "c35297c2cd7cd262dcbf5ae5490de7a13454708c744db37d6887bf0eca035983",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-release-build-r1.log"
+    },
+    "current/logs/prefix-runtime-freeze-r1.log": {
+      "bytes": 82,
+      "sha256": "98460bb8001b813cafc3c17e3d1cd39f312bbe289c0b36fdf6893a864b1af895",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-runtime-freeze-r1.log"
+    },
+    "current/logs/prefix-sort-tests-r3.log": {
+      "bytes": 6689,
+      "sha256": "bfdeeb437de6e6ec9b98b2b8468299720874a2e41aff86704a28297e6bd08e5e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-sort-tests-r3.log"
+    },
+    "current/logs/prefix-sort-tests-r4.log": {
+      "bytes": 5536,
+      "sha256": "08d81f862ac2cc45fa81fd81525e45fe73b9ec504ace10975ea936a299994dd9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-sort-tests-r4.log"
+    },
+    "current/logs/prefix-validation-after-r1.log": {
+      "bytes": 1774,
+      "sha256": "68d6c16ee289d47855fc8dce58cae4041c6267d6afb53f9c66317ecdb53e4cd7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-validation-after-r1.log"
+    },
+    "current/logs/prefix-validation-after-r2.log": {
+      "bytes": 2611,
+      "sha256": "810b6ad644c85d30c58b1abe546ec647e26c4c4f6406f81a4aa4c6a50e0a59e7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-validation-after-r2.log"
+    },
+    "current/logs/prefix-validation-before-r1.log": {
+      "bytes": 1236,
+      "sha256": "080638bca3bbbe792e65bbbac01cef6327958b924806e5ab7419691e57e052c3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-validation-before-r1.log"
+    },
+    "current/logs/prefix-validation-before-r2.log": {
+      "bytes": 3113,
+      "sha256": "f394f9d9373f95c74ddefed3cb39904df9c5ac5c49c2e053be82147768a0761b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/prefix-validation-before-r2.log"
+    },
+    "current/package_prefix.py": {
+      "bytes": 9953,
+      "sha256": "8edfb9b75405a8ff6880485c1de105df3bd1172bf1b49da085b17709021c9662",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/package_prefix.py"
+    },
+    "current/payload-cohort-protocol-r1.json": {
+      "bytes": 34057,
+      "sha256": "1f6c1a5862adfb71f15675007c3840af9a2faa005990001a995b6f4e40fa0ab3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-protocol-r1.json"
+    },
+    "current/payload-cohort-r1/certificate-cases-r1.jsonl.gz": {
+      "bytes": 290276,
+      "sha256": "a96d2a07f00ff95f7d80efbc599881c1d2e2567e99ffdf17cebd54da69a2e7d6",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-r1/certificate-cases-r1.jsonl.gz"
+    },
+    "current/payload-cohort-r1/complete.json": {
+      "bytes": 32957,
+      "sha256": "01028c9cb79be053f875a35084cd29912567d3483d71125b04e1aec224a35ab8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-r1/complete.json"
+    },
+    "current/payload-cohort-r1/verified-cases-r1.jsonl.gz": {
+      "bytes": 56538,
+      "sha256": "38e5f9dc83c4eee8a041adf6eea1f413494c061c5d1863e3b46b43c7a43bedad",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-r1/verified-cases-r1.jsonl.gz"
+    },
+    "current/payload-cohort-r1/verified-summary-r1.json": {
+      "bytes": 4943,
+      "sha256": "1c34f07b8eff18307db1423960c25789721c8360add187368f1ecd9b49b91e05",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-cohort-r1/verified-summary-r1.json"
+    },
+    "current/payload-sort-cohort-r1.json": {
+      "bytes": 1858731,
+      "sha256": "c99efcd54d9bf3d69912b7bc9e38fc8f56696d212b089eea2cb5830141eb03f7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/payload-sort-cohort-r1.json"
+    },
+    "current/pipeline_runtime.py": {
+      "bytes": 5110,
+      "sha256": "8a3d67e9cc2e544991260e8b61ead621f5724e30d3d6c444d936f8357e9824b3",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/pipeline_runtime.py"
+    },
+    "current/prefix-check-expectations-r1.json": {
+      "bytes": 1512,
+      "sha256": "4212a02eee5382a58f9a928edbb3d28f96a0e278c45b98806512ff46d41a9e2e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-check-expectations-r1.json"
+    },
+    "current/prefix-cohort-primary-verification-r1.json": {
+      "bytes": 226,
+      "sha256": "8230ced658fa1fe491c6026c7ec71d77413492e2f01602b5e48b80f65fefc872",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-primary-verification-r1.json"
+    },
+    "current/prefix-cohort-protocol-r1.json": {
+      "bytes": 33300,
+      "sha256": "4b5afe7ae28f85e0bd3b925fa5431e88a6b0c53f992a5a094c415667e30502d7",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-protocol-r1.json"
+    },
+    "current/prefix-cohort-r1/binding.json": {
+      "bytes": 32242,
+      "sha256": "36120da228c87ef46eeac673780de4b0e167c85b3cb7a058a3f8c43cd9fb9ffd",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-r1/binding.json"
+    },
+    "current/prefix-cohort-r1/certificate-cases-r1.jsonl.gz": {
+      "bytes": 290270,
+      "sha256": "d108a6c1d908b27803afe8b5add7b954c98b92c21115aa74ca94ac57648c2836",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-r1/certificate-cases-r1.jsonl.gz"
+    },
+    "current/prefix-cohort-r1/complete.json": {
+      "bytes": 31955,
+      "sha256": "689a960f27d2d5c2c71a66d36510ff47c5e6d207ee0f50110ee9071dda1a7938",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-r1/complete.json"
+    },
+    "current/prefix-cohort-r1/verified-cases-r1.jsonl.gz": {
+      "bytes": 56951,
+      "sha256": "6f1c82467943ef296ac922af49b8e28fd31f7b68a6233306db032ed542465828",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-r1/verified-cases-r1.jsonl.gz"
+    },
+    "current/prefix-cohort-r1/verified-summary-r1.json": {
+      "bytes": 5192,
+      "sha256": "827bf8cf9a13cf749956143328ec6e06d0253685f76c8bfe2535216407351664",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-r1/verified-summary-r1.json"
+    },
+    "current/prefix-cohort-supervision-r1.json": {
+      "bytes": 6670,
+      "sha256": "0d49ed1eb735f1009d7c18b7b86294ca660986cae4bf66c7932c9f954b28f7ea",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-supervision-r1.json"
+    },
+    "current/prefix-cohort-supervision-r1.log": {
+      "bytes": 406,
+      "sha256": "f45f3998a5ea2f1fe25797078dd04041cccd83f162dfe8493c3f249b03496136",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-cohort-supervision-r1.log"
+    },
+    "current/prefix-default-clippy-r1.json": {
+      "bytes": 1008988,
+      "sha256": "027d558620a32941e89cd5b0cb507247424051ea1cbc988319080ed7ad59b5de",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-default-clippy-r1.json"
+    },
+    "current/prefix-default-tests-r1.json": {
+      "bytes": 1008953,
+      "sha256": "77667d3e5dd8b3ca1ce15fc0a9c5fb8df9227ac909fabbb979fb2701f65bbcef",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-default-tests-r1.json"
+    },
+    "current/prefix-fmt-r1.json": {
+      "bytes": 1008912,
+      "sha256": "7cd3d66270a995bdafbb2f744cacb764d1a7eb79b4a8648c142628ff133b0fcf",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-fmt-r1.json"
+    },
+    "current/prefix-installed-wheel-r1.json": {
+      "bytes": 1008932,
+      "sha256": "8f7bba0082b128de4ff2b5307cc6a116ce8175097d9621bf89375a9e422bd3d8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1.json"
+    },
+    "current/prefix-installed-wheel-r1/build.log": {
+      "bytes": 701,
+      "sha256": "992d9f49de1c432b2ce251da3d546a992c78ccb8204da4c48ed4cdc0eb67b43f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/build.log"
+    },
+    "current/prefix-installed-wheel-r1/create_environment.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/create_environment.log"
+    },
+    "current/prefix-installed-wheel-r1/install.log": {
+      "bytes": 147,
+      "sha256": "a1b32a8e9845c6c5a81a86fb571db7d505154acbf7523f14a4771a0cab4e8c3d",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/install.log"
+    },
+    "current/prefix-installed-wheel-r1/install_optional_consumer.log": {
+      "bytes": 6190,
+      "sha256": "b147d7ca73968e7bd71ef39b28ff99dbe2e37b2a8e9b0527e11cbec06deded93",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/install_optional_consumer.log"
+    },
+    "current/prefix-installed-wheel-r1/integration.json": {
+      "bytes": 89,
+      "sha256": "95fff1c5eddb38b8c805a8388e1227f1babb793d7b21899b34a696cf2f6936ee",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/integration.json"
+    },
+    "current/prefix-installed-wheel-r1/integration.log": {
+      "bytes": 88796,
+      "sha256": "1ac5d86083fb98bae329ae41d909e30c84504dd6f4e132a9cd9227e4c5053429",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/integration.log"
+    },
+    "current/prefix-installed-wheel-r1/load.log": {
+      "bytes": 666,
+      "sha256": "2df5d3f2feee4b1f1df93c95073c4af247b5280cbf87924bf71d8df57f8e2b50",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/load.log"
+    },
+    "current/prefix-installed-wheel-r1/report.json": {
+      "bytes": 10842,
+      "sha256": "2af2d59e1440da9c695b1333805529bba8e20922ae50a60609d8f8804221c9b2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/report.json"
+    },
+    "current/prefix-installed-wheel-r1/uninstall.log": {
+      "bytes": 118,
+      "sha256": "7c8e8ce04e6137e77061d311de835802a2b2692fd61cd326b9e3df1a5d60e223",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/uninstall.log"
+    },
+    "current/prefix-installed-wheel-r1/verify_uninstalled.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-installed-wheel-r1/verify_uninstalled.log"
+    },
+    "current/prefix-native-clippy-r1.json": {
+      "bytes": 1009063,
+      "sha256": "4537baa8e594a13d7dbea23ff29837403cd5d6436ad770f4beffd0bb91c8f274",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-native-clippy-r1.json"
+    },
+    "current/prefix-native-tests-r1.json": {
+      "bytes": 1009029,
+      "sha256": "8294c19797a0e0bc41875be2f8c31a51643a3f1f2055b3f7e0dc9d4d533a61de",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-native-tests-r1.json"
+    },
+    "current/prefix-packet-repair-r1.json": {
+      "bytes": 772,
+      "sha256": "99129b35f39361705136529e87b79db8a4be377d92f6016fb7559593de913e70",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-packet-repair-r1.json"
+    },
+    "current/prefix-primary-source-checks-r1.json": {
+      "bytes": 2344,
+      "sha256": "93f97b7d2e28e5cbb10bd59bd3e03c59ffc0720e27181846431144174b360e13",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-primary-source-checks-r1.json"
+    },
+    "current/prefix-release-build-r1.json": {
+      "bytes": 1008338,
+      "sha256": "f8fdd3014f0968b0cf7e40aaccb8f49b78918b722301721cb5f9adf096a39c71",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-release-build-r1.json"
+    },
+    "current/prefix-rich-fixture-map.json": {
+      "bytes": 9106,
+      "sha256": "046d9e7e614dbf66a012994524b999f3c48f88751b6697ceb3884411c8f7faa9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-rich-fixture-map.json"
+    },
+    "current/prefix-runtime-freeze-r1.json": {
+      "bytes": 1008316,
+      "sha256": "7fcf79b72c9b6a72868d14d0518dba29b5ce817b8e223e5b006e929c241953cd",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-runtime-freeze-r1.json"
+    },
+    "current/prefix-runtime-r1-identity.json": {
+      "bytes": 1229,
+      "sha256": "356632503c087d835974f2de47ef92fceb467b7bb6552090cf28b942c702ddaa",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-runtime-r1-identity.json"
+    },
+    "current/prefix-sort-cohort-r1.json": {
+      "bytes": 28209855,
+      "sha256": "84ca50a07e43c198fe1cbd47250902a79f868981839b8b7d96c256c324be1957",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-sort-cohort-r1.json"
+    },
+    "current/prefix-sort-tests-r3.json": {
+      "bytes": 1008936,
+      "sha256": "de5db0d83926eec2812d52cb100a7c589c6e88ce8181647725737e4162944c00",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-sort-tests-r3.json"
+    },
+    "current/prefix-sort-tests-r4.json": {
+      "bytes": 1009065,
+      "sha256": "e54e18e2759637a1f76083fe231c3ed1ffdf44c1dc3b96b2d934f2a24e65e319",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-sort-tests-r4.json"
+    },
+    "current/prefix-validation-after-r1.json": {
+      "bytes": 1008274,
+      "sha256": "2b7afd15170c99592f425759cc913417a096440fd69e74c194008d11c420c72f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-after-r1.json"
+    },
+    "current/prefix-validation-after-r2.json": {
+      "bytes": 1008580,
+      "sha256": "db2096706bf67857b47a4f80b49be473ca3b4d5d07a8999b3b3f84bb4e26f280",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-after-r2.json"
+    },
+    "current/prefix-validation-before-r1.json": {
+      "bytes": 1008140,
+      "sha256": "84f9037f21b61dc75035617784a758e74bdd6b880882f56f2fda44345acd5d0a",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-before-r1.json"
+    },
+    "current/prefix-validation-before-r2.json": {
+      "bytes": 1008139,
+      "sha256": "eaf2a1dd22edff299bcff643576fa149f91d1b3490e90f9e9ebeb20f734e0bf8",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-before-r2.json"
+    },
+    "current/prefix-validation-design-r1.md": {
+      "bytes": 5305,
+      "sha256": "bb571c7aa56a0cb3691ad43689fe6914344827d4dbf7cdfc82abd5bf5897a11f",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-design-r1.md"
+    },
+    "current/prefix-validation-r1.json": {
+      "bytes": 2227,
+      "sha256": "9007ab644c9da0df70a134a051c475b0b3c102d2685aba9d8ccc52b36706e019",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-validation-r1.json"
+    },
+    "current/prefix-verifier-initial-r1.py": {
+      "bytes": 32387,
+      "sha256": "68074ae2cfd84bba83724f19211560b98f75f367ab4eab528bcacc31a18d1f46",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-verifier-initial-r1.py"
+    },
+    "current/prefix-verify.py": {
+      "bytes": 32385,
+      "sha256": "ecb015bba91f4c5fc01da30ae3cb720de9f295f36e84d2e56ad1cb57b203d41b",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-verify.py"
+    },
+    "current/prefix-work-review-r1.json": {
+      "bytes": 608919,
+      "sha256": "22f398efa0fcce3beb9bab93c8e5861a004998745153cf3b55cace275bf98fdd",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix-work-review-r1.json"
+    },
+    "current/prefix_runtime.py": {
+      "bytes": 3402,
+      "sha256": "785320232e675693fa95e80a56a2f782972475cf4a28ad06d09d9972066235dd",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/prefix_runtime.py"
+    },
+    "current/replay_prefix_cohort.py": {
+      "bytes": 13145,
+      "sha256": "212f974b478d823773d871d73029e49968a70e295f2f57f85077ac5787142c9e",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/replay_prefix_cohort.py"
+    },
+    "current/review_prefix_work.py": {
+      "bytes": 7900,
+      "sha256": "37a4bf73a28c78e769c44a73dea9f37a6517b87172bbefae4c39f23742d56b38",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/review_prefix_work.py"
+    },
+    "current/run_prefix_checks.py": {
+      "bytes": 1205,
+      "sha256": "77c181f43e2559e0545b69ac439e3a9ac30b252528343b33cddc7c91b98eedcf",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/run_prefix_checks.py"
+    },
+    "current/run_prefix_cohort.py": {
+      "bytes": 8702,
+      "sha256": "712de233e9f8bfc241e8e0b3f8ea109c07b15d4f9749ad29867dbc786cf178f9",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/run_prefix_cohort.py"
+    },
+    "current/run_prefix_release.py": {
+      "bytes": 2000,
+      "sha256": "5278a6a6afd0df3b737b0545564e7aeea1c0646e20055d82bd487b5c1569f1df",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/run_prefix_release.py"
+    },
+    "current/sort_capture.py": {
+      "bytes": 9988,
+      "sha256": "95179abcb9ef8cb287b98bdb38a1fe30ebf7d0dd40dd5dea336640b5e91753b2",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/sort_capture.py"
+    },
+    "current/supervise_prefix_cohort.py": {
+      "bytes": 4074,
+      "sha256": "c3a8cc66c9f357b23f62360351e34eab63512537462c593b14fa31ffd2481209",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/supervise_prefix_cohort.py"
+    },
+    "current/test_prefix_packet.py": {
+      "bytes": 14409,
+      "sha256": "58edf5c92144401a33221a0f1f1b49586d8a653017e62382e8366cf42c31bf94",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/test_prefix_packet.py"
+    },
+    "current/validate_prefix_runtime.py": {
+      "bytes": 6673,
+      "sha256": "b2323f6a9b7ec23dab9c7d7cdf3d34df90c994d1a2a5db944800fcffb63f1e01",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/validate_prefix_runtime.py"
+    },
+    "current/verify_prefix_source_checks.py": {
+      "bytes": 3090,
+      "sha256": "53c9f415c8f8f99bcbeebda203eb0b2775c91f12e88844fb0339f03625eb3cb6",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/verify_prefix_source_checks.py"
+    },
+    "current/verify_sort_exposure.py": {
+      "bytes": 6057,
+      "sha256": "84bfc63164fee83f037817b94dbd912fe9378145219d26e8c24518f5f6bdd471",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/verify_sort_exposure.py"
+    },
+    "design/native-sort-prefix-validation-2026-11-13.md": {
+      "bytes": 3335,
+      "sha256": "f030b5af56d946185f869f3391de45890d98ee2b635385eb6d87e4767d08b0ae",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:docs/architecture/native-sort-prefix-validation-2026-11-13.md"
+    },
+    "helpers/bounded-supervisor.py": {
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "origin": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+    },
+    "helpers/check-supervisor.py": {
+      "bytes": 6009,
+      "sha256": "697cdb7cb2622a3089dae62aab8377e07819b882add7a7dcaae940bb3e5c6dd1",
+      "origin": "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/guard_checks.py"
+    },
+    "original/design.json": {
+      "bytes": 7021163,
+      "sha256": "fd0a2604c9abc888a7a24ba75078569fc33e354b16cc98372977c15306a39216",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/design.json"
+    },
+    "original/frozen.json": {
+      "bytes": 190099,
+      "sha256": "38c7a349ec04645e094248d20cfd3d8325e33a63ad76dd9bdc1543412bf7681d",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/frozen.json"
+    },
+    "original/inputs.json": {
+      "bytes": 46729,
+      "sha256": "b5200fa5b31f311fffd44bfb2701651a62a4d18b1ecbeff16eddc6949a491c21",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/inputs.json"
+    },
+    "provenance/expanded-query-2026-11-03/design.json": {
+      "bytes": 7021163,
+      "sha256": "fd0a2604c9abc888a7a24ba75078569fc33e354b16cc98372977c15306a39216",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/design.json"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/__init__.py": {
+      "bytes": 273,
+      "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/__init__.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/corpus.py": {
+      "bytes": 21241,
+      "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/corpus.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/coverage.py": {
+      "bytes": 2175,
+      "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/coverage.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/datasets.py": {
+      "bytes": 20182,
+      "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/datasets.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_asof.py": {
+      "bytes": 8057,
+      "sha256": "904d48fb1a2d0f5b316bc98fdf14e67fdaca11618822e03bdb38dec9c41f3bc5",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_asof.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_catalog.py": {
+      "bytes": 26703,
+      "sha256": "48af8599cb4e7fbaa049a3fb195a5c845689eaa9840fbd8b21c5d547dda23c15",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_catalog.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_nested.py": {
+      "bytes": 9207,
+      "sha256": "d075cfd318cf5ee791ce10917d673749c22bb5a893695fc59b8ae8f4d7695d0c",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_nested.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_reuse.py": {
+      "bytes": 2479,
+      "sha256": "b845ec3734fa8f0b870d0af70c315307ff8c8f868baacff0374cdf981301a509",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_reuse.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_windows.py": {
+      "bytes": 8487,
+      "sha256": "f7de003984372e0db4b3743f3141b0850a144b154cc35f345ec5912649b9579a",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_windows.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/semantics.py": {
+      "bytes": 18504,
+      "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/semantics.py"
+    },
+    "provenance/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/specification.py": {
+      "bytes": 11184,
+      "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/specification.py"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_payload.rs": {
+      "bytes": 29485,
+      "sha256": "e6368371da0dd377d0db5888b5b0003464f3dcca3918407b48158794ee7077f7",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_payload.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_payload_validation.rs": {
+      "bytes": 4625,
+      "sha256": "d6e43aac13a00fdab3347b04d059337c8ac293c46c885302f6374495c574db2f",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_payload_validation.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_relational_batch.rs": {
+      "bytes": 31664,
+      "sha256": "b3430f444f2078713cc7350940f30aa1ca174a85e81b4c10df84e0af0970ad11",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_relational_batch.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_relational_sort.rs": {
+      "bytes": 12257,
+      "sha256": "58bff793eef1c0ec75df9e8d546c8b59202c246af8f794e4bef8b9d38134e579",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_relational_sort.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_rich_tests.rs": {
+      "bytes": 12785,
+      "sha256": "5ab3c8cd8aa2c8215be59634d30de31753ee2600ce0d1957c292b0e89e9e485a",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_rich_tests.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_tests.rs": {
+      "bytes": 20858,
+      "sha256": "9a0e1369d25c7e61262c358bc6f0ba292fe152cb554b192d56796c9266824705",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_relational_sort_payload_prefix_tests.rs"
+    },
+    "source/files/shardloom-vortex/src/local_primitives/native_relational_sort_tests.rs": {
+      "bytes": 21901,
+      "sha256": "009ffaced593c6cd4e01cfb2d6c66c6397b8eac2b049eee7fab814207f313d61",
+      "origin": "git show 788a8925e587316ed6f6c3d9ca114fef29937bd5:shardloom-vortex/src/local_primitives/native_relational_sort_tests.rs"
+    },
+    "source/prefix.patch": {
+      "bytes": 44267,
+      "sha256": "38c9564a47a1b0503e16e7c2686b4785ba6f73dd2836eb2acdeea55288221144",
+      "origin": "git diff --binary 4d5fa4a46268380a634e78f057abba087f4042f5 788a8925e587316ed6f6c3d9ca114fef29937bd5 -- shardloom-vortex/src"
+    }
+  }
+}

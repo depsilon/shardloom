@@ -2,9 +2,10 @@
 
 # Shared Sort validation and bounded payload construction
 
-Status: implementation candidate under the [optimization coverage contract](native-optimization-coverage-2026-11-13.md).
-Focused regressions pass; complete source-bound validation and the isolated
-performance observation remain pending. This does not close coverage.
+Status: locally accepted at `788a8925e587316ed6f6c3d9ca114fef29937bd5` under the
+[optimization coverage contract](native-optimization-coverage-2026-11-13.md).
+Complete source-bound validation, installed-package proof and the isolated
+388-case comparison pass. This does not close coverage or authorize publication.
 
 The correctness correction at `4d5fa4a46` restores payload validation that the
 file Sort shortcut skipped. Its shared Sort still constructs all nested/decimal
@@ -43,11 +44,27 @@ bits and promotion, empty/zero demand, cancellation, denied credit and output
 ownership after producer disposal. Opaque descriptor movement does not resolve
 the referenced binary object.
 
-The prospective comparison uses exactly the 388 declarations already measured
+The completed comparison uses exactly the 388 declarations already measured
 at `4d5fa4a46`, in their original order and with the same inputs, references,
 grant and isolated supervisor. Their single current baseline totals
 337.804658081 engine seconds. There is no combined historical baseline and no
 new Full43 or full 10,000-case pass for this candidate. Acceptance requires
 complete correctness, resource, ownership and no-fallback proof, followed by a
-lower complete-cohort engine total. Individual regressions and failed attempts
-remain evidence. Until then, this is an unaccepted optimization candidate.
+lower complete-cohort engine total. The accepted total is 327.589944482 engine
+seconds, a 10.214713599-second reduction from the same current baseline.
+Individual regressions and failed attempts remain evidence. All 388 complete
+answers, schemas, certificates and clocks pass independent local replay; all
+native pipeline/file-kernel counts and ten owned-source column controls remain
+unchanged. No denied reservation or spill occurs. Retained reservations do not
+increase; the largest peak-reservation increase is 25,264 bytes.
+
+Default formatting, strict Clippy and tests pass (3,325 tests); complete native
+validation passes 7,157 tests with 39 ignored, including 4,184 native-library
+tests with 36 ignored. All 442 installed-package tests pass with zero skips.
+The [portable evidence packet](../benchmarks/evidence/native-sort-prefix-validation-2026-11-13/README.md)
+preserves 107 archived members, source/runtime identities, every observation,
+the work review and initial verifier failure. Relocated verification and all
+26 corruption/refusal controls pass. The verifier checks saved evidence without
+executing queries or repeating the independent complete-answer oracle. One
+observation per runtime does not establish repeatability, whole-engine speedup,
+physical Vortex column-read avoidance or complete optimization coverage.

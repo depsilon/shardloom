@@ -249,3 +249,37 @@ These source-bound checks and the original failed/stopped observations are
 preserved in the packet. Existing narrower-column claims remain scoped to their
 own cohorts. This correction does not close item 19, item 20, RFC 0044 or CG-1
 through CG-23.
+
+## Shared Sort prefix connection
+
+The correctness-preserving prefix connection at
+`788a8925e587316ed6f6c3d9ca114fef29937bd5` is locally accepted. The fixed 388-case
+cohort uses exactly the same current `4d5fa4a46` baseline, declarations, inputs,
+references and resource grant. Each candidate declaration executes once in
+isolation; no baseline query is repeated. The complete engine total decreases
+from **337.804658081 to 327.589944482 seconds**, a 10.214713599-second reduction.
+All complete values, schemas, certificates and clocks pass independent replay.
+
+The change connects full typed payload validation to bounded output construction
+through the existing shared Sort owner. It preserves validation outside the
+retained prefix, hidden-field and copy-policy barriers, error order, cancellation
+and last-owner memory credit. Actual pipeline/file-kernel counts and all ten
+owned-source column controls are unchanged. No denied reservation or spill
+occurs; retained reservations do not increase, and the largest peak increase is
+25,264 bytes. A logical projection does not establish physical Vortex bytes saved.
+
+At this source, formatting and strict default/native Clippy pass. The default
+suite passes 3,325 tests; native validation passes 7,157 with 39 ignored, including
+the full native-library suite (4,184 passed, 36 ignored). All 442 installed-wheel
+tests pass with zero skips. Source-bound receipts share 5,694 file identities
+and fingerprint `e0192f0cdd42382038ef7aec913b3bd3c3d126159252ddd68d390481dd6387b6`.
+
+The [portable packet](evidence/native-sort-prefix-validation-2026-11-13/README.md)
+contains 107 archived members, exact source/runtime bindings, saved case and
+certificate observations, work/resource deltas and the initial packaging-verifier
+failure. Corrected portable replay, relocation and all 26 corruption/refusal
+controls pass without rerunning queries. Full-answer oracle replay occurred
+locally; portable verification checks the saved evidence. The single observation
+does not establish repeatability or whole-engine superiority. Remaining Vortex
+scan decisions, COUNT/cyclic connections, composition breadth, runtime filters,
+skew handling and cross-query reuse remain active work.
