@@ -340,6 +340,15 @@ impl ExecutedNativeOperation {
     /// Propagates report serialization failures.
     pub fn fields(&self, reused: bool) -> Result<Vec<(String, String)>> {
         let mut fields = super::execution_fields(&self.report, reused);
+        // Collected values and completed streams retain their native array
+        // owners. Keep the established payload contract across consolidation.
+        fields.extend([
+            ("result_payload_complete".into(), "true".into()),
+            (
+                "native_result_payload".into(),
+                "retained_native_arrays".into(),
+            ),
+        ]);
         crate::execution_resources::append_query_timing_fields(&mut fields, self.timing);
         Ok(fields)
     }

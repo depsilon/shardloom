@@ -618,11 +618,11 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                     for output_format in ("vortex",) + formats:
                         destination = self.root / f"count-{input_format}-{threshold}.{output_format}"
                         writer_report = counted.write(destination, f"write_{output_format}")
-                        # This policy flag belongs to the legacy Vortex
-                        # primitive; direct CSV uses the shared batch writer.
+                        # Both inputs now use the same native pipeline writer;
+                        # source format does not select a legacy writer policy.
                         self.assertEqual(
                             writer_report["local_primitive_physical_policy_writer_coalescing_enabled"],
-                            "true" if input_format == "vortex" else "false",
+                            "false",
                         )
                         if input_format == "csv":
                             self.assertEqual(writer_report["native_source_demand_sources"], "1")

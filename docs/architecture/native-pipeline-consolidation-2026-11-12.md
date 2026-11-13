@@ -122,6 +122,7 @@ File collections compose native scans and the shared aggregation/sort operators.
 They no longer claim the removed whole-query partitioned row-reference sorting
 optimization. Complete values, ordering, streaming and persistence remain the
 validation contract; future optimization must become an operator in this same
-pipeline. Arrow export may separately refuse a memory grant after collection;
+pipeline. All query sources also use the same native writer policy, without the
+former primitive-only writer-coalescing flag. Arrow export may separately refuse a memory grant after collection;
 the wide-schema lifecycle check requires a precise memory diagnostic and release
 of every owner in either phase.
