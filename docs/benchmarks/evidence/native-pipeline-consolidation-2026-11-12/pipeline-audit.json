@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "source_commit": "3a861917ad6852e6a35ac8642d78c4d31451f29f",
+  "source_tree": "b4410a94b6969a1da4806986e8aecf70b2538c24",
+  "all_successful_cases_single_native_pipeline": true,
+  "all_catch_all_execution_false": true,
+  "all_fallback_attempted_false": true,
+  "all_external_engine_invoked_false": true,
+  "counts": {
+    "cases": 10000,
+    "operator_invocations": 66280,
+    "file_kernel_invocations": 2974,
+    "direct_source_cases_reporting_zero_prepared_bytes": 6122,
+    "cases_with_file_kernels": 2379
+  },
+  "maximum_operator_invocations_per_case": 38,
+  "maximum_file_kernel_invocations_per_case": 3,
+  "file_kernel_case_families": {
+    "cte_composition": 151,
+    "distinct": 50,
+    "global_aggregation": 29,
+    "grouped_aggregation": 261,
+    "joins": 893,
+    "multiway_joins": 244,
+    "nullable": 11,
+    "numeric": 11,
+    "ordering": 22,
+    "predicates": 87,
+    "sets": 286,
+    "strings": 35,
+    "subqueries": 144,
+    "temporal": 25,
+    "windows": 130
+  },
+  "file_kernel_scope": "Optional physical specialization inside the native operator tree; this count is not native execution coverage.",
+  "sources": {
+    "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/attempts.sqlite": {
+      "bytes": 136187904,
+      "sha256": "9ae6c214a607f5ceda189217ebf19fe6640a4265155f83eae9e526a5f3bdf4f4"
+    },
+    "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-cases-r1.jsonl.gz": {
+      "bytes": 833620,
+      "sha256": "9da4d86ad162f9d1a83ec4405d3df9905566df032db5393121a0dc93707c40ab"
+    },
+    "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-summary-r1.json": {
+      "bytes": 8848,
+      "sha256": "0804808087d3f91087f224c5109d54856b87891d01aae0ea7157d44c412c8638"
+    }
+  },
+  "verifier": {
+    "bytes": 4409,
+    "sha256": "d820a6dd2b46e2e3ca8a278d2ce5792645b929d2839ed11ead19c94f56d0c722"
+  }
+}

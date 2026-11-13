@@ -2,8 +2,11 @@
 
 # One native execution pipeline
 
-Status: implemented locally under the November 12 maintainer instruction;
-complete native validation and the one-pass 10,000-case observation are pending.
+Status: implemented and validated locally under the November 12 maintainer
+instruction. The [one-pass observation](../benchmarks/native-pipeline-consolidation-2026-11-12.md)
+passes all 10,000 original cases; the report preserves the exact validation
+scope, original failures and explicit SQL-admission gaps. No hosted integration
+or publication is claimed.
 This work precedes the remaining item-20 performance investigations. It extends
 the existing planner, native operator, resource and diagnostics owners; it adds
 no execution engine or competitive gate.
@@ -88,9 +91,12 @@ Report successful complete results, unsupported operations and other failures
 separately. Sum engine time for successfully validated cases, compare the same
 case IDs with the preceding accepted observation, and report that preceding
 observation's engine time for newly blocked cases. Publish a complete 10,000-case
-total only if all 10,000 cases pass with valid clocks. The preceding complete
-observation is 1,540.711839539 engine seconds; no speed or coverage outcome is
-claimed before the new observation.
+total only if all 10,000 cases pass with valid clocks. The completed observation
+is 1,514.235435577 engine seconds; the preceding exact same-ID observation is
+1,540.711839539 seconds. All 10,000 cases pass with valid clocks and no missing
+support group. The previous engine sum for newly blocked/incomplete cases is
+zero. This is one observation per runtime, not repeatability or individual-change
+attribution evidence.
 
 This is a requested architectural consolidation, not acceptance of a previously
 rejected performance candidate. Preserve all original retain/drop decisions,
@@ -122,7 +128,8 @@ File collections compose native scans and the shared aggregation/sort operators.
 They no longer claim the removed whole-query partitioned row-reference sorting
 optimization. Complete values, ordering, streaming and persistence remain the
 validation contract; future optimization must become an operator in this same
-pipeline. All query sources also use the same native writer policy, without the
-former primitive-only writer-coalescing flag. Arrow export may separately refuse a memory grant after collection;
+pipeline. All query sources also use the same native writer policy; the retained
+writer-coalescing report field is false for both native and compatibility sources.
+Arrow export may separately refuse a memory grant after collection;
 the wide-schema lifecycle check requires a precise memory diagnostic and release
 of every owner in either phase.

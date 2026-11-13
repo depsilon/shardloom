@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "original": {
+    "status": "passed",
+    "manifest_sha256": "78bb627339595fdfdb35a770781b910ccc9385a9a732fb3ce495f3adff0104f0",
+    "verified_packet_files": 10,
+    "verified_archive_members": 179,
+    "cases": 10000,
+    "successful_engine_seconds": 1514.235435577,
+    "previous_same_cases_engine_seconds": 1540.711839539,
+    "unsuccessful_cases": 0,
+    "query_executions": 0,
+    "scope": "Compact identities, counts, complete saved clock comparison, selected raw certificate fields and validation history; full answer correctness was replayed locally against the original reference ledgers and is not independently rerun by this compact verifier."
+  },
+  "relocated": {
+    "status": "passed",
+    "manifest_sha256": "78bb627339595fdfdb35a770781b910ccc9385a9a732fb3ce495f3adff0104f0",
+    "verified_packet_files": 10,
+    "verified_archive_members": 179,
+    "cases": 10000,
+    "successful_engine_seconds": 1514.235435577,
+    "previous_same_cases_engine_seconds": 1540.711839539,
+    "unsuccessful_cases": 0,
+    "query_executions": 0,
+    "scope": "Compact identities, counts, complete saved clock comparison, selected raw certificate fields and validation history; full answer correctness was replayed locally against the original reference ledgers and is not independently rerun by this compact verifier."
+  },
+  "controls": [
+    {
+      "name": "unsealed_summary_change",
+      "status": "rejected",
+      "verification_line": 34
+    },
+    {
+      "name": "duplicate_case_id",
+      "status": "rejected",
+      "verification_line": 100
+    },
+    {
+      "name": "nonfinite_engine_clock",
+      "status": "rejected",
+      "verification_line": 18
+    },
+    {
+      "name": "external_fallback_claim",
+      "status": "rejected",
+      "verification_line": 111
+    }
+  ],
+  "query_executions": 0,
+  "temporary_copies_removed": true,
+  "verifier": {
+    "bytes": 13784,
+    "sha256": "7fc01080457b44792f5e7c3cebc07879444634231d397687be5a00b1622a1d8e"
+  },
+  "helper": {
+    "bytes": 5114,
+    "sha256": "88406e3f62e700ed9a160069810d37af16954d9101602eb6562d8f12aaf0663c"
+  }
+}
