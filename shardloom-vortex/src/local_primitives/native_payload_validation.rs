@@ -100,7 +100,7 @@ pub(in crate::local_primitives) fn validate_record(
 /// Reuse the same complete leaf validator after an owner has resolved its
 /// observed selection. False leaves unsupported or changed domains with the
 /// caller's original scalar path; it never certifies a partial column.
-pub(super) fn validate_typed_column(
+pub(in crate::local_primitives) fn validate_typed_column(
     column: &ArrayRef,
     dtype: &DType,
     rows: usize,

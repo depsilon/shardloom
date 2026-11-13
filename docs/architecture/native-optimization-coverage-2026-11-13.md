@@ -47,6 +47,17 @@ Preserve rejected experiments and
 the direct COUNT bridge's invalid baseline; this request does not turn those
 observations into acceptance.
 
+The maintainer's latest sequencing instruction makes the immediate implementation
+order explicit: complete the in-flight Sort validation connection, then close
+Vortex scan decision/reporting gaps and demonstrated missed execution; connect
+remaining COUNT and file-backed cyclic semi-join opportunities; expand uncovered
+operator/type/interface compositions; and implement native general runtime
+filters, skew handling and cross-query reuse through their existing RFC owners.
+These are active deliverables. Inventory entries and future-work labels alone
+do not satisfy them. Missing Vortex reporting must be distinguished from absent
+projection/pruning execution, and existing partial implementations must be
+reused and identified before adding mechanisms.
+
 The public relation declaration currently has 22 variants. Its lowering uses
 20 internal node variants, including the deliberately unexecutable `Unadmitted`
 sentinel. These are different inventories: correlated/deferred/result
@@ -231,6 +242,12 @@ preserves 120 members; relocation replay, 19 negative controls and optimized
 Python refusal pass. Its verifier does not repeat the full oracle. This evidence
 does not complete Vortex demand coverage or close item 19, item 20, RFC 0044 or
 CG-1 through CG-23.
+
+The [shared prefix connection](native-sort-prefix-validation-2026-11-13.md)
+is the subsequent, separately measured optimization candidate. It preserves
+complete validation while constructing only retained nested/decimal payload
+rows and reuses the existing typed selection validator for flat payloads.
+Its performance and complete-source acceptance remain pending.
 
 ## Acceptance and remaining work
 
