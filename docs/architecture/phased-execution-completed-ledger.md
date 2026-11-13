@@ -33,8 +33,12 @@ phase plan first.
   complete target and installed refreshes; the full native suite is not reported
   as a new green run. The [packet](../benchmarks/evidence/native-pipeline-consolidation-2026-11-12/README.md)
   preserves all original observations, 51 check receipts and the exact proof
-  boundary. Two minute-based legacy SQL forms outside this corpus remain
-  explicit frontend admission gaps. Task intermediates were retired with
+  boundary. Two minute-based legacy SQL forms outside this corpus were
+  frontend admission gaps at the measured runtime. The later
+  [November 13 correction](native-pipeline-consolidation-2026-11-12.md#november-13-sql-minute-correction)
+  admits both spellings through the shared compiler; its separate correctness
+  proof passes 3,325 default, 1,567 native CLI/Python and 442 installed tests.
+  It does not change the frozen observation. Task intermediates were retired with
   repeated identity/closed-handle checks; the tested runtime/wheel and all
   inputs remain. The code is local, with no PR/merge/publication claim.
   Item 19, remaining item-20 investigations, the invalid B baseline and

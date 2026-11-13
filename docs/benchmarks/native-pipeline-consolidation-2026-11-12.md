@@ -153,7 +153,7 @@ is the separately recorded local proof.
 
 ## Validation and retained failures
 
-Final exact-code checks pass:
+For the frozen measured runtime, exact-code checks pass:
 
 - `cargo fmt --all -- --check`.
 - `cargo clippy --offline --locked --workspace --all-targets -- -D warnings`.
@@ -185,6 +185,18 @@ roots: 32,146 regular files and 12 links among 36,459 entries. Repeated identity
 and closed-handle checks passed. The tested runtime/wheel, both observations,
 original failures, wheelhouse and all 220 current input generations remain
 unchanged. No rollback payload archive or storage-limit change was made.
+
+### Later SQL minute correction
+
+The subsequent shared-compiler correction at
+`ab6dd9ed50c08030d0571254b40f068d03bd3fb2` has a
+[separate correctness packet](evidence/native-pipeline-sql-minute-2026-11-13/README.md).
+Eight focused checks, formatting, strict default/native lint, 3,325 default
+tests, 1,567 native CLI/Python tests (three existing ignored) and all 442
+installed-package tests pass. The new installed regression verifies both minute
+forms through collection, streaming and Vortex write/reopen. There is no new
+performance observation, and none of this report's engine sums measures that
+later runtime.
 
 This closes the requested consolidation and one-pass coverage observation.
 Item 19, the remaining item-20 investigations, the invalid B baseline and

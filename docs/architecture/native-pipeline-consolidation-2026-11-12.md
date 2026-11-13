@@ -114,9 +114,9 @@ The initial CLI unit/integration suite passed after updating route metadata
 expectations. At that observation, the shared SQL frontend rejected the legacy
 `EXTRACT(minute FROM ...)` and `DATE_TRUNC('minute', ...)` forms during route
 admission. Their old primitive-summary recognition remains available as inert
-metadata; it no longer routes complete SQL around the shared compiler. These are
-explicit syntax-admission gaps, not evidence that native calendar kernels are
-absent. Do not restore the deleted executor split to admit them.
+metadata; it no longer routes complete SQL around the shared compiler. Those
+were syntax-admission gaps; native calendar kernels already existed. The
+correction below preserves the single executor contract.
 
 ### November 13 SQL minute correction
 
@@ -124,8 +124,8 @@ The maintainer requested both spellings before opening the consolidated PR.
 The bounded shared scalar parser now normalizes `EXTRACT(minute FROM expression)`
 to `extract_minute(expression)` and `DATE_TRUNC('minute', expression)` to
 `date_trunc_minute(expression)`. Operands compose through the same parser,
-including predicates, aggregates, lazy scalars and relational bindings. Selected
-scalar expressions in GROUP BY and ORDER BY resolve by complete parsed identity
+including predicates, aggregates, lazy scalars and relational bindings. Repeated
+minute expressions in GROUP BY and ORDER BY resolve by complete parsed identity
 to their existing output alias; constants and operands cannot be discarded.
 
 This remains `use_vortex_native_provider`: existing native expression binding,
@@ -143,6 +143,12 @@ grouping, ordering, LIMIT/OFFSET, invalid syntax, parser depth and typed-unit
 rejection. Installed-package coverage collects, streams and persists both SQL
 forms through native Vortex. This correction postdates the frozen 10,000-case
 observation; its original runtime, packet and measured values remain unchanged.
+
+The [separate correctness packet](../benchmarks/evidence/native-pipeline-sql-minute-2026-11-13/README.md)
+binds source `ab6dd9ed50c08030d0571254b40f068d03bd3fb2` to eight focused tests,
+3,325 default tests, 1,567 CLI/Python native tests (three existing ignored),
+strict default/native lint and 442 installed-package tests with zero skips.
+The original fixture error and deliberately stopped build remain recorded.
 
 Installed-surface validation exposed implicit aggregate output-name drift and
 missing declaration-reuse report fields. The shared binder now preserves the
