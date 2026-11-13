@@ -111,3 +111,17 @@ admission. Their old primitive-summary recognition remains available as inert
 metadata; it no longer routes complete SQL around the shared compiler. These are
 explicit syntax-admission gaps, not evidence that native calendar kernels are
 absent. Do not restore the deleted executor split to admit them.
+
+Installed-surface validation exposed implicit aggregate output-name drift and
+missing declaration-reuse report fields. The shared binder now preserves the
+established file-SQL aliases using the admitted source schema; this naming step
+does not choose an executor. The historical preparation-reuse field identifies
+query-declaration reuse, independently of persisted source preparation.
+
+File collections compose native scans and the shared aggregation/sort operators.
+They no longer claim the removed whole-query partitioned row-reference sorting
+optimization. Complete values, ordering, streaming and persistence remain the
+validation contract; future optimization must become an operator in this same
+pipeline. Arrow export may separately refuse a memory grant after collection;
+the wide-schema lifecycle check requires a precise memory diagnostic and release
+of every owner in either phase.

@@ -147,7 +147,88 @@ fn prepare_sql_in_session(
         metadata,
         None,
         preparations,
+        Some(statement),
     )
+}
+
+/// Preserve the public names of formerly specialized file SQL inside the shared
+/// binder. This admits aliases only: the complete statement still lowers once
+/// and executes the same native operator tree. The retained source is registered
+/// with that binder, so naming never creates a second reader or execution route.
+#[allow(clippy::too_many_arguments)] // Borrow the existing declaration, source and metadata owners.
+fn named_file_sql_declaration(
+    statement: Option<&str>,
+    request: &PublicWorkflowRouteRequest,
+    declaration: &crate::native::NativeRelationDeclaration,
+    sources: &Sources,
+    session: &shardloom_vortex::resident_session::ResidentVortexSession,
+    schemas: &mut shardloom_vortex::local_primitives::prepared_relational::VortexRelationalPreparation<'_>,
+    cancellation: &CancellationToken,
+    metadata: &mut shardloom_exec::live_memory::MemoryLease,
+) -> Result<Option<crate::native::NativeRelationDeclaration>, ShardLoomError> {
+    let Some(statement) = statement else {
+        return Ok(None);
+    };
+    if sources.has_collections || declaration.sources.len() != 1 {
+        return Ok(None);
+    }
+    let leaf = declaration.sources.keys().next().expect("one source");
+    let path = declared_path(leaf, request)?;
+    let raw = path
+        .to_str()
+        .ok_or_else(|| failed("source path must be UTF8"))?;
+    if leaf.memory_input.is_some() || declared_format(raw, request) != Some("vortex") {
+        return Ok(None);
+    }
+    let mut naming = request.clone();
+    naming.infer_defaults();
+    let naming = super::super::effective_public_workflow_request(&naming);
+    let candidate = super::super::resident_sql::typed_statement(statement, &naming, true);
+    if matches!(candidate, std::borrow::Cow::Borrowed(_)) {
+        return Ok(None);
+    }
+    let uris = sources
+        .bound
+        .get(&path)
+        .ok_or_else(|| failed("SQL source is not resolved"))?;
+    let [uri] = uris.as_slice() else {
+        return Ok(None);
+    };
+    let (primitive, _) = super::super::native_vortex_request_and_arg(
+        &naming,
+        super::super::PublicVortexPrimitive::Aggregate,
+        uri.clone(),
+    )?;
+    let source = shardloom_vortex::local_primitives::prepared_dispatch::prepare_source_in_session(
+        &primitive,
+        native_vortex_materializing_policy(request)?,
+        session,
+        cancellation,
+    )?;
+    let extended =
+        shardloom_vortex::local_primitives::prepared_dispatch::request_requires_relational(
+            &source, &primitive,
+        )?;
+    schemas.register_prepared_source(uri, source)?;
+    // Extended types already used shared names, except for the established
+    // signed arithmetic compatibility rule. Keep that distinction unchanged.
+    let statement = super::super::resident_sql::typed_statement(statement, &naming, !extended);
+    if matches!(statement, std::borrow::Cow::Borrowed(_)) {
+        return Ok(None);
+    }
+    let allowance = statement
+        .len()
+        .checked_mul(1024)
+        .and_then(|n| n.checked_add(65_536))
+        .and_then(|n| u64::try_from(n).ok())
+        .and_then(|n| metadata.bytes().checked_add(n))
+        .ok_or_else(|| failed("SQL output-name metadata overflow"))?;
+    metadata.resize(allowance)?;
+    let named = crate::native::NativeRelationDeclaration::sql(&statement, Vec::new())?;
+    if named.sources != declaration.sources || named.dynamic != declaration.dynamic {
+        return Err(failed("SQL output naming changed the source declaration"));
+    }
+    Ok(Some(named))
 }
 
 /// General commands reuse the same owner as embedded plans and retained results.

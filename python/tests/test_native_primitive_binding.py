@@ -1210,7 +1210,7 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                 }],
             )
             self.assertEqual(
-                partitioned.report["local_primitive_aggregate_result_serialized_json_round_trip"], "false"
+                partitioned.report["native_result_serialized_json_round_trip"], "false"
             )
             session = self.native.Session(self.native.ExecutionResources(self.memory_bytes, self.max_parallelism))
             try:
@@ -1497,10 +1497,11 @@ class NativePrimitiveBindingTests(unittest.TestCase):
                     [self.pa.int64()] * len(fields),
                 )
                 self.assertEqual(collected_table.to_pylist(), expected)
-                self.assertIn(
-                    "partitioned_row_ref_final_k_materialization;reason=wide_output_projection",
-                    collected.report["local_primitive_late_materialization_status"],
-                )
+                # Collections now compose ordinary native scan/sort operators.
+                # Do not claim the removed whole-query partitioned optimization.
+                proof = collected.report["local_primitive_native_io_pushdown_proof_basis"]
+                self.assertIn("native_execution_pipeline=native_operator_pipeline", proof)
+                self.assertIn("native_pipeline_catch_all_execution=false", proof)
                 del collected, collected_table
 
                 with plan.iter_batches() as stream:
