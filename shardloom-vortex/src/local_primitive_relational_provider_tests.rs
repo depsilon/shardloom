@@ -144,7 +144,7 @@ fn prepared_file_prefix_requires_every_projected_integer_to_be_a_sort_key() {
                     .split_whitespace()
                     .any(|field| field
                         == format!("streaming_ordering_prefix_rows_validated={expected}")),
-                "expected the prefix to validate {expected} fixture rows: {proof}"
+                "expected the prefix to validate {expected} fixture rows"
             );
             assert!(proof.split_whitespace().any(|field| field
                 == format!(
