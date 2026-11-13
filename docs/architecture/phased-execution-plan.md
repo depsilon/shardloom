@@ -258,9 +258,14 @@ Current autonomous execution order:
   then closes verified omissions through existing item-20/RFC-0044 owners.
   Planning-only features, missing evidence and unimplemented mechanisms remain
   uncovered. Preserve existing semantic/resource gates, rejected candidates and
-  the invalid direct COUNT baseline. PR #1683's hosted acceptance remains a
-  separate prerequisite; item 19, item 20 and CG-1 through CG-23 are not closed
-  by this priority or by file-kernel invocation counts.
+  the invalid direct COUNT baseline. PR #1683 merged as `72680743a34a5db9`.
+  The first six integration fixes at `9f4580c72` pass the original 10,000-case
+  corpus and the separately requested 347-case cohort; the
+  [source-bound observations](../benchmarks/native-optimization-coverage-2026-11-13.md)
+  do not establish complete optimization coverage. Downstream column demand
+  through Sort is the next implemented connection under validation. Continue
+  the query-by-query work; current admission restrictions do not close missing
+  opportunities. Item 19, item 20 and CG-1 through CG-23 remain open.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the

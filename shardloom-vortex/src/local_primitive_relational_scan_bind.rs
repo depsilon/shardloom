@@ -82,6 +82,12 @@ impl Binder<'_> {
                 self.narrow_source_demand(child, needed)?;
                 input.fields.clone_from(&child.fields);
             }
+            NodeKind::Sort {
+                input: child, spec, ..
+            } => {
+                self.narrow_sort_demand(child, spec, needed)?;
+                input.fields.clone_from(&child.fields);
+            }
             NodeKind::Project {
                 input: child,
                 expressions,
@@ -152,6 +158,32 @@ impl Binder<'_> {
             NodeKind::Scan { .. } => self.narrow_scan_columns(input, needed)?,
             _ => {}
         }
+        Ok(())
+    }
+
+    fn narrow_sort_demand<'name>(
+        &mut self,
+        input: &mut Node,
+        spec: &mut native::native_relational_sort::Spec,
+        needed: impl IntoIterator<Item = &'name str>,
+    ) -> Result<()> {
+        // Ordering needs every key and its complete row population, but an
+        // owned demanded source need not read unused payload. Child projections
+        // retain computed expressions, including their observable errors.
+        self.charge_named_fields(&input.fields)?;
+        let columns: BTreeSet<String> = needed
+            .into_iter()
+            .map(str::to_owned)
+            .chain(spec.names.iter().cloned())
+            .collect();
+        self.narrow_source_demand(input, columns.iter().map(String::as_str))?;
+        spec.unobserved_fields.clear();
+        for (index, (name, _)) in input.fields.iter().enumerate() {
+            if input.carries_unobserved(name) {
+                spec.unobserved_fields.push(index);
+            }
+        }
+        spec.fields.clone_from(&input.fields);
         Ok(())
     }
 
@@ -295,6 +327,7 @@ impl Binder<'_> {
             NodeKind::Filter { input, .. }
             | NodeKind::Limit { input, .. }
             | NodeKind::Project { input, .. }
+            | NodeKind::Sort { input, .. }
             | NodeKind::Window { input, .. } => self.scan_accepts_source_demand(input),
             NodeKind::Pipeline { input, stages } => {
                 stages.iter().all(|stage| {

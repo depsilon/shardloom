@@ -28,6 +28,9 @@ mod prefix_tests;
 #[path = "local_primitive_relational_source_demand_pipeline_tests.rs"]
 mod pipeline_tests;
 
+#[path = "local_primitive_relational_source_demand_sort_tests.rs"]
+mod sort_tests;
+
 #[path = "local_primitive_relational_source_demand_collection_tests.rs"]
 mod collection_tests;
 #[path = "local_primitive_relational_source_demand_window_tests.rs"]

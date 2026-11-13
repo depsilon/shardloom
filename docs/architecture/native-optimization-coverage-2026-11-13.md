@@ -20,12 +20,15 @@ file kernels are not denominators for all optimization. The 10,000 correct
 native results establish the frozen corpus's execution and correctness result;
 they do not establish that every applicable optimization ran.
 
-An optimization may legitimately be inapplicable because of semantic, physical,
-resource, lifecycle or effect constraints. Such an exclusion needs an explicit
-condition and a negative control. It must not conceal a missing implementation.
-Two competing algorithms need an admitted selection policy; invoking both is
-not a coverage requirement. An applied mechanism's work counters do not prove
-its individual speed benefit.
+The maintainer's follow-up makes this a query-by-query integration obligation.
+A current admission restriction is not a completed optimization opportunity:
+establish what work remains, connect the existing mechanism where possible,
+and keep missing implementations open. Required keys, observed computations,
+complete input populations and effects still define the answer the engine must
+preserve. An operator that needs every input field has no unused-column work
+to remove; that fact must be established from its dependencies, not inferred
+from a missing counter. Competing algorithms need an admitted selection policy.
+An applied mechanism's work counters do not prove its individual speed benefit.
 
 ## Scope and source baseline
 
@@ -70,6 +73,13 @@ retention, spill and writer owners before a whole-engine completion claim.
 
 ## First implementation unit: equivalent pipeline forms
 
+Implemented locally at `9f4580c723f876f087d3e75fb56153b4b099ef20`. The
+[original 10,000-case pass and requested 347-case pass](../benchmarks/native-optimization-coverage-2026-11-13.md)
+preserve the exact measured source and complete-result verification. This closes
+the first six integration gaps above, not the broader coverage request. PR #1683
+merged separately as `72680743a34a5db95f748045ca7939f5c3c739fd`; that merge does
+not include these later local changes.
+
 Use a borrowed view of existing bound nodes and flat stages for file-kernel
 recognition. The view is semantic inspection only: it does not execute, clone
 bound programs, create a second engine, or restore whole-query retry. Keep
@@ -93,7 +103,7 @@ balanced AND construction prevent long flat filters from forming deep trees.
 
 The single-stage native-memory output window retains the same one-projection
 admission, exact partition, two-slot acknowledgment and byte bounds. Multi-stage
-admission remains a separate existing exclusion. An empty filtered COUNT uses
+admission remains unextended work. An empty filtered COUNT uses
 the authoritative source population and completed scan, with no fabricated read
 or decode work; missing source/scan proof continues to block certification.
 
@@ -103,6 +113,32 @@ providers already own physical values and I/O. This change concerns ShardLoom's
 bound relational declaration forms; no upstream dependency or provider API is
 added. Vortex-native input/output, exact result semantics, source-generation
 checks, cancellation, credited ownership and terminal failures remain required.
+
+## Next connection: downstream demand through Sort
+
+The owned-source column-demand walker stopped at an already-bound Sort. A
+downstream projection therefore could not remove unused payload fields from
+the Sort input or source. The new connection combines downstream fields with
+every sort key, recursively narrows the existing child, and rebinds Sort's
+fields and raw-field observation indices. It does not push a row prefix across
+sorting. Unused computed expressions, hidden keys, complete input consumption,
+late failures, stable ties, null ordering and source validation remain required.
+
+Two regression cases fail before the connection: an unused corrupt Parquet
+column is read, and a nullable ordering case reads three columns instead of two.
+After the connection, all 109 source-demand tests pass, including the four new
+tests for those cases, late key/computation failures, empty results, and raw
+vector output ownership. Broader validation and measured work reduction are
+separate acceptance steps.
+
+An independent reconstruction of all 10,000 frozen declaration identities finds
+606 Parquet/Arrow IPC queries with downstream Project demand reaching Sort
+through Limit. Retaining hidden keys and every computed projection means only
+117 of those declarations can narrow their source columns: 82 Parquet and 35
+Arrow IPC ordering queries. The other 489 require their existing fields. These
+are static dependency results; they are not observations of the new runtime or
+a speed claim. The earlier 5,309 count described operators feeding Sort and
+must not be used as the affected-query count.
 
 ## Acceptance and remaining work
 
@@ -120,8 +156,9 @@ checks, cancellation, credited ownership and terminal failures remain required.
   observations where they answer the question; do not relabel historical runs
   as evidence for new code or add unapproved benchmark repeats.
 - Expand the mechanism/opportunity inventory through the remaining owners and
-  close verified gaps before claiming complete optimization coverage. Record
-  unknown, missing and legitimate exclusions separately from executed work.
+  close verified gaps before claiming complete optimization coverage. Keep
+  missing connections, unimplemented mechanisms and unproved work savings open;
+  an admission restriction alone does not close them.
 
 This unit does not close item 19, item 20, RFC 0044 or CG-1 through CG-23. Existing
 correctness and benchmark gates, including CG-5 and CG-6 for competitive claims,
