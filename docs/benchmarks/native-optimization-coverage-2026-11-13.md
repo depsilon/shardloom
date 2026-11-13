@@ -2,10 +2,11 @@
 
 # Native optimization coverage: retained observations
 
-Status: both requested observations are complete and correct at source
+Status: the two original requested observations are complete and correct at source
 `9f4580c723f876f087d3e75fb56153b4b099ef20`, tree
 `30f702666a8d28c901e0e6806743fd1f23d0f7df`. They precede the subsequent Sort
-demand connection and do not establish complete optimization coverage. The
+demand connections. The later, separately measured cohorts below are retained
+with their own source identities. None establishes complete optimization coverage. The
 [active contract](../architecture/native-optimization-coverage-2026-11-13.md)
 retains the existing and planned implementation obligations.
 
@@ -79,7 +80,7 @@ file kernel. Thus a file-kernel count cannot explain their performance or
 establish whether later, more varied declarations receive every useful
 optimization.
 
-## Validation and remaining scope
+## Original observed-source validation
 
 The measured source passed formatting, strict default and native workspace
 Clippy, 3,325 default tests, 172 focused native integration tests, 1,567 native
@@ -92,7 +93,117 @@ records remain in the validation history.
 The first implementation unit addresses equivalent flat/nested declarations,
 source demand, alias pushdown, rolling demand, the single-projection credit
 window and empty filtered COUNT certification. Remaining operator connections
-and planned mechanisms are still work to complete. The subsequent Sort demand
-change is not part of either runtime measured here. Item 19, item 20, RFC 0044
-and CG-1 through CG-23 remain open; no competitive superiority claim follows
-from these observations.
+and planned mechanisms are still work to complete. The subsequent connections
+below are not part of either original observation above.
+
+## Shared source-demand connections
+
+Both cohorts are frozen from declaration shapes before candidate execution.
+They reuse the exact original case IDs, input generations, independent expected
+results and public worker. The [original expanded-corpus design](native-expanded-query-2026-11-03.md)
+defines the profile schemas and populations. Execution uses two threads, a
+2 GiB native grant, one attempt per case and no warmups or cache manipulation;
+the cache state is uncontrolled. Full source/input inventories run before and
+after queries, with lightweight storage, workload, deadline and cleanup guards
+during execution. All other task work is idle during each candidate pass.
+
+| Connection and measured source | Cases | Baseline engine seconds | Candidate engine seconds |
+| --- | ---: | ---: | ---: |
+| Sort demand, `cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8` | 606 | 85.218734162 | 45.164316757 |
+| Cardinality/unary demand, `c79f27a8222e7a1fe5009b07a2a19c1c9dd387bb` | 213 | 19.627180451 | 18.502198420 |
+
+Every complete result and schema passes independent replay, with the common
+native pipeline, no catch-all execution and no external fallback. The cohorts
+have no overlapping IDs. Their baseline observations retain the original `9f4580c72`
+source identity; they are not relabeled as current executions. For cardinality,
+the baseline-reuse proof checks that the intervening production change only
+connects downstream demand through Sort and that all affected declarations are
+in the disjoint 606-case cohort. The two engine totals must not be combined into
+a synthetic current full-corpus result. One observation per runtime does not
+establish repeatability.
+
+### Sort demand
+
+The selection contains all 606 Parquet/IPC declarations with downstream Project
+demand reaching Sort through Limit, including controls. It spans 429 Parquet and
+177 Arrow IPC cases across all five interfaces: 126 embedded workflows, 110
+Python SQL, 131 typed relations, 132 CLI SQL and 107 DataFrame requests.
+
+| Prospective group | Cases | Baseline engine seconds | Candidate engine seconds |
+| --- | ---: | ---: | ---: |
+| Newly narrowed | 98 | 52.121035209 | 12.557384620 |
+| Already narrowed | 19 | 3.087769543 | 3.024694083 |
+| All fields required | 489 | 30.009929410 | 29.582238054 |
+
+All 606 source-column counts match their required dependencies. Among the 98
+newly narrowed cases, physical reads decrease in 69, increase in two and remain
+unchanged in 27 IPC cases. All 508 controls report unchanged physical bytes.
+The independent metadata-only decision review finds nineteen prior ranked-read
+admissions: eleven remain admitted and eight decline under the unchanged strict
+worst-case compressed-byte cost rule after projection narrows. This explains
+the selected policy; it does not prove that policy is optimal or remove the two
+observed increases.
+
+The 489 all-fields-required controls add 32–64 KiB of conservative binding
+reservations, with peak increases no larger than 128 KiB. Across the entire
+cohort, the largest peak/retained native-credit increases are 327,169/175,369
+bytes. No denied reservation or spill occurs. Credits measure owned native
+reservations, not process RSS. These costs remain part of the accepted result.
+
+### Cardinality and unary demand
+
+The selection contains all 196 expansion declarations and all seventeen scalar
+argument-free counts. It spans 97 Parquet, 38 Arrow IPC and 78 Vortex cases, with
+53 Python SQL, 45 embedded workflow, 41 typed relation, 38 CLI SQL and 36
+DataFrame requests. It includes all 96 remaining extra-column observations from
+the dependency audit, plus 117 controls.
+
+| Prospective group | Cases | Baseline engine seconds | Candidate engine seconds |
+| --- | ---: | ---: | ---: |
+| Newly narrowed | 96 | 11.806045532 | 10.802229006 |
+| Already narrowed | 38 | 0.736060747 | 0.667655748 |
+| Metadata COUNT control | 1 | 0.000110083 | 0.000121459 |
+| Native Vortex controls | 78 | 7.084964089 | 7.032192207 |
+
+All 135 comparable Parquet/IPC column counts match the frozen dependency demand.
+All 96 targeted cases narrow; none expands. Physical reads decrease in 67 and
+remain unchanged in 29. The other 39 comparable controls have unchanged read
+bytes. Native Vortex controls lack this generic per-source read counter; their
+unavailable counts must not be reported as zero reads or completed coverage.
+
+One newly narrowed case, four already-narrowed cases, the metadata-count control
+and fifteen Vortex controls have higher individual engine times. The complete
+cohort and newly narrowed group both improve. The largest peak/retained native
+credit increases are 105,151/47,807 bytes; no denied reservation or spill occurs.
+Required-list retention, hidden predicates and new binding metadata remain
+charged. Pressure, cancellation, late failures and final refunds are separately
+covered by the focused and complete native tests.
+
+### Connection validation and portable proof
+
+Sort passes complete default/native formatting, strict Clippy and tests, with
+3,325 default and 7,128 native workspace tests. Cardinality/unary passes the
+same gates with 3,325 default and 7,139 native workspace tests, including all
+eleven new regressions. The latter full native library has 4,166 passes and
+36 intentional ignores; the full native workspace has 39 intentional ignores.
+Each release artifact passes all 442 installed-package tests with zero skips.
+Checks, builds and installed proofs bind the exact source files for their own
+measured commit. Later documentation changes do not relabel those runtimes.
+
+The [portable connection packet](evidence/native-optimization-connections-2026-11-13/README.md)
+contains 168 archived members. Its standard-library verifier checks exact
+declaration/order/identity joins, both saved engine sums, dependency counts,
+full selected certificates, physical work/resource changes and source-bound
+default/native/build/install proof. Relocated replay and eighteen corruption
+controls pass without executing queries. Complete answer/reference ledgers and
+large runtime binaries remain local; this compact verifier does not repeat full
+answer comparison. The first packet's verifier failed because the older
+baseline certificate export intentionally contained only five fields. That
+failure and original packet remain preserved. The revised packet adds complete
+saved baseline certificates for the exact 819-case union, without new queries,
+and rejects optimized Python rather than silently disabling assertion checks.
+
+The [mechanism inventory](../architecture/native-optimization-inventory-2026-11-13.md)
+records the full audit and outstanding integration/decision evidence. These
+connections close 194 specific excessive-column observations. They do not close
+item 19, item 20, RFC 0044 or CG-1 through CG-23, or establish competitive superiority.

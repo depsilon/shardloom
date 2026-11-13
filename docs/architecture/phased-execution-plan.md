@@ -262,10 +262,17 @@ Current autonomous execution order:
   The first six integration fixes at `9f4580c72` pass the original 10,000-case
   corpus and the separately requested 347-case cohort; the
   [source-bound observations](../benchmarks/native-optimization-coverage-2026-11-13.md)
-  do not establish complete optimization coverage. Downstream column demand
-  through Sort is the next implemented connection under validation. Continue
-  the query-by-query work; current admission restrictions do not close missing
-  opportunities. Item 19, item 20 and CG-1 through CG-23 remain open.
+  do not establish complete optimization coverage. Shared Sort demand is
+  retained at `cac86e8b0`: 606 complete cases, with 98 newly narrowed inputs.
+  Cardinality and unary demand are retained at `c79f27a82`: 213 complete cases,
+  with 96 newly narrowed inputs. These disjoint, separately measured cohorts
+  close all 194 excessive-column observations in the Parquet/IPC dependency
+  audit; they are not a new full-corpus observation. The
+  [mechanism inventory](native-optimization-inventory-2026-11-13.md) records
+  existing owners, exact test evidence and remaining work. Continue Vortex
+  demand/validation coverage, per-opportunity decisions, missing current
+  compositions and planned mechanisms. Current admission restrictions do not
+  close missing opportunities. Item 19, item 20 and CG-1 through CG-23 remain open.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
   - Scope: `v1_candidate_pending_feasibility`; the

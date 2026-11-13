@@ -1,0 +1,161 @@
+{
+  "status": "passed",
+  "replay": {
+    "status": "passed",
+    "query_executions": 0,
+    "manifest_sha256": "f1e0565b206dbe8c9439e79e1d03984cf0cbaf1379916333b7d9604cd4d8fdb4",
+    "verified_archive_members": 168,
+    "cohorts": {
+      "sort": {
+        "cases": 606,
+        "source_commit": "cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8",
+        "baseline_engine_seconds": 85.218734162,
+        "candidate_engine_seconds": 45.164316757,
+        "matched_source_column_cases": 606,
+        "newly_narrowed_cases": 98
+      },
+      "cardinality": {
+        "cases": 213,
+        "source_commit": "c79f27a8222e7a1fe5009b07a2a19c1c9dd387bb",
+        "baseline_engine_seconds": 19.627180451,
+        "candidate_engine_seconds": 18.50219842,
+        "matched_source_column_cases": 135,
+        "newly_narrowed_cases": 96
+      }
+    },
+    "combined_engine_total": null,
+    "scope": "Exact saved identities, dependency counts, pipeline records, clocks and source-bound checks. Complete answers were independently replayed locally against original reference ledgers; this portable verifier does not repeat that answer replay or execute queries."
+  },
+  "negative_controls": {
+    "status": "passed",
+    "query_executions": 0,
+    "relocated_replay": {
+      "status": "passed",
+      "query_executions": 0,
+      "manifest_sha256": "f1e0565b206dbe8c9439e79e1d03984cf0cbaf1379916333b7d9604cd4d8fdb4",
+      "verified_archive_members": 168,
+      "cohorts": {
+        "sort": {
+          "cases": 606,
+          "source_commit": "cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8",
+          "baseline_engine_seconds": 85.218734162,
+          "candidate_engine_seconds": 45.164316757,
+          "matched_source_column_cases": 606,
+          "newly_narrowed_cases": 98
+        },
+        "cardinality": {
+          "cases": 213,
+          "source_commit": "c79f27a8222e7a1fe5009b07a2a19c1c9dd387bb",
+          "baseline_engine_seconds": 19.627180451,
+          "candidate_engine_seconds": 18.50219842,
+          "matched_source_column_cases": 135,
+          "newly_narrowed_cases": 96
+        }
+      },
+      "combined_engine_total": null,
+      "scope": "Exact saved identities, dependency counts, pipeline records, clocks and source-bound checks. Complete answers were independently replayed locally against original reference ledgers; this portable verifier does not repeat that answer replay or execute queries."
+    },
+    "controls": [
+      {
+        "control": "optimized_python_disables_assertions",
+        "status": "rejected",
+        "exception": "RuntimeError"
+      },
+      {
+        "control": "byte_integrity_archive",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "byte_integrity_extra",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "byte_integrity_missing",
+        "status": "rejected",
+        "exception": "FileNotFoundError"
+      },
+      {
+        "control": "negative_engine_clock",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "changed_declaration_identity",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "duplicated_case",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "changed_dependency_demand",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "fake_pipeline_counter",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "external_fallback",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "denied_reservation",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incorrect_work_delta",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incorrect_engine_total",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "dropped_native_check",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incomplete_full_native_suite",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "unverified_input_hashes",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "extra_query_attempt",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "unsafe_archive_name",
+        "status": "rejected",
+        "exception": "AssertionError"
+      }
+    ],
+    "controls_rejected": 18,
+    "original_packet_unchanged": true,
+    "helper": {
+      "bytes": 8273,
+      "sha256": "c34a783b6d42617a7b784f7f5481ea2a9f594edd3c3a0926c4b56a7cfa0fb5d0"
+    },
+    "manifest": {
+      "bytes": 48606,
+      "sha256": "f1e0565b206dbe8c9439e79e1d03984cf0cbaf1379916333b7d9604cd4d8fdb4"
+    }
+  }
+}

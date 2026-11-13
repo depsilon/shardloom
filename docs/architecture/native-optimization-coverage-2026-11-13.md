@@ -114,7 +114,7 @@ bound relational declaration forms; no upstream dependency or provider API is
 added. Vortex-native input/output, exact result semantics, source-generation
 checks, cancellation, credited ownership and terminal failures remain required.
 
-## Next connection: downstream demand through Sort
+## Retained connection: downstream demand through Sort
 
 The owned-source column-demand walker stopped at an already-bound Sort. A
 downstream projection therefore could not remove unused payload fields from
@@ -128,17 +128,52 @@ Two regression cases fail before the connection: an unused corrupt Parquet
 column is read, and a nullable ordering case reads three columns instead of two.
 After the connection, all 109 source-demand tests pass, including the four new
 tests for those cases, late key/computation failures, empty results, and raw
-vector output ownership. Broader validation and measured work reduction are
-separate acceptance steps.
+vector output ownership. Complete default/native checks, the release build and
+442 installed-package tests subsequently pass at `cac86e8b0`.
 
 An independent reconstruction of all 10,000 frozen declaration identities finds
 606 Parquet/Arrow IPC queries with downstream Project demand reaching Sort
 through Limit. Retaining hidden keys and every computed projection means only
 117 of those declarations can narrow their source columns: 82 Parquet and 35
 Arrow IPC ordering queries. The other 489 require their existing fields. These
-are static dependency results; they are not observations of the new runtime or
-a speed claim. The earlier 5,309 count described operators feeding Sort and
-must not be used as the affected-query count.
+were static dependency results. The frozen 606-query observation then passes
+all complete results and all required-column comparisons; 98 previously wide
+cases narrow. Engine time is 85.218734162 to 45.164316757 seconds for that cohort.
+The earlier 5,309 count described operators feeding Sort and must not be used
+as the affected-query count. Physical-read increases and changed ranked-read
+admissions remain in the [observation report](../benchmarks/native-optimization-coverage-2026-11-13.md#shared-source-demand-connections).
+
+## Retained connection: cardinality and unary dependencies
+
+The complete declaration audit finds fourteen filtered COUNT(*) cases choosing
+an unnecessary row carrier and eighty-two list-expansion reductions retaining
+an unused scalar field. The shared binder now chooses an already-required
+predicate field for value-free demand, and propagates output demand through
+bound expansion while retaining every expanded list. All bound unary requests
+may propagate their explicit keys, values, weights and predicates to an owned
+input. The correction also retains hidden predicates that composed unary
+operators execute residually, without leaking them into output.
+
+Name/type binding, computed expressions, zip-length errors, parent-null behavior,
+source population, ranges, completion, cancellation and resource credits remain
+with their existing owners. No prefix is pushed across population-changing
+operators. Prepared Vortex and caller-source validation obligations remain in
+force; the [inventory](native-optimization-inventory-2026-11-13.md#native-vortex-and-validation-obligations)
+records their distinct selected-value and streamed-build boundaries.
+
+At `c79f27a82`, eleven new regressions and all 120 source-demand tests pass,
+followed by complete default/native checks and 442 installed-package tests. The
+frozen 213-query cohort contains all 196 original expansion declarations and
+all seventeen scalar argument-free counts, spanning five interfaces and three
+formats. All complete results pass; all 96 targeted cases narrow and all 135
+comparable source-column counts match. The 78 Vortex controls remain outside
+that counter's scope. Cohort engine time is 19.627180451 to 18.502198420 seconds.
+
+The two cohorts are disjoint and separately source-bound. Their totals are not
+combined into a synthetic current 10,000-query result. The
+[mechanism inventory](native-optimization-inventory-2026-11-13.md) records the
+broader remaining work, including 3,706 Vortex declarations without a comparable
+saved scan contract and missing per-opportunity decisions for other owners.
 
 ## Acceptance and remaining work
 
