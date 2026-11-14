@@ -1,0 +1,74 @@
+{
+  "schema": "shardloom.native_metadata_measure_disposition.v1",
+  "status": "complete_experiment_decline",
+  "disposition": "drop",
+  "original_replay_status": "incomplete_or_invalid_evidence",
+  "original_replay_decision": "not_admitted",
+  "reasons": [
+    "required requested-read reduction witness was not demonstrated",
+    "complete fresh-session engine total was higher"
+  ],
+  "complete_results_replayed": 1274,
+  "complete_lifecycle_operations_replayed": 40,
+  "fresh": {
+    "cases": 637,
+    "complete": true,
+    "baseline_engine_seconds": 11.827542699,
+    "candidate_engine_seconds": 11.858516037,
+    "engine_gain_seconds": -0.030973337999999018,
+    "regressions": 278,
+    "regression_engine_seconds": 0.29697437699999996
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 10,
+    "operations_per_runtime": 20,
+    "baseline_engine_seconds": 0.197566507,
+    "candidate_engine_seconds": 0.10356762700000001
+  },
+  "observed_correctness_resources_native_no_fallback_and_cleanup_passed": true,
+  "work_witness_gate_passed": false,
+  "experimental_source": {
+    "status": "preserved_exact_experimental_source",
+    "disposition": "experimental_not_retained",
+    "head": "6f96504739a5c99a2268d5ac59a4d2de677fb652",
+    "tree": "9ccadec107e95765edba20507f9fcabaf9385717",
+    "parent": "046488dc3431669aba51c9cc16d818b9b5eff3e2",
+    "branch": "codex/native-metadata-measures",
+    "files": [
+      "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "python/tests/native_metadata_measure_cases.py",
+      "python/tests/test_native_shared_provider_binding.py",
+      "shardloom-cli/src/public_workflow_route.rs",
+      "shardloom-vortex/src/local_primitive_aggregate_scan_source.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate_native_tests.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate_partial_native_tests.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate_partial_tests.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate_residual.rs",
+      "shardloom-vortex/src/local_primitive_footer_aggregate_tests.rs",
+      "shardloom-vortex/src/local_primitives.rs",
+      "shardloom-vortex/src/native_provider_memory.rs"
+    ],
+    "patch": {
+      "bytes": 79198,
+      "sha256": "299190a3adf3c89bea6052d09a46346fa82dcd97db51c135ebbf80989e6c2848"
+    },
+    "source_fingerprint_sha256": "179e9f90c26bfc9c12e794af1a1a81c581eed5dc992d4479bb7e6972c22e6404",
+    "source_bytes_equal_to_executed_candidate": true,
+    "runtime_build_head": "046488dc3431669aba51c9cc16d818b9b5eff3e2",
+    "runtime_rebuilt_after_commit": false,
+    "publication_attempted": false
+  },
+  "retained_source_commit": "046488dc3431669aba51c9cc16d818b9b5eff3e2",
+  "inputs": {
+    "metadata-protocol-r1.json": "44b725ff7433d977264ab3cb2eeafe329a7931b57078a37418b9f1c36cc94ff7",
+    "metadata-replay-r1.json": "74dd0f2de67765d851665a3d7694b8b5c835d633db0737d41448573dbe52ac42",
+    "metadata-negative-controls-r1.json": "67c8f1f1bcf3d7ef32a19069260fc12fb949f9c7e535d45ee8fabc2a584ca160",
+    "metadata-work-observations-primary-r1.json": "64b2860c61bea9b0a65d3b26f153505ed4972211b4845bfde3ee0b40e0173a21"
+  },
+  "thresholds_changed": false,
+  "additional_query_executions": 0,
+  "whole_metadata_queue_complete": false,
+  "publication_attempted": false
+}

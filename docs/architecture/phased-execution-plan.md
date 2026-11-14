@@ -334,8 +334,12 @@ once, and do not repeat full10k or broad gates after every small edit.
   Follow the [dependency order](native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables)
   below. Each experiment retains its own decision; shared preparation does not
   combine independent speed claims. The accepted November 14 activation source
-  now satisfies this queue's baseline prerequisite; per-measure completion is
-  the next implementation unit, followed by regional partials and constant keys.
+  now satisfies this queue's baseline prerequisite. The
+  [per-measure experiment is complete and dropped](native-metadata-measure-completion-2026-11-14.md):
+  complete results passed, but requested reads did not decrease and the 637-case
+  fresh engine total increased. The accepted source is restored. Exact regional
+  partials are next, followed by constant keys; neither inherits that experiment's
+  acceptance or requires its dropped implementation.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
     N's dictionary owner and I's consumer boundaries; attach versioned missing
@@ -344,6 +348,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     exact regional partials and constant-group-key completion through the same
     state/finalizer. Keep each semantic admission distinct; missing region
     coverage proof must not block a separately complete per-measure result.
+    The November 14 per-measure experiment has a complete drop disposition;
+    regional and constant-key implementation/evidence remain open.
   - [ ] Extend existing N with dictionary-domain text transforms retained into
     filter/group/distinct consumers and compatible shared outputs.
   - [ ] Extend C with only the exact source/domain facts required by the named

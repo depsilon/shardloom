@@ -11,8 +11,12 @@ runtime filters, skew handling and cross-query reuse. The
 
 The [November 14 activation unit](../benchmarks/native-optimization-activation-2026-11-14.md)
 is locally accepted at `f414d9dd3`, with complete comparison, lifecycle and
-portable proof. It supplies the valid baseline required below. Per-measure
-metadata completion is next; broader coverage obligations remain open.
+portable proof. It supplies the valid baseline required below. The
+[per-measure experiment](native-metadata-measure-completion-2026-11-14.md) is now
+complete and dropped: all complete results passed, but requested reads did not
+decrease and the complete fresh engine total increased. Its source and evidence
+are preserved; the accepted implementation is restored. Exact regional partials
+are next, followed by constant grouping keys. Broader coverage remains open.
 
 The supplied research describes source checked at `72680743a34a5db9`, after
 PR #1683. It is an intake, not fresh validation of later implementation. Recheck
@@ -54,7 +58,7 @@ delta review of existing evidence, not another whole-engine inventory phase.
 
 | Execution order | Work and existing owner | Why it belongs here |
 | --- | --- | --- |
-| First | Per-measure metadata completion, then exact regional partials and constant grouping keys | All extend the same aggregate state/finalizer. Prove residual measures first, then disjoint region coverage, then weighted group attachment. Each has its own acceptance decision. |
+| First | Per-measure experiment dropped; exact regional partials next, then constant grouping keys | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Prove disjoint region coverage, then weighted group attachment; keep each acceptance decision separate. |
 | Next | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |
 | Next | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |
 | Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
@@ -79,6 +83,12 @@ validation membership rejection is not source scan pruning. The older D and
 recommendation-13 obligations therefore retain their distinct missing work.
 
 ### Per-measure metadata completion
+
+The [November 14 experiment](native-metadata-measure-completion-2026-11-14.md)
+has a complete drop disposition. This section retains its intended contract,
+not a claim that the candidate ships. A new attempt would require a distinct
+mechanism or exposure basis and a new prospective decision; the old observations
+and gates remain unchanged.
 
 Extend the existing footer aggregate and shared aggregate state/finalizer so
 one unresolved measure does not discard independent exact metadata answers.

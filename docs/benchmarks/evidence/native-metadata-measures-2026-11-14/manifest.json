@@ -1,0 +1,116 @@
+{
+  "schema": "shardloom.native_metadata_closeout_packet.v1",
+  "files": {
+    "README.md": {
+      "bytes": 2134,
+      "sha256": "bb3c426f61861add542ad1ec6a5a680496ca5a33f863671de18bafd607b5b6c0"
+    },
+    "packet/README.md": {
+      "bytes": 2085,
+      "sha256": "823f36fc1f2011971b1ab98ca428d74e13a567bd1f32b845d7bdbf8887b2b4cb"
+    },
+    "packet/evidence.tar.gz.part-001": {
+      "bytes": 50331648,
+      "sha256": "1aa641fcf998f1f15172a38e0825e81028c952b21d368793423084af8036f86c"
+    },
+    "packet/evidence.tar.gz.part-002": {
+      "bytes": 50331648,
+      "sha256": "6691ad134280943cff6a3f6927a79bb3adb761e8136a35fe61914109f8901e5e"
+    },
+    "packet/evidence.tar.gz.part-003": {
+      "bytes": 50331648,
+      "sha256": "93a2e48fb42804104559cb2d2e2e6c6dcc0a37b15df24ac8e57c4400edbf87b1"
+    },
+    "packet/evidence.tar.gz.part-004": {
+      "bytes": 50331648,
+      "sha256": "e81ef9f34c0f414995623dbff494b83c9fda0aad0010ba32207301d5c3693830"
+    },
+    "packet/evidence.tar.gz.part-005": {
+      "bytes": 50331648,
+      "sha256": "3ac9ef0440ddb25e507cf8b1dd2e8aa1081c25a3d8c5d5bafb8cc3cef87457e5"
+    },
+    "packet/evidence.tar.gz.part-006": {
+      "bytes": 50331648,
+      "sha256": "ed1b2e14c53a65e3e97a6ec178b7977543ddb8021e5c68f1641035e0db42de63"
+    },
+    "packet/evidence.tar.gz.part-007": {
+      "bytes": 42079563,
+      "sha256": "60e66ccfddfb839b145c48ee58998d2ba1bf786fcb305f64633eafc8ccc93115"
+    },
+    "packet/manifest.json": {
+      "bytes": 4893749,
+      "sha256": "db5810c537349b4f2f6b08d1ebca62ddb4187325369d20311e953cc27dc19412"
+    },
+    "packet/verify.py": {
+      "bytes": 20772,
+      "sha256": "0e6af4f3046e3c4d4bb72d5defd30d389bdf09524464da9915a051dcd86b69fb"
+    },
+    "supplement/logs/metadata-package-r1.log": {
+      "bytes": 871,
+      "sha256": "69afa06cd4983f1cea988699bec7e96e648d00c21d80522b22aa1f9e70b7e4c3"
+    },
+    "supplement/logs/metadata-package-r2.log": {
+      "bytes": 155,
+      "sha256": "7d031ce22985237603eae9455a9c9c1f1f82f9c4f3f137dc3a7660d96b8dffbc"
+    },
+    "supplement/logs/metadata-packet-controls-r2.log": {
+      "bytes": 69,
+      "sha256": "1999bd512579c3ced9720eeca0ef8fbb185b018f3ca7b83c6beba719a786402d"
+    },
+    "supplement/metadata-control-extraction-cleanup-r1.json": {
+      "bytes": 408,
+      "sha256": "758db3006b467b8aa02c93d54672d01e9235f16f4e0dfe4ce9fb148026cfc8e7"
+    },
+    "supplement/metadata-disposition-r1.json": {
+      "bytes": 3403,
+      "sha256": "b783918beb2704835df51e8959e9eee27401680b678366f16a192a11771ec3f4"
+    },
+    "supplement/metadata-package-r1.json": {
+      "bytes": 1015258,
+      "sha256": "6fd647c4016fe04d9ce7a04dc8e9475e9e9ff88dbbf6c125343e88d2c1fde212"
+    },
+    "supplement/metadata-package-r2.json": {
+      "bytes": 1015257,
+      "sha256": "8709d4da8150a602b27c76ed604911b6dc482bd73862e2f16736e84b43356f2b"
+    },
+    "supplement/metadata-packet-control-failure-r1.json": {
+      "bytes": 461,
+      "sha256": "f7f5f69ed56ca055cacddc1da04157848d6061e5054a791290a7f7ea69e79796"
+    },
+    "supplement/metadata-packet-controls-r1.json": {
+      "bytes": 6515,
+      "sha256": "b368a87d29a0e0f521d962ce3b2d2b81fb82a953e5e6cbef82954d5d7eebaf3d"
+    },
+    "supplement/metadata-packet-controls-r2.json": {
+      "bytes": 1015243,
+      "sha256": "fd03a9246219e629356c03c2f659c5fed98676cf09133a5e2946e5da96114878"
+    },
+    "supplement/metadata-packet-relocated-r2.json": {
+      "bytes": 1025,
+      "sha256": "9969b0e6815a2c1038d8b9b4e5359d310b4f79edc94c7e6d3f98f7d7d805db53"
+    },
+    "supplement/metadata-portable-replay-r1.json": {
+      "bytes": 889,
+      "sha256": "1a9973769a0de2e0d4d5af725261ab02dda7c233fe95d8d9ccbc3adc223958f6"
+    },
+    "supplement/metadata-source-restoration-r1.json": {
+      "bytes": 985,
+      "sha256": "761ec2bd7ce4401c9fac90b7813528185fc24be11f1cc82865d23c3acade8387"
+    },
+    "supplement/test_metadata_packet.py": {
+      "bytes": 10883,
+      "sha256": "1b306f154e69247fcb326a509d420b8b393b72f967dbe75a4f10b04b8d86bdc3"
+    },
+    "supplement/test_metadata_packet_v1.py": {
+      "bytes": 10540,
+      "sha256": "2381169b82b0cb8aa2e83465c765b6e7546c6c1ca7998c91118fa098be8f185c"
+    },
+    "verify.py": {
+      "bytes": 4208,
+      "sha256": "06540ef9d257230190d117b4dc025231508b38ad47a3aa6c6446d9e164cdba54"
+    }
+  },
+  "original_packet_moved_without_changes": true,
+  "query_executions": 0,
+  "publication_attempted": false
+}
