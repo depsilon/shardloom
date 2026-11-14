@@ -138,6 +138,9 @@ mod native_numeric_owner;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_payload.rs"]
 pub(crate) mod native_payload;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitive_regional_aggregate.rs"]
+mod regional_aggregate;
 #[cfg(all(test, feature = "vortex-local-primitives", unix))]
 #[path = "local_primitive_sort_memory_tests.rs"]
 mod sort_memory_tests;
@@ -15045,6 +15048,8 @@ impl ResidualPredicateMaterialization {
 struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
     metadata_completed: bool,
+    // Actual auxiliary table arrays; these are not source payload batches.
+    auxiliary_metadata_arrays: u64,
     scan_columns: Option<VortexLocalPrimitiveScanColumns>,
     result_summary: String,
     state_budget: VortexLocalPrimitiveStateBudgetReport,
@@ -18975,8 +18980,12 @@ fn simple_aggregate_report(
     let metadata_completed = aggregate.metadata_completed;
     let empty_provider_filter_work =
         !metadata_completed && scan.empty_provider_filter_work(request.predicate.as_ref())?;
-    let data_work = !metadata_completed && (scan.data_read() || empty_provider_filter_work);
-    let scan_scope = if empty_provider_filter_work {
+    let auxiliary_metadata_work = aggregate.auxiliary_metadata_arrays != 0;
+    let data_work = !metadata_completed
+        && (auxiliary_metadata_work || scan.data_read() || empty_provider_filter_work);
+    let scan_scope = if auxiliary_metadata_work {
+        " scan_side_effect_scope=native_auxiliary_metadata_arrays;source_payload_work_reported_separately"
+    } else if empty_provider_filter_work {
         " scan_side_effect_scope=provider_filter_may_read_decode_materialize_not_observed_bytes"
     } else {
         ""
@@ -21666,11 +21675,28 @@ fn execute_lowered_vortex_simple_aggregate_scan(
     let mut provider_resume_after_pair_retirement = false;
     let mut aggregate_timing = aggregate_timing::AggregateFirstPassTiming::default();
 
+    #[cfg(unix)]
+    let regional = if input_scan_required && let Some(states) = scalar_states.as_mut() {
+        file.complete_regions(request, lowering, states, session, runtime, cancellation)?
+    } else {
+        None
+    };
+    #[cfg(unix)]
+    let regional_ranges = regional.as_ref().map(|plan| plan.ranges.values.as_slice());
+    #[cfg(not(unix))]
+    let regional_ranges: Option<&[std::ops::Range<u64>]> = None;
+    let input_scan_required =
+        input_scan_required && regional_ranges.is_none_or(|ranges| !ranges.is_empty());
     let mut pre_limit_result_row_count = if metadata_completion.is_some() {
         usize::try_from(source_row_count).map_err(vortex_error)?
     } else {
         0
     };
+    #[cfg(unix)]
+    if let Some(regional) = &regional {
+        pre_limit_result_row_count =
+            usize::try_from(regional.metadata_rows).map_err(vortex_error)?;
+    }
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
     let mut max_chunk_rows = 0usize;
@@ -21752,7 +21778,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         scan = scan
             .with_residual_evidence(residual_predicate.as_ref())
             .with_concurrency(policy.scan_concurrency_per_worker());
-        let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
+        let mut scan = scan
+            .into_array_iter_for_ranges(runtime, session, regional_ranges)
+            .map_err(vortex_error)?;
         loop {
             check_cancelled()?;
             if let Some(workers) = scalar_workers.as_mut() {
@@ -22592,6 +22620,14 @@ fn execute_lowered_vortex_simple_aggregate_scan(
     if let Some(completion) = &metadata_completion {
         completion.annotate(&mut result_summary)?;
     }
+    #[cfg(unix)]
+    if let Some(regional) = &regional {
+        regional.annotate(
+            &mut result_summary,
+            pre_limit_result_row_count,
+            arrays_read_count,
+        )?;
+    }
     numeric_accessor_work.annotate(&mut result_summary)?;
     annotate_simple_aggregate_rewrite_summary(&mut result_summary, aggregate_plan)?;
     annotate_simple_aggregate_layout_correlation_summary(&mut result_summary, &embedded_layout)?;
@@ -22644,6 +22680,10 @@ fn execute_lowered_vortex_simple_aggregate_scan(
     check_cancelled()?;
     Ok(LocalVortexAggregateScan {
         metadata_completed: metadata_completion.is_some(),
+        #[cfg(unix)]
+        auxiliary_metadata_arrays: regional.as_ref().map_or(0, |plan| plan.metadata_arrays),
+        #[cfg(not(unix))]
+        auxiliary_metadata_arrays: 0,
         scan_columns: None,
         scan: LocalVortexScan {
             source_row_count,
@@ -23476,6 +23516,7 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
         plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits);
     Ok(LocalVortexAggregateScan {
         metadata_completed: false,
+        auxiliary_metadata_arrays: 0,
         scan_columns: None,
         scan: LocalVortexScan {
             source_row_count,

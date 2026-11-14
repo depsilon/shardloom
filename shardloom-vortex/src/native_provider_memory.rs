@@ -135,6 +135,14 @@ impl SessionVar for ProviderMemory {
     }
 }
 
+/// Reuse the native session's existing pool for bounded operator metadata.
+#[cfg(unix)]
+pub(crate) fn shared_pool(session: &VortexSession) -> Option<LiveMemoryPool> {
+    session
+        .get_opt::<ProviderMemory>()
+        .map(|owner| owner.memory.clone())
+}
+
 /// Install before constructing execution contexts, which snapshot the registry.
 /// An independent spill session inherits the registered kernels and this marker,
 /// then replaces only its memory owner.

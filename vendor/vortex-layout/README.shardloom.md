@@ -5,6 +5,13 @@ source. `upstream-provenance.json` records the authoritative archive, original
 member hashes, license and dirty upstream revision. The workspace lockfile owns
 dependency resolution; the archive's crate-local lockfile is recorded but omitted.
 
+The November 14 regional-aggregate experiment adds a read-only
+`ZonedLayout::aggregate_functions` getter in `src/layouts/zoned/mod.rs`. It shares
+the already retained typed declarations so ShardLoom can distinguish exact
+integer extrema/null counts from other summaries without trusting display names.
+It changes neither stored metadata nor provider execution. The experimental
+contract is `docs/architecture/native-regional-aggregates-2026-11-14.md`.
+
 ShardLoom changes `src/layouts/file_stats.rs` to retain one running native
 statistics tree in stream order, instead of parallel per-chunk partial trees. Unknown observations
 and overflow invalidate a statistic; an all-null batch does not invalidate a

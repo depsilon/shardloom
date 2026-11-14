@@ -2386,6 +2386,20 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
             from native_metadata_count_cases import check_counts_and_outputs
         check_counts_and_outputs(self)
 
+    def test_regional_vortex_aggregate_partials_all_five_surfaces(self):
+        if __package__:
+            from .native_regional_aggregate_cases import check_surfaces
+        else:
+            from native_regional_aggregate_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_regional_vortex_aggregate_owned_outputs_survive_source_teardown(self):
+        if __package__:
+            from .native_regional_aggregate_cases import check_owned_outputs
+        else:
+            from native_regional_aggregate_cases import check_owned_outputs
+        check_owned_outputs(self)
+
     def test_direct_parquet_metadata_count_declines_other_aggregate_domains(self):
         if __package__:
             from .native_metadata_count_cases import check_declines

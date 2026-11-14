@@ -105,6 +105,7 @@ pub(in crate::local_primitives) struct Scan<'a> {
     projection: Option<BoundExpression>,
     filter: Option<BoundExpression>,
     residual: Option<&'a PredicateExpr>,
+    concurrency: Option<usize>,
 }
 
 impl<'a> Scan<'a> {
@@ -118,6 +119,7 @@ impl<'a> Scan<'a> {
             projection: None,
             filter: None,
             residual: None,
+            concurrency: None,
         }
     }
 
@@ -138,6 +140,7 @@ impl<'a> Scan<'a> {
 
     pub(in crate::local_primitives) fn with_concurrency(mut self, concurrency: usize) -> Self {
         self.inner = self.inner.with_concurrency(concurrency);
+        self.concurrency = Some(concurrency);
         self
     }
 
@@ -195,6 +198,93 @@ impl<'a> Scan<'a> {
                     .map_err(|error| vortex_err!("{error}"))?;
             }
             Ok(chunk)
+        }))
+    }
+
+    /// Sequence proved native row ranges without expanding them into row IDs.
+    /// The first iterator preserves this builder; later iterators use the same
+    /// held source and bound expressions. Only one iterator is live at a time.
+    /// `None` preserves the original unrestricted scan, including reader wrappers.
+    #[allow(clippy::too_many_lines)]
+    pub(in crate::local_primitives) fn into_array_iter_for_ranges<'r, B: BlockingRuntime>(
+        self,
+        runtime: &'r B,
+        session: &'r vortex::session::VortexSession,
+        ranges: Option<&'r [std::ops::Range<u64>]>,
+    ) -> VortexResult<impl Iterator<Item = VortexResult<ArrayRef>> + use<'a, 'r, B>> {
+        if let Some(ranges) = ranges {
+            let mut end = 0;
+            for range in ranges {
+                if range.start < end
+                    || range.start >= range.end
+                    || range.end > self.source.row_count()
+                {
+                    return Err(vortex_err!(
+                        "aggregate scan ranges overlap or exceed held source rows"
+                    ));
+                }
+                end = range.end;
+            }
+        }
+        let source = self.source;
+        let projection = self.projection.clone();
+        let filter = self.filter.clone();
+        let residual = self.residual;
+        let concurrency = self.concurrency;
+        let mut first = Some(self);
+        let mut next_range = 0;
+        let mut active = None;
+        let mut finished = false;
+        Ok(std::iter::from_fn(move || {
+            loop {
+                if finished {
+                    return None;
+                }
+                if let Some(iter) = active.as_mut() {
+                    if let Some(item) = Iterator::next(iter) {
+                        let item: VortexResult<ArrayRef> = item;
+                        if item.is_err() {
+                            finished = true;
+                            active = None;
+                        }
+                        return Some(item);
+                    }
+                    active = None;
+                }
+                if next_range >= ranges.map_or(1, <[std::ops::Range<u64>]>::len) {
+                    finished = true;
+                    return None;
+                }
+                let mut make = || {
+                    let mut scan = if let Some(scan) = first.take() {
+                        scan
+                    } else {
+                        let mut scan = source.scan(session)?;
+                        if let Some(projection) = &projection {
+                            scan = scan.with_projection(projection.clone());
+                        }
+                        if let Some(filter) = &filter {
+                            scan = scan.with_filter(filter.clone());
+                        }
+                        if let Some(concurrency) = concurrency {
+                            scan = scan.with_concurrency(concurrency);
+                        }
+                        scan.with_residual_evidence(residual)
+                    };
+                    if let Some(ranges) = ranges {
+                        scan = scan.with_row_range(ranges[next_range].clone());
+                    }
+                    scan.into_array_iter(runtime)
+                };
+                match make() {
+                    Ok(iter) => active = Some(iter),
+                    Err(error) => {
+                        finished = true;
+                        return Some(Err(error));
+                    }
+                }
+                next_range += 1;
+            }
         }))
     }
 }

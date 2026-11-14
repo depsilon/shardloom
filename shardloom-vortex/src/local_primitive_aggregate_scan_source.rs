@@ -154,4 +154,30 @@ impl<'a> AggregateScanSource<'a> {
             Self::Owned(_) => Ok(None),
         }
     }
+
+    #[cfg(unix)]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn complete_regions(
+        self,
+        request: &VortexQueryPrimitiveRequest,
+        lowering: &super::aggregate_lowering::AggregateLowering,
+        states: &mut SimpleAggregateStates,
+        session: &VortexSession,
+        runtime: &impl vortex::io::runtime::BlockingRuntime,
+        cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+    ) -> Result<Option<super::regional_aggregate::Plan>> {
+        match self {
+            Self::File(file) | Self::ObservedFile(file, _) => super::regional_aggregate::admit(
+                file,
+                request,
+                lowering,
+                states,
+                session,
+                runtime,
+                cancellation,
+            ),
+            #[cfg(feature = "vortex-write")]
+            Self::Owned(_) => Ok(None),
+        }
+    }
 }
