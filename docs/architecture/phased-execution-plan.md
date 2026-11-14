@@ -343,7 +343,13 @@ once, and do not repeat full10k or broad gates after every small edit.
   operations, ten strict read witnesses and portable replay pass. Fresh engine
   time decreases from 14.828472105 to 13.836163897 seconds, with all 429
   individual regressions preserved; the separate lifecycle total also decreases.
-  Constant keys are next and require their own semantic and cost proof.
+  The separate [constant-key experiment](native-constant-key-aggregates-2026-11-14.md)
+  is complete and dropped: all 5,014 declarations per runtime, exact coverage,
+  ten read witnesses and separate lifecycles pass, but the complete fresh engine
+  total increases from 556.592642154 to 564.033758513 seconds. Its source and
+  portable evidence remain preserved; the accepted scalar-regional code is
+  restored. Dictionary-domain text execution under N is next. Broader
+  constant-key support remains open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
     N's dictionary owner and I's consumer boundaries; attach versioned missing
@@ -354,7 +360,9 @@ once, and do not repeat full10k or broad gates after every small edit.
     coverage proof must not block a separately complete per-measure result.
     The November 14 per-measure experiment has a complete drop disposition,
     and exact scalar regional partials have a complete local retain disposition.
-    Constant-key implementation/evidence remains open; this parent stays open.
+    The fixed constant-key candidate has a complete drop disposition with
+    semantic and read-avoidance proof. Wider constant-key support remains open;
+    this parent stays open and does not request a repeat of the rejected experiment.
   - [ ] Extend existing N with dictionary-domain text transforms retained into
     filter/group/distinct consumers and compatible shared outputs.
   - [ ] Extend C with only the exact source/domain facts required by the named

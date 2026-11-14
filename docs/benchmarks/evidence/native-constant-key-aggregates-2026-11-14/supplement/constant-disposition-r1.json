@@ -1,0 +1,87 @@
+{
+  "status": "complete_experiment_decline",
+  "disposition": "drop",
+  "original_replay_status": "complete_decline",
+  "original_replay_decision": "drop",
+  "reasons": [
+    "complete fresh-session engine total was higher"
+  ],
+  "fresh": {
+    "cases": 5014,
+    "complete": true,
+    "baseline_engine_seconds": 556.592642154,
+    "candidate_engine_seconds": 564.033758513,
+    "engine_gain_seconds": -7.4411163589999205,
+    "regressions": 3211,
+    "regression_engine_seconds": 36.945931144999996
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 10,
+    "operations_per_runtime": 20,
+    "baseline_engine_seconds": 3.3258265000000002,
+    "candidate_engine_seconds": 1.998268543
+  },
+  "thresholds_changed": false,
+  "work_requirements_passed": true,
+  "complete_results_replayed": 10028,
+  "complete_lifecycle_operations_replayed": 40,
+  "additional_query_executions": 0,
+  "whole_investigation_queue_complete": false,
+  "publication_attempted": false,
+  "inputs": {
+    "constant-protocol-r1.json": "7870b1fadfe2fbd510e0062e0aa6d50d1d4ab647b4058d7a4cab559bc1a6ce13",
+    "constant-validation-r1.json": "4350c732e81a1915dd0a9b8184c84a741604fb197b07989b6bc919f665c64c79",
+    "constant-replay-r1.json": "017226b17035dd3ed5bc443ba0d905edbc49a4e75db1e6bf6ddc7de5e6d956a8",
+    "constant-negative-controls-r1.json": "ae2ce58c7a6724945eb7910e8bec102b7361dec60c27ae48f0a7a66f8bbd8669",
+    "constant-source-r1.json": "bffc324cd36716002c21fc36341ae2317bd5f47c3260c72ff689784e09876029",
+    "constant-replay-verification-r1.json": "dee6d159408a181322b3ddc63092a98e270a7adfbf3e3be14214af6276a38a38",
+    "constant-negative-controls-check-r1.json": "5e494413106d09174f049c1db92d388b23491c2581e54112e00b6d98f60be171"
+  },
+  "candidate_source": {
+    "status": "preserved_exact_candidate_source",
+    "disposition": "experimental_not_retained",
+    "head": "b6e9d5d5d6bbd00ad48890795b8fe95b27a1d088",
+    "tree": "30b858f6ce5c8d644b717ff9d4bb9d5022a969c1",
+    "parent": "e5f6728a2002ddd169d0c4fdf591752a7d68c498",
+    "branch": "codex/native-constant-key-aggregates",
+    "files": [
+      "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "python/tests/data/constant-groups-v1/README.md",
+      "python/tests/data/constant-groups-v1/all-null.vortex",
+      "python/tests/data/constant-groups-v1/complete.vortex",
+      "python/tests/data/constant-groups-v1/empty.vortex",
+      "python/tests/data/constant-groups-v1/flat.vortex",
+      "python/tests/data/constant-groups-v1/independent.vortex",
+      "python/tests/data/constant-groups-v1/missing-min.vortex",
+      "python/tests/data/constant-groups-v1/mixed-null.vortex",
+      "python/tests/data/constant-groups-v1/mixed-values.vortex",
+      "python/tests/data/constant-groups-v1/nonnull.vortex",
+      "python/tests/native_constant_group_cases.py",
+      "python/tests/test_native_shared_provider_binding.py",
+      "shardloom-cli/src/public_workflow_route.rs",
+      "shardloom-vortex/examples/fixtures/constant_groups.rs",
+      "shardloom-vortex/examples/native_regional_uat_fixture.rs",
+      "shardloom-vortex/src/local_primitive_aggregate_scan_source.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_coverage.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_coverage_tests.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_group_tests.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_groups.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_native_group_tests.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_native_tests.rs",
+      "shardloom-vortex/src/local_primitives.rs"
+    ],
+    "patch": {
+      "bytes": 144193,
+      "sha256": "9b2e1653f16f68174531bf601f96fc5628c33e30650f3e1f2ee6c5ce33beed32"
+    },
+    "source_fingerprint_sha256": "5456aa37099fba9328cc293b1eb59eab0afcaaf9dca8cb0d6ac4b005371edf1a",
+    "source_bytes_equal_to_executed_candidate": true,
+    "committed_blobs_verified": 5762,
+    "runtime_build_head": "e5f6728a2002ddd169d0c4fdf591752a7d68c498",
+    "runtime_rebuilt_after_commit": false,
+    "publication_attempted": false
+  },
+  "predecessor_commit": "e5f6728a2002ddd169d0c4fdf591752a7d68c498"
+}

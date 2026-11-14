@@ -1,0 +1,132 @@
+{
+  "schema_version": "shardloom.constant_key_documentation_integration_inventory.v1",
+  "worktree": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+  "output_directory": "/Users/dylan/LocalData/shardloom/native-constant-key-aggregates-2026-11-14",
+  "scope": "Read-only inventory of current-status text affected by the fixed constant-key candidate decline and dictionary work becoming next. No worktree files were edited and no tests, builds, queries, or validators were run.",
+  "current_status": {
+    "constant_key_candidate": "complete_decline_drop",
+    "candidate_source_preservation": "running",
+    "next_work": "dictionary-domain text transforms and consumers, extending existing N",
+    "constant_key_capability": "remains open; dropping this fixed candidate does not close the parent metadata/encoded-consumer family or broader queue",
+    "regional_scalar_aggregate": "preserve retained-local status",
+    "evidence_facts_supplied_by_primary": {
+      "cases_per_runtime": 5014,
+      "baseline_observations_reused": 987,
+      "new_baseline_observations": 4027,
+      "candidate_observations_executed_once": 5014,
+      "complete_results_replayed": 10028,
+      "lifecycle_operations_replayed": 40,
+      "fresh_engine_seconds": {
+        "baseline": 556.592642154,
+        "candidate": 564.033758513
+      },
+      "individual_regressions": 3211,
+      "individual_regression_increase_engine_seconds": 36.945931145,
+      "separate_lifecycle_engine_seconds": {
+        "baseline": 3.3258265,
+        "candidate": 1.998268543
+      },
+      "strict_read_witnesses_passed": 10,
+      "negative_controls_passed": 47
+    },
+    "decision_summary": "The lifecycle total improves and all ten strict read witnesses pass, but the complete fresh engine total increases; the fixed candidate is declined/dropped. Preserve every regression and the broader constant-key capability as open."
+  },
+  "current_status_passages_to_change": [
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line_start": 346,
+      "line_end": 346,
+      "literal_stale_text": "Constant keys are next and require their own semantic and cost proof.",
+      "required_update": "Record the fixed constant-key candidate as complete and dropped, retain the capability as open, and identify dictionary-domain text work extending N as next."
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line_start": 351,
+      "line_end": 359,
+      "literal_stale_text": "- [ ] Complete individually proved aggregate measures from metadata, then exact regional partials and constant-group-key completion through the same state/finalizer. Keep each semantic admission distinct; missing region coverage proof must not block a separately complete per-measure result. The November 14 per-measure experiment has a complete drop disposition, and exact scalar regional partials have a complete local retain disposition. Constant-key implementation/evidence remains open; this parent stays open.\n- [ ] Extend existing N with dictionary-domain text transforms retained into filter/group/distinct consumers and compatible shared outputs.",
+      "required_update": "Replace the active constant-key completion step with the fixed candidate's decline/drop disposition and its evidence. Keep scalar regional retention unchanged. Make existing N dictionary-domain text transforms/consumers the next work item; state that the capability and parent metadata family remain open."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line_start": 19,
+      "line_end": 21,
+      "literal_stale_text": "[regional experiment](native-regional-aggregates-2026-11-14.md) is retained locally at `c9baefd00`, with complete result, read-avoidance, lifecycle and portable proof. Constant grouping keys are next. Broader coverage remains open.",
+      "required_update": "Preserve the regional retained-local statement. Add the constant-key candidate's completed drop disposition and identify dictionary-domain N work as next; keep the constant-key capability and broader coverage open."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line_start": 63,
+      "line_end": 64,
+      "literal_stale_text": "| First | Per-measure experiment dropped; exact scalar regional partials retained locally; constant grouping keys next | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Regional disjoint coverage is now proved within its admitted domain; weighted group attachment still needs its own semantic and cost proof. Keep each acceptance decision separate. |\n| Next | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |",
+      "required_update": "Turn the constant-key row into a completed drop/disposition note, not the next active item. Preserve the separate regional retain and its domain limits. Elevate dictionary-domain N from the following row to the next active work."
+    },
+    {
+      "path": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "line_start": 19,
+      "line_end": 21,
+      "literal_stale_text": "native, provider and installed tests pass. Constant-key grouping is next; the broader metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through CG-23 remain open. This local acceptance does not merge or publish the change.",
+      "required_update": "Keep the scalar regional retained-local status and broader queue boundary. Replace the 'constant-key grouping is next' clause with the fixed candidate's drop disposition and dictionary-domain N work next; say wider constant-key support remains open."
+    },
+    {
+      "path": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "line_start": 38,
+      "line_end": 39,
+      "literal_stale_text": "predicates remain on their current native paths. Constant grouping keys are a separate next investigation.",
+      "required_update": "Rephrase this contract boundary so it does not say the now-completed fixed candidate is the next investigation. Keep grouped requests outside the retained scalar regional scope and refer to the separate declined candidate/open capability."
+    },
+    {
+      "path": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "line_start": 96,
+      "line_end": 101,
+      "literal_stale_text": "The later dependency review puts regional partials immediately after per-measure metadata completion. The per-measure experiment is dropped and the distinct [scalar regional unit](native-regional-aggregates-2026-11-14.md) is now retained locally; constant-key grouping is next. The sequence settles I's batch/lifetime contract before FSST/codec tuning and places exact spatial execution before optional spatial summaries.",
+      "required_update": "Preserve the completed per-measure drop and regional local retain. Record constant-key candidate drop and dictionary-domain N as next, while retaining I and spatial dependency ordering."
+    },
+    {
+      "path": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "line_start": 9,
+      "line_end": 12,
+      "literal_stale_text": "The subsequent [regional unit](native-regional-aggregates-2026-11-14.md) is now retained locally at `c9baefd00`; constant-key grouping is next, and the broader item-20/RFC-0044 queue remains open. That separate acceptance does not change this experiment's drop disposition.",
+      "required_update": "Preserve the scalar regional retain and this document's per-measure drop. Replace the constant-key-next status with the subsequent constant-key candidate's drop plus dictionary-domain N work next; keep constant-key capability and broader queue open."
+    },
+    {
+      "path": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "line_start": 5,
+      "line_end": 8,
+      "literal_stale_text": "Status: prospective implementation experiment, following the locally retained [scalar regional unit](native-regional-aggregates-2026-11-14.md) at `e5f6728a2`. Its executed runtime is the accepted comparison baseline. This note does not claim a grouped optimization has passed or close the wider investigation queue.",
+      "required_update": "Replace prospective status with complete decline/drop for this fixed candidate. Summarize the 5,014-per-runtime cohort and fresh total increase; note the separate lifecycle improvement and passing read/negative controls; preserve the scalar regional retain and wider queue boundary. State candidate source preservation is still running and avoid implying a preserved source commit exists."
+    },
+    {
+      "path": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "line_start": 85,
+      "line_end": 98,
+      "literal_stale_text": "Before timing, freeze exact requests, all expected complete references, source/input/runtime identities, observed work witnesses, ownership/resource requirements and the full-cohort retain/drop rule. Reuse exact compatible baseline packets; add versioned missing constant-key/nullable/ordering/layout controls across every public surface. Preserve all slower controls. Require actual fewer requested source bytes for the declared exposure witnesses and strictly lower complete engine time, with any prepared lifecycle population decided separately. Equal or higher totals drop the fixed candidate.\n\nRun focused checks and the required default/native/provider/installed gates at the coherent source boundary. Keep measured execution isolated and execute each frozen declaration once. No new Full43, full10k, competitor pass, writer default, merge, publication or release is authorized by this experiment. Item 19, item 20, RFC 0044 and CG-1 through CG-23 remain open.",
+      "required_update": "Convert prospective freeze/retain-drop instructions into the completed experiment's result and evidence summary, including the stated complete counts, engine totals, regression inventory, lifecycle total and passing witnesses/controls. Preserve the fixed drop and broader-scope limits. Record source preservation as still running; do not report an existing preservation commit. Keep no-merge/publication/release boundaries."
+    }
+  ],
+  "reviewed_passages_that_remain_accurate": [
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line_start": 64,
+      "line_end": 70,
+      "reason": "The dictionary-domain N work is already listed as the next row and its scope remains relevant; its priority should be promoted in the surrounding sequence after the constant-key drop."
+    },
+    {
+      "path": "docs/benchmarks/native-regional-aggregates-2026-11-14.md",
+      "line_start": 78,
+      "line_end": 81,
+      "reason": "The scalar regional decision and the statement that broader constant-key capability remains open are accurate. Keep this historical regional report intact; any note about the subsequent constant-key drop must be clearly separate."
+    }
+  ],
+  "validators": "Not run by assignment; no validator execution was requested.",
+  "source_sha256": {
+    "docs/architecture/phased-execution-plan.md": "08f2dd447009a97a92b2254f35a0914d2fa943de02ade9460133a432fa7acfe8",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": "b9108ce6a64c8a3f1c379a4ce311b014ef2a1d8a98c9199828b23870742428d7",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": "1f60a9239702e23cce8e144c810735acfefd22b967db6e21df7d46212294522c",
+    "docs/benchmarks/native-regional-aggregates-2026-11-14.md": "018e08a0195c40c5cbc1199fca0f19d0eec19241a36501707a1d2de18d104091",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": "eda4ce3089ad2778ee0ae2f0d76981c2a5494bb5f453cb97c6fba0d5051f662a",
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md": "b4664cf73b83661ee9bf80fca4e08571490e4c917be7960c12614a79b3148c87",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": "f2c84488a2a6346d99f0341373e49b9bc31c4ea9af737c743a7bdbe129b17ea8",
+    "prior_inventory/regional-doc-inventory-r1.md": "735a8f5dcebd9c97c86ae1ba4e39addad5e94aa100cab21718957a7593ed4c5b",
+    "prior_inventory/regional-doc-inventory-r1.json": "c295bde56888d3035134e64eca0cab214d5dba35826e1e3111ce6653a731db8a"
+  }
+}

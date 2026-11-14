@@ -1,0 +1,7 @@
+{
+  "returncode": 0,
+  "stdout": "{\"status\": \"passed_complete_portable_replay\", \"query_executions\": 0, \"complete_fresh_results\": 10028, \"complete_lifecycle_operations\": 40, \"baseline_reuse\": 987, \"source_fingerprint_sha256\": \"5456aa37099fba9328cc293b1eb59eab0afcaaf9dca8cb0d6ac4b005371edf1a\", \"external_payloads_not_reopened\": 484, \"fresh\": {\"cases\": 5014, \"complete\": true, \"baseline_engine_seconds\": 556.592642154, \"candidate_engine_seconds\": 564.033758513, \"engine_gain_seconds\": -7.4411163589999205, \"regressions\": 3211, \"regression_engine_seconds\": 36.945931144999996}, \"lifecycle\": {\"complete\": true, \"lifecycles\": 10, \"operations_per_runtime\": 20, \"baseline_engine_seconds\": 3.3258265000000002, \"candidate_engine_seconds\": 1.998268543}, \"disposition\": \"drop\", \"original_replay_decision\": \"drop\", \"negative_controls_bound\": 47}\n",
+  "stderr": "",
+  "original_paths_forbidden": true,
+  "working_directory": "disposable directory outside original source"
+}

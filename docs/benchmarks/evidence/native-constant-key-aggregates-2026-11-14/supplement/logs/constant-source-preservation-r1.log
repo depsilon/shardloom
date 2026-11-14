@@ -1,0 +1,31 @@
+[codex/native-constant-key-aggregates b6e9d5d5d] Preserve rejected constant-key aggregate experiment and tests
+ Committer: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 25 files changed, 2034 insertions(+), 45 deletions(-)
+ create mode 100644 docs/architecture/native-constant-key-aggregates-2026-11-14.md
+ create mode 100644 python/tests/data/constant-groups-v1/README.md
+ create mode 100644 python/tests/data/constant-groups-v1/all-null.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/complete.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/empty.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/flat.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/independent.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/missing-min.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/mixed-null.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/mixed-values.vortex
+ create mode 100644 python/tests/data/constant-groups-v1/nonnull.vortex
+ create mode 100644 python/tests/native_constant_group_cases.py
+ create mode 100644 shardloom-vortex/examples/fixtures/constant_groups.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_regional_aggregate_group_tests.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_regional_aggregate_groups.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_regional_aggregate_native_group_tests.rs
+{"status": "preserved", "head": "b6e9d5d5d6bbd00ad48890795b8fe95b27a1d088", "source_files": 5762, "changed_files": 25, "source_fingerprint_sha256": "5456aa37099fba9328cc293b1eb59eab0afcaaf9dca8cb0d6ac4b005371edf1a"}

@@ -96,9 +96,13 @@ the newer priority does not admit the invalid B baseline or a dropped mechanism.
 The later dependency review puts regional partials immediately after per-measure
 metadata completion. The per-measure experiment is dropped and the distinct
 [scalar regional unit](native-regional-aggregates-2026-11-14.md) is now retained
-locally; constant-key grouping is next. The sequence settles I's batch/lifetime
-contract before FSST/codec tuning and places exact spatial execution before
-optional spatial summaries.
+locally. The subsequent
+[constant-key candidate](native-constant-key-aggregates-2026-11-14.md) has a
+complete drop disposition after the full fresh engine total increases, despite
+semantic, read-reduction and separate lifecycle proof. Dictionary-domain N work
+is next; broader constant-key support remains open. The sequence settles I's
+batch/lifetime contract before FSST/codec tuning and places exact spatial
+execution before optional spatial summaries.
 Reconcile B/C/I/N outcomes from those active units once; the table below is an
 index of hypothesis contracts rather than a second execution sequence. Source
 segment reuse and a post-validation membership filter do not close join-build

@@ -18,7 +18,12 @@ decrease and the complete fresh engine total increased. Its source and evidence
 are preserved; its accepted predecessor was restored. The subsequent
 [regional experiment](native-regional-aggregates-2026-11-14.md) is retained
 locally at `c9baefd00`, with complete result, read-avoidance, lifecycle and
-portable proof. Constant grouping keys are next. Broader coverage remains open.
+portable proof. The subsequent
+[constant-key experiment](native-constant-key-aggregates-2026-11-14.md) is complete
+and dropped: its semantic, read-reduction and lifecycle checks pass, but its
+complete fresh engine total is higher. Its source/evidence are preserved and
+the accepted scalar-regional code is restored. Dictionary-domain N work is next;
+broader constant-key support and coverage remain open.
 
 The supplied research describes source checked at `72680743a34a5db9`, after
 PR #1683. It is an intake, not fresh validation of later implementation. Recheck
@@ -60,8 +65,8 @@ delta review of existing evidence, not another whole-engine inventory phase.
 
 | Execution order | Work and existing owner | Why it belongs here |
 | --- | --- | --- |
-| First | Per-measure experiment dropped; exact scalar regional partials retained locally; constant grouping keys next | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Regional disjoint coverage is now proved within its admitted domain; weighted group attachment still needs its own semantic and cost proof. Keep each acceptance decision separate. |
-| Next | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |
+| Completed finite experiments | Per-measure candidate dropped; exact scalar regional partials retained locally; constant-key candidate dropped | All use the existing aggregate state/finalizer. Regional coverage and the rejected grouped candidate's semantic/read proof remain useful evidence, but only the scalar regional implementation is retained. Wider constant-key support remains open. Keep each acceptance decision separate. |
+| Next active work | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |
 | Next | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |
 | Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
 | Next | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |
@@ -149,7 +154,11 @@ The [November 14 regional unit](native-regional-aggregates-2026-11-14.md) is
 retained locally for its bounded scalar integer COUNT/MIN/MAX domain. It passes
 the complete 987-case comparison, separate prepared lifecycles, observed read
 reduction and portable proof. Its immutable evidence includes all regressions
-and unsupported controls. The grouped extension below remains the next work.
+and unsupported controls. The separate
+[constant-key extension](native-constant-key-aggregates-2026-11-14.md) passes its
+semantic and requested-read gates but is dropped because its complete fresh
+engine total is higher. Its grouped capability remains outside the retained
+scalar implementation; dictionary-domain execution is next.
 
 Reuse native zoned-layout aggregate/path and partial-state concepts. For an
 identified region, distinguish no qualifying rows, complete qualification with
@@ -164,7 +173,7 @@ verify overlap/gap corruption, boundary predicates and metadata-poor controls.
 Ordered floating SUM/AVG stay outside the initial integer/count/extrema domain;
 reassociation needs a separate accepted rounding and error contract.
 
-Only then investigate the grouped extension: every grouping key must be proven
+The grouped extension's separate contract requires every grouping key to be proven
 constant over the same covered rows before contributing one weighted native
 group update. Reuse Constant/RunEnd and existing aggregate states, with separate
 coverage, null, grouping-equality and cost proof.

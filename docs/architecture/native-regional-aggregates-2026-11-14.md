@@ -16,8 +16,11 @@ The executed source fingerprint is
 `55506cdaf0b2d835d868f754b9a72dc26016c315cb9373891114763741863620`.
 All 5,745 captured source files match the preservation commit byte-for-byte;
 the build itself retains its earlier parent and dirty-source identity. Default,
-native, provider and installed tests pass. Constant-key grouping is next;
-the broader metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through
+native, provider and installed tests pass. The subsequent
+[constant-key candidate](native-constant-key-aggregates-2026-11-14.md) is dropped
+after its complete fresh engine total increases; this scalar implementation
+remains accepted. Dictionary-domain execution is next. Broader constant-key
+support, the metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through
 CG-23 remain open. This local acceptance does not merge or publish the change.
 
 The following contract was fixed before measurement and remains the boundary
@@ -35,8 +38,8 @@ with COUNT(*) supported. It binds the entire original declaration first and
 uses the existing aggregate state, merge and finalizer. HAVING, output names,
 integer widths, nulls and output ownership retain their current contracts.
 SUM/AVG, distinct, transformed measures, grouped requests, spill and floating
-predicates remain on their current native paths. Constant grouping keys are a
-separate next investigation.
+predicates remain on their current native paths. Constant grouping keys have a
+separate rejected candidate and remain outside this retained scalar domain.
 
 The predicate domain is bounded integer comparisons, IS NULL, IS NOT NULL,
 constant truth and conjunctions. A nullable comparison is never proved true

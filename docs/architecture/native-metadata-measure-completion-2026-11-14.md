@@ -7,9 +7,11 @@ Status: the first bounded experiment in the
 is complete and dropped. This experiment restored `046488dc3`, whose
 runtime is the [November 14 activation unit](native-optimization-activation-2026-11-13.md).
 The subsequent [regional unit](native-regional-aggregates-2026-11-14.md) is now
-retained locally at `c9baefd00`; constant-key grouping is next, and the broader
-item-20/RFC-0044 queue remains open. That separate acceptance does not change
-this experiment's drop disposition.
+retained locally at `c9baefd00`. The subsequent
+[constant-key candidate](native-constant-key-aggregates-2026-11-14.md) is dropped
+under its own complete-cohort rule; dictionary-domain execution is next. Broader
+constant-key support and the item-20/RFC-0044 queue remain open. Those separate
+decisions do not change this experiment's drop disposition.
 
 ## Implementation and provider contract
 
