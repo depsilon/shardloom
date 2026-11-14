@@ -270,6 +270,19 @@ pub struct ExecutedVortexRelational {
     _metadata: MemoryLease,
 }
 
+impl ExecutedVortexRelational {
+    // A producer may return before its sink flushes buffered arrays or copies
+    // file-backed object payloads. Only the terminal owner can close the shared
+    // I/O scope and detach the completed scan evidence.
+    #[allow(clippy::used_underscore_binding)] // Install the retained credit only after terminal completion.
+    fn finish_file_evidence(mut self, context: &NativeExecutionContext<'_>) -> Result<Self> {
+        let (file_scans, metadata) = context.take_native_file_scan_evidence()?;
+        self.native_io_certificate.file_scans = file_scans;
+        self._file_scan_metadata = metadata;
+        Ok(self)
+    }
+}
+
 /// One explicitly named plan-position observation with the exact native schema.
 pub struct CompletedVortexRelationalObservation {
     pub name: String,
@@ -1351,7 +1364,8 @@ impl PreparedVortexRelational {
                             }
                             result
                         },
-                    )
+                    )?
+                    .finish_file_evidence(context)
                 })?;
         execution.runtime = self.snapshot();
         #[cfg(feature = "output-window-observation")]
@@ -1598,8 +1612,6 @@ impl PreparedVortexRelational {
         context.append_variant_expression_certificate(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
         let pipeline_metadata = metrics.pipeline.append_certificate(&mut certificate);
-        let (file_scans, file_scan_metadata) = context.take_native_file_scan_evidence()?;
-        certificate.file_scans = file_scans;
         let (observations, observation_metadata) =
             metrics.observations.borrow_mut().take().map_or_else(
                 || (vec![], None),
@@ -1615,7 +1627,7 @@ impl PreparedVortexRelational {
                 observations,
                 _observation_metadata: observation_metadata,
                 _pipeline_metadata: pipeline_metadata,
-                _file_scan_metadata: file_scan_metadata,
+                _file_scan_metadata: None,
                 primitive_execution,
                 provider_selection_reason: native_pipeline::NAME,
                 resources: self.policy.resource_envelope.declared_resources,
