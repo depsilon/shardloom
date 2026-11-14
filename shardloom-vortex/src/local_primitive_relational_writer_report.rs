@@ -25,6 +25,11 @@ impl ExecutedVortexRelational {
             .as_ref()
             .map(|lease| lease.pool().reserve(lease.bytes()))
             .transpose()?;
+        let file_scan_metadata = self
+            ._file_scan_metadata
+            .as_ref()
+            .map(|lease| lease.pool().reserve(lease.bytes()))
+            .transpose()?;
         let mut observations = Vec::with_capacity(self.observations.len());
         for value in &self.observations {
             let metadata = value._metadata.pool().reserve(value._metadata.bytes())?;
@@ -40,6 +45,7 @@ impl ExecutedVortexRelational {
             recursion_limit: self.recursion_limit,
             observations,
             _observation_metadata: observation_metadata,
+            _file_scan_metadata: file_scan_metadata,
             _pipeline_metadata: pipeline_metadata,
             primitive_execution: self.primitive_execution.clone(),
             provider_selection_reason: self.provider_selection_reason,

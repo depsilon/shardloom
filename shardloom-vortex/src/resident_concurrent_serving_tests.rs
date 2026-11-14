@@ -548,6 +548,8 @@ fn unpolled_native_read_retains_its_provider_owner_until_dropped() {
         concurrency: 1,
         scope: Some(Arc::clone(&scope)),
         reader_owner: Some(scope.retain_reader(&memory).unwrap()),
+        #[cfg(feature = "vortex-local-primitives")]
+        evidence: None,
     };
     let retained_bytes = memory.snapshot().reserved_bytes;
     assert!(retained_bytes > scope_bytes);

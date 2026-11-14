@@ -30,6 +30,18 @@ pub struct ExecutedVortexAggregate {
     pub report: VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub runtime: ResidentSessionSnapshot,
+    file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
+}
+
+impl ExecutedVortexAggregate {
+    // Only the root caller may close/drain the operation and take its evidence.
+    // Nested kernels leave it with the enclosing relational owner.
+    fn finish_file_evidence(mut self, context: &NativeExecutionContext<'_>) -> Result<Self> {
+        let (evidence, metadata) = context.take_native_file_scan_evidence()?;
+        self.native_io_certificate.file_scans = evidence;
+        self.file_scan_metadata = metadata;
+        Ok(self)
+    }
 }
 
 /// Complete small row payload produced by the same native aggregate execution.
@@ -209,7 +221,11 @@ impl UnretainedVortexAggregate {
         let mut executed = self
             .0
             .session
-            .with_owned_execution(&cancellation, |context| self.0.execute_in_context(context))?;
+            .with_owned_execution(&cancellation, |context| {
+                self.0
+                    .execute_in_context(context)?
+                    .finish_file_evidence(context)
+            })?;
         executed.native_io_certificate.source_pushdown_report.proof_basis.push_str(
             ";aggregate_preparation_disposition=unretained_source;aggregate_lowering_reused=false;aggregate_state_reused=false;no_query_answer_cache=true;independent_oracle_not_run",
         );
@@ -718,7 +734,8 @@ impl PreparedVortexAggregate {
         let mut executed = self
             .session
             .with_owned_execution(&cancellation, |context| {
-                self.consume_native_in_context(context, 2048, &mut |array| consume(array, context))
+                self.consume_native_in_context(context, 2048, &mut |array| consume(array, context))?
+                    .finish_file_evidence(context)
             })?;
         executed.runtime = self.snapshot();
         self.annotate_prepared_execution(&mut executed)?;
@@ -918,17 +935,7 @@ impl PreparedVortexAggregate {
         self.session.snapshot()
     }
 
-    fn read(&self) -> Result<LocalVortexAggregateScan> {
-        self.read_with_output(None)
-    }
-
-    fn read_with_output(
-        &self,
-        output: Option<&mut super::aggregate_owned::AggregateOutput>,
-    ) -> Result<LocalVortexAggregateScan> {
-        self.read_with_output_in_context(output, None)
-    }
-
+    #[allow(clippy::too_many_lines)] // Preserve one output/context borrow across native retry and driver selection.
     fn read_with_output_in_context(
         &self,
         mut output: Option<&mut super::aggregate_owned::AggregateOutput>,
@@ -957,11 +964,22 @@ impl PreparedVortexAggregate {
              session: &vortex::session::VortexSession,
              runtime: &vortex::io::runtime::current::CurrentThreadRuntime,
              retry: Option<&mut dyn FnMut(&vortex::error::VortexError) -> bool>| {
-                read_lowered_vortex_simple_aggregate_scan(
+                let evidence = context.and_then(|context| {
+                    super::aggregate_scan_source::FileEvidence::prepared(source, context)
+                });
+                let input = match &evidence {
+                    None => super::aggregate_scan_source::AggregateScanSource::File(file),
+                    Some(evidence) => {
+                        super::aggregate_scan_source::AggregateScanSource::ObservedFile(
+                            file, evidence,
+                        )
+                    }
+                };
+                let result = read_lowered_vortex_simple_aggregate_scan(
                     uri,
                     &self.request,
                     self.policy,
-                    super::aggregate_scan_source::AggregateScanSource::File(file),
+                    input,
                     session,
                     runtime,
                     memory,
@@ -970,7 +988,13 @@ impl PreparedVortexAggregate {
                     std::time::Instant::now(),
                     output.as_deref_mut(),
                     context.map(NativeExecutionContext::cancellation),
-                )
+                )?;
+                if let (Some(evidence), Some(context)) = (evidence, context)
+                    && evidence.scan_invocations() == 0
+                {
+                    self.record_metadata_scan(source, context, &result)?;
+                }
+                Ok(result)
             };
         if let Some(policy) = self.reuse {
             let execute =
@@ -1029,6 +1053,24 @@ impl PreparedVortexAggregate {
             }),
             None => source.with_native_execution(execute),
         }
+    }
+
+    /// Footer/pruning completion has no provider iterator. Every data pass
+    /// records its own actual bound contract instead of using this metadata path.
+    fn record_metadata_scan(
+        &self,
+        source: &PreparedVortexSource,
+        context: &NativeExecutionContext<'_>,
+        result: &LocalVortexAggregateScan,
+    ) -> Result<()> {
+        let mut observation = super::native_file_scan_evidence::Observation::plan(
+            source,
+            &self.lowering.plan,
+            shardloom_core::native_file_scan::NativeFileScanRoute::Aggregate,
+            context,
+        )?;
+        observation.residual(self.lowering.residual.as_ref())?;
+        observation.aggregate(source, context, result, 0)
     }
 
     #[cfg(feature = "vortex-write")]
@@ -1101,14 +1143,19 @@ impl PreparedVortexAggregate {
         // waits for a lane. Neither cancellation source may cancel the other.
         let cancellation = self.operation_cancellation(cancellation)?;
         let mut executed = match &self.source {
-            PreparedAggregateSource::File(source) => source
-                .with_native_execution_controlled(&cancellation, |_, context| {
-                    self.execute_in_context(context)
-                }),
+            PreparedAggregateSource::File(source) => {
+                source.with_native_execution_controlled(&cancellation, |_, context| {
+                    self.execute_in_context(context)?
+                        .finish_file_evidence(context)
+                })
+            }
             #[cfg(feature = "vortex-write")]
-            PreparedAggregateSource::Owned(_) => self
-                .session
-                .with_owned_execution(&cancellation, |context| self.execute_in_context(context)),
+            PreparedAggregateSource::Owned(_) => {
+                self.session.with_owned_execution(&cancellation, |context| {
+                    self.execute_in_context(context)?
+                        .finish_file_evidence(context)
+                })
+            }
         }?;
         let restored_providers = executed.runtime.provider_background_workers;
         executed.runtime = self.session.snapshot();
@@ -1142,8 +1189,18 @@ impl PreparedVortexAggregate {
     }
 
     fn execute_native(&self) -> Result<ExecutedVortexAggregate> {
-        let scan = self.read()?;
-        self.certify(&scan)
+        let cancellation = self.operation_cancellation(&CancellationToken::default())?;
+        let mut executed = self
+            .session
+            .with_owned_execution(&cancellation, |context| {
+                self.execute_in_context(context)?
+                    .finish_file_evidence(context)
+            })?;
+        let providers = executed.runtime.provider_background_workers;
+        executed.runtime = self.session.snapshot();
+        executed.runtime.provider_background_workers =
+            executed.runtime.provider_background_workers.max(providers);
+        Ok(executed)
     }
 
     /// Execute under the current native operation, retaining the existing
@@ -1172,8 +1229,13 @@ impl PreparedVortexAggregate {
             self.source.dtype(),
             &self.session,
         )?;
-        let scan = self.read_with_output(Some(&mut output))?;
-        let execution = self.certify(&scan)?;
+        let cancellation = self.operation_cancellation(&CancellationToken::default())?;
+        let execution = self
+            .session
+            .with_owned_execution(&cancellation, |context| {
+                let scan = self.read_with_output_in_context(Some(&mut output), Some(context))?;
+                self.certify(&scan)?.finish_file_evidence(context)
+            })?;
         let (array, ownership) = output.into_array()?;
         let result = self.session.own_completed_array(array, ownership)?;
         Ok(ExecutedOwnedVortexAggregate {
@@ -1245,6 +1307,7 @@ impl PreparedVortexAggregate {
             report,
             native_io_certificate,
             runtime,
+            file_scan_metadata: None,
         })
     }
 }

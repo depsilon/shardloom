@@ -879,7 +879,8 @@ fn empty_completed_result_writes_native_schema_after_source_owner_drops() {
     let projection = source
         .prepare_projection(&["destination", "priority"], 37, 4096)
         .unwrap()
-        .with_filter(Some(vortex::expr::lit(false).bind(source.dtype()).unwrap()));
+        .with_filter(Some(vortex::expr::lit(false)))
+        .unwrap();
     let result = projection.execute().unwrap();
     assert_eq!(result.row_count(), 0);
     assert!(result.arrays().is_empty());

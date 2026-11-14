@@ -58,6 +58,7 @@ pub(super) struct Join<'a> {
     index: RowIndex,
     matched: ReservedVec<bool>,
     membership: Option<RowSet<'a>>,
+    build_finished: bool,
 }
 
 impl<'a> Join<'a> {
@@ -67,6 +68,7 @@ impl<'a> Join<'a> {
             right: Table::new(memory)?,
             index: RowIndex::new(memory)?,
             matched: ReservedVec::new(memory)?,
+            build_finished: false,
             membership: (spec.short_circuit()
                 && spec.condition.is_none()
                 && !spec.right_keys.is_empty())
@@ -84,6 +86,11 @@ impl<'a> Join<'a> {
         batch_rows: usize,
     ) -> Result<()> {
         context.check_cancelled()?;
+        if self.build_finished {
+            return Err(failed(
+                "native join build is sealed; no further rows may be inserted",
+            ));
+        }
         if let Some(membership) = &mut self.membership {
             let retained = membership.insert_batch(array, None, context, batch_rows, None)?;
             #[cfg(all(test, debug_assertions))]
@@ -129,6 +136,27 @@ impl<'a> Join<'a> {
         context.check_cancelled()
     }
 
+    pub(super) fn finish_build(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+        context.check_cancelled()?;
+        if self.build_finished {
+            return Ok(());
+        }
+        if let Some(membership) = &mut self.membership {
+            membership.seal_join(context)?;
+        } else if !self.spec.right_keys.is_empty() {
+            self.index.seal_join(true, context.cancellation())?;
+        }
+        self.build_finished = true;
+        Ok(())
+    }
+
+    pub(super) fn join_work(&self) -> Result<shardloom_core::native_join_work::NativeJoinWork> {
+        match &self.membership {
+            Some(membership) => membership.join_work(),
+            None => self.index.join_work(),
+        }
+    }
+
     pub(super) fn consume(
         &mut self,
         array: ArrayRef,
@@ -139,6 +167,7 @@ impl<'a> Join<'a> {
         if batch_rows == 0 {
             return Err(failed("output batch rows must be positive"));
         }
+        self.finish_build(context)?;
         let left = Batch::new(array, &self.spec.left_keys, context)?;
         if self.spec.condition.is_some() {
             return self.consume_condition(&left, context, batch_rows, consume);

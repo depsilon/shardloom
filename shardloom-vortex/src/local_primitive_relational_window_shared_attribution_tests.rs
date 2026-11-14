@@ -308,7 +308,7 @@ fn observe(case: &str, rows: usize) -> Value {
     assert!(!prepared.root_has_file_kernel());
     assert_eq!(prepared.output_dtype().as_ref(), Some(&schema));
     let memory = prepared.session.memory().clone();
-    let initial = memory.snapshot().reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let owner_thread = std::thread::current().id();
     let (mut calls, mut position, mut ended) = (0u64, 0usize, false);
     let mut input = |uri: &DatasetUri, ordinal: u64, session: &ResidentVortexSession| {
@@ -368,7 +368,10 @@ fn observe(case: &str, rows: usize) -> Value {
     let actual_identity = result_identity(&actual);
     let expected_identity = result_identity(&wanted);
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
     assert_eq!(prepared.snapshot().completed_executions, 1);
     assert_eq!(prepared.snapshot().admitted_max_parallelism, 1);
     assert_eq!(prepared.snapshot().provider_background_workers, 0);
@@ -442,7 +445,7 @@ fn wide_window_outputs_observe_cancellation_and_refund_before_publication() {
         assert_eq!(prepared.snapshot().admitted_max_parallelism, 1);
         assert_eq!(prepared.snapshot().provider_background_workers, 0);
         let memory = prepared.session.memory().clone();
-        let baseline = memory.snapshot().reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let cancel = CancellationToken::default();
         let observation = Session::start();
         Session::cancel_after_window_writes(1, &cancel);
@@ -460,7 +463,10 @@ fn wide_window_outputs_observe_cancellation_and_refund_before_publication() {
         assert_eq!(published, 0);
         assert!((1..=1025).contains(&counts.window_resident_frame_writes));
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
 
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -489,7 +495,10 @@ fn wide_window_outputs_observe_cancellation_and_refund_before_publication() {
         );
         drop(result);
         assert_eq!(prepared.snapshot().completed_executions, 1);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }

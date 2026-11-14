@@ -43,7 +43,7 @@ fn check(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value]) {
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for batch_rows in [1, 3] {
             let mut rows = vec![];
             let report = prepared
@@ -66,7 +66,10 @@ fn check(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value]) {
                 assert!(report.spill.as_ref().unwrap().owned_cleanup_completed);
             }
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }
@@ -241,7 +244,7 @@ fn ordered_selector_argument_and_comparison_failures_are_explicit_and_refund_sta
         vec![measure("first", Some("word"), "value").with_order_by(ordering)],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -249,7 +252,10 @@ fn ordered_selector_argument_and_comparison_failures_are_explicit_and_refund_sta
         .to_string();
     assert!(error.contains("NULLS FIRST or NULLS LAST"), "{error}");
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -278,7 +284,7 @@ fn ordered_selector_forced_spill_keeps_input_ordinals_and_exact_extreme_ties() {
         .unwrap()
         .with_spill(VortexRelationalSpillPolicy::new(&workspace, 64 << 20, 1 << 20).unwrap())
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -306,6 +312,9 @@ fn ordered_selector_forced_spill_keeps_input_ordinals_and_exact_extreme_ties() {
             .owned_cleanup_completed
     );
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
 }

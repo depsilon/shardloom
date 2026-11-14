@@ -1,0 +1,27 @@
+{
+  "status": "passed_primary_narrow_protocol_amendment",
+  "query_executions": 0,
+  "changed_fields": [
+    "frozen_at",
+    "frozen_files",
+    "lifecycle_targets",
+    "prospective_isolation_amendment",
+    "targets"
+  ],
+  "unchanged_prior_files": 6507,
+  "added_files": [
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2-supervision.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2-supervision.log",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2/attempts.sqlite",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2/binding.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2/complete.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-isolation-incident-r1.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-protocol-isolation-amendment-r1.md",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-protocol-r2.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/amend_activation_isolation.py"
+  ],
+  "prior_fresh_executions_accounted": 7120,
+  "prior_engine_times_examined_for_selection": false,
+  "case_count": 7498,
+  "runtime_policy_acceptance_equal": true
+}

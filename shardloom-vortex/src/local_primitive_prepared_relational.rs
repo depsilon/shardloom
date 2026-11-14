@@ -140,6 +140,7 @@ pub struct ExecutedVortexRelational {
     pub observations: Vec<CompletedVortexRelationalObservation>,
     _observation_metadata: Option<MemoryLease>,
     _pipeline_metadata: [Option<MemoryLease>; 4],
+    _file_scan_metadata: Option<MemoryLease>,
     /// A primitive report only when one file kernel produced the entire result.
     /// Composed plans, projections, memory and streaming inputs use the complete
     /// pipeline certificate; nested kernels contribute their own evidence there.
@@ -267,6 +268,19 @@ pub struct ExecutedVortexRelational {
     /// Present only after a streaming source's explicit end-of-input was observed.
     pub input: Option<ExecutedVortexBatchInput>,
     _metadata: MemoryLease,
+}
+
+impl ExecutedVortexRelational {
+    // A producer may return before its sink flushes buffered arrays or copies
+    // file-backed object payloads. Only the terminal owner can close the shared
+    // I/O scope and detach the completed scan evidence.
+    #[allow(clippy::used_underscore_binding)] // Install the retained credit only after terminal completion.
+    fn finish_file_evidence(mut self, context: &NativeExecutionContext<'_>) -> Result<Self> {
+        let (file_scans, metadata) = context.take_native_file_scan_evidence()?;
+        self.native_io_certificate.file_scans = file_scans;
+        self._file_scan_metadata = metadata;
+        Ok(self)
+    }
 }
 
 /// One explicitly named plan-position observation with the exact native schema.
@@ -411,6 +425,7 @@ impl Node {
                 input,
                 spec,
                 expansion,
+                ..
             } => {
                 if let Some(expansion) = expansion {
                     expansion.upper_rows(input.upper_rows(sources))
@@ -512,6 +527,8 @@ enum NodeKind {
         input: Box<Node>,
         spec: native_relational_aggregate::Spec,
         expansion: Option<Box<grouping::Spec>>,
+        // An immediate total sort makes group insertion order unobservable.
+        count_partial: bool,
     },
     Project {
         input: Box<Node>,
@@ -1347,7 +1364,8 @@ impl PreparedVortexRelational {
                             }
                             result
                         },
-                    )
+                    )?
+                    .finish_file_evidence(context)
                 })?;
         execution.runtime = self.snapshot();
         #[cfg(feature = "output-window-observation")]
@@ -1589,6 +1607,8 @@ impl PreparedVortexRelational {
         context
             .append_adaptive_work_certificate(&mut certificate.source_pushdown_report.proof_basis);
         context.append_capability_decisions(&mut certificate)?;
+        context.append_native_join_work(&mut certificate)?;
+        context.append_native_count_partial_work(&mut certificate)?;
         context.append_variant_expression_certificate(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
         let pipeline_metadata = metrics.pipeline.append_certificate(&mut certificate);
@@ -1607,6 +1627,7 @@ impl PreparedVortexRelational {
                 observations,
                 _observation_metadata: observation_metadata,
                 _pipeline_metadata: pipeline_metadata,
+                _file_scan_metadata: None,
                 primitive_execution,
                 provider_selection_reason: native_pipeline::NAME,
                 resources: self.policy.resource_envelope.declared_resources,
@@ -1817,6 +1838,7 @@ impl PreparedVortexRelational {
                 input,
                 spec,
                 expansion,
+                count_partial,
             } => {
                 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
                 if expansion.is_none()
@@ -1864,7 +1886,13 @@ impl PreparedVortexRelational {
                 }
                 let mut aggregate =
                     native_relational_aggregate::Aggregate::new(spec, context.memory())?;
-                produce(&mut |array| aggregate.consume(&array, context, batch_rows))?;
+                produce(&mut |array| {
+                    if *count_partial {
+                        aggregate.consume_reordered_count(&array, context, batch_rows)
+                    } else {
+                        aggregate.consume(&array, context, batch_rows)
+                    }
+                })?;
                 aggregate.finish(context, batch_rows, consume)
             }
             NodeKind::Project { .. }
@@ -2041,7 +2069,7 @@ impl PreparedVortexRelational {
                         &mut |array| join.consume(array, context, batch_rows, consume),
                     );
                 }
-                if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec) {
+                if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec, self) {
                     return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
                 }
                 let mut join = native_relational_join::Join::new(spec, context.memory())?;
@@ -2059,6 +2087,7 @@ impl PreparedVortexRelational {
                         )
                     },
                 )?;
+                join.finish_build(context)?;
                 self.run(
                     left,
                     context,
@@ -2070,7 +2099,8 @@ impl PreparedVortexRelational {
                             .map(|_| ())
                     },
                 )?;
-                join.finish(context, batch_rows, consume).map(|_| ())
+                join.finish(context, batch_rows, consume)?;
+                context.record_native_join_work(join.join_work()?)
             }
             NodeKind::Set { .. } => {
                 self.run_set(node, context, metrics, batch_rows, parameter, consume)

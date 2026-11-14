@@ -70,6 +70,23 @@ fn prepared_sort_keeps_output_batches_bounded_across_provider_layout_splits() {
                         assert!(execution.report.max_chunk_rows > 2048);
                     }
                     assert_native_certificate(&execution.report, &execution.native_io_certificate);
+                    let scans = &execution.native_io_certificate.file_scans;
+                    assert_eq!(scans.sources.len(), 1);
+                    let candidates = scans.contracts.iter().find(|scan| scan.route == shardloom_core::native_file_scan::NativeFileScanRoute::Sort).unwrap();
+                    assert_eq!(candidates.projected_columns, Some(vec![KEY.into()]));
+                    assert_eq!(candidates.provider_scan_invocations, Some(1));
+                    assert_eq!(candidates.delivered_rows, rows as u64);
+                    let payload = scans.contracts.iter().find(|scan| scan.route == shardloom_core::native_file_scan::NativeFileScanRoute::SortPayload);
+                    if rows == 0 {
+                        assert!(payload.is_none());
+                    } else {
+                        let payload = payload.unwrap();
+                        assert_eq!(payload.projected_columns, Some(vec![KEY.into(), PAYLOAD.into()]));
+                        assert_eq!(payload.provider_scan_invocations, Some(rows.div_ceil(512) as u64));
+                        assert_eq!(payload.invocations, rows.div_ceil(512) as u64);
+                        assert_eq!(payload.delivered_rows, rows as u64);
+                        assert!(scans.sources[0].completed_read_bytes > 0);
+                    }
                     let retained =
                         execute_sort_native_result(&request, policy, &source, &cancellation)?;
                     assert_every_row(&retained.result, &fixture.dtype, rows, expected_sorted_row);

@@ -45,10 +45,13 @@ fn rows(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value]) {
         expected
     );
     let prepared = ordered(fixture, plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for batch_rows in [1, 3] {
         assert_eq!(complete(&prepared, batch_rows).0, expected);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(prepared.output_dtype(), resident.output_dtype());
     }
 }
@@ -290,7 +293,7 @@ fn error(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &str) {
     let native = ordered(fixture, plan);
     let mut prior = None;
     for prepared in [&resident, &native] {
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut emitted = 0;
         let error = prepared
             .for_each_batch(&CancellationToken::default(), |_, _| {
@@ -307,7 +310,10 @@ fn error(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &str) {
         prior = Some(error);
         assert_eq!(emitted, 0);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert_eq!(
         fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),
@@ -416,7 +422,7 @@ fn ordered_window_signed_zero_extrema_select_first_ordered_tie_without_changing_
             expressions,
         }));
         let prepared = ordered(&fixture, &plan);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let report = prepared
             .for_each_batch(&CancellationToken::default(), |array, context| {
                 let mut execution = context.native_session().create_execution_ctx();
@@ -436,7 +442,10 @@ fn ordered_window_signed_zero_extrema_select_first_ordered_tie_without_changing_
             .unwrap();
         assert_eq!(report.output_rows, 2);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 

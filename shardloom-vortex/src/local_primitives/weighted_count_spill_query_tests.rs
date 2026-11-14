@@ -618,6 +618,15 @@ fn prepared_spill_weighted_count_reuses_source_with_fresh_runs_and_existing_cpu_
             renewed.cancel();
             assert!(prepared.execute().is_err());
             drop(prepared);
+            if supplied {
+                assert!(
+                    session.snapshot().memory.reserved_bytes > 0,
+                    "execution certificate remains live in the supplied pool"
+                );
+            } else {
+                assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+            }
+            drop(result);
             assert_eq!(session.snapshot().memory.reserved_bytes, 0);
             fixture.empty();
         }

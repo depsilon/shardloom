@@ -1,0 +1,202 @@
+{
+  "status": "passed",
+  "receipt_count": 20,
+  "receipts": [
+    {
+      "name": "certificate-export-r1.json",
+      "identity": {
+        "bytes": 1006826,
+        "sha256": "968e137855179e13429708c8690477f8e680e96fd0339d2c5aa1678ad7030263"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "default-clippy-r1.json",
+      "identity": {
+        "bytes": 1008178,
+        "sha256": "60ec10963972db9578fd395748c484b3ce10a3d3fa7c97904a6d24cd863f0fa4"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "default-tests-r1.json",
+      "identity": {
+        "bytes": 1008143,
+        "sha256": "e28a619d898b1384ddbf077c64261f1665c4cbbcba783d09e698a40edc3489e3"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "flat-source-focused-r1.json",
+      "identity": {
+        "bytes": 1008083,
+        "sha256": "fa31ce03ab246ea5d9d42fe4576c8972ea2a8cf4bd441da512b9d1c40e093aa3"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "fmt-r1.json",
+      "identity": {
+        "bytes": 1008101,
+        "sha256": "e1cae0d5927c4bbdca87250dd4b25bdd13c69968e426a4ed269de9781dbb32f9"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "installed-wheel-r1.json",
+      "identity": {
+        "bytes": 1007350,
+        "sha256": "cbcb3ce3190874180fe875ac77c42ef207e638a5fd3701f8238471bc3573e761"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "native-cli-python-tests-r1.json",
+      "identity": {
+        "bytes": 1008235,
+        "sha256": "6bae615da146ba16abfc42c1a45d0675d3db15e3db634f4eebc88c416e41f3c6"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "native-clippy-r1.json",
+      "identity": {
+        "bytes": 1008289,
+        "sha256": "c13731a792b1434df00f37d5bd61197206c187c744ea8d2512292dde2d6d71a8"
+      },
+      "status": "failed",
+      "returncode": 101
+    },
+    {
+      "name": "native-clippy-r2.json",
+      "identity": {
+        "bytes": 1008288,
+        "sha256": "ff35ed32dde479d7e82951d7eeea73a0fbbc8864b1145036a51f94f8bc314195"
+      },
+      "status": "failed",
+      "returncode": 101
+    },
+    {
+      "name": "native-clippy-r3.json",
+      "identity": {
+        "bytes": 1008286,
+        "sha256": "71631c07ebf14cc68d7db82b66518d6dc4777624f5c749f4adf4d01b4600081e"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "native-focused-final-r1.json",
+      "identity": {
+        "bytes": 1008440,
+        "sha256": "3d42d84cffc6abfde62c8caa301907504deb6fe226c08e0f5d4e133a378ea850"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "native-pipeline-focused-r1.json",
+      "identity": {
+        "bytes": 1007455,
+        "sha256": "c8a678a32dc3e60d4e6eccd345be465467800609502ea1ab04cda93103729377"
+      },
+      "status": "failed",
+      "returncode": 101
+    },
+    {
+      "name": "native-pipeline-focused-r2.json",
+      "identity": {
+        "bytes": 1007498,
+        "sha256": "d693108149112407ac823af0c92ae54e8099e8f20067320af3e29843089f0fd7"
+      },
+      "status": "failed",
+      "returncode": 101
+    },
+    {
+      "name": "native-pipeline-focused-r3.json",
+      "identity": {
+        "bytes": 1007496,
+        "sha256": "5773f14c2e2a7ac08dd8479ea11d72ca5fd9befd18cb9faaab87b7f8ebe6e7e7"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "native-relational-focused-r1.json",
+      "identity": {
+        "bytes": 1007874,
+        "sha256": "c301e2998b8318890a70e6be55b25635e780ae6383f95ffc83b301ab8d909f6a"
+      },
+      "status": "failed",
+      "returncode": -15
+    },
+    {
+      "name": "offline-replay-r1.json",
+      "identity": {
+        "bytes": 1006818,
+        "sha256": "c0876985f7ed082d0ff2a8d8da0fbccb18515479baa14786e8c5a40758381ad9"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "optimization-activation-r1.json",
+      "identity": {
+        "bytes": 1006835,
+        "sha256": "0b8a70efa37a694c60628f40b28a9373732dc884c56599b8b46858fe1e8d86f3"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "pipeline-audit-r1.json",
+      "identity": {
+        "bytes": 1006836,
+        "sha256": "cabc0520ba3e208a42bad289f0f56379acd90df6f2a55251deed6985d92e04dc"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "provider-window-focused-r1.json",
+      "identity": {
+        "bytes": 1008462,
+        "sha256": "a1127db659403cf6adc86e6b441c84bc509cc609c86b0581b7725b400d445292"
+      },
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "name": "release-build-r1.json",
+      "identity": {
+        "bytes": 1006777,
+        "sha256": "43cd51e82b2ddbdc6e42deb76d6926b1ae815abf87bffe359981f37f303c4b77"
+      },
+      "status": "passed",
+      "returncode": 0
+    }
+  ],
+  "statuses": {
+    "passed": 15,
+    "failed": 5
+  },
+  "discrepancies": [],
+  "final_accepted_check_set": [
+    "default-clippy-r1.json",
+    "default-tests-r1.json",
+    "fmt-r1.json",
+    "installed-wheel-r1.json",
+    "native-cli-python-tests-r1.json",
+    "native-clippy-r3.json",
+    "native-focused-final-r1.json"
+  ],
+  "query_executions": 0,
+  "failed_evidence_policy": "All failed and interrupted check receipts remain immutable; only explicit passing checks are accepted."
+}

@@ -87,6 +87,17 @@ impl<'a> ConversionWindow<'a> {
             width,
             context.memory().snapshot(),
         )?;
+        if matches!(decision, WorkDecision::Declined(_)) {
+            context.memory().reclaim_optional_memory();
+            decision = self.decide(
+                writer,
+                work.arrow_batches,
+                prepaid,
+                maximum,
+                width,
+                context.memory().snapshot(),
+            )?;
+        }
         if matches!(decision, WorkDecision::Declined(_)) && writer.buffered_input_bytes > 0 {
             // Flushing completes existing admitted state once. Selection never
             // retries a write, input producer or application callback.

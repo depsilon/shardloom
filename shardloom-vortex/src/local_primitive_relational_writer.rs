@@ -188,6 +188,7 @@ impl PreparedVortexRelational {
                         )?;
                         let (execution, arrays_read) = execution
                             .ok_or_else(|| failed("relational producer did not complete"))?;
+                        let execution = execution.finish_file_evidence(context)?;
                         debug_assert_eq!(execution.output_rows, output.rows_written);
                         output.rows_scanned = execution.scan_rows_delivered;
                         output.arrays_read_count = arrays_read;

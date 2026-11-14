@@ -157,7 +157,7 @@ fn native_statistical_windows_match_independent_rows_groups_range_and_exclusion_
                 } else {
                     prepared
                 };
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 let result = prepared
                     .collect_jsonl(&CancellationToken::default())
                     .unwrap();
@@ -175,7 +175,10 @@ fn native_statistical_windows_match_independent_rows_groups_range_and_exclusion_
                     assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
                 }
                 drop(result);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
             }
         }
     }
@@ -248,7 +251,7 @@ fn native_statistical_windows_preserve_scaled_tiny_and_large_finite_results() {
                 } else {
                     prepared
                 };
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 let result = prepared
                     .collect_jsonl(&CancellationToken::default())
                     .unwrap();
@@ -258,7 +261,10 @@ fn native_statistical_windows_preserve_scaled_tiny_and_large_finite_results() {
                 );
                 assert!(result.execution.native_io_certificate.is_certified());
                 drop(result);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }
         }
@@ -308,7 +314,7 @@ fn native_statistical_windows_observe_only_selected_values_and_clean_up_failure(
                 } else {
                     prepared
                 };
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 let result = prepared.collect_jsonl(&CancellationToken::default());
                 if excluded {
                     assert_eq!(json_rows(&result.unwrap()), vec![json!({"out":null}); 3]);
@@ -316,7 +322,10 @@ fn native_statistical_windows_observe_only_selected_values_and_clean_up_failure(
                     assert!(result.is_err(), "{name} observed nonfinite input");
                     assert_eq!(prepared.snapshot().completed_executions, 0);
                 }
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }
         }
@@ -359,7 +368,7 @@ fn native_statistical_windows_pressure_cancellation_and_retry_release_state() {
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let pressure = prepared
             .session
             .memory()
@@ -371,7 +380,10 @@ fn native_statistical_windows_pressure_cancellation_and_retry_release_state() {
                 .is_err()
         );
         drop(pressure);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         let cancel = CancellationToken::default();
         let mut delivered = 0;
         assert!(
@@ -385,7 +397,10 @@ fn native_statistical_windows_pressure_cancellation_and_retry_release_state() {
         );
         assert_eq!(delivered, 1);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -395,7 +410,10 @@ fn native_statistical_windows_pressure_cancellation_and_retry_release_state() {
         assert_eq!(rows[0], json!({"out":null}));
         assert_close(&rows[1..], &vec![json!({"out":-1.0}); 8191]);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     }
 }

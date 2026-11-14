@@ -165,15 +165,65 @@ fn credit_window_admission_uses_actual_row_and_field_boundaries() {
         assert_eq!(pool.snapshot().reserved_bytes, 0);
     }
     for fields in [1, 64, 65] {
-        let (prepared, session) = prepared(17, |scan| project(scan, fields));
-        let pool = session.shared_memory_pool();
-        assert_eq!(
-            prepared.output_credit_window(true).unwrap().is_some(),
-            fields <= 64
-        );
-        drop((prepared, session));
-        assert_eq!(pool.snapshot().reserved_bytes, 0);
+        for flat in [false, true] {
+            let (prepared, session) = prepared(17, |scan| {
+                let projection = project(scan, fields);
+                if flat {
+                    projection.compact_streaming()
+                } else {
+                    projection
+                }
+            });
+            let pool = session.shared_memory_pool();
+            assert_eq!(
+                prepared.output_credit_window(true).unwrap().is_some(),
+                fields <= 64
+            );
+            drop((prepared, session));
+            assert_eq!(pool.snapshot().reserved_bytes, 0);
+        }
     }
+}
+
+#[test]
+fn credit_window_flat_projection_preserves_exact_partitions_and_owned_values() {
+    let (prepared, session) = prepared(2 * BATCH_ROWS + 1, |scan| {
+        project(scan, 2).compact_streaming()
+    });
+    let pool = session.shared_memory_pool();
+    let ledger = RefCell::new(None::<OutputCreditWindow>);
+    let mut values = Vec::new();
+    let mut partitions = Vec::new();
+    let completed = prepared
+        .for_each_arrow_batch_with_output_window(
+            &CancellationToken::default(),
+            || true,
+            |window| {
+                *ledger.borrow_mut() = Some(window.expect("equivalent projection admitted"));
+                Ok(())
+            },
+            |batch| {
+                let mut ledger = ledger.borrow_mut();
+                let window = ledger.as_mut().unwrap();
+                let ordinal = window.enqueue(batch.num_rows(), batch.get_array_memory_size())?;
+                assert_eq!(batch.column(0), batch.column(1));
+                values.extend_from_slice(batch.column(0).as_primitive::<Int64Type>().values());
+                partitions.push(batch.num_rows());
+                window.acknowledge(ordinal)
+            },
+        )
+        .unwrap();
+    ledger.borrow().as_ref().unwrap().finish().unwrap();
+    assert_eq!(partitions, [BATCH_ROWS, BATCH_ROWS, 1]);
+    assert_eq!(
+        values,
+        (0..=(2 * BATCH_ROWS))
+            .map(|n| -3 + 2 * i64::try_from(n).unwrap())
+            .collect::<Vec<_>>()
+    );
+    assert!(completed.execution.native_io_certificate.is_certified());
+    drop((ledger, completed, prepared, session));
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
 }
 
 #[test]

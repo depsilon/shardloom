@@ -134,9 +134,12 @@ fn streaming_join_recovery_refuses_live_and_unknown_owners_then_restarts_exactly
     assert!(!owned.exists());
     fs::remove_file(directory.join("ready.json")).unwrap();
     let prepared = prepare_join(&fixture, &directory, 128 << 20);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     drop(complete(&prepared));
     assert_eq!(prepared.snapshot().completed_executions, 1);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
 }

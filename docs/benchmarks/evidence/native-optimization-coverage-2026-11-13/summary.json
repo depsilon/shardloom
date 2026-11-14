@@ -1,0 +1,289 @@
+{
+  "status": "passed_offline_replay",
+  "query_executions_during_replay": 0,
+  "source_commit": "9f4580c723f876f087d3e75fb56153b4b099ef20",
+  "source_tree": "30f702666a8d28c901e0e6806743fd1f23d0f7df",
+  "attempted_cases": 10000,
+  "successful_cases": 10000,
+  "unsuccessful_cases": 0,
+  "outcomes": {
+    "passed": 10000
+  },
+  "primary_clock": "engine_execution_seconds",
+  "successful_engine_seconds": 1560.142540948,
+  "previous_same_successful_cases_engine_seconds": 1514.235435577,
+  "previous_unsuccessful_cases_engine_seconds": 0.0,
+  "previous_rejected_cases_engine_seconds": 0.0,
+  "previous_other_unsuccessful_cases_engine_seconds": 0.0,
+  "previous_complete_engine_seconds": 1514.235435577,
+  "complete_10000_engine_seconds": 1560.142540948,
+  "newly_rejected_cases": 0,
+  "other_unsuccessful_cases": 0,
+  "attempts_per_case": 1,
+  "requested_repeats": 0,
+  "all_successful_engine_clocks_valid": true,
+  "independent_expected_results_replayed": true,
+  "successful_native_no_fallback": true,
+  "failure_groups": [],
+  "families": {
+    "composite": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 1,
+        "engine_seconds": 0.210517916
+      },
+      "successful_engine_seconds": {
+        "cases": 1,
+        "engine_seconds": 0.216833417
+      }
+    },
+    "cte_composition": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 392,
+        "engine_seconds": 30.413981625
+      },
+      "successful_engine_seconds": {
+        "cases": 392,
+        "engine_seconds": 30.735563209
+      }
+    },
+    "distinct": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 200,
+        "engine_seconds": 13.634350381
+      },
+      "successful_engine_seconds": {
+        "cases": 200,
+        "engine_seconds": 14.087549834
+      }
+    },
+    "global_aggregation": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 264,
+        "engine_seconds": 7.162434283
+      },
+      "successful_engine_seconds": {
+        "cases": 264,
+        "engine_seconds": 7.546171049
+      }
+    },
+    "grouped_aggregation": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 1756,
+        "engine_seconds": 95.763098481
+      },
+      "successful_engine_seconds": {
+        "cases": 1756,
+        "engine_seconds": 99.843519107
+      }
+    },
+    "joins": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 2612,
+        "engine_seconds": 424.788129265
+      },
+      "successful_engine_seconds": {
+        "cases": 2612,
+        "engine_seconds": 439.084444647
+      }
+    },
+    "multiway_joins": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 580,
+        "engine_seconds": 143.486871385
+      },
+      "successful_engine_seconds": {
+        "cases": 580,
+        "engine_seconds": 148.133816265
+      }
+    },
+    "nested": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 196,
+        "engine_seconds": 18.606345697
+      },
+      "successful_engine_seconds": {
+        "cases": 196,
+        "engine_seconds": 19.028837325
+      }
+    },
+    "nullable": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 205,
+        "engine_seconds": 39.425674416
+      },
+      "successful_engine_seconds": {
+        "cases": 205,
+        "engine_seconds": 40.542475487
+      }
+    },
+    "numeric": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 201,
+        "engine_seconds": 28.950510877
+      },
+      "successful_engine_seconds": {
+        "cases": 201,
+        "engine_seconds": 29.792743707
+      }
+    },
+    "ordering": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 206,
+        "engine_seconds": 187.323856216
+      },
+      "successful_engine_seconds": {
+        "cases": 206,
+        "engine_seconds": 195.092087214
+      }
+    },
+    "predicates": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 410,
+        "engine_seconds": 15.498758314
+      },
+      "successful_engine_seconds": {
+        "cases": 410,
+        "engine_seconds": 16.4004832
+      }
+    },
+    "projection": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 26,
+        "engine_seconds": 1.021944584
+      },
+      "successful_engine_seconds": {
+        "cases": 26,
+        "engine_seconds": 1.077648167
+      }
+    },
+    "sets": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 789,
+        "engine_seconds": 123.874390828
+      },
+      "successful_engine_seconds": {
+        "cases": 789,
+        "engine_seconds": 126.371052453
+      }
+    },
+    "strings": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 399,
+        "engine_seconds": 64.319539757
+      },
+      "successful_engine_seconds": {
+        "cases": 399,
+        "engine_seconds": 66.599787175
+      }
+    },
+    "subqueries": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 392,
+        "engine_seconds": 110.079233379
+      },
+      "successful_engine_seconds": {
+        "cases": 392,
+        "engine_seconds": 110.895648989
+      }
+    },
+    "temporal": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 595,
+        "engine_seconds": 45.834605028
+      },
+      "successful_engine_seconds": {
+        "cases": 595,
+        "engine_seconds": 47.733707572
+      }
+    },
+    "windows": {
+      "previous_same_successful_cases_engine_seconds": {
+        "cases": 776,
+        "engine_seconds": 163.841193145
+      },
+      "successful_engine_seconds": {
+        "cases": 776,
+        "engine_seconds": 166.960172131
+      }
+    }
+  },
+  "comparison_limitation": "One original-order observation per runtime, same case IDs and engine clock; no repeatability or individual-change attribution claim.",
+  "missing_support_policy": "Engine rejection is preserved as engine_rejected; engine errors, incorrect answers, resource limits and harness failures are reported separately.",
+  "case_rows": {
+    "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/full10k-r1/verified-cases-r1.jsonl.gz",
+    "generation": {
+      "device": 16777234,
+      "inode": 172772673,
+      "bytes": 833606,
+      "mtime_ns": 1794575893027989487,
+      "ctime_ns": 1794575895150491988
+    },
+    "sha256": "90c046bb2902961a8cf7b78f24d9705a3f8a614fd3ee4eba0a9ba0870b3bf98d"
+  },
+  "complete": {
+    "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/full10k-r1/complete.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 172772659,
+      "bytes": 18975,
+      "mtime_ns": 1794575851140110016,
+      "ctime_ns": 1794575851140110016
+    },
+    "sha256": "5281ee2b0bfe247e25ed66838048a0e5879de8e572054c42f4fce0e0dfed4f25"
+  },
+  "ledger": {
+    "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/full10k-r1/attempts.sqlite",
+    "generation": {
+      "device": 16777234,
+      "inode": 172699871,
+      "bytes": 136118272,
+      "mtime_ns": 1794575849021330771,
+      "ctime_ns": 1794575849021330771
+    },
+    "sha256": "b26429562d59aec5dd8c16a678009413f7b22c9a403c6890e78ebd9ef21ac623"
+  },
+  "previous_summary": {
+    "path": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-summary-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 172269653,
+      "bytes": 8848,
+      "mtime_ns": 1794550552361272041,
+      "ctime_ns": 1794550552361272041
+    },
+    "sha256": "0804808087d3f91087f224c5109d54856b87891d01aae0ea7157d44c412c8638"
+  },
+  "previous_case_rows": {
+    "path": "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/full10k-r1/verified-cases-r1.jsonl.gz",
+    "generation": {
+      "device": 16777234,
+      "inode": 172269648,
+      "bytes": 833620,
+      "mtime_ns": 1794550550291195301,
+      "ctime_ns": 1794550552359278114
+    },
+    "sha256": "9da4d86ad162f9d1a83ec4405d3df9905566df032db5393121a0dc93707c40ab"
+  },
+  "protocol": {
+    "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/full10k-protocol-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 172699867,
+      "bytes": 19307,
+      "mtime_ns": 1794572882991782357,
+      "ctime_ns": 1794572882991782357
+    },
+    "sha256": "684d6f6c9ad8e66405eafb3d65775d3c1c2383202311421b453e57ebaec692d1"
+  },
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/replay_10k.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 172571198,
+      "bytes": 9853,
+      "mtime_ns": 1794571977092953691,
+      "ctime_ns": 1794571977092953691
+    },
+    "sha256": "2fbb2749ef0b684508cbbfca1e87d7de3afb031a45ba171c2d6adb8040fee3b5"
+  }
+}

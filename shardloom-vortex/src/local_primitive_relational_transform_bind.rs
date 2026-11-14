@@ -129,7 +129,7 @@ impl Binder<'_> {
     ) -> Result<Node> {
         validate_width(keys.len())?;
         self.charge_names(keys.iter().map(|key| key.column.as_str()))?;
-        let input = Box::new(input);
+        let mut input = Box::new(input);
         self.charge_named_fields(&input.fields)?;
         for key in keys {
             validate_name(key.column.as_str())?;
@@ -137,6 +137,19 @@ impl Binder<'_> {
                 field(&input.fields, key.column.as_str())?,
                 self.schema_scope(),
             )?;
+        }
+        if let NodeKind::Aggregate {
+            input: source,
+            spec,
+            expansion: None,
+            count_partial,
+        } = &mut input.kind
+            && spec.admits_count_partial(&source.fields)
+            && keys
+                .iter()
+                .any(|key| key.column.as_str() == spec.group_names[0])
+        {
+            *count_partial = true;
         }
         self.charge(
             input
@@ -224,25 +237,43 @@ fn cap_ordering_prefix(mut node: &mut Node, rows: usize) {
     }
 }
 
-fn cap_rolling_prefix(node: &mut Node, rows: usize) -> Result<()> {
+fn cap_rolling_prefix(mut node: &mut Node, mut rows: usize) -> Result<()> {
     // Binding has already validated every expression and range. Projections
     // preserve order and cardinality; ranges contribute their skipped prefix.
     // Stop at every other operator, especially filters and sorting, whose
     // output prefix need not be a prefix of their input.
-    match &mut node.kind {
-        NodeKind::Project { input, .. } => cap_rolling_prefix(input, rows)?,
-        NodeKind::Limit {
-            input,
-            offset,
-            count,
-        } if *count != 0 => {
-            let prefix = offset
-                .checked_add(rows.min(*count))
-                .ok_or_else(|| failed("output range overflow"))?;
-            cap_rolling_prefix(input, prefix)?;
-        }
-        NodeKind::Unary { operation, .. } => operation.cap_rolling_output(rows),
-        _ => {}
+    loop {
+        node = match &mut node.kind {
+            NodeKind::Project { input, .. } => input,
+            NodeKind::Limit {
+                input,
+                offset,
+                count,
+            } if *count != 0 => {
+                rows = offset
+                    .checked_add(rows.min(*count))
+                    .ok_or_else(|| failed("output range overflow"))?;
+                input
+            }
+            NodeKind::Pipeline { input, stages } => {
+                for stage in stages.iter().rev() {
+                    match &stage.kind {
+                        PipelineKind::Project(_) => {}
+                        PipelineKind::Limit { offset, count } if *count != 0 => {
+                            rows = offset
+                                .checked_add(rows.min(*count))
+                                .ok_or_else(|| failed("output range overflow"))?;
+                        }
+                        _ => return Ok(()),
+                    }
+                }
+                input
+            }
+            NodeKind::Unary { operation, .. } => {
+                operation.cap_rolling_output(rows);
+                return Ok(());
+            }
+            _ => return Ok(()),
+        };
     }
-    Ok(())
 }

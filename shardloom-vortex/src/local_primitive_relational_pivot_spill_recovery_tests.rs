@@ -264,7 +264,7 @@ fn recovery(streamed: bool) {
     assert!(!owned.exists());
 
     let prepared = prepare_recovery(&fixture, streamed);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut actual = Vec::new();
     let ended = Cell::new(false);
     let delivered = Cell::new(0);
@@ -287,6 +287,9 @@ fn recovery(streamed: bool) {
     assert_eq!(report.spilled_pivot_stages, 1);
     assert!(report.spill.as_ref().unwrap().owned_cleanup_completed);
     drop(report);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(fs::read_dir(workspace).unwrap().count(), 0);
 }

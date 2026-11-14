@@ -18,6 +18,10 @@ use vortex::{
 
 static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
 
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "resident_cross_query_tests.rs"]
+mod cross_query_tests;
+
 struct Fixture(PathBuf);
 
 impl Fixture {
@@ -135,7 +139,12 @@ fn admitted_file_segments_share_live_requests_without_caching_completed_answers(
     assert_eq!(session.snapshot().prepared_source_opens, 1);
     assert!(memory.snapshot().reserved_bytes > baseline);
     drop(buffers);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    let cache = session.snapshot().source_segment_cache.unwrap();
+    assert!(cache.retained_entries > 0);
+    assert_eq!(
+        memory.snapshot().reserved_bytes,
+        baseline + cache.table_reserved_bytes + cache.retained_capacity_bytes
+    );
     drop(source);
     drop(observer);
     drop(session);

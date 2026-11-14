@@ -3,11 +3,12 @@
 //! The ordinary binder validates the complete tree first. This pass recognizes
 //! only complete equivalent pipelines; unknown expressions keep that bound tree.
 
+use super::view::{Kind as Step, View};
 use crate::{
     local_primitives::{
         native_relational_aggregate,
         native_relational_expression::{Expression, Kind as E, scalar::Function},
-        prepared_relational::{Node, NodeKind, ScanSource},
+        prepared_relational::{Node, ScanSource},
     },
     query_primitive::{
         VortexAggregateExpression, VortexAggregateHavingExpr, VortexAggregateOrderExpr,
@@ -27,6 +28,63 @@ pub(super) struct Lowered {
     pub(super) request: Request,
     /// Names in the provider output, in the original bound result's order.
     pub(super) output: Vec<String>,
+}
+
+/// A Sort observes its original payload, including hidden output fields and
+/// rows outside a later range. The bounded file kernel observes only retained
+/// payloads, so it cannot replace fallible typed payload validation. Inspect the
+/// bound Sort schema: a projection before Sort may already have removed fields.
+pub(super) fn sort_requires_payload_validation(root: &Node) -> bool {
+    let mut plan = View::Node(root);
+    loop {
+        plan = match plan.kind() {
+            Step::Sort { input, spec } => {
+                return spec.fields.iter().any(|(name, dtype)| match dtype {
+                    DType::Null | DType::Bool(_) => false,
+                    DType::Primitive(ptype, _) => !ptype.is_int(),
+                    // The file kernel validates every decoded text key before
+                    // candidate cutoff. Non-key text is late payload and can
+                    // still contain malformed bytes outside the winning rows.
+                    DType::Utf8(_) => column_origin(input, name).is_none_or(|source| {
+                        !spec
+                            .keys
+                            .iter()
+                            .any(|key| column_origin(input, key.column.as_str()) == Some(source))
+                    }),
+                    _ => true,
+                });
+            }
+            Step::Project { input, .. } | Step::Limit { input, .. } => input,
+            // Called only after a complete SortRows lowering. Other plans do
+            // not acquire a payload obligation from an unrelated source field.
+            _ => return true,
+        };
+    }
+}
+
+fn column_origin<'a>(mut plan: View<'a>, mut name: &'a str) -> Option<&'a str> {
+    loop {
+        plan = match plan.kind() {
+            Step::Scan {
+                source: ScanSource::File(_),
+                ..
+            } => return Some(name),
+            Step::Filter { input, .. } => input,
+            Step::Project { input, expressions } => {
+                let (_, expression) = plan
+                    .fields()
+                    .iter()
+                    .zip(expressions)
+                    .find(|((field, _), _)| field == name)?;
+                let E::Column(source) = &expression.kind else {
+                    return None;
+                };
+                name = source;
+                input
+            }
+            _ => return None,
+        };
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -126,7 +184,7 @@ struct Input {
 /// The caller reserves declaration scratch before this metadata-only pass and
 /// verifies every output dtype against the already-bound relational schema.
 pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Lowered> {
-    let mut plan = plan;
+    let mut plan = View::Node(plan);
     let mut output = names.to_vec();
     let mut limit = None;
     let mut order: Option<Vec<VortexAggregateOrderExpr>> = None;
@@ -135,15 +193,15 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
     // Ranges and ordering have one position each; arbitrary compositions remain
     // on the native relational provider rather than being silently reordered.
     loop {
-        match &plan.kind {
-            NodeKind::Project { input, expressions }
+        match plan.kind() {
+            Step::Project { input, expressions }
                 if expressions
                     .iter()
                     .all(|expr| matches!(expr.kind, E::Column(_))) =>
             {
                 for column in &mut output {
                     let (_, expr) = plan
-                        .fields
+                        .fields()
                         .iter()
                         .zip(expressions)
                         .find(|((name, _), _)| name == column)?;
@@ -155,7 +213,7 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
                 if let Some(keys) = &mut order {
                     for key in keys {
                         let (_, expr) = plan
-                            .fields
+                            .fields()
                             .iter()
                             .zip(expressions)
                             .find(|((name, _), _)| name == &key.column)?;
@@ -167,7 +225,7 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
                 }
                 for predicate in &mut having {
                     let (_, expr) = plan
-                        .fields
+                        .fields()
                         .iter()
                         .zip(expressions)
                         .find(|((name, _), _)| name == &predicate.column)?;
@@ -178,18 +236,18 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
                 }
                 plan = input;
             }
-            NodeKind::Limit {
+            Step::Limit {
                 input,
                 offset,
                 count,
             } if limit.is_none() && order.is_none() && having.is_empty() => {
-                if *count == 0 || offset.checked_add(*count).is_none() {
+                if count == 0 || offset.checked_add(count).is_none() {
                     return None;
                 }
-                limit = Some((*count, *offset));
+                limit = Some((count, offset));
                 plan = input;
             }
-            NodeKind::Sort { input, spec, .. } if order.is_none() && having.is_empty() => {
+            Step::Sort { input, spec } if order.is_none() && having.is_empty() => {
                 order = Some(
                     spec.keys
                         .iter()
@@ -202,7 +260,7 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
                 );
                 plan = input;
             }
-            NodeKind::Filter { input, predicate } if alias_aggregate(input) => {
+            Step::Filter { input, predicate } if alias_aggregate(input) => {
                 if let Some(predicates) = having_predicates(predicate) {
                     having.extend(predicates);
                     plan = input;
@@ -213,12 +271,7 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
             _ => break,
         }
     }
-    if let NodeKind::Aggregate {
-        input,
-        spec,
-        expansion: None,
-    } = &plan.kind
-    {
+    if let Step::Aggregate { input, spec } = plan.kind() {
         return lower_aggregate(input, spec, source, output, limit, order, having);
     }
     if !having.is_empty() {
@@ -231,7 +284,7 @@ pub(super) fn lower(plan: &Node, source: &DType, names: &[String]) -> Option<Low
 }
 
 fn lower_projection(
-    plan: &Node,
+    plan: View<'_>,
     source: &DType,
     mut output: Vec<String>,
     limit: Option<(usize, usize)>,
@@ -260,18 +313,20 @@ fn lower_projection(
     Some(Lowered { request, output })
 }
 
-fn alias_aggregate(node: &Node) -> bool {
-    match &node.kind {
-        NodeKind::Aggregate { .. } => true,
-        NodeKind::Project { input, expressions }
-            if expressions
-                .iter()
-                .all(|expr| matches!(expr.kind, E::Column(_))) =>
-        {
-            alias_aggregate(input)
-        }
-        NodeKind::Filter { input, .. } => alias_aggregate(input),
-        _ => false,
+fn alias_aggregate(mut node: View<'_>) -> bool {
+    loop {
+        node = match node.kind() {
+            Step::Aggregate { .. } => return true,
+            Step::Project { input, expressions }
+                if expressions
+                    .iter()
+                    .all(|expr| matches!(expr.kind, E::Column(_))) =>
+            {
+                input
+            }
+            Step::Filter { input, .. } => input,
+            _ => return false,
+        };
     }
 }
 
@@ -315,7 +370,7 @@ fn legacy_aggregate_admitted(aggregate: &native_relational_aggregate::Spec) -> b
 }
 
 fn lower_aggregate(
-    input_node: &Node,
+    input_node: View<'_>,
     aggregate: &native_relational_aggregate::Spec,
     source: &DType,
     mut output: Vec<String>,
@@ -427,7 +482,7 @@ fn lower_aggregate(
 }
 
 fn lower_sort(
-    plan: &Node,
+    plan: View<'_>,
     source: &DType,
     mut output: Vec<String>,
     order: Vec<VortexAggregateOrderExpr>,
@@ -468,59 +523,78 @@ fn lower_sort(
     Some(Lowered { request, output })
 }
 
-fn input(plan: &Node, source: &DType) -> Option<Input> {
-    match &plan.kind {
-        NodeKind::Scan {
-            source: ScanSource::File(_),
-            source_uri,
-            predicate,
-            plan: scan,
-            ..
-        } if scan.source_order_limit.is_none() => Some(Input {
-            uri: source_uri.clone(),
-            columns: plan
-                .fields
-                .iter()
-                .map(|(name, _)| (name.clone(), Value::Column(name.clone())))
-                .collect(),
-            predicate: predicate.clone(),
-            evaluated: vec![],
-        }),
-        NodeKind::Project {
-            input: child,
-            expressions,
-        } => {
-            let mut input = input(child, source)?;
-            let mut columns = BTreeMap::new();
-            for ((name, _), expression) in plan.fields.iter().zip(expressions) {
-                let value = value(expression, &input.columns, source)?;
-                if matches!(value, Value::Transform { .. }) && !input.evaluated.contains(&value) {
-                    input.evaluated.push(value.clone());
+fn input(mut plan: View<'_>, source: &DType) -> Option<Input> {
+    // Borrowed steps are covered by provider scratch. A flat public pipeline
+    // must not recreate a recursive tree or recurse once for every stage.
+    let mut steps = Vec::new();
+    let mut input = loop {
+        match plan.kind() {
+            Step::Scan {
+                source: ScanSource::File(_),
+                source_uri,
+                predicate,
+                plan: scan,
+            } if scan.source_order_limit.is_none() => {
+                break Input {
+                    uri: source_uri.clone(),
+                    columns: plan
+                        .fields()
+                        .iter()
+                        .map(|(name, _)| (name.clone(), Value::Column(name.clone())))
+                        .collect(),
+                    predicate: predicate.clone(),
+                    evaluated: vec![],
+                };
+            }
+            Step::Project { input, .. } | Step::Filter { input, .. } => {
+                steps.push(plan);
+                plan = input;
+            }
+            _ => return None,
+        }
+    };
+    for plan in steps.into_iter().rev() {
+        match plan.kind() {
+            Step::Project { expressions, .. } => {
+                let mut columns = BTreeMap::new();
+                for ((name, _), expression) in plan.fields().iter().zip(expressions) {
+                    let value = value(expression, &input.columns, source)?;
+                    if matches!(value, Value::Transform { .. }) && !input.evaluated.contains(&value)
+                    {
+                        input.evaluated.push(value.clone());
+                    }
+                    if columns.insert(name.clone(), value).is_some() {
+                        return None;
+                    }
                 }
-                if columns.insert(name.clone(), value).is_some() {
+                input.columns = columns;
+            }
+            Step::Filter { predicate, .. } => {
+                // A projection may fail even for a row that a later filter rejects.
+                if !input.evaluated.is_empty() {
                     return None;
                 }
+                let predicate = checked_predicate(predicate, &input.columns, source)?;
+                input.predicate = Some(conjoin(input.predicate, predicate));
             }
-            input.columns = columns;
-            Some(input)
+            _ => unreachable!("only projection/filter steps were retained"),
         }
-        NodeKind::Filter {
-            input: child,
-            predicate,
-        } => {
-            let mut input = input(child, source)?;
-            // A projection may fail even for a row that a later filter rejects.
-            if !input.evaluated.is_empty() {
-                return None;
-            }
-            let predicate = checked_predicate(predicate, &input.columns, source)?;
-            input.predicate = Some(match input.predicate {
-                Some(prior) => PredicateExpr::And(vec![prior, predicate]),
-                None => predicate,
-            });
-            Some(input)
+    }
+    Some(input)
+}
+
+/// Accumulated flat stages must not create a recursively nested predicate.
+pub(in crate::local_primitives) fn conjoin(
+    prior: Option<PredicateExpr>,
+    predicate: PredicateExpr,
+) -> PredicateExpr {
+    match prior {
+        Some(PredicateExpr::And(mut children)) => {
+            children.push(predicate);
+            PredicateExpr::And(children)
         }
-        _ => None,
+        Some(prior) => PredicateExpr::And(vec![prior, predicate]),
+        None => predicate,
     }
 }
 

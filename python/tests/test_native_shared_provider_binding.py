@@ -77,6 +77,34 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_multi_window_compositions_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_multi_window_compositions
+        else:
+            from native_optimization_breadth_cases import check_multi_window_compositions
+        check_multi_window_compositions(self)
+
+    def test_pivot_melt_seeded_sampling_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_pivot_melt_seeded_sampling
+        else:
+            from native_optimization_breadth_cases import check_pivot_melt_seeded_sampling
+        check_pivot_melt_seeded_sampling(self)
+
+    def test_correlated_membership_compositions_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_correlated_membership_compositions
+        else:
+            from native_optimization_breadth_cases import check_correlated_membership_compositions
+        check_correlated_membership_compositions(self)
+
+    def test_vector_tensor_variant_composition_matches_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_vector_tensor_variant_composition
+        else:
+            from native_optimization_breadth_cases import check_vector_tensor_variant_composition
+        check_vector_tensor_variant_composition(self)
+
     def test_decimal_output_streamed_completion_and_lazy_domains(self):
         if __package__:
             from .native_decimal_output_cases import check_streams_and_lazy

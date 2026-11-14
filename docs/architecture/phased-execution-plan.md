@@ -251,7 +251,133 @@ the ledger.
 
 Current autonomous execution order:
 
+The November 13 efficiency review keeps the active coverage work first and
+orders its follow-ons by shared owners and concrete prerequisites. The order
+below supersedes the historical A–N/recommendation numbering; those labels
+identify contracts, not additional passes through the same work. Reuse the
+current inventory and exact compatible evidence. Add missing exposure controls
+once, and do not repeat full10k or broad gates after every small edit.
+
+- [ ] **November 13 optimization coverage priority.** The maintainer requests
+  complete optimization coverage across the supported engine. The
+  [coverage contract](native-optimization-coverage-2026-11-13.md) starts with
+  mechanism/opportunity inventory and equivalent-pipeline integration gaps,
+  then closes verified omissions through existing item-20/RFC-0044 owners.
+  Planning-only features, missing evidence and unimplemented mechanisms remain
+  uncovered. Preserve existing semantic/resource gates, rejected candidates and
+  the invalid direct COUNT baseline. PR #1683 merged as `72680743a34a5db9`.
+  The first six integration fixes at `9f4580c72` pass the original 10,000-case
+  corpus and the separately requested 347-case cohort; the
+  [source-bound observations](../benchmarks/native-optimization-coverage-2026-11-13.md)
+  do not establish complete optimization coverage. Shared Sort demand is
+  retained at `cac86e8b0`: 606 complete cases, with 98 newly narrowed inputs.
+  Cardinality and unary demand are retained at `c79f27a82`: 213 complete cases,
+  with 96 newly narrowed inputs. These disjoint, separately measured cohorts
+  close all 194 excessive-column observations in the Parquet/IPC dependency
+  audit; they are not a new full-corpus observation. The
+  [mechanism inventory](native-optimization-inventory-2026-11-13.md) records
+  existing owners, exact test evidence and remaining work. Continue Vortex
+  demand/validation coverage, per-opportunity decisions, missing current
+  compositions and planned mechanisms. Current admission restrictions do not
+  close missing opportunities. The bounded-sort audit also reproduces skipped
+  hidden/outside-prefix payload validation in the file shortcut; its admission
+  correction is now covered by a source-bound 388-case cohort at
+  `4d5fa4a46268380a634e78f057abba087f4042f5`. It removes all 21 prior file-Sort
+  shortcuts while retaining all 36 other file-kernel cases. The candidate's
+  337.804658081 engine seconds correct omitted mandatory validation; separate
+  historical groups are not combined and do not establish speedup or optimized
+  Vortex demand. Answers, schemas, certificates and clocks pass independent
+  replay, with native-pipeline/no-fallback and resource checks. The
+  [portable evidence packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
+  preserves the source-bound validation. Item 19, item 20, RFC 0044 and CG-1
+  through CG-23 remain open.
+  The latest maintainer instruction prioritizes these active implementation
+  deliverables, with public execution, semantic and activation evidence:
+  - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
+    at `788a8925e`: complete validation, default/native/package checks, all 388
+    answers and unchanged pipeline counts pass; the same-baseline engine total
+    decreases from 337.804658081 to 327.589944482 seconds. Portable replay and
+    all 26 negative/refusal controls pass; broader coverage stays open.
+  - [x] Complete the bounded Vortex scan reporting/decision unit: executed
+    logical contracts, completed positional reads and admitted whole-file
+    projection pruning. Physical per-column/decode counts and complete
+    per-opportunity coverage remain open.
+  - [x] Connect eligible direct-source COUNT and file-backed cyclic semi-join
+    opportunities through shared owners and versioned complete evidence.
+    The complete COUNT subgroup is slower; no independent COUNT speedup is
+    admitted by the coherent unit's gain.
+  - [x] Implement the first native runtime-filter, skew and cross-query reuse
+    owners under their existing RFC contracts: post-key-validation membership
+    filters, stable heavy-duplicate ranges and held-generation immutable segment
+    retention. Source-filter pushdown and join-build/result reuse remain open.
+  - [x] Validate these connected owners with complete multi-window,
+    correlated-membership, melt/pivot, seeded-sampling and rich expression
+    compositions across the public surfaces. The
+    [November 14 activation acceptance](../benchmarks/native-optimization-activation-2026-11-14.md)
+    at `f414d9dd3` passes default/native/installed checks, every result in the
+    7,498-case comparison and five two-call lifecycles, complete portable replay
+    and all fifty corruption/refusal controls. Fresh-session engine time falls
+    from 1267.114826002 to 1263.682737384 seconds; the complete lifecycle total
+    also falls. All 5,189 individual regressions and slower subgroups remain
+    recorded. This advances the accepted baseline for the next unit without
+    closing the parent coverage item or the remaining opportunity obligations.
+
+- [ ] **November 13 metadata and encoded-consumer investigations — follow the
+  active optimization-coverage implementation above.** The maintainer's supplied
+  research is incorporated as major investigation and implementation work in the
+  [follow-on contract](native-metadata-encoded-consumer-investigations-2026-11-13.md).
+  Recheck actual source/provider activation, develop the missing shared engine
+  connections, and retain changes only after their semantic, resource, ownership,
+  no-fallback and complete-operation evidence passes. Reading the research or
+  adding counters alone does not complete an item. Existing item-20 owners and
+  item-19 spatial obligations remain canonical; these are not new phase IDs.
+  Follow the [dependency order](native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables)
+  below. Each experiment retains its own decision; shared preparation does not
+  combine independent speed claims. The accepted November 14 activation source
+  now satisfies this queue's baseline prerequisite; per-measure completion is
+  the next implementation unit, followed by regional partials and constant keys.
+  - [ ] Reconcile only changed activation/exposure against the accepted coverage
+    baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
+    N's dictionary owner and I's consumer boundaries; attach versioned missing
+    encoding/selectivity controls without restarting the full inventory.
+  - [ ] Complete individually proved aggregate measures from metadata, then
+    exact regional partials and constant-group-key completion through the same
+    state/finalizer. Keep each semantic admission distinct; missing region
+    coverage proof must not block a separately complete per-measure result.
+  - [ ] Extend existing N with dictionary-domain text transforms retained into
+    filter/group/distinct consumers and compatible shared outputs.
+  - [ ] Extend C with only the exact source/domain facts required by the named
+    ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve
+    typed comparison and failure semantics without a speculative fact framework.
+  - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
+    admission first, then necessary text signatures where warranted. Spatial
+    summaries follow the exact spatial execution contract below.
+  - [ ] Extend existing I with separately observed pruning/read/consumer units
+    and survivor-driven batching. Settle its retained or declined batch/lifetime
+    contract before tuning per-batch FSST matcher lifetime or codec choices.
+  - [ ] Investigate a conservative FSST candidate prefilter and separately
+    bounded exact-table matcher reuse on the resulting accepted consumer path,
+    with selective/dense and hardware controls.
+  - [ ] Advance item-19 spatial execution through native coordinate/offset
+    arrays, conservative bounds and exact surviving-candidate kernels, then
+    evaluate optional persisted spatial summaries. Required spatial support does
+    not depend on a successful FSST, codec or CPU-fusion optimization.
+  - [ ] Assess codec/consumer choices with the accepted consumer and batch
+    contracts. Investigate distinct bounded CPU expression fusion last, only
+    after attributing work left by the accepted upstream reductions and preserving
+    the prior dropped candidate.
+  Preserve all prior FSST, text-zoning, fusion and layout observations. Extend
+  the fixed 10k with versioned encoding/metadata/selectivity controls where it
+  lacks exposure. No speculative codec default, duplicate N/I/spatial queue,
+  broad unmeasured rewrite, new fallback engine or competitive claim is admitted.
+
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
+  The higher-priority coverage and follow-on items above own the immediate
+  sequence. Reconcile their outcomes into B/C/I/N here rather than implementing
+  them twice. A post-validation join membership filter does not by itself close
+  D's source-pruning obligation, and immutable source-segment reuse does not
+  close recommendation 13's join-build reuse obligation. Keep those distinct
+  residual contracts and the original acceptance records.
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.
@@ -264,9 +390,10 @@ Current autonomous execution order:
     [structural-work intake](native-structural-work-investigations-2026-11-11.md)
     adds H–N. The complete 10,000-declaration exposure audit for H/I/J is recorded;
     physical activation and removable-work attribution remain prerequisites to
-    their independent experiments. A is closed; B's invalid-baseline checkpoint
-    remains pending a versioned harness correction and complete comparison;
-    H/I/J are the priority structural candidates after those foundations, when
+    their independent experiments. A is closed; B's original invalid baseline
+    remains preserved, while its corrected bounded connection is retained in
+    the November 14 activation unit without an independent COUNT speedup claim.
+    H/I/J retain their structural contracts after the higher-priority sequence, when
     their exposure gates pass. K/L retain separate semantic gates, M remains
     topology research and N is dictionary-activation-gated. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
@@ -332,17 +459,17 @@ Current autonomous execution order:
       `3a0608b12e40435fab1adc4afefbaa4173932737`; all 58 PR and 55 exact-main
       checks passed with review clear. Verified retirement and post-retirement
       replay completed. The compatible-window runtime remains accepted.
-    - [ ] B: prove one capability-admitted bounded direct grouped/count source
-      bridge into an existing native kernel and record its complete decision.
-      The [November 12 checkpoint](native-direct-count-bridge-2026-11-12.md)
-      preserves the validated prototype, but its fixed baseline has 2,483 passing
-      results and 60 harness/declaration mismatches among 2,543 cases. All 2,258
-      original controls pass. No candidate benchmark query ran, no complete
-      engine total or gain/loss decision exists, and accepted runtime/test/CI
-      sources are restored exactly. Correct the unsigned SQL transport spelling
-      and mixed COUNT/SUM result declaration in new versioned artifacts, audit
-      unchanged-request reuse, then freeze a corrected complete protocol.
-      B stays pending; this checkpoint does not admit H/I/J implementation.
+    - [x] B: connect one capability-admitted bounded direct grouped/count source
+      bridge through the existing shared aggregate owner. The
+      [November 12 checkpoint](native-direct-count-bridge-2026-11-12.md) retains
+      its invalid baseline: 2,483 passing results and 60 harness/declaration
+      mismatches among 2,543 cases, with no candidate execution at that time.
+      The later versioned transport/schema corrections and complete comparison
+      retain the connection within the
+      [November 14 activation unit](../benchmarks/native-optimization-activation-2026-11-14.md).
+      Its complete COUNT subgroup regresses from 282.761846730 to 284.152322404
+      engine seconds; no independent COUNT speedup is accepted. Broader source
+      capabilities and H/I/J keep their own contracts and execution order.
     - [ ] C: attribute and remove one demonstrated repeated key/order/structural
       fact reconstruction using existing native owners and compatible domains.
     - [ ] D: prove completed inner/semi-join constraints in source demand and

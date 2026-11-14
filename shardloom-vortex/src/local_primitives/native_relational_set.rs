@@ -101,6 +101,7 @@ impl<'a> RowSet<'a> {
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| {
             counts.group_ordinal_rows += array.len() as u64;
+            counts.group_input_batches += 1;
         });
         self.ingest(array, None, context, batch_rows, None, Some(&mut mapping))?;
         Ok(mapping)
@@ -108,6 +109,14 @@ impl<'a> RowSet<'a> {
 
     pub(super) fn rows(&self) -> usize {
         self.table.rows()
+    }
+
+    pub(super) fn seal_join(&mut self, context: &NativeExecutionContext<'_>) -> Result<()> {
+        self.index.seal_join(false, context.cancellation())
+    }
+
+    pub(super) fn join_work(&self) -> Result<shardloom_core::native_join_work::NativeJoinWork> {
+        self.index.join_work()
     }
 
     pub(super) fn gather<'b>(
@@ -118,6 +127,7 @@ impl<'a> RowSet<'a> {
         self.table.gather(rows, false, context)
     }
 
+    #[allow(clippy::too_many_lines)] // Keep key admission, exact insertion and batch publication together.
     fn ingest(
         &mut self,
         array: ArrayRef,
@@ -127,6 +137,7 @@ impl<'a> RowSet<'a> {
         mut consume: Option<&mut dyn FnMut(ArrayRef) -> Result<()>>,
         mut mapping: Option<&mut ReservedVec<usize>>,
     ) -> Result<u64> {
+        self.index.ensure_building()?;
         if batch_rows == 0 {
             return Err(failed("set output batch rows must be positive"));
         }

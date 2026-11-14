@@ -2,7 +2,15 @@
 
 # Direct grouped COUNT bridge checkpoint
 
-Status: **pending; prototype not admitted**, November 12, 2026. The fixed
+November 14 follow-up: the corrected COUNT connection is retained within the
+[accepted coherent activation unit](../benchmarks/native-optimization-activation-2026-11-14.md)
+at `f414d9dd3`, using separately versioned transport/schema declarations. Its
+complete 2,543-case COUNT subgroup regresses from 282.761846730 to 284.152322404
+engine seconds. There is **no independently accepted COUNT speedup**. The
+combined unit passes its prospectively fixed whole-cohort and lifecycle gates.
+The original failed baseline below remains invalid and unchanged.
+
+Historical status: **pending; prototype not admitted**, November 12, 2026. The fixed
 baseline contains 2,483 passing results and 60 failed results across 2,543
 requests. No candidate benchmark query ran. The complete engine total and any
 gain/loss comparison are unavailable. Accepted runtime, tests and ignored-test
@@ -12,7 +20,7 @@ reconstructible from the evidence packet.
 This is a stopping checkpoint for investigation B in the
 [shared-pipeline program](native-shared-pipeline-investigations-2026-11-10.md),
 inside item 20 and RFC 0044. The [phase plan](phased-execution-plan.md#planned)
-keeps B unchecked. It does not complete item 19, item 20, RFC 0044 or CG-1
+kept B unchecked at that checkpoint. It does not complete item 19, item 20, RFC 0044 or CG-1
 through CG-23, and does not admit the later H/I/J experiments.
 
 ## Accepted starting point and fixed scope

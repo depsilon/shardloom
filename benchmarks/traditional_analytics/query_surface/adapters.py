@@ -35,7 +35,7 @@ def quoted(name):
 def sql_type(dtype):
     if dtype.name == "decimal128":
         return f"DECIMAL({dtype.parameters[0]},{dtype.parameters[1]})"
-    return {"int64": "BIGINT", "uint64": "UBIGINT", "float64": "DOUBLE", "utf8": "VARCHAR",
+    return {"int64": "BIGINT", "uint64": "uint64", "float64": "DOUBLE", "utf8": "VARCHAR",
             "bool": "BOOLEAN", "date32": "DATE", "timestamp_micros": "TIMESTAMP"}.get(dtype.name, dtype.name.upper())
 
 

@@ -216,8 +216,8 @@ impl<'a> Sort<'a> {
                 && self.spec.unobserved_fields.is_empty()
                 && (input_payloads_validated
                     || self.spec.fields.iter().all(|(_, dtype)| {
-                        !matches!(dtype, DType::Decimal(..))
-                            && super::result_batch::width(dtype).is_ok()
+                        super::native_payload::is_nested(dtype)
+                            || super::result_batch::width(dtype).is_ok()
                     }))
         });
         let bounded = requested.filter(|cap| {

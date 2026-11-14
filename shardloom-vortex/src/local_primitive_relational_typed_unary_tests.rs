@@ -146,7 +146,7 @@ fn rows(fixture: &Fixture, request: &VortexQueryPrimitiveRequest, direct: bool) 
         let mut request = request.clone();
         request.source_uri = Some(DatasetUri::new(fixture.path().display().to_string()).unwrap());
         let prepared = prepare_unary(&request, policy()).unwrap();
-        let before = prepared.snapshot().memory.reserved_bytes;
+        let before = prepared.snapshot().reserved_without_source_segment_cache();
         let mut expected = None;
         for _ in 0..2 {
             let output = prepared
@@ -171,12 +171,15 @@ fn rows(fixture: &Fixture, request: &VortexQueryPrimitiveRequest, direct: bool) 
             }
             expected = Some(values);
             drop(output);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                before
+            );
         }
         return expected.unwrap();
     }
     let prepared = prepared_composed(fixture, request).unwrap();
-    let before = prepared.snapshot().memory.reserved_bytes;
+    let before = prepared.snapshot().reserved_without_source_segment_cache();
     let mut expected = None;
     for _ in 0..2 {
         let output = prepared
@@ -196,7 +199,10 @@ fn rows(fixture: &Fixture, request: &VortexQueryPrimitiveRequest, direct: bool) 
         }
         expected = Some(values);
         drop(output);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            before
+        );
     }
     expected.unwrap()
 }

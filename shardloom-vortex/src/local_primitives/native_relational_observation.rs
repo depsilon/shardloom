@@ -26,6 +26,8 @@ pub(crate) struct Counts {
     pub(crate) key_inline_cache_hits: u64,
     pub(crate) key_exact_lookups: u64,
     pub(crate) group_ordinal_rows: u64,
+    pub(crate) group_input_batches: u64,
+    pub(crate) membership_key_preparations: Vec<MembershipKeyPreparation>,
     pub(crate) variable_domains: u64,
     pub(crate) variable_domain_values: u64,
     pub(crate) variable_hash_slot_bytes: u64,
@@ -37,6 +39,15 @@ pub(crate) struct Counts {
     pub(crate) variable_result_visits: u64,
     pub(crate) aggregate_value_preparations: u64,
     pub(crate) aggregate_row_updates: u64,
+    pub(crate) aggregate_count_updates: u64,
+    pub(crate) aggregate_count_contributions: u64,
+    pub(crate) aggregate_count_partial_batches: u64,
+    pub(crate) aggregate_count_partial_input_rows: u64,
+    pub(crate) aggregate_count_partial_groups: u64,
+    pub(crate) aggregate_count_partial_capacity_bytes: u64,
+    pub(crate) aggregate_count_partial_constant_batches: u64,
+    pub(crate) aggregate_count_partial_unique_declines: u64,
+    pub(crate) aggregate_count_partial_capacity_declines: u64,
     pub(crate) aggregate_numeric_bound_batches: u64,
     pub(crate) aggregate_numeric_bound_rows: u64,
     pub(crate) aggregate_extrema_bound_batches: u64,
@@ -125,6 +136,22 @@ pub(crate) struct Counts {
     pub(crate) window_shared_outputs: u64,
     pub(crate) window_exceptional_suffix_functions: u64,
     pub(crate) window_companion_cancellation_checks: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub(crate) struct MembershipKeyPreparation {
+    pub(crate) name: String,
+    pub(crate) rows: usize,
+    pub(crate) input_encoding: String,
+    pub(crate) dtype: String,
+    pub(crate) numeric: bool,
+}
+
+pub(super) fn record_count_update(contributions: u64) {
+    record(|counts| {
+        counts.aggregate_count_updates += 1;
+        counts.aggregate_count_contributions += contributions;
+    });
 }
 
 thread_local! {

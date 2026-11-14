@@ -21,6 +21,12 @@ from query_surface.specification import Expression as E, FAMILIES, Order, Relati
 
 
 class QueryCorpusTests(unittest.TestCase):
+    def test_unsigned_cast_uses_the_native_sql_type_spelling(self):
+        self.assertEqual(expression_sql(E.literal(7).cast(ResultType("uint64", False))),
+                         "CAST(7 AS uint64)")
+        self.assertEqual(expression_sql(E.literal(None).cast(ResultType("uint64", True))),
+                         "CAST(NULL AS uint64)")
+
     def test_constrained_pairwise_coverage_measures_only_feasible_interactions(self):
         factors = {"type": ("integer", "text"), "operator": ("sum", "count"), "nulls": ("none", "some")}
         cells = feasible_cells(factors, allowed=lambda cell: cell["operator"] != "sum" or cell["type"] != "text")

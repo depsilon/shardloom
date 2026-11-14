@@ -189,7 +189,7 @@ fn exact_quantile_window_pressure_cancellation_output_failure_and_retry_release_
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let pressure = prepared
             .session
             .memory()
@@ -218,7 +218,10 @@ fn exact_quantile_window_pressure_cancellation_output_failure_and_retry_release_
             assert!(result.is_err());
             assert_eq!(delivered, 1);
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
         let result = prepared
@@ -229,7 +232,10 @@ fn exact_quantile_window_pressure_cancellation_output_failure_and_retry_release_
             .collect::<Vec<_>>();
         assert_eq!(json_rows(&result), expected);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     }
 }

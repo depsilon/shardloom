@@ -1,0 +1,228 @@
+{
+  "status": "passed",
+  "replay": {
+    "status": "passed",
+    "query_executions": 0,
+    "manifest_sha256": "07bd5fdbe5c9bf263bc37c3e2a259a46dba2b36649c3958709c20d2d2955580f",
+    "verified_archive_members": 120,
+    "source_commit": "4d5fa4a46268380a634e78f057abba087f4042f5",
+    "cases": 388,
+    "groups": {
+      "owned_source_control": {
+        "cases": 10,
+        "baseline_engine_seconds": 0.5217667930000001,
+        "candidate_engine_seconds": 0.637267499,
+        "baseline_source_commits": [
+          "cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8"
+        ],
+        "cases_with_higher_engine_time": 10,
+        "reported_file_sorts": 0,
+        "file_kernel_cases": 0
+      },
+      "vortex_no_file_kernel": {
+        "cases": 321,
+        "baseline_engine_seconds": 253.571914075,
+        "candidate_engine_seconds": 250.922701375,
+        "baseline_source_commits": [
+          "9f4580c723f876f087d3e75fb56153b4b099ef20"
+        ],
+        "cases_with_higher_engine_time": 156,
+        "reported_file_sorts": 0,
+        "file_kernel_cases": 0
+      },
+      "vortex_other_file_kernel": {
+        "cases": 36,
+        "baseline_engine_seconds": 18.020221127,
+        "candidate_engine_seconds": 17.696910084,
+        "baseline_source_commits": [
+          "9f4580c723f876f087d3e75fb56153b4b099ef20"
+        ],
+        "cases_with_higher_engine_time": 8,
+        "reported_file_sorts": 0,
+        "file_kernel_cases": 36
+      },
+      "vortex_reported_file_sort": {
+        "cases": 21,
+        "baseline_engine_seconds": 0.191429042,
+        "candidate_engine_seconds": 68.547779123,
+        "baseline_source_commits": [
+          "9f4580c723f876f087d3e75fb56153b4b099ef20"
+        ],
+        "cases_with_higher_engine_time": 21,
+        "reported_file_sorts": 0,
+        "file_kernel_cases": 3
+      }
+    },
+    "candidate_engine_seconds": 337.804658081,
+    "combined_historical_engine_total": null,
+    "scope": "Saved identities, per-group engine clocks, complete certificate fields, runtime/source/check bindings. Complete answers were replayed locally against independent original references; this portable verifier does not repeat the full oracle or establish complete optimization coverage."
+  },
+  "negative_controls": {
+    "status": "passed",
+    "query_executions": 0,
+    "relocated_replay": {
+      "status": "passed",
+      "query_executions": 0,
+      "manifest_sha256": "07bd5fdbe5c9bf263bc37c3e2a259a46dba2b36649c3958709c20d2d2955580f",
+      "verified_archive_members": 120,
+      "source_commit": "4d5fa4a46268380a634e78f057abba087f4042f5",
+      "cases": 388,
+      "groups": {
+        "owned_source_control": {
+          "cases": 10,
+          "baseline_engine_seconds": 0.5217667930000001,
+          "candidate_engine_seconds": 0.637267499,
+          "baseline_source_commits": [
+            "cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8"
+          ],
+          "cases_with_higher_engine_time": 10,
+          "reported_file_sorts": 0,
+          "file_kernel_cases": 0
+        },
+        "vortex_no_file_kernel": {
+          "cases": 321,
+          "baseline_engine_seconds": 253.571914075,
+          "candidate_engine_seconds": 250.922701375,
+          "baseline_source_commits": [
+            "9f4580c723f876f087d3e75fb56153b4b099ef20"
+          ],
+          "cases_with_higher_engine_time": 156,
+          "reported_file_sorts": 0,
+          "file_kernel_cases": 0
+        },
+        "vortex_other_file_kernel": {
+          "cases": 36,
+          "baseline_engine_seconds": 18.020221127,
+          "candidate_engine_seconds": 17.696910084,
+          "baseline_source_commits": [
+            "9f4580c723f876f087d3e75fb56153b4b099ef20"
+          ],
+          "cases_with_higher_engine_time": 8,
+          "reported_file_sorts": 0,
+          "file_kernel_cases": 36
+        },
+        "vortex_reported_file_sort": {
+          "cases": 21,
+          "baseline_engine_seconds": 0.191429042,
+          "candidate_engine_seconds": 68.547779123,
+          "baseline_source_commits": [
+            "9f4580c723f876f087d3e75fb56153b4b099ef20"
+          ],
+          "cases_with_higher_engine_time": 21,
+          "reported_file_sorts": 0,
+          "file_kernel_cases": 3
+        }
+      },
+      "candidate_engine_seconds": 337.804658081,
+      "combined_historical_engine_total": null,
+      "scope": "Saved identities, per-group engine clocks, complete certificate fields, runtime/source/check bindings. Complete answers were replayed locally against independent original references; this portable verifier does not repeat the full oracle or establish complete optimization coverage."
+    },
+    "controls": [
+      {
+        "control": "optimized_python_disables_assertions",
+        "status": "rejected",
+        "exception": "RuntimeError"
+      },
+      {
+        "control": "byte_integrity_archive",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "byte_integrity_extra",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "byte_integrity_missing",
+        "status": "rejected",
+        "exception": "FileNotFoundError"
+      },
+      {
+        "control": "negative_engine_clock",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "changed_declaration_identity",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "duplicated_case",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "wrong_historical_source",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "false_control_column_count",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "fake_pipeline_counter",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "external_fallback",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "denied_reservation",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incorrect_engine_total",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incorrect_work_delta",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "dropped_native_check",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "incomplete_full_native_suite",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "unverified_input_hashes",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "extra_query_attempt",
+        "status": "rejected",
+        "exception": "AssertionError"
+      },
+      {
+        "control": "unsafe_archive_name",
+        "status": "rejected",
+        "exception": "AssertionError"
+      }
+    ],
+    "controls_rejected": 19,
+    "original_packet_unchanged": true,
+    "helper": {
+      "bytes": 10449,
+      "sha256": "f7cc8ff0ac4bdf692fd713ac33e77be3aa14b87e85ba0fcfa53d5b51477accd4"
+    },
+    "manifest": {
+      "bytes": 35116,
+      "sha256": "07bd5fdbe5c9bf263bc37c3e2a259a46dba2b36649c3958709c20d2d2955580f"
+    }
+  }
+}

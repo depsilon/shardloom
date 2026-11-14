@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "original": {
+    "status": "passed",
+    "manifest_sha256": "f99806c902d0939592972316bafd5a786649815bc64fa072a20df78003abb3a4",
+    "verified_packet_files": 11,
+    "verified_archive_members": 90,
+    "cases": 10000,
+    "successful_engine_seconds": 1560.142540948,
+    "previous_same_cases_engine_seconds": 1514.235435577,
+    "unsuccessful_cases": 0,
+    "query_executions": 0,
+    "scope": "Compact identities, counts, complete saved clock comparison, selected raw certificate fields and validation history; full answer correctness was replayed locally against the original reference ledgers and is not independently rerun by this compact verifier."
+  },
+  "relocated": {
+    "status": "passed",
+    "manifest_sha256": "f99806c902d0939592972316bafd5a786649815bc64fa072a20df78003abb3a4",
+    "verified_packet_files": 11,
+    "verified_archive_members": 90,
+    "cases": 10000,
+    "successful_engine_seconds": 1560.142540948,
+    "previous_same_cases_engine_seconds": 1514.235435577,
+    "unsuccessful_cases": 0,
+    "query_executions": 0,
+    "scope": "Compact identities, counts, complete saved clock comparison, selected raw certificate fields and validation history; full answer correctness was replayed locally against the original reference ledgers and is not independently rerun by this compact verifier."
+  },
+  "controls": [
+    {
+      "name": "unsealed_summary_change",
+      "status": "rejected",
+      "verification_line": 44
+    },
+    {
+      "name": "duplicate_case_id",
+      "status": "rejected",
+      "verification_line": 111
+    },
+    {
+      "name": "nonfinite_engine_clock",
+      "status": "rejected",
+      "verification_line": 28
+    },
+    {
+      "name": "external_fallback_claim",
+      "status": "rejected",
+      "verification_line": 122
+    },
+    {
+      "name": "wrong_activation_count",
+      "status": "rejected",
+      "verification_line": 232
+    }
+  ],
+  "query_executions": 0,
+  "temporary_copies_removed": true,
+  "verifier": {
+    "bytes": 16248,
+    "sha256": "467ee8aae3377f2163cc8a1565b91a9041fbb9c7d3c6c26df56d52ca3f4bb8c7"
+  },
+  "helper": {
+    "bytes": 5442,
+    "sha256": "ba8cb5c6f383c669ca8ef4fb072fea5632663250427435c7bd35e5a3996ce8d8"
+  }
+}

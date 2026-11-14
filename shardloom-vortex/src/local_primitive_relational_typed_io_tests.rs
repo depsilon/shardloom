@@ -105,7 +105,7 @@ fn native_decimal_reduction_writers_preserve_declared_results_and_retained_buffe
         }));
         let prepared = prepare_relational(&plan, policy()).unwrap();
         let memory = prepared.session.memory().clone();
-        let baseline = memory.snapshot().reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let expected = if empty {
             json!({"sum":null, "avg":null, "min":null, "max":null, "count":0, "count_distinct":0})
         } else {
@@ -138,7 +138,10 @@ fn native_decimal_reduction_writers_preserve_declared_results_and_retained_buffe
                 "{empty}/{format:?}"
             );
             drop(report);
-            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             fs::remove_file(path).unwrap();
         }
         let output = prepared.execute_owned().unwrap();

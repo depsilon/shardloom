@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "changed_postprocessing_or_completed_log": [
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/package_activation.py",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/portable_activation.py",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/test_activation_packet.py",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/activation-package-r1.log"
+  ],
+  "removed_payloads_retained_by_identity": [
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-runtime-r5/_native.abi3.so",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-runtime-r5/lib_native.dylib",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-runtime-r5/shardloom"
+  ],
+  "added_completed_evidence": [
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-package-r1.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-packet-controls-r1.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-portable-controls-r1.json",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/activation-package-r2.log",
+    "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/logs/activation-portable-controls-r1.log"
+  ],
+  "unchanged_common_members": 6411,
+  "archive_bytes": 450581428,
+  "parts": 9,
+  "complete_query_and_reference_members_unchanged": true,
+  "query_executions": 0
+}

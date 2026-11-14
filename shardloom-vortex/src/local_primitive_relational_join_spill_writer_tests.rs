@@ -138,7 +138,7 @@ fn ordered_join_spilled_typed_nested_payloads_roundtrip_every_admitted_writer() 
         })
         .collect();
     let prepared = ordered(&left, &plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut expected = vec![
         row(1, Some(10)),
         row(2, Some(11)),
@@ -206,7 +206,10 @@ fn ordered_join_spilled_typed_nested_payloads_roundtrip_every_admitted_writer() 
             );
         }
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(left.0.join("join-runs")).unwrap().count(), 0);
     }
 }

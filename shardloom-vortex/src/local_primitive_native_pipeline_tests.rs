@@ -7,6 +7,9 @@ use crate::{
 };
 use serde_json::json;
 
+#[path = "local_primitive_native_pipeline_coverage_tests.rs"]
+mod coverage_tests;
+
 fn count(input: VortexRelationalPlan) -> VortexRelationalPlan {
     VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
         input,
@@ -84,7 +87,7 @@ fn native_pipeline_admits_both_file_sources_inside_a_join() {
         right.has_file_kernel(),
         "source index one must be admitted too"
     );
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -101,7 +104,10 @@ fn native_pipeline_admits_both_file_sources_inside_a_join() {
             .data_read
     );
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let mut reference = prepare_relational(&plan, policy()).unwrap();
     reference.remove_file_kernels_for_reference().unwrap();
     let result = reference
@@ -196,7 +202,7 @@ fn native_pipeline_terminal_consumer_error_does_not_retry_a_composed_query() {
     let left = Fixture::new(keyed(&[Some(1), Some(2)], &[10, 11]), 1);
     let right = Fixture::new(keyed(&[Some(1)], &[20]), 1);
     let prepared = prepare_relational(&count_join(&left, &right), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut calls = 0;
     let error = prepared
         .for_each_batch(&CancellationToken::default(), |_, _| {
@@ -212,7 +218,10 @@ fn native_pipeline_terminal_consumer_error_does_not_retry_a_composed_query() {
     );
     assert_eq!(calls, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -269,7 +278,7 @@ fn native_pipeline_rejects_foreign_context_before_kernel_admission() {
     };
     let foreign =
         ResidentVortexSession::new(policy().resource_envelope.memory_budget_bytes, 1).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let error = foreign
         .with_native_execution_context(&CancellationToken::default(), |context| {
             provider::prepare(
@@ -284,7 +293,10 @@ fn native_pipeline_rejects_foreign_context_before_kernel_admission() {
         .err()
         .unwrap();
     assert!(error.to_string().contains("different session"));
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert_eq!(foreign.snapshot().completed_executions, 0);
 }
@@ -418,7 +430,7 @@ fn native_pipeline_deferred_kernels_borrow_the_active_context() {
             Ok(plan.clone())
         })
         .unwrap();
-        let baseline = dynamic.snapshot().memory.reserved_bytes;
+        let baseline = dynamic.snapshot().reserved_without_source_segment_cache();
         let actual = dynamic
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -431,7 +443,10 @@ fn native_pipeline_deferred_kernels_borrow_the_active_context() {
         assert_eq!(actual.execution.runtime.completed_executions, 1);
         assert_eq!(actual.execution.runtime.prepared_source_opens, 1);
         drop(actual);
-        assert_eq!(dynamic.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            dynamic.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 

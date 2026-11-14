@@ -89,7 +89,10 @@ fn native_relational_on_precedes_null_extension_for_every_join_kind() {
             compare("left.amount", ComparisonOp::Lt, "right.amount"),
         );
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        let baseline = prepared.session.memory().snapshot().reserved_bytes;
+        let baseline = prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache();
         for call in 1..=2 {
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
@@ -99,7 +102,10 @@ fn native_relational_on_precedes_null_extension_for_every_join_kind() {
             assert_eq!(result.execution.runtime.prepared_source_opens, 2);
             drop(result);
             assert_eq!(
-                prepared.session.memory().snapshot().reserved_bytes,
+                prepared
+                    .session
+                    .snapshot()
+                    .reserved_without_source_segment_cache(),
                 baseline
             );
         }
@@ -250,7 +256,10 @@ fn native_relational_on_candidates_cross_batches_and_release_after_cancellation_
         compare("left.amount", ComparisonOp::Lt, "right.amount"),
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let token = CancellationToken::default();
     let mut delivered = 0;
     assert!(
@@ -264,7 +273,10 @@ fn native_relational_on_candidates_cross_batches_and_release_after_cancellation_
     );
     assert_eq!(delivered, 1);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let block = prepared
@@ -279,7 +291,10 @@ fn native_relational_on_candidates_cross_batches_and_release_after_cancellation_
     );
     drop(block);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let result = prepared

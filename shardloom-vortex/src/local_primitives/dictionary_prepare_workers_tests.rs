@@ -879,7 +879,8 @@ fn dictionary_preparation_native_pruned_input_starts_no_workers() {
         for pressure in [false, true] {
             let held = pressure.then(|| {
                 memory
-                    .reserve(memory.snapshot().limit_bytes - baseline)
+                    // Leave bounded source/scan certificate metadata only.
+                    .reserve(memory.snapshot().limit_bytes - baseline - (64 << 10))
                     .unwrap()
             });
             let executed = prepared.execute().unwrap();

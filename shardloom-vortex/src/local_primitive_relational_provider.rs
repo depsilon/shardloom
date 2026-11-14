@@ -24,7 +24,13 @@ use vortex::array::{
 mod memory;
 #[path = "local_primitive_relational_provider_plan.rs"]
 mod plan;
-pub(super) use plan::scan_predicate;
+#[path = "local_primitive_relational_provider_view.rs"]
+mod view;
+pub(super) use plan::{conjoin, scan_predicate};
+
+pub(super) fn single_file(node: &Node) -> Option<usize> {
+    view::View::Node(node).single_file()
+}
 
 pub(super) struct Prepared {
     strategy: Strategy,
@@ -106,6 +112,11 @@ pub(super) fn prepare(
             "bound_semantics_have_no_equivalent_file_provider",
         ));
     };
+    if lowered.request.kind == Kind::SortRows && plan::sort_requires_payload_validation(root) {
+        return Ok(Selection::declined(
+            "sort_payload_validation_requires_shared_relational_execution",
+        ));
+    }
     let bytes = memory::retained(&lowered.request, &lowered.output, &names)?;
     let capacity = memory.snapshot();
     if bytes
@@ -151,18 +162,7 @@ pub(super) fn prepare(
             "ordering_requires_explicit_typed_null_semantics",
         ));
     }
-    if lowered.output.len() != root.fields.len()
-        || lowered
-            .output
-            .iter()
-            .zip(&root.fields)
-            .any(|(name, (_, dtype))| {
-                fields
-                    .iter()
-                    .find(|(field, _)| field == name)
-                    .is_none_or(|(_, candidate)| candidate != dtype)
-            })
-    {
+    if !provider_schema_matches(&lowered.output, &root.fields, &fields) {
         return Ok(Selection::declined(
             "provider_result_schema_is_not_equivalent",
         ));
@@ -176,6 +176,20 @@ pub(super) fn prepare(
         }),
         reason: "equivalent_bound_native_file_provider_selected",
     })
+}
+
+fn provider_schema_matches(
+    output: &[String],
+    declared: &[(String, DType)],
+    provided: &[(String, DType)],
+) -> bool {
+    output.len() == declared.len()
+        && output.iter().zip(declared).all(|(name, (_, dtype))| {
+            provided
+                .iter()
+                .find(|(field, _)| field == name)
+                .is_some_and(|(_, candidate)| candidate == dtype)
+        })
 }
 
 fn prepare_strategy(
@@ -218,11 +232,6 @@ fn prepare_strategy(
         },
         Kind::ProjectColumns | Kind::FilterAndProject => {
             let plan = native::row_export_scan_plan(&request, source.dtype())?;
-            let filter = plan
-                .filter
-                .as_ref()
-                .map(|filter| native::bind_vortex_scan_expr(source.file(), filter))
-                .transpose()?;
             let columns = plan
                 .projected_columns
                 .iter()
@@ -234,7 +243,7 @@ fn prepare_strategy(
             );
             let operation = source
                 .prepare_projection(&columns, max_rows, u64::MAX)?
-                .with_filter(filter);
+                .with_filter(plan.filter)?;
             Strategy::Projection {
                 source: source.clone(),
                 operation: Box::new(operation),
@@ -510,6 +519,8 @@ fn consume_count(
     emit_count(count, context, consume)?;
     source.validate_generation()?;
     context.check_cancelled()?;
+    native::native_file_scan_evidence::Observation::metadata(source, context)?
+        .complete(source, context, 0, 0, 0, 0)?;
     let (policy, physical) = policy.with_physical_policy_for_request(request);
     let report =
         native::count_all_held_metadata_report(file, count, policy).with_physical_policy(physical);

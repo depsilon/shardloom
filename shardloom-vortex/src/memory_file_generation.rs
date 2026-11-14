@@ -374,27 +374,11 @@ impl MemoryFileGeneration {
                 "projection bounds exceed admitted generation output",
             ));
         }
-        let filter = filter
-            .map(|filter| {
-                filter
-                    .bind(self.dtype())
-                    .and_then(|filter| filter.optimize_recursive())
-                    .map_err(generation_error)
-            })
-            .transpose()?;
-        if filter
-            .as_ref()
-            .is_some_and(|filter| !matches!(filter.dtype(), DType::Bool(_)))
-        {
-            return Err(generation_error(
-                "generation filter must return boolean values",
-            ));
-        }
-        Ok(self
-            .0
+        self.0
             .source
             .prepare_projection(columns, max_rows, max_output_bytes)?
-            .with_filter(filter))
+            .with_filter(filter)
+            .map_err(generation_error)
     }
 
     /// Execute a complete bounded query and explicitly render JSON scalar values.

@@ -90,7 +90,7 @@ fn expected() -> Vec<serde_json::Value> {
 fn native_dynamic_pivot_prepares_without_execution_and_scans_once_per_fresh_call() {
     let fixture = fixture();
     let prepared = prepare(&fixture);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     assert!(prepared.output_dtype().is_none());
     assert_eq!(prepared.snapshot().prepared_source_opens, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
@@ -111,7 +111,10 @@ fn native_dynamic_pivot_prepares_without_execution_and_scans_once_per_fresh_call
                 .contains("native_pipeline_file_kernel_invocations=1 ")
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert_eq!(prepared.snapshot().prepared_source_opens, 1);
     let memory = prepared.session.memory().clone();
@@ -171,7 +174,7 @@ fn native_dynamic_pivot_writes_actual_schema_through_all_eight_sinks() {
     use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
     let fixture = fixture();
     let prepared = prepare(&fixture);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let dtype = DType::struct_(
         [
             (
@@ -223,7 +226,10 @@ fn native_dynamic_pivot_writes_actual_schema_through_all_eight_sinks() {
             );
         }
         drop(written);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -271,7 +277,7 @@ fn native_dynamic_pivot_rejects_repeated_and_foreign_execution_references() {
         },
     )
     .unwrap();
-    let baseline = repeated.snapshot().memory.reserved_bytes;
+    let baseline = repeated.snapshot().reserved_without_source_segment_cache();
     assert!(
         repeated
             .execute_owned()
@@ -280,7 +286,10 @@ fn native_dynamic_pivot_rejects_repeated_and_foreign_execution_references() {
             .to_string()
             .contains("consumed twice")
     );
-    assert_eq!(repeated.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        repeated.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -297,7 +306,7 @@ fn native_dynamic_pivot_late_binding_failure_releases_state_and_publishes_nothin
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let path = fixture.0.join("not-published.vortex");
     assert!(
         prepared
@@ -311,5 +320,8 @@ fn native_dynamic_pivot_late_binding_failure_releases_state_and_publishes_nothin
     assert!(!path.exists());
     assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }

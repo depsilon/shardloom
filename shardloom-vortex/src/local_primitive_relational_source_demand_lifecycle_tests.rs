@@ -191,7 +191,7 @@ fn parquet_demand_mixed_native_file_and_caller_batches_keep_independent_owners()
         Ok(plan)
     })
     .unwrap();
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let mut calls = 0;
     let mut provider = |session: &ResidentVortexSession| {
         calls += 1;
@@ -236,7 +236,10 @@ fn parquet_demand_mixed_native_file_and_caller_batches_keep_independent_owners()
     );
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     drop(collected);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }
 
 #[test]
@@ -273,7 +276,7 @@ fn parquet_demand_selected_decoder_workspace_competes_with_native_memory_grant()
             Ok(fixture.scan(columns, None))
         })
         .unwrap();
-        let initial = prepared.snapshot().memory.reserved_bytes;
+        let initial = prepared.snapshot().reserved_without_source_segment_cache();
         let result = prepared.collect_jsonl(&CancellationToken::default());
         if succeeds {
             let collected = result.unwrap();
@@ -300,7 +303,10 @@ fn parquet_demand_selected_decoder_workspace_competes_with_native_memory_grant()
             );
             assert_eq!(prepared.snapshot().completed_executions, 0);
         }
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            initial
+        );
     }
 }
 
@@ -338,7 +344,7 @@ fn parquet_demand_streams_output_larger_than_the_grant_one_batch_at_a_time() {
         Ok(fixture.scan(&[], None))
     })
     .unwrap();
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let mut delivered = 0;
     let mut batches = 0;
     let result = prepared
@@ -364,7 +370,10 @@ fn parquet_demand_streams_output_larger_than_the_grant_one_batch_at_a_time() {
     );
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }
 
 #[test]
@@ -372,7 +381,7 @@ fn parquet_demand_late_decode_failure_delivers_only_provisional_batches() {
     let fixture = ParquetFixture::new();
     fixture.corrupt_chunk(3, 0);
     let prepared = fixture.prepare(&fixture.scan(&["n"], None));
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let mut delivered = 0;
     let result = prepared.for_each_batch(&CancellationToken::default(), |batch, _| {
         delivered += batch.len();
@@ -381,5 +390,8 @@ fn parquet_demand_late_decode_failure_delivers_only_provisional_batches() {
     assert!(result.is_err());
     assert_eq!(delivered, 12);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }

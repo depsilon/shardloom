@@ -225,7 +225,7 @@ fn temporal_timestamp_duration_keys_force_owned_spill_merge() {
         .unwrap()
         .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let collected = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -247,7 +247,10 @@ fn temporal_timestamp_duration_keys_force_owned_spill_merge() {
     assert!(spill.runs_written >= 3 && spill.merge_passes >= 1);
     assert!(spill.peak_disk_bytes <= spill.quota_bytes && spill.owned_cleanup_completed);
     drop(collected);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(
         fs::read_dir(&fixture.0)
             .unwrap()

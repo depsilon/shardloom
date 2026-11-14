@@ -11,6 +11,9 @@ use shardloom_core::{ComparisonOp, ExprId, Expression, ExpressionKind, ScalarVal
 #[path = "local_primitive_relational_provider_normalization_tests.rs"]
 mod normalization_tests;
 
+#[path = "local_primitive_relational_provider_payload_tests.rs"]
+mod payload_tests;
+
 fn column(name: &str) -> Expression {
     Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
 }
@@ -200,30 +203,35 @@ fn subtract(name: &str, offset: i64) -> Expression {
 }
 
 fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQueryPrimitiveKind) {
-    let optimized = prepare_relational(plan, policy()).unwrap();
-    assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
     let mut general = prepare_relational(plan, policy()).unwrap();
     general.remove_file_kernels_for_reference().unwrap();
     let expected = general
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
-    let baseline = optimized.snapshot().memory.reserved_bytes;
-    for completed in 1..=2 {
-        let result = optimized
-            .collect_jsonl(&CancellationToken::default())
-            .unwrap();
-        assert_eq!(json_rows(&result), json_rows(&expected));
-        assert_eq!(
-            result.result_schema_json.value(),
-            expected.result_schema_json.value()
-        );
-        let report = result.execution.primitive_execution.as_ref().unwrap();
-        assert_eq!(report.primitive_kind, kind);
-        assert!(!report.fallback_execution_allowed);
-        assert_eq!(result.execution.runtime.prepared_source_opens, 1);
-        assert_eq!(result.execution.runtime.completed_executions, completed);
-        drop(result);
-        assert_eq!(optimized.snapshot().memory.reserved_bytes, baseline);
+    for equivalent in [plan.clone(), plan.clone().compact_streaming()] {
+        let optimized = prepare_relational(&equivalent, policy()).unwrap();
+        assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
+        let baseline = optimized.snapshot().reserved_without_source_segment_cache();
+        for completed in 1..=2 {
+            let result = optimized
+                .collect_jsonl(&CancellationToken::default())
+                .unwrap();
+            assert_eq!(json_rows(&result), json_rows(&expected));
+            assert_eq!(
+                result.result_schema_json.value(),
+                expected.result_schema_json.value()
+            );
+            let report = result.execution.primitive_execution.as_ref().unwrap();
+            assert_eq!(report.primitive_kind, kind);
+            assert!(!report.fallback_execution_allowed);
+            assert_eq!(result.execution.runtime.prepared_source_opens, 1);
+            assert_eq!(result.execution.runtime.completed_executions, completed);
+            drop(result);
+            assert_eq!(
+                optimized.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
+        }
     }
 }
 
@@ -764,7 +772,7 @@ fn having_fixture() -> Fixture {
 
 fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json::Value]) {
     let prepared = prepare_relational(plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for completed in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -774,7 +782,10 @@ fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json:
         assert!(result.execution.primitive_execution.is_none());
         assert_eq!(result.execution.runtime.completed_executions, completed);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -1134,7 +1145,7 @@ fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
         ScalarValue::UInt64(2),
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for completed in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -1143,7 +1154,10 @@ fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
         assert_eq!(result.execution.scan_rows_delivered, 2);
         assert_eq!(result.execution.runtime.completed_executions, completed);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let PreparedRoot::Bound(root) = &prepared.root else {
         unreachable!()

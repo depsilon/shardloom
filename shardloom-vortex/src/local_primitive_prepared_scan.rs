@@ -123,12 +123,20 @@ pub(super) fn read_prepared_in_context(
     let preparation_micros = preparation_started.elapsed().as_micros();
     cancellation.check()?;
     source.with_admitted_native_execution(context, |file, context| {
+        let route = match primitive_kind {
+            VortexQueryPrimitiveKind::CountWhere => {
+                shardloom_core::native_file_scan::NativeFileScanRoute::CountWhere
+            }
+            _ => shardloom_core::native_file_scan::NativeFileScanRoute::Projection,
+        };
+        let observation =
+            super::native_file_scan_evidence::Observation::plan(source, &plan, route, context)?;
         let started = Instant::now();
         let metadata_pruned = consult_metadata_pruning(file, &plan, cancellation)?;
         let preparation_micros = preparation_micros.saturating_add(started.elapsed().as_micros());
         // This scan owns no other compute pool. Restore drivers only when
         // metadata cannot answer it, within the same source and call grant.
-        source.retained_session().with_owned_execution_drivers(
+        let result = source.retained_session().with_owned_execution_drivers(
             context,
             metadata_pruned != Some(true),
             || {
@@ -145,7 +153,16 @@ pub(super) fn read_prepared_in_context(
                     metadata_pruned,
                 )
             },
-        )
+        )?;
+        observation.complete(
+            source,
+            context,
+            result.0.pre_limit_result_row_count as u64,
+            u64::from(metadata_pruned != Some(true)),
+            u64::from(metadata_pruned.is_some()),
+            u64::from(metadata_pruned == Some(true)),
+        )?;
+        Ok(result)
     })
 }
 

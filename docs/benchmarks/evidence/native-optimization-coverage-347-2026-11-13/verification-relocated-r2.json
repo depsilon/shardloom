@@ -1,0 +1,33 @@
+{
+  "archive_bytes": 4144945,
+  "archive_sha256": "713399bf547c59a60d2f8984547503ce7d0d1e76a104c1ecdb221d479348b03d",
+  "baseline_engine_seconds": 11.978234339,
+  "candidate_engine_seconds": 12.065545164,
+  "comparison_engine_invoked": false,
+  "complete_comparisons": 347,
+  "complete_rows": 12565,
+  "consumed_evidence_member_count": 1741,
+  "manifest_sha256": "ebbfea1c73966f0954edc33dc061bd915a9cab804b0a318ab69557a0007a6d0d",
+  "member_count": 1748,
+  "provenance_member_count": 7,
+  "query_executions": 0,
+  "raw_read_calls": 2089,
+  "repeated_reads_verified_identical": true,
+  "source_binding": {
+    "binding_gap": false,
+    "bound_verifier_files_match": true,
+    "equivalence_scope": "Exact byte-length and SHA-256 match for the manifest-listed replay source files only; no whole-repository equivalence claim.",
+    "source_file_count": 29,
+    "source_revision": "9f4580c723f876f087d3e75fb56153b4b099ef20",
+    "verification_checkout_revision": "9f4580c723f876f087d3e75fb56153b4b099ef20",
+    "whole_repository_equivalence_claimed": false
+  },
+  "status": "passed",
+  "unique_requested_paths": 1741,
+  "verification_kind": "archive members and source-bound offline replay",
+  "verifier": {
+    "bytes": 12442,
+    "file": "verify.py",
+    "sha256": "ca79e3cf1bff433ac3cfabee52da68c18832befbb980e5c6f334a52e87f5798a"
+  }
+}

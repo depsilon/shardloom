@@ -362,7 +362,7 @@ fn native_relational_spill_writes_complete_ordered_output_through_all_eight_sink
     for value in 0..70_017 {
         writeln!(&mut csv, "{value}").unwrap();
     }
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for (index, format) in FORMATS.into_iter().enumerate() {
         let path = fixture.0.join(format!("ordered-spill.{}", format.as_str()));
         let written = prepared.write(&path, format, false).unwrap();
@@ -386,7 +386,10 @@ fn native_relational_spill_writes_complete_ordered_output_through_all_eight_sink
             );
         }
         drop(written);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert!(!fs::read_dir(&fixture.0).unwrap().any(|entry| {
             entry
                 .unwrap()
@@ -425,7 +428,7 @@ fn native_relational_spill_cleanup_failure_prevents_publication_and_preserves_fo
         .unwrap()
         .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for format in FORMATS {
         let output = fixture.0.join(format!("unchanged.{}", format.as_str()));
         let foreign = std::rc::Rc::new(std::cell::RefCell::new(None));
@@ -448,7 +451,10 @@ fn native_relational_spill_cleanup_failure_prevents_publication_and_preserves_fo
             .unwrap_or_else(|| panic!("{format:?} did not open a spill run: {error}"));
         assert_eq!(fs::read(&foreign).unwrap(), b"foreign content");
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         // Test-owned interruption artifact; production cleanup must preserve it.
         fs::remove_file(&foreign).unwrap();
         fs::remove_dir(foreign.parent().unwrap()).unwrap();
@@ -541,7 +547,10 @@ fn native_relational_every_writer_discards_staging_after_second_source_mutation_
         for format in FORMATS {
             let prepared =
                 prepare_relational(&join(&left, &right, JoinKind::Inner), policy()).unwrap();
-            let baseline = prepared.session.memory().snapshot().reserved_bytes;
+            let baseline = prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache();
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(
                 prepared.session.clone(),
                 prepared.output_dtype().unwrap(),
@@ -608,7 +617,10 @@ fn native_relational_every_writer_discards_staging_after_second_source_mutation_
             assert!(!path.exists());
             assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(
-                prepared.session.memory().snapshot().reserved_bytes,
+                prepared
+                    .session
+                    .snapshot()
+                    .reserved_without_source_segment_cache(),
                 baseline
             );
             assert_eq!(fs::read_dir(&left.0).unwrap().count(), 1);
@@ -640,7 +652,10 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
             let identity =
                 Arc::new(local_preparation_identity(&source.path(), &binding, &memory).unwrap());
             let prepared = source_provenance_tests::prepare(&source, identity, source_owned);
-            let baseline = prepared.session.memory().snapshot().reserved_bytes;
+            let baseline = prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache();
             let plan = crate::local_primitives::native_sink::NativeSinkPlan::produced_sources(
                 prepared.session.clone(),
                 prepared.output_dtype().unwrap(),
@@ -700,7 +715,10 @@ fn native_relational_every_writer_checks_original_preparation_source_through_com
             assert!(!path.exists());
             assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(
-                prepared.session.memory().snapshot().reserved_bytes,
+                prepared
+                    .session
+                    .snapshot()
+                    .reserved_without_source_segment_cache(),
                 baseline
             );
             assert_eq!(fs::read(source.path()).unwrap(), native_before);

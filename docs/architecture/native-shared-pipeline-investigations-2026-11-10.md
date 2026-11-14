@@ -37,8 +37,11 @@ corruption controls pass. PR #1681 merged as `3a0608b12`, with all 58 PR and
 replay complete. The [B COUNT checkpoint](native-direct-count-bridge-2026-11-12.md)
 preserves a locally validated prototype and an invalid 2,543-case baseline:
 2,483 pass and 60 retain their failed status. No candidate benchmark query ran.
-Accepted runtime/test/CI sources are restored; B remains pending a versioned
-harness correction and complete comparison. It has no gain/loss disposition.
+Accepted runtime/test/CI sources were restored at that checkpoint. The later
+[November 14 activation comparison](../benchmarks/native-optimization-activation-2026-11-14.md)
+uses versioned declarations and retains B's connection within a coherent unit.
+The complete COUNT subgroup is slower by 1.390475674 engine seconds; it has no
+independently accepted speedup. The original invalid baseline remains unchanged.
 The November 11
 [structural-work addition](native-structural-work-investigations-2026-11-11.md)
 adds H–N below. Its complete 10,000-declaration exposure audit identifies new
@@ -78,14 +81,30 @@ compositions retain their own versioned baseline/candidate protocols.
 ## Intake dispositions and shared owners
 
 The original A–G and November 11 H–N proposals are accepted for investigation
-and attached to existing runtime obligations. None of these lettered hypotheses
-is accepted as a performance implementation yet. The earlier operator-state
+and attached to existing runtime obligations. B's bounded connection is now
+retained within the November 14 activation unit; this does not independently
+accept a COUNT speedup or any other lettered hypothesis. The earlier operator-state
 recommendations 8–15 retain their own recorded dispositions.
 
-| Order | Proposed work | Existing owners and concrete decision artifact |
+The November 13 [phase-plan priority](phased-execution-plan.md#planned) now
+places complete optimization coverage and its explicitly requested runtime
+capabilities first. The subsequent
+[metadata and encoded-consumer intake](native-metadata-encoded-consumer-investigations-2026-11-13.md)
+follows that work, extending the same item-20 owners, existing N/I investigations
+and item-19 spatial obligation. Preserve the original protocols and dispositions;
+the newer priority does not admit the invalid B baseline or a dropped mechanism.
+The later dependency review puts regional partials immediately after per-measure
+metadata completion, settles I's batch/lifetime contract before FSST/codec
+tuning, and places exact spatial execution before optional spatial summaries.
+Reconcile B/C/I/N outcomes from those active units once; the table below is an
+index of hypothesis contracts rather than a second execution sequence. Source
+segment reuse and a post-validation membership filter do not close join-build
+reuse or D's source-pruning obligations.
+
+| Hypothesis | Proposed work | Existing owners and concrete decision artifact |
 |---|---|---|
 | A | Preserve join mappings through ranking | Extend existing join index/table/selection, batch and ranked-output owners. Produce a uniqueness/admission contract and complete star-join → top-k comparison. |
-| B | Admit optimized operators by proved source capabilities | Extend the existing aggregate scan/lowering/update/finalization family with a bounded source contract. Produce a capability matrix and one direct grouped/count comparison. |
+| B | Admit optimized operators by proved source capabilities | The bounded grouped COUNT connection is retained in the November 14 activation unit. Preserve the invalid original baseline and the later complete COUNT subgroup regression; broader source-capability work remains open. |
 | C | Carry prepared keys, ordering and structural validity | Extend existing immutable native owners with only facts used by a named consumer. Produce owner/domain/property attribution and eliminate one demonstrated reconstruction. |
 | D | Feed completed join constraints into source demand | Extend bound-tree demand, native pruning and Capillary admission. Produce generation-bound inner/semi-join constraints and evidence of work never scheduled/read/decoded. |
 | E | Share typed preparation across consumers and exact ranking | Extend current expression preparation/reuse and vector span owners. Produce source/domain/policy identity, last-consumer lifetime and constant-query-norm protocols. |

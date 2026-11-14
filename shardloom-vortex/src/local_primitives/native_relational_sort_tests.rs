@@ -7,6 +7,9 @@ use vortex::array::{IntoArray as _, arrays::PrimitiveArray};
 #[path = "native_relational_sort_numeric_tests.rs"]
 mod numeric_tests;
 
+#[path = "native_relational_sort_payload_prefix_tests.rs"]
+mod payload_prefix_tests;
+
 fn spec(array: &ArrayRef, names: &[&str]) -> Spec {
     let DType::Struct(fields, _) = array.dtype() else {
         panic!("expected struct")
@@ -434,7 +437,7 @@ fn native_relational_sort_prefix_validates_discarded_payload_in_original_output_
 }
 
 #[test]
-fn native_relational_sort_prefix_retains_full_gather_for_resident_nested_and_decimal_payloads() {
+fn native_relational_sort_prefix_bounds_resident_nested_and_decimal_output() {
     use vortex::array::{arrays::DecimalArray, dtype::DecimalDType};
 
     let payloads = [
@@ -466,11 +469,20 @@ fn native_relational_sort_prefix_retains_full_gather_for_resident_nested_and_dec
                 let mut sort = Sort::new(&binding, context.memory())?;
                 sort.build(array, context)?;
                 let mut emitted = 0;
+                #[cfg(debug_assertions)]
+                let observation = super::super::native_relational_observation::Session::start();
                 sort.finish_prefix(context, 7, Some(1), false, &mut |batch| {
                     emitted += batch.len();
                     Ok(())
                 })?;
-                assert_eq!(emitted, 33);
+                assert_eq!(emitted, 1);
+                #[cfg(debug_assertions)]
+                {
+                    let counts = observation.finish();
+                    assert_eq!(counts.sort_output_rows_constructed, 1);
+                    assert_eq!(counts.sort_payload_rows_validated, 33);
+                    assert_eq!(counts.sort_retained_ordinals, 33);
+                }
                 Ok(())
             })
             .unwrap();

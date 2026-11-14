@@ -363,7 +363,7 @@ fn streaming_join_zero_limit_still_drains_and_rejects_a_late_producer_error() {
                     count: 0,
                 }));
                 let prepared = prepared(&plan, &fixture, None, spill);
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 let mut calls = 0;
                 let mut producer = |session: &ResidentVortexSession| {
                     calls += 1;
@@ -398,7 +398,10 @@ fn streaming_join_zero_limit_still_drains_and_rejects_a_late_producer_error() {
                     assert_eq!(report.output_rows, 0);
                     assert!(report.input.as_ref().unwrap().end_of_input_observed);
                 }
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 if spill {
                     assert_eq!(
                         fs::read_dir(fixture.0.join("join-runs")).unwrap().count(),

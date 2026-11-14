@@ -28,7 +28,7 @@ fn native_typed_source_handoff_reuses_the_reader_and_tracks_only_referenced_type
             Ok(sort(fixture.scan(), "amount"))
         })
         .unwrap();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     let expected_rows = expected();
     for execution in 1..=2 {
         let result = prepared
@@ -41,7 +41,10 @@ fn native_typed_source_handoff_reuses_the_reader_and_tracks_only_referenced_type
         assert_eq!(result.execution.runtime.prepared_source_opens, 1);
         assert_eq!(result.execution.runtime.completed_executions, execution);
         drop(result);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            session.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     fixture.replace();
     assert!(
@@ -67,7 +70,7 @@ fn native_typed_source_handoff_rejects_other_generations_and_wider_grants() {
         VortexQueryPrimitiveRequest::project(uri.clone(), shardloom_plan::ProjectionRequest::All);
     let source = prepared_dispatch::prepare_source(&request, policy()).unwrap();
     let session = source.retained_session();
-    let baseline = session.snapshot().memory.reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     assert!(
         prepare_relational_from_source(other_uri.clone(), source.clone(), policy(), |_| {
             panic!("source identity must be checked before frontend binding")
@@ -87,7 +90,10 @@ fn native_typed_source_handoff_rejects_other_generations_and_wider_grants() {
     assert!(native_collect::prepare_rows_from_source(&other, source.clone()).is_err());
     assert_eq!(session.snapshot().prepared_source_opens, 1);
     assert_eq!(session.snapshot().completed_executions, 0);
-    assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        session.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -232,6 +238,7 @@ fn assert_single_lane_prepared_sort_parity(actual: &str, expected: &str) -> Valu
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The same handoff proves layout, values, and retained ownership.
 fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
     use crate::local_primitives::execute_vortex_local_primitive_with_policy;
     use shardloom_core::{ComparisonOp, PredicateExpr, StatValue};
@@ -287,7 +294,7 @@ fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
         let expected = execute_vortex_local_primitive_with_policy(&request, policy()).unwrap();
         let source = prepared_dispatch::prepare_source(&request, policy()).unwrap();
         let session = source.retained_session();
-        let baseline = session.snapshot().memory.reserved_bytes;
+        let baseline = session.snapshot().reserved_without_source_segment_cache();
         let actual = prepared_dispatch::execute_sort(&request, policy(), &source).unwrap();
         let result = assert_single_lane_prepared_sort_parity(
             actual.result_summary.as_ref().unwrap(),
@@ -311,19 +318,29 @@ fn native_sort_source_handoff_preserves_layout_batches_and_encoded_text() {
             )
         );
         assert_eq!(session.snapshot().prepared_source_opens, 1);
-        assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            session.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         let mut narrow = policy();
         narrow.resource_envelope.memory_budget_bytes = 1 << 20;
         let narrow_source = prepared_dispatch::prepare_source(&request, narrow).unwrap();
         let narrow_session = narrow_source.retained_session();
-        let baseline = narrow_session.snapshot().memory.reserved_bytes;
+        let baseline = narrow_session
+            .snapshot()
+            .reserved_without_source_segment_cache();
         let error = prepared_dispatch::execute_sort(&request, narrow, &narrow_source).unwrap_err();
         assert!(
             error.to_string().contains("memory reservation denied"),
             "{error}"
         );
         assert_eq!(narrow_session.snapshot().prepared_source_opens, 1);
-        assert_eq!(narrow_session.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            narrow_session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -393,7 +410,7 @@ fn native_source_handoff_writers_keep_one_reader_all_formats_and_generation() {
     let source = prepared_dispatch::prepare_source(&requests[0].0, policy()).unwrap();
     let session = source.retained_session();
     let memory = session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     let dtype = DType::struct_(
         [("id", DType::Primitive(PType::U32, Nullability::NonNullable))],
         Nullability::NonNullable,
@@ -466,7 +483,10 @@ fn native_source_handoff_writers_keep_one_reader_all_formats_and_generation() {
             executions += 1;
             assert_eq!(session.snapshot().prepared_source_opens, 1);
             assert_eq!(session.snapshot().completed_executions, executions);
-            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            assert_eq!(
+                session.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
     fixture.replace();
@@ -512,7 +532,7 @@ fn native_source_handoff_projection_writer_streams_above_collection_limit() {
     );
     let source = prepared_dispatch::prepare_source(&request, policy()).unwrap();
     let session = source.retained_session();
-    let baseline = session.snapshot().memory.reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     for format in [Format::Jsonl, Format::ArrowIpc] {
         let path = fixture.0.join(format!("complete.{}", format.as_str()));
         let report = prepared_dispatch::try_write_source(
@@ -527,7 +547,10 @@ fn native_source_handoff_projection_writer_streams_above_collection_limit() {
         .unwrap();
         assert_eq!(report.rows_written, ROWS as u64);
         assert_eq!(session.snapshot().prepared_source_opens, 1);
-        assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            session.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         if format == Format::Jsonl {
             let rows = fs::read_to_string(path)
                 .unwrap()
