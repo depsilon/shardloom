@@ -1,0 +1,82 @@
+{
+  "status": "complete_experiment_acceptance",
+  "disposition": "retain",
+  "original_replay_status": "passed_complete_acceptance",
+  "original_replay_decision": "retain",
+  "fresh": {
+    "cases": 987,
+    "complete": true,
+    "baseline_engine_seconds": 14.828472105,
+    "candidate_engine_seconds": 13.836163897,
+    "engine_gain_seconds": 0.992308207999999,
+    "regressions": 429,
+    "regression_engine_seconds": 0.40495724799999994
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 10,
+    "operations_per_runtime": 20,
+    "baseline_engine_seconds": 0.399843288,
+    "candidate_engine_seconds": 0.221834044
+  },
+  "thresholds_changed": false,
+  "additional_query_executions": 0,
+  "whole_investigation_queue_complete": false,
+  "publication_attempted": false,
+  "inputs": {
+    "regional-protocol-r1.json": "bc9e38c72c4f24dd747e05b53b38929a5695a53f9afee513efd1dff977cccd72",
+    "regional-validation-r1.json": "ba50fd8ee957e09b9a68b6379ee5c8e142593f831ce920076c17a90b955810ca",
+    "regional-replay-r1.json": "444a33436d89b8854cf175ee398c27dd1f51890ad7c5ae1544bb9e4023594fab",
+    "regional-negative-controls-r1.json": "54a9b2a584cd094a32c39fb68d30643f1ef9aa84079e6cd2fa94bb1d7637ecc2",
+    "regional-source-r1.json": "0972498966137c611f7775e08d20ba626f4d528ea8d93142aee13f917b66df74",
+    "regional-replay-name-collision-r1.json": "47b793c9b93ce9d201c2a6ef851f33286f40f81c628f54eea69bf3f087646496"
+  },
+  "candidate_source": {
+    "status": "preserved_exact_candidate_source",
+    "disposition": "retained_local_source",
+    "head": "c9baefd00b20ef1ee1aec3cd49c72b07f762d77d",
+    "tree": "c0618cd8224967a025f2aa502ece4efd838b139e",
+    "parent": "43e99d5828ff923cab8fcc43a359435b3c13c222",
+    "branch": "codex/native-regional-metadata",
+    "files": [
+      "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "python/tests/data/regional-aggregates-v1/README.md",
+      "python/tests/data/regional-aggregates-v1/all-null.vortex",
+      "python/tests/data/regional-aggregates-v1/complete.vortex",
+      "python/tests/data/regional-aggregates-v1/empty.vortex",
+      "python/tests/data/regional-aggregates-v1/flat.vortex",
+      "python/tests/data/regional-aggregates-v1/independent.vortex",
+      "python/tests/data/regional-aggregates-v1/missing-min.vortex",
+      "python/tests/data/regional-aggregates-v1/nullable-predicate.vortex",
+      "python/tests/native_regional_aggregate_cases.py",
+      "python/tests/test_native_shared_provider_binding.py",
+      "shardloom-cli/src/public_workflow_route.rs",
+      "shardloom-vortex/Cargo.toml",
+      "shardloom-vortex/examples/native_regional_uat_fixture.rs",
+      "shardloom-vortex/src/local_primitive_aggregate_scan_evidence.rs",
+      "shardloom-vortex/src/local_primitive_aggregate_scan_source.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_coverage.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_coverage_tests.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_metadata.rs",
+      "shardloom-vortex/src/local_primitive_regional_aggregate_native_tests.rs",
+      "shardloom-vortex/src/local_primitives.rs",
+      "shardloom-vortex/src/local_primitives/exact_distinct_spill_query.rs",
+      "shardloom-vortex/src/local_primitives/weighted_count_spill_query.rs",
+      "shardloom-vortex/src/native_provider_memory.rs",
+      "vendor/vortex-layout/README.shardloom.md",
+      "vendor/vortex-layout/src/layouts/zoned/mod.rs"
+    ],
+    "patch": {
+      "bytes": 143373,
+      "sha256": "a51eaf551e42f03b8a74063547929b05f9eca53292dbfb587f7c66111ca416dc"
+    },
+    "source_fingerprint_sha256": "55506cdaf0b2d835d868f754b9a72dc26016c315cb9373891114763741863620",
+    "source_bytes_equal_to_executed_candidate": true,
+    "committed_blobs_verified": 5745,
+    "runtime_build_head": "43e99d5828ff923cab8fcc43a359435b3c13c222",
+    "runtime_rebuilt_after_commit": false,
+    "publication_attempted": false
+  },
+  "predecessor_commit": "43e99d5828ff923cab8fcc43a359435b3c13c222"
+}

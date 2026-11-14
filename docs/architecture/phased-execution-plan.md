@@ -337,9 +337,13 @@ once, and do not repeat full10k or broad gates after every small edit.
   now satisfies this queue's baseline prerequisite. The
   [per-measure experiment is complete and dropped](native-metadata-measure-completion-2026-11-14.md):
   complete results passed, but requested reads did not decrease and the 637-case
-  fresh engine total increased. The accepted source is restored. Exact regional
-  partials are next, followed by constant keys; neither inherits that experiment's
-  acceptance or requires its dropped implementation.
+  fresh engine total increased. Its source was restored before the distinct
+  [regional experiment](native-regional-aggregates-2026-11-14.md), now retained
+  locally at `c9baefd00`: all 987 declarations per runtime, 40 lifecycle
+  operations, ten strict read witnesses and portable replay pass. Fresh engine
+  time decreases from 14.828472105 to 13.836163897 seconds, with all 429
+  individual regressions preserved; the separate lifecycle total also decreases.
+  Constant keys are next and require their own semantic and cost proof.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
     N's dictionary owner and I's consumer boundaries; attach versioned missing
@@ -348,8 +352,9 @@ once, and do not repeat full10k or broad gates after every small edit.
     exact regional partials and constant-group-key completion through the same
     state/finalizer. Keep each semantic admission distinct; missing region
     coverage proof must not block a separately complete per-measure result.
-    The November 14 per-measure experiment has a complete drop disposition;
-    regional and constant-key implementation/evidence remain open.
+    The November 14 per-measure experiment has a complete drop disposition,
+    and exact scalar regional partials have a complete local retain disposition.
+    Constant-key implementation/evidence remains open; this parent stays open.
   - [ ] Extend existing N with dictionary-domain text transforms retained into
     filter/group/distinct consumers and compatible shared outputs.
   - [ ] Extend C with only the exact source/domain facts required by the named

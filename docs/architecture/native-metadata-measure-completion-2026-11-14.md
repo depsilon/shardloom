@@ -4,10 +4,12 @@
 
 Status: the first bounded experiment in the
 [metadata investigation sequence](native-metadata-encoded-consumer-investigations-2026-11-13.md)
-is complete and dropped. The accepted implementation remains `046488dc3`, whose
+is complete and dropped. This experiment restored `046488dc3`, whose
 runtime is the [November 14 activation unit](native-optimization-activation-2026-11-13.md).
-Regional aggregate partials are next; constant-key grouping and the broader
-item-20/RFC-0044 queue remain open.
+The subsequent [regional unit](native-regional-aggregates-2026-11-14.md) is now
+retained locally at `c9baefd00`; constant-key grouping is next, and the broader
+item-20/RFC-0044 queue remains open. That separate acceptance does not change
+this experiment's drop disposition.
 
 ## Implementation and provider contract
 
@@ -78,15 +80,16 @@ Relocated replay also passed with reads of original source, input, runtime and
 evidence paths forbidden. The original control-driver and packaging failures
 remain documented.
 
-## Next boundary
+## Regional handoff
 
-Regional work must use actual zoned layouts and prove disjoint, exhaustive row
-coverage across all required columns. For each region, distinguish no qualifying
-rows, fully qualifying rows with exact compatible partials and unresolved rows
-that retain the native scan. Missing metadata or mismatched boundaries must not
-silently produce an answer. Reuse the current state/finalizer, held generation,
-native segment source and credited selection owners. Any missing connection is
-implementation work, not a reason to label the capability complete.
+The subsequent regional work uses actual zoned layouts and proves disjoint,
+exhaustive row coverage across all required columns. For each region it
+distinguishes no qualifying rows, fully qualifying rows with exact compatible
+partials and unresolved rows that retain the native scan. Its separately
+versioned controls exercise missing metadata, independent zone boundaries,
+the shared state/finalizer, held generation and native segment source. The
+[regional evidence](../benchmarks/native-regional-aggregates-2026-11-14.md)
+establishes its bounded scalar acceptance; constant-key grouping remains open.
 
 The dropped per-measure prototype is not a prerequisite for that work. Its
 source and validation can inform a distinct design, but its observations cannot

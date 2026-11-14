@@ -2,10 +2,26 @@
 
 # Exact regional aggregate investigation
 
-Status: active implementation experiment, following the completed, dropped
-[per-measure experiment](native-metadata-measure-completion-2026-11-14.md).
-The accepted runtime remains `046488dc3`. This prospective contract does not
-claim a retained optimization, a benchmark result or completion of item 20.
+Status: complete and **retained locally** at `c9baefd00`, following the completed,
+dropped [per-measure experiment](native-metadata-measure-completion-2026-11-14.md).
+The [complete comparison](../benchmarks/native-regional-aggregates-2026-11-14.md)
+and [portable evidence](../benchmarks/evidence/native-regional-aggregates-2026-11-14/README.md)
+pass all 1,974 fresh results, 40 lifecycle operations, ten strict requested-read
+witnesses, 350 regional activation/coverage controls and 70 offline negative
+controls. The 987-case fresh engine total decreases from 14.828472105 to
+13.836163897 seconds; the separate lifecycle total decreases from 0.399843288
+to 0.221834044 seconds. All 429 individual fresh regressions remain recorded.
+
+The executed source fingerprint is
+`55506cdaf0b2d835d868f754b9a72dc26016c315cb9373891114763741863620`.
+All 5,745 captured source files match the preservation commit byte-for-byte;
+the build itself retains its earlier parent and dirty-source identity. Default,
+native, provider and installed tests pass. Constant-key grouping is next;
+the broader metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through
+CG-23 remain open. This local acceptance does not merge or publish the change.
+
+The following contract was fixed before measurement and remains the boundary
+of the retained implementation.
 
 ## Contract and shared owners
 

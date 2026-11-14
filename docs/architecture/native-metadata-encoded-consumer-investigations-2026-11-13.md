@@ -15,8 +15,10 @@ portable proof. It supplies the valid baseline required below. The
 [per-measure experiment](native-metadata-measure-completion-2026-11-14.md) is now
 complete and dropped: all complete results passed, but requested reads did not
 decrease and the complete fresh engine total increased. Its source and evidence
-are preserved; the accepted implementation is restored. Exact regional partials
-are next, followed by constant grouping keys. Broader coverage remains open.
+are preserved; its accepted predecessor was restored. The subsequent
+[regional experiment](native-regional-aggregates-2026-11-14.md) is retained
+locally at `c9baefd00`, with complete result, read-avoidance, lifecycle and
+portable proof. Constant grouping keys are next. Broader coverage remains open.
 
 The supplied research describes source checked at `72680743a34a5db9`, after
 PR #1683. It is an intake, not fresh validation of later implementation. Recheck
@@ -58,7 +60,7 @@ delta review of existing evidence, not another whole-engine inventory phase.
 
 | Execution order | Work and existing owner | Why it belongs here |
 | --- | --- | --- |
-| First | Per-measure experiment dropped; exact regional partials next, then constant grouping keys | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Prove disjoint region coverage, then weighted group attachment; keep each acceptance decision separate. |
+| First | Per-measure experiment dropped; exact scalar regional partials retained locally; constant grouping keys next | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Regional disjoint coverage is now proved within its admitted domain; weighted group attachment still needs its own semantic and cost proof. Keep each acceptance decision separate. |
 | Next | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |
 | Next | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |
 | Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
@@ -142,6 +144,12 @@ defaults. Any later writer decision needs preparation, artifact size, reads and
 nonpredicate consumers in its own complete acceptance workload.
 
 ### Exact regional aggregate partials
+
+The [November 14 regional unit](native-regional-aggregates-2026-11-14.md) is
+retained locally for its bounded scalar integer COUNT/MIN/MAX domain. It passes
+the complete 987-case comparison, separate prepared lifecycles, observed read
+reduction and portable proof. Its immutable evidence includes all regressions
+and unsupported controls. The grouped extension below remains the next work.
 
 Reuse native zoned-layout aggregate/path and partial-state concepts. For an
 identified region, distinguish no qualifying rows, complete qualification with
