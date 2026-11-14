@@ -131,6 +131,8 @@ pub mod binary_object;
 mod native_binary_type;
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 mod native_cross_field_arrow;
+#[cfg(all(feature = "vortex-local-primitives", not(target_arch = "wasm32")))]
+mod native_dictionary_expression;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_embedding;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]

@@ -54,6 +54,7 @@ pub struct NativeExecutionContext<'a> {
     adaptive_work: Mutex<crate::native_work_sizing::Reports>,
     capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
     variant_expression_work: Mutex<crate::native_variant::ExpressionWork>,
+    dictionary_expression_work: Mutex<crate::native_dictionary_expression::Work>,
     join_work: Mutex<shardloom_core::native_join_work::NativeJoinWork>,
     count_partial_work: Mutex<shardloom_core::native_count_partial_work::NativeCountPartialWork>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -115,6 +116,7 @@ impl RuntimeOwner {
             adaptive_work: Mutex::default(),
             capability_decisions: Mutex::default(),
             variant_expression_work: Mutex::default(),
+            dictionary_expression_work: Mutex::default(),
             join_work: Mutex::default(),
             count_partial_work: Mutex::default(),
             #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -322,6 +324,27 @@ impl NativeExecutionContext<'_> {
         self.variant_expression_work
             .lock()
             .map_err(|_| resident_error("Variant expression evidence poisoned"))?
+            .append(certificate);
+        Ok(())
+    }
+
+    pub(crate) fn record_dictionary_expression(
+        &self,
+        work: &crate::native_dictionary_expression::Work,
+    ) -> Result<()> {
+        self.dictionary_expression_work
+            .lock()
+            .map_err(|_| resident_error("dictionary expression evidence poisoned"))?
+            .merge(work)
+    }
+
+    pub(crate) fn append_dictionary_expression_certificate(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        self.dictionary_expression_work
+            .lock()
+            .map_err(|_| resident_error("dictionary expression evidence poisoned"))?
             .append(certificate);
         Ok(())
     }

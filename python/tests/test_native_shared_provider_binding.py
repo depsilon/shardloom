@@ -223,7 +223,7 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         return self.pa.RecordBatchReader.from_stream(result).read_all()
 
     def all_surfaces(self, frame, relation, statement, report_checks=None, *, file_binding=None,
-                     execution_session=None, resources=(128 << 20, 2)):
+                     execution_session=None, resources=(128 << 20, 2), report_check=None):
         """Execute complete declarations through five real public entry points."""
         import shardloom as sl
         session = self.session if execution_session is None else execution_session
@@ -232,6 +232,8 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         def check(get_field):
             for name, expected_value in (report_checks or {}).items():
                 self.assertEqual(get_field(name), expected_value, name)
+            if report_check is not None:
+                report_check(get_field)
 
         result = frame.collect(check=True)
         self.assertFalse(result.envelope.fallback.attempted)
@@ -2399,6 +2401,20 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         else:
             from native_regional_aggregate_cases import check_owned_outputs
         check_owned_outputs(self)
+
+    def test_dictionary_text_consumers_all_five_surfaces(self):
+        if __package__:
+            from .native_dictionary_text_cases import check_surfaces
+        else:
+            from native_dictionary_text_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_dictionary_text_owned_outputs_and_changed_source(self):
+        if __package__:
+            from .native_dictionary_text_cases import check_owned_and_changed_source
+        else:
+            from native_dictionary_text_cases import check_owned_and_changed_source
+        check_owned_and_changed_source(self)
 
     def test_direct_parquet_metadata_count_declines_other_aggregate_domains(self):
         if __package__:

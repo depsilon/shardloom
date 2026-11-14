@@ -10,12 +10,16 @@ use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::{
     ArrayParts, IntoArray as _, VortexSessionExecute as _,
     arrays::{
-        ConstantArray, DictArray, PrimitiveArray, StructArray, VarBin, VarBinArray, VarBinViewArray,
+        ConstantArray, Dict, DictArray, PrimitiveArray, StructArray, VarBin, VarBinArray,
+        VarBinViewArray, dict::DictArraySlotsExt as _,
     },
     dtype::{DType, Nullability, PType},
     memory::HostMemorySessionExt as _,
     scalar::Scalar,
 };
+
+#[path = "native_relational_dictionary_expression_tests.rs"]
+mod dictionary_tests;
 
 fn functions() -> Vec<Function> {
     vec![
@@ -84,8 +88,16 @@ fn agrees(source: ArrayRef, function: Function, admitted: bool) {
             {
                 let counts = observation.finish();
                 assert_eq!(counts.expression_prepared_utf8_batches, u64::from(admitted));
-                if admitted && actual.is_ok() {
-                    assert_eq!(counts.expression_prepared_utf8_rows, input.len() as u64);
+                if admitted && let Ok(actual) = &actual {
+                    if let Some(dictionary) = actual.as_opt::<Dict>() {
+                        assert!(
+                            counts.expression_prepared_utf8_rows
+                                <= dictionary.values().len() as u64
+                        );
+                        assert!(dictionary.values().len() < input.len());
+                    } else {
+                        assert_eq!(counts.expression_prepared_utf8_rows, input.len() as u64);
+                    }
                 }
             }
             assert_eq!(

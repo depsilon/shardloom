@@ -1610,6 +1610,7 @@ impl PreparedVortexRelational {
         context.append_native_join_work(&mut certificate)?;
         context.append_native_count_partial_work(&mut certificate)?;
         context.append_variant_expression_certificate(&mut certificate)?;
+        context.append_dictionary_expression_certificate(&mut certificate)?;
         application::append_certificate(&mut certificate, metrics)?;
         let pipeline_metadata = metrics.pipeline.append_certificate(&mut certificate);
         let (observations, observation_metadata) =
