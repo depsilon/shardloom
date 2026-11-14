@@ -17,6 +17,8 @@ complete 10,000-query pass.
 
 ## Existing mechanisms and outstanding coverage
 
+The table records the original corpus and its historical source inventory;
+the November 14 activation section below records later implementation separately.
 Each optimization needs an applicable operator/source/sink opportunity. A
 positive query counter does not prove that every eligible node used it. An
 admission restriction can identify unfinished integration; it does not close
@@ -36,8 +38,8 @@ the opportunity. Selection among competing legal algorithms also needs proof.
 | Typed keys, shared indexes and exact lookup caches | Join, set and aggregate owners have source/test evidence. Detailed cache and directory activation is largely test-only. |
 | Equality joins and semi/anti membership | 3,193 ordinary-join declarations; 2,096 queries report detached streaming build rows. This does not classify every physical strategy. |
 | As-of lookup | 392 declarations exercise as-of joins. Resident search-strategy decisions lack comprehensive reporting. |
-| Cyclic existence semi-join | The file-backed corpus does not exercise the current memory-only admission. Native and installed tests establish that route; broader source integration remains open. |
-| Compact typed aggregate state | 7,828 aggregate declarations. Root-specialization reports provide partial evidence; the direct-source COUNT bridge remains queued. |
+| Cyclic existence semi-join | The original file-backed corpus does not exercise the then-memory-only admission. Native and installed tests establish that route; the later bounded file connection is recorded below. |
+| Compact typed aggregate state | 7,828 aggregate declarations. Root-specialization reports provide partial evidence; the later COUNT connection is recorded below without an independent COUNT speedup claim. |
 | Aggregate preparation and measure reuse | Compatible repeats have accepted owners and tests. The corpus does not expose a per-measure opportunity/activation denominator. |
 | Exact distinct and bounded aggregate workers | Distinct measures occur in the corpus. A relational Aggregate node does not itself prove primitive worker admission. |
 | Existing-order reuse | Executed in 4,333 queries; 9,342 queries record consideration. Multiple operators can contribute decisions within one query. |
@@ -56,10 +58,30 @@ the opportunity. Selection among competing legal algorithms also needs proof.
 | Native output and bounded delivery | The corpus completes row delivery. Installed tests separately exercise native output, producers, formats and credit-window boundaries. |
 | Bounded workers and queues | Operator-specific worker evidence exists. Selected lane counts and Capillary labels do not prove general parallel scheduling; applied PulseWeave ingest policy is separate. |
 
-The planned general runtime-filter, skew-handling and cross-query reuse
-capabilities remain unimplemented or conditional under their existing contracts.
-Planning records do not establish execution. Rejected experiments remain
-rejected, and the direct COUNT bridge's invalid baseline remains preserved.
+The original inventory does not prove general runtime-filter, skew-handling or
+cross-query reuse execution. Later bounded implementations are recorded below;
+broader opportunities remain open. Rejected experiments remain rejected, and
+the direct COUNT bridge's invalid baseline remains preserved.
+
+## November 14 activation evidence
+
+The [separate accepted unit](../benchmarks/native-optimization-activation-2026-11-14.md)
+at `f414d9dd3` validates 7,498 declarations through five public interfaces and
+three formats, plus five complete prepared lifecycles. Every candidate case
+has executed scan evidence. Positive case observations include 3,244 admitted
+join membership filters, 75 admitted heavy-duplicate ranges, fifteen cyclic
+executions and 256 admitted grouped COUNT partials. These are not all-opportunity
+coverage denominators or independent performance benefits.
+
+All five lifecycles prove automatic immutable-segment reuse on their second call
+under the same held generation, with full results, bounded ownership and final
+credit release. Selected public tests separately add multi-window, correlated
+membership, pivot/melt/seeded sampling and vector/tensor/Variant compositions.
+Default/native/installed validation and complete portable replay pass. The
+coherent fresh-session and lifecycle totals improve, while 5,189 cases and the
+complete COUNT subgroup regress. Keep those results distinct from the historical
+10,000-case table. Physical leaf/decode attribution, source-level runtime-filter
+pushdown, join-build/result reuse and broader per-opportunity coverage stay open.
 
 ## Query-by-query source-column audit
 

@@ -298,21 +298,29 @@ once, and do not repeat full10k or broad gates after every small edit.
     answers and unchanged pipeline counts pass; the same-baseline engine total
     decreases from 337.804658081 to 327.589944482 seconds. Portable replay and
     all 26 negative/refusal controls pass; broader coverage stays open.
-  - [ ] Close Vortex scan reporting/decision gaps and demonstrated missed
-    projection, predicate or pruning opportunities; distinguish missing evidence
-    from missing execution.
-  - [ ] Connect remaining direct-source COUNT and file-backed cyclic semi-join
-    opportunities through native shared owners and valid new evidence.
-  - [ ] Implement general native runtime filters, skew handling and cross-query
-    reuse under their existing RFC contracts; identify and reuse partial
-    implementations, preserving generation, effect and resource boundaries.
-  - [ ] Validate those connected owners together with uncovered multi-window,
-    correlated-subquery, melt/pivot, sampling and rich expression compositions
-    across the public surfaces. Complete lifecycle/resource fixes, required
-    default/native and installed-package proof, then the frozen affected-cohort
-    decisions before advancing the accepted baseline. Breadth declarations and
-    independent references may be prepared alongside implementation; scored
-    query execution remains isolated.
+  - [x] Complete the bounded Vortex scan reporting/decision unit: executed
+    logical contracts, completed positional reads and admitted whole-file
+    projection pruning. Physical per-column/decode counts and complete
+    per-opportunity coverage remain open.
+  - [x] Connect eligible direct-source COUNT and file-backed cyclic semi-join
+    opportunities through shared owners and versioned complete evidence.
+    The complete COUNT subgroup is slower; no independent COUNT speedup is
+    admitted by the coherent unit's gain.
+  - [x] Implement the first native runtime-filter, skew and cross-query reuse
+    owners under their existing RFC contracts: post-key-validation membership
+    filters, stable heavy-duplicate ranges and held-generation immutable segment
+    retention. Source-filter pushdown and join-build/result reuse remain open.
+  - [x] Validate these connected owners with complete multi-window,
+    correlated-membership, melt/pivot, seeded-sampling and rich expression
+    compositions across the public surfaces. The
+    [November 14 activation acceptance](../benchmarks/native-optimization-activation-2026-11-14.md)
+    at `f414d9dd3` passes default/native/installed checks, every result in the
+    7,498-case comparison and five two-call lifecycles, complete portable replay
+    and all fifty corruption/refusal controls. Fresh-session engine time falls
+    from 1267.114826002 to 1263.682737384 seconds; the complete lifecycle total
+    also falls. All 5,189 individual regressions and slower subgroups remain
+    recorded. This advances the accepted baseline for the next unit without
+    closing the parent coverage item or the remaining opportunity obligations.
 
 - [ ] **November 13 metadata and encoded-consumer investigations — follow the
   active optimization-coverage implementation above.** The maintainer's supplied
@@ -325,7 +333,9 @@ once, and do not repeat full10k or broad gates after every small edit.
   item-19 spatial obligations remain canonical; these are not new phase IDs.
   Follow the [dependency order](native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables)
   below. Each experiment retains its own decision; shared preparation does not
-  combine independent speed claims.
+  combine independent speed claims. The accepted November 14 activation source
+  now satisfies this queue's baseline prerequisite; per-measure completion is
+  the next implementation unit, followed by regional partials and constant keys.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
     N's dictionary owner and I's consumer boundaries; attach versioned missing
@@ -380,9 +390,10 @@ once, and do not repeat full10k or broad gates after every small edit.
     [structural-work intake](native-structural-work-investigations-2026-11-11.md)
     adds H–N. The complete 10,000-declaration exposure audit for H/I/J is recorded;
     physical activation and removable-work attribution remain prerequisites to
-    their independent experiments. A is closed; B's invalid-baseline checkpoint
-    remains pending a versioned harness correction and complete comparison;
-    H/I/J are the priority structural candidates after those foundations, when
+    their independent experiments. A is closed; B's original invalid baseline
+    remains preserved, while its corrected bounded connection is retained in
+    the November 14 activation unit without an independent COUNT speedup claim.
+    H/I/J retain their structural contracts after the higher-priority sequence, when
     their exposure gates pass. K/L retain separate semantic gates, M remains
     topology research and N is dictionary-activation-gated. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
@@ -448,17 +459,17 @@ once, and do not repeat full10k or broad gates after every small edit.
       `3a0608b12e40435fab1adc4afefbaa4173932737`; all 58 PR and 55 exact-main
       checks passed with review clear. Verified retirement and post-retirement
       replay completed. The compatible-window runtime remains accepted.
-    - [ ] B: prove one capability-admitted bounded direct grouped/count source
-      bridge into an existing native kernel and record its complete decision.
-      The [November 12 checkpoint](native-direct-count-bridge-2026-11-12.md)
-      preserves the validated prototype, but its fixed baseline has 2,483 passing
-      results and 60 harness/declaration mismatches among 2,543 cases. All 2,258
-      original controls pass. No candidate benchmark query ran, no complete
-      engine total or gain/loss decision exists, and accepted runtime/test/CI
-      sources are restored exactly. Correct the unsigned SQL transport spelling
-      and mixed COUNT/SUM result declaration in new versioned artifacts, audit
-      unchanged-request reuse, then freeze a corrected complete protocol.
-      B stays pending; this checkpoint does not admit H/I/J implementation.
+    - [x] B: connect one capability-admitted bounded direct grouped/count source
+      bridge through the existing shared aggregate owner. The
+      [November 12 checkpoint](native-direct-count-bridge-2026-11-12.md) retains
+      its invalid baseline: 2,483 passing results and 60 harness/declaration
+      mismatches among 2,543 cases, with no candidate execution at that time.
+      The later versioned transport/schema corrections and complete comparison
+      retain the connection within the
+      [November 14 activation unit](../benchmarks/native-optimization-activation-2026-11-14.md).
+      Its complete COUNT subgroup regresses from 282.761846730 to 284.152322404
+      engine seconds; no independent COUNT speedup is accepted. Broader source
+      capabilities and H/I/J keep their own contracts and execution order.
     - [ ] C: attribute and remove one demonstrated repeated key/order/structural
       fact reconstruction using existing native owners and compatible domains.
     - [ ] D: prove completed inner/semi-join constraints in source demand and

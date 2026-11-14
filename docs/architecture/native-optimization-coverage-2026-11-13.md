@@ -41,9 +41,9 @@ The maintainer explicitly includes existing and planned optimizations. Review
 supported native sources, operators, data types, representations, output modes,
 resource policies and public interfaces, and implement the planned mechanisms
 through their existing design and evidence owners. General runtime filters,
-skew handling and automatic cross-query reuse are included; they remain missing
-capabilities until executable implementations pass their acceptance contracts.
-Preserve rejected experiments and
+skew handling and automatic cross-query reuse are included. The first bounded
+implementations now pass the November 14 activation contract below; broader
+opportunities remain open. Preserve rejected experiments and
 the direct COUNT bridge's invalid baseline; this request does not turn those
 observations into acceptance.
 
@@ -61,7 +61,27 @@ do not satisfy them. Missing Vortex reporting must be distinguished from absent
 projection/pruning execution, and existing partial implementations must be
 reused and identified before adding mechanisms.
 
-The public relation declaration currently has 22 variants. Its lowering uses
+## Accepted activation unit — November 14
+
+The [bounded activation unit](native-optimization-activation-2026-11-13.md) at
+`f414d9dd3` connects executed scan evidence and whole-file projection pruning,
+eligible grouped COUNT and file-backed cyclic semi-joins, post-key-validation
+join membership filters, stable heavy-duplicate ranges and automatic held-source
+segment reuse. Complete values, lifetimes, resource checks, public breadth and
+both prospective timing gates pass in the
+[7,498-case and five-lifecycle comparison](../benchmarks/native-optimization-activation-2026-11-14.md).
+The coherent unit is retained; 5,189 cases and the complete COUNT subgroup
+regress. No individual mechanism speedup is established.
+
+This closes the four scoped activation deliverables in the phase plan, not
+complete engine optimization coverage. Source runtime-filter pushdown,
+join-build/result reuse, physical per-column/decode evidence and per-opportunity
+decisions remain open. The metadata follow-on now starts from this valid accepted
+baseline. Historical corpus results below retain their original source and scope.
+
+## Source inventory at the audit baseline
+
+The public relation declaration at the audit baseline has 22 variants. Its lowering uses
 20 internal node variants, including the deliberately unexecutable `Unadmitted`
 sentinel. These are different inventories: correlated/deferred/result
 declarations lower through existing native owners rather than three additional
@@ -247,10 +267,14 @@ does not complete Vortex demand coverage or close item 19, item 20, RFC 0044 or
 CG-1 through CG-23.
 
 The [shared prefix connection](native-sort-prefix-validation-2026-11-13.md)
-is the subsequent, separately measured optimization candidate. It preserves
+is the subsequent, separately measured optimization retained at `788a8925e`.
+It preserves
 complete validation while constructing only retained nested/decimal payload
 rows and reuses the existing typed selection validator for flat payloads.
-Its performance and complete-source acceptance remain pending.
+Its complete 388-case comparison decreases engine time from 337.804658081 to
+327.589944482 seconds, with complete-source validation and portable proof.
+The November 14 activation unit above then uses that accepted runtime as its
+baseline; these are separate observations.
 
 ## Acceptance and remaining work
 

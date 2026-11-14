@@ -9,6 +9,11 @@ including Vortex scan gaps, COUNT/cyclic connections, public breadth, native
 runtime filters, skew handling and cross-query reuse. The
 [phase plan](phased-execution-plan.md#planned) owns execution order.
 
+The [November 14 activation unit](../benchmarks/native-optimization-activation-2026-11-14.md)
+is locally accepted at `f414d9dd3`, with complete comparison, lifecycle and
+portable proof. It supplies the valid baseline required below. Per-measure
+metadata completion is next; broader coverage obligations remain open.
+
 The supplied research describes source checked at `72680743a34a5db9`, after
 PR #1683. It is an intake, not fresh validation of later implementation. Recheck
 the current source and pinned provider before selecting a design. Its historical
@@ -41,8 +46,8 @@ provenance remain Apache-2.0-compatible and explicitly reviewed.
 ## Sequence and deliverables
 
 The maintainer's subsequent November 13 efficiency request orders this work by
-dependencies and shared validation. Begin only after the active activation unit
-has a valid accepted baseline. Reconcile its new facts/counters with the existing
+dependencies and shared validation. The activation unit now has a valid accepted
+baseline. Reconcile its new facts/counters with the existing
 10k inventory, adding separately versioned missing cases for mixed aggregates,
 real dictionaries, actual FSST inputs and encoded-float semantics. This is a
 delta review of existing evidence, not another whole-engine inventory phase.

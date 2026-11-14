@@ -282,4 +282,16 @@ controls pass without rerunning queries. Full-answer oracle replay occurred
 locally; portable verification checks the saved evidence. The single observation
 does not establish repeatability or whole-engine superiority. Remaining Vortex
 scan decisions, COUNT/cyclic connections, composition breadth, runtime filters,
-skew handling and cross-query reuse remain active work.
+skew handling and cross-query reuse remained active work at that source.
+
+## Subsequent activation unit
+
+The [November 14 report](native-optimization-activation-2026-11-14.md) records a
+separate accepted unit at `f414d9dd3`: 7,498 complete declarations per runtime
+and five two-call lifecycles per runtime. Fresh-session engine time decreases
+from 1267.114826002 to 1263.682737384 seconds, and the complete lifecycle total
+also decreases. All 5,189 individual regressions and the slower complete COUNT
+subgroup remain explicit. Executed scan reporting, bounded shared connections,
+runtime filters, skew ranges, segment reuse and public breadth have concrete
+evidence. These totals do not replace or combine with the historical 10,000,
+347, 606, 213 or 388-case observations above. Broader coverage stays open.
