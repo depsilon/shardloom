@@ -73,6 +73,15 @@ not device reads or unique bytes. Keep segment requests separate. Drain readers
 before taking the completed snapshot. Cancellation, replaced source generation,
 consumer error, reservation denial and last-owner release remain test obligations.
 
+Only the terminal owner may drain the operation and detach its scan evidence.
+A relational writer's producer can finish before the sink flushes buffered
+arrays or copies managed binary-object payloads. Keep the shared I/O scope open
+through those operations; finalize the certificate after the writer completes.
+Fanout finalizes after every staged output and replay owner completes. The
+installed five-interface binary-object test exposed an early producer drain;
+the native regression covers both deferred final batches and payload readers
+opened during production, with independent output reopening after source removal.
+
 The resident projection stores its original unbound filter as well as the bound
 scan filter. Its projection is a selection of source fields, so a file-statistics
 proof can complete an empty result before constructing a provider scan. Use the

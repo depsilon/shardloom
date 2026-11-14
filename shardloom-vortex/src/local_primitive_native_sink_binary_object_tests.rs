@@ -87,7 +87,7 @@ fn write(
 
 fn descriptors(source: &PreparedVortexSource) -> Vec<Option<Vec<u8>>> {
     let result = source
-        .prepare_projection(&["object"], 100, 1 << 20)
+        .prepare_projection(&["object"], source.file().row_count().max(1), 1 << 20)
         .unwrap()
         .execute()
         .unwrap();
@@ -106,6 +106,85 @@ fn descriptors(source: &PreparedVortexSource) -> Vec<Option<Vec<u8>>> {
         );
     }
     values
+}
+
+#[test]
+fn binary_object_relational_writer_finishes_payloads_before_file_evidence_drain() {
+    use crate::local_primitives::{
+        VortexLocalPrimitiveRowExportFormat, prepared_relational::prepare_relational,
+    };
+    use crate::relational_query::{VortexRelationalPlan, VortexRelationalScan};
+
+    // Exercise both a terminal batcher flush and payload readers retained while
+    // the producer is still delivering. Neither may close the shared I/O scope.
+    for rows in [3, 257] {
+        let fixture = Fixture::new();
+        let token = CancellationToken::default();
+        let expected = vec![37_u8; 131_079];
+        let session = ResidentVortexSession::new(32 << 20, 1).unwrap();
+        let object = session.binary_object(&expected, &token).unwrap();
+        let empty = session.binary_object(&[], &token).unwrap();
+        let objects = (0..rows)
+            .map(|row| match row % 3 {
+                0 => Some(&object),
+                1 => None,
+                _ => Some(&empty),
+            })
+            .collect::<Vec<_>>();
+        let input = fixture.0.join("input.vortex");
+        let memory = source(&session, &objects);
+        write(&memory, &input, None).unwrap();
+        drop(objects);
+        drop((memory, object, empty, session));
+
+        let plan = VortexRelationalPlan::Scan(VortexRelationalScan {
+            source_uri: DatasetUri::new(input.display().to_string()).unwrap(),
+            projection: ProjectionRequest::All,
+            predicate: None,
+        });
+        let mut policy = VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 1).unwrap();
+        policy.resource_envelope.memory_budget_bytes = 32 << 20;
+        let prepared = prepare_relational(&plan, policy).unwrap();
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
+        let output = fixture.0.join("output.vortex");
+        let written = prepared
+            .write(&output, VortexLocalPrimitiveRowExportFormat::Vortex, false)
+            .unwrap();
+        assert_eq!(written.output.rows_written, rows as u64);
+        assert!(written.execution.native_io_certificate.is_certified());
+        let evidence = &written.execution.native_io_certificate.file_scans;
+        assert_eq!(evidence.sources.len(), 1);
+        assert_eq!(evidence.contracts.len(), 1);
+        assert_eq!(evidence.contracts[0].delivered_rows, rows as u64);
+        assert!(evidence.sources[0].completed_read_bytes > 0);
+        drop(written);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
+        drop(prepared);
+        fs::remove_file(input).unwrap();
+
+        let receiving = ResidentVortexSession::new(32 << 20, 1).unwrap();
+        let reopened = receiving.prepare_file(&output).unwrap();
+        let values = descriptors(&reopened);
+        assert_eq!(values.len(), rows);
+        for (row, descriptor) in values.iter().enumerate() {
+            if row % 3 == 1 {
+                assert!(descriptor.is_none());
+            } else {
+                let object = receiving
+                    .binary_object_from_descriptor(descriptor.as_ref().unwrap(), &token)
+                    .unwrap();
+                let payload = object.read(&token).unwrap();
+                if row % 3 == 0 {
+                    assert_eq!(&payload[..], expected);
+                } else {
+                    assert!(payload.is_empty());
+                }
+            }
+        }
+    }
 }
 
 #[test]
