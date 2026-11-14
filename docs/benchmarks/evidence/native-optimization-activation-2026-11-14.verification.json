@@ -1,0 +1,347 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "relocated_replay": {
+    "status": "passed_complete_portable_replay",
+    "query_executions": 0,
+    "complete_fresh_results": 14996,
+    "complete_lifecycle_operations": 20,
+    "baseline_reuse": 378,
+    "candidate_source_files": 5725,
+    "external_payloads_not_reopened": 438,
+    "fresh_session": {
+      "cases": 7498,
+      "complete": true,
+      "baseline_engine_seconds": 1267.114826002,
+      "candidate_engine_seconds": 1263.682737384,
+      "engine_gain_seconds": 3.43208861800008,
+      "regressions": 5189,
+      "regression_engine_seconds": 17.528735789
+    },
+    "lifecycle": {
+      "complete": true,
+      "lifecycles": 5,
+      "operations_per_runtime": 10,
+      "baseline_engine_seconds": 0.092849121,
+      "candidate_engine_seconds": 0.09053067
+    },
+    "performance_disposition": "retain_candidate",
+    "isolation_correction": {
+      "prior_fresh_executions": 7120,
+      "prior_reused_observations": 378,
+      "prior_capture_retained": true,
+      "prior_clocks_admitted": false
+    }
+  },
+  "controls": [
+    {
+      "control": "disabled_assertions",
+      "status": "rejected",
+      "boundary": "complete_portable_entrypoint",
+      "exception": "RuntimeError"
+    },
+    {
+      "control": "archive_parent_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "archive_absolute_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "archive_noncanonical_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unbundled_file_read",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_parts_reordered",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_part_omitted",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_size_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_digest_missing",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_complete_digest_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_bytes_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_isolation_correction",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "KeyError"
+    },
+    {
+      "control": "disturbed_baseline_admitted",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "prior_execution_count_lost",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "acceptance_policy_changed_after_disturbance",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "changed_bundled_source_bytes",
+      "status": "rejected",
+      "boundary": "source_identity",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_format",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_default-clippy",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_native-clippy",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_native-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_default-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_native-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_native-inventory",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "incomplete_consumption",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "negative_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unreported_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "external_engine_fallback",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "denied_reservation",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unexplained_spill",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "over_budget_peak",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "wrong_resource_grant",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "successful_report_from_failed_process",
+      "status": "rejected",
+      "boundary": "worker_supervision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_raw_timing",
+      "status": "rejected",
+      "boundary": "worker_supervision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_delivered_row",
+      "status": "rejected",
+      "boundary": "complete_typed_comparison",
+      "exception": "ResultMismatch"
+    },
+    {
+      "control": "metadata_count_reads_payload",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "pruned_count_invokes_scan",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unique_keys_admit_count_partial",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "false_runtime_filter_work",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "cross_join_admits_cyclic_path",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "first_call_has_cross_call_hit",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_generation_changed",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "second_call_has_no_reuse",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_does_not_reduce_reads",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_exceeds_retention_bound",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_candidate_case",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "duplicate_candidate_case",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_lifecycle_surface",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unreported_first_call",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "equal_full_cohort_is_dropped",
+      "status": "rejected",
+      "boundary": "complete_decision"
+    },
+    {
+      "control": "equal_lifecycle_is_dropped",
+      "status": "rejected",
+      "boundary": "complete_decision"
+    }
+  ],
+  "controls_rejected": 50,
+  "original_packet_unchanged": true,
+  "control_scope": "One complete relocated replay; negative controls exercise named real saved-evidence boundaries",
+  "helper": {
+    "bytes": 17737,
+    "sha256": "a6d3776fc0f381726b590e12a288396c37fe7c40863ea3d1f166e5a2e1fea511"
+  },
+  "manifest": {
+    "bytes": 5031446,
+    "sha256": "fee9d74e0225a77ba9f937aae2f63b5668732fc0e7e59e6d01c29317c7b01af3"
+  }
+}

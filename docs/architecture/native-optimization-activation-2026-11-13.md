@@ -1,11 +1,14 @@
 # Native optimization activation and execution evidence
 
-Status: implementation contract; acceptance is pending. The November 13
+Status: bounded implementation locally accepted on November 14 at
+`f414d9dd305cc23dfb9e0389a106ba5d7b91d708`; see the
+[complete acceptance report](../benchmarks/native-optimization-activation-2026-11-14.md).
+The November 13
 maintainer instructions authorize both connecting existing mechanisms and
 creating missing native mechanisms. This work remains under item 20, RFC 0044,
 and the existing CG-14/CG-17 contracts. It does not close those competitive gates
-or authorize publication. The metadata and encoded-consumer investigations stay
-after the active coverage work.
+or authorize publication. The metadata and encoded-consumer investigations now
+follow this accepted unit; broader optimization coverage remains open.
 
 The comparator is a maintainer of an encoded columnar engine: every claim must
 join a public declaration to an actual shared execution owner, preserve complete
@@ -93,10 +96,10 @@ pruning arbitrary computed projections or suppressing their validation.
 
 ## Remaining shared connections
 
-The direct grouped COUNT prototype needs a newly valid declaration/transport
-contract before acceptance. Its preserved invalid baseline is not a speed
-rejection. Reuse the native grouped owner and its finalizer, including uint64
-COUNT transport and the established nullable floating SUM representation.
+The direct grouped COUNT connection uses a newly versioned declaration/transport
+contract. Its preserved November 12 invalid baseline is not a speed rejection.
+Reuse the native grouped owner and its finalizer, including uint64 COUNT
+transport and the established nullable floating SUM representation.
 
 The archived prototype is now connected to the unified compiler, preserving its
 immediate total-sort and nonnullable integer admission. Its old provider-field
@@ -105,8 +108,10 @@ production evidence records admitted batch inputs, reduced groups, constant
 batches, unique-key declines and optional-capacity declines; summed partial
 capacity is explicitly not peak or live memory. Capacity admission now uses the
 pool's atomic optional reservation instead of parsing an error string. The
-original failed baseline and unadmitted proposal remain immutable evidence;
-correctness tests do not supply the pending complete-cohort performance decision.
+original failed baseline and then-unadmitted proposal remain immutable evidence.
+The November 14 complete comparison retains the coherent activation unit, but
+its complete COUNT subgroup regresses by 1.390475674 engine seconds. There is no
+independently accepted COUNT speedup.
 
 Extend cyclic semi-join admission to eligible prepared native-file scans using
 the semantic declaration retained by `Node::semantic_kind()`. Execute the actual
@@ -186,8 +191,9 @@ one sixteenth of currently available memory and reserve before allocation.
 An atomic optional reservation decline keeps the original exact index; allocation
 errors and cancellation remain errors. Only actual range iteration contributes
 visited-row counters. Completion publishes the counters once through the parent
-query, after consumer success. These are prospective candidates pending the
-complete-cohort acceptance protocol, not accepted performance improvements.
+query, after consumer success. These implementations are retained within the
+accepted complete activation unit; work counters do not establish their
+individual performance benefits.
 
 ## Cross-query reuse
 
@@ -263,3 +269,21 @@ complete-cohort gain/loss decision for performance candidates. Required default
 and native checks, installed-package proof, complete results and source-bound
 receipts remain mandatory. Instrumentation establishes evidence availability,
 not a speedup or universal optimization completion.
+
+## November 14 acceptance boundary
+
+The frozen comparison passes all 7,498 complete declarations per runtime and
+five two-call lifecycles per runtime. Fresh-session engine time decreases from
+1267.114826002 to 1263.682737384 seconds; the sum of all ten lifecycle calls
+decreases from 0.092849121 to 0.090530670 seconds. The complete result retains
+5,189 individual regressions and the slower COUNT, Parquet, Arrow IPC, typed-plan
+and CLI SQL subgroups. The prospectively fixed whole-cohort and lifecycle gates
+both pass; no per-mechanism speedup is inferred.
+
+Default/native/package validation, complete independent replay, relocation and
+all fifty corruption/refusal controls pass. The
+[report and portable evidence](../benchmarks/native-optimization-activation-2026-11-14.md)
+preserve the invalidated earlier isolation capture, original writer failures,
+every admitted result and the full limitations. Remaining source-level runtime
+pruning, join-build/result reuse, physical leaf/decode evidence and general
+opportunity coverage retain their existing owners and open status.

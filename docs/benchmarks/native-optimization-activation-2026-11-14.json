@@ -1,0 +1,1200 @@
+{
+  "schema": "shardloom.native_optimization_activation_acceptance.v1",
+  "status": "passed_complete_acceptance",
+  "disposition": "retain_coherent_activation_candidate",
+  "created_at": "2026-11-14T07:07:01.650644+00:00",
+  "query_executions_during_acceptance": 0,
+  "source_commit": "f414d9dd305cc23dfb9e0389a106ba5d7b91d708",
+  "source_fingerprint_sha256": "504910e4fff98357b1933726687692e1d15b72c250b95df3aadfe1d00404c026",
+  "comparison_source": "788a8925e587316ed6f6c3d9ca114fef29937bd5",
+  "fresh_session": {
+    "cases": 7498,
+    "complete": true,
+    "baseline_engine_seconds": 1267.114826002,
+    "candidate_engine_seconds": 1263.682737384,
+    "engine_gain_seconds": 3.43208861800008,
+    "regressions": 5189,
+    "regression_engine_seconds": 17.528735789
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 5,
+    "operations_per_runtime": 10,
+    "baseline_engine_seconds": 0.092849121,
+    "candidate_engine_seconds": 0.09053067
+  },
+  "groups": {
+    "complete_count_cohort": {
+      "cases": 2543,
+      "complete": true,
+      "baseline_engine_seconds": 282.76184673,
+      "candidate_engine_seconds": 284.152322404,
+      "engine_gain_seconds": -1.3904756740000153,
+      "regressions": 1845,
+      "regression_engine_seconds": 5.0656429009999995
+    },
+    "family:composite": {
+      "cases": 1,
+      "complete": true,
+      "baseline_engine_seconds": 0.206116666,
+      "candidate_engine_seconds": 0.214375792,
+      "engine_gain_seconds": -0.008259126000000006,
+      "regressions": 1,
+      "regression_engine_seconds": 0.008259126000000006
+    },
+    "family:cte_composition": {
+      "cases": 243,
+      "complete": true,
+      "baseline_engine_seconds": 16.466839879000002,
+      "candidate_engine_seconds": 16.612039079,
+      "engine_gain_seconds": -0.14519919999999686,
+      "regressions": 201,
+      "regression_engine_seconds": 0.17560670499999986
+    },
+    "family:direct_count_constant": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 2.182393248,
+      "candidate_engine_seconds": 2.0873891639999997,
+      "engine_gain_seconds": 0.09500408400000016,
+      "regressions": 7,
+      "regression_engine_seconds": 0.00024295899999999995
+    },
+    "family:direct_count_expression": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 2.884006997,
+      "candidate_engine_seconds": 2.988496336,
+      "engine_gain_seconds": -0.10448933899999968,
+      "regressions": 28,
+      "regression_engine_seconds": 0.10457725500000005
+    },
+    "family:direct_count_group": {
+      "cases": 165,
+      "complete": true,
+      "baseline_engine_seconds": 12.145642916,
+      "candidate_engine_seconds": 12.323585837,
+      "engine_gain_seconds": -0.17794292099999964,
+      "regressions": 128,
+      "regression_engine_seconds": 0.4169125489999999
+    },
+    "family:direct_count_medium": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 2.0056584170000002,
+      "candidate_engine_seconds": 2.013766292,
+      "engine_gain_seconds": -0.008107874999999876,
+      "regressions": 6,
+      "regression_engine_seconds": 0.03868499800000003
+    },
+    "family:direct_count_nullable": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 2.261816001,
+      "candidate_engine_seconds": 2.2484279160000002,
+      "engine_gain_seconds": 0.013388084999999883,
+      "regressions": 12,
+      "regression_engine_seconds": 0.007712997000000058
+    },
+    "family:direct_count_unique": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 1.002949755,
+      "candidate_engine_seconds": 0.869967165,
+      "engine_gain_seconds": 0.1329825899999999,
+      "regressions": 24,
+      "regression_engine_seconds": 0.012675285999999992
+    },
+    "family:distinct": {
+      "cases": 72,
+      "complete": true,
+      "baseline_engine_seconds": 4.496438281,
+      "candidate_engine_seconds": 4.561319162,
+      "engine_gain_seconds": -0.06488088100000056,
+      "regressions": 59,
+      "regression_engine_seconds": 0.07175279500000012
+    },
+    "family:global_aggregation": {
+      "cases": 175,
+      "complete": true,
+      "baseline_engine_seconds": 4.729016286,
+      "candidate_engine_seconds": 4.779701542,
+      "engine_gain_seconds": -0.05068525599999951,
+      "regressions": 141,
+      "regression_engine_seconds": 0.19878455200000003
+    },
+    "family:grouped_aggregation": {
+      "cases": 945,
+      "complete": true,
+      "baseline_engine_seconds": 54.722464627,
+      "candidate_engine_seconds": 54.78873641,
+      "engine_gain_seconds": -0.0662717829999977,
+      "regressions": 724,
+      "regression_engine_seconds": 1.482163404
+    },
+    "family:joins": {
+      "cases": 2732,
+      "complete": true,
+      "baseline_engine_seconds": 426.497385128,
+      "candidate_engine_seconds": 426.938899753,
+      "engine_gain_seconds": -0.44151462499996796,
+      "regressions": 1806,
+      "regression_engine_seconds": 7.066037394
+    },
+    "family:multiway_joins": {
+      "cases": 610,
+      "complete": true,
+      "baseline_engine_seconds": 143.378927849,
+      "candidate_engine_seconds": 145.442828802,
+      "engine_gain_seconds": -2.063900953000001,
+      "regressions": 461,
+      "regression_engine_seconds": 3.2153209139999994
+    },
+    "family:nested": {
+      "cases": 114,
+      "complete": true,
+      "baseline_engine_seconds": 10.069855585,
+      "candidate_engine_seconds": 9.991849787,
+      "engine_gain_seconds": 0.07800579800000129,
+      "regressions": 56,
+      "regression_engine_seconds": 0.06141999300000002
+    },
+    "family:nullable": {
+      "cases": 84,
+      "complete": true,
+      "baseline_engine_seconds": 30.482576966,
+      "candidate_engine_seconds": 29.961557288999998,
+      "engine_gain_seconds": 0.5210196770000017,
+      "regressions": 40,
+      "regression_engine_seconds": 0.11819178399999992
+    },
+    "family:numeric": {
+      "cases": 73,
+      "complete": true,
+      "baseline_engine_seconds": 23.4546663,
+      "candidate_engine_seconds": 23.106989872,
+      "engine_gain_seconds": 0.34767642799999976,
+      "regressions": 40,
+      "regression_engine_seconds": 0.17032757800000015
+    },
+    "family:ordering": {
+      "cases": 79,
+      "complete": true,
+      "baseline_engine_seconds": 198.376602047,
+      "candidate_engine_seconds": 193.758918703,
+      "engine_gain_seconds": 4.617683344,
+      "regressions": 25,
+      "regression_engine_seconds": 0.1635456240000002
+    },
+    "family:predicates": {
+      "cases": 246,
+      "complete": true,
+      "baseline_engine_seconds": 9.205261091,
+      "candidate_engine_seconds": 9.175838322,
+      "engine_gain_seconds": 0.02942276899999996,
+      "regressions": 164,
+      "regression_engine_seconds": 0.29551698600000004
+    },
+    "family:projection": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.009719998,
+      "candidate_engine_seconds": 0.010041795,
+      "engine_gain_seconds": -0.00032179699999999867,
+      "regressions": 11,
+      "regression_engine_seconds": 0.0003788380000000001
+    },
+    "family:sets": {
+      "cases": 414,
+      "complete": true,
+      "baseline_engine_seconds": 47.332967506,
+      "candidate_engine_seconds": 47.668424372,
+      "engine_gain_seconds": -0.33545686599999414,
+      "regressions": 325,
+      "regression_engine_seconds": 0.45541973700000005
+    },
+    "family:strings": {
+      "cases": 230,
+      "complete": true,
+      "baseline_engine_seconds": 52.973393377,
+      "candidate_engine_seconds": 52.724722297999996,
+      "engine_gain_seconds": 0.24867107900000462,
+      "regressions": 161,
+      "regression_engine_seconds": 0.5374028789999999
+    },
+    "family:subqueries": {
+      "cases": 392,
+      "complete": true,
+      "baseline_engine_seconds": 110.10681028,
+      "candidate_engine_seconds": 110.317423873,
+      "engine_gain_seconds": -0.21061359299999083,
+      "regressions": 265,
+      "regression_engine_seconds": 0.8446913449999994
+    },
+    "family:temporal": {
+      "cases": 459,
+      "complete": true,
+      "baseline_engine_seconds": 39.42549333,
+      "candidate_engine_seconds": 38.185961486,
+      "engine_gain_seconds": 1.2395318440000054,
+      "regressions": 312,
+      "regression_engine_seconds": 0.5074964209999998
+    },
+    "family:windows": {
+      "cases": 329,
+      "complete": true,
+      "baseline_engine_seconds": 72.697823472,
+      "candidate_engine_seconds": 72.911476337,
+      "engine_gain_seconds": -0.21365286500000025,
+      "regressions": 192,
+      "regression_engine_seconds": 1.5756136699999996
+    },
+    "kind:count_v2": {
+      "cases": 285,
+      "complete": true,
+      "baseline_engine_seconds": 22.482467334,
+      "candidate_engine_seconds": 22.53163271,
+      "engine_gain_seconds": -0.04916537600000126,
+      "regressions": 205,
+      "regression_engine_seconds": 0.580806044
+    },
+    "kind:mechanism": {
+      "cases": 270,
+      "complete": true,
+      "baseline_engine_seconds": 0.140532473,
+      "candidate_engine_seconds": 0.140872153,
+      "engine_gain_seconds": -0.00033968000000000886,
+      "regressions": 225,
+      "regression_engine_seconds": 0.007543929
+    },
+    "kind:original": {
+      "cases": 6943,
+      "complete": true,
+      "baseline_engine_seconds": 1244.491826195,
+      "candidate_engine_seconds": 1241.010232521,
+      "engine_gain_seconds": 3.481593673999896,
+      "regressions": 4759,
+      "regression_engine_seconds": 16.940385816
+    },
+    "mechanism:count_excluded": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 0.01520163,
+      "candidate_engine_seconds": 0.016003213,
+      "engine_gain_seconds": -0.0008015829999999981,
+      "regressions": 29,
+      "regression_engine_seconds": 0.0008461249999999997
+    },
+    "mechanism:count_partial": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 0.014384667,
+      "candidate_engine_seconds": 0.015720666,
+      "engine_gain_seconds": -0.001335999000000001,
+      "regressions": 30,
+      "regression_engine_seconds": 0.001335999
+    },
+    "mechanism:count_unique": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.022615584,
+      "candidate_engine_seconds": 0.023219421,
+      "engine_gain_seconds": -0.0006038369999999994,
+      "regressions": 12,
+      "regression_engine_seconds": 0.0006511270000000002
+    },
+    "mechanism:cross_control": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.004175794,
+      "candidate_engine_seconds": 0.004575208,
+      "engine_gain_seconds": -0.00039941399999999985,
+      "regressions": 13,
+      "regression_engine_seconds": 0.0004061650000000001
+    },
+    "mechanism:cyclic": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.013796458,
+      "candidate_engine_seconds": 0.007014792,
+      "engine_gain_seconds": 0.0067816659999999996,
+      "regressions": 0,
+      "regression_engine_seconds": 0.0
+    },
+    "mechanism:cyclic_excluded": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.013708793,
+      "candidate_engine_seconds": 0.014718044,
+      "engine_gain_seconds": -0.0010092509999999992,
+      "regressions": 15,
+      "regression_engine_seconds": 0.001009251
+    },
+    "mechanism:filter_and_skew": {
+      "cases": 60,
+      "complete": true,
+      "baseline_engine_seconds": 0.024355545,
+      "candidate_engine_seconds": 0.025729836,
+      "engine_gain_seconds": -0.0013742909999999997,
+      "regressions": 53,
+      "regression_engine_seconds": 0.0014433750000000002
+    },
+    "mechanism:filter_only": {
+      "cases": 30,
+      "complete": true,
+      "baseline_engine_seconds": 0.011226043,
+      "candidate_engine_seconds": 0.011712757,
+      "engine_gain_seconds": -0.00048671400000000094,
+      "regressions": 24,
+      "regression_engine_seconds": 0.000587048
+    },
+    "mechanism:filter_small": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.005171506,
+      "candidate_engine_seconds": 0.005599293,
+      "engine_gain_seconds": -0.0004277869999999998,
+      "regressions": 14,
+      "regression_engine_seconds": 0.00042870400000000013
+    },
+    "mechanism:metadata_count": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.002804832,
+      "candidate_engine_seconds": 0.0028817120000000002,
+      "engine_gain_seconds": -7.688000000000009e-05,
+      "regressions": 12,
+      "regression_engine_seconds": 0.00012925399999999998
+    },
+    "mechanism:narrow_scan": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.009719998,
+      "candidate_engine_seconds": 0.010041795,
+      "engine_gain_seconds": -0.00032179699999999867,
+      "regressions": 11,
+      "regression_engine_seconds": 0.0003788380000000001
+    },
+    "mechanism:pruned_count": {
+      "cases": 15,
+      "complete": true,
+      "baseline_engine_seconds": 0.003371623,
+      "candidate_engine_seconds": 0.003655416,
+      "engine_gain_seconds": -0.00028379300000000007,
+      "regressions": 12,
+      "regression_engine_seconds": 0.000328043
+    },
+    "native_format:arrow-ipc": {
+      "cases": 1160,
+      "complete": true,
+      "baseline_engine_seconds": 114.372911748,
+      "candidate_engine_seconds": 116.089592263,
+      "engine_gain_seconds": -1.716680514999993,
+      "regressions": 971,
+      "regression_engine_seconds": 2.5753582230000003
+    },
+    "native_format:parquet": {
+      "cases": 2275,
+      "complete": true,
+      "baseline_engine_seconds": 182.927885758,
+      "candidate_engine_seconds": 184.599575524,
+      "engine_gain_seconds": -1.6716897659999859,
+      "regressions": 1686,
+      "regression_engine_seconds": 3.409227911
+    },
+    "native_format:vortex": {
+      "cases": 4063,
+      "complete": true,
+      "baseline_engine_seconds": 969.814028496,
+      "candidate_engine_seconds": 962.993569597,
+      "engine_gain_seconds": 6.820458898999959,
+      "regressions": 2532,
+      "regression_engine_seconds": 11.544149654999998
+    },
+    "pool:count_cohort_saved_original": {
+      "cases": 2258,
+      "complete": true,
+      "baseline_engine_seconds": 260.279379396,
+      "candidate_engine_seconds": 261.620689694,
+      "engine_gain_seconds": -1.3413102979999962,
+      "regressions": 1640,
+      "regression_engine_seconds": 4.4848368569999995
+    },
+    "pool:join_or_asof_control": {
+      "cases": 3585,
+      "complete": true,
+      "baseline_engine_seconds": 579.10926558,
+      "candidate_engine_seconds": 580.876071067,
+      "engine_gain_seconds": -1.7668054869999423,
+      "regressions": 2423,
+      "regression_engine_seconds": 10.597206519
+    },
+    "pool:membership_subquery": {
+      "cases": 392,
+      "complete": true,
+      "baseline_engine_seconds": 110.10681028,
+      "candidate_engine_seconds": 110.317423873,
+      "engine_gain_seconds": -0.21061359299999083,
+      "regressions": 265,
+      "regression_engine_seconds": 0.8446913449999994
+    },
+    "pool:native_format_vortex": {
+      "cases": 3878,
+      "complete": true,
+      "baseline_engine_seconds": 959.319356822,
+      "candidate_engine_seconds": 952.620455712,
+      "engine_gain_seconds": 6.698901110000065,
+      "regressions": 2384,
+      "regression_engine_seconds": 11.31486007
+    },
+    "profile:activation": {
+      "cases": 270,
+      "complete": true,
+      "baseline_engine_seconds": 0.140532473,
+      "candidate_engine_seconds": 0.140872153,
+      "engine_gain_seconds": -0.00033968000000000886,
+      "regressions": 225,
+      "regression_engine_seconds": 0.007543929
+    },
+    "profile:holdout": {
+      "cases": 646,
+      "complete": true,
+      "baseline_engine_seconds": 10.217167884,
+      "candidate_engine_seconds": 10.43277153,
+      "engine_gain_seconds": -0.21560364599999993,
+      "regressions": 504,
+      "regression_engine_seconds": 0.26199860900000005
+    },
+    "profile:primary": {
+      "cases": 6298,
+      "complete": true,
+      "baseline_engine_seconds": 1200.824915104,
+      "candidate_engine_seconds": 1196.931026707,
+      "engine_gain_seconds": 3.893888396999955,
+      "regressions": 4228,
+      "regression_engine_seconds": 16.198172503
+    },
+    "profile:scale": {
+      "cases": 114,
+      "complete": true,
+      "baseline_engine_seconds": 55.828529211,
+      "candidate_engine_seconds": 56.067727496,
+      "engine_gain_seconds": -0.2391982850000005,
+      "regressions": 75,
+      "regression_engine_seconds": 1.0539411680000002
+    },
+    "profile:smoke": {
+      "cases": 170,
+      "complete": true,
+      "baseline_engine_seconds": 0.10368133,
+      "candidate_engine_seconds": 0.110339498,
+      "engine_gain_seconds": -0.006658167999999992,
+      "regressions": 157,
+      "regression_engine_seconds": 0.00707958
+    },
+    "surface:cli_sql": {
+      "cases": 1509,
+      "complete": true,
+      "baseline_engine_seconds": 284.737097174,
+      "candidate_engine_seconds": 285.888958418,
+      "engine_gain_seconds": -1.151861244000031,
+      "regressions": 1139,
+      "regression_engine_seconds": 6.315828078
+    },
+    "surface:dataframe": {
+      "cases": 1424,
+      "complete": true,
+      "baseline_engine_seconds": 380.536270613,
+      "candidate_engine_seconds": 378.503528675,
+      "engine_gain_seconds": 2.032741938000015,
+      "regressions": 933,
+      "regression_engine_seconds": 2.999586983
+    },
+    "surface:embedded_workflow": {
+      "cases": 1464,
+      "complete": true,
+      "baseline_engine_seconds": 219.822734657,
+      "candidate_engine_seconds": 217.928892707,
+      "engine_gain_seconds": 1.8938419500000236,
+      "regressions": 976,
+      "regression_engine_seconds": 2.8511138199999992
+    },
+    "surface:python_sql": {
+      "cases": 1640,
+      "complete": true,
+      "baseline_engine_seconds": 202.231099806,
+      "candidate_engine_seconds": 201.233578469,
+      "engine_gain_seconds": 0.9975213369999949,
+      "regressions": 1119,
+      "regression_engine_seconds": 3.1459662550000003
+    },
+    "surface:typed_relation": {
+      "cases": 1461,
+      "complete": true,
+      "baseline_engine_seconds": 179.787623752,
+      "candidate_engine_seconds": 180.127779115,
+      "engine_gain_seconds": -0.34015536300000804,
+      "regressions": 1022,
+      "regression_engine_seconds": 2.216240653
+    }
+  },
+  "activation_by_format": {
+    "parquet": {
+      "cases": 2275,
+      "scan_reports": 2275,
+      "runtime_filter_admitted_cases": 1252,
+      "skew_admitted_cases": 25,
+      "cyclic_executed_cases": 5,
+      "count_partial_admitted_cases": 97
+    },
+    "vortex": {
+      "cases": 4063,
+      "scan_reports": 4063,
+      "runtime_filter_admitted_cases": 1353,
+      "skew_admitted_cases": 25,
+      "cyclic_executed_cases": 5,
+      "count_partial_admitted_cases": 86
+    },
+    "arrow-ipc": {
+      "cases": 1160,
+      "scan_reports": 1160,
+      "runtime_filter_admitted_cases": 639,
+      "skew_admitted_cases": 25,
+      "cyclic_executed_cases": 5,
+      "count_partial_admitted_cases": 73
+    }
+  },
+  "lifecycle_calls": [
+    {
+      "id": "prepared_reuse_python_sql_v2",
+      "baseline_engine_seconds": 0.019847917,
+      "candidate_engine_seconds": 0.018399,
+      "calls": [
+        {
+          "engine_seconds": 0.010220209,
+          "completed_read_bytes": 361516,
+          "cross_call_hits": 0,
+          "retained_entries": 128
+        },
+        {
+          "engine_seconds": 0.008178791,
+          "completed_read_bytes": 214600,
+          "cross_call_hits": 128,
+          "retained_entries": 128
+        }
+      ]
+    },
+    {
+      "id": "prepared_reuse_typed_relation_v2",
+      "baseline_engine_seconds": 0.017800833,
+      "candidate_engine_seconds": 0.017601083,
+      "calls": [
+        {
+          "engine_seconds": 0.009526041,
+          "completed_read_bytes": 361516,
+          "cross_call_hits": 0,
+          "retained_entries": 128
+        },
+        {
+          "engine_seconds": 0.008075042,
+          "completed_read_bytes": 222888,
+          "cross_call_hits": 128,
+          "retained_entries": 128
+        }
+      ]
+    },
+    {
+      "id": "prepared_reuse_embedded_workflow_v2",
+      "baseline_engine_seconds": 0.018101459,
+      "candidate_engine_seconds": 0.018059625,
+      "calls": [
+        {
+          "engine_seconds": 0.009828125,
+          "completed_read_bytes": 361516,
+          "cross_call_hits": 0,
+          "retained_entries": 128
+        },
+        {
+          "engine_seconds": 0.0082315,
+          "completed_read_bytes": 218744,
+          "cross_call_hits": 128,
+          "retained_entries": 128
+        }
+      ]
+    },
+    {
+      "id": "prepared_reuse_dataframe_v2",
+      "baseline_engine_seconds": 0.017753583,
+      "candidate_engine_seconds": 0.017722166999999997,
+      "calls": [
+        {
+          "engine_seconds": 0.009705792,
+          "completed_read_bytes": 361516,
+          "cross_call_hits": 0,
+          "retained_entries": 128
+        },
+        {
+          "engine_seconds": 0.008016375,
+          "completed_read_bytes": 222888,
+          "cross_call_hits": 128,
+          "retained_entries": 128
+        }
+      ]
+    },
+    {
+      "id": "prepared_reuse_cli_sql_v2",
+      "baseline_engine_seconds": 0.019345329,
+      "candidate_engine_seconds": 0.018748795,
+      "calls": [
+        {
+          "engine_seconds": 0.010874874,
+          "completed_read_bytes": 361516,
+          "cross_call_hits": 0,
+          "retained_entries": 128
+        },
+        {
+          "engine_seconds": 0.007873921,
+          "completed_read_bytes": 222888,
+          "cross_call_hits": 128,
+          "retained_entries": 128
+        }
+      ]
+    }
+  ],
+  "validation_counts": {
+    "default": {
+      "passed": 3344,
+      "failed": 0,
+      "ignored": 0,
+      "test_binaries": 108,
+      "exact_listed_names_verified": 3344,
+      "inventory": {
+        "bytes": 275486,
+        "sha256": "7b195288004f6d770f3ae1a0242b7932b3e3c362ac1f11d9255c2e3702677336"
+      },
+      "results": {
+        "bytes": 489348,
+        "sha256": "ccc39bb8a687c988b248e586de84d9c1209aa17c40bb452c859fb78a56fba23c"
+      }
+    },
+    "native": {
+      "passed": 7215,
+      "failed": 0,
+      "ignored": 39,
+      "test_binaries": 120,
+      "exact_listed_names_verified": 7254,
+      "inventory": {
+        "bytes": 785959,
+        "sha256": "1511872ff3f6c569ff9d4e5f52454ea9e0695dbb0be3c9a62c9b9064b70253c4"
+      },
+      "results": {
+        "bytes": 1331267,
+        "sha256": "dbed592beb337f8a9bfb8fdea4e3c5652a4f5b792a812ff5748a66f8925e4c63"
+      }
+    }
+  },
+  "installed_tests": {
+    "tests": 449,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "status": "passed"
+  },
+  "public_tests": {
+    "status": "passed",
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "runtime": {
+      "bytes": 1362,
+      "sha256": "4ab51db4606dd345d1a67f78a2224cce2754217981a7164b8e2acbbecaa8ad4e"
+    },
+    "selected_tests": [
+      "test_native_optimization_activation_binding",
+      "test_native_source_segment_reuse_binding",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_multi_window_compositions_match_all_surfaces_and_formats",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_pivot_melt_seeded_sampling_match_all_surfaces_and_formats",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_correlated_membership_compositions_match_all_surfaces_and_formats",
+      "test_native_shared_provider_binding.NativeSharedProviderBindingTests.test_vector_tensor_variant_composition_matches_all_surfaces_and_formats"
+    ],
+    "selection_scope": "255 activation subcases; five-surface automatic reuse and generation lifetimes; four complete analytical breadth families",
+    "source_fingerprint_sha256": "504910e4fff98357b1933726687692e1d15b72c250b95df3aadfe1d00404c026",
+    "public_native_execution": true,
+    "performance_observations": false
+  },
+  "portable": {
+    "status": "passed_complete_portable_replay",
+    "query_executions": 0,
+    "complete_fresh_results": 14996,
+    "complete_lifecycle_operations": 20,
+    "baseline_reuse": 378,
+    "candidate_source_files": 5725,
+    "external_payloads_not_reopened": 438,
+    "fresh_session": {
+      "cases": 7498,
+      "complete": true,
+      "baseline_engine_seconds": 1267.114826002,
+      "candidate_engine_seconds": 1263.682737384,
+      "engine_gain_seconds": 3.43208861800008,
+      "regressions": 5189,
+      "regression_engine_seconds": 17.528735789
+    },
+    "lifecycle": {
+      "complete": true,
+      "lifecycles": 5,
+      "operations_per_runtime": 10,
+      "baseline_engine_seconds": 0.092849121,
+      "candidate_engine_seconds": 0.09053067
+    },
+    "performance_disposition": "retain_candidate",
+    "isolation_correction": {
+      "prior_fresh_executions": 7120,
+      "prior_reused_observations": 378,
+      "prior_capture_retained": true,
+      "prior_clocks_admitted": false
+    }
+  },
+  "negative_controls": [
+    {
+      "control": "disabled_assertions",
+      "status": "rejected",
+      "boundary": "complete_portable_entrypoint",
+      "exception": "RuntimeError"
+    },
+    {
+      "control": "archive_parent_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "archive_absolute_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "archive_noncanonical_path",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unbundled_file_read",
+      "status": "rejected",
+      "boundary": "archive_admission",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_parts_reordered",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_part_omitted",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_size_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_digest_missing",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_complete_digest_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "transport_bytes_changed",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_isolation_correction",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "KeyError"
+    },
+    {
+      "control": "disturbed_baseline_admitted",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "prior_execution_count_lost",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "acceptance_policy_changed_after_disturbance",
+      "status": "rejected",
+      "boundary": "prior_disturbed_capture_accounting",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "changed_bundled_source_bytes",
+      "status": "rejected",
+      "boundary": "source_identity",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_format",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_default-clippy",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_native-clippy",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_native-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_default-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_native-tests",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "filtered_native-inventory",
+      "status": "rejected",
+      "boundary": "validation_command_set",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "incomplete_consumption",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "negative_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unreported_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "external_engine_fallback",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "denied_reservation",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unexplained_spill",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "over_budget_peak",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "wrong_resource_grant",
+      "status": "rejected",
+      "boundary": "completed_report",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "successful_report_from_failed_process",
+      "status": "rejected",
+      "boundary": "worker_supervision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_raw_timing",
+      "status": "rejected",
+      "boundary": "worker_supervision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_delivered_row",
+      "status": "rejected",
+      "boundary": "complete_typed_comparison",
+      "exception": "ResultMismatch"
+    },
+    {
+      "control": "metadata_count_reads_payload",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "pruned_count_invokes_scan",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unique_keys_admit_count_partial",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "false_runtime_filter_work",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "cross_join_admits_cyclic_path",
+      "status": "rejected",
+      "boundary": "observed_native_activation",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "first_call_has_cross_call_hit",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_generation_changed",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "second_call_has_no_reuse",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_does_not_reduce_reads",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "reuse_exceeds_retention_bound",
+      "status": "rejected",
+      "boundary": "prepared_lifecycle_reuse",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_candidate_case",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "duplicate_candidate_case",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "missing_lifecycle_surface",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "unreported_first_call",
+      "status": "rejected",
+      "boundary": "complete_decision",
+      "exception": "AssertionError"
+    },
+    {
+      "control": "equal_full_cohort_is_dropped",
+      "status": "rejected",
+      "boundary": "complete_decision"
+    },
+    {
+      "control": "equal_lifecycle_is_dropped",
+      "status": "rejected",
+      "boundary": "complete_decision"
+    }
+  ],
+  "negative_controls_rejected": 50,
+  "changed_reviewed_helpers": [
+    "activation-tools/package_activation.py",
+    "activation-tools/portable_activation.py",
+    "activation-tools/test_activation_packet.py"
+  ],
+  "prior_disturbed_capture": {
+    "stage": "baseline/fresh r2",
+    "description": "At context continuation, checkpoint lookup failed and recovery ran read-only git status/remote/log in default Documents checkout and rg --files /tmp /private/tmp ~/.codex before loading the correct active checkpoint pointer. Scored supervisor was live, and next lightweight progress tail reported 500 fresh attempts. No source mutation, build, native query, packaging, or agent work was started. Preserve and assess against protocol after stage; do not claim fully isolated or silently omit.",
+    "returnedToolDurationsSeconds": [
+      6.291e-06,
+      7.167e-06
+    ],
+    "execReportedDurationSeconds": 0.1,
+    "status": "invalid_for_performance_isolation",
+    "protocol": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-protocol-r2.json",
+    "completed_capture": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-baseline-r2",
+    "fresh_query_executions": 7120,
+    "reused_prior_observations": 378,
+    "result_status": "all_7498_passed_capture_with_source_and_input_integrity_checks",
+    "engine_times_inspected_for_disposition": false,
+    "performance_effect": "unknown; no adjustment or estimate permitted",
+    "disposition": "retain_complete_original_evidence; exclude_from_performance_acceptance; prospectively_replace_baseline_once",
+    "no_candidate_or_lifecycle_executed": true,
+    "prevention": "Use stored active_checkpoint first across any continuation. While scoring is live, only drain its known session and tail its named supervision log. No generic workspace recovery scans."
+  },
+  "remote_engine_head": {
+    "status": "passed_primary_remote_evidence_check",
+    "head": "81743f243a94a931c657eeb4e01620050b53d5e0",
+    "checks": 58,
+    "successful": 58,
+    "reviews": 0,
+    "review_threads": 0,
+    "merged": false,
+    "evidence_sha256": "1d8c8e42c947def151b17fbdd63f39188956198385c19d09ce2657a98b93599a"
+  },
+  "packet": "evidence/native-optimization-activation-2026-11-14",
+  "packet_files": {
+    "README.md": {
+      "bytes": 1831,
+      "sha256": "478c071475529fe77e4d5347678296e67a7dd0e2f00e5961c462a1b3344fe79b"
+    },
+    "evidence.tar.gz.part-001": {
+      "bytes": 50331648,
+      "sha256": "5599d636c50393e278e19b414e5b456bddb054431b71b28c6e205605b441ef9e"
+    },
+    "evidence.tar.gz.part-002": {
+      "bytes": 50331648,
+      "sha256": "4c25dc04520dfa4c7a16a5fe9176161381570e8562a174e4af8e6df56d893577"
+    },
+    "evidence.tar.gz.part-003": {
+      "bytes": 50331648,
+      "sha256": "b0af903ee2a42236a80b157211acaa6a65708f4ab4cc65b5f9c7705a4f863f9e"
+    },
+    "evidence.tar.gz.part-004": {
+      "bytes": 50331648,
+      "sha256": "1d8fa7947974e1754121dcf425399fb0385c5aba0ded326ed67e6c1123a1cc21"
+    },
+    "evidence.tar.gz.part-005": {
+      "bytes": 50331648,
+      "sha256": "e3e16138e127dab48a4628ba4fa82a7891243cd848f901162b872955463dd59d"
+    },
+    "evidence.tar.gz.part-006": {
+      "bytes": 50331648,
+      "sha256": "9e3f476ad1bed85a2ba09c2d2739ede589e3e0577676fd8310054083841e5a4b"
+    },
+    "evidence.tar.gz.part-007": {
+      "bytes": 50331648,
+      "sha256": "128f439e92249c1686daaacd309e4c45b519e965859dc8a96cc53569b9e4c19b"
+    },
+    "evidence.tar.gz.part-008": {
+      "bytes": 50331648,
+      "sha256": "87960562349f237cd260155b84ab3b20973044b67c3b3c709fd1a37c047bd33b"
+    },
+    "evidence.tar.gz.part-009": {
+      "bytes": 47928244,
+      "sha256": "f6f1c904debf1af79196c02a39098cae75c967aa8bafc2d92f7b684d24097c2d"
+    },
+    "manifest.json": {
+      "bytes": 5031446,
+      "sha256": "fee9d74e0225a77ba9f937aae2f63b5668732fc0e7e59e6d01c29317c7b01af3"
+    },
+    "verify.py": {
+      "bytes": 21975,
+      "sha256": "949b77f80595445330a0aea49eb603889b0b32f65e3042a3bbcae636fe506c4c"
+    }
+  },
+  "evidence": {
+    "activation-protocol-r3.json": {
+      "bytes": 14519018,
+      "sha256": "f137ae56a211538b0b295c0399a8b31504cec9fbd8b41d15512086a4b471fca9"
+    },
+    "activation-replay-r1/summary.json": {
+      "bytes": 19710,
+      "sha256": "c89bb67d484149de70a8ea23ec99b5edf9ba88ca0fb7d921dc976746bfcb5080"
+    },
+    "activation-validation-r4.json": {
+      "bytes": 3641,
+      "sha256": "c0efc36a574ead4871b1ad8fa3d9eb66f4661f2d0cd5490e078264cde6adea13"
+    },
+    "activation-packet-controls-r2.json": {
+      "bytes": 9685,
+      "sha256": "478679f39197ada7b83aac5808140c5eae7572c640675d8a617b9225d6e90301"
+    },
+    "activation-complete-replay-r1.json": {
+      "bytes": 1014226,
+      "sha256": "5dbfc545012c646aa5ab4853b5cee9e208d1e0afe47987194f53e6982ec99d30"
+    },
+    "activation-package-r2.json": {
+      "bytes": 1014476,
+      "sha256": "43b32fd83242af50049a9f6c859044816ff6f3d2daa5f9570fa02d1a0f992228"
+    },
+    "activation-portable-controls-r2.json": {
+      "bytes": 1014228,
+      "sha256": "2410f564372e17c74a43d26040ebd6ea8609dfe88db4a89f6fd52b779851a9e0"
+    },
+    "activation-isolation-amendment-primary-r1.json": {
+      "bytes": 1498,
+      "sha256": "9b3109aca422d9ee93d58a145e19a846e237e0820495c71ea07d6c0e2540f4b5"
+    },
+    "activation-packet-transport-primary-r1.json": {
+      "bytes": 1717,
+      "sha256": "b3c0e09bab7ca23fac1f85e9782c6f08b4b06c6e3bdccdd5e166510098947514"
+    },
+    "activation-final-review-r1.md": {
+      "bytes": 3638,
+      "sha256": "17733344a8130028e7750704a72bf9a7cb90a9fa61a6f480b049a1aa7a1c1ff6"
+    },
+    "finalize_activation_acceptance.py": {
+      "bytes": 8780,
+      "sha256": "4dd64cfef3d32a531a8e925b66c3565f05c62fbdf9792451afb2434591912dfc"
+    }
+  },
+  "limitations": [
+    "One observation per declared call; uncontrolled OS cache.",
+    "Combined cohort gain does not establish the marginal benefit of each mechanism.",
+    "Overlapping mechanism groups must not be added together.",
+    "5,189 cases regress; the complete COUNT, Parquet, Arrow IPC, CLI SQL and typed-plan subgroups regress.",
+    "The disturbed r2 baseline is retained but excluded from performance acceptance.",
+    "Physical per-column reads, device reads and decoded-byte counts remain unavailable.",
+    "Metadata follow-ons and broader coverage remain open; no competitive gate, merge or publication is authorized."
+  ]
+}
