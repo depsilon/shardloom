@@ -43,7 +43,7 @@ fn check(
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for batch_rows in [1, 3] {
             let mut rows = vec![];
             let report = prepared
@@ -70,7 +70,10 @@ fn check(
                 }
             }
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }
@@ -238,13 +241,16 @@ fn exact_quantile_rejects_invalid_declarations_and_observed_nonfinite_values() {
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             assert!(
                 prepared
                     .collect_jsonl(&CancellationToken::default())
                     .is_err()
             );
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
@@ -270,7 +276,7 @@ fn exact_quantile_forced_spill_selects_duplicate_ranks_across_runs_without_rebui
         .unwrap()
         .with_spill(VortexRelationalSpillPolicy::new(&workspace, 64 << 20, 1 << 20).unwrap())
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -285,6 +291,9 @@ fn exact_quantile_forced_spill_selects_duplicate_ranks_across_runs_without_rebui
     assert!(spill.runs_written > 0);
     assert!(spill.owned_cleanup_completed);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
 }

@@ -198,7 +198,7 @@ fn native_scalar_subquery_binds_arity_guard_and_static_schema_for_unused_empty_i
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -207,7 +207,10 @@ fn native_scalar_subquery_binds_arity_guard_and_static_schema_for_unused_empty_i
         error.to_string().contains("statically bound output schema"),
         "{error}"
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 
@@ -229,7 +232,7 @@ fn native_scalar_subquery_cardinality_counts_duplicate_rows_across_batches_and_r
             let prepared =
                 prepare_relational(&scalar(outer.scan(), inner.scan(), false, None), policy())
                     .unwrap();
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             for _ in 0..2 {
                 let error = prepared
                     .collect_jsonl(&CancellationToken::default())
@@ -239,7 +242,10 @@ fn native_scalar_subquery_cardinality_counts_duplicate_rows_across_batches_and_r
                     error.to_string().contains("scalar subquery cardinality"),
                     "{error}"
                 );
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(prepared.snapshot().completed_executions, 0);
             }
         }
@@ -290,7 +296,7 @@ fn native_scalar_subquery_rejects_duplicate_values_in_separate_union_batches() {
     assert_eq!(batches, [1, 1]);
     let prepared =
         prepare_relational(&scalar(input.scan(), relation, false, None), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -299,7 +305,10 @@ fn native_scalar_subquery_rejects_duplicate_values_in_separate_union_batches() {
         error.to_string().contains("scalar subquery cardinality"),
         "{error}"
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 
@@ -337,7 +346,7 @@ fn native_scalar_subquery_first_demand_is_once_per_execution_and_correlation_is_
             policy(),
         )
         .unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for execution in 1..=2 {
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
@@ -361,7 +370,10 @@ fn native_scalar_subquery_first_demand_is_once_per_execution_and_correlation_is_
             );
             assert_eq!(prepared.snapshot().completed_executions, execution);
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -381,7 +393,7 @@ fn native_scalar_subquery_fresh_parameters_recover_after_cancellation_and_failed
     }));
     let prepared =
         prepare_relational(&scalar(input.scan(), relation, true, None), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for fail in [false, true] {
         let token = CancellationToken::default();
         let result = prepared.for_each_batch(&token, |_, _| {
@@ -410,7 +422,10 @@ fn native_scalar_subquery_fresh_parameters_recover_after_cancellation_and_failed
         );
         assert_eq!(prepared.snapshot().completed_executions, execution);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     input.replace();
     assert!(
@@ -418,7 +433,10 @@ fn native_scalar_subquery_fresh_parameters_recover_after_cancellation_and_failed
             .collect_jsonl(&CancellationToken::default())
             .is_err()
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -485,7 +503,13 @@ fn native_scalar_subquery_nullable_guard_skips_value_errors_and_recovers_after_m
         ]
     );
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline.reserved_bytes);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline.reserved_bytes
+    );
+    let memory = memory.clone();
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 fn late_cardinality_plan(input: &Fixture) -> VortexRelationalPlan {
@@ -532,7 +556,7 @@ fn native_scalar_subquery_late_cardinality_error_keeps_provisional_rows_unsucces
         BATCH_ROWS,
     );
     let prepared = prepare_relational(&late_cardinality_plan(&input), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut provisional = 0;
     let error = prepared
         .for_each_batch(&CancellationToken::default(), |array, _| {
@@ -547,7 +571,10 @@ fn native_scalar_subquery_late_cardinality_error_keeps_provisional_rows_unsucces
     );
     assert_eq!(provisional, BATCH_ROWS);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -599,7 +626,7 @@ fn native_scalar_subquery_all_writers_read_back_typed_nulls_and_clean_late_failu
         BATCH_ROWS,
     );
     let prepared = prepare_relational(&late_cardinality_plan(&late), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let before = fs::read_dir(&late.0).unwrap().count();
     for format in [
         Format::Vortex,
@@ -620,6 +647,9 @@ fn native_scalar_subquery_all_writers_read_back_typed_nulls_and_clean_late_failu
         assert!(!path.exists(), "{format:?}");
         assert_eq!(fs::read_dir(&late.0).unwrap().count(), before);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }

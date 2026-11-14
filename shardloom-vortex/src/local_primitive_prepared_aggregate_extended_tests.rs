@@ -125,12 +125,15 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
     crate::native_provider_memory::materialize_file_metadata_for_test(
         prepared.source.file().unwrap().file(),
     );
-    let baseline = owner.snapshot().memory.reserved_bytes;
+    let baseline = owner.snapshot().reserved_without_source_segment_cache();
     let cancelled = CancellationToken::default();
     cancelled.cancel();
     assert!(prepared.collect_jsonl(&cancelled).is_err());
     assert_eq!(owner.snapshot().completed_executions, 0);
-    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        owner.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -140,7 +143,10 @@ fn aggregate_json_collection_rejects_escaped_bytes_and_releases_failed_ownership
         "{error}"
     );
     assert_eq!(owner.snapshot().completed_executions, 0);
-    assert_eq!(owner.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        owner.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(prepared);
     assert_eq!(owner.snapshot().memory.reserved_bytes, 0);
 
@@ -226,7 +232,7 @@ fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
                 prepared.source.file().unwrap().file(),
             );
             let memory = prepared.session.memory().clone();
-            let baseline = memory.snapshot().reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let collected = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap();
@@ -255,7 +261,10 @@ fn aggregate_json_topk_reserves_retained_candidates_under_a_tight_budget() {
             certified(&collected.execution, 1);
             assert!(memory.snapshot().peak_reserved_bytes < BUDGET);
             drop(collected);
-            assert_eq!(memory.snapshot().reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             drop(prepared);
             assert_eq!(memory.snapshot().reserved_bytes, 0);
         }

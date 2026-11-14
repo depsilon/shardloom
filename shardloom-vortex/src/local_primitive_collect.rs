@@ -2,8 +2,8 @@
 
 use super::{
     Result, ShardLoomError, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveKind,
-    VortexQueryPrimitiveRequest, bind_vortex_scan_expr, local_vortex_path,
-    logical_field_from_native_array, row_export_scan_plan,
+    VortexQueryPrimitiveRequest, local_vortex_path, logical_field_from_native_array,
+    row_export_scan_plan,
 };
 use crate::resident_session::{
     OwnedVortexResultBatch, PreparedVortexCount, PreparedVortexProjection, PreparedVortexSource,
@@ -291,14 +291,10 @@ fn prepare_rows(
                 .unwrap_or(u64::MAX)
                 .min(MAX_COLLECT_ROWS + 1)
         });
-    let filter = plan
-        .filter
-        .as_ref()
-        .map(|filter| bind_vortex_scan_expr(source.file(), filter))
-        .transpose()?;
+    let filtered = plan.filter.is_some();
     let projection = source
         .prepare_projection(&names, rows_limit, 32 * 1024 * 1024)?
-        .with_filter(filter);
+        .with_filter(plan.filter)?;
     cancellation.check()?;
     Ok(PreparedVortexCollect {
         request: request.clone(),
@@ -306,7 +302,7 @@ fn prepare_rows(
         source,
         projection,
         projected_columns: plan.projected_columns,
-        filtered: plan.filter.is_some(),
+        filtered,
     })
 }
 

@@ -1,0 +1,21 @@
+{
+  "archive_bytes": 27120410,
+  "archive_path": "inventory.tar.gz",
+  "archive_sha256": "0700aac00db5845dd679c37f833468916d9b7dba84f3a39044654a1b3e7adaf0",
+  "inner_manifest_sha256": "bf0adc7ae8d7148719a461ec75f399a81c440384fc36f337b9d4fd73eea8fa52",
+  "member_count_excluding_manifest": 334,
+  "missing_members": [],
+  "negative_members": [],
+  "schema": "shardloom.compact_coverage_inventory.outer_manifest.v1",
+  "source_registry_counts": {
+    "c79f27a": {
+      "commit": "c79f27a8222e7a1fe5009b07a2a19c1c9dd387bb",
+      "entries": 15
+    },
+    "cac86": {
+      "commit": "cac86e8b0a5fa5fa8bf4c900dbef7a703746bfa8",
+      "entries": 253
+    }
+  },
+  "status": "complete_no_negative_or_missing_members"
+}

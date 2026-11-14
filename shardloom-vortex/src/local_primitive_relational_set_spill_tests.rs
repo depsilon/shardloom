@@ -17,7 +17,7 @@ pub(super) fn assert_ordered(fixture: &Fixture, plan: &VortexRelationalPlan, exp
     let resident = prepare_relational(plan, policy()).unwrap();
     let prepared = ordered(fixture, plan);
     assert_eq!(prepared.output_dtype(), resident.output_dtype());
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for batch_rows in [1, 3, 2048] {
         let mut rows = Vec::new();
         let report = prepared
@@ -43,7 +43,10 @@ pub(super) fn assert_ordered(fixture: &Fixture, plan: &VortexRelationalPlan, exp
         assert!(spill.owned_cleanup_completed);
         assert_eq!(fs::read_dir(&spill.workspace).unwrap().count(), 0);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -135,7 +138,7 @@ fn ordered_sets_changed_file_sources_after_delivery_prevent_completion() {
                 kind,
             }));
             let prepared = ordered(&left, &plan);
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let mut delivered = 0;
             let error = prepared
                 .for_each_batch(&CancellationToken::default(), |array, _| {
@@ -174,7 +177,10 @@ fn ordered_sets_changed_file_sources_after_delivery_prevent_completion() {
             );
             assert!(delivered > 0);
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(left.0.join("set-runs")).unwrap().count(), 0);
         }
     }

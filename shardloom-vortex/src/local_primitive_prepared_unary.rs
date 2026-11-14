@@ -492,14 +492,32 @@ impl BoundUnary {
         canonical(request, false)?;
         let metadata = memory.reserve(memory::request_bytes(request)?)?;
         let mut plan = super::row_export_scan_plan(request, dtype)?;
+        // This operator consumes an already-produced relation: even predicates
+        // that a file scan could push down execute here. Keep all their hidden
+        // fields in the input binding without adding them to the output.
+        if let Some(predicate) = &request.predicate {
+            let mut columns = plan
+                .projected_columns
+                .iter()
+                .map(shardloom_core::ColumnRef::new)
+                .collect::<Result<Vec<_>>>()?;
+            super::append_predicate_columns(predicate, &mut columns);
+            if columns.len() != plan.projected_columns.len() {
+                let projection = super::projection_scan_plan(
+                    dtype,
+                    &shardloom_plan::ProjectionRequest::Columns(columns),
+                    request.kind,
+                )?;
+                plan.projected_columns = projection.projected_columns;
+                plan.projection = projection.projection;
+            }
+            plan.residual_predicate = Some(predicate.clone());
+        }
         if !schema::retained_source_admitted(request, dtype, &plan, scope)? {
             return Err(failed(
                 "composed unary state does not admit its selected input types",
             ));
         }
-        // The preceding relation already executed. Any predicate attached to
-        // this operation is evaluated here, including scan-pushable predicates.
-        plan.residual_predicate.clone_from(&request.predicate);
         let bound = Self::bind(request, dtype, &plan, scope, metadata)?;
         if bound
             .melt
@@ -515,6 +533,40 @@ impl BoundUnary {
 
     pub(super) fn fields(&self) -> &[(String, DType)] {
         &self.fields
+    }
+
+    pub(super) fn accepts_output_demand(&self) -> bool {
+        self.explode.is_some()
+    }
+
+    pub(super) fn input_columns(&self) -> &[String] {
+        &self.columns
+    }
+
+    /// Remove only unused pass-through outputs. Every list and the predicate
+    /// remain bound to the same population, with their existing validation.
+    pub(super) fn narrow_explode_output(
+        &self,
+        needed: &std::collections::BTreeSet<&str>,
+        dtype: &DType,
+        scope: crate::native_payload_schema::Scope<'_>,
+    ) -> Result<Option<Self>> {
+        let Some(explode) = &self.explode else {
+            return Ok(None);
+        };
+        if !explode.has_unneeded_scalar(needed) {
+            return Ok(None);
+        }
+        scope.check_cancelled()?;
+        let bytes = memory::request_bytes(&self.request)?
+            .checked_add(self.columns.len() as u64 * 4096)
+            .ok_or_else(|| failed("explode projection metadata overflow"))?;
+        let _scratch = scope.memory().reserve(bytes)?;
+        let mut request = self.request.clone();
+        request.projection = shardloom_plan::ProjectionRequest::Columns(
+            explode.source_projection(needed, &self.columns)?,
+        );
+        Self::for_relation(&request, dtype, scope).map(Some)
     }
 
     /// Tighten only rolling output; other unary limits can select a different

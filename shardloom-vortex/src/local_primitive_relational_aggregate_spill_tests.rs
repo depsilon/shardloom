@@ -89,7 +89,7 @@ fn ordered_aggregate_all_measures_compound_groups_aliases_and_scalar_match_indep
             prepared.output_dtype().unwrap(),
             resident.output_dtype().unwrap()
         );
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for batch_rows in [1, 2, 3, 2048] {
             let (rows, report) = complete(&prepared, batch_rows);
             assert_eq!(rows, expected);
@@ -100,7 +100,10 @@ fn ordered_aggregate_all_measures_compound_groups_aliases_and_scalar_match_indep
                 "repeated aliases share distinct records"
             );
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
     let expected = vec![
@@ -490,14 +493,17 @@ fn ordered_aggregate_errors_consumer_cancel_and_source_mutation_release_state() 
             vec![measure("sum", Some("value"), "sum")],
         );
         let prepared = ordered(&fixture, &plan, "invalid");
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert!(
             prepared
                 .collect_jsonl(&CancellationToken::default())
                 .is_err()
         );
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(fixture.0.join("invalid")).unwrap().count(), 0);
     }
     for failure in ["consumer", "cancel", "source"] {
@@ -507,7 +513,7 @@ fn ordered_aggregate_errors_consumer_cancel_and_source_mutation_release_state() 
             &aggregate(fixture.scan(), &["group"], all_measures()),
             "failed",
         );
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let token = CancellationToken::default();
         let mut calls = 0;
         let result = prepared.for_each_batch(&token, |_, _| {
@@ -523,7 +529,10 @@ fn ordered_aggregate_errors_consumer_cancel_and_source_mutation_release_state() 
         assert!(result.is_err(), "{failure}");
         assert_eq!(calls, 1);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(fixture.0.join("failed")).unwrap().count(), 0);
     }
 }

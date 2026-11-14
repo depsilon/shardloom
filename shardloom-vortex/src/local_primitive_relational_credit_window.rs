@@ -1,7 +1,10 @@
 //! Bounded native admission and logical credits for immutable output.
 //! Payload leases remain with their existing Vortex/Arrow owners.
 
-use super::{BATCH_ROWS, NodeKind, PreparedRoot, PreparedVortexRelational, ScanSource, failed};
+use super::{
+    BATCH_ROWS, NodeKind, PipelineKind, PipelineStage, PreparedRoot, PreparedVortexRelational,
+    ScanSource, failed,
+};
 use shardloom_core::Result;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::dtype::{DType, PType};
@@ -155,6 +158,17 @@ impl PreparedVortexRelational {
         }
         let scan = match &root.kind {
             NodeKind::Project { input, .. } => input.as_ref(),
+            NodeKind::Pipeline { input, stages }
+                if matches!(
+                    stages.as_slice(),
+                    [PipelineStage {
+                        kind: PipelineKind::Project(_),
+                        ..
+                    }]
+                ) =>
+            {
+                input.as_ref()
+            }
             NodeKind::Scan { .. } => root.as_ref(),
             _ => return Ok(None),
         };

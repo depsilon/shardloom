@@ -283,6 +283,8 @@ fn scan_owned(
         runtime: Arc::clone(&resident.0),
         rows,
         logical_buffer_bytes,
+        file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+        _file_scan_metadata: None,
     })
 }
 
@@ -316,6 +318,7 @@ fn call(
                     concurrency: context.cpu_lanes(),
                     reader_owner: Some(scope.retain_reader(context.memory())?),
                     scope: Some(scope),
+                    evidence: None,
                 };
                 let metrics = RequestMetrics::new(&DefaultMetricsRegistry::default(), Vec::new());
                 let segments = FileSegmentSource::open_with_segments(

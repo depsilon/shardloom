@@ -150,13 +150,16 @@ fn native_pivot_spill_exact_binary_decimal_temporal_and_list_values_survive_dupl
                     })
                 })
                 .collect::<Vec<_>>();
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let (actual, report) = complete(&prepared);
             assert_eq!(actual, expected, "{dtype}/{aggregate}");
             assert_eq!(complete(&resident).0, expected);
             assert!(report.spill.as_ref().unwrap().merge_passes > 0);
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             let owned = prepared.execute_owned().unwrap();
             assert_eq!(
                 owned

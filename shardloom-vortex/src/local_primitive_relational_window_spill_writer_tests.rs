@@ -24,7 +24,7 @@ fn verify(
             count,
         }));
         let prepared = ordered(fixture, &VortexRelationalPlan::Window(window));
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut executions = 0;
         for format in writer_tests::FORMATS {
             let path = fixture
@@ -73,7 +73,10 @@ fn verify(
                 );
             }
             drop(written);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(
                 fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),
                 0
@@ -184,7 +187,7 @@ fn ordered_window_writer_arithmetic_failure_preserves_destinations_and_refunds_s
         None,
     );
     let prepared = ordered(&fixture, &plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for format in writer_tests::FORMATS {
         let path = fixture.0.join(format!("rollback.{}", format.as_str()));
         assert!(prepared.write(&path, format, false).is_err());
@@ -195,7 +198,10 @@ fn ordered_window_writer_arithmetic_failure_preserves_destinations_and_refunds_s
         assert_eq!(fs::read(&path).unwrap(), b"existing destination");
         assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 3);
         fs::remove_file(path).unwrap();
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),
             0

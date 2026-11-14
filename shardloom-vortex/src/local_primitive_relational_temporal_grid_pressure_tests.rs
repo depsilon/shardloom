@@ -191,7 +191,7 @@ fn native_temporal_grid_pressure_preserves_complete_rows_with_real_native_spill(
     let fixture = large_fixture();
     for family in ["gap", "fill", "compose"] {
         let denied = prepare(&fixture, family, GRANT, None);
-        let baseline = denied.snapshot().memory.reserved_bytes;
+        let baseline = denied.snapshot().reserved_without_source_segment_cache();
         let error = execute(&denied, family)
             .err()
             .expect("resident data exceeds grant");
@@ -199,16 +199,22 @@ fn native_temporal_grid_pressure_preserves_complete_rows_with_real_native_spill(
             error.to_string().contains("reservation denied"),
             "{family}: {error}"
         );
-        assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            denied.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(denied.snapshot().completed_executions, 0);
         drop(denied);
         let ample = prepare(&fixture, family, 256 << 20, None);
-        let baseline = ample.snapshot().memory.reserved_bytes;
+        let baseline = ample.snapshot().reserved_without_source_segment_cache();
         drop(execute(&ample, family).unwrap());
-        assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            ample.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         drop(ample);
         let stored = prepare(&fixture, family, GRANT, Some(256 << 20));
-        let baseline = stored.snapshot().memory.reserved_bytes;
+        let baseline = stored.snapshot().reserved_without_source_segment_cache();
         let report = execute(&stored, family).unwrap();
         let spill = report.spill.as_ref().unwrap();
         assert!(spill.runs_written > 3 && spill.merge_passes > 1);
@@ -220,7 +226,10 @@ fn native_temporal_grid_pressure_preserves_complete_rows_with_real_native_spill(
             json!({"family":family,"input_rows":ROWS,"output_rows":report.output_rows,"grant":GRANT,"peak_reserved_bytes":report.runtime.memory.peak_reserved_bytes,"runs_written":spill.runs_written,"merge_passes":spill.merge_passes,"peak_disk_bytes":spill.peak_disk_bytes,"owned_cleanup_completed":spill.owned_cleanup_completed})
         );
         drop(report);
-        assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            stored.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -229,7 +238,7 @@ fn native_temporal_grid_faults_release_actual_spill_and_allow_fresh_retry() {
     use crate::local_primitives::native_relational_window::fill::FILL_PROGRESS;
     let fixture = large_fixture();
     let stored = prepare(&fixture, "compose", GRANT, Some(256 << 20));
-    let baseline = stored.snapshot().memory.reserved_bytes;
+    let baseline = stored.snapshot().reserved_without_source_segment_cache();
     let token = CancellationToken::default();
     let cancel = token.clone();
     let triggered = Rc::new(Cell::new(false));
@@ -259,7 +268,7 @@ fn native_temporal_grid_faults_release_actual_spill_and_allow_fresh_retry() {
     );
     for family in ["gap", "compose"] {
         let prepared = prepare(&fixture, family, GRANT, Some(256 << 20));
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for cancel_after_output in [false, true] {
             let token = CancellationToken::default();
             let mut calls = 0;
@@ -284,7 +293,10 @@ fn native_temporal_grid_faults_release_actual_spill_and_allow_fresh_retry() {
                 "{error}"
             );
             assert_eq!(calls, 1);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(prepared.snapshot().completed_executions, 0);
             assert_eq!(
                 fs::read_dir(fixture.0.join("grid-runs")).unwrap().count(),
@@ -292,17 +304,23 @@ fn native_temporal_grid_faults_release_actual_spill_and_allow_fresh_retry() {
             );
         }
         let denied = prepare(&fixture, family, GRANT, Some(32 << 10));
-        let baseline = denied.snapshot().memory.reserved_bytes;
+        let baseline = denied.snapshot().reserved_without_source_segment_cache();
         let error = execute(&denied, family).err().expect("quota refusal");
         assert!(error.to_string().contains("quota"), "{error}");
-        assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            denied.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("grid-runs")).unwrap().count(),
             0
         );
     }
     drop(execute(&stored, "compose").unwrap());
-    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        stored.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(
         fs::read_dir(fixture.0.join("grid-runs")).unwrap().count(),
         0

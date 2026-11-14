@@ -98,7 +98,7 @@ fn native_nested_aggregate_handoff_reuses_one_source_and_fresh_state() {
         )))
     })
     .unwrap();
-    let baseline = session.memory().snapshot().reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     for execution in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -115,7 +115,10 @@ fn native_nested_aggregate_handoff_reuses_one_source_and_fresh_state() {
         assert_eq!(result.execution.runtime.prepared_source_opens, 1);
         assert_eq!(result.execution.runtime.completed_executions, execution);
         drop(result);
-        assert_eq!(session.memory().snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            session.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     fixture.replace();
     assert!(

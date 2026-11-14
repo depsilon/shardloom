@@ -91,7 +91,7 @@ fn ordered_collection_large_groups_and_windows_spill_and_match_complete_values()
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap_or_else(|error| panic!("plan={index}, spill={spill}: {error}"));
@@ -102,7 +102,10 @@ fn ordered_collection_large_groups_and_windows_spill_and_match_complete_values()
                 assert!(evidence.owned_cleanup_completed);
             }
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }
@@ -128,7 +131,7 @@ fn ordered_collection_pressure_cancellation_output_failure_and_retry_release_own
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let pressure = prepared
                 .session
                 .memory()
@@ -157,7 +160,10 @@ fn ordered_collection_pressure_cancellation_output_failure_and_retry_release_own
                 assert!(result.is_err());
                 assert_eq!(delivered, 1);
                 assert_eq!(prepared.snapshot().completed_executions, 0);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }
             drop(
@@ -165,7 +171,10 @@ fn ordered_collection_pressure_cancellation_output_failure_and_retry_release_own
                     .collect_jsonl(&CancellationToken::default())
                     .unwrap(),
             );
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }
@@ -197,7 +206,7 @@ fn ordered_collection_oversized_string_result_is_denied_before_delivery_even_wit
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let mut delivered = 0;
             let error = prepared
                 .for_each_batch(&CancellationToken::default(), |_, _| {
@@ -209,7 +218,10 @@ fn ordered_collection_oversized_string_result_is_denied_before_delivery_even_wit
             assert!(error.to_string().contains("reservation"), "{error}");
             assert_eq!(delivered, 0);
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }

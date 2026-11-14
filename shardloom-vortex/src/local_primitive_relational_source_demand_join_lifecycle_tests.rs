@@ -43,7 +43,7 @@ fn parquet_join_demand_window_row_population_preserves_source_scope() {
             &[&left, &right],
             &aggregate(VortexRelationalPlan::Join(join), false),
         );
-        let initial = prepared.snapshot().memory.reserved_bytes;
+        let initial = prepared.snapshot().reserved_without_source_segment_cache();
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -52,7 +52,10 @@ fn parquet_join_demand_window_row_population_preserves_source_scope() {
         assert_eq!(input.columnar_projected_columns, 2);
         assert!(input.end_of_input_observed && input.output_ownership_detached);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            initial
+        );
     }
 }
 
@@ -66,7 +69,7 @@ fn parquet_join_demand_checks_each_source_generation_after_final_consumer() {
             &[("left_other", "value")],
         );
         let prepared = prepare(&[&left, &right], &plan);
-        let initial = prepared.snapshot().memory.reserved_bytes;
+        let initial = prepared.snapshot().reserved_without_source_segment_cache();
         let fixture = if replace_right { &right } else { &left };
         let mut replaced = false;
         let result = prepared.for_each_batch(&CancellationToken::default(), |_, _| {
@@ -79,7 +82,10 @@ fn parquet_join_demand_checks_each_source_generation_after_final_consumer() {
             Ok(())
         });
         assert!(replaced && result.is_err());
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            initial
+        );
         assert_eq!(prepared.snapshot().completed_executions, 0);
         assert!(
             prepared
@@ -144,7 +150,7 @@ fn parquet_join_demand_keeps_computed_projection_first_error_order() {
             &[&left, &right],
             &aggregate(VortexRelationalPlan::Join(join), false),
         );
-        let initial = prepared.snapshot().memory.reserved_bytes;
+        let initial = prepared.snapshot().reserved_without_source_segment_cache();
         let error = prepared
             .collect_jsonl(&CancellationToken::default())
             .err()
@@ -157,7 +163,10 @@ fn parquet_join_demand_keeps_computed_projection_first_error_order() {
         };
         assert!(error.contains(expected), "{error}");
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            initial
+        );
     }
 }
 
@@ -335,7 +344,7 @@ fn parquet_join_demand_preserves_prepared_vortex_payload_validation_barrier() {
     join.right = right.scan();
     let plan = aggregate(VortexRelationalPlan::Join(join), false);
     let prepared = prepare(&[&left], &plan);
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -345,7 +354,10 @@ fn parquet_join_demand_preserves_prepared_vortex_payload_validation_barrier() {
         "{error}"
     );
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }
 
 fn prepared_join_payload_fixture(keys: &[i64], values: &[f64]) -> Fixture {
@@ -398,7 +410,7 @@ fn prepared_join_payload_mask_preserves_selected_and_build_validation_scopes() {
                     &fixtures,
                     &aggregate(VortexRelationalPlan::Join(join), false),
                 );
-                let initial = prepared.snapshot().memory.reserved_bytes;
+                let initial = prepared.snapshot().reserved_without_source_segment_cache();
                 #[cfg(debug_assertions)]
                 let observation = Observation::start();
                 let result = prepared.collect_jsonl(&CancellationToken::default());
@@ -430,7 +442,10 @@ fn prepared_join_payload_mask_preserves_selected_and_build_validation_scopes() {
                     }
                     drop(result);
                 }
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    initial
+                );
             }
         }
     }

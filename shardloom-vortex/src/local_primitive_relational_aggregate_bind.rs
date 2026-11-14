@@ -69,6 +69,7 @@ impl Binder<'_> {
                 input,
                 spec,
                 expansion: None,
+                count_partial: false,
             },
         })
     }

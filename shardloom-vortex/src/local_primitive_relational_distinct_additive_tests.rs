@@ -26,14 +26,17 @@ fn check(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[serde_json:
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
             .unwrap_or_else(|error| panic!("spill={spill}, plan={plan:?}: {error}"));
         assert_eq!(json_rows(&result), expected);
         assert!(result.execution.native_io_certificate.is_certified());
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     }
 }

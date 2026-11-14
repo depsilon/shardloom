@@ -48,7 +48,7 @@ fn native_decimal_reduction_grouped_values_nulls_types_and_primitive_order() {
     measures.insert(2, measure("sum", Some("primitive"), "ordered_sum"));
     let prepared =
         prepare_relational(&aggregate(fixture.scan(), &["group"], measures), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let fields = prepared.output_dtype().unwrap();
     let fields = fields.as_struct_fields_opt().unwrap();
     for (name, precision, scale) in [
@@ -74,7 +74,10 @@ fn native_decimal_reduction_grouped_values_nulls_types_and_primitive_order() {
         assert_eq!(json_rows(&result), expected);
         assert_eq!(result.execution.runtime.prepared_source_opens, 1);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 

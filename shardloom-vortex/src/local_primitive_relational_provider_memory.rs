@@ -1,10 +1,10 @@
 //! Provider-owned declaration capacity, independent of the binder's schema,
 //! expression recipes and general-runtime preparation credits.
 
-use super::{Request, Result, failed};
+use super::{Request, Result, failed, view};
 use crate::local_primitives::{
     native_relational_expression::{Expression, Kind},
-    prepared_relational::{Node, NodeKind},
+    prepared_relational::Node,
 };
 use shardloom_core::{PredicateExpr, StatValue};
 
@@ -92,60 +92,63 @@ impl Size {
     }
 
     fn node(&mut self, node: &Node) -> Result<bool> {
-        // Names are binder-validated to 256 bytes. Each slot covers the old
-        // and new alias map, transformed value (up to three source columns),
-        // output/order/HAVING names and vector/tree allocation overhead.
-        self.add(
-            node.fields
-                .len()
-                .checked_mul(4096)
-                .ok_or_else(|| failed("provider field capacity overflow"))?,
-        )?;
-        match &node.kind {
-            NodeKind::Scan {
-                source_uri,
-                predicate,
-                ..
-            } => {
-                self.add(
-                    source_uri
-                        .as_str()
-                        .len()
-                        .checked_mul(16)
-                        .ok_or_else(|| failed("provider source capacity overflow"))?,
-                )?;
-                if let Some(predicate) = predicate {
-                    let mut size = Size(0);
-                    size.predicate(predicate)?;
-                    self.0 = self
-                        .0
-                        .checked_add(
-                            size.0
-                                .checked_mul(16)
-                                .ok_or_else(|| failed("provider predicate capacity overflow"))?,
-                        )
-                        .ok_or_else(|| failed("provider declaration capacity overflow"))?;
+        let mut node = view::View::Node(node);
+        loop {
+            // Names are binder-validated to 256 bytes. Each slot covers the old
+            // and new alias map, transformed value (up to three source columns),
+            // output/order/HAVING names and vector/tree allocation overhead.
+            // Also cover one borrowed step in the iterative lowering scratch.
+            self.add(64)?;
+            self.add(
+                node.fields()
+                    .len()
+                    .checked_mul(4096)
+                    .ok_or_else(|| failed("provider field capacity overflow"))?,
+            )?;
+            node = match node.kind() {
+                view::Kind::Scan {
+                    source_uri,
+                    predicate,
+                    ..
+                } => {
+                    self.add(
+                        source_uri
+                            .as_str()
+                            .len()
+                            .checked_mul(16)
+                            .ok_or_else(|| failed("provider source capacity overflow"))?,
+                    )?;
+                    if let Some(predicate) = predicate {
+                        let mut size = Size(0);
+                        size.predicate(predicate)?;
+                        self.0 =
+                            self.0
+                                .checked_add(size.0.checked_mul(16).ok_or_else(|| {
+                                    failed("provider predicate capacity overflow")
+                                })?)
+                                .ok_or_else(|| failed("provider declaration capacity overflow"))?;
+                    }
+                    return Ok(true);
                 }
-                Ok(true)
-            }
-            NodeKind::Project { input, expressions } => {
-                for expression in expressions {
-                    if !self.expression(expression)? {
+                view::Kind::Project { input, expressions } => {
+                    for expression in expressions {
+                        if !self.expression(expression)? {
+                            return Ok(false);
+                        }
+                    }
+                    input
+                }
+                view::Kind::Filter { input, predicate } => {
+                    if !self.expression(predicate)? {
                         return Ok(false);
                     }
+                    input
                 }
-                self.node(input)
-            }
-            NodeKind::Filter { input, predicate } => {
-                if !self.expression(predicate)? {
-                    return Ok(false);
-                }
-                self.node(input)
-            }
-            NodeKind::Aggregate { input, .. }
-            | NodeKind::Sort { input, .. }
-            | NodeKind::Limit { input, .. } => self.node(input),
-            _ => Ok(false),
+                view::Kind::Aggregate { input, .. }
+                | view::Kind::Sort { input, .. }
+                | view::Kind::Limit { input, .. } => input,
+                view::Kind::Unsupported => return Ok(false),
+            };
         }
     }
 }

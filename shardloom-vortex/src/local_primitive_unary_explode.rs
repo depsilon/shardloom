@@ -23,6 +23,36 @@ enum Column {
 }
 
 impl Plan {
+    pub(super) fn has_unneeded_scalar(&self, needed: &std::collections::BTreeSet<&str>) -> bool {
+        self.columns
+            .iter()
+            .zip(&self.fields)
+            .any(|(column, (name, _))| {
+                matches!(column, Column::Scalar(_)) && !needed.contains(name.as_str())
+            })
+    }
+
+    pub(super) fn source_projection(
+        &self,
+        needed: &std::collections::BTreeSet<&str>,
+        columns: &[String],
+    ) -> Result<Vec<shardloom_core::ColumnRef>> {
+        self.columns
+            .iter()
+            .zip(&self.fields)
+            .filter_map(|(column, (name, _))| {
+                let source = match column {
+                    Column::Scalar(source) if needed.contains(name.as_str()) => *source,
+                    // Every expanded list controls cardinality and zip-length
+                    // validation, including lists whose values are not returned.
+                    Column::List { source, .. } => *source,
+                    Column::Scalar(_) => return None,
+                };
+                Some(shardloom_core::ColumnRef::new(&columns[source]))
+            })
+            .collect()
+    }
+
     pub(super) fn bind(
         request: &VortexQueryPrimitiveRequest,
         dtype: &DType,

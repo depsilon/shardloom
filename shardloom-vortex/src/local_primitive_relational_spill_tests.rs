@@ -459,7 +459,7 @@ fn native_relational_spill_streams_exact_rows_when_resident_sort_exceeds_query_b
         .unwrap()
         .with_spill(spill(&fixture))
         .unwrap();
-    let before = prepared.snapshot().memory.reserved_bytes;
+    let before = prepared.snapshot().reserved_without_source_segment_cache();
     let mut offset = 0;
     let execution = prepared
         .for_each_batch(&CancellationToken::default(), |array, context| {
@@ -484,7 +484,10 @@ fn native_relational_spill_streams_exact_rows_when_resident_sort_exceeds_query_b
     assert!(execution.runtime.memory.peak_reserved_bytes <= 8 << 20);
     assert_clean(&fixture);
     drop(execution);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        before
+    );
 }
 
 #[test]
@@ -499,7 +502,7 @@ fn native_relational_spill_corrupt_truncated_and_replaced_runs_cannot_complete()
         .unwrap()
         .with_spill(spill(&fixture))
         .unwrap();
-        let before = prepared.snapshot().memory.reserved_bytes;
+        let before = prepared.snapshot().reserved_without_source_segment_cache();
         let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
         let captured = std::rc::Rc::clone(&opened);
         BEFORE_RUN_OPEN.with(|hook| {
@@ -542,7 +545,10 @@ fn native_relational_spill_corrupt_truncated_and_replaced_runs_cannot_complete()
             .to_string();
         assert!(error.contains("changed"), "{damage}: {error}");
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            before
+        );
         assert!(BEFORE_RUN_OPEN.with(|hook| hook.borrow().is_none()));
         let path = opened.borrow().clone().unwrap();
         if damage == "replace" {
@@ -566,7 +572,7 @@ fn native_relational_spill_source_mutation_after_delivery_prevents_success() {
         .unwrap()
         .with_spill(spill(&fixture))
         .unwrap();
-    let before = prepared.snapshot().memory.reserved_bytes;
+    let before = prepared.snapshot().reserved_without_source_segment_cache();
     let mut calls = 0;
     assert!(
         prepared
@@ -581,7 +587,10 @@ fn native_relational_spill_source_mutation_after_delivery_prevents_success() {
     );
     assert!(calls > 0);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        before
+    );
     assert_clean(&fixture);
 }
 
@@ -603,7 +612,7 @@ fn native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace
     .unwrap()
     .with_spill(spill(&oversized))
     .unwrap();
-    let before = prepared.snapshot().memory.reserved_bytes;
+    let before = prepared.snapshot().reserved_without_source_segment_cache();
     let collected = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -615,7 +624,10 @@ fn native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace
     assert!(collected.execution.native_io_certificate.is_certified());
     assert_eq!(prepared.snapshot().completed_executions, 1);
     drop(collected);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        before
+    );
     assert_clean(&oversized);
 
     let mut limited = policy();
@@ -627,14 +639,17 @@ fn native_relational_spill_large_single_row_uses_the_grant_and_missing_workspace
     .unwrap()
     .with_spill(spill(&oversized))
     .unwrap();
-    let before = prepared.snapshot().memory.reserved_bytes;
+    let before = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
         .err()
         .expect("the actual memory grant must still deny an oversized live owner");
     assert!(error.to_string().contains("reservation denied"), "{error}");
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, before);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        before
+    );
     assert_clean(&oversized);
 
     let (fixture, _) = fixture(20_013);

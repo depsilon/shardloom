@@ -167,9 +167,9 @@ impl Rows {
         context: &NativeExecutionContext<'_>,
     ) -> Result<SelectedRows> {
         context.check_cancelled()?;
-        let shape = self.sizing.select(
+        let shape = self.sizing.select_in_pool(
             self.owner.name(),
-            context.memory().snapshot(),
+            context.memory(),
             self.cost,
             WorkLimits {
                 min_units: 1,

@@ -251,7 +251,123 @@ the ledger.
 
 Current autonomous execution order:
 
+The November 13 efficiency review keeps the active coverage work first and
+orders its follow-ons by shared owners and concrete prerequisites. The order
+below supersedes the historical A–N/recommendation numbering; those labels
+identify contracts, not additional passes through the same work. Reuse the
+current inventory and exact compatible evidence. Add missing exposure controls
+once, and do not repeat full10k or broad gates after every small edit.
+
+- [ ] **November 13 optimization coverage priority.** The maintainer requests
+  complete optimization coverage across the supported engine. The
+  [coverage contract](native-optimization-coverage-2026-11-13.md) starts with
+  mechanism/opportunity inventory and equivalent-pipeline integration gaps,
+  then closes verified omissions through existing item-20/RFC-0044 owners.
+  Planning-only features, missing evidence and unimplemented mechanisms remain
+  uncovered. Preserve existing semantic/resource gates, rejected candidates and
+  the invalid direct COUNT baseline. PR #1683 merged as `72680743a34a5db9`.
+  The first six integration fixes at `9f4580c72` pass the original 10,000-case
+  corpus and the separately requested 347-case cohort; the
+  [source-bound observations](../benchmarks/native-optimization-coverage-2026-11-13.md)
+  do not establish complete optimization coverage. Shared Sort demand is
+  retained at `cac86e8b0`: 606 complete cases, with 98 newly narrowed inputs.
+  Cardinality and unary demand are retained at `c79f27a82`: 213 complete cases,
+  with 96 newly narrowed inputs. These disjoint, separately measured cohorts
+  close all 194 excessive-column observations in the Parquet/IPC dependency
+  audit; they are not a new full-corpus observation. The
+  [mechanism inventory](native-optimization-inventory-2026-11-13.md) records
+  existing owners, exact test evidence and remaining work. Continue Vortex
+  demand/validation coverage, per-opportunity decisions, missing current
+  compositions and planned mechanisms. Current admission restrictions do not
+  close missing opportunities. The bounded-sort audit also reproduces skipped
+  hidden/outside-prefix payload validation in the file shortcut; its admission
+  correction is now covered by a source-bound 388-case cohort at
+  `4d5fa4a46268380a634e78f057abba087f4042f5`. It removes all 21 prior file-Sort
+  shortcuts while retaining all 36 other file-kernel cases. The candidate's
+  337.804658081 engine seconds correct omitted mandatory validation; separate
+  historical groups are not combined and do not establish speedup or optimized
+  Vortex demand. Answers, schemas, certificates and clocks pass independent
+  replay, with native-pipeline/no-fallback and resource checks. The
+  [portable evidence packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
+  preserves the source-bound validation. Item 19, item 20, RFC 0044 and CG-1
+  through CG-23 remain open.
+  The latest maintainer instruction prioritizes these active implementation
+  deliverables, with public execution, semantic and activation evidence:
+  - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
+    at `788a8925e`: complete validation, default/native/package checks, all 388
+    answers and unchanged pipeline counts pass; the same-baseline engine total
+    decreases from 337.804658081 to 327.589944482 seconds. Portable replay and
+    all 26 negative/refusal controls pass; broader coverage stays open.
+  - [ ] Close Vortex scan reporting/decision gaps and demonstrated missed
+    projection, predicate or pruning opportunities; distinguish missing evidence
+    from missing execution.
+  - [ ] Connect remaining direct-source COUNT and file-backed cyclic semi-join
+    opportunities through native shared owners and valid new evidence.
+  - [ ] Implement general native runtime filters, skew handling and cross-query
+    reuse under their existing RFC contracts; identify and reuse partial
+    implementations, preserving generation, effect and resource boundaries.
+  - [ ] Validate those connected owners together with uncovered multi-window,
+    correlated-subquery, melt/pivot, sampling and rich expression compositions
+    across the public surfaces. Complete lifecycle/resource fixes, required
+    default/native and installed-package proof, then the frozen affected-cohort
+    decisions before advancing the accepted baseline. Breadth declarations and
+    independent references may be prepared alongside implementation; scored
+    query execution remains isolated.
+
+- [ ] **November 13 metadata and encoded-consumer investigations — follow the
+  active optimization-coverage implementation above.** The maintainer's supplied
+  research is incorporated as major investigation and implementation work in the
+  [follow-on contract](native-metadata-encoded-consumer-investigations-2026-11-13.md).
+  Recheck actual source/provider activation, develop the missing shared engine
+  connections, and retain changes only after their semantic, resource, ownership,
+  no-fallback and complete-operation evidence passes. Reading the research or
+  adding counters alone does not complete an item. Existing item-20 owners and
+  item-19 spatial obligations remain canonical; these are not new phase IDs.
+  Follow the [dependency order](native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables)
+  below. Each experiment retains its own decision; shared preparation does not
+  combine independent speed claims.
+  - [ ] Reconcile only changed activation/exposure against the accepted coverage
+    baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
+    N's dictionary owner and I's consumer boundaries; attach versioned missing
+    encoding/selectivity controls without restarting the full inventory.
+  - [ ] Complete individually proved aggregate measures from metadata, then
+    exact regional partials and constant-group-key completion through the same
+    state/finalizer. Keep each semantic admission distinct; missing region
+    coverage proof must not block a separately complete per-measure result.
+  - [ ] Extend existing N with dictionary-domain text transforms retained into
+    filter/group/distinct consumers and compatible shared outputs.
+  - [ ] Extend C with only the exact source/domain facts required by the named
+    ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve
+    typed comparison and failure semantics without a speculative fact framework.
+  - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
+    admission first, then necessary text signatures where warranted. Spatial
+    summaries follow the exact spatial execution contract below.
+  - [ ] Extend existing I with separately observed pruning/read/consumer units
+    and survivor-driven batching. Settle its retained or declined batch/lifetime
+    contract before tuning per-batch FSST matcher lifetime or codec choices.
+  - [ ] Investigate a conservative FSST candidate prefilter and separately
+    bounded exact-table matcher reuse on the resulting accepted consumer path,
+    with selective/dense and hardware controls.
+  - [ ] Advance item-19 spatial execution through native coordinate/offset
+    arrays, conservative bounds and exact surviving-candidate kernels, then
+    evaluate optional persisted spatial summaries. Required spatial support does
+    not depend on a successful FSST, codec or CPU-fusion optimization.
+  - [ ] Assess codec/consumer choices with the accepted consumer and batch
+    contracts. Investigate distinct bounded CPU expression fusion last, only
+    after attributing work left by the accepted upstream reductions and preserving
+    the prior dropped candidate.
+  Preserve all prior FSST, text-zoning, fusion and layout observations. Extend
+  the fixed 10k with versioned encoding/metadata/selectivity controls where it
+  lacks exposure. No speculative codec default, duplicate N/I/spatial queue,
+  broad unmeasured rewrite, new fallback engine or competitive claim is admitted.
+
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
+  The higher-priority coverage and follow-on items above own the immediate
+  sequence. Reconcile their outcomes into B/C/I/N here rather than implementing
+  them twice. A post-validation join membership filter does not by itself close
+  D's source-pruning obligation, and immutable source-segment reuse does not
+  close recommendation 13's join-build reuse obligation. Keep those distinct
+  residual contracts and the original acceptance records.
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.

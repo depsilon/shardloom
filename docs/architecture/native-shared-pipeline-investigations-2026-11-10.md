@@ -82,7 +82,22 @@ and attached to existing runtime obligations. None of these lettered hypotheses
 is accepted as a performance implementation yet. The earlier operator-state
 recommendations 8–15 retain their own recorded dispositions.
 
-| Order | Proposed work | Existing owners and concrete decision artifact |
+The November 13 [phase-plan priority](phased-execution-plan.md#planned) now
+places complete optimization coverage and its explicitly requested runtime
+capabilities first. The subsequent
+[metadata and encoded-consumer intake](native-metadata-encoded-consumer-investigations-2026-11-13.md)
+follows that work, extending the same item-20 owners, existing N/I investigations
+and item-19 spatial obligation. Preserve the original protocols and dispositions;
+the newer priority does not admit the invalid B baseline or a dropped mechanism.
+The later dependency review puts regional partials immediately after per-measure
+metadata completion, settles I's batch/lifetime contract before FSST/codec
+tuning, and places exact spatial execution before optional spatial summaries.
+Reconcile B/C/I/N outcomes from those active units once; the table below is an
+index of hypothesis contracts rather than a second execution sequence. Source
+segment reuse and a post-validation membership filter do not close join-build
+reuse or D's source-pruning obligations.
+
+| Hypothesis | Proposed work | Existing owners and concrete decision artifact |
 |---|---|---|
 | A | Preserve join mappings through ranking | Extend existing join index/table/selection, batch and ranked-output owners. Produce a uniqueness/admission contract and complete star-join → top-k comparison. |
 | B | Admit optimized operators by proved source capabilities | Extend the existing aggregate scan/lowering/update/finalization family with a bounded source contract. Produce a capability matrix and one direct grouped/count comparison. |

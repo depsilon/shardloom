@@ -58,7 +58,7 @@ fn streaming_dynamic_subqueries_compose_nested_declarations_repeated_sources_and
                 query.input = outer;
                 Ok(VortexRelationalPlan::CorrelatedSubquery(Box::new(query)))
             });
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             for execution in 1..=2 {
                 let (result, calls) = collect(&prepared);
                 assert_eq!(
@@ -79,7 +79,10 @@ fn streaming_dynamic_subqueries_compose_nested_declarations_repeated_sources_and
                 assert!(input.end_of_input_observed);
                 assert_eq!(result.execution.runtime.completed_executions, execution);
                 drop(result);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
             }
         }
     }
@@ -154,7 +157,7 @@ fn streaming_dynamic_subqueries_preserve_mixed_source_indices_and_equivalent_fil
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for execution in 1..=2 {
         let (result, calls) = collect(&prepared);
         assert_eq!(json_rows(&result), expected(true));
@@ -164,6 +167,9 @@ fn streaming_dynamic_subqueries_preserve_mixed_source_indices_and_equivalent_fil
         assert_eq!(result.execution.input.as_ref().unwrap().replay_sources, 0);
         assert_eq!(result.execution.runtime.completed_executions, execution);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }

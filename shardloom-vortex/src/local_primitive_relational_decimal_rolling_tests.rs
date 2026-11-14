@@ -192,9 +192,17 @@ fn native_decimal_rolling_relational_limits_cap_only_safe_output_prefixes() {
                 collect(&range(projected(), offset, count)),
                 vec![json!({"renamed":"decimal128(38,6):1000000"}); count],
             );
+            assert_eq!(
+                collect(&range(projected(), offset, count).compact_streaming()),
+                vec![json!({"renamed":"decimal128(38,6):1000000"}); count],
+            );
         }
         assert_eq!(
             collect(&range(range(projected(), 1, 3), 1, 1)),
+            vec![json!({"renamed":"decimal128(38,6):1000000"})],
+        );
+        assert_eq!(
+            collect(&range(range(projected(), 1, 3), 1, 1).compact_streaming()),
             vec![json!({"renamed":"decimal128(38,6):1000000"})],
         );
         let mut already_limited = request.clone();

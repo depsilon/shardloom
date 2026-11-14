@@ -50,7 +50,7 @@ pub(super) use sizing::gather_scratch_per_row;
 
 #[path = "native_payload_validation.rs"]
 mod validation;
-pub(super) use validation::validate_record;
+pub(super) use validation::{validate_record, validate_typed_column};
 
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_payload_storage_tests.rs"]

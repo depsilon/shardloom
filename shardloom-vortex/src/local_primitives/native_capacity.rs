@@ -31,6 +31,23 @@ impl<T> ReservedVec<T> {
         })
     }
 
+    /// Admit a fresh optional container atomically, without treating allocator
+    /// or arithmetic errors as an optional memory-budget decision.
+    pub(crate) fn try_with_capacity(
+        memory: &LiveMemoryPool,
+        capacity: usize,
+    ) -> Result<Option<Self>> {
+        let Some(lease) = memory.try_reserve(bytes::<T>(capacity)?)? else {
+            return Ok(None);
+        };
+        let mut values = Vec::new();
+        values.try_reserve_exact(capacity).map_err(vortex_error)?;
+        if values.capacity() > capacity {
+            return Err(failed());
+        }
+        Ok(Some(Self { values, lease }))
+    }
+
     pub(crate) fn reserve_one(&mut self) -> Result<()> {
         self.reserve(1)
     }

@@ -121,7 +121,7 @@ fn native_typed_keys_spill_merge_preserves_domains_stable_ties_and_cleanup() {
             .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
             .unwrap();
         assert_eq!(prepared.output_dtype(), Some(dtype.clone()));
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut expected_ids = ids.clone();
         // Independently specified descending category ranks, with nulls last.
         let ranks = if name == "payload" {
@@ -158,7 +158,10 @@ fn native_typed_keys_spill_merge_preserves_domains_stable_ties_and_cleanup() {
                 .spill_io_performed
         );
         drop(collected);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(&fixture.0)
                 .unwrap()

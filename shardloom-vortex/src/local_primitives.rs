@@ -114,6 +114,9 @@ pub(crate) mod native_capacity;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/native_decimal_reduce.rs"]
 mod native_decimal_reduce;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_file_scan_evidence.rs"]
+pub(crate) mod native_file_scan_evidence;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitive_native_flat_layout.rs"]
 pub(crate) mod native_flat_layout;
@@ -3465,25 +3468,15 @@ fn local_primitive_native_io_safe(
             && report.filter_pushdown_applied
             && report.upstream_filter_expression_used;
     }
+    if local_primitive_empty_count_source_scan(request, report) {
+        return true;
+    }
     if local_primitive_empty_unary_source_scan(report)
         || local_primitive_empty_unary_predicate_scan(request, report)
     {
         return true;
     }
-    // A completed sort over an authoritative empty source has neither
-    // candidates nor materialized input. Its empty typed output is certified
-    // from the footer and completed scan, not from invented data-read work.
-    if request.kind == VortexQueryPrimitiveKind::SortRows
-        && request
-            .sort_rows
-            .as_ref()
-            .is_some_and(|sort| sort.spill.is_none())
-        && report.rows_projected == Some(0)
-        && report.source_order_limit_input_rows == Some(0)
-        && report.source_order_limit_rows_output == Some(0)
-        && report.embedded_layout.metadata_persisted_in_artifact
-        && local_primitive_empty_source_scan(report)
-    {
+    if local_primitive_empty_sort_source_scan(request, report) {
         return true;
     }
     // An authoritative source row count and a completed native scan prove that fresh
@@ -3524,6 +3517,40 @@ fn local_primitive_native_io_safe(
         return false;
     }
     report.upstream_scan_called && report.data_read && report.streaming_scan_used
+}
+
+fn local_primitive_empty_count_source_scan(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    // A completed predicate count over an authoritative empty source reads no
+    // arrays. The source population and completed scan prove zero; inventing a
+    // data-read flag would make its certificate less faithful to execution.
+    request.kind == VortexQueryPrimitiveKind::CountWhere
+        && request.predicate.is_some()
+        && report.rows_projected.is_none()
+        && report.filter_pushdown_applied
+        && report.upstream_filter_expression_used
+        && local_primitive_empty_source_scan(report)
+}
+
+fn local_primitive_empty_sort_source_scan(
+    request: &VortexQueryPrimitiveRequest,
+    report: &VortexLocalPrimitiveExecutionReport,
+) -> bool {
+    // A completed sort over an authoritative empty source has neither
+    // candidates nor materialized input. Its empty typed output is certified
+    // from the footer and completed scan, not from invented data-read work.
+    request.kind == VortexQueryPrimitiveKind::SortRows
+        && request
+            .sort_rows
+            .as_ref()
+            .is_some_and(|sort| sort.spill.is_none())
+        && report.rows_projected == Some(0)
+        && report.source_order_limit_input_rows == Some(0)
+        && report.source_order_limit_rows_output == Some(0)
+        && report.embedded_layout.metadata_persisted_in_artifact
+        && local_primitive_empty_source_scan(report)
 }
 
 fn local_primitive_empty_aggregate_source_scan(
@@ -21068,11 +21095,17 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
             file.dtype(),
             policy.resource_envelope(),
         )?;
-        return read_lowered_vortex_simple_aggregate_scan(
+        #[cfg(unix)]
+        let evidence = aggregate_scan_source::FileEvidence::path(path, context);
+        #[cfg(unix)]
+        let input = aggregate_scan_source::AggregateScanSource::ObservedFile(&file, &evidence);
+        #[cfg(not(unix))]
+        let input = aggregate_scan_source::AggregateScanSource::File(&file);
+        let result = read_lowered_vortex_simple_aggregate_scan(
             source_uri,
             request,
             policy,
-            aggregate_scan_source::AggregateScanSource::File(&file),
+            input,
             context.native_session(),
             context.runtime(),
             None,
@@ -21081,7 +21114,26 @@ fn read_local_vortex_simple_aggregate_scan_in_context(
             started,
             None,
             Some(context.cancellation()),
-        );
+        )?;
+        #[cfg(unix)]
+        if evidence.scan_invocations() == 0 {
+            let mut observation = native_file_scan_evidence::Observation::file_plan(
+                &file,
+                &lowering.plan,
+                shardloom_core::native_file_scan::NativeFileScanRoute::Aggregate,
+                context,
+            )?;
+            observation.residual(lowering.residual.as_ref())?;
+            observation.complete_path(
+                path,
+                context,
+                0,
+                0,
+                u64::from(result.scan.embedded_layout.metadata_first_pruning_consulted),
+                u64::from(result.scan.metadata_pruned_entire_input()),
+            )?;
+        }
+        return Ok(result);
     }
     read_local_vortex_simple_aggregate_scan(source_uri, path, request, policy)
 }
@@ -21697,7 +21749,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         if let Some(projection) = plan.projection.as_ref() {
             scan = scan.with_projection(file.bind(projection)?);
         }
-        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+        scan = scan
+            .with_residual_evidence(residual_predicate.as_ref())
+            .with_concurrency(policy.scan_concurrency_per_worker());
         let mut scan = scan.into_array_iter(runtime).map_err(vortex_error)?;
         loop {
             check_cancelled()?;
@@ -22100,7 +22154,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         if let Some(projection) = second_plan.projection.take() {
             second_scan = second_scan.with_projection(file.bind(&projection)?);
         }
-        second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
+        second_scan = second_scan
+            .with_residual_evidence(residual_predicate.as_ref())
+            .with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
             check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
@@ -22143,7 +22199,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             if let Some(projection) = second_plan.projection.take() {
                 second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
-            second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
+            second_scan = second_scan
+                .with_residual_evidence(residual_predicate.as_ref())
+                .with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
@@ -22201,7 +22259,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         if let Some(projection) = exact_plan.projection.take() {
             exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
-        exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
+        exact_scan = exact_scan
+            .with_residual_evidence(residual_predicate.as_ref())
+            .with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
@@ -22253,7 +22313,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             if let Some(projection) = second_plan.projection.take() {
                 second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
-            second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
+            second_scan = second_scan
+                .with_residual_evidence(residual_predicate.as_ref())
+                .with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
@@ -22331,7 +22393,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         if let Some(projection) = exact_plan.projection.take() {
             exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
-        exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
+        exact_scan = exact_scan
+            .with_residual_evidence(residual_predicate.as_ref())
+            .with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
@@ -22384,7 +22448,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             if let Some(projection) = second_plan.projection.take() {
                 second_scan = second_scan.with_projection(file.bind(&projection)?);
             }
-            second_scan = second_scan.with_concurrency(policy.scan_concurrency_per_worker());
+            second_scan = second_scan
+                .with_residual_evidence(residual_predicate.as_ref())
+                .with_concurrency(policy.scan_concurrency_per_worker());
             for chunk in second_scan.into_array_iter(runtime).map_err(vortex_error)? {
                 check_cancelled()?;
                 let chunk = chunk.map_err(vortex_error)?;
@@ -22444,7 +22510,9 @@ fn execute_lowered_vortex_simple_aggregate_scan(
         if let Some(projection) = exact_plan.projection.take() {
             exact_scan = exact_scan.with_projection(file.bind(&projection)?);
         }
-        exact_scan = exact_scan.with_concurrency(policy.scan_concurrency_per_worker());
+        exact_scan = exact_scan
+            .with_residual_evidence(residual_predicate.as_ref())
+            .with_concurrency(policy.scan_concurrency_per_worker());
         for chunk in exact_scan.into_array_iter(runtime).map_err(vortex_error)? {
             check_cancelled()?;
             let chunk = chunk.map_err(vortex_error)?;
@@ -23082,11 +23150,30 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             plan.filter.is_some(),
             plan.projection.is_some(),
         );
+        #[cfg(unix)]
+        let scan_observation = context
+            .map(|context| {
+                let mut observation = native_file_scan_evidence::Observation::file_plan(
+                    &file,
+                    &plan,
+                    shardloom_core::native_file_scan::NativeFileScanRoute::Aggregate,
+                    context,
+                )?;
+                observation.residual(residual_predicate.as_ref())?;
+                Ok::<_, ShardLoomError>(observation)
+            })
+            .transpose()?;
+        #[cfg(unix)]
+        let previous_delivered = pre_limit_result_row_count;
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
             partition_layout.mark_pruning_consulted(metadata_pruned)?;
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
+                #[cfg(unix)]
+                if let (Some(observation), Some(context)) = (scan_observation, context) {
+                    observation.complete_path(&source.path, context, 0, 0, 1, 1)?;
+                }
                 continue;
             }
         } else {
@@ -23324,6 +23411,17 @@ fn read_local_vortex_simple_aggregate_partitioned_scan(
             }
             max_chunk_rows = max_chunk_rows.max(rows);
             arrays_read_count += 1;
+        }
+        #[cfg(unix)]
+        if let (Some(observation), Some(context)) = (scan_observation, context) {
+            observation.complete_path(
+                &source.path,
+                context,
+                (pre_limit_result_row_count - previous_delivered) as u64,
+                1,
+                u64::from(partition_layout.metadata_first_pruning_consulted),
+                0,
+            )?;
         }
     }
     let result_limit = request.source_order_limit;
@@ -23806,6 +23904,19 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     let mut topk_threshold_pruned_rows = 0usize;
     let mut native_sort_work = native_sort_block::Work::default();
     let mut scan_split_policy = "not_scanned";
+    #[cfg(unix)]
+    let scan_observation = context
+        .map(|context| {
+            let mut observation = native_file_scan_evidence::Observation::file_plan(
+                file,
+                &plan,
+                shardloom_core::native_file_scan::NativeFileScanRoute::Sort,
+                context,
+            )?;
+            observation.residual(residual_predicate.as_ref())?;
+            Ok::<_, ShardLoomError>(observation)
+        })
+        .transpose()?;
     if !embedded_layout.metadata_pruned_entire_input {
         let mut scan = file.scan().map_err(vortex_error)?.with_ordered(true);
         scan_split_policy = "vortex_layout";
@@ -24202,6 +24313,7 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
                 return Err(ShardLoomError::InvalidOperation("native ordered output requires stable source ordinals; no fallback execution was attempted".into()));
             }
             sort_output_stream::deliver(
+                source_uri,
                 file,
                 runtime,
                 context.ok_or_else(|| {
@@ -24216,6 +24328,11 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
             )?
         } else {
             materialize_opened_vortex_sort_output_rows_by_source_ordinals(
+                &local_vortex_path(source_uri, request.kind)?.ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "sort source path is absent; no fallback execution was attempted".into(),
+                    )
+                })?,
                 file,
                 session,
                 runtime,
@@ -24255,6 +24372,19 @@ fn read_opened_local_vortex_sort_rows_scan_with_output(
     };
     if let Some(generation) = &spill_source_generation {
         generation.validate()?;
+    }
+    #[cfg(unix)]
+    if let (Some(observation), Some(context)) = (scan_observation, context) {
+        let path = local_vortex_path(source_uri, request.kind)?
+            .ok_or_else(|| native_relational_batch::failed("sort source path is absent"))?;
+        observation.complete_path(
+            &path,
+            context,
+            source_rows_seen as u64,
+            u64::from(!embedded_layout.metadata_pruned_entire_input),
+            u64::from(embedded_layout.metadata_first_pruning_consulted),
+            u64::from(embedded_layout.metadata_pruned_entire_input),
+        )?;
     }
     let result_row_count = result_rows.len();
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
@@ -24667,11 +24797,28 @@ fn read_local_vortex_sort_rows_partitioned_scan(
             plan.filter.is_some(),
             plan.projection.is_some(),
         );
+        #[cfg(unix)]
+        let scan_observation = context
+            .map(|context| {
+                let mut observation = native_file_scan_evidence::Observation::file_plan(
+                    &file,
+                    &plan,
+                    shardloom_core::native_file_scan::NativeFileScanRoute::Sort,
+                    context,
+                )?;
+                observation.residual(residual_predicate.as_ref())?;
+                Ok::<_, ShardLoomError>(observation)
+            })
+            .transpose()?;
         if let Some(filter) = plan.filter.as_ref() {
             let metadata_pruned = file.can_prune(filter).map_err(vortex_error)?;
             partition_layout.mark_pruning_consulted(metadata_pruned)?;
             embedded_layout.merge_partition(&partition_layout)?;
             if metadata_pruned {
+                #[cfg(unix)]
+                if let (Some(observation), Some(context)) = (scan_observation, context) {
+                    observation.complete_path(&source.path, context, 0, 0, 1, 1)?;
+                }
                 continue;
             }
         } else {
@@ -25008,6 +25155,17 @@ fn read_local_vortex_sort_rows_partitioned_scan(
                 )
             })?;
             arrays_read_count += 1;
+        }
+        #[cfg(unix)]
+        if let (Some(observation), Some(context)) = (scan_observation, context) {
+            observation.complete_path(
+                &source.path,
+                context,
+                source_local_rows_seen as u64,
+                1,
+                u64::from(partition_layout.metadata_first_pruning_consulted),
+                0,
+            )?;
         }
     }
     let source_row_id_projection_status = if source_row_id_projection_applied {
@@ -25430,6 +25588,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
             ))
         })?;
     materialize_opened_vortex_sort_output_rows_by_source_ordinals(
+        path,
         &file,
         session,
         runtime,
@@ -25445,6 +25604,7 @@ fn materialize_local_vortex_sort_output_rows_by_source_ordinals(
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
+    path: &std::path::Path,
     file: &vortex::file::VortexFile,
     session: &vortex::session::VortexSession,
     runtime: &impl vortex::io::runtime::BlockingRuntime,
@@ -25496,6 +25656,19 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
             request.kind,
         )?);
     }
+    #[cfg(unix)]
+    let scan_observation = context
+        .map(|context| {
+            native_file_scan_evidence::Observation::file_plan(
+                file,
+                &plan,
+                shardloom_core::native_file_scan::NativeFileScanRoute::SortPayload,
+                context,
+            )
+        })
+        .transpose()?;
+    #[cfg(not(unix))]
+    let _ = path;
     let declared_columns = plan.projected_columns;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
@@ -25529,6 +25702,8 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
     let mut rows_out = vec![None; selected_source_ordinals.len()];
     let mut rows_found = 0usize;
     let mut source_rows_seen = 0usize;
+    #[cfg(unix)]
+    let mut provider_rows = 0_u64;
     let materialization_source_row_count = usize::try_from(file.row_count()).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "local Vortex wide sort output source row count exceeded usize: {error}; no fallback execution was attempted"
@@ -25549,6 +25724,12 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
             let _scratch = sort_output_stream::reserve_scratch(context, &chunk, &declared_columns)?;
+            #[cfg(unix)]
+            {
+                provider_rows = provider_rows.checked_add(rows as u64).ok_or_else(|| {
+                    native_relational_batch::failed("sort payload row count overflow")
+                })?;
+            }
             chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex wide sort output materializer chunk count overflowed; no fallback execution was attempted"
@@ -25637,6 +25818,12 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
             check_local_vortex_context(context)?;
             let chunk = chunk.map_err(vortex_error)?;
             let rows = chunk.len();
+            #[cfg(unix)]
+            {
+                provider_rows = provider_rows.checked_add(rows as u64).ok_or_else(|| {
+                    native_relational_batch::failed("sort payload row count overflow")
+                })?;
+            }
             chunks_scanned = chunks_scanned.checked_add(1).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex wide sort output materializer chunk count overflowed; no fallback execution was attempted"
@@ -25721,6 +25908,10 @@ fn materialize_opened_vortex_sort_output_rows_by_source_ordinals(
                 break;
             }
         }
+    }
+    #[cfg(unix)]
+    if let (Some(observation), Some(context)) = (scan_observation, context) {
+        observation.complete_path(path, context, provider_rows, 1, 0, 0)?;
     }
     let rows = rows_out
         .into_iter()

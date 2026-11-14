@@ -158,26 +158,32 @@ fn ordered_window_pressure_denies_resident_and_completes_with_shared_native_spil
     let fixture = fixture();
     let plan = plan(&fixture);
     let denied = prepare(&fixture, &plan, GRANT, false);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied)
         .err()
         .expect("resident partition exceeds the grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(denied.snapshot().completed_executions, 0);
     drop(denied);
 
     let ample = prepare(&fixture, &plan, 128 << 20, false);
-    let baseline = ample.snapshot().memory.reserved_bytes;
+    let baseline = ample.snapshot().reserved_without_source_segment_cache();
     let control = execute(&ample).unwrap();
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     assert_eq!(control.ordered_window_stages, 0);
     drop(control);
-    assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ample.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(ample);
 
     let ordered = prepare(&fixture, &plan, GRANT, true);
-    let baseline = ordered.snapshot().memory.reserved_bytes;
+    let baseline = ordered.snapshot().reserved_without_source_segment_cache();
     let report = execute(&ordered).unwrap();
     let spill = report.spill.as_ref().unwrap();
     assert_eq!(report.ordered_window_stages, 1);
@@ -208,5 +214,8 @@ fn ordered_window_pressure_denies_resident_and_completes_with_shared_native_spil
         "lookup_blocks":report.ordered_window_lookup_blocks,"complete_output_rows":report.output_rows,"owned_cleanup_completed":spill.owned_cleanup_completed})
     );
     drop(report);
-    assert_eq!(ordered.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ordered.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }

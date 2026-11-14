@@ -104,13 +104,16 @@ fn ordered_selector_null_pairs_skip_comparison_values_but_selected_payloads_stay
         ];
         for plan in &plans {
             let prepared = prepare_relational(plan, policy()).unwrap();
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let error = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .err()
                 .unwrap();
             assert!(error.to_string().contains("finite"), "{error}");
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -175,6 +178,7 @@ fn ordered_selector_shared_spill_transport_preserves_count_and_null_pair_domains
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One prepared owner's complete pressure/failure/refund lifecycle.
 fn ordered_selector_window_pressure_cancel_output_failure_and_actual_spill_release_owners() {
     let fixture = Fixture::new(
         StructArray::new(
@@ -214,7 +218,7 @@ fn ordered_selector_window_pressure_cancel_output_failure_and_actual_spill_relea
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let pressure = prepared
             .session
             .memory()
@@ -243,7 +247,10 @@ fn ordered_selector_window_pressure_cancel_output_failure_and_actual_spill_relea
             assert!(result.is_err());
             assert_eq!(delivered, 1);
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
         let result = prepared
@@ -273,7 +280,10 @@ fn ordered_selector_window_pressure_cancel_output_failure_and_actual_spill_relea
             assert!(evidence.owned_cleanup_completed);
         }
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     }
 }

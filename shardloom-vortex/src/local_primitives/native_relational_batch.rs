@@ -111,6 +111,20 @@ impl Batch {
                 context.cancellation(),
                 context.float_policy(),
             )?);
+            #[cfg(all(test, debug_assertions))]
+            if matches!(purpose, Preparation::HashOnDemand) {
+                super::native_relational_observation::record(|counts| {
+                    counts.membership_key_preparations.push(
+                        super::native_relational_observation::MembershipKeyPreparation {
+                            name: name.into(),
+                            rows: column.len(),
+                            input_encoding: column.encoding_id().to_string(),
+                            dtype: column.dtype().to_string(),
+                            numeric: matches!(keys.values.last(), Some(KeyColumn::Numeric(_))),
+                        },
+                    );
+                });
+            }
         }
         Ok(Self { array, keys })
     }
@@ -608,8 +622,9 @@ impl Gather<'_> {
         take_column_with_policy(&array, &self.indices, dtype, policy, context)
     }
 
-    /// Full selection still reaches the shared scalar validator. Only its
-    /// retained prefix receives output buffers; no omitted value is skipped.
+    /// Validate the complete selected field before copying its retained prefix.
+    /// Rich values keep the recursive masks and field order; flat values keep
+    /// their original selection/cast boundary before shared typed validation.
     pub(super) fn column_prefix(
         &self,
         name: &str,
@@ -619,27 +634,61 @@ impl Gather<'_> {
     ) -> Result<ArrayRef> {
         context.check_cancelled()?;
         let array = self.source_column(name, context)?;
-        let mut execution = context.native_session().create_execution_ctx();
-        // The retained prefix builder widens only retained scalar registers.
-        // A provider Float16 cast would quiet signaling NaNs before that copy.
-        let selected_dtype = if float16_promotion(array.dtype(), dtype) {
-            array.dtype()
+        if native_payload::is_nested(dtype) || matches!(dtype, DType::Decimal(..)) {
+            native_payload::validate_selection(&array, &self.indices, dtype, context)?;
         } else {
-            dtype
-        };
-        let selected = select_column(&array, &self.indices, selected_dtype, &mut execution)?;
-        result_batch::build_column_prefix_with_float_policy(
+            let mut execution = context.native_session().create_execution_ctx();
+            // The scalar prefix builder widens only retained registers. A
+            // provider Float16 cast would quiet signaling NaNs before copying.
+            let selected_dtype = if float16_promotion(array.dtype(), dtype) {
+                array.dtype()
+            } else {
+                dtype
+            };
+            let selected = select_column(&array, &self.indices, selected_dtype, &mut execution)?;
+            let numeric = if selected_dtype == dtype
+                && (matches!(dtype, DType::Primitive(..))
+                    || crate::native_payload_schema::temporal_storage(dtype).is_some())
+            {
+                let primitive = result_batch::scalar_storage(&selected, &mut execution)?
+                    .execute::<PrimitiveArray>(&mut execution)
+                    .map_err(vortex_error)?;
+                Some(NativeNumericOwner::new(primitive, &mut execution)?)
+            } else {
+                None
+            };
+            if !native_payload::validate_typed_column(
+                &selected,
+                dtype,
+                self.indices.len(),
+                numeric.as_ref(),
+                &mut execution,
+                context,
+            )? {
+                return result_batch::build_column_prefix_with_float_policy(
+                    dtype,
+                    self.indices.len(),
+                    retained,
+                    &context.native_session().host_allocator(),
+                    context.float_policy(),
+                    |row| {
+                        if row.is_multiple_of(1024) {
+                            context.check_cancelled()?;
+                        }
+                        result_batch::scalar_value(&selected, row, &mut execution)
+                    },
+                );
+            }
+            // Validation's selected buffers and numeric views drop before
+            // prefix copying acquires its independently retained ownership.
+        }
+        let retained_indices = self.indices.slice(0..retained).map_err(vortex_error)?;
+        take_column_with_policy(
+            &array,
+            &retained_indices,
             dtype,
-            self.indices.len(),
-            retained,
-            &context.native_session().host_allocator(),
-            context.float_policy(),
-            |row| {
-                if row.is_multiple_of(1024) {
-                    context.check_cancelled()?;
-                }
-                result_batch::scalar_value(&selected, row, &mut execution)
-            },
+            native_payload::CopyPolicy::ValidateValues,
+            context,
         )
     }
 

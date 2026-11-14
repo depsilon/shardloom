@@ -98,6 +98,7 @@ impl Binder<'_> {
                     input,
                     spec: aggregate,
                     expansion: Some(Box::new(expansion)),
+                    count_partial: false,
                 },
             },
         )

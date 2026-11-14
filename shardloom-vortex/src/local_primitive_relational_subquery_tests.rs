@@ -60,7 +60,7 @@ fn predicate_observations(plan: &VortexRelationalPlan) -> (Vec<serde_json::Value
             .unwrap(),
         )
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -76,7 +76,10 @@ fn predicate_observations(plan: &VortexRelationalPlan) -> (Vec<serde_json::Value
             .owned_cleanup_completed
     );
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     fs::remove_dir(&directory).unwrap();
     (
         rows.into_iter()
@@ -323,7 +326,10 @@ fn native_relational_subqueries_preserve_every_outer_row_and_can_be_reexecuted_w
         policy(),
     )
     .unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     for call in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -341,7 +347,10 @@ fn native_relational_subqueries_preserve_every_outer_row_and_can_be_reexecuted_w
         assert_eq!(result.execution.runtime.prepared_source_opens, 2);
         drop(result);
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline
         );
     }

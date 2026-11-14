@@ -56,7 +56,10 @@ pub struct SourceIdentity {
 impl SourceIdentity {
     /// Bind an explicit external byte-range descriptor to this captured local
     /// generation. This is metadata identity, not a content checksum.
-    #[cfg(all(feature = "native-binary-objects", unix))]
+    #[cfg(all(
+        any(feature = "native-binary-objects", feature = "vortex-local-primitives"),
+        unix
+    ))]
     pub(crate) fn generation_fingerprint(&self) -> [u8; 32] {
         use sha2::{Digest as _, Sha256};
         let mut hash = Sha256::new();
@@ -80,12 +83,18 @@ impl SourceIdentity {
         hash.finalize().into()
     }
 
-    #[cfg(feature = "universal-format-io")]
+    #[cfg(any(
+        feature = "universal-format-io",
+        all(feature = "vortex-local-primitives", unix)
+    ))]
     pub(crate) fn path(&self) -> &std::path::Path {
         &self.path
     }
 
-    #[cfg(feature = "universal-format-io")]
+    #[cfg(any(
+        feature = "universal-format-io",
+        all(feature = "vortex-local-primitives", unix)
+    ))]
     pub(crate) fn same_generation(&self, other: &Self) -> bool {
         self.path == other.path && self.generation == other.generation
     }

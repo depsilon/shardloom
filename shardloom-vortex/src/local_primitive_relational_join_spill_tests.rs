@@ -58,12 +58,15 @@ fn complete(
 
 pub(super) fn assert_ordered(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value]) {
     let prepared = ordered(fixture, plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for batch_rows in [1, 3, 2048] {
         let (rows, report) = complete(&prepared, batch_rows);
         assert_eq!(rows, expected, "batch_rows={batch_rows}");
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -156,7 +159,7 @@ fn ordered_join_all_seven_kinds_keep_complete_duplicate_null_and_unmatched_order
         );
         let ordered = ordered(&left, &plan);
         assert_eq!(ordered.output_dtype(), resident.output_dtype());
-        let baseline = ordered.snapshot().memory.reserved_bytes;
+        let baseline = ordered.snapshot().reserved_without_source_segment_cache();
         for batch_rows in [1, 2, 4, 2048] {
             let (actual, report) = complete(&ordered, batch_rows);
             assert_eq!(actual, expected, "{kind:?}, batch_rows={batch_rows}");
@@ -164,7 +167,10 @@ fn ordered_join_all_seven_kinds_keep_complete_duplicate_null_and_unmatched_order
             assert_eq!(report.ordered_join_build_rows, right_rows.len() as u64);
             assert_eq!(report.ordered_join_probe_rows, left_rows.len() as u64);
             drop(report);
-            assert_eq!(ordered.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                ordered.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -189,13 +195,16 @@ fn ordered_join_empty_sides_and_root_nulls_keep_outer_and_semi_anti_semantics() 
             JoinKind::Cross,
         ] {
             let prepared = ordered(&left, &plan(&left, &right, kind));
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             assert_eq!(
                 complete(&prepared, 1).0,
                 reference(left_rows, right_rows, kind),
                 "{kind:?}"
             );
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
     let nullable = |ids: [u32; 3]| {
@@ -257,7 +266,7 @@ fn ordered_join_spilled_full_build_and_repeated_matches_restore_original_right_o
     let right = fixture(&right_rows, 509);
     let plan = plan(&left, &right, JoinKind::Full);
     let prepared = ordered(&left, &plan);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let (actual, report) = complete(&prepared, 257);
     assert_eq!(actual, reference(&left_rows, &right_rows, JoinKind::Full));
     let spill = report.spill.as_ref().unwrap();
@@ -272,7 +281,10 @@ fn ordered_join_spilled_full_build_and_repeated_matches_restore_original_right_o
         report.ordered_join_candidate_rows
     );
     drop(report);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -288,7 +300,7 @@ fn ordered_join_spilled_full_output_reopens_through_all_eight_writers() {
     let left = fixture(&left_rows, 2);
     let right = fixture(&right_rows, 509);
     let prepared = ordered(&left, &plan(&left, &right, JoinKind::Full));
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let expected = reference(&left_rows, &right_rows, JoinKind::Full);
     let mut csv = String::from("debit,credit\n");
     for row in &expected {
@@ -322,7 +334,10 @@ fn ordered_join_spilled_full_output_reopens_through_all_eight_writers() {
             );
         }
         drop(written);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(left.0.join("join-runs")).unwrap().count(), 0);
     }
 }

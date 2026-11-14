@@ -192,7 +192,7 @@ fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guard
             let prepared = prepare_pure(&plan, false);
             #[cfg(debug_assertions)]
             assert_eq!(observed.finish().subquery_equality_rewrites, 1);
-            let initial = prepared.snapshot().memory.reserved_bytes;
+            let initial = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap();
@@ -234,7 +234,10 @@ fn pure_equality_correlation_builds_once_and_preserves_null_membership_and_guard
                     .fallback_attempted
             );
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                initial
+            );
         }
     }
     let mut inner = filtered_source(memory_scan("inner"));
@@ -386,7 +389,10 @@ fn native_relational_parameterized_scalar_aggregate_sees_each_outer_row_and_empt
         "predicate",
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let expected = serde_json::json!([
         {"entity":2,"amount":3,"predicate":true},
         {"entity":null,"amount":0,"predicate":true},
@@ -405,7 +411,10 @@ fn native_relational_parameterized_scalar_aggregate_sees_each_outer_row_and_empt
         assert_eq!(result.execution.scan_rows_delivered, 30);
         drop(result);
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline
         );
     }
@@ -561,7 +570,10 @@ fn native_relational_correlated_cancellation_pressure_and_source_invalidation_ne
         "predicate",
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let block = prepared
         .session
         .memory()
@@ -574,7 +586,10 @@ fn native_relational_correlated_cancellation_pressure_and_source_invalidation_ne
     );
     drop(block);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let token = CancellationToken::default();
@@ -590,7 +605,10 @@ fn native_relational_correlated_cancellation_pressure_and_source_invalidation_ne
     );
     assert_eq!(delivered, 1);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     prepared
@@ -612,7 +630,10 @@ fn native_relational_correlated_cancellation_pressure_and_source_invalidation_ne
     assert!(changed);
     assert_eq!(prepared.snapshot().completed_executions, 1);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared.snapshot().reserved_without_source_segment_cache(),
         baseline
     );
+    let memory = prepared.session.memory().clone();
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

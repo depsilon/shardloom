@@ -135,7 +135,7 @@ fn streaming_join_spilled_faults_refund_state_and_never_report_completion() {
                 128 << 20
             },
         );
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let token = CancellationToken::default();
         let triggered = Rc::new(Cell::new(0));
         if failure == "corrupt-open" {
@@ -276,7 +276,7 @@ fn streaming_join_spilled_faults_refund_state_and_never_report_completion() {
         hooks_consumed();
         assert_eq!(prepared.snapshot().completed_executions, 0);
         assert_eq!(
-            prepared.snapshot().memory.reserved_bytes,
+            prepared.snapshot().reserved_without_source_segment_cache(),
             baseline,
             "{failure}"
         );
@@ -355,7 +355,7 @@ fn streaming_join_spilled_write_reopens_and_refuses_partial_publication() {
     let directory = fixture.0.join("join-runs");
     fs::create_dir(&directory).unwrap();
     let prepared = prepare_join(&fixture, &directory, 128 << 20);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let output = fixture.0.join("complete.vortex");
     let mut input = Input::new();
     let mut producer = |session: &ResidentVortexSession| input.next(session);
@@ -460,7 +460,10 @@ fn streaming_join_spilled_write_reopens_and_refuses_partial_publication() {
         assert!(!target.exists());
         assert_eq!(fs::read(&output).unwrap(), original);
         assert_eq!(prepared.snapshot().completed_executions, 1);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         hooks_consumed();
     }

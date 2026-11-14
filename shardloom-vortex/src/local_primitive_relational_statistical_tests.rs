@@ -70,7 +70,7 @@ fn verify(fixture: &Fixture, groups: &[&str], measures: Vec<Measure>, expected: 
         {
             assert_eq!(dtype, DType::Primitive(PType::F64, Nullability::Nullable));
         }
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for batch_rows in [1, 3] {
             let mut rows = Vec::new();
             let report = prepared
@@ -95,7 +95,10 @@ fn verify(fixture: &Fixture, groups: &[&str], measures: Vec<Measure>, expected: 
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -226,14 +229,17 @@ fn native_statistical_aggregate_failure_releases_charged_state_and_spill_files()
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             assert!(
                 prepared
                     .collect_jsonl(&CancellationToken::default())
                     .is_err()
             );
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             if spill {
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }

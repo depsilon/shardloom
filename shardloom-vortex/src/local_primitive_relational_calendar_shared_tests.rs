@@ -170,7 +170,7 @@ fn compatible_window_calendar_retreat_keeps_each_family_and_exclusion_exact() {
                 assert!(!resident.root_has_file_kernel());
                 let schema = shared_schema();
                 assert_eq!(resident.output_dtype().as_ref(), Some(&schema));
-                let baseline = resident.snapshot().memory.reserved_bytes;
+                let baseline = resident.snapshot().reserved_without_source_segment_cache();
                 #[cfg(debug_assertions)]
                 let observation =
                     crate::local_primitives::native_relational_observation::Session::start();
@@ -190,7 +190,10 @@ fn compatible_window_calendar_retreat_keeps_each_family_and_exclusion_exact() {
                 );
                 assert_eq!(result.execution.ordered_window_stages, 0);
                 drop(result);
-                assert_eq!(resident.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    resident.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(resident.snapshot().admitted_max_parallelism, 1);
                 assert_eq!(resident.snapshot().provider_background_workers, 0);
                 #[cfg(debug_assertions)]
@@ -202,12 +205,15 @@ fn compatible_window_calendar_retreat_keeps_each_family_and_exclusion_exact() {
                         "credits_refunded":true, "engine_timing_claimed":false})
                 );
                 let stored = ordered(&fixture, &plan);
-                let baseline = stored.snapshot().memory.reserved_bytes;
+                let baseline = stored.snapshot().reserved_without_source_segment_cache();
                 let (actual, report) = complete(&stored, 3);
                 same_values(&actual, &wanted);
                 assert_eq!(stored.output_dtype(), resident.output_dtype());
                 drop(report);
-                assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    stored.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
             }
         }
     }
