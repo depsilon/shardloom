@@ -39,7 +39,7 @@ fn native_relational_tiny_output_batches_do_not_expand_full_file_split_metadata(
     let mut resources = policy();
     resources.resource_envelope.memory_budget_bytes = GRANT;
     let prepared = prepare_relational(&fixture.scan(), resources).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut rows = 0;
     let result = prepared
         .for_each_json_batch(&CancellationToken::default(), 1, 1024, |batch| {
@@ -56,7 +56,10 @@ fn native_relational_tiny_output_batches_do_not_expand_full_file_split_metadata(
     assert_eq!(result.scan_rows_delivered, ROWS as u64);
     assert!(result.runtime.memory.peak_reserved_bytes <= GRANT);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -135,7 +138,7 @@ fn native_relational_long_names_are_exact_and_admitted_before_plan_copying() {
         Ok(plan.clone())
     })
     .unwrap();
-    let retained_bytes = prepared.snapshot().memory.reserved_bytes;
+    let retained_bytes = prepared.snapshot().reserved_without_source_segment_cache();
     for _ in 0..2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -153,7 +156,10 @@ fn native_relational_long_names_are_exact_and_admitted_before_plan_copying() {
             ))
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, retained_bytes);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            retained_bytes
+        );
     }
     drop(prepared);
 

@@ -74,6 +74,8 @@ fn owned_keys(
         runtime: Arc::clone(&session.0),
         rows: (batches * rows) as u64,
         logical_buffer_bytes: (batches * rows * 8) as u64,
+        file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+        _file_scan_metadata: None,
     }
 }
 
@@ -236,6 +238,8 @@ fn owned_array_source_reuses_exact_native_aggregate_and_retains_owner() {
 
     for completed in 1..=3 {
         let executed = prepared.execute().unwrap();
+        assert_eq!(executed.native_io_certificate.file_scans.sources, []);
+        assert_eq!(executed.native_io_certificate.file_scans.contracts, []);
         assert_eq!(
             values(&executed),
             json!([
@@ -931,6 +935,8 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
                 .unwrap(),
         ),
         runtime: Arc::clone(&session.0),
+        file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+        _file_scan_metadata: None,
     };
     let owned = OwnedArraySource::from_owned(
         owned_input,
@@ -983,6 +989,8 @@ fn composition_nullable_struct_batches_preserve_logical_fields_and_mixed_widths(
         logical_buffer_bytes: batches.iter().map(vortex::array::ArrayRef::nbytes).sum(),
         arrays: Budgeted::new(batches, vectors),
         runtime: Arc::clone(&session.0),
+        file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+        _file_scan_metadata: None,
     };
     assert!(input.dtype().is_nullable());
     let generation = MemoryFileGeneration::from_owned(
@@ -1093,6 +1101,8 @@ fn composition_dictionary_domain_obeys_serialized_cap_and_retains_native_values(
             logical_buffer_bytes: array.nbytes(),
             arrays: Budgeted::new(arrays, lease),
             runtime: Arc::clone(&session.0),
+            file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+            _file_scan_metadata: None,
         }
     };
     let mut tight = MemoryFileCompositionBounds::default();

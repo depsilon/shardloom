@@ -23,16 +23,41 @@ impl ReservedHostAllocator {
     pub const fn new(memory: LiveMemoryPool) -> Self {
         Self { memory }
     }
+
+    /// Budget refusal of optional native retention is not an allocation error.
+    /// Successful buffers retain the same full-capacity owner as required ones.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn try_allocate(
+        &self,
+        len: usize,
+        alignment: Alignment,
+    ) -> VortexResult<Option<WritableHostBuffer>> {
+        let capacity = allocation_capacity(len, alignment)?;
+        let Some(lease) = self
+            .memory
+            .try_reserve(capacity)
+            .map_err(|error| vortex_err!("optional native host allocation: {error}"))?
+        else {
+            return Ok(None);
+        };
+        let buffer = DefaultHostAllocator.allocate(len, alignment)?;
+        Ok(Some(WritableHostBuffer::new(Box::new(
+            ReservedWritableBuffer { buffer, lease },
+        ))))
+    }
+}
+
+fn allocation_capacity(len: usize, alignment: Alignment) -> VortexResult<u64> {
+    len.checked_add(alignment.max(Alignment::DEFAULT_ALIGNMENT).as_usize())
+        .and_then(|size| u64::try_from(size).ok())
+        .ok_or_else(|| vortex_err!("native host allocation size overflow"))
 }
 
 impl HostAllocator for ReservedHostAllocator {
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
         // Pinned Vortex 0.90 DefaultHostAllocator requests len + preferred
         // alignment bytes. Charge that capacity, not just the logical slice.
-        let capacity = len
-            .checked_add(alignment.max(Alignment::DEFAULT_ALIGNMENT).as_usize())
-            .and_then(|size| u64::try_from(size).ok())
-            .ok_or_else(|| vortex_err!("native host allocation size overflow"))?;
+        let capacity = allocation_capacity(len, alignment)?;
         let lease = reserve(&self.memory, capacity)?;
         let buffer = DefaultHostAllocator.allocate(len, alignment)?;
         Ok(WritableHostBuffer::new(Box::new(ReservedWritableBuffer {

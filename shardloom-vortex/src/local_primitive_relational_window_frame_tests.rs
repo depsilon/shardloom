@@ -184,7 +184,7 @@ fn native_window_frames_match_independent_membership_with_peers_exclusions_and_c
                             panic!("window");
                         };
                         assert_eq!(spec.groups.len(), 1);
-                        let baseline = prepared.snapshot().memory.reserved_bytes;
+                        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                         for call in 1..=2 {
                             let collected = prepared
                                 .collect_jsonl(&CancellationToken::default())
@@ -204,7 +204,10 @@ fn native_window_frames_match_independent_membership_with_peers_exclusions_and_c
                                     .fallback_attempted
                             );
                         }
-                        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                        assert_eq!(
+                            prepared.snapshot().reserved_without_source_segment_cache(),
+                            baseline
+                        );
                     }
                 }
             }
@@ -275,7 +278,7 @@ fn prepared_window_output_admits_bounded_ordering_with_offset() {
         count: 2,
     }));
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     #[cfg(debug_assertions)]
     let observation = crate::local_primitives::native_relational_observation::Session::start();
     let result = prepared
@@ -299,7 +302,10 @@ fn prepared_window_output_admits_bounded_ordering_with_offset() {
         10
     );
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }
 
 #[test]
@@ -574,7 +580,7 @@ fn native_window_frames_float_removal_oversized_means_and_range_rounding() {
         policy(),
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut delivered = 0;
     assert!(
         prepared
@@ -585,7 +591,10 @@ fn native_window_frames_float_removal_oversized_means_and_range_rounding() {
             .is_err()
     );
     assert_eq!(delivered, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let fixture = Fixture::new(
         single(
             "value",
@@ -699,7 +708,7 @@ fn native_window_frames_cancellation_denied_grants_and_retry_release_state() {
         policy(),
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let limit = prepared.snapshot().memory.limit_bytes;
     let pressure = prepared
         .session
@@ -717,7 +726,10 @@ fn native_window_frames_cancellation_denied_grants_and_retry_release_state() {
     );
     assert_eq!(delivered, 0);
     drop(pressure);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let cancel = CancellationToken::default();
     assert!(
         prepared
@@ -730,7 +742,10 @@ fn native_window_frames_cancellation_denied_grants_and_retry_release_state() {
     );
     assert_eq!(delivered, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let result = prepared
         .for_each_batch(&CancellationToken::default(), |_, _| Ok(()))
         .unwrap();
@@ -738,7 +753,10 @@ fn native_window_frames_cancellation_denied_grants_and_retry_release_state() {
     assert_eq!(result.runtime.prepared_source_opens, 1);
     assert_eq!(result.runtime.completed_executions, 1);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -861,9 +879,12 @@ fn native_window_frames_count_and_excluded_values_do_not_eagerly_validate_observ
             policy(),
         )
         .unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert!(prepared.execute_owned().is_err());
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(prepared.snapshot().completed_executions, 0);
     }
 }
@@ -964,7 +985,7 @@ fn native_window_frames_writers_preserve_values_and_roll_back_arithmetic_errors(
         policy(),
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for format in [
         Format::Vortex,
         Format::Parquet,
@@ -979,7 +1000,10 @@ fn native_window_frames_writers_preserve_values_and_roll_back_arithmetic_errors(
         assert!(prepared.write(&path, format, false).is_err());
         assert!(!path.exists());
         assert_eq!(fs::read_dir(&overflow.0).unwrap().count(), 1);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         fs::write(&path, b"existing destination").unwrap();
         assert!(prepared.write(&path, format, true).is_err());
         assert_eq!(fs::read(&path).unwrap(), b"existing destination");

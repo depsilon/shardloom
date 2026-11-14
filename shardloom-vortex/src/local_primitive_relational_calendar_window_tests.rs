@@ -224,7 +224,7 @@ fn assert_rows(actual: &[Value], expected: &[Value]) {
 
 fn verify(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value], spilled: bool) {
     let resident = prepare_relational(plan, policy()).unwrap();
-    let baseline = resident.snapshot().memory.reserved_bytes;
+    let baseline = resident.snapshot().reserved_without_source_segment_cache();
     assert_rows(
         &json_rows(
             &resident
@@ -233,16 +233,22 @@ fn verify(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[Value], sp
         ),
         expected,
     );
-    assert_eq!(resident.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        resident.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     if spilled {
         let stored = ordered(fixture, plan);
-        let baseline = stored.snapshot().memory.reserved_bytes;
+        let baseline = stored.snapshot().reserved_without_source_segment_cache();
         let (rows, report) = complete(&stored, 3);
         assert_rows(&rows, expected);
         assert_eq!(stored.output_dtype(), resident.output_dtype());
         assert!(report.ordered_window_bounds_rows > 0);
         drop(report);
-        assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            stored.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 

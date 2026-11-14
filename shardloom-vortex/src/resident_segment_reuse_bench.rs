@@ -178,6 +178,8 @@ fn collect_owned(
         runtime: Arc::clone(&resident.0),
         rows,
         logical_buffer_bytes: bytes,
+        file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence::default(),
+        _file_scan_metadata: None,
     }
 }
 

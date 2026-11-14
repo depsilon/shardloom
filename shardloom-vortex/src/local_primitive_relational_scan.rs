@@ -119,6 +119,13 @@ fn run_file(
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
 ) -> Result<()> {
     source.with_admitted_native_execution(context, |file, context| {
+        let observation = super::super::native_file_scan_evidence::Observation::plan(
+            source,
+            plan,
+            shardloom_core::native_file_scan::NativeFileScanRoute::RelationalScan,
+            context,
+        )?;
+        let pruning_checks = u64::from(plan.filter.is_some());
         add(&metrics.scans_started, 1)?;
         if let Some(filter) = &plan.filter {
             let excluded = file.can_prune(filter).map_err(vortex_error)?;
@@ -142,11 +149,11 @@ fn run_file(
             )?;
             if excluded {
                 add(&metrics.scans_pruned, 1)?;
-                return Ok(());
+                return observation.complete(source, context, 0, 0, 1, 1);
             }
         }
         if file.row_count() == 0 {
-            return Ok(());
+            return observation.complete(source, context, 0, 0, pruning_checks, 0);
         }
         add(&metrics.data_scans, 1)?;
         // Execution supplies one bounded range at a time. Retain only the two
@@ -173,6 +180,7 @@ fn run_file(
         let scan = scan.prepare().map_err(vortex_error)?;
         let mut sizing = Rows::from_fields(Owner::Scan, fields, scan_rows, 2, context)?;
         let mut start = 0;
+        let mut delivered = 0_u64;
         while start < file.row_count() {
             context.check_cancelled()?;
             let selected = sizing.select(file.row_count() - start, context)?;
@@ -185,11 +193,14 @@ fn run_file(
                 .pop()
                 .ok_or_else(|| failed("native scan task is absent"))?;
             if let Some(array) = context.runtime().block_on(task).map_err(vortex_error)? {
+                delivered = delivered
+                    .checked_add(array.len() as u64)
+                    .ok_or_else(|| failed("native scan delivered row count overflow"))?;
                 consume(array)?;
             }
             sizing.complete(selected, None, context);
             start = end;
         }
-        Ok(())
+        observation.complete(source, context, delivered, 1, pruning_checks, 0)
     })
 }

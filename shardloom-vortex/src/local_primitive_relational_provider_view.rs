@@ -97,6 +97,7 @@ impl<'a> View<'a> {
                     input,
                     spec,
                     expansion: None,
+                    ..
                 } => Kind::Aggregate {
                     input: Self::Node(input),
                     spec,

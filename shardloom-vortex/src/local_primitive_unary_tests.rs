@@ -426,13 +426,16 @@ fn unary_rolling_reserves_state_before_allocating_and_limits_centered_output() {
         &session,
     )
     .unwrap();
-    let before = session.snapshot().memory.reserved_bytes;
+    let before = session.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .execute_owned()
         .err()
         .expect("window state must reserve");
     assert!(error.to_string().contains("memory reservation denied"));
-    assert_eq!(session.snapshot().memory.reserved_bytes, before);
+    assert_eq!(
+        session.snapshot().reserved_without_source_segment_cache(),
+        before
+    );
 }
 
 #[test]
@@ -742,7 +745,7 @@ fn unary_result_stream_crosses_collect_bound_and_cleans_up_denied_consumers() {
             .to_string()
             .contains("small collection")
     );
-    let baseline = session.snapshot().memory.reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     let error = prepared
         .collect_jsonl(&CancellationToken::default())
         .err()
@@ -778,7 +781,10 @@ fn unary_result_stream_crosses_collect_bound_and_cleans_up_denied_consumers() {
         .unwrap();
     assert_eq!(next, ROWS as u64);
     drop(execution);
-    assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        session.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let path = fixture.0.join("output.vortex");
     let report = prepared
         .write(

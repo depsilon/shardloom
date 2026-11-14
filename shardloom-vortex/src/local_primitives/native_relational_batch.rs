@@ -111,6 +111,20 @@ impl Batch {
                 context.cancellation(),
                 context.float_policy(),
             )?);
+            #[cfg(all(test, debug_assertions))]
+            if matches!(purpose, Preparation::HashOnDemand) {
+                super::native_relational_observation::record(|counts| {
+                    counts.membership_key_preparations.push(
+                        super::native_relational_observation::MembershipKeyPreparation {
+                            name: name.into(),
+                            rows: column.len(),
+                            input_encoding: column.encoding_id().to_string(),
+                            dtype: column.dtype().to_string(),
+                            numeric: matches!(keys.values.last(), Some(KeyColumn::Numeric(_))),
+                        },
+                    );
+                });
+            }
         }
         Ok(Self { array, keys })
     }

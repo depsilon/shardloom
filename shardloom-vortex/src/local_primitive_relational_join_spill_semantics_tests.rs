@@ -54,7 +54,7 @@ fn ordered_join_on_evaluates_a_complete_candidate_batch_before_semi_anti_short_c
             } else {
                 prepare_relational(&plan, policy()).unwrap()
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             for batch_rows in [1024, 2048] {
                 let mut rows = Vec::new();
                 let result = prepared.for_each_json_batch(
@@ -88,7 +88,10 @@ fn ordered_join_on_evaluates_a_complete_candidate_batch_before_semi_anti_short_c
                     assert!(error.to_string().contains("overflow"), "{error}");
                     assert_eq!(rows.len(), 0);
                 }
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 if spilling {
                     assert_eq!(fs::read_dir(left.0.join("join-runs")).unwrap().count(), 0);
                 }

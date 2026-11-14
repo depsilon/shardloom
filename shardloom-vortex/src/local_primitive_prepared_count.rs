@@ -23,6 +23,7 @@ pub struct ExecutedVortexCountWhere {
     pub report: VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub runtime: ResidentSessionSnapshot,
+    file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
 }
 
 /// Complete filtered-count value, with its native scalar and execution evidence.
@@ -405,11 +406,15 @@ impl PreparedVortexCountWhere {
         cancellation: &CancellationToken,
     ) -> Result<ExecutedVortexCountWhere> {
         cancellation.check()?;
-        let mut execution = self
-            .source
-            .with_native_execution_controlled(cancellation, |_, context| {
-                self.execute_in_context(context)
-            })?;
+        let mut execution =
+            self.source
+                .with_native_execution_controlled(cancellation, |_, context| {
+                    let mut execution = self.execute_in_context(context)?;
+                    let (evidence, metadata) = context.take_native_file_scan_evidence()?;
+                    execution.native_io_certificate.file_scans = evidence;
+                    execution.file_scan_metadata = metadata;
+                    Ok(execution)
+                })?;
         let provider_workers = execution.runtime.provider_background_workers;
         execution.runtime = self.session.snapshot();
         execution.runtime.provider_background_workers = provider_workers;
@@ -466,6 +471,7 @@ impl PreparedVortexCountWhere {
             report,
             native_io_certificate,
             runtime,
+            file_scan_metadata: None,
         };
         cancellation.check()?;
         Ok(execution)

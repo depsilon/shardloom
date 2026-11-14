@@ -5,6 +5,9 @@ use crate::relational_query::{
 };
 use shardloom_core::{ComparisonOp, ExprId, Expression, ExpressionKind, ScalarValue};
 
+#[path = "local_primitive_native_file_scan_evidence_tests.rs"]
+mod file_scan_evidence_tests;
+
 fn column(name: &str) -> Expression {
     Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
 }
@@ -69,14 +72,17 @@ fn native_pipeline_flat_and_nested_filters_use_the_same_count_kernel() {
             );
             let prepared = prepare_relational(&count(input), policy()).unwrap();
             assert!(prepared.root_has_file_kernel());
-            let initial = prepared.snapshot().memory.reserved_bytes;
+            let initial = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap();
             assert_eq!(json_rows(&result), [json!({"rows":expected})]);
             pipeline(&result.execution, 1);
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                initial
+            );
         }
     }
 }
@@ -174,7 +180,7 @@ fn native_pipeline_long_flat_alias_chain_is_lowered_without_rebuilding_a_tree() 
     let plan = transforms(fixture.scan(), stages, true);
     let prepared = prepare_relational(&plan, policy()).unwrap();
     assert!(prepared.root_has_file_kernel());
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -188,7 +194,10 @@ fn native_pipeline_long_flat_alias_chain_is_lowered_without_rebuilding_a_tree() 
     );
     pipeline(&result.execution, 1);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
 }
 
 #[test]
@@ -201,7 +210,7 @@ fn native_pipeline_flat_kernel_cancellation_and_generation_errors_are_terminal()
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
     assert!(prepared.root_has_file_kernel());
-    let initial = prepared.snapshot().memory.reserved_bytes;
+    let initial = prepared.snapshot().reserved_without_source_segment_cache();
     let token = CancellationToken::default();
     assert!(
         prepared
@@ -211,7 +220,10 @@ fn native_pipeline_flat_kernel_cancellation_and_generation_errors_are_terminal()
             })
             .is_err()
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert!(
         prepared
@@ -221,7 +233,10 @@ fn native_pipeline_flat_kernel_cancellation_and_generation_errors_are_terminal()
             })
             .is_err()
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        initial
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 

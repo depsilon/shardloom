@@ -269,6 +269,7 @@ pub(super) fn reserve_candidates(
 
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Keep each bounded payload delivery inside the same cancellation and output scope.
 pub(super) fn deliver(
+    source_uri: &shardloom_core::DatasetUri,
     file: &VortexFile,
     runtime: &impl BlockingRuntime,
     context: &crate::resident_session::NativeExecutionContext<'_>,
@@ -277,6 +278,11 @@ pub(super) fn deliver(
     selected: &[&SortRowCandidate],
     output: &mut CompletedRows<'_>,
 ) -> Result<SortRowsMaterializationResult> {
+    #[cfg(unix)]
+    let path = super::local_vortex_path(source_uri, request.kind)?
+        .ok_or_else(|| failed("sort source path is absent"))?;
+    #[cfg(not(unix))]
+    let _ = source_uri;
     let projection = super::ProjectionRequest::columns(
         columns
             .iter()
@@ -300,6 +306,13 @@ pub(super) fn deliver(
     }
     for window in selected.chunks(512) {
         context.check_cancelled()?;
+        #[cfg(unix)]
+        let observation = super::native_file_scan_evidence::Observation::file_plan(
+            file,
+            &plan,
+            shardloom_core::native_file_scan::NativeFileScanRoute::SortPayload,
+            context,
+        )?;
         let mut ordinals = window
             .iter()
             .map(|row| row.source_ordinal as u64)
@@ -366,6 +379,8 @@ pub(super) fn deliver(
                     .map_err(vortex_error)?,
             )
         })?;
+        #[cfg(unix)]
+        observation.complete_path(&path, context, rows as u64, 1, 0, 0)?;
     }
     output.finish_stream()?;
     Ok(SortRowsMaterializationResult {

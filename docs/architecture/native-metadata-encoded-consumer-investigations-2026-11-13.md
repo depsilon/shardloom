@@ -40,11 +40,38 @@ provenance remain Apache-2.0-compatible and explicitly reviewed.
 
 ## Sequence and deliverables
 
-Start with actual activation/exposure across the current 10k and separately
-versioned additions: mixed metadata/scanned aggregates, real dictionaries at
-text functions, actual FSST inputs and encoded floats blocked by semantics.
-The following order follows the supplied recommendation; exposure and concrete
-dependencies can justify a documented adjustment within this follow-on unit.
+The maintainer's subsequent November 13 efficiency request orders this work by
+dependencies and shared validation. Begin only after the active activation unit
+has a valid accepted baseline. Reconcile its new facts/counters with the existing
+10k inventory, adding separately versioned missing cases for mixed aggregates,
+real dictionaries, actual FSST inputs and encoded-float semantics. This is a
+delta review of existing evidence, not another whole-engine inventory phase.
+
+| Execution order | Work and existing owner | Why it belongs here |
+| --- | --- | --- |
+| First | Per-measure metadata completion, then exact regional partials and constant grouping keys | All extend the same aggregate state/finalizer. Prove residual measures first, then disjoint region coverage, then weighted group attachment. Each has its own acceptance decision. |
+| Next | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |
+| Next | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |
+| Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
+| Next | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |
+| Next | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |
+| Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
+| Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |
+
+The descriptive sections below retain each original contract; the table and
+phase plan own execution order. Within a work unit, reuse fixture generation,
+source bindings, independent references and narrow regression checks where their
+identities match. Run required broad/native/package gates at the coherent source
+boundary. Freeze and decide each distinct performance experiment independently;
+do not add their savings or silently repeat measured declarations. An unavailable
+proof requires an explicit bounded decline or missing-evidence disposition and
+does not hold unrelated ready work indefinitely.
+
+Reconcile overlaps once: B remains the corrected direct COUNT bridge; C owns
+reusable source/domain facts; N owns dictionary transforms; I owns survivor
+batching. Active source-segment reuse is not join-build reuse, and post-key-
+validation membership rejection is not source scan pruning. The older D and
+recommendation-13 obligations therefore retain their distinct missing work.
 
 ### Per-measure metadata completion
 
@@ -139,8 +166,9 @@ native path with a specific admission reason.
 Check the existing native Bloom aggregate implementation and its format,
 layout and predicate admission before inventing another summary. Evaluate
 equality/IN on unclustered identifiers, then required-literal/trigram signatures
-for selective text and conservative spatial bounds where actual workloads justify
-them. Surviving candidates still receive exact evaluation.
+for selective text. Persisted spatial bounds follow the exact native spatial
+execution/type contract below and require actual workload exposure. Surviving
+candidates still receive exact evaluation.
 
 Include construction, persisted size, metadata reads, false-positive rate,
 excluded regions and downstream work. Text case/character/pattern semantics must

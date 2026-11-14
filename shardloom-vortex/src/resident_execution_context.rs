@@ -45,6 +45,7 @@ pub struct ResidentCallTiming {
 pub struct NativeExecutionContext<'a> {
     owner: &'a RuntimeOwner,
     class: CallClass,
+    operation: u64,
     cancellation: CancellationToken,
     io: OnceLock<Arc<IoScope>>,
     admitted: Instant,
@@ -53,6 +54,10 @@ pub struct NativeExecutionContext<'a> {
     adaptive_work: Mutex<crate::native_work_sizing::Reports>,
     capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
     variant_expression_work: Mutex<crate::native_variant::ExpressionWork>,
+    join_work: Mutex<shardloom_core::native_join_work::NativeJoinWork>,
+    count_partial_work: Mutex<shardloom_core::native_count_partial_work::NativeCountPartialWork>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    file_evidence: Arc<Mutex<super::file_evidence::Evidence>>,
 }
 
 #[derive(Default)]
@@ -82,6 +87,14 @@ impl RuntimeOwner {
         };
         let admitted = Instant::now();
         cancellation.check()?;
+        let operation = self
+            .next_operation
+            .try_update(
+                std::sync::atomic::Ordering::Relaxed,
+                std::sync::atomic::Ordering::Relaxed,
+                |value| value.checked_add(1),
+            )
+            .map_err(|_| resident_error("native operation identity overflow"))?;
         let io = if class == CallClass::General {
             self.io_budget
                 .as_ref()
@@ -93,6 +106,7 @@ impl RuntimeOwner {
         Ok(NativeExecutionContext {
             owner: self,
             class,
+            operation,
             cancellation,
             io: io.map_or_else(OnceLock::new, OnceLock::from),
             admitted,
@@ -101,11 +115,150 @@ impl RuntimeOwner {
             adaptive_work: Mutex::default(),
             capability_decisions: Mutex::default(),
             variant_expression_work: Mutex::default(),
+            join_work: Mutex::default(),
+            count_partial_work: Mutex::default(),
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            file_evidence: Arc::default(),
         })
     }
 }
 
 impl NativeExecutionContext<'_> {
+    #[cfg(unix)]
+    pub(crate) fn complete_segment_reuse(&self) -> Result<()> {
+        self.check_cancelled()?;
+        self.owner
+            .source_segments
+            .complete_operation(self.operation)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    fn native_file_read_evidence(
+        &self,
+        identity: &Arc<SourceIdentity>,
+    ) -> Result<Arc<super::file_evidence::ReadWork>> {
+        self.file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?
+            .source(identity, self.memory())
+            .map(|(_, work)| work)
+    }
+
+    /// Record the completed logical contract at its execution owner. The caller
+    /// credits temporary column vectors; this state credits retained metadata.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn record_native_file_scan(
+        &self,
+        source: &super::PreparedVortexSource,
+        mut contract: shardloom_core::native_file_scan::NativeFileScanContract,
+    ) -> Result<()> {
+        let Some(identity) = &source.0.identity else {
+            return Ok(());
+        };
+        let mut evidence = self
+            .file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?;
+        contract.source = evidence.source(identity, self.memory())?.0;
+        evidence.record(contract, self.memory())
+    }
+
+    /// Admit source provenance at an executed owner that records by its path,
+    /// including a successful pruning decision that requests no data segments.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn register_native_file_scan_source(
+        &self,
+        source: &super::PreparedVortexSource,
+    ) -> Result<()> {
+        if let Some(identity) = &source.0.identity {
+            self.native_file_read_evidence(identity)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn begin_native_file_scan(
+        &self,
+        source: &super::PreparedVortexSource,
+        mut contract: shardloom_core::native_file_scan::NativeFileScanContract,
+    ) -> Result<usize> {
+        let identity = source.0.identity.as_ref().ok_or_else(|| {
+            resident_error("native file scan evidence requires a held source generation")
+        })?;
+        let mut evidence = self
+            .file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?;
+        contract.source = evidence.source(identity, self.memory())?.0;
+        evidence.begin(contract, self.memory())
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn begin_native_file_scan_path(
+        &self,
+        path: &std::path::Path,
+        contract: shardloom_core::native_file_scan::NativeFileScanContract,
+    ) -> Result<usize> {
+        let _temporary = self.memory().reserve(
+            (path.as_os_str().len() as u64)
+                .checked_mul(4)
+                .and_then(|bytes| bytes.checked_add(4096))
+                .ok_or_else(|| resident_error("scan evidence path capacity overflow"))?,
+        )?;
+        let path = std::path::absolute(path).map_err(super::native_error)?;
+        self.file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?
+            .begin_path(&path, contract, self.memory())
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn add_native_file_scan_rows(&self, index: usize, rows: u64) -> Result<()> {
+        self.file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?
+            .add_rows(index, rows)
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn take_native_file_scan_evidence(
+        &self,
+    ) -> Result<(
+        shardloom_core::native_file_scan::NativeFileScanEvidence,
+        Option<MemoryLease>,
+    )> {
+        self.drain_io();
+        self.check_cancelled()?;
+        let (mut report, lease) = self
+            .file_evidence
+            .lock()
+            .map(|mut evidence| evidence.take())
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?;
+        report.session_segment_cache = Some(self.owner.source_segments.validate_evidence()?);
+        Ok((report, lease))
+    }
+
+    /// Connect an existing provider path to the held reader in this operation.
+    /// This never reopens a source to manufacture provenance.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn record_native_file_scan_path(
+        &self,
+        path: &std::path::Path,
+        contract: shardloom_core::native_file_scan::NativeFileScanContract,
+    ) -> Result<()> {
+        let bytes = u64::try_from(path.as_os_str().len())
+            .ok()
+            .and_then(|bytes| bytes.checked_mul(4))
+            .and_then(|bytes| bytes.checked_add(4096))
+            .ok_or_else(|| resident_error("scan evidence path capacity overflow"))?;
+        let _temporary = self.memory().reserve(bytes)?;
+        let path = std::path::absolute(path).map_err(super::native_error)?;
+        self.file_evidence
+            .lock()
+            .map_err(|_| resident_error("native file execution evidence poisoned"))?
+            .record_path(&path, contract, self.memory())
+    }
+
     pub(crate) fn record_variant_expression(
         &self,
         rows: u64,
@@ -116,6 +269,50 @@ impl NativeExecutionContext<'_> {
             .lock()
             .map_err(|_| resident_error("Variant expression evidence poisoned"))?
             .record(rows, normalized, format_bridge)
+    }
+
+    pub(crate) fn record_native_join_work(
+        &self,
+        work: shardloom_core::native_join_work::NativeJoinWork,
+    ) -> Result<()> {
+        self.join_work
+            .lock()
+            .map_err(|_| resident_error("native join work evidence poisoned"))?
+            .merge(work)
+    }
+
+    pub(crate) fn record_native_count_partial_work(
+        &self,
+        work: shardloom_core::native_count_partial_work::NativeCountPartialWork,
+    ) -> Result<()> {
+        self.count_partial_work
+            .lock()
+            .map_err(|_| resident_error("native grouped COUNT partial evidence poisoned"))?
+            .merge(work)
+    }
+
+    pub(crate) fn append_native_count_partial_work(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        certificate.count_partial_work.merge(
+            *self
+                .count_partial_work
+                .lock()
+                .map_err(|_| resident_error("native grouped COUNT partial evidence poisoned"))?,
+        )
+    }
+
+    pub(crate) fn append_native_join_work(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) -> Result<()> {
+        certificate.join_work.merge(
+            *self
+                .join_work
+                .lock()
+                .map_err(|_| resident_error("native join work evidence poisoned"))?,
+        )
     }
 
     pub(crate) fn append_variant_expression_certificate(
@@ -292,6 +489,54 @@ impl NativeExecutionContext<'_> {
         }
     }
 
+    fn capture_opened_source(&self, path: &std::path::Path) -> Result<Arc<SourceIdentity>> {
+        self.check_general_execution()?;
+        // A conservative control estimate, distinct from provider buffer
+        // accounting. Reserve before opening or copying the local pathname.
+        let bytes = u64::try_from(path.as_os_str().len())
+            .ok()
+            .and_then(|bytes| bytes.checked_mul(2))
+            .and_then(|bytes| bytes.checked_add(4096))
+            .ok_or_else(|| resident_error("source identity capacity overflow"))?;
+        let ownership = self.owner.memory.reserve(bytes)?;
+        let mut sources = self
+            .opened_sources
+            .lock()
+            .map_err(|_| resident_error("source generation ownership poisoned"))?;
+        let OpenedSources { values, capacity } = &mut *sources;
+        if values.len() == values.capacity() {
+            let target = values
+                .capacity()
+                .max(4)
+                .checked_mul(2)
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let bytes = target
+                .checked_mul(std::mem::size_of::<(Arc<SourceIdentity>, MemoryLease)>())
+                .and_then(|bytes| u64::try_from(bytes).ok())
+                .ok_or_else(|| resident_error("source generation capacity overflow"))?;
+            let credit = capacity.get_or_insert(self.owner.memory.reserve(0)?);
+            credit.resize(
+                credit
+                    .bytes()
+                    .checked_add(bytes)
+                    .ok_or_else(|| resident_error("source generation capacity overflow"))?,
+            )?;
+            values
+                .try_reserve_exact(target - values.len())
+                .map_err(|error| resident_error(&error.to_string()))?;
+            if values.capacity() > target {
+                return Err(resident_error(
+                    "source generation allocation exceeded admission",
+                ));
+            }
+            credit.resize(bytes)?;
+        }
+        self.check_cancelled()?;
+        let identity = Arc::new(SourceIdentity::capture(path)?);
+        values.push((Arc::clone(&identity), ownership));
+        Ok(identity)
+    }
+
     /// Synchronous primitive adapters can open another file under this same
     /// operation. Its generation stays held until the final I/O drain, without
     /// retaining every file's decoded footer or creating a second runtime.
@@ -299,54 +544,9 @@ impl NativeExecutionContext<'_> {
         &self,
         path: &std::path::Path,
     ) -> vortex::error::VortexResult<VortexFile> {
-        let core = || -> Result<Arc<SourceIdentity>> {
-            self.check_general_execution()?;
-            // A conservative control estimate, distinct from provider buffer
-            // accounting. Reserve before opening or copying the local pathname.
-            let bytes = u64::try_from(path.as_os_str().len())
-                .ok()
-                .and_then(|bytes| bytes.checked_mul(2))
-                .and_then(|bytes| bytes.checked_add(4096))
-                .ok_or_else(|| resident_error("source identity capacity overflow"))?;
-            let ownership = self.owner.memory.reserve(bytes)?;
-            let mut sources = self
-                .opened_sources
-                .lock()
-                .map_err(|_| resident_error("source generation ownership poisoned"))?;
-            let OpenedSources { values, capacity } = &mut *sources;
-            if values.len() == values.capacity() {
-                let target = values
-                    .capacity()
-                    .max(4)
-                    .checked_mul(2)
-                    .ok_or_else(|| resident_error("source generation capacity overflow"))?;
-                let bytes = target
-                    .checked_mul(std::mem::size_of::<(Arc<SourceIdentity>, MemoryLease)>())
-                    .and_then(|bytes| u64::try_from(bytes).ok())
-                    .ok_or_else(|| resident_error("source generation capacity overflow"))?;
-                let credit = capacity.get_or_insert(self.owner.memory.reserve(0)?);
-                credit.resize(
-                    credit
-                        .bytes()
-                        .checked_add(bytes)
-                        .ok_or_else(|| resident_error("source generation capacity overflow"))?,
-                )?;
-                values
-                    .try_reserve_exact(target - values.len())
-                    .map_err(|error| resident_error(&error.to_string()))?;
-                if values.capacity() > target {
-                    return Err(resident_error(
-                        "source generation allocation exceeded admission",
-                    ));
-                }
-                credit.resize(bytes)?;
-            }
-            self.check_cancelled()?;
-            let identity = Arc::new(SourceIdentity::capture(path)?);
-            values.push((Arc::clone(&identity), ownership));
-            Ok(identity)
-        };
-        let identity = core().map_err(|error| vortex_err!("{error}"))?;
+        let identity = self
+            .capture_opened_source(path)
+            .map_err(|error| vortex_err!("{error}"))?;
         let scope = self
             .file_io_scope()
             .map_err(|error| vortex_err!("{error}"))?;
@@ -362,6 +562,11 @@ impl NativeExecutionContext<'_> {
             reader_owner: Some(
                 scope
                     .retain_reader(&self.owner.memory)
+                    .map_err(|error| vortex_err!("{error}"))?,
+            ),
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            evidence: Some(
+                self.native_file_read_evidence(&identity)
                     .map_err(|error| vortex_err!("{error}"))?,
             ),
         });
@@ -504,17 +709,28 @@ impl NativeExecutionContext<'_> {
             concurrency: self.cpu_lanes(),
             scope: Some(Arc::clone(scope)),
             reader_owner: None,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            evidence: None,
         };
         let source = DeferredFileSegments {
             segments: file.footer().segment_map().clone(),
             reader,
             scope: Arc::clone(scope),
             memory: self.owner.memory.clone(),
-            source: OnceLock::new(),
+            source: Arc::new(OnceLock::new()),
+            operation: self.operation,
+            cancellation: self.cancellation.clone(),
+            #[cfg(unix)]
+            cache: Arc::clone(&self.owner.source_segments),
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            evidence: Arc::clone(&self.file_evidence),
             #[cfg(all(test, unix, feature = "vortex-write"))]
             observation: super::read_observer::operation_observation(),
         };
-        let source: Arc<dyn SegmentSource> = Arc::new(source);
+        let source: Arc<dyn SegmentSource> = Arc::new(LazySharedFileSegments {
+            inner: source,
+            shared: OnceLock::new(),
+        });
         #[cfg(all(test, unix, feature = "vortex-write"))]
         let source = super::file_pruning_tests::observe_operation_segments(source);
         Ok(Cow::Owned(file.clone().with_segment_source(source)))
@@ -524,35 +740,132 @@ impl NativeExecutionContext<'_> {
 /// Keep footer inspection and pruning ahead of reader admission. The first
 /// actual segment request admits the existing native provider exactly once;
 /// failures remain attached to this operation and never reopen/replay a source.
+#[derive(Clone)]
 struct DeferredFileSegments {
     segments: SegmentMap,
     reader: super::ResidentFileReadAt,
     scope: Arc<IoScope>,
     memory: shardloom_exec::live_memory::LiveMemoryPool,
-    source: OnceLock<SharedVortexResult<SharedSegmentSource<FileSegmentSource>>>,
+    source: Arc<OnceLock<SharedVortexResult<AdmittedFileSegments>>>,
+    operation: u64,
+    cancellation: CancellationToken,
+    #[cfg(unix)]
+    cache: Arc<super::source_segment_cache::Store>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    evidence: Arc<Mutex<super::file_evidence::Evidence>>,
     #[cfg(all(test, unix, feature = "vortex-write"))]
     observation: Option<super::read_observer::OperationObservation>,
 }
 
+struct AdmittedFileSegments {
+    source: FileSegmentSource,
+}
+
+/// Register live sharing when a future is constructed, before its first poll.
+/// Deferring registration until polling loses a still-live first request when
+/// a second future is constructed before that first future is consumed.
+struct LazySharedFileSegments {
+    inner: DeferredFileSegments,
+    shared: OnceLock<SharedSegmentSource<DeferredFileSegments>>,
+}
+
+impl SegmentSource for LazySharedFileSegments {
+    fn request(&self, id: SegmentId) -> SegmentFuture {
+        let request = self
+            .shared
+            .get_or_init(|| SharedSegmentSource::new(self.inner.clone()))
+            .request(id);
+        let source = self.inner.clone();
+        async move {
+            source
+                .cancellation
+                .check()
+                .map_err(|error| vortex_err!("{error}"))?;
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            source
+                .evidence
+                .lock()
+                .map_err(|_| vortex_err!("native file evidence poisoned"))?
+                .source(&source.reader.identity, &source.memory)
+                .map_err(|error| vortex_err!("{error}"))?
+                .1
+                .segment_requested()
+                .map_err(|error| vortex_err!("{error}"))?;
+            request.await
+        }
+        .boxed()
+    }
+}
+
 impl SegmentSource for DeferredFileSegments {
     fn request(&self, id: SegmentId) -> SegmentFuture {
+        let source = self.clone();
+        async move { source.read(id).await }.boxed()
+    }
+}
+
+impl DeferredFileSegments {
+    async fn read(
+        &self,
+        id: SegmentId,
+    ) -> vortex::error::VortexResult<vortex::array::buffer::BufferHandle> {
+        self.cancellation
+            .check()
+            .map_err(|error| vortex_err!("{error}"))?;
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        let evidence = self
+            .evidence
+            .lock()
+            .map_err(|_| vortex_err!("native file evidence poisoned"))?
+            .source(&self.reader.identity, &self.memory)
+            .map_err(|error| vortex_err!("{error}"))?
+            .1;
+        #[cfg(unix)]
+        let epoch = match self
+            .cache
+            .lookup(&self.reader.identity, id, self.operation)?
+        {
+            super::source_segment_cache::Lookup::Disabled => None,
+            super::source_segment_cache::Lookup::Hit { buffer, cross_call } => {
+                self.cancellation
+                    .check()
+                    .map_err(|error| vortex_err!("{error}"))?;
+                #[cfg(all(feature = "vortex-local-primitives", unix))]
+                evidence
+                    .cache_lookup(Some((buffer.len(), cross_call)))
+                    .map_err(|error| vortex_err!("{error}"))?;
+                #[cfg(not(feature = "vortex-local-primitives"))]
+                let _ = cross_call;
+                return Ok(vortex::array::buffer::BufferHandle::new_host(buffer));
+            }
+            super::source_segment_cache::Lookup::Miss { epoch } => {
+                #[cfg(all(feature = "vortex-local-primitives", unix))]
+                evidence
+                    .cache_lookup(None)
+                    .map_err(|error| vortex_err!("{error}"))?;
+                Some(epoch)
+            }
+        };
         let source = self.source.get_or_init(|| {
+            // Footer inspection may finish with no spare memory and no data
+            // scan. Admit reader evidence only when a segment is requested.
             let reader = super::ResidentFileReadAt {
                 reader_owner: Some(
                     self.scope
                         .retain_reader(&self.memory)
                         .map_err(|error| Arc::new(vortex_err!("{error}")))?,
                 ),
+                #[cfg(all(feature = "vortex-local-primitives", unix))]
+                evidence: Some(Arc::clone(&evidence)),
                 ..self.reader.clone()
             };
             #[cfg(all(test, unix, feature = "vortex-write"))]
             let reader =
                 super::read_observer::observe_operation_reader(reader, self.observation.as_ref());
-            // Preserve the provider's normal live-request sharing after the
-            // source handoff. Multiple readers of one segment share its read
-            // and owned buffer; weak request entries do not cache answers.
-            Ok(SharedSegmentSource::new(
-                FileSegmentSource::open_with_segments_and_coalescing_limit(
+            // Live-request sharing wraps this lazy source, so it registers
+            // requests before polling without admitting a reader prematurely.
+            Ok(AdmittedFileSegments {
+                source: FileSegmentSource::open_with_segments_and_coalescing_limit(
                     self.segments.clone(),
                     reader,
                     self.reader.handle.clone(),
@@ -562,18 +875,47 @@ impl SegmentSource for DeferredFileSegments {
                     ),
                     super::COALESCING_AMPLIFICATION_LIMIT,
                 ),
-            ))
+            })
         });
-        match source {
-            Ok(source) => source.request(id),
-            Err(error) => futures::future::ready(Err(error.into())).boxed(),
+        let source = source.as_ref().map_err(vortex::error::VortexError::from)?;
+        let result = source.source.request(id).await?;
+        self.cancellation
+            .check()
+            .map_err(|error| vortex_err!("{error}"))?;
+        #[cfg(unix)]
+        if let Some(epoch) = epoch {
+            let copied =
+                self.cache
+                    .retain(&self.reader.identity, id, self.operation, epoch, &result)?;
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            evidence
+                .cache_copy(copied.copied_bytes, copied.stored)
+                .map_err(|error| vortex_err!("{error}"))?;
+            #[cfg(not(feature = "vortex-local-primitives"))]
+            let _ = copied;
         }
+        self.cancellation
+            .check()
+            .map_err(|error| vortex_err!("{error}"))?;
+        Ok(result)
     }
 }
 
 impl Drop for NativeExecutionContext<'_> {
     fn drop(&mut self) {
         self.drain_io();
+        #[cfg(unix)]
+        self.owner
+            .source_segments
+            .discard_uncompleted_operation(self.operation);
+        #[cfg(unix)]
+        if let Ok(sources) = self.opened_sources.get_mut() {
+            for (identity, _) in &sources.values {
+                self.owner
+                    .source_segments
+                    .invalidate_source(identity, false);
+            }
+        }
     }
 }
 

@@ -193,7 +193,7 @@ fn aggregate_filter_actual_spill_preserves_separate_domains_and_complete_results
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap_or_else(|error| panic!("grouped={grouped}, spill={spill}: {error}"));
@@ -212,7 +212,10 @@ fn aggregate_filter_actual_spill_preserves_separate_domains_and_complete_results
                 assert!(evidence.owned_cleanup_completed);
             }
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }
@@ -240,7 +243,7 @@ fn aggregate_filter_pressure_cancellation_and_output_failure_allow_clean_retry()
             } else {
                 prepared
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let pressure = prepared
                 .session
                 .memory()
@@ -269,7 +272,10 @@ fn aggregate_filter_pressure_cancellation_and_output_failure_allow_clean_retry()
                 assert!(result.is_err());
                 assert_eq!(delivered, 1);
                 assert_eq!(prepared.snapshot().completed_executions, 0);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
             }
             let result = prepared
@@ -277,7 +283,10 @@ fn aggregate_filter_pressure_cancellation_and_output_failure_allow_clean_retry()
                 .unwrap();
             compare(&json_rows(&result), &wanted(128, grouped));
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         }
     }

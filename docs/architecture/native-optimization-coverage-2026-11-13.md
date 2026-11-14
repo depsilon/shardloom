@@ -47,12 +47,15 @@ Preserve rejected experiments and
 the direct COUNT bridge's invalid baseline; this request does not turn those
 observations into acceptance.
 
-The maintainer's latest sequencing instruction makes the immediate implementation
-order explicit: complete the in-flight Sort validation connection, then close
-Vortex scan decision/reporting gaps and demonstrated missed execution; connect
-remaining COUNT and file-backed cyclic semi-join opportunities; expand uncovered
-operator/type/interface compositions; and implement native general runtime
-filters, skew handling and cross-query reuse through their existing RFC owners.
+The maintainer's sequencing instructions keep the Sort validation connection
+first, followed by Vortex scan decision/reporting gaps and demonstrated missed
+execution, remaining COUNT/file-backed cyclic semi-join connections, and native
+runtime filters, skew handling and automatic cross-query reuse through existing
+RFC owners. The subsequent efficiency review treats these connected changes as
+one coherent validation unit: prepare the uncovered operator/type/interface
+declarations alongside implementation, then prove breadth and lifecycles against
+the finished owners before the isolated affected-cohort acceptance decisions.
+The phase plan orders the metadata/encoded-consumer follow-ons by dependency.
 These are active deliverables. Inventory entries and future-work labels alone
 do not satisfy them. Missing Vortex reporting must be distinguished from absent
 projection/pruning execution, and existing partial implementations must be

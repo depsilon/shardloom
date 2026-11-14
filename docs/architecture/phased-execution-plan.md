@@ -251,6 +251,13 @@ the ledger.
 
 Current autonomous execution order:
 
+The November 13 efficiency review keeps the active coverage work first and
+orders its follow-ons by shared owners and concrete prerequisites. The order
+below supersedes the historical A–N/recommendation numbering; those labels
+identify contracts, not additional passes through the same work. Reuse the
+current inventory and exact compatible evidence. Add missing exposure controls
+once, and do not repeat full10k or broad gates after every small edit.
+
 - [ ] **November 13 optimization coverage priority.** The maintainer requests
   complete optimization coverage across the supported engine. The
   [coverage contract](native-optimization-coverage-2026-11-13.md) starts with
@@ -296,11 +303,16 @@ Current autonomous execution order:
     from missing execution.
   - [ ] Connect remaining direct-source COUNT and file-backed cyclic semi-join
     opportunities through native shared owners and valid new evidence.
-  - [ ] Expand uncovered multi-window, correlated-subquery, melt/pivot,
-    sampling and rich expression compositions across the public surfaces.
   - [ ] Implement general native runtime filters, skew handling and cross-query
     reuse under their existing RFC contracts; identify and reuse partial
     implementations, preserving generation, effect and resource boundaries.
+  - [ ] Validate those connected owners together with uncovered multi-window,
+    correlated-subquery, melt/pivot, sampling and rich expression compositions
+    across the public surfaces. Complete lifecycle/resource fixes, required
+    default/native and installed-package proof, then the frozen affected-cohort
+    decisions before advancing the accepted baseline. Breadth declarations and
+    independent references may be prepared alongside implementation; scored
+    query execution remains isolated.
 
 - [ ] **November 13 metadata and encoded-consumer investigations — follow the
   active optimization-coverage implementation above.** The maintainer's supplied
@@ -311,29 +323,51 @@ Current autonomous execution order:
   no-fallback and complete-operation evidence passes. Reading the research or
   adding counters alone does not complete an item. Existing item-20 owners and
   item-19 spatial obligations remain canonical; these are not new phase IDs.
-  - [ ] Complete individually proved aggregate measures from metadata while
-    scanning only unresolved measures/columns through the same finalizer.
+  Follow the [dependency order](native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables)
+  below. Each experiment retains its own decision; shared preparation does not
+  combine independent speed claims.
+  - [ ] Reconcile only changed activation/exposure against the accepted coverage
+    baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
+    N's dictionary owner and I's consumer boundaries; attach versioned missing
+    encoding/selectivity controls without restarting the full inventory.
+  - [ ] Complete individually proved aggregate measures from metadata, then
+    exact regional partials and constant-group-key completion through the same
+    state/finalizer. Keep each semantic admission distinct; missing region
+    coverage proof must not block a separately complete per-measure result.
   - [ ] Extend existing N with dictionary-domain text transforms retained into
     filter/group/distinct consumers and compatible shared outputs.
-  - [ ] Investigate a conservative FSST candidate prefilter and separately
-    bounded exact-table matcher reuse, with selective/dense and hardware controls.
-  - [ ] Merge exact stored aggregate partials for fully covered regions with
-    scanned residual regions; separately prove constant-group-key completion.
-  - [ ] Carry reusable exact source/domain facts to admit ALP/FastLanes
-    predicates where typed comparison and failure semantics are preserved.
+  - [ ] Extend C with only the exact source/domain facts required by the named
+    ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve
+    typed comparison and failure semantics without a speculative fact framework.
   - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
-    admission first, then text signatures and spatial bounds where warranted.
-  - [ ] Assess codec/consumer choices together; extend existing I with separate
-    pruning/read/consumer units, and investigate distinct bounded CPU expression
-    fusion only after new attribution beyond the prior dropped candidate.
+    admission first, then necessary text signatures where warranted. Spatial
+    summaries follow the exact spatial execution contract below.
+  - [ ] Extend existing I with separately observed pruning/read/consumer units
+    and survivor-driven batching. Settle its retained or declined batch/lifetime
+    contract before tuning per-batch FSST matcher lifetime or codec choices.
+  - [ ] Investigate a conservative FSST candidate prefilter and separately
+    bounded exact-table matcher reuse on the resulting accepted consumer path,
+    with selective/dense and hardware controls.
   - [ ] Advance item-19 spatial execution through native coordinate/offset
-    arrays, conservative bounds and exact surviving-candidate kernels.
+    arrays, conservative bounds and exact surviving-candidate kernels, then
+    evaluate optional persisted spatial summaries. Required spatial support does
+    not depend on a successful FSST, codec or CPU-fusion optimization.
+  - [ ] Assess codec/consumer choices with the accepted consumer and batch
+    contracts. Investigate distinct bounded CPU expression fusion last, only
+    after attributing work left by the accepted upstream reductions and preserving
+    the prior dropped candidate.
   Preserve all prior FSST, text-zoning, fusion and layout observations. Extend
   the fixed 10k with versioned encoding/metadata/selectivity controls where it
   lacks exposure. No speculative codec default, duplicate N/I/spatial queue,
   broad unmeasured rewrite, new fallback engine or competitive claim is admitted.
 
 - [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
+  The higher-priority coverage and follow-on items above own the immediate
+  sequence. Reconcile their outcomes into B/C/I/N here rather than implementing
+  them twice. A post-validation join membership filter does not by itself close
+  D's source-pruning obligation, and immutable source-segment reuse does not
+  close recommendation 13's join-build reuse obligation. Keep those distinct
+  residual contracts and the original acceptance records.
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.

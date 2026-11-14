@@ -773,5 +773,10 @@ fn live_count_token_preserves_null_predicate_on_nonnullable_fixture() {
     // The exported strings remain live independently of the prepared source.
     assert!(session.snapshot().memory.reserved_bytes > 0);
     drop((jsonl, ownership, rows.result_schema_json));
+    assert_eq!(
+        session.snapshot().memory.reserved_bytes,
+        execution.file_scan_metadata.as_ref().unwrap().bytes()
+    );
+    drop(execution);
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }

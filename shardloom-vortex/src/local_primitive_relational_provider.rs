@@ -232,11 +232,6 @@ fn prepare_strategy(
         },
         Kind::ProjectColumns | Kind::FilterAndProject => {
             let plan = native::row_export_scan_plan(&request, source.dtype())?;
-            let filter = plan
-                .filter
-                .as_ref()
-                .map(|filter| native::bind_vortex_scan_expr(source.file(), filter))
-                .transpose()?;
             let columns = plan
                 .projected_columns
                 .iter()
@@ -248,7 +243,7 @@ fn prepare_strategy(
             );
             let operation = source
                 .prepare_projection(&columns, max_rows, u64::MAX)?
-                .with_filter(filter);
+                .with_filter(plan.filter)?;
             Strategy::Projection {
                 source: source.clone(),
                 operation: Box::new(operation),
@@ -524,6 +519,8 @@ fn consume_count(
     emit_count(count, context, consume)?;
     source.validate_generation()?;
     context.check_cancelled()?;
+    native::native_file_scan_evidence::Observation::metadata(source, context)?
+        .complete(source, context, 0, 0, 0, 0)?;
     let (policy, physical) = policy.with_physical_policy_for_request(request);
     let report =
         native::count_all_held_metadata_report(file, count, policy).with_physical_policy(physical);

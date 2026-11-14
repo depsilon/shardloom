@@ -132,8 +132,7 @@ fn check_owned_execution(
     rows: usize,
     worker_evidence: bool,
 ) {
-    let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared.execute_owned().unwrap();
     let work = payload(&result.execution);
     assert!(work["values"].is_null());
@@ -156,7 +155,10 @@ fn check_owned_execution(
         );
     }
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -676,7 +678,7 @@ fn check_large_complete_output(repeats: u64) {
     )
     .unwrap();
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared.execute_owned().unwrap();
     let work = payload(&result.execution);
     let expected = keys
@@ -708,7 +710,10 @@ fn check_large_complete_output(repeats: u64) {
         );
     }
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(prepared);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
@@ -750,7 +755,7 @@ fn owned_utf8_count_global_winner_and_typed_source_replay_preserve_complete_resu
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
-        let baseline = memory.snapshot().reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         SOURCE_SCAN_TEST_FAULT.with(|fault| fault.set(fault_kind));
         let result = prepared.execute_owned();
         // Clear the thread-local even if a result assertion below fails.
@@ -775,7 +780,10 @@ fn owned_utf8_count_global_winner_and_typed_source_replay_preserve_complete_resu
             prepared.snapshot().completed_executions,
             u64::from(!corrupt)
         );
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }

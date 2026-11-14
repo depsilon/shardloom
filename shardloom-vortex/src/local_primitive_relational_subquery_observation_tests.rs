@@ -129,7 +129,7 @@ fn subquery_membership_validates_late_keys_before_null_prefix_elision_and_empty_
                     )
                     .unwrap();
             }
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared.collect_jsonl(&CancellationToken::default());
             if denied {
                 let error = result.err().unwrap().to_string();
@@ -149,7 +149,10 @@ fn subquery_membership_validates_late_keys_before_null_prefix_elision_and_empty_
                 );
                 drop(result);
             }
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         }
     }

@@ -80,7 +80,7 @@ fn tail(input: VortexRelationalPlan, names: &[&str], count: usize) -> VortexRela
 
 fn collect(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
     let prepared = prepare_relational(plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut prior = None;
     for run in 1..=2 {
         let output = prepared
@@ -101,7 +101,10 @@ fn collect(plan: &VortexRelationalPlan) -> Vec<serde_json::Value> {
         }
         prior = Some(rows);
         drop(output);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     prior.unwrap()
 }

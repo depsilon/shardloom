@@ -211,7 +211,7 @@ fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQuer
     for equivalent in [plan.clone(), plan.clone().compact_streaming()] {
         let optimized = prepare_relational(&equivalent, policy()).unwrap();
         assert!(optimized.root_has_file_kernel(), "expected {kind:?}");
-        let baseline = optimized.snapshot().memory.reserved_bytes;
+        let baseline = optimized.snapshot().reserved_without_source_segment_cache();
         for completed in 1..=2 {
             let result = optimized
                 .collect_jsonl(&CancellationToken::default())
@@ -227,7 +227,10 @@ fn assert_provider_matches_general(plan: &VortexRelationalPlan, kind: VortexQuer
             assert_eq!(result.execution.runtime.prepared_source_opens, 1);
             assert_eq!(result.execution.runtime.completed_executions, completed);
             drop(result);
-            assert_eq!(optimized.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                optimized.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -769,7 +772,7 @@ fn having_fixture() -> Fixture {
 
 fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json::Value]) {
     let prepared = prepare_relational(plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for completed in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -779,7 +782,10 @@ fn assert_typed_having_rows(plan: &VortexRelationalPlan, expected: &[serde_json:
         assert!(result.execution.primitive_execution.is_none());
         assert_eq!(result.execution.runtime.completed_executions, completed);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -1139,7 +1145,7 @@ fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
         ScalarValue::UInt64(2),
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for completed in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -1148,7 +1154,10 @@ fn shared_provider_file_filter_and_alias_projection_use_native_scan() {
         assert_eq!(result.execution.scan_rows_delivered, 2);
         assert_eq!(result.execution.runtime.completed_executions, completed);
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let PreparedRoot::Bound(root) = &prepared.root else {
         unreachable!()

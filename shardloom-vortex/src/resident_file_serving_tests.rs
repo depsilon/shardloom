@@ -465,7 +465,7 @@ fn resident_file_serving_retained_result_pressure_denies_scan_but_metadata_progr
     assert!(with_arrays.reserved_bytes > metadata_bytes);
     // Single caller, no operation in flight: retain an explicit competing
     // owner's remaining credits while real result arrays are still live.
-    let pressure = memory
+    let mut pressure = memory
         .reserve(with_arrays.limit_bytes - with_arrays.reserved_bytes)
         .unwrap();
     let denied_before = memory.snapshot().denied_reservations;
@@ -475,6 +475,17 @@ fn resident_file_serving_retained_result_pressure_denies_scan_but_metadata_progr
         .expect("native output admission must fail");
     assert!(error.to_string().contains("memory reservation denied"));
     assert!(memory.snapshot().denied_reservations > denied_before);
+    let cache = session.snapshot().source_segment_cache.unwrap();
+    assert_eq!(cache.retained_entries, 0);
+    assert_eq!(cache.retained_capacity_bytes, 0);
+    assert!(cache.pressure_reclamations > 0);
+    // The failed scan reclaimed optional segment copies. Keep the original
+    // full-budget metadata-progress obligation by assigning that freed capacity
+    // to the explicit competing owner before performing the footer count.
+    let after_reclaim = memory.snapshot();
+    pressure
+        .resize(pressure.bytes() + after_reclaim.limit_bytes - after_reclaim.reserved_bytes)
+        .unwrap();
     assert_eq!(
         source.prepare_count().execute().unwrap(),
         u64::try_from(ROWS).unwrap()

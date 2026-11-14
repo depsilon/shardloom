@@ -129,7 +129,7 @@ impl Binder<'_> {
     ) -> Result<Node> {
         validate_width(keys.len())?;
         self.charge_names(keys.iter().map(|key| key.column.as_str()))?;
-        let input = Box::new(input);
+        let mut input = Box::new(input);
         self.charge_named_fields(&input.fields)?;
         for key in keys {
             validate_name(key.column.as_str())?;
@@ -137,6 +137,19 @@ impl Binder<'_> {
                 field(&input.fields, key.column.as_str())?,
                 self.schema_scope(),
             )?;
+        }
+        if let NodeKind::Aggregate {
+            input: source,
+            spec,
+            expansion: None,
+            count_partial,
+        } = &mut input.kind
+            && spec.admits_count_partial(&source.fields)
+            && keys
+                .iter()
+                .any(|key| key.column.as_str() == spec.group_names[0])
+        {
+            *count_partial = true;
         }
         self.charge(
             input

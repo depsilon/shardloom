@@ -417,11 +417,38 @@ fn successful_derived_relational_retained_memory(
     assert_eq!(result.execution.output_columns, ["value"]);
     assert_eq!(result.execution.output_rows, 2);
     drop(result);
-    let reserved = prepared.snapshot().memory.reserved_bytes;
+    let cache = prepared.snapshot().source_segment_cache.unwrap();
+    assert!(cache.retained_entries > 0);
+    assert!(cache.retained_capacity_bytes > 0);
+    let reserved = derived_relational_source_reservation(&prepared);
     drop(prepared);
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
     (cold_reserved, reserved)
+}
+
+fn derived_relational_source_reservation(prepared: &PreparedVortexRelational) -> u64 {
+    let snapshot = prepared.snapshot();
+    let cache = snapshot.source_segment_cache.unwrap();
+    assert!(!cache.counters_overflowed);
+    snapshot
+        .memory
+        .reserved_bytes
+        .checked_sub(cache.table_reserved_bytes)
+        .and_then(|bytes| bytes.checked_sub(cache.retained_capacity_bytes))
+        .expect("every cache-owned byte remains charged to the session")
+}
+
+fn assert_failed_derived_relational_reservation(
+    prepared: &PreparedVortexRelational,
+    reserved: u64,
+) {
+    let snapshot = prepared.snapshot();
+    let cache = snapshot.source_segment_cache.unwrap();
+    assert_eq!(cache.retained_entries, 0);
+    assert_eq!(cache.table_reserved_bytes, 0);
+    assert_eq!(cache.retained_capacity_bytes, 0);
+    assert_eq!(snapshot.memory.reserved_bytes, reserved);
 }
 
 #[test]
@@ -452,8 +479,9 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
         .unwrap()
     };
     // A successful cold execution independently establishes retained lazy file
-    // metadata. Failed executions must retain exactly that baseline, not state
-    // left by a failed consumer. Neither path may retain credit after teardown.
+    // metadata after accounting for its published segment cache. Failed calls
+    // must retain exactly the metadata baseline and publish no cached segments.
+    // Neither path may retain credit after teardown.
     let (cold_reserved, reserved) =
         successful_derived_relational_retained_memory(policy, prepare_in);
 
@@ -479,7 +507,7 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
         .err()
         .unwrap();
     assert!(consumed && failure.to_string().contains("test consumer failed"));
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, reserved);
+    assert_failed_derived_relational_reservation(&prepared, reserved);
     assert_eq!(prepared.snapshot().completed_executions, 0);
     let mid_cancel = CancellationToken::default();
     assert!(
@@ -490,7 +518,7 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
             })
             .is_err()
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, reserved);
+    assert_failed_derived_relational_reservation(&prepared, reserved);
     assert_eq!(prepared.snapshot().completed_executions, 0);
     let collected = prepared
         .collect_jsonl(&CancellationToken::default())
@@ -513,7 +541,7 @@ fn native_relational_sql_derived_cancellation_consumer_failure_and_generation_cl
     );
     assert!(replaced);
     assert_eq!(prepared.snapshot().completed_executions, 1);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, reserved);
+    assert_eq!(derived_relational_source_reservation(&prepared), reserved);
     assert!(
         prepared
             .collect_jsonl(&CancellationToken::default())

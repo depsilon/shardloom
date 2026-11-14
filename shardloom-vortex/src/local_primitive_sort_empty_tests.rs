@@ -64,11 +64,34 @@ fn filtered_sort_certifies_empty_provider_output_and_complete_typed_delivery() {
         );
         assert!(collected.native_io_certificate.is_certified());
         assert!(!collected.native_io_certificate.fallback_attempted);
-        drop(source);
+        let evidence = &collected.native_io_certificate.file_scans;
+        assert_eq!(evidence.sources.len(), 1);
+        let candidate = evidence
+            .contracts
+            .iter()
+            .find(|scan| scan.route == shardloom_core::native_file_scan::NativeFileScanRoute::Sort)
+            .unwrap();
+        assert_eq!(candidate.invocations, 1);
         assert_eq!(
-            memory.snapshot().reserved_bytes,
-            collected.result_jsonl.reserved_bytes() + collected.result_schema_json.reserved_bytes()
+            candidate.provider_scan_invocations,
+            Some(u64::from(!pruned))
         );
+        assert_eq!(candidate.whole_file_pruning_checks, 1);
+        assert_eq!(candidate.whole_file_exclusions, u64::from(pruned));
+        let work = &evidence.sources[0];
+        if pruned {
+            assert_eq!(work.completed_read_bytes, 0);
+            assert_eq!(work.segment_reuse.cross_call_hits, 0);
+        } else {
+            assert!(work.completed_read_bytes > 0 || work.segment_reuse.cross_call_hits > 0);
+        }
+        assert!(
+            collected.reserved_bytes()
+                > collected.result_jsonl.reserved_bytes()
+                    + collected.result_schema_json.reserved_bytes()
+        );
+        drop(source);
+        assert_eq!(memory.snapshot().reserved_bytes, collected.reserved_bytes());
         drop(collected);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }

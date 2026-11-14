@@ -73,7 +73,7 @@ fn complete(
 fn ordered_window_ranking_navigation_groups_and_original_order_match_complete_reference() {
     let fixture = window_tests::fixture();
     let prepared = ordered(&fixture, &window_tests::plan(fixture.scan()));
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for batch_rows in [1, 3, 2048] {
         let (rows, report) = complete(&prepared, batch_rows);
         assert_eq!(rows, window_tests::expected(), "batch_rows={batch_rows}");
@@ -83,7 +83,10 @@ fn ordered_window_ranking_navigation_groups_and_original_order_match_complete_re
         assert!(report.ordered_window_peer_records > 0);
         assert!(report.ordered_window_lookup_blocks > 0);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -110,7 +113,7 @@ fn ordered_window_all_frame_units_exclusions_directions_and_nulls_match_membersh
                         let prepared = ordered(&fixture, &plan);
                         let expected =
                             window_frame_tests::reference(unit, exclusion, descending, nulls);
-                        let baseline = prepared.snapshot().memory.reserved_bytes;
+                        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                         for batch_rows in [1, 7] {
                             let (rows, report) = complete(&prepared, batch_rows);
                             assert_eq!(
@@ -121,7 +124,10 @@ fn ordered_window_all_frame_units_exclusions_directions_and_nulls_match_membersh
                             assert_eq!(report.ordered_window_partitions, 2);
                             assert_eq!(report.ordered_window_bounds_rows, 30);
                             drop(report);
-                            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                            assert_eq!(
+                                prepared.snapshot().reserved_without_source_segment_cache(),
+                                baseline
+                            );
                         }
                     }
                 }
@@ -172,9 +178,12 @@ fn ordered_window_count_and_exclusions_preserve_unobserved_nonfinite_values() {
             None,
         );
         let prepared = ordered(&fixture, &plan);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert_eq!(complete(&prepared, 2).0, vec![json!({"out": expected}); 3]);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         let plan = window_frame_tests::one(
             &fixture,
             VortexRelationalWindowFunction::Framed(function),
@@ -183,12 +192,15 @@ fn ordered_window_count_and_exclusions_preserve_unobserved_nonfinite_values() {
         );
         let resident = prepare_relational(&plan, policy()).unwrap();
         let prepared = ordered(&fixture, &plan);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert_eq!(
             prepared.execute_owned().err().unwrap().to_string(),
             resident.execute_owned().err().unwrap().to_string()
         );
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(prepared.snapshot().completed_executions, 0);
         assert_eq!(
             fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),

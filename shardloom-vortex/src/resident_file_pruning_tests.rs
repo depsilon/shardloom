@@ -325,7 +325,6 @@ pub(crate) fn check_native_predicate(
         0,
         "file-stat proof must not request payload"
     );
-    let filter = expression.bind(source.dtype()).unwrap();
     let result = source
         .prepare_projection(
             columns,
@@ -333,7 +332,8 @@ pub(crate) fn check_native_predicate(
             1 << 20,
         )
         .unwrap()
-        .with_filter(Some(filter))
+        .with_filter(Some(expression.clone()))
+        .unwrap()
         .execute()
         .unwrap();
     let mut context = source.0.runtime.session.create_execution_ctx();
@@ -360,6 +360,22 @@ pub(crate) fn check_native_predicate(
         "missing selected row for {label}"
     );
     assert_eq!(result.row_count(), u64::try_from(expected.len()).unwrap());
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    {
+        let evidence = result.file_scan_evidence();
+        assert_eq!(evidence.contracts.len(), 1);
+        let contract = &evidence.contracts[0];
+        assert_eq!(contract.whole_file_pruning_checks, 1);
+        assert_eq!(contract.whole_file_exclusions, u64::from(can_prune));
+        assert_eq!(
+            contract.provider_scan_invocations,
+            Some(u64::from(!can_prune))
+        );
+        assert_eq!(contract.delivered_rows, expected.len() as u64);
+        if can_prune {
+            assert_eq!(evidence.sources[0].completed_read_bytes, 0);
+        }
+    }
     let requests = requested.load(Ordering::SeqCst);
     assert_eq!(requests, completed.load(Ordering::SeqCst));
     if can_prune {

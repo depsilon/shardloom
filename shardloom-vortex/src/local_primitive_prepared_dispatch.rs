@@ -281,6 +281,7 @@ pub fn execute_sort_controlled(
 ) -> Result<super::VortexLocalPrimitiveExecutionReport> {
     cancellation.check()?;
     execute_sort_with_sink(request, policy, source, None, cancellation)
+        .map(|execution| execution.report)
 }
 
 /// Complete sort output through the shared bounded JSON sink. The same native
@@ -292,6 +293,20 @@ pub struct CollectedVortexSort {
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub result_jsonl: shardloom_exec::live_memory::Budgeted<String>,
     pub result_schema_json: shardloom_exec::live_memory::Budgeted<String>,
+    file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
+}
+
+impl CollectedVortexSort {
+    /// Result strings and native scan evidence retained by this result owner.
+    #[must_use]
+    pub fn reserved_bytes(&self) -> u64 {
+        self.result_jsonl.reserved_bytes()
+            + self.result_schema_json.reserved_bytes()
+            + self
+                .file_scan_metadata
+                .as_ref()
+                .map_or(0, shardloom_exec::live_memory::MemoryLease::bytes)
+    }
 }
 
 /// Native sort evidence from the same producer that delivered the result.
@@ -299,6 +314,7 @@ pub struct ExecutedVortexSort {
     pub report: super::VortexLocalPrimitiveExecutionReport,
     pub native_io_certificate: shardloom_core::NativeIoCertificate,
     pub runtime: crate::resident_session::ResidentSessionSnapshot,
+    _file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
 }
 
 /// Complete native sort output retaining the original shared buffer owners.
@@ -326,10 +342,15 @@ pub fn for_each_sort_batch(
 ) -> Result<ExecutedVortexSort> {
     cancellation.check()?;
     let session = source_session(source, request, Some(policy))?;
-    let (report, provider_background_workers) =
-        execute_sort_with_consumer(request, policy, source, Some(&mut consume), cancellation)?;
+    let SortOperation {
+        report,
+        provider_background_workers,
+        file_scans,
+        file_scan_metadata,
+    } = execute_sort_with_consumer(request, policy, source, Some(&mut consume), cancellation)?;
     cancellation.check()?;
-    let native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    native_io_certificate.file_scans = file_scans;
     if report.has_errors() || !native_io_certificate.is_certified() {
         return Err(failed(
             "sort execution did not produce a certified native report",
@@ -346,6 +367,7 @@ pub fn for_each_sort_batch(
         report,
         native_io_certificate,
         runtime,
+        _file_scan_metadata: file_scan_metadata,
     })
 }
 
@@ -410,9 +432,15 @@ pub fn collect_sort_controlled(
     cancellation.check()?;
     let mut sink = super::collect::JsonRows::new(session.memory(), 8 * 1024 * 1024, true)?;
     cancellation.check()?;
-    let report = execute_sort_with_sink(request, policy, source, Some(&mut sink), cancellation)?;
+    let SortOperation {
+        report,
+        file_scans,
+        file_scan_metadata,
+        ..
+    } = execute_sort_with_sink(request, policy, source, Some(&mut sink), cancellation)?;
     cancellation.check()?;
     let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
+    native_io_certificate.file_scans = file_scans;
     cancellation.check()?;
     let (result_jsonl, result_schema_json, mut timing) =
         sink.finish_with_timing(&mut native_io_certificate, started)?;
@@ -428,6 +456,7 @@ pub fn collect_sort_controlled(
         native_io_certificate,
         result_jsonl,
         result_schema_json,
+        file_scan_metadata,
     })
 }
 
@@ -437,7 +466,7 @@ fn execute_sort_with_sink(
     source: &PreparedVortexSource,
     mut sink: Option<&mut super::collect::JsonRows>,
     parent_cancellation: &CancellationToken,
-) -> Result<super::VortexLocalPrimitiveExecutionReport> {
+) -> Result<SortOperation> {
     if let Some(sink) = sink.as_mut() {
         execute_sort_with_consumer(
             request,
@@ -446,10 +475,8 @@ fn execute_sort_with_sink(
             Some(&mut |array, context| sink.append_native(&array, context)),
             parent_cancellation,
         )
-        .map(|(report, _)| report)
     } else {
         execute_sort_with_consumer(request, policy, source, None, parent_cancellation)
-            .map(|(report, _)| report)
     }
 }
 
@@ -459,13 +486,20 @@ type SortConsumer<'a> = dyn FnMut(
     ) -> Result<()>
     + 'a;
 
+struct SortOperation {
+    report: super::VortexLocalPrimitiveExecutionReport,
+    provider_background_workers: usize,
+    file_scans: shardloom_core::native_file_scan::NativeFileScanEvidence,
+    file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
+}
+
 fn execute_sort_with_consumer(
     request: &VortexQueryPrimitiveRequest,
     policy: VortexLocalPrimitiveExecutionPolicy,
     source: &PreparedVortexSource,
     consumer: Option<&mut SortConsumer<'_>>,
     parent_cancellation: &CancellationToken,
-) -> Result<(super::VortexLocalPrimitiveExecutionReport, usize)> {
+) -> Result<SortOperation> {
     parent_cancellation.check()?;
     if request.kind != super::VortexQueryPrimitiveKind::SortRows {
         return Err(failed("requires a sort request"));
@@ -483,7 +517,15 @@ fn execute_sort_with_consumer(
     );
     cancellation.check()?;
     let execution = session.with_native_execution_context(&cancellation, |context| {
-        execute_sort_in_context(request, policy, source, consumer, context)
+        let (report, provider_background_workers) =
+            execute_sort_in_context(request, policy, source, consumer, context)?;
+        let (file_scans, file_scan_metadata) = context.take_native_file_scan_evidence()?;
+        Ok(SortOperation {
+            report,
+            provider_background_workers,
+            file_scans,
+            file_scan_metadata,
+        })
     })?;
     cancellation.check()?;
     Ok(execution)
@@ -501,6 +543,7 @@ pub(crate) fn execute_sort_in_context(
     let session = source.retained_session();
     session.validate_execution_context(context)?;
     super::prepared_relational::validate_session_policy(policy, &session)?;
+    context.register_native_file_scan_source(source)?;
     let (policy, physical) = policy.with_physical_policy_for_request(request);
     let sort = super::required_sort_rows(request)?;
     let uri = request

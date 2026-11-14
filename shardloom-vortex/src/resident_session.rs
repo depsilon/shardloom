@@ -17,9 +17,11 @@ use futures::{FutureExt as _, future::BoxFuture};
 // Bound each added local extent by useful request bytes while preserving
 // adjacent reads. The allocator and operation grant own the resulting backing.
 const COALESCING_AMPLIFICATION_LIMIT: std::num::NonZeroU64 = std::num::NonZeroU64::new(4).unwrap();
-use shardloom_core::{FloatPolicy, RecursionLimit, Result, ShardLoomError};
+use shardloom_core::{
+    FloatPolicy, RecursionLimit, Result, ShardLoomError, native_file_scan::NativeFileScanEvidence,
+};
 use shardloom_exec::compute_pool::CancellationToken;
-use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot};
+use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, LiveMemorySnapshot, MemoryLease};
 use vortex::{
     VortexSessionDefault as _,
     array::{
@@ -51,6 +53,9 @@ mod execution_context;
 mod io_ownership;
 #[path = "resident_admission.rs"]
 mod serving_admission;
+#[cfg(unix)]
+#[path = "resident_source_segment_cache.rs"]
+mod source_segment_cache;
 pub use execution_context::{NativeExecutionContext, ResidentCallTiming};
 /// A borrowed native batch consumer, keeping upstream array details inside the
 /// Vortex adapter while sharing the producer's admitted resource context.
@@ -130,6 +135,9 @@ struct RuntimeOwner {
     provider_background_workers: usize,
     opens: AtomicU64,
     executions: AtomicU64,
+    next_operation: AtomicU64,
+    #[cfg(unix)]
+    source_segments: Arc<source_segment_cache::Store>,
 }
 
 impl RuntimeOwner {
@@ -154,6 +162,29 @@ pub struct ResidentSessionSnapshot {
     /// Actual executor grant, not measured concurrent lane utilization.
     pub admitted_max_parallelism: usize,
     pub memory: LiveMemorySnapshot,
+    /// Shared optional source state; its credits are included in `memory`.
+    pub source_segment_cache:
+        Option<shardloom_core::native_file_scan::NativeSourceSegmentCacheSnapshot>,
+}
+
+#[cfg(test)]
+impl ResidentSessionSnapshot {
+    /// Query-lifetime checks exclude only the two separately credited cache
+    /// owners. Total reservations, pressure tests and final teardown still use
+    /// `memory.reserved_bytes`; cache lifecycle tests verify these owners directly.
+    pub(crate) fn reserved_without_source_segment_cache(self) -> u64 {
+        let cache_bytes = self.source_segment_cache.map_or(0, |cache| {
+            assert!(!cache.counters_overflowed);
+            cache
+                .table_reserved_bytes
+                .checked_add(cache.retained_capacity_bytes)
+                .expect("cache ownership overflow")
+        });
+        self.memory
+            .reserved_bytes
+            .checked_sub(cache_bytes)
+            .expect("cache ownership exceeds total reservation")
+    }
 }
 
 impl ResidentVortexSession {
@@ -273,6 +304,8 @@ impl ResidentVortexSession {
             runtime: Arc::clone(&self.0),
             rows,
             logical_buffer_bytes,
+            file_scan_evidence: NativeFileScanEvidence::default(),
+            _file_scan_metadata: None,
         })
     }
 
@@ -316,6 +349,8 @@ impl ResidentVortexSession {
             runtime: Arc::clone(&self.0),
             rows,
             logical_buffer_bytes,
+            file_scan_evidence: NativeFileScanEvidence::default(),
+            _file_scan_metadata: None,
         })
     }
 
@@ -379,6 +414,7 @@ impl ResidentVortexSession {
         let completion = context.finish_opened_sources();
         let result = result?;
         completion?;
+        context.complete_segment_reuse()?;
         Ok(result)
     }
 
@@ -492,6 +528,8 @@ impl ResidentVortexSession {
             runtime: Arc::clone(&self.0),
             rows,
             logical_buffer_bytes,
+            file_scan_evidence: NativeFileScanEvidence::default(),
+            _file_scan_metadata: None,
         };
         self.0.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
@@ -661,12 +699,15 @@ impl ResidentVortexSession {
             admission: Mutex::new(()),
             serving: None,
             io_budget: None,
+            #[cfg(unix)]
+            source_segments: source_segment_cache::Store::new(&memory)?,
             memory,
             parallelism,
             configured_parallelism: None,
             provider_background_workers,
             opens: AtomicU64::new(0),
             executions: AtomicU64::new(0),
+            next_operation: AtomicU64::new(0),
         })))
     }
 
@@ -678,6 +719,16 @@ impl ResidentVortexSession {
             provider_background_workers: self.0.provider_background_workers,
             admitted_max_parallelism: self.0.cpu_limit(),
             memory: self.0.memory.snapshot(),
+            source_segment_cache: {
+                #[cfg(unix)]
+                {
+                    Some(self.0.source_segments.snapshot())
+                }
+                #[cfg(not(unix))]
+                {
+                    None
+                }
+            },
         }
     }
 
@@ -771,23 +822,56 @@ struct PreparedSourceProvenance {
 
 impl PreparedSourceOwner {
     fn validate(&self) -> Result<()> {
-        self.identity
-            .as_ref()
-            .map_or(Ok(()), |identity| identity.validate())?;
-        #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
-        if let Some(preparation) = &self.preparation {
-            for source in &preparation.sources {
-                source.validate_generation()?;
+        let result = (|| {
+            self.identity
+                .as_ref()
+                .map_or(Ok(()), |identity| identity.validate())?;
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+            if let Some(preparation) = &self.preparation {
+                for source in &preparation.sources {
+                    source.validate_generation()?;
+                }
             }
+            Ok(())
+        })();
+        #[cfg(unix)]
+        if result.is_err()
+            && let Some(identity) = &self.identity
+        {
+            self.runtime
+                .source_segments
+                .invalidate_source(identity, true);
         }
-        Ok(())
+        result
+    }
+}
+
+impl Drop for PreparedSourceOwner {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        if let Some(identity) = &self.identity {
+            self.runtime
+                .source_segments
+                .invalidate_source(identity, false);
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct PreparedVortexSource(Arc<PreparedSourceOwner>);
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "resident_file_evidence.rs"]
+mod file_evidence;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+pub(crate) use file_evidence::contract_bytes as native_scan_contract_bytes;
+
 impl PreparedVortexSource {
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn has_file_generation(&self) -> bool {
+        self.0.identity.is_some()
+    }
+
     /// Retain explicit compatibility preparation generations on this native owner.
     /// Every clone shares their validation, writer alias checks and memory credit.
     /// Persisted Vortex inputs without this attachment remain independent sources.
@@ -1000,6 +1084,7 @@ impl PreparedVortexSource {
         context.drain_io();
         context.check_cancelled()?;
         source.validate()?;
+        context.complete_segment_reuse()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -1060,6 +1145,7 @@ impl PreparedVortexSource {
         context.drain_io();
         context.check_cancelled()?;
         source.validate()?;
+        context.complete_segment_reuse()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -1159,6 +1245,7 @@ impl PreparedVortexSource {
         context.drain_io();
         context.check_cancelled()?;
         source.validate()?;
+        context.complete_segment_reuse()?;
         source.runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok(result)
     }
@@ -1323,6 +1410,7 @@ impl PreparedVortexSource {
             source: self.clone(),
             projection,
             filter: None,
+            pruning_filter: None,
             row_range: None,
             max_rows,
             max_output_bytes,
@@ -1411,6 +1499,7 @@ pub struct PreparedVortexProjection {
     source: PreparedVortexSource,
     projection: BoundExpression,
     filter: Option<BoundExpression>,
+    pruning_filter: Option<vortex::expr::Expression>,
     row_range: Option<std::ops::Range<u64>>,
     max_rows: u64,
     max_output_bytes: u64,
@@ -1424,9 +1513,19 @@ pub struct OwnedVortexResultBatch {
     runtime: Arc<RuntimeOwner>,
     rows: u64,
     logical_buffer_bytes: u64,
+    file_scan_evidence: shardloom_core::native_file_scan::NativeFileScanEvidence,
+    _file_scan_metadata: Option<MemoryLease>,
 }
 
 impl OwnedVortexResultBatch {
+    /// Completed native-file work from a direct projection result. Results
+    /// produced by composed operators carry their evidence in the accompanying
+    /// execution certificate. Empty evidence does not establish zero reads.
+    #[must_use]
+    pub fn file_scan_evidence(&self) -> &shardloom_core::native_file_scan::NativeFileScanEvidence {
+        &self.file_scan_evidence
+    }
+
     /// Deliver already completed native batches under their retained resource
     /// owner. No query executes and buffers remain credited through the callback.
     /// An empty result still delivers its declared native schema once.
@@ -1518,9 +1617,27 @@ impl PreparedVortexProjection {
         self.row_range = Some(range);
         Ok(self)
     }
-    pub(crate) fn with_filter(mut self, filter: Option<BoundExpression>) -> Self {
-        self.filter = filter;
-        self
+    pub(crate) fn with_filter(mut self, filter: Option<vortex::expr::Expression>) -> Result<Self> {
+        self.filter = filter
+            .as_ref()
+            .map(|expression| {
+                expression
+                    .bind(self.source.dtype())
+                    .and_then(|bound| bound.optimize_recursive())
+                    .map_err(native_error)
+            })
+            .transpose()?;
+        if self
+            .filter
+            .as_ref()
+            .is_some_and(|expression| !matches!(expression.dtype(), DType::Bool(_)))
+        {
+            return Err(resident_error(
+                "projection filter must return boolean values",
+            ));
+        }
+        self.pruning_filter = filter;
+        Ok(self)
     }
     /// Execute the native scan and return actual arrays, without rendering rows.
     ///
@@ -1584,6 +1701,12 @@ impl PreparedVortexProjection {
         context.drain_io();
         context.check_cancelled()?;
         source.validate()?;
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        let (file_scan_evidence, file_scan_metadata) = context.take_native_file_scan_evidence()?;
+        #[cfg(not(all(feature = "vortex-local-primitives", unix)))]
+        let (file_scan_evidence, file_scan_metadata) = (Default::default(), None);
+        #[cfg(unix)]
+        context.complete_segment_reuse()?;
         runtime.executions.fetch_add(1, Ordering::Relaxed);
         Ok((
             OwnedVortexResultBatch {
@@ -1592,6 +1715,8 @@ impl PreparedVortexProjection {
                 runtime: Arc::clone(runtime),
                 rows,
                 logical_buffer_bytes: logical_bytes,
+                file_scan_evidence,
+                _file_scan_metadata: file_scan_metadata,
             },
             context.timing(),
         ))
@@ -1606,10 +1731,12 @@ impl PreparedVortexProjection {
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<(u64, u64)> {
-        self.source
+        let result = self
+            .source
             .with_admitted_native_execution(context, |file, context| {
                 self.consume_scan(file, context, consume)
-            })
+            })?;
+        Ok(result)
     }
 
     fn consume_scan(
@@ -1618,6 +1745,26 @@ impl PreparedVortexProjection {
         context: &NativeExecutionContext<'_>,
         consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
     ) -> Result<(u64, u64)> {
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        let observation = crate::local_primitives::native_file_scan_evidence::Observation::bound(
+            &self.source,
+            Some(&self.projection),
+            self.filter.as_ref(),
+            shardloom_core::native_file_scan::NativeFileScanRoute::Projection,
+            context,
+        )?;
+        context.check_cancelled()?;
+        let pruned = self
+            .pruning_filter
+            .as_ref()
+            .map(|filter| file.can_prune(filter).map_err(native_error))
+            .transpose()?;
+        context.check_cancelled()?;
+        if pruned == Some(true) {
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            observation.complete(&self.source, context, 0, 0, 1, 1)?;
+            return Ok((0, 0));
+        }
         let scan = file
             .scan()
             .map_err(native_error)?
@@ -1667,6 +1814,15 @@ impl PreparedVortexProjection {
         }
         drop(scan);
         context.check_cancelled()?;
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        observation.complete(
+            &self.source,
+            context,
+            rows,
+            1,
+            u64::from(pruned.is_some()),
+            0,
+        )?;
         Ok((rows, logical_bytes))
     }
 }
@@ -1743,6 +1899,8 @@ impl SourceIdentity {
             concurrency,
             scope,
             reader_owner: None,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            evidence: None,
         })
     }
 }
@@ -1755,6 +1913,8 @@ struct ResidentFileReadAt {
     concurrency: usize,
     scope: Option<Arc<io_ownership::IoScope>>,
     reader_owner: Option<Arc<io_ownership::ReaderOwner>>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    evidence: Option<Arc<file_evidence::ReadWork>>,
 }
 
 impl VortexReadAt for ResidentFileReadAt {
@@ -1785,6 +1945,8 @@ impl VortexReadAt for ResidentFileReadAt {
         let identity = Arc::clone(&self.identity);
         let allocator = Arc::clone(&self.allocator);
         let handle = self.handle.clone();
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        let evidence = self.evidence.clone();
         // An unpolled/cancelled read future must keep its provider reader alive.
         // Tuple field order releases the extra scope before the reader guard
         // can publish its final zero count to an operation waiting for cleanup.
@@ -1823,6 +1985,12 @@ impl VortexReadAt for ResidentFileReadAt {
                             buffer.as_mut_slice(),
                             offset,
                         )?;
+                        #[cfg(all(feature = "vortex-local-primitives", unix))]
+                        if let Some(evidence) = &evidence {
+                            evidence
+                                .read_completed(length)
+                                .map_err(|error| vortex_err!("{error}"))?;
+                        }
                         identity
                             .validate()
                             .map_err(|error| vortex_err!("{error}"))?;

@@ -35,9 +35,12 @@ fn native_result_retains_every_value_beyond_small_collection_limits() {
     allocation.resource_envelope.memory_budget_bytes = 128 << 20;
     let prepared = prepare_relational(&fixture.scan(), allocation).unwrap();
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     assert!(prepared.execute_owned().is_err());
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let completed = prepared
         .execute_native(&CancellationToken::default())
         .unwrap();
@@ -110,7 +113,7 @@ fn shared_frontend_preparation_cannot_duplicate_the_session_grant() {
 fn native_result_cancellation_returns_no_partial_owner_and_allows_retry() {
     let fixture = Fixture::new(keyed(&[Some(1), None], &[8, 9]), 1);
     let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let cancelled = CancellationToken::default();
     cancelled.cancel();
     assert!(prepared.execute_native(&cancelled).is_err());
@@ -121,7 +124,10 @@ fn native_result_cancellation_returns_no_partial_owner_and_allows_retry() {
         .unwrap();
     assert_eq!(completed.result.row_count(), 2);
     drop(completed);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]

@@ -162,27 +162,33 @@ fn check_pressure(streamed_probe: bool) {
     };
     let plan = joined(probe, true, JoinKind::Full);
     let denied = prepare_join(&plan, &fixture, false, GRANT, streamed_probe);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied, false)
         .err()
         .expect("resident build must exceed this grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
     assert_eq!(denied.snapshot().completed_executions, 0);
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(denied);
 
     let ample = prepare_join(&plan, &fixture, false, 128 << 20, streamed_probe);
-    let baseline = ample.snapshot().memory.reserved_bytes;
+    let baseline = ample.snapshot().reserved_without_source_segment_cache();
     let control = execute(&ample, true).unwrap();
     assert_eq!(control.ordered_join_stages, 0);
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     let input_bytes = control.input.as_ref().unwrap().input_logical_bytes;
     drop(control);
-    assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ample.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(ample);
 
     let spilled = prepare_join(&plan, &fixture, true, GRANT, streamed_probe);
-    let baseline = spilled.snapshot().memory.reserved_bytes;
+    let baseline = spilled.snapshot().reserved_without_source_segment_cache();
     let result = execute(&spilled, true).unwrap();
     let spill = result.spill.as_ref().unwrap();
     assert!(
@@ -209,5 +215,8 @@ fn check_pressure(streamed_probe: bool) {
         "lookup_blocks":result.ordered_join_lookup_blocks,"complete_output_rows":result.output_rows,"owned_cleanup_completed":spill.owned_cleanup_completed})
     );
     drop(result);
-    assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        spilled.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }

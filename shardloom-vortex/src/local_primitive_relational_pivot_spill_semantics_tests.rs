@@ -45,7 +45,7 @@ fn native_pivot_spill_decimal_wide_state_cancels_and_averages_before_final_preci
         let plan = plan(&fixture, aggregate);
         let resident = prepare(&fixture, plan.clone(), false);
         let prepared = prepare(&fixture, plan, true);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let expected = (0..257)
             .map(|index| {
                 json!({
@@ -58,7 +58,10 @@ fn native_pivot_spill_decimal_wide_state_cancels_and_averages_before_final_preci
         assert_eq!(complete(&resident).0, expected);
         assert!(report.spill.as_ref().unwrap().merge_passes > 0);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let fixture = decimal_fixture(&[maximum, maximum], 89);
     let mut plan = plan(&fixture, "mean");
@@ -100,7 +103,7 @@ fn native_pivot_spill_decimal_final_overflow_and_inexactness_release_all_state()
         let plan = plan(&fixture, aggregate);
         let resident = prepare(&fixture, plan.clone(), false);
         let prepared = prepare(&fixture, plan, true);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let reference = resident.execute_owned().err().unwrap();
         let mut delivered = 0;
         let error = prepared
@@ -113,7 +116,10 @@ fn native_pivot_spill_decimal_final_overflow_and_inexactness_release_all_state()
         assert_eq!(error.to_string(), reference.to_string());
         assert!(error.to_string().contains(message));
         assert_eq!(delivered, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("pivot-runs")).unwrap().count(),
             0
@@ -196,7 +202,7 @@ fn native_pivot_spill_sparse_weighted_margins_fill_and_limits_use_selected_indic
             }
             expected.push(json!({"entity":"total", "pivot_a":summarize(&a),
                 "pivot_b":summarize(&b), "pivot_total":summarize(&all)}));
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let (actual, report) = complete(&prepared);
             assert_eq!(actual, expected, "{aggregate}/{limit:?}");
             assert_eq!(complete(&resident).0, expected);
@@ -208,7 +214,10 @@ fn native_pivot_spill_sparse_weighted_margins_fill_and_limits_use_selected_indic
                 report.spill.as_ref().unwrap().runs_written + 2
             );
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }

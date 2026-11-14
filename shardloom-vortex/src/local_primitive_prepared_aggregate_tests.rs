@@ -377,6 +377,11 @@ fn supplied_provider_session_does_not_also_launch_an_aggregate_worker_pool() {
         5
     );
     drop(prepared);
+    assert_eq!(
+        session.snapshot().memory.reserved_bytes,
+        result.file_scan_metadata.as_ref().unwrap().bytes()
+    );
+    drop(result);
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }
 

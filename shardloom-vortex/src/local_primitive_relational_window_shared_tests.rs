@@ -24,7 +24,7 @@ fn measure(function: &str, column: Option<&str>, alias: &str) -> Measure {
 }
 
 fn assert_resident(prepared: &PreparedVortexRelational, expected: &[Value]) {
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -39,7 +39,10 @@ fn assert_resident(prepared: &PreparedVortexRelational, expected: &[Value]) {
     );
     assert_eq!(result.execution.ordered_window_stages, 0);
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 fn moving(measure: Measure) -> Expression {
@@ -98,7 +101,7 @@ fn same_error(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &str, ca
     let stored = ordered(fixture, plan);
     let mut prior = None;
     for (stored, prepared) in [(false, &resident), (true, &stored)] {
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut emitted = 0;
         #[cfg(debug_assertions)]
         let observation = crate::local_primitives::native_relational_observation::Session::start();
@@ -121,7 +124,10 @@ fn same_error(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &str, ca
         }
         assert_eq!(emitted, 0);
         assert_eq!(prepared.snapshot().completed_executions, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert!(!prepared.root_has_file_kernel(), "{case}, stored={stored}");
         #[cfg(debug_assertions)]
         eprintln!(
@@ -255,7 +261,7 @@ fn compatible_decimal_window_counts_use_input_nulls_across_result_policies() {
         json!({"id":2,"mean":"decimal128(3,1):55","nonnull":2,"total":"decimal128(3,0):11","all_rows":3}),
     ];
     let resident = prepare_relational(&plan, policy()).unwrap();
-    let baseline = resident.snapshot().memory.reserved_bytes;
+    let baseline = resident.snapshot().reserved_without_source_segment_cache();
     let result = resident
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -269,14 +275,20 @@ fn compatible_decimal_window_counts_use_input_nulls_across_result_policies() {
             .fallback_attempted
     );
     drop(result);
-    assert_eq!(resident.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        resident.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let stored = ordered(&fixture, &plan);
-    let baseline = stored.snapshot().memory.reserved_bytes;
+    let baseline = stored.snapshot().reserved_without_source_segment_cache();
     let (rows, report) = complete(&stored, 1);
     assert_eq!(rows, expected);
     assert_eq!(stored.output_dtype(), resident.output_dtype());
     drop(report);
-    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        stored.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -314,12 +326,15 @@ fn compatible_window_arithmetic_first_matches_independent_exclusion_membership()
                     let resident = prepare_relational(&plan, policy()).unwrap();
                     assert_resident(&resident, &expected);
                     let stored = ordered(&fixture, &plan);
-                    let baseline = stored.snapshot().memory.reserved_bytes;
+                    let baseline = stored.snapshot().reserved_without_source_segment_cache();
                     let (rows, report) = complete(&stored, 3);
                     assert_eq!(rows, expected);
                     assert_eq!(stored.output_dtype(), resident.output_dtype());
                     drop(report);
-                    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+                    assert_eq!(
+                        stored.snapshot().reserved_without_source_segment_cache(),
+                        baseline
+                    );
                 }
             }
         }
@@ -396,12 +411,15 @@ fn compatible_window_near_matches_keep_distinct_values_and_membership() {
     let resident = prepare_relational(&plan, policy()).unwrap();
     assert_resident(&resident, &expected);
     let stored = ordered(&fixture, &plan);
-    let baseline = stored.snapshot().memory.reserved_bytes;
+    let baseline = stored.snapshot().reserved_without_source_segment_cache();
     let (rows, report) = complete(&stored, 2);
     assert_eq!(rows, expected);
     assert_eq!(stored.output_dtype(), resident.output_dtype());
     drop(report);
-    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        stored.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -434,11 +452,14 @@ fn compatible_window_empty_and_all_null_outputs_keep_count_semantics() {
             assert_resident(&resident, &expected);
             if rows != 0 {
                 let stored = ordered(&fixture, &plan);
-                let baseline = stored.snapshot().memory.reserved_bytes;
+                let baseline = stored.snapshot().reserved_without_source_segment_cache();
                 let (actual, report) = complete(&stored, 1);
                 assert_eq!(actual, expected);
                 drop(report);
-                assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    stored.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
             }
         }
     }
@@ -475,7 +496,7 @@ fn compatible_window_families_refund_denial_cancellation_and_retry() {
             } else {
                 prepare_relational(&plan, policy()).unwrap()
             };
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let pressure = prepared
                 .session
                 .memory()
@@ -492,7 +513,10 @@ fn compatible_window_families_refund_denial_cancellation_and_retry() {
             );
             assert_eq!(emitted, 0);
             drop(pressure);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             let cancel = CancellationToken::default();
             cancel.cancel();
             assert!(
@@ -504,7 +528,10 @@ fn compatible_window_families_refund_denial_cancellation_and_retry() {
                     .is_err()
             );
             assert_eq!(emitted, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             let cancel = CancellationToken::default();
             assert!(
                 prepared
@@ -517,7 +544,10 @@ fn compatible_window_families_refund_denial_cancellation_and_retry() {
             );
             assert_eq!(emitted, 1);
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             if spill {
                 let (rows, report) = complete(&prepared, 257);
                 assert_eq!(rows, expected);
@@ -527,7 +557,10 @@ fn compatible_window_families_refund_denial_cancellation_and_retry() {
                 assert_resident(&prepared, &expected);
                 assert_eq!(prepared.snapshot().completed_executions, 1);
             }
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -696,7 +729,7 @@ fn compatible_window_extended_nonfinites_keep_counts_bits_and_finite_recovery() 
                         .unwrap();
                 }
                 assert_eq!(prepared.output_dtype().as_ref(), Some(&schema));
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 if float_policy == FloatPolicy::Extended {
                     assert_extended_native_values(&prepared, spill);
                     assert_eq!(prepared.snapshot().completed_executions, 1);
@@ -714,7 +747,10 @@ fn compatible_window_extended_nonfinites_keep_counts_bits_and_finite_recovery() 
                     assert_eq!(emitted, 0);
                     assert_eq!(prepared.snapshot().completed_executions, 0);
                 }
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 drop(prepared);
                 drop(session);
                 assert_eq!(memory.snapshot().reserved_bytes, 0);
