@@ -1,0 +1,29 @@
+[codex/native-dictionary-domain 263f052ce] Preserve dictionary-domain text implementation and complete experiment
+ Committer: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 23 files changed, 1726 insertions(+), 7 deletions(-)
+ create mode 100644 docs/architecture/native-dictionary-domain-2026-11-14.md
+ create mode 100644 python/tests/data/dictionary-text-v1/README.md
+ create mode 100644 python/tests/data/dictionary-text-v1/all-null.vortex
+ create mode 100644 python/tests/data/dictionary-text-v1/dictionary.vortex
+ create mode 100644 python/tests/data/dictionary-text-v1/empty.vortex
+ create mode 100644 python/tests/data/dictionary-text-v1/flat.vortex
+ create mode 100644 python/tests/data/dictionary-text-v1/sparse.vortex
+ create mode 100644 python/tests/data/dictionary-text-v1/unique.vortex
+ create mode 100644 python/tests/native_dictionary_text_cases.py
+ create mode 100644 shardloom-vortex/examples/native_dictionary_uat_fixture.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_dictionary_exposure_tests.rs
+ create mode 100644 shardloom-vortex/src/local_primitives/native_relational_dictionary_expression.rs
+ create mode 100644 shardloom-vortex/src/local_primitives/native_relational_dictionary_expression_tests.rs
+ create mode 100644 shardloom-vortex/src/native_dictionary_expression.rs
+{"status": "preserved", "head": "263f052ce7ef84618b042985cbcb4a3f73ca3bff", "source_files": 5762, "changed_files": 23, "source_fingerprint_sha256": "c64f40da7b3693e3eff7e4eebeca2f64a171a7d02deba387f440d021f586b4ef"}

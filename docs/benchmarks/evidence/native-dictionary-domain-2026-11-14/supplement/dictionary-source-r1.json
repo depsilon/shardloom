@@ -1,0 +1,43 @@
+{
+  "status": "preserved_exact_candidate_source",
+  "disposition": "retain",
+  "head": "263f052ce7ef84618b042985cbcb4a3f73ca3bff",
+  "tree": "b8893dd71626ec1ee993ebe4dd90feeac8dd522c",
+  "parent": "c74d0ebb4d56bdcd919776c213aeaf3cf84e9ab8",
+  "branch": "codex/native-dictionary-domain",
+  "files": [
+    "docs/architecture/native-dictionary-domain-2026-11-14.md",
+    "python/tests/data/dictionary-text-v1/README.md",
+    "python/tests/data/dictionary-text-v1/all-null.vortex",
+    "python/tests/data/dictionary-text-v1/dictionary.vortex",
+    "python/tests/data/dictionary-text-v1/empty.vortex",
+    "python/tests/data/dictionary-text-v1/flat.vortex",
+    "python/tests/data/dictionary-text-v1/sparse.vortex",
+    "python/tests/data/dictionary-text-v1/unique.vortex",
+    "python/tests/native_dictionary_text_cases.py",
+    "python/tests/test_native_shared_provider_binding.py",
+    "shardloom-vortex/Cargo.toml",
+    "shardloom-vortex/examples/native_dictionary_uat_fixture.rs",
+    "shardloom-vortex/src/lib.rs",
+    "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+    "shardloom-vortex/src/local_primitive_relational_dictionary_exposure_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_expression_tests.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_dictionary_expression.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_dictionary_expression_tests.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_scalar_batch.rs",
+    "shardloom-vortex/src/local_primitives/native_relational_scalar_batch_tests.rs",
+    "shardloom-vortex/src/native_dictionary_expression.rs",
+    "shardloom-vortex/src/resident_execution_context.rs"
+  ],
+  "patch": {
+    "bytes": 100069,
+    "sha256": "0e45c46d4c8e40395159adbfa282b4ac98eb0ac88703fdf89a1ed28e28cca1be"
+  },
+  "source_fingerprint_sha256": "c64f40da7b3693e3eff7e4eebeca2f64a171a7d02deba387f440d021f586b4ef",
+  "source_bytes_equal_to_executed_candidate": true,
+  "committed_blobs_verified": 5762,
+  "runtime_build_head": "c74d0ebb4d56bdcd919776c213aeaf3cf84e9ab8",
+  "runtime_rebuilt_after_commit": false,
+  "publication_attempted": false
+}

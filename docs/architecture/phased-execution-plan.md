@@ -348,7 +348,13 @@ once, and do not repeat full10k or broad gates after every small edit.
   ten read witnesses and separate lifecycles pass, but the complete fresh engine
   total increases from 556.592642154 to 564.033758513 seconds. Its source and
   portable evidence remain preserved; the accepted scalar-regional code is
-  restored. Dictionary-domain text execution under N is next. Broader
+  restored. The subsequent [dictionary-domain N experiment](native-dictionary-domain-2026-11-14.md)
+  is retained locally at `263f052ce`: all 5,530 declarations per runtime,
+  80 lifecycle operations, 210 work witnesses and portable checks pass. The
+  complete fresh engine total decreases from 676.301549673 to 668.884468618
+  seconds, with every regression and harness-recovery observation preserved;
+  separate lifecycle engine time also decreases. Named source/domain facts
+  extending C and ALP/FastLanes predicate admission are next. Broader
   constant-key support remains open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
@@ -363,8 +369,10 @@ once, and do not repeat full10k or broad gates after every small edit.
     The fixed constant-key candidate has a complete drop disposition with
     semantic and read-avoidance proof. Wider constant-key support remains open;
     this parent stays open and does not request a repeat of the rejected experiment.
-  - [ ] Extend existing N with dictionary-domain text transforms retained into
-    filter/group/distinct consumers and compatible shared outputs.
+  - [x] Extend existing N with dictionary-domain text transforms retained into
+    filter/group/distinct consumers and compatible shared outputs. The
+    [finite November 14 unit](native-dictionary-domain-2026-11-14.md) is retained
+    with complete comparison, lifecycle, ownership and portable evidence.
   - [ ] Extend C with only the exact source/domain facts required by the named
     ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve
     typed comparison and failure semantics without a speculative fact framework.
@@ -520,9 +528,11 @@ once, and do not repeat full10k or broad gates after every small edit.
     - [ ] M: conditionally compare two legal native three-way inner-join plans
       over exact heavy/light key regions; require fewer candidate combinations,
       with all degree/split/build/reconciliation costs and uniform controls.
-    - [ ] N: establish active dictionary exposure, then evaluate eligible
+    - [x] N: establish active dictionary exposure, then evaluate eligible
       text transforms over values retained into group/filter consumers; preserve
       merged-value equality, cross-dictionary identity and the detached-code repair.
+      The [bounded November 14 extension](native-dictionary-domain-2026-11-14.md)
+      is retained locally; this closes the same finite N unit listed above.
     - [ ] 11: use actual spill exposure to prioritize admitted mergeable native
       aggregate states; keep pressured-workload results separate from the stable 10k.
     - [ ] 12: evaluate a charged spilled-join block directory, then separately

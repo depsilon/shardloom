@@ -19,8 +19,10 @@ the build itself retains its earlier parent and dirty-source identity. Default,
 native, provider and installed tests pass. The subsequent
 [constant-key candidate](native-constant-key-aggregates-2026-11-14.md) is dropped
 after its complete fresh engine total increases; this scalar implementation
-remains accepted. Dictionary-domain execution is next. Broader constant-key
-support, the metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through
+remains accepted. The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)
+is retained locally. Named source/domain facts and ALP/FastLanes predicate
+admission are next. Broader constant-key support, the metadata/optimization
+queue, item 19/20, RFC 0044 and CG-1 through
 CG-23 remain open. This local acceptance does not merge or publish the change.
 
 The following contract was fixed before measurement and remains the boundary

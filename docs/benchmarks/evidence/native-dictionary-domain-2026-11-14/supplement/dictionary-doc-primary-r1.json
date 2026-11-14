@@ -1,0 +1,25 @@
+{
+  "status": "passed_primary_document_inventory_verification",
+  "inventory": {
+    "bytes": 7403,
+    "sha256": "b693975cbbfb9c4c58457eac52b565624b4fe1d3f54d542e6bbe20d85473ec24"
+  },
+  "source_hashes_verified": 7,
+  "literal_passages_verified": 12,
+  "additional_current_status_passages": [
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": 366,
+      "literal_stale_text": "- [ ] Extend existing N with dictionary-domain text transforms retained into\n    filter/group/distinct consumers and compatible shared outputs.",
+      "instruction": "After complete disposition, mark this finite N investigation resolved and link its evidence. This does not close its parent aggregate/coverage queue, item20 or any competitive gate."
+    }
+  ],
+  "classification_corrections": [
+    "native-dictionary-domain-2026-11-14.md Status: active is current status. Add the eventual disposition and preserve its prospectively frozen protocol in the immutable packet; do not leave the live document saying acceptance is pending after closeout.",
+    "phased-execution-plan.md N at lines523-525 is the same finite investigation, not an independent historical contract. Update both N queue references together after a complete disposition, while retaining the stated semantic contract and leaving item19/20/RFC0044/CG1-23 open.",
+    "The metadata queue row for C becomes Next active work after N closes. Preserve its exact scope and all later ordering; historical_passages_to_preserve does not freeze the mutable status label Next."
+  ],
+  "acceptance_decision_pending": true,
+  "repository_files_changed": 0,
+  "query_executions": 0
+}

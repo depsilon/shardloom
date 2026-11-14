@@ -2,12 +2,38 @@
 
 # Dictionary-domain text execution investigation
 
-Status: active, before candidate acceptance. This extends structural investigation
-N under item 20/RFC 0044 and the
+Status: the finite experiment is complete and **retained locally** at
+`263f052ce7ef84618b042985cbcb4a3f73ca3bff`. This resolves the bounded N extension
+under item 20/RFC 0044 in the
 [metadata/encoded-consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).
-The accepted scalar-regional runtime remains the baseline. The rejected
-per-measure and constant-key candidates remain rejected. No performance,
-publication, release, item-20 completion or CG-1 through CG-23 completion is claimed.
+The [complete comparison](../benchmarks/native-dictionary-domain-2026-11-14.md)
+and [portable evidence](../benchmarks/evidence/native-dictionary-domain-2026-11-14/README.md)
+verify all 11,060 fresh results, 80 lifecycle operations and 210 dictionary-work
+witnesses. The complete 5,530-request engine total decreases from 676.301549673
+to 668.884468618 seconds; separate lifecycle engine time decreases from
+0.098959580 to 0.077330714 seconds. All 3,207 individual regressions remain in
+the evidence. The added 1,380 dictionary/control cases are slightly slower as
+a group; the standing decision applies to the two complete totals.
+
+All required default/native, feature, minimum-Rust, provider and installed-package
+checks pass. The captured source fingerprint is
+`c64f40da7b3693e3eff7e4eebeca2f64a171a7d02deba387f440d021f586b4ef`;
+all 5,762 captured files match the preservation commit. The build retains its
+actual `c74d0ebb4` parent and dirty-source identity. The packet preserves the
+initial interrupted native suite, failed harness capture, exact baseline reuse
+and bounded recovery, plus 28 saved-evidence, 12 transport and 36 packet controls.
+Relocated replay works with original source/runtime/evidence reads forbidden.
+
+The accepted scalar-regional runtime is this experiment's comparison baseline.
+The per-measure and constant-key drops remain unchanged. Named source/domain
+facts extending C, followed by ALP/FastLanes predicate admission, are next.
+Broader metadata/encoded work, required item-19 spatial execution, item 20,
+RFC 0044 and CG-1 through CG-23 retain their remaining obligations. This local
+acceptance does not merge, publish, release or imply competitive superiority.
+
+The following sections preserve the prospective mechanism and semantic contract.
+The comparison report records the later harness repair without changing requests,
+inputs, runtime code, independent references or the acceptance rule.
 
 ## Observed opportunity and scope
 
