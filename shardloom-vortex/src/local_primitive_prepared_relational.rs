@@ -279,6 +279,7 @@ impl ExecutedVortexRelational {
         let (file_scans, metadata) = context.take_native_file_scan_evidence()?;
         self.native_io_certificate.file_scans = file_scans;
         self._file_scan_metadata = metadata;
+        context.append_encoded_compare_certificate(&mut self.native_io_certificate);
         Ok(self)
     }
 }
@@ -554,6 +555,8 @@ enum NodeKind {
         // Validated predicate semantics survive scan pushdown for native
         // provider selection; the executable Vortex filter stays in `plan`.
         predicate: Option<shardloom_core::PredicateExpr>,
+        // True only for typed predicates admitted using this held file's facts.
+        finite_float_predicate: bool,
         plan: LocalVortexScanPlan,
         columns: Vec<String>,
         residual: Option<MaterializedPredicateEvaluator>,
@@ -1735,6 +1738,9 @@ impl PreparedVortexRelational {
                 let executed = kernel
                     .operation
                     .consume(context, metrics, batch_rows, consume)?;
+                if kernel.uses_finite_float_predicate() {
+                    add(&metrics.pipeline.finite_float_scans, 1)?;
+                }
                 metrics
                     .pipeline
                     .record(executed, kernel.admission_reason, context)
@@ -1910,19 +1916,26 @@ impl PreparedVortexRelational {
                 plan,
                 columns,
                 residual,
+                finite_float_predicate,
                 ..
-            } => scan::run(
-                source,
-                &self.sources,
-                plan,
-                columns,
-                residual.as_ref(),
-                &node.fields,
-                context,
-                metrics,
-                batch_rows,
-                consume,
-            ),
+            } => {
+                scan::run(
+                    source,
+                    &self.sources,
+                    plan,
+                    columns,
+                    residual.as_ref(),
+                    &node.fields,
+                    context,
+                    metrics,
+                    batch_rows,
+                    consume,
+                )?;
+                if *finite_float_predicate {
+                    add(&metrics.pipeline.finite_float_scans, 1)?;
+                }
+                Ok(())
+            }
             NodeKind::Subquery { .. } => {
                 self.run_subquery(node, context, metrics, batch_rows, parameter, consume)
             }

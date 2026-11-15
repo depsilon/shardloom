@@ -14,6 +14,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::{Duration, Instant},
 };
+use vortex::array::scalar_fn::fns::binary::observation::{CompareWork, CompareWorkScope};
 use vortex::{
     error::{SharedVortexResult, vortex_err},
     file::{
@@ -22,7 +23,7 @@ use vortex::{
     },
     io::runtime::BlockingRuntime as _,
     layout::segments::{SegmentFuture, SegmentId, SegmentSource, SharedSegmentSource},
-    session::VortexSession,
+    session::{SessionExt as _, VortexSession},
 };
 
 enum Gate<'a> {
@@ -55,6 +56,8 @@ pub struct NativeExecutionContext<'a> {
     capability_decisions: Mutex<shardloom_core::native_io_decisions::NativeIoCapabilityDecisions>,
     variant_expression_work: Mutex<crate::native_variant::ExpressionWork>,
     dictionary_expression_work: Mutex<crate::native_dictionary_expression::Work>,
+    #[cfg_attr(not(all(feature = "vortex-local-primitives", unix)), allow(dead_code))]
+    compare_work: Option<CompareWorkScope>,
     join_work: Mutex<shardloom_core::native_join_work::NativeJoinWork>,
     count_partial_work: Mutex<shardloom_core::native_count_partial_work::NativeCountPartialWork>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -104,6 +107,15 @@ impl RuntimeOwner {
         } else {
             None
         };
+        let compare_work = if matches!(&gate, Gate::Exclusive(..)) {
+            self.memory.reserve(256).ok().and_then(|credit| {
+                self.session
+                    .get_opt::<CompareWork>()?
+                    .begin(Arc::new(credit))
+            })
+        } else {
+            None
+        };
         Ok(NativeExecutionContext {
             owner: self,
             class,
@@ -117,6 +129,7 @@ impl RuntimeOwner {
             capability_decisions: Mutex::default(),
             variant_expression_work: Mutex::default(),
             dictionary_expression_work: Mutex::default(),
+            compare_work,
             join_work: Mutex::default(),
             count_partial_work: Mutex::default(),
             #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -126,6 +139,36 @@ impl RuntimeOwner {
 }
 
 impl NativeExecutionContext<'_> {
+    /// Called by the terminal owner after execution and scoped I/O have drained.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn append_encoded_compare_certificate(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) {
+        use std::fmt::Write as _;
+        let proof = &mut certificate.source_pushdown_report.proof_basis;
+        let delta = self
+            .compare_work
+            .as_ref()
+            .and_then(CompareWorkScope::snapshot);
+        let Some(delta) = delta else {
+            proof.push_str(" native_encoded_compare_scope=unavailable");
+            return;
+        };
+        proof.push_str(" native_encoded_compare_scope=exclusive_operation;successful_adaptor_dispatches;logical_operand_rows;not_unique_rows;decoder_bytes_unobserved;vortex_0.93.0");
+        for (family, counts) in ["alp", "bitpacked", "for"]
+            .into_iter()
+            .zip(delta.as_chunks::<2>().0)
+        {
+            write!(
+                proof,
+                " native_encoded_compare_{family}_calls={} native_encoded_compare_{family}_rows={}",
+                counts[0], counts[1]
+            )
+            .expect("String writes cannot fail");
+        }
+    }
+
     #[cfg(unix)]
     pub(crate) fn complete_segment_reuse(&self) -> Result<()> {
         self.check_cancelled()?;
@@ -939,6 +982,9 @@ impl Drop for NativeExecutionContext<'_> {
                     .invalidate_source(identity, false);
             }
         }
+        // Release the observer before field destruction unlocks admission.
+        // Otherwise the next exclusive call can see the prior weak scope alive.
+        self.compare_work.take();
     }
 }
 

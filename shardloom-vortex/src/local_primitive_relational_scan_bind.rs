@@ -556,11 +556,20 @@ impl Binder<'_> {
         let Some(width) = alias_scan_width(input) else {
             return Ok(false);
         };
+        let mut float_columns = false;
+        predicate.visit_columns(&mut |name| {
+            float_columns |= input.fields.iter().any(|(field, dtype)| {
+                field == name && matches!(dtype, DType::Primitive(ptype, _) if ptype.is_float())
+            });
+            Ok(())
+        })?;
         // Reserve the lowered predicate before cloning it, including literal
         // bytes already counted by the ordinary expression binder. Low
         // headroom retains the fully bound general evaluator.
         let bytes = predicate_metadata
-            .checked_mul(2)
+            // Signed-zero normalization may expand one comparison into three
+            // predicate nodes. Credit both trees before constructing them.
+            .checked_mul(if float_columns { 4 } else { 2 })
             .and_then(|bytes| bytes.checked_add((width as u64).checked_mul(4096)?))
             .ok_or_else(|| failed("scan predicate metadata overflow"))?;
         let capacity = self.session.memory().snapshot();
@@ -598,6 +607,7 @@ impl Binder<'_> {
                 NodeKind::Scan {
                     source,
                     predicate: prior_predicate,
+                    finite_float_predicate,
                     plan,
                     residual,
                     columns,
@@ -606,7 +616,12 @@ impl Binder<'_> {
                     let Some(dtype) = self.scan_dtype(source) else {
                         return Ok(false);
                     };
-                    let Some(predicate) = provider::scan_predicate(predicate, &aliases, dtype)
+                    let file = match source {
+                        ScanSource::File(index) => Some(self.sources.values[*index].file()),
+                        _ => None,
+                    };
+                    let Some((predicate, used_facts)) =
+                        provider::scan_predicate(predicate, &aliases, dtype, file)
                     else {
                         return Ok(false);
                     };
@@ -630,6 +645,7 @@ impl Binder<'_> {
                         None => filter,
                     });
                     *prior_predicate = Some(provider::conjoin(prior_predicate.take(), predicate));
+                    *finite_float_predicate |= used_facts;
                     self.refresh_batch_projection(source, columns, plan)?;
                     return Ok(true);
                 }

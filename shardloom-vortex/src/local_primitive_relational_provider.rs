@@ -24,6 +24,8 @@ use vortex::array::{
 mod memory;
 #[path = "local_primitive_relational_provider_plan.rs"]
 mod plan;
+#[path = "local_primitive_relational_source_facts.rs"]
+mod source_facts;
 #[path = "local_primitive_relational_provider_view.rs"]
 mod view;
 pub(super) use plan::{conjoin, scan_predicate};

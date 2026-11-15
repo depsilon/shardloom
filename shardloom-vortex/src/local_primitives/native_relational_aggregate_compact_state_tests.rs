@@ -29,6 +29,7 @@ fn compact_migration_preserves_compensation_signed_zero_and_new_group_identity()
     let memory = session.memory().clone();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
+            let entry_bytes = memory.snapshot().reserved_bytes;
             let spec = binding();
             let mut old = ReservedVec::new(context.memory())?;
             old.reserve(6)?;
@@ -79,7 +80,8 @@ fn compact_migration_preserves_compensation_signed_zero_and_new_group_identity()
             );
             assert_eq!(
                 memory.snapshot().reserved_bytes,
-                table.counts.reserved_bytes()
+                entry_bytes
+                    + table.counts.reserved_bytes()
                     + table.numbers.reserved_bytes()
                     + (table.slots.values.capacity() * size_of::<Slot>()) as u64
             );

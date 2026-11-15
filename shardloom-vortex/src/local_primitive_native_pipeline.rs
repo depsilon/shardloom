@@ -25,6 +25,27 @@ pub(super) struct FileKernel {
     declaration: Box<NodeKind>,
 }
 
+impl FileKernel {
+    pub(super) fn uses_finite_float_predicate(&self) -> bool {
+        let mut kind = self.declaration.as_ref();
+        loop {
+            kind = match kind {
+                NodeKind::Scan {
+                    finite_float_predicate,
+                    ..
+                } => return *finite_float_predicate,
+                NodeKind::Project { input, .. }
+                | NodeKind::Filter { input, .. }
+                | NodeKind::Limit { input, .. }
+                | NodeKind::Sort { input, .. }
+                | NodeKind::Aggregate { input, .. }
+                | NodeKind::Pipeline { input, .. } => input.semantic_kind(),
+                _ => return false,
+            };
+        }
+    }
+}
+
 impl Node {
     /// The validated semantics are stable when the physical implementation changes.
     pub(super) fn semantic_kind(&self) -> &NodeKind {
@@ -200,6 +221,7 @@ impl PreparedVortexRelational {
 pub(super) struct Evidence {
     pub(super) operators: Cell<u64>,
     pub(super) file_kernels: Cell<u64>,
+    pub(super) finite_float_scans: Cell<u64>,
     data_read: Cell<bool>,
     data_decoded: Cell<bool>,
     data_materialized: Cell<bool>,
@@ -362,11 +384,19 @@ impl Evidence {
         use std::fmt::Write as _;
         write!(
             certificate.source_pushdown_report.proof_basis,
-            " native_execution_pipeline={NAME} native_pipeline_operator_invocations={} native_pipeline_file_kernel_invocations={} native_pipeline_catch_all_execution=false",
+            " native_execution_pipeline={NAME} native_pipeline_operator_invocations={} native_pipeline_file_kernel_invocations={} native_pipeline_catch_all_execution=false source_footer_finite_float_scan_invocations={}",
             self.operators.get(),
             self.file_kernels.get(),
+            self.finite_float_scans.get(),
         )
         .expect("String writes cannot fail");
+        if self.finite_float_scans.get() != 0 {
+            certificate
+                .source_pushdown_report
+                .accepted_operations
+                .push("source_footer_finite_float_predicate".into());
+            certificate.source_pushdown_report.proof_basis.push_str(" source_footer_float_contract=held_generation;exact_nan_count_and_finite_extrema_or_empty_valid_domain;exact_literal;typed_signed_zero;whole_predicate;admission_not_compressed_dispatch");
+        }
         certificate.side_effects.data_read |= self.data_read.get();
         certificate.side_effects.data_decoded |= self.data_decoded.get();
         certificate.side_effects.data_materialized |= self.data_materialized.get();

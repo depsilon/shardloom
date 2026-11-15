@@ -700,6 +700,7 @@ impl<'a> Binder<'a> {
                 source,
                 source_uri: scan.source_uri.clone(),
                 predicate: scan.predicate.clone(),
+                finite_float_predicate: false,
                 plan,
                 columns,
                 residual,

@@ -77,6 +77,20 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_source_fact_predicates_match_all_five_surfaces(self):
+        if __package__:
+            from .native_source_fact_cases import check_surfaces
+        else:
+            from native_source_fact_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_source_fact_predicates_own_results_and_reject_changed_sources(self):
+        if __package__:
+            from .native_source_fact_cases import check_owned_and_changed_source
+        else:
+            from native_source_fact_cases import check_owned_and_changed_source
+        check_owned_and_changed_source(self)
+
     def test_multi_window_compositions_match_all_surfaces_and_formats(self):
         if __package__:
             from .native_optimization_breadth_cases import check_multi_window_compositions

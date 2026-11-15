@@ -14,6 +14,9 @@ mod normalization_tests;
 #[path = "local_primitive_relational_provider_payload_tests.rs"]
 mod payload_tests;
 
+#[path = "local_primitive_relational_source_facts_native_tests.rs"]
+mod source_facts_native_tests;
+
 fn column(name: &str) -> Expression {
     Expression::column(ExprId::new(name).unwrap(), ColumnRef::new(name).unwrap())
 }

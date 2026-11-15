@@ -687,6 +687,11 @@ impl ResidentVortexSession {
             .with_handle(runtime.handle())
             .with_host_allocator(Arc::new(ReservedHostAllocator::new(memory.clone())));
         crate::native_provider_memory::install(&session, memory.clone());
+        // This fixed control marker holds only a weak operation pointer, like
+        // other session registries. Counted state and its credit are call-owned.
+        let _ = session
+            .clone()
+            .with_some(vortex::array::scalar_fn::fns::binary::observation::CompareWork::default());
         crate::native_extensions::register(&session);
         #[cfg(all(feature = "native-binary-objects", unix))]
         crate::binary_object::Arena::install(&session, memory.clone())?;

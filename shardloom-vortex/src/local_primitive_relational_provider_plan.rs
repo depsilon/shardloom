@@ -755,12 +755,18 @@ pub(in crate::local_primitives) fn scan_predicate(
     expr: &Expression,
     aliases: &BTreeMap<String, String>,
     source: &DType,
-) -> Option<PredicateExpr> {
+    file: Option<&vortex::file::VortexFile>,
+) -> Option<(PredicateExpr, bool)> {
     let columns = aliases
         .iter()
         .map(|(name, source)| (name.clone(), Value::Column(source.clone())))
         .collect();
-    checked_predicate(expr, &columns, source)
+    let predicate = predicate(expr, &columns)?;
+    if predicate_preserves_typed_semantics(&predicate, source) {
+        Some((predicate, false))
+    } else {
+        super::source_facts::admit(predicate, file?).map(|predicate| (predicate, true))
+    }
 }
 
 fn checked_predicate(
@@ -772,7 +778,10 @@ fn checked_predicate(
     predicate_preserves_typed_semantics(&predicate, source).then_some(predicate)
 }
 
-fn predicate_preserves_typed_semantics(predicate: &PredicateExpr, source: &DType) -> bool {
+pub(super) fn predicate_preserves_typed_semantics(
+    predicate: &PredicateExpr,
+    source: &DType,
+) -> bool {
     // Typed numeric comparison is exact across integer domains and rejects
     // nonfinite floats. Native scan literals instead use the physical field's
     // dtype. Admit only lossless literals and infallible scalar domains.
