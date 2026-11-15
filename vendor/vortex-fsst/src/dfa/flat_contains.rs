@@ -91,6 +91,10 @@ pub(crate) struct FlatContainsDfa {
 }
 
 impl FlatContainsDfa {
+    pub(crate) fn heap_capacity_bytes(&self) -> usize {
+        self.transitions.capacity() + self.escape_transitions.capacity()
+    }
+
     /// Maximum needle length: need accept + sentinel to fit in u8.
     pub(crate) const MAX_NEEDLE_LEN: usize = u8::MAX as usize - 1;
 

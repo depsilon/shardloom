@@ -2028,6 +2028,10 @@ pub(crate) mod read_observer;
 #[path = "resident_session_tests.rs"]
 mod tests;
 
+#[cfg(all(test, unix, feature = "vortex-local-primitives"))]
+#[path = "resident_fsst_matcher_tests.rs"]
+mod fsst_matcher_tests;
+
 #[cfg(all(test, unix, feature = "vortex-write"))]
 #[path = "resident_file_serving_tests.rs"]
 mod file_serving_tests;

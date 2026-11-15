@@ -130,15 +130,19 @@ mod tests;
 use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::cell::Cell;
+use std::sync::Arc;
 
-use flat_contains::FlatContainsDfa;
+pub(crate) use flat_contains::FlatContainsDfa;
 use fsst::ESCAPE_CODE;
 use fsst::Symbol;
 use prefilter::CodePrefilter;
 use prefix::FlatPrefixDfa;
+use vortex_array::memory::HostAllocatorRef;
 use vortex_buffer::BitBuffer;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
+
+use crate::matcher_reuse::{CompiledContains, MatcherReuse};
 
 // ---------------------------------------------------------------------------
 // FsstMatcher — unified public API
@@ -165,6 +169,12 @@ enum MatcherInner {
     NoMatch,
     Prefix(FlatPrefixDfa),
     Contains(FlatContainsDfa, Option<CodePrefilter>),
+    SharedContains {
+        table: Arc<CompiledContains>,
+        prefilter: Option<CodePrefilter>,
+        #[cfg(debug_assertions)]
+        constructed: bool,
+    },
 }
 
 impl FsstMatcher {
@@ -181,6 +191,16 @@ impl FsstMatcher {
         symbol_lengths: &[u8],
         pattern: &[u8],
         candidate_codes: Option<&[u8]>,
+    ) -> VortexResult<Option<Self>> {
+        Self::try_new_with_reuse(symbols, symbol_lengths, pattern, candidate_codes, None)
+    }
+
+    pub(crate) fn try_new_with_reuse(
+        symbols: &[Symbol],
+        symbol_lengths: &[u8],
+        pattern: &[u8],
+        candidate_codes: Option<&[u8]>,
+        reuse: Option<(&MatcherReuse, &HostAllocatorRef)>,
     ) -> VortexResult<Option<Self>> {
         let Some(like_kind) = LikeKind::parse(pattern) else {
             return Ok(None);
@@ -217,10 +237,35 @@ impl FsstMatcher {
                 {
                     MatcherInner::NoMatch
                 } else {
-                    MatcherInner::Contains(
-                        FlatContainsDfa::new(symbols, symbol_lengths, needle.as_ref())?,
-                        prefilter,
-                    )
+                    let shared = if candidate_codes.is_some() {
+                        reuse
+                            .map(|(reuse, allocator)| {
+                                reuse.get_or_compile(
+                                    symbols,
+                                    symbol_lengths,
+                                    pattern,
+                                    needle.as_ref(),
+                                    allocator,
+                                )
+                            })
+                            .transpose()?
+                            .flatten()
+                    } else {
+                        None
+                    };
+                    if let Some(shared) = shared {
+                        MatcherInner::SharedContains {
+                            table: shared.0,
+                            prefilter,
+                            #[cfg(debug_assertions)]
+                            constructed: shared.1,
+                        }
+                    } else {
+                        MatcherInner::Contains(
+                            FlatContainsDfa::new(symbols, symbol_lengths, needle.as_ref())?,
+                            prefilter,
+                        )
+                    }
                 }
             }
         };
@@ -250,17 +295,27 @@ impl FsstMatcher {
                 self.exact_rows.set(self.exact_rows.get() + 1);
                 dfa.matches(codes)
             }
-            MatcherInner::Contains(dfa, prefilter) => {
-                if prefilter.is_some_and(|filter| !filter.may_match(codes)) {
-                    #[cfg(debug_assertions)]
-                    self.rejected_rows.set(self.rejected_rows.get() + 1);
-                    return false;
-                }
-                #[cfg(debug_assertions)]
-                self.exact_rows.set(self.exact_rows.get() + 1);
-                dfa.matches(codes)
-            }
+            MatcherInner::Contains(dfa, prefilter) => self.matches_contains(dfa, *prefilter, codes),
+            MatcherInner::SharedContains {
+                table, prefilter, ..
+            } => self.matches_contains(&table.dfa, *prefilter, codes),
         }
+    }
+
+    fn matches_contains(
+        &self,
+        dfa: &FlatContainsDfa,
+        prefilter: Option<CodePrefilter>,
+        codes: &[u8],
+    ) -> bool {
+        if prefilter.is_some_and(|filter| !filter.may_match(codes)) {
+            #[cfg(debug_assertions)]
+            self.rejected_rows.set(self.rejected_rows.get() + 1);
+            return false;
+        }
+        #[cfg(debug_assertions)]
+        self.exact_rows.set(self.exact_rows.get() + 1);
+        dfa.matches(codes)
     }
 
     #[cfg(debug_assertions)]
@@ -271,7 +326,12 @@ impl FsstMatcher {
         use crate::like_observation::LikeObservationSnapshot;
         let admitted = matches!(
             &self.inner,
-            MatcherInner::NoMatch | MatcherInner::Contains(_, Some(_))
+            MatcherInner::NoMatch
+                | MatcherInner::Contains(_, Some(_))
+                | MatcherInner::SharedContains {
+                    prefilter: Some(_),
+                    ..
+                }
         );
         let [Ok(rows), Ok(rejected_rows), Ok(exact_rows)] = [
             u64::try_from(rows),
@@ -291,10 +351,11 @@ impl FsstMatcher {
             prefilter_rows: if admitted { rows } else { 0 },
             rejected_rows,
             exact_rows,
-            matcher_constructions: u64::from(matches!(
-                &self.inner,
-                MatcherInner::Prefix(_) | MatcherInner::Contains(..)
-            )),
+            matcher_constructions: u64::from(match &self.inner {
+                MatcherInner::Prefix(_) | MatcherInner::Contains(..) => true,
+                MatcherInner::SharedContains { constructed, .. } => *constructed,
+                MatcherInner::NoMatch | MatcherInner::MatchAll => false,
+            }),
             block_rejections: u64::from(matches!(&self.inner, MatcherInner::NoMatch)),
             overflowed: false,
         }

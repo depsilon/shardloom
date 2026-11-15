@@ -19,6 +19,7 @@ mod dfa;
 mod kernel;
 #[cfg(debug_assertions)]
 pub mod like_observation;
+pub mod matcher_reuse;
 mod ops;
 mod rules;
 mod slice;

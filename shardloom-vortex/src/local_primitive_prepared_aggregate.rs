@@ -40,6 +40,7 @@ impl ExecutedVortexAggregate {
         let (evidence, metadata) = context.take_native_file_scan_evidence()?;
         self.native_io_certificate.file_scans = evidence;
         self.file_scan_metadata = metadata;
+        context.append_fsst_matcher_certificate(&mut self.native_io_certificate);
         Ok(self)
     }
 }
@@ -943,6 +944,7 @@ impl PreparedVortexAggregate {
     ) -> Result<LocalVortexAggregateScan> {
         if let Some(context) = context {
             self.session.validate_execution_context(context)?;
+            context.enable_fsst_matcher_reuse();
         }
         #[cfg(feature = "vortex-write")]
         if let PreparedAggregateSource::Owned(source) = &self.source {

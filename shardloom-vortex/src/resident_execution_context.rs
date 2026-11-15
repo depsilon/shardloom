@@ -15,6 +15,10 @@ use std::{
     time::{Duration, Instant},
 };
 use vortex::array::scalar_fn::fns::binary::observation::{CompareWork, CompareWorkScope};
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+use vortex::encodings::fsst::matcher_reuse::{
+    MatcherReuse, MatcherReuseScope, MatcherReuseSnapshot,
+};
 use vortex::{
     error::{SharedVortexResult, vortex_err},
     file::{
@@ -58,6 +62,8 @@ pub struct NativeExecutionContext<'a> {
     dictionary_expression_work: Mutex<crate::native_dictionary_expression::Work>,
     #[cfg_attr(not(all(feature = "vortex-local-primitives", unix)), allow(dead_code))]
     compare_work: Option<CompareWorkScope>,
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    matcher_reuse: OnceLock<Option<MatcherReuseScope>>,
     join_work: Mutex<shardloom_core::native_join_work::NativeJoinWork>,
     count_partial_work: Mutex<shardloom_core::native_count_partial_work::NativeCountPartialWork>,
     #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -130,6 +136,8 @@ impl RuntimeOwner {
             variant_expression_work: Mutex::default(),
             dictionary_expression_work: Mutex::default(),
             compare_work,
+            #[cfg(all(feature = "vortex-local-primitives", unix))]
+            matcher_reuse: OnceLock::new(),
             join_work: Mutex::default(),
             count_partial_work: Mutex::default(),
             #[cfg(all(feature = "vortex-local-primitives", unix))]
@@ -139,6 +147,50 @@ impl RuntimeOwner {
 }
 
 impl NativeExecutionContext<'_> {
+    /// Only certificate-producing terminal owners opt into reuse. Nested
+    /// operators share their enclosing scope; ordinary provider callers and
+    /// report-only legacy operations keep the existing uncached route.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn enable_fsst_matcher_reuse(&self) {
+        if self.class == CallClass::General && matches!(&self.gate, Gate::Exclusive(..)) {
+            self.matcher_reuse
+                .get_or_init(|| MatcherReuse::begin_in(&self.owner.session));
+        }
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn fsst_matcher_work(&self) -> Option<MatcherReuseSnapshot> {
+        self.matcher_reuse.get()?.as_ref()?.snapshot()
+    }
+
+    /// The terminal caller observes this only after all provider work has joined.
+    /// These counts cover reuse admission, not every uncached DFA construction.
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn append_fsst_matcher_certificate(
+        &self,
+        certificate: &mut shardloom_core::NativeIoCertificate,
+    ) {
+        self.append_fsst_matcher_proof(&mut certificate.source_pushdown_report.proof_basis);
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(super) fn append_fsst_matcher_proof(&self, proof: &mut String) {
+        Self::append_fsst_matcher_work(proof, self.fsst_matcher_work());
+    }
+
+    #[cfg(all(feature = "vortex-local-primitives", unix))]
+    pub(crate) fn append_fsst_matcher_work(proof: &mut String, work: Option<MatcherReuseSnapshot>) {
+        use std::fmt::Write as _;
+        let Some(work) = work else {
+            proof.push_str(" native_fsst_matcher_scope=unavailable");
+            return;
+        };
+        write!(proof, " native_fsst_matcher_scope=exclusive_operation;positive_case_sensitive_contains;exact_symbols_lengths_pattern;single_entry;no_result_cache;vortex_0.93.0 native_fsst_matcher_lookups={} native_fsst_matcher_hits={} native_fsst_matcher_misses={} native_fsst_matcher_admitted_constructions={} native_fsst_matcher_denied={} native_fsst_matcher_retained_capacity_bytes={} native_fsst_matcher_retained_reservation_bytes={} ",
+            work.lookups, work.hits, work.misses, work.constructions, work.denied,
+            work.retained_table_capacity_bytes, work.retained_reservation_bytes)
+            .expect("String writes cannot fail");
+    }
+
     /// Called by the terminal owner after execution and scoped I/O have drained.
     #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn append_encoded_compare_certificate(
@@ -985,6 +1037,8 @@ impl Drop for NativeExecutionContext<'_> {
         // Release the observer before field destruction unlocks admission.
         // Otherwise the next exclusive call can see the prior weak scope alive.
         self.compare_work.take();
+        #[cfg(all(feature = "vortex-local-primitives", unix))]
+        self.matcher_reuse.take();
     }
 }
 

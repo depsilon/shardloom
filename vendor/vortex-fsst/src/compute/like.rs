@@ -12,11 +12,13 @@ use vortex_array::match_each_integer_ptype;
 use vortex_array::scalar_fn::fns::like::LikeKernel;
 use vortex_array::scalar_fn::fns::like::LikeOptions;
 use vortex_error::VortexResult;
+use vortex_session::SessionExt as _;
 
 use crate::FSST;
 use crate::FSSTArrayExt;
 use crate::dfa::FsstMatcher;
 use crate::dfa::dfa_scan_to_bitbuf;
+use crate::matcher_reuse::MatcherReuse;
 
 impl LikeKernel for FSST {
     fn like(
@@ -51,13 +53,24 @@ impl LikeKernel for FSST {
         let all_bytes = codes.bytes();
         let all_bytes = all_bytes.as_slice();
         let candidate_codes = (!options.negated).then_some(all_bytes);
-        let Some(matcher) = FsstMatcher::try_new(
-            array.symbols(),
-            array.symbol_lengths(),
-            pattern_bytes,
-            candidate_codes,
-        )?
-        else {
+        let matcher = if let Some(reuse) = ctx.session().get_opt::<MatcherReuse>() {
+            let allocator = ctx.host_allocator();
+            FsstMatcher::try_new_with_reuse(
+                array.symbols(),
+                array.symbol_lengths(),
+                pattern_bytes,
+                candidate_codes,
+                Some((&reuse, &allocator)),
+            )?
+        } else {
+            FsstMatcher::try_new(
+                array.symbols(),
+                array.symbol_lengths(),
+                pattern_bytes,
+                candidate_codes,
+            )?
+        };
+        let Some(matcher) = matcher else {
             return Ok(None);
         };
 
@@ -81,7 +94,6 @@ impl LikeKernel for FSST {
         // ShardLoom diagnostic only: no registration, allocation or global state.
         #[cfg(debug_assertions)]
         {
-            use vortex_session::SessionExt as _;
             if let Some(observer) = ctx
                 .session()
                 .get_opt::<crate::like_observation::LikeObservation>()

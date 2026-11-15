@@ -280,6 +280,7 @@ impl ExecutedVortexRelational {
         self.native_io_certificate.file_scans = file_scans;
         self._file_scan_metadata = metadata;
         context.append_encoded_compare_certificate(&mut self.native_io_certificate);
+        context.append_fsst_matcher_certificate(&mut self.native_io_certificate);
         Ok(self)
     }
 }

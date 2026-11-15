@@ -229,6 +229,7 @@ impl PreparedVortexRelational {
     ) -> Result<T> {
         self.validate_batch_provider(input.is_some())?;
         context.check_cancelled()?;
+        context.enable_fsst_matcher_reuse();
         #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
         self.validate_preparation_sources(context.cancellation())?;
         let input = (!self.batch_sources.is_empty())

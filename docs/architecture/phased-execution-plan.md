@@ -412,7 +412,7 @@ once, and do not repeat full10k or broad gates after every small edit.
     consumer path. The [finite November 15 unit](native-fsst-consumer-2026-11-15.md)
     is retained with complete fresh/lifecycle comparison, untimed dispatch,
     source/package checks and portable proof; all regressions remain explicit.
-  - [ ] Separately evaluate bounded exact-table FSST matcher lifetime on the
+  - [ ] Separately evaluate bounded [exact-table FSST matcher lifetime](native-fsst-matcher-lifetime-2026-11-15.md) on the
     accepted prefilter/consumer path, with charged identities/allocations,
     selective/dense and hardware controls and its own complete decision.
   - [ ] Advance item-19 spatial execution through native coordinate/offset
