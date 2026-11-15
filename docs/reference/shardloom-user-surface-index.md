@@ -61,7 +61,7 @@ Declare fixed-rank tensors with row-specific shapes using
 ## Generated application reference
 
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `622a42322b148b6e4067e4551ee57e5134454eec93b0db75befeee5158994173` (SHA-256 of the listed source inputs).
+Source identity: `c51890020d5d6d1dbcbd343739e7440554d9880e1d39176ef553625d73f3e557` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
