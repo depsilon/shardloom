@@ -353,8 +353,14 @@ once, and do not repeat full10k or broad gates after every small edit.
   80 lifecycle operations, 210 work witnesses and portable checks pass. The
   complete fresh engine total decreases from 676.301549673 to 668.884468618
   seconds, with every regression and harness-recovery observation preserved;
-  separate lifecycle engine time also decreases. Named source/domain facts
-  extending C and ALP/FastLanes predicate admission are next. Broader
+  separate lifecycle engine time also decreases. The subsequent
+  [source-domain C unit](native-source-domain-facts-2026-11-14.md) is retained
+  locally at `76f3c90c3`: all 2,786 declarations per runtime, 240 total lifecycle
+  operations, 620 finite-source admission requirements, 150 encoded-dispatch
+  witnesses and portable checks pass. Complete fresh engine time decreases
+  from 34.706028110 to 33.876871033 seconds, with all 1,497 individual regressions
+  preserved; the separate lifecycle total also decreases. Predicate-specific
+  native Bloom admission, then necessary text-zone evidence, is next. Broader
   constant-key support remains open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
@@ -373,9 +379,11 @@ once, and do not repeat full10k or broad gates after every small edit.
     filter/group/distinct consumers and compatible shared outputs. The
     [finite November 14 unit](native-dictionary-domain-2026-11-14.md) is retained
     with complete comparison, lifecycle, ownership and portable evidence.
-  - [ ] Extend C with only the exact source/domain facts required by the named
+  - [x] Extend C with only the exact source/domain facts required by the named
     ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve
     typed comparison and failure semantics without a speculative fact framework.
+    The [finite November 14 unit](native-source-domain-facts-2026-11-14.md) is
+    retained with complete comparison, lifecycle, ownership and portable proof.
   - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
     admission first, then necessary text signatures where warranted. Spatial
     summaries follow the exact spatial execution contract below.

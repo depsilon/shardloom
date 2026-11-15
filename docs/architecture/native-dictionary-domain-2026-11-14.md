@@ -25,8 +25,10 @@ and bounded recovery, plus 28 saved-evidence, 12 transport and 36 packet control
 Relocated replay works with original source/runtime/evidence reads forbidden.
 
 The accepted scalar-regional runtime is this experiment's comparison baseline.
-The per-measure and constant-key drops remain unchanged. Named source/domain
-facts extending C, followed by ALP/FastLanes predicate admission, are next.
+The per-measure and constant-key drops remain unchanged. The subsequent
+[source-domain C unit](native-source-domain-facts-2026-11-14.md) is retained
+locally. Predicate-specific native Bloom admission, then necessary text-zone
+evidence, is next.
 Broader metadata/encoded work, required item-19 spatial execution, item 20,
 RFC 0044 and CG-1 through CG-23 retain their remaining obligations. This local
 acceptance does not merge, publish, release or imply competitive superiority.

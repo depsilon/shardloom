@@ -25,8 +25,12 @@ complete fresh engine total is higher. Its source/evidence are preserved and
 the accepted scalar-regional code is restored. The subsequent
 [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) is retained
 locally at `263f052ce`, with complete results, dictionary-work, lifecycle and
-portable proof. Named source/domain facts extending C and ALP/FastLanes predicate
-admission are next; broader constant-key support and coverage remain open.
+portable proof. The subsequent
+[source-domain C unit](native-source-domain-facts-2026-11-14.md) is retained
+locally at `76f3c90c3`, with complete results, finite-float admission, actual
+ALP/FastLanes dispatch, lifecycle and portable proof. Predicate-specific native
+Bloom admission, then necessary text-zone evidence, is next; broader
+constant-key support and coverage remain open.
 
 The supplied research describes source checked at `72680743a34a5db9`, after
 PR #1683. It is an intake, not fresh validation of later implementation. Recheck
@@ -70,8 +74,8 @@ delta review of existing evidence, not another whole-engine inventory phase.
 | --- | --- | --- |
 | Completed finite experiments | Per-measure candidate dropped; exact scalar regional partials retained locally; constant-key candidate dropped | All use the existing aggregate state/finalizer. Regional coverage and the rejected grouped candidate's semantic/read proof remain useful evidence, but only the scalar regional implementation is retained. Wider constant-key support remains open. Keep each acceptance decision separate. |
 | Completed finite experiment | Dictionary-domain text transforms and consumers, extending N, retained locally | Actual dictionary retention, exact consumer equality, 210 work witnesses, both complete engine totals and portable proof pass. The added dictionary/control subgroup's small engine increase and all other regressions remain explicit. |
-| Next active work | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |
-| Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
+| Completed finite experiment | Named exact source/domain facts and ALP/FastLanes predicate admission, extending C, retained locally | All 2,786 declarations per runtime, 620 finite-source admissions, 150 actual compressed-dispatch witnesses, separate lifecycles and portable proof pass. Both complete engine totals decrease; all regressions remain explicit. No general fact framework is introduced. |
+| Next active work | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |
 | Next | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |
 | Next | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |
 | Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
@@ -161,8 +165,10 @@ and unsupported controls. The separate
 [constant-key extension](native-constant-key-aggregates-2026-11-14.md) passes its
 semantic and requested-read gates but is dropped because its complete fresh
 engine total is higher. Its grouped capability remains outside the retained
-scalar implementation. The subsequent dictionary-domain N unit is retained;
-named source/domain facts and ALP/FastLanes predicate admission are next.
+scalar implementation. The subsequent dictionary-domain N and
+[source-domain C](native-source-domain-facts-2026-11-14.md) units are retained.
+Predicate-specific native Bloom admission, then necessary text-zone evidence,
+is next.
 
 Reuse native zoned-layout aggregate/path and partial-state concepts. For an
 identified region, distinguish no qualifying rows, complete qualification with

@@ -1,0 +1,34 @@
+[codex/native-source-domain-facts 76f3c90c3] Preserve exact source-domain predicate implementation and complete experiment
+ Committer: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 36 files changed, 1651 insertions(+), 29 deletions(-)
+ create mode 100644 docs/architecture/native-source-domain-facts-2026-11-14.md
+ create mode 100644 python/tests/data/source-facts-v1/all-null-f32.vortex
+ create mode 100644 python/tests/data/source-facts-v1/all-null-f64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/alp-f32.vortex
+ create mode 100644 python/tests/data/source-facts-v1/alp-f64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/bitpacked-u64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/empty-f32.vortex
+ create mode 100644 python/tests/data/source-facts-v1/empty-f64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/flat-f32.vortex
+ create mode 100644 python/tests/data/source-facts-v1/flat-f64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/for-u64.vortex
+ create mode 100644 python/tests/data/source-facts-v1/no-stats-f32.vortex
+ create mode 100644 python/tests/data/source-facts-v1/no-stats-f64.vortex
+ create mode 100644 python/tests/native_source_fact_cases.py
+ create mode 100644 shardloom-vortex/examples/native_source_facts_uat_fixture.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_source_facts.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_source_facts_native_tests.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_source_facts_tests.rs
+ create mode 100644 vendor/vortex-array/src/scalar_fn/fns/binary/compare/observation.rs
+{"status": "preserved", "head": "76f3c90c3b25338f3250dff10daf04eee081f9b4", "source_files": 5782, "changed_files": 36, "source_fingerprint_sha256": "d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297"}

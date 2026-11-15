@@ -100,9 +100,10 @@ locally. The subsequent
 [constant-key candidate](native-constant-key-aggregates-2026-11-14.md) has a
 complete drop disposition after the full fresh engine total increases, despite
 semantic, read-reduction and separate lifecycle proof. The subsequent
-[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) is retained
-locally; named source/domain facts extending C and ALP/FastLanes predicate
-admission are next. Broader constant-key support remains open. The sequence settles I's
+[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent
+[source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
+locally. Predicate-specific native Bloom admission, then necessary text-zone
+evidence, is next. Broader constant-key support remains open. The sequence settles I's
 batch/lifetime contract before FSST/codec tuning and places exact spatial
 execution before optional spatial summaries.
 Reconcile B/C/I/N outcomes from those active units once; the table below is an

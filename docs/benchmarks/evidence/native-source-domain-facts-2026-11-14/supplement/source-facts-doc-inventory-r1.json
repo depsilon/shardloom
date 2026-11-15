@@ -1,0 +1,118 @@
+{
+  "source_sha256": {
+    "docs/architecture/phased-execution-plan.md": "d4470ef29432a20d92bb7f8ef238d7ed55147045b4e11e3d624b4056e3418e49",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": "6394803306283d6ff3c04120d0994ee5e6650c7cdc3f79e79f37f8d383b095ee",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": "927bf748d886fa7b81e4064d1db184b615062fa8d5496216cf5fdd4cb4d56537",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": "cf55cef3d5376233fcfe57418008ae9adf681494b2d4db51e7212f99657905b4",
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md": "0ab876ba514f1cf4df44e81f15b241d492b4a917feffca92b6a1f8ef14369bfc",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": "e298e4d7aabc82b51b9e8ff2fce1b12872ac5ce8a5259ff2bb76898a1d401b38",
+    "docs/architecture/native-dictionary-domain-2026-11-14.md": "2833f5a322d4c6a6a87ae855ef8250e549fd0760429d1ad7e99396b540e88ca8",
+    "docs/architecture/native-source-domain-facts-2026-11-14.md": "d289b685ff5acd2e4192617c425b6cdd775d29bd97d980663fef133f2421e471"
+  },
+  "current_status_passages_to_change": [
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": 356,
+      "literal_stale_text": "  separate lifecycle engine time also decreases. Named source/domain facts\n  extending C and ALP/FastLanes predicate admission are next. Broader\n  constant-key support remains open.",
+      "reason": "Current queue status. Replace the completed C/ALP-FastLanes next pointer with the comparison disposition and the established next boundary: predicate-specific native Bloom first, then necessary text-zone evidence; retain the broader open-scope statement."
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": 376,
+      "literal_stale_text": "  - [ ] Extend C with only the exact source/domain facts required by the named\n    ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve\n    typed comparison and failure semantics without a speculative fact framework.",
+      "reason": "Pending active item-20 work has now received its finite comparison. Update the item status and link the eventual disposition while preserving its bounded contract."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 28,
+      "literal_stale_text": "portable proof. Named source/domain facts extending C and ALP/FastLanes predicate\nadmission are next; broader constant-key support and coverage remain open.",
+      "reason": "Current queue summary; update the next pointer after C's comparison, preserving broader open work."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 73,
+      "literal_stale_text": "| Next active work | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |",
+      "reason": "The active queue table still lists the now-compared C unit as pending. Record its completed disposition and promote predicate-specific zone evidence as next, with the existing Bloom-before-text ordering."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 164,
+      "literal_stale_text": "scalar implementation. The subsequent dictionary-domain N unit is retained;\nnamed source/domain facts and ALP/FastLanes predicate admission are next.",
+      "reason": "Current status paragraph in the regional handoff; update the next-work pointer while preserving the accepted scalar boundary."
+    },
+    {
+      "path": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "line": 103,
+      "literal_stale_text": "[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) is retained\nlocally; named source/domain facts extending C and ALP/FastLanes predicate\nadmission are next. Broader constant-key support remains open. The sequence settles I's\nbatch/lifetime contract before FSST/codec tuning and places exact spatial\nexecution before optional spatial summaries.",
+      "reason": "Current cross-unit status pointer; update C's status and the next boundary, retaining independent batching, spatial, and broader-scope obligations."
+    },
+    {
+      "path": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "line": 23,
+      "literal_stale_text": "is retained locally. Named source/domain facts and ALP/FastLanes predicate\nadmission are next. Broader constant-key support, the metadata/optimization\nqueue, item 19/20, RFC 0044 and CG-1 through\nCG-23 remain open. This local acceptance does not merge or publish the change.",
+      "reason": "Current subsequent-work pointer following the retained regional unit; advance it after C's comparison and preserve other open obligations."
+    },
+    {
+      "path": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "line": 30,
+      "literal_stale_text": "The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)\nis retained locally. Named source/domain facts and ALP/FastLanes predicate\nadmission are next. Broader constant-key support,\nthe parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.",
+      "reason": "Current next-work pointer after the constant-key drop; update C status and next boundary, preserving the drop and remaining open scope."
+    },
+    {
+      "path": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "line": 13,
+      "literal_stale_text": "[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) is retained\nlocally; named source/domain facts and ALP/FastLanes predicate admission are next. Broader\nconstant-key support and the item-20/RFC-0044 queue remain open. Those separate\ndecisions do not change this experiment's drop disposition.",
+      "reason": "Current next-work pointer in the completed per-measure experiment record; update it after C's comparison without changing this experiment's disposition."
+    },
+    {
+      "path": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "line": 27,
+      "literal_stale_text": "The accepted scalar-regional runtime is this experiment's comparison baseline.\nThe per-measure and constant-key drops remain unchanged. Named source/domain\nfacts extending C, followed by ALP/FastLanes predicate admission, are next.\nBroader metadata/encoded work, required item-19 spatial execution, item 20,\nRFC 0044 and CG-1 through CG-23 retain their remaining obligations. This local\nacceptance does not merge, publish, release or imply competitive superiority.",
+      "reason": "Current next-work pointer in the N closeout; replace with the C comparison outcome and ensuing Bloom/text-zone boundary, keeping N's own disposition and remaining obligations intact."
+    },
+    {
+      "path": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "line": 5,
+      "literal_stale_text": "Status: local experiment in progress. This extends item 20 C for the named\nALP/FastLanes comparison consumer in the November 13 investigation sequence.\nIt does not close the remaining optimization queue or establish a speed claim.",
+      "reason": "This is the new C unit's current status header. Replace in-progress language with the measured disposition once available; preserve the boundary that broader queue closure or a general speed claim is not implied."
+    },
+    {
+      "path": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "line": 61,
+      "literal_stale_text": "Tests cover exact/inexact/absent/contradictory facts, signed zeros for all six\noperators, F32 narrowing, integer endpoints, nulls, NaNs, infinities, source\nreplacement, alias barriers and actual compressed kernel dispatch. Required\ndefault/native workspace checks and relevant provider checks follow focused\nvalidation. Reuse compatible complete accepted N observations and version any\nmissing encoding/selectivity controls before the paired experiment. Preserve\nevery failure and regression. Retain only after complete-operation engine time\ndecreases and correctness, resource, ownership and no-fallback evidence pass.\nNo new Full43, broad 10k, competitor repeat, publication or release is requested.",
+      "reason": "Prospective validation and decision language in the C document is now a completed comparison record. Replace pending/future tense with the actual validation receipt and disposition only after those facts are established; do not infer outcomes in this inventory."
+    }
+  ],
+  "historical_passages_to_preserve": [
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 74,
+      "literal_stale_text": "| Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |",
+      "reason": "This is the current next boundary after C and remains valid. Preserve Bloom-first, then only necessary text-zone evidence, and its independence from ALP acceptance."
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": 379,
+      "literal_stale_text": "  - [ ] Evaluate predicate-specific zone evidence: existing native Bloom\n    admission first, then necessary text signatures where warranted. Spatial\n    summaries follow the exact spatial execution contract below.",
+      "reason": "Preserve this next phase-plan boundary after updating C: native Bloom admission precedes only warranted text signatures; spatial summaries remain separately gated."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 185,
+      "literal_stale_text": "### Fact-backed ALP/FastLanes predicate admission\n\nCheck actual encoded-float exposure and the pinned comparison kernels first.\nCarry only exact, reusable facts needed by a named comparison consumer: held\nsource generation, observed row domain, finiteness, exact typed-literal mapping,\nnull and exception semantics, and unchanged observable failure/lazy behavior.\nUse existing encoded comparisons and selection masks when those proofs hold.\n\nDo not simply remove the typed planner's float exclusion. Sampling does not\nprove finiteness. Charge proof construction and validation; show whether facts\nare reused and compressed execution/decoded-array avoidance actually activates.\nIf every request must decode the same full column to establish the proof, keep\nthat cost in the complete comparison. Missing proof retains the legal shared\nnative path with a specific admission reason.",
+      "reason": "Preserve the durable semantic and admission contract as historical design context; an experiment's disposition does not erase these safety constraints or justify broader float admission."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 200,
+      "literal_stale_text": "### Predicate-specific zone evidence\n\nCheck the existing native Bloom aggregate implementation and its format,\nlayout and predicate admission before inventing another summary. Evaluate\nequality/IN on unclustered identifiers, then required-literal/trigram signatures\nfor selective text. Persisted spatial bounds follow the exact native spatial\nexecution/type contract below and require actual workload exposure. Surviving\ncandidates still receive exact evaluation.\n\nInclude construction, persisted size, metadata reads, false-positive rate,\nexcluded regions and downstream work. Text case/character/pattern semantics must\nprove that a tested signature is necessary for a real match. Preserve missing,\ninexact and unsupported-summary behavior and generation identity. The\n[prior unconditional text-zoning drop](../benchmarks/perf-text-layout-pruning-2026-09-05.md)\nremains authoritative for that experiment; this intake admits no unconditional\nnew writer summary or claim that all metadata benefits every workload.",
+      "reason": "Preserve the independent Bloom/text-zone experiment contract and avoid converting this queue update into a new summary or writer-default decision."
+    },
+    {
+      "path": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "line": 9,
+      "literal_stale_text": "The expert comparator is an encoded-execution maintainer reviewing preservation\nof typed comparison errors, source generations, nullable populations, signed\nzero, and actual provider dispatch rather than planned encoding labels.",
+      "reason": "Retain the Vortex-first provider and source-generation rationale as the original design basis, regardless of measured retain/drop disposition."
+    }
+  ]
+}

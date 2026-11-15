@@ -28,8 +28,9 @@ dirty-source identity remain explicit. Restoration was verified against the
 accepted source, and neither a replacement build nor another timing run was added.
 
 The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)
-is retained locally. Named source/domain facts and ALP/FastLanes predicate
-admission are next. Broader constant-key support,
+and [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
+locally. Predicate-specific native Bloom admission, then necessary text-zone
+evidence, is next. Broader constant-key support,
 the parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.
 No merge, package publication, release or writer-default change is implied.
 

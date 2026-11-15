@@ -10,8 +10,10 @@ The subsequent [regional unit](native-regional-aggregates-2026-11-14.md) is now
 retained locally at `c9baefd00`. The subsequent
 [constant-key candidate](native-constant-key-aggregates-2026-11-14.md) is dropped
 under its own complete-cohort rule. The subsequent
-[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) is retained
-locally; named source/domain facts and ALP/FastLanes predicate admission are next. Broader
+[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent
+[source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
+locally. Predicate-specific native Bloom admission, then necessary text-zone
+evidence, is next. Broader
 constant-key support and the item-20/RFC-0044 queue remain open. Those separate
 decisions do not change this experiment's drop disposition.
 
