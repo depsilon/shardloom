@@ -1,0 +1,22 @@
+{
+  "status": "passed_primary_document_inventory_verification",
+  "inventory": {
+    "bytes": 13164,
+    "sha256": "82276ea2421e80b70c791a49f6e623cbb0678b0f30da504e0338de32fe1b810a"
+  },
+  "source_files_verified": 8,
+  "literal_line_spans_verified": 17,
+  "planned_document_changes": [
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+    "docs/architecture/native-dictionary-domain-2026-11-14.md",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+    "docs/architecture/native-source-domain-facts-2026-11-14.md",
+    "docs/architecture/phased-execution-plan.md"
+  ],
+  "comparison_disposition_known": false,
+  "query_executions": 0,
+  "interpretation": "These are prospective closeout edits, not evidence that comparison has already run. Preserve durable semantic obligations and historical decisions; update next-work table labels consistently after disposition."
+}

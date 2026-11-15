@@ -1,0 +1,12 @@
+{
+  "status": "retired_verified_failed_control_extraction",
+  "path": "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-metadata-replay-xl984dzx",
+  "files": 6214,
+  "bytes": 594658244,
+  "all_bytes_equal_to_packet_members": true,
+  "no_open_handles": true,
+  "path_absent": true,
+  "original_packet_retained": true,
+  "source_runtime_and_input_payloads_untouched": true,
+  "query_executions": 0
+}

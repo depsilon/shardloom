@@ -1,0 +1,28 @@
+{
+  "status": "passed_complete_portable_replay",
+  "query_executions": 0,
+  "complete_fresh_results": 11060,
+  "complete_lifecycle_operations": 80,
+  "baseline_reuse": 4903,
+  "source_fingerprint_sha256": "c64f40da7b3693e3eff7e4eebeca2f64a171a7d02deba387f440d021f586b4ef",
+  "external_payloads_not_reopened": 445,
+  "fresh": {
+    "cases": 5530,
+    "complete": true,
+    "baseline_engine_seconds": 676.301549673,
+    "candidate_engine_seconds": 668.884468618,
+    "engine_gain_seconds": 7.417081054999926,
+    "regressions": 3207,
+    "regression_engine_seconds": 5.344531451000002
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 20,
+    "operations_per_runtime": 40,
+    "baseline_engine_seconds": 0.09895957999999999,
+    "candidate_engine_seconds": 0.077330714
+  },
+  "disposition": "retain",
+  "original_replay_decision": "retain",
+  "negative_controls_bound": 28
+}

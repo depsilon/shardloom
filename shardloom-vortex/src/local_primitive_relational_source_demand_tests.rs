@@ -25,6 +25,12 @@ mod lifecycle_tests;
 #[path = "local_primitive_relational_source_demand_prefix_tests.rs"]
 mod prefix_tests;
 
+#[path = "local_primitive_relational_source_demand_pipeline_tests.rs"]
+mod pipeline_tests;
+
+#[path = "local_primitive_relational_source_demand_sort_tests.rs"]
+mod sort_tests;
+
 #[path = "local_primitive_relational_source_demand_collection_tests.rs"]
 mod collection_tests;
 #[path = "local_primitive_relational_source_demand_window_tests.rs"]
@@ -47,6 +53,9 @@ mod metadata_tests;
 
 #[path = "local_primitive_relational_source_demand_count_tests.rs"]
 mod count_tests;
+
+#[path = "local_primitive_relational_source_demand_cardinality_tests.rs"]
+mod cardinality_tests;
 
 #[path = "local_primitive_relational_source_demand_mapped_tests.rs"]
 mod mapped_tests;
@@ -272,9 +281,13 @@ fn parquet_demand_projects_physical_columns_and_prunes_groups_with_residual() {
 #[test]
 fn parquet_demand_common_filter_and_alias_projection_rebind_hidden_positions() {
     let fixture = ParquetFixture::new();
+    // Both the excluded region and an unused column in the selected region are
+    // unreadable. Correct output alone would not establish pruning coverage.
+    fixture.corrupt_chunk(0, 0);
+    fixture.corrupt_chunk(1, 1);
     let aliases = project(
         fixture.scan(&[], None),
-        &[("text", "label"), ("n", "renamed")],
+        &[("text", "label"), ("n", "renamed"), ("other", "unused")],
     );
     let filtered = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
         input: aliases,
@@ -290,22 +303,25 @@ fn parquet_demand_common_filter_and_alias_projection_rebind_hidden_positions() {
             },
         ),
     }));
-    let prepared = fixture.prepare(&project(filtered, &[("label", "result")]));
-    let collected = prepared
-        .collect_jsonl(&CancellationToken::default())
-        .unwrap();
-    assert_eq!(
-        json_rows(&collected),
-        vec![serde_json::json!({"result":"row-5-λ"})]
-    );
-    let report = collected.execution.input.as_ref().unwrap();
-    assert_eq!(
-        (
-            report.columnar_projected_columns,
-            report.columnar_row_groups_read
-        ),
-        (2, 1)
-    );
+    let plan = project(filtered, &[("label", "result")]);
+    for equivalent in [plan.clone(), plan.compact_streaming()] {
+        let prepared = fixture.prepare(&equivalent);
+        let collected = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&collected),
+            vec![serde_json::json!({"result":"row-5-λ"})]
+        );
+        let report = collected.execution.input.as_ref().unwrap();
+        assert_eq!(
+            (
+                report.columnar_projected_columns,
+                report.columnar_row_groups_read
+            ),
+            (2, 1)
+        );
+    }
 }
 
 #[test]

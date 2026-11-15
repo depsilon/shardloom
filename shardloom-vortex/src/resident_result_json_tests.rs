@@ -88,7 +88,8 @@ fn empty_retained_projection_keeps_schema_and_rejects_unknown_json_fields() {
     let projection = source
         .prepare_projection(&["metric", "value"], 5, 4096)
         .unwrap()
-        .with_filter(Some(vortex::expr::lit(false).bind(source.dtype()).unwrap()));
+        .with_filter(Some(vortex::expr::lit(false)))
+        .unwrap();
     let expected_dtype = vortex::expr::select(["metric", "value"], vortex::expr::root())
         .bind(source.dtype())
         .unwrap()

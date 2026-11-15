@@ -51,6 +51,35 @@ pub(super) struct Table {
 }
 
 impl Table {
+    pub(super) fn add_count_weights(
+        &mut self,
+        ordinals: &[usize],
+        weights: impl ExactSizeIterator<Item = u64>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if let Some(table) = &mut self.typed {
+            return table.add_count_weights(ordinals, weights, context);
+        }
+        if !matches!(self.slots.values.as_slice(), [Slot::Count(0)])
+            || self.count_width != 1
+            || weights.len() != ordinals.len()
+        {
+            return Err(failed("weighted COUNT storage contract changed"));
+        }
+        for (row, (&group, weight)) in ordinals.iter().zip(weights).enumerate() {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if group >= self.groups {
+                return Err(failed("weighted COUNT group exceeds retained state"));
+            }
+            update_count(&mut self.counts[group], weight)?;
+            #[cfg(all(test, debug_assertions))]
+            super::super::native_relational_observation::record_count_update(weight);
+        }
+        Ok(())
+    }
+
     pub(super) fn specialize(
         spec: &Spec,
         array: &ArrayRef,
@@ -286,6 +315,8 @@ impl Table {
                         });
                     }
                     update_count(&mut self.counts[group * self.count_width + index], 1)?;
+                    #[cfg(all(test, debug_assertions))]
+                    super::super::native_relational_observation::record_count_update(1);
                 }
             }
             Slot::Numeric(index) => {

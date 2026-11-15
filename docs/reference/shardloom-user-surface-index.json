@@ -1467,7 +1467,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "622a42322b148b6e4067e4551ee57e5134454eec93b0db75befeee5158994173",
+    "source_identity": "c51890020d5d6d1dbcbd343739e7440554d9880e1d39176ef553625d73f3e557",
     "source_inputs": {
       "Cargo.lock": "2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b",
       "Cargo.toml": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7",
@@ -1494,7 +1494,7 @@
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
       "python/src/shardloom/types.py": "2dcf5b80c08ddb359cf4bf556cf980480a3b7e64bfa9c27e9c951f3994f0e063",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
-      "shardloom-vortex/Cargo.toml": "bb37278519c725f2871f8e1ec096150d785e928ec3962faa5103b7004b081783"
+      "shardloom-vortex/Cargo.toml": "4fb1a989fe5e789815e4ac41d7820ee68698855f447244f4868e55646cd1cc4d"
     },
     "python_symbols": [
       {

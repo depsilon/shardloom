@@ -168,26 +168,32 @@ fn execute(prepared: &PreparedVortexRelational) -> Result<ExecutedVortexRelation
 fn streaming_replay_pressure_denies_resident_and_completes_native_spill_under_same_grant() {
     let fixture = ordinary_file();
     let denied = prepared(&fixture, GRANT, false);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied)
         .err()
         .expect("complete replay cannot fit this grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
     assert_eq!(denied.snapshot().completed_executions, 0);
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(denied);
 
     let ample = prepared(&fixture, 128 << 20, false);
-    let baseline = ample.snapshot().memory.reserved_bytes;
+    let baseline = ample.snapshot().reserved_without_source_segment_cache();
     let control = execute(&ample).unwrap();
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     assert_eq!(control.input.as_ref().unwrap().replay_spilled_sources, 0);
     drop(control);
-    assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ample.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(ample);
 
     let spilled = prepared(&fixture, GRANT, true);
-    let baseline = spilled.snapshot().memory.reserved_bytes;
+    let baseline = spilled.snapshot().reserved_without_source_segment_cache();
     for execution in 0..2 {
         let result = execute(&spilled).unwrap();
         let input = result.input.as_ref().unwrap();
@@ -207,7 +213,10 @@ fn streaming_replay_pressure_denies_resident_and_completes_native_spill_under_sa
             "complete_output_rows":result.output_rows,"owned_cleanup_completed":spill.owned_cleanup_completed})
         );
         drop(result);
-        assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            spilled.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -215,7 +224,7 @@ fn streaming_replay_pressure_denies_resident_and_completes_native_spill_under_sa
 fn streaming_replay_pressure_native_writer_and_reopen_share_the_same_grant() {
     let fixture = ordinary_file();
     let prepared = prepared(&fixture, GRANT, true);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut producer = Producer::new();
     let path = fixture.0.join("replay-pressure.vortex");
     let written = prepared
@@ -258,7 +267,10 @@ fn streaming_replay_pressure_native_writer_and_reopen_share_the_same_grant() {
         "output_rows":written.output.rows_written})
     );
     drop(written);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 
     let mut resource_policy = policy();
     resource_policy.resource_envelope.memory_budget_bytes = GRANT;
@@ -268,7 +280,7 @@ fn streaming_replay_pressure_native_writer_and_reopen_share_the_same_grant() {
     )
     .unwrap();
     assert_eq!(reopened.output_dtype(), prepared.output_dtype());
-    let reopened_baseline = reopened.snapshot().memory.reserved_bytes;
+    let reopened_baseline = reopened.snapshot().reserved_without_source_segment_cache();
     let mut delivered = 0;
     let report = reopened
         .for_each_json_batch(&CancellationToken::default(), 257, 1 << 20, |batch| {
@@ -283,5 +295,8 @@ fn streaming_replay_pressure_native_writer_and_reopen_share_the_same_grant() {
     assert!(report.native_io_certificate.is_certified());
     assert!(report.runtime.memory.peak_reserved_bytes <= GRANT);
     drop(report);
-    assert_eq!(reopened.snapshot().memory.reserved_bytes, reopened_baseline);
+    assert_eq!(
+        reopened.snapshot().reserved_without_source_segment_cache(),
+        reopened_baseline
+    );
 }

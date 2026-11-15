@@ -100,7 +100,7 @@ fn projection_provider_preserves_aliases_nulls_filter_order_and_limit() {
         let expected = general
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for completed in 1..=2 {
             let actual = prepared
                 .collect_jsonl(&CancellationToken::default())
@@ -115,7 +115,10 @@ fn projection_provider_preserves_aliases_nulls_filter_order_and_limit() {
             assert_eq!(actual.execution.runtime.prepared_source_opens, 1);
             assert_eq!(actual.execution.runtime.completed_executions, completed);
             drop(actual);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -134,7 +137,7 @@ fn projection_provider_respects_bounded_delivery_and_terminal_consumer_failure()
         })
         .unwrap();
     assert_eq!(rows, 5);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let token = CancellationToken::default();
     let error = prepared
         .for_each_batch(&token, |_, _| {
@@ -144,7 +147,10 @@ fn projection_provider_respects_bounded_delivery_and_terminal_consumer_failure()
         .err()
         .unwrap();
     assert!(error.to_string().contains("projection consumer rejected"));
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 1);
     let completed = prepared
         .collect_jsonl(&CancellationToken::default())
@@ -169,11 +175,13 @@ fn projection_provider_does_not_move_filter_across_range_or_skip_computation() {
         vec![("key", column("key"))],
     );
     for plan in [range_then_filter, computed, range(fixture.scan(), 1, 1)] {
-        assert!(
-            !prepare_relational(&plan, policy())
-                .unwrap()
-                .root_has_file_kernel()
-        );
+        for equivalent in [plan.clone(), plan.compact_streaming()] {
+            assert!(
+                !prepare_relational(&equivalent, policy())
+                    .unwrap()
+                    .root_has_file_kernel()
+            );
+        }
     }
 }
 

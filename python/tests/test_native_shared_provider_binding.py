@@ -77,6 +77,48 @@ def statistical_reference(rows):
 
 
 class NativeSharedProviderBindingTests(unittest.TestCase):
+    def test_source_fact_predicates_match_all_five_surfaces(self):
+        if __package__:
+            from .native_source_fact_cases import check_surfaces
+        else:
+            from native_source_fact_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_source_fact_predicates_own_results_and_reject_changed_sources(self):
+        if __package__:
+            from .native_source_fact_cases import check_owned_and_changed_source
+        else:
+            from native_source_fact_cases import check_owned_and_changed_source
+        check_owned_and_changed_source(self)
+
+    def test_multi_window_compositions_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_multi_window_compositions
+        else:
+            from native_optimization_breadth_cases import check_multi_window_compositions
+        check_multi_window_compositions(self)
+
+    def test_pivot_melt_seeded_sampling_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_pivot_melt_seeded_sampling
+        else:
+            from native_optimization_breadth_cases import check_pivot_melt_seeded_sampling
+        check_pivot_melt_seeded_sampling(self)
+
+    def test_correlated_membership_compositions_match_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_correlated_membership_compositions
+        else:
+            from native_optimization_breadth_cases import check_correlated_membership_compositions
+        check_correlated_membership_compositions(self)
+
+    def test_vector_tensor_variant_composition_matches_all_surfaces_and_formats(self):
+        if __package__:
+            from .native_optimization_breadth_cases import check_vector_tensor_variant_composition
+        else:
+            from native_optimization_breadth_cases import check_vector_tensor_variant_composition
+        check_vector_tensor_variant_composition(self)
+
     def test_decimal_output_streamed_completion_and_lazy_domains(self):
         if __package__:
             from .native_decimal_output_cases import check_streams_and_lazy
@@ -195,7 +237,7 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         return self.pa.RecordBatchReader.from_stream(result).read_all()
 
     def all_surfaces(self, frame, relation, statement, report_checks=None, *, file_binding=None,
-                     execution_session=None, resources=(128 << 20, 2)):
+                     execution_session=None, resources=(128 << 20, 2), report_check=None):
         """Execute complete declarations through five real public entry points."""
         import shardloom as sl
         session = self.session if execution_session is None else execution_session
@@ -204,6 +246,8 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         def check(get_field):
             for name, expected_value in (report_checks or {}).items():
                 self.assertEqual(get_field(name), expected_value, name)
+            if report_check is not None:
+                report_check(get_field)
 
         result = frame.collect(check=True)
         self.assertFalse(result.envelope.fallback.attempted)
@@ -2357,6 +2401,34 @@ class NativeSharedProviderBindingTests(unittest.TestCase):
         else:
             from native_metadata_count_cases import check_counts_and_outputs
         check_counts_and_outputs(self)
+
+    def test_regional_vortex_aggregate_partials_all_five_surfaces(self):
+        if __package__:
+            from .native_regional_aggregate_cases import check_surfaces
+        else:
+            from native_regional_aggregate_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_regional_vortex_aggregate_owned_outputs_survive_source_teardown(self):
+        if __package__:
+            from .native_regional_aggregate_cases import check_owned_outputs
+        else:
+            from native_regional_aggregate_cases import check_owned_outputs
+        check_owned_outputs(self)
+
+    def test_dictionary_text_consumers_all_five_surfaces(self):
+        if __package__:
+            from .native_dictionary_text_cases import check_surfaces
+        else:
+            from native_dictionary_text_cases import check_surfaces
+        check_surfaces(self)
+
+    def test_dictionary_text_owned_outputs_and_changed_source(self):
+        if __package__:
+            from .native_dictionary_text_cases import check_owned_and_changed_source
+        else:
+            from native_dictionary_text_cases import check_owned_and_changed_source
+        check_owned_and_changed_source(self)
 
     def test_direct_parquet_metadata_count_declines_other_aggregate_domains(self):
         if __package__:

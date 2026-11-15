@@ -161,7 +161,7 @@ impl PreparedVortexRelational {
                         &schema, metrics, context, OUTPUT_REPLAY_ROWS,
                     )?));
                     let copied = RefCell::new(replay::CopyStats::default());
-                    self.consume_bound_with_completion(
+                    let (execution, completed) = self.consume_bound_with_completion(
                         root, context, metrics, OUTPUT_REPLAY_ROWS,
                         &mut |array| {
                             recorder.try_borrow_mut().map_err(|_| failed("output replay is active"))?
@@ -212,7 +212,8 @@ impl PreparedVortexRelational {
                             drop(replay);
                             Ok((staged, report))
                         },
-                    )
+                    )?;
+                    Ok((execution.finish_file_evidence(context)?, completed))
                 })
             },
         )?;

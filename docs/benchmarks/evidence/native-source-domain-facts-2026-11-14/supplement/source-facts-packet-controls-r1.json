@@ -1,0 +1,345 @@
+{
+  "status": "passed",
+  "controls_rejected": 50,
+  "controls": [
+    {
+      "name": "disabled_assertions",
+      "status": "rejected",
+      "boundary": "entrypoint",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "unsafe_archive_name_'../escape'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'/escape'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'a//b'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'a\\\\b'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_''",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbundled_read",
+      "status": "rejected",
+      "boundary": "archive_identity",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_part",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_transport_size",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_archive_digest",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_archive_format",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "reordered_parts",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_complete_archive_digest",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_archive_bytes",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "external_payload_read",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "external_identity_not_explicitly_allowed",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_external_identity",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_source_member",
+      "status": "rejected",
+      "boundary": "source_identity",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_required_test_receipt",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "filtered_native_tests",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unreaped_validation_process",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "validation_source_changed",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_installed_test_total",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_public_test_total",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_provider_validation",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "failed_provider_test",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_provider_test_configuration",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_runtime_fingerprint",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_reused_code_check",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_prior_native_bytes",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_packaging_compatibility",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "KeyError"
+    },
+    {
+      "name": "discarded_original_package_failure",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "reused_old_source_for_fresh_package",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "omitted_consumer_native_dependency",
+      "status": "rejected",
+      "boundary": "unchanged_consumer_environment",
+      "error": "KeyError"
+    },
+    {
+      "name": "changed_consumer_python_version",
+      "status": "rejected",
+      "boundary": "unchanged_consumer_environment",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_consumer_environment_prefix",
+      "status": "rejected",
+      "boundary": "unchanged_consumer_environment",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_complete_fixture_readback",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_fixture_reference_digest",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_preparation_source_fingerprint",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_fixture_reuse_delta",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_original_provider_license",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_original_provider_archive_map",
+      "status": "rejected",
+      "boundary": "fixture_and_provider_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "incomplete_consumption",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "negative_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unreported_engine_clock",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "external_fallback",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "ValueError"
+    },
+    {
+      "name": "denied_memory",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unexplained_spill",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "memory_exceeds_grant",
+      "status": "rejected",
+      "boundary": "completed_native_report",
+      "error": "AssertionError"
+    },
+    {
+      "name": "successful_fields_from_failed_process",
+      "status": "rejected",
+      "boundary": "process_completion",
+      "error": "AssertionError"
+    }
+  ],
+  "relocated_replay": {
+    "status": "passed_complete_portable_replay",
+    "query_executions": 0,
+    "complete_fresh_results": 5572,
+    "complete_lifecycle_operations": 240,
+    "baseline_reuse": 336,
+    "source_fingerprint_sha256": "d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297",
+    "external_payloads_not_reopened": 452,
+    "fresh": {
+      "cases": 2786,
+      "complete": true,
+      "baseline_engine_seconds": 34.70602811,
+      "candidate_engine_seconds": 33.876871033,
+      "engine_gain_seconds": 0.8291570769999979,
+      "regressions": 1497,
+      "regression_engine_seconds": 0.263583494
+    },
+    "lifecycle": {
+      "complete": true,
+      "lifecycles": 60,
+      "operations_per_runtime": 120,
+      "baseline_engine_seconds": 0.112387206,
+      "candidate_engine_seconds": 0.085650882
+    },
+    "disposition": "retain",
+    "original_replay_decision": "retain",
+    "negative_controls_bound": 28
+  },
+  "original_source_and_runtime_reads_forbidden": true,
+  "query_executions": 0,
+  "original_packet_unchanged": true,
+  "helper": {
+    "bytes": 16840,
+    "sha256": "1bb8c29869c4ce01453fc59b83163d8de6bdc25f4042f2217e8caaa8b50e97a8"
+  },
+  "manifest": {
+    "bytes": 4968043,
+    "sha256": "837bd3f86f0950c06f13dec224bb19a166a7e813dc3a313c64cc9eb25efff89a"
+  }
+}

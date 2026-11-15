@@ -1,6 +1,6 @@
 //! Derive physical source demand from the shared, fully bound native tree.
 
-use super::super::{ScanSource, SubqueryRelation};
+use super::super::{PipelineKind, ScanSource, SubqueryRelation, transform::column_projection};
 use super::{Binder, Node, NodeKind, Result, failed};
 use shardloom_core::ColumnRef;
 use shardloom_plan::{ProjectionRequest, SourceDemand};
@@ -140,18 +140,28 @@ fn scans(
             offset,
             count,
         } => {
-            let count = prefix.map_or(*count as u64, |rows| rows.min(*count as u64));
-            let prefix = if count == 0 {
-                0
-            } else {
-                (*offset as u64)
-                    .checked_add(count)
-                    .ok_or_else(|| failed("source demand prefix overflow"))?
-            };
+            let prefix = range_prefix(prefix, *offset, *count)?;
             scans(input, Some(prefix), visit)
         }
-        NodeKind::Pipeline { input, .. }
-        | NodeKind::Unary { input, .. }
+        NodeKind::Pipeline { input, stages } => {
+            let mut prefix = prefix;
+            for stage in stages.iter().rev() {
+                prefix = match &stage.kind {
+                    PipelineKind::Project(expressions) if column_projection(expressions) => prefix,
+                    PipelineKind::Limit { offset, count } => {
+                        Some(range_prefix(prefix, *offset, *count)?)
+                    }
+                    // These stages owe their complete input or can fail on a
+                    // later row. An earlier range still limits that input.
+                    PipelineKind::Project(_)
+                    | PipelineKind::Filter(_)
+                    | PipelineKind::Observe(_)
+                    | PipelineKind::ApplicationBatch(_) => None,
+                };
+            }
+            scans(input, prefix, visit)
+        }
+        NodeKind::Unary { input, .. }
         | NodeKind::Aggregate { input, .. }
         | NodeKind::Filter { input, .. }
         | NodeKind::Sort { input, .. }
@@ -183,5 +193,16 @@ fn scans(
             Ok(anchor && step)
         }
         NodeKind::CompletedPivot { .. } | NodeKind::Outer | NodeKind::RecursiveInput(_) => Ok(true),
+    }
+}
+
+fn range_prefix(prefix: Option<u64>, offset: usize, count: usize) -> Result<u64> {
+    let count = prefix.map_or(count as u64, |rows| rows.min(count as u64));
+    if count == 0 {
+        Ok(0)
+    } else {
+        (offset as u64)
+            .checked_add(count)
+            .ok_or_else(|| failed("source demand prefix overflow"))
     }
 }

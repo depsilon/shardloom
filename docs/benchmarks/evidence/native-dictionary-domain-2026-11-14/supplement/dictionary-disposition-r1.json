@@ -1,0 +1,88 @@
+{
+  "status": "complete_experiment_acceptance",
+  "disposition": "retain",
+  "original_replay_status": "passed_complete_acceptance",
+  "original_replay_decision": "retain",
+  "reasons": [
+    "both complete engine totals lower with every correctness and work gate passed"
+  ],
+  "fresh": {
+    "cases": 5530,
+    "complete": true,
+    "baseline_engine_seconds": 676.301549673,
+    "candidate_engine_seconds": 668.884468618,
+    "engine_gain_seconds": 7.417081054999926,
+    "regressions": 3207,
+    "regression_engine_seconds": 5.344531451000002
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 20,
+    "operations_per_runtime": 40,
+    "baseline_engine_seconds": 0.09895957999999999,
+    "candidate_engine_seconds": 0.077330714
+  },
+  "thresholds_changed": false,
+  "work_requirements_passed": true,
+  "complete_results_replayed": 11060,
+  "complete_lifecycle_operations_replayed": 80,
+  "additional_query_executions": 0,
+  "whole_investigation_queue_complete": false,
+  "publication_attempted": false,
+  "inputs": {
+    "dictionary-protocol-r1.json": "b804b19036e24837040f243d6279825b48eea4faec06de2cfe7168be27d1c408",
+    "dictionary-protocol-r2.json": "49cb2c306994a510e8809ccba3628b67985eb496d25a199a1fafe06fc767e2f2",
+    "dictionary-validation-r1.json": "c18d2e6c380026c52ae98e32097515ef7f035a3bbf398e8c2ad724b2ce27391d",
+    "dictionary-replay-r1.json": "6885b51792ee08100ee6cbdbcc17ac9123c25987fe51f550472c088d1b0836f4",
+    "dictionary-recovery-prefix-r1.json": "3a0f5c8fb961b9e5bf455c158615091a4b0fb37bc3683961fc102380805950fb",
+    "dictionary-harness-recovery-tests-r1.json": "e5b3b289c6b1f4314139e5171dbf352cb5ed522d0e6ac2e72aa52adc07b30ede",
+    "dictionary-negative-controls-r1.json": "8ec4c0efb01aa18c2e59681866a6bd5673cf058b00e8bae38d98ad7b1a2592fe",
+    "dictionary-source-r1.json": "6c95928069d4c3319b05b64b36b510e5cafa0fddc9fe566fc121efb0d6a8507e",
+    "dictionary-replay-verification-r1.json": "2d1ee59ab4828c436527fc26107a03ae8baf805c27bba58781393e9d09084b50",
+    "dictionary-negative-controls-check-r1.json": "12e41e9e2a482b230b7c926784c686fcb50db5d669559bebad0a4ffb2c9b1a07"
+  },
+  "candidate_source": {
+    "status": "preserved_exact_candidate_source",
+    "disposition": "retain",
+    "head": "263f052ce7ef84618b042985cbcb4a3f73ca3bff",
+    "tree": "b8893dd71626ec1ee993ebe4dd90feeac8dd522c",
+    "parent": "c74d0ebb4d56bdcd919776c213aeaf3cf84e9ab8",
+    "branch": "codex/native-dictionary-domain",
+    "files": [
+      "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "python/tests/data/dictionary-text-v1/README.md",
+      "python/tests/data/dictionary-text-v1/all-null.vortex",
+      "python/tests/data/dictionary-text-v1/dictionary.vortex",
+      "python/tests/data/dictionary-text-v1/empty.vortex",
+      "python/tests/data/dictionary-text-v1/flat.vortex",
+      "python/tests/data/dictionary-text-v1/sparse.vortex",
+      "python/tests/data/dictionary-text-v1/unique.vortex",
+      "python/tests/native_dictionary_text_cases.py",
+      "python/tests/test_native_shared_provider_binding.py",
+      "shardloom-vortex/Cargo.toml",
+      "shardloom-vortex/examples/native_dictionary_uat_fixture.rs",
+      "shardloom-vortex/src/lib.rs",
+      "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "shardloom-vortex/src/local_primitive_relational_dictionary_exposure_tests.rs",
+      "shardloom-vortex/src/local_primitive_relational_expression_tests.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_dictionary_expression.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_dictionary_expression_tests.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_scalar_batch.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_scalar_batch_tests.rs",
+      "shardloom-vortex/src/native_dictionary_expression.rs",
+      "shardloom-vortex/src/resident_execution_context.rs"
+    ],
+    "patch": {
+      "bytes": 100069,
+      "sha256": "0e45c46d4c8e40395159adbfa282b4ac98eb0ac88703fdf89a1ed28e28cca1be"
+    },
+    "source_fingerprint_sha256": "c64f40da7b3693e3eff7e4eebeca2f64a171a7d02deba387f440d021f586b4ef",
+    "source_bytes_equal_to_executed_candidate": true,
+    "committed_blobs_verified": 5762,
+    "runtime_build_head": "c74d0ebb4d56bdcd919776c213aeaf3cf84e9ab8",
+    "runtime_rebuilt_after_commit": false,
+    "publication_attempted": false
+  },
+  "predecessor_commit": "c74d0ebb4d56bdcd919776c213aeaf3cf84e9ab8"
+}

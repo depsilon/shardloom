@@ -242,6 +242,7 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
         assert_eq!(executed.runtime.completed_executions, completed);
         assert_eq!(payload(&executed.report)["values"], expected);
         assert_mixed_workers(&payload(&executed.report));
+        assert_pass_evidence(&executed.native_io_certificate.file_scans);
     }
     let completed = prepared.execute_owned().unwrap();
     assert_eq!(rendered(&completed.result), expected);
@@ -263,6 +264,45 @@ fn winner_distinct_native_ordinary_prepared_and_owned_result_share_complete_valu
     assert_eq!(rendered(&arrays), expected);
     drop(session);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+fn assert_pass_evidence(evidence: &shardloom_core::native_file_scan::NativeFileScanEvidence) {
+    use shardloom_core::native_file_scan::NativeFileScanRoute;
+    assert_eq!(evidence.sources.len(), 1);
+    assert!(evidence.sources[0].completed_read_bytes > 0);
+    assert_eq!(evidence.contracts.len(), 2);
+    assert!(evidence.contracts.iter().all(|contract| {
+        contract.route == NativeFileScanRoute::AggregatePass && contract.source == 0
+    }));
+    let count = evidence
+        .contracts
+        .iter()
+        .find(|contract| contract.projected_columns == Some(vec!["bucket".into()]))
+        .unwrap();
+    // Four spatial samples followed by the complete COUNT pass. Repeated
+    // contracts merge, but every delivered row and invocation remains counted.
+    assert_eq!(count.invocations, 5);
+    assert_eq!(count.provider_scan_invocations, Some(5));
+    assert_eq!(count.delivered_rows, SAMPLE_ROWS + ROWS as u64);
+    assert_eq!(count.pushed_predicate_columns, Some(vec![]));
+    assert_eq!(count.residual_predicate_columns, Some(vec![]));
+    let measures = evidence
+        .contracts
+        .iter()
+        .find(|contract| contract.pushed_predicate_columns == Some(vec!["bucket".into()]))
+        .unwrap();
+    assert_eq!(measures.invocations, 1);
+    assert_eq!(measures.provider_scan_invocations, Some(1));
+    assert_eq!(measures.delivered_rows, 3 * (ROWS as u64 / 16));
+    assert_eq!(
+        measures.projected_columns,
+        Some(
+            ["identity", "width", "bucket", "measure"]
+                .map(str::to_string)
+                .to_vec()
+        )
+    );
+    assert_eq!(measures.residual_predicate_columns, Some(vec![]));
 }
 
 fn assert_mixed_workers(work: &serde_json::Value) {
@@ -390,6 +430,11 @@ fn winner_distinct_native_running_worker_observes_operation_cancel_and_recovers(
     drop(prepared);
     drop(session);
     assert!(!fresh_token.is_cancelled());
+    assert!(
+        memory.snapshot().reserved_bytes > 0,
+        "execution certificate remains live"
+    );
+    drop(fresh);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
@@ -452,5 +497,10 @@ fn winner_distinct_native_mixed_worker_source_denial_refunds_and_prepared_recove
     assert_eq!(session.snapshot().completed_executions, 1);
     drop(prepared);
     drop(session);
+    assert!(
+        memory.snapshot().reserved_bytes > 0,
+        "execution certificate remains live"
+    );
+    drop(fresh);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

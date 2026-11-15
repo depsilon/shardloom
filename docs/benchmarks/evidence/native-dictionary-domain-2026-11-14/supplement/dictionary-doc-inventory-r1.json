@@ -1,0 +1,87 @@
+{
+  "source_sha256": {
+    "docs/architecture/phased-execution-plan.md": "10910ec07c2d47b2a5feb342dc55f5a9e692cbd14dc3576d9ba050aec5f7d716",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": "baf2acd753a986711cf813905a2b7fde0b70ac92f95537b890cd5547ae4a9995",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": "dc7fcf3e6215ad3a792bba9bdeac25ed6fe2dc184c2681a5d55856e79582ddfb",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": "dc8aae8ed747336b6e6775ec7dd93ca2d37f82e87bdea5e257c1cf1bb8315adc",
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md": "e7321aa83d105ccd2e9e8a25637d084c6002f9560f021df9fd8359d9b3319499",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": "97b9f0d6a171867bd1d01674f4282a7de5455ced321e88afeda20b308279bde4",
+    "docs/architecture/native-dictionary-domain-2026-11-14.md": "7ed36a58eaf62579f730a8175ddb1534b4ec324cb7b123bba08a66cd9bbc94d4"
+  },
+  "current_status_passages_to_change": [
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": 351,
+      "literal_stale_text": "restored. Dictionary-domain text execution under N is next. Broader\n  constant-key support remains open.",
+      "reason": "Current status; advance the next-work pointer to the named source/domain facts extending C and following sequence."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 25,
+      "literal_stale_text": "the accepted scalar-regional code is restored. Dictionary-domain N work is next;\nbroader constant-key support and coverage remain open.",
+      "reason": "Current status; advance the pointer while retaining broader constant-key/open-coverage status."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 69,
+      "literal_stale_text": "| Next active work | Dictionary-domain text transforms and consumers, extending N | Establish actual dictionary retention/expansion and exact consumer semantics before selecting a compressed-text alternative. |",
+      "reason": "Current active queue row; promote the next named work item."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": 161,
+      "literal_stale_text": "scalar implementation; dictionary-domain execution is next.",
+      "reason": "Current status in regional handoff; advance pointer while preserving grouped-extension exclusion."
+    },
+    {
+      "path": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "line": 102,
+      "literal_stale_text": "semantic, read-reduction and separate lifecycle proof. Dictionary-domain N work\nis next; broader constant-key support remains open.",
+      "reason": "Current status; advance pointer to next named source/domain facts extending C."
+    },
+    {
+      "path": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "line": 22,
+      "literal_stale_text": "remains accepted. Dictionary-domain execution is next. Broader constant-key\nsupport, the metadata/optimization queue, item 19/20, RFC 0044 and CG-1 through\nCG-23 remain open.",
+      "reason": "Current status; change next-work pointer only and preserve open scope."
+    },
+    {
+      "path": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "line": 30,
+      "literal_stale_text": "Dictionary-domain text execution under N is next. Broader constant-key support,\nthe parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.",
+      "reason": "Current status; change next-work pointer only and preserve drop disposition/open scope."
+    },
+    {
+      "path": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "line": 12,
+      "literal_stale_text": "under its own complete-cohort rule; dictionary-domain execution is next. Broader\nconstant-key support and the item-20/RFC-0044 queue remain open.",
+      "reason": "Current status; change next-work pointer only."
+    }
+  ],
+  "historical_passages_to_preserve": [
+    {
+      "path": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "line": 5,
+      "literal_stale_text": "Status: active, before candidate acceptance. This extends structural investigation\nN under item 20/RFC 0044 and the\n[metadata/encoded-consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).",
+      "reason": "Historical pre-candidate status/source binding; update only as formal disposition is recorded, preserve original protocol."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line": "70-75",
+      "literal_stale_text": "| Next | Named exact source/domain facts, extending C, then ALP/FastLanes predicate admission | Reuse compatible proofs from metadata work and retain only facts an actual consumer needs. Do not build a general fact system in advance. |\n| Next | Nonspatial predicate-specific zone evidence: native Bloom first, then necessary text signatures | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent Bloom/text work. |\n| Next | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |\n| Next | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |\n| Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |\n| Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |",
+      "reason": "Historical queue contracts; preserve order and dependency requirements while updating current head."
+    },
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line": "523-525",
+      "literal_stale_text": "- [ ] N: establish active dictionary exposure, then evaluate eligible\n      text transforms over values retained into group/filter consumers; preserve\n      merged-value equality, cross-dictionary identity and the detached-code repair.",
+      "reason": "Historical phase contract; preserve N semantics and parent open status."
+    },
+    {
+      "path": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "line": "171-173",
+      "literal_stale_text": "Required spatial execution and all remaining metadata/encoded queue items keep\ntheir order and independent acceptance criteria.",
+      "reason": "Historical experiment boundary; preserves independent obligations."
+    }
+  ]
+}

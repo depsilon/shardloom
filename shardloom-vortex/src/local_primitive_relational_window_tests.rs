@@ -271,7 +271,10 @@ fn native_relational_windows_reject_invalid_parameters_nonfinite_and_implicit_nu
         let fixture = Fixture::new(single("value", array), 1);
         let prepared =
             prepare_relational(&unpartitioned(&fixture, Function::RowNumber), policy()).unwrap();
-        let baseline = prepared.session.memory().snapshot().reserved_bytes;
+        let baseline = prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache();
         let mut delivered = 0;
         assert!(
             prepared
@@ -284,7 +287,10 @@ fn native_relational_windows_reject_invalid_parameters_nonfinite_and_implicit_nu
         assert_eq!(delivered, 0);
         assert_eq!(prepared.snapshot().completed_executions, 0);
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline
         );
     }
@@ -302,7 +308,10 @@ fn native_relational_window_cancellation_after_one_batch_releases_partition_stat
     );
     let prepared =
         prepare_relational(&unpartitioned(&fixture, Function::RowNumber), policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let cancel = CancellationToken::default();
     let mut delivered = 0;
     assert!(
@@ -318,7 +327,10 @@ fn native_relational_window_cancellation_after_one_batch_releases_partition_stat
     assert_eq!(delivered, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
 }
@@ -331,7 +343,10 @@ fn native_relational_window_denial_releases_all_state_and_a_fresh_call_retries_w
     );
     let prepared =
         prepare_relational(&unpartitioned(&fixture, Function::RowNumber), policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let limit = prepared.session.memory().snapshot().limit_bytes;
     let pressure = prepared
         .session
@@ -354,7 +369,10 @@ fn native_relational_window_denial_releases_all_state_and_a_fresh_call_retries_w
     assert_eq!(prepared.snapshot().completed_executions, 0);
     drop(pressure);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let result = prepared
@@ -365,7 +383,10 @@ fn native_relational_window_denial_releases_all_state_and_a_fresh_call_retries_w
     assert_eq!(result.runtime.completed_executions, 1);
     drop(result);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
 }

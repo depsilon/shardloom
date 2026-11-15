@@ -163,6 +163,11 @@ fn prepared_spill_cancellation_leaves_serving_queue_before_held_call_finishes() 
         drop(prepared);
         drop(source);
         drop(session);
+        assert!(
+            memory.snapshot().reserved_bytes > 0,
+            "execution certificate remains live"
+        );
+        drop(actual);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
 }

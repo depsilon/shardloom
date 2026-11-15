@@ -173,7 +173,7 @@ fn native_nested_json_cancellation_is_checked_within_a_single_list() {
     .unwrap()
     .into_array();
     let session = ResidentVortexSession::new(4 << 20, 1).unwrap();
-    let baseline = session.snapshot().memory.reserved_bytes;
+    let baseline = session.snapshot().reserved_without_source_segment_cache();
     let cancelled = CancellationToken::default();
     let mut writer = CancellingWriter {
         bytes: 0,
@@ -191,7 +191,10 @@ fn native_nested_json_cancellation_is_checked_within_a_single_list() {
     });
     assert!(result.err().unwrap().to_string().contains("cancel"));
     assert!(writer.bytes < 100);
-    assert_eq!(session.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        session.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -251,7 +254,7 @@ fn native_nested_key_order_spill_preserves_payloads_and_cleans_up_after_consumer
         .with_spill(VortexRelationalSpillPolicy::new(&fixture.0, 64 << 20, 1 << 20).unwrap())
         .unwrap();
     let expected = (0..count).map(|id| json!({"id":id,"items":[id,null],"detail":{"label":labels[(count - 1 - id) as usize]}})).collect::<Vec<_>>();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -271,7 +274,10 @@ fn native_nested_key_order_spill_preserves_payloads_and_cleans_up_after_consumer
             Ok(())
         });
         assert!(result.is_err());
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(prepared.snapshot().completed_executions, 1);
         assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
     }

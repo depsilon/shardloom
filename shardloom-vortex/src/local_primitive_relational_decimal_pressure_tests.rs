@@ -214,21 +214,27 @@ fn native_decimal_output_pressure_uses_actual_runs_and_matches_ample_memory() {
     let fixture = fixture();
     for window in [false, true] {
         let denied = prepare(&fixture, window, GRANT, None);
-        let baseline = denied.snapshot().memory.reserved_bytes;
+        let baseline = denied.snapshot().reserved_without_source_segment_cache();
         let error = execute(&denied, window)
             .err()
             .expect("resident state exceeds grant");
         assert!(error.to_string().contains("reservation denied"), "{error}");
-        assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            denied.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(denied.snapshot().completed_executions, 0);
         drop(denied);
         let ample = prepare(&fixture, window, 256 << 20, None);
-        let baseline = ample.snapshot().memory.reserved_bytes;
+        let baseline = ample.snapshot().reserved_without_source_segment_cache();
         drop(execute(&ample, window).unwrap());
-        assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            ample.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         drop(ample);
         let stored = prepare(&fixture, window, GRANT, Some(256 << 20));
-        let baseline = stored.snapshot().memory.reserved_bytes;
+        let baseline = stored.snapshot().reserved_without_source_segment_cache();
         let report = execute(&stored, window).unwrap();
         let spill = report.spill.as_ref().unwrap();
         assert!(spill.runs_written > 3 && spill.merge_passes > 1);
@@ -243,7 +249,10 @@ fn native_decimal_output_pressure_uses_actual_runs_and_matches_ample_memory() {
             "peak_disk_bytes":spill.peak_disk_bytes,"owned_cleanup_completed":spill.owned_cleanup_completed})
         );
         drop(report);
-        assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            stored.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -252,7 +261,7 @@ fn native_decimal_output_spill_faults_release_state_and_allow_retry() {
     let fixture = fixture();
     for window in [false, true] {
         let prepared = prepare(&fixture, window, GRANT, Some(256 << 20));
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for cancel in [false, true] {
             let token = CancellationToken::default();
             let mut calls = 0;
@@ -289,10 +298,13 @@ fn native_decimal_output_spill_faults_release_state_and_allow_retry() {
             );
         }
         let denied = prepare(&fixture, window, GRANT, Some(32 << 10));
-        let denied_baseline = denied.snapshot().memory.reserved_bytes;
+        let denied_baseline = denied.snapshot().reserved_without_source_segment_cache();
         let error = execute(&denied, window).err().expect("quota refusal");
         assert!(error.to_string().contains("quota"), "{error}");
-        assert_eq!(denied.snapshot().memory.reserved_bytes, denied_baseline);
+        assert_eq!(
+            denied.snapshot().reserved_without_source_segment_cache(),
+            denied_baseline
+        );
         assert_eq!(denied.snapshot().completed_executions, 0);
         assert_eq!(
             fs::read_dir(fixture.0.join("decimal-runs"))
@@ -303,7 +315,10 @@ fn native_decimal_output_spill_faults_release_state_and_allow_retry() {
         drop(denied);
         drop(execute(&prepared, window).unwrap());
         assert_eq!(prepared.snapshot().completed_executions, 1);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("decimal-runs"))
                 .unwrap()

@@ -976,6 +976,11 @@ impl VariableColumn {
         !self.binary
     }
 
+    /// The existing prepared codes and value-domain length; no row expansion.
+    pub(super) fn dictionary_parts(&self) -> Option<(&NativeNumericOwner, usize)> {
+        self.codes.as_ref().map(|codes| (codes, self.values.len()))
+    }
+
     /// Borrow only within the prepared native owner. The expression result
     /// builder copies any returned text into its independently credited output.
     pub(super) fn utf8_at(&self, row: usize) -> Result<Option<&str>> {
@@ -996,7 +1001,7 @@ impl VariableColumn {
             .map(|index| super::native_utf8::borrowed_bytes(&self.values, index).len()))
     }
 
-    fn index(&self, row: usize) -> Result<Option<usize>> {
+    pub(super) fn index(&self, row: usize) -> Result<Option<usize>> {
         let index = match &self.codes {
             None => row,
             Some(codes) => match codes.distinct_value(row)? {

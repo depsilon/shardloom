@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "query_executions": 0,
+  "source_commit": "9f4580c723f876f087d3e75fb56153b4b099ef20",
+  "inputs": {
+    "verified-cases-r1.jsonl.gz": {
+      "bytes": 833606,
+      "sha256": "90c046bb2902961a8cf7b78f24d9705a3f8a614fd3ee4eba0a9ba0870b3bf98d"
+    },
+    "certificate-cases-r1.jsonl.gz": {
+      "bytes": 1775824,
+      "sha256": "6cb78b8cc6146045fc9db34ea69886ab671b945c68ab9af039dc931097d93a9c"
+    }
+  },
+  "counts": {
+    "cases": {
+      "without_file_kernel": 7621,
+      "with_file_kernel": 2379
+    },
+    "source_buffer_transfer": {
+      "reported": 6122,
+      "positive": 4238,
+      "without_file_kernel": 4238
+    },
+    "materialized_relation_reuse": {
+      "reported": 10000,
+      "positive": 196,
+      "with_file_kernel": 70,
+      "without_file_kernel": 126
+    },
+    "metadata_pruned_scan": {
+      "reported": 9807,
+      "positive": 3,
+      "without_file_kernel": 3
+    },
+    "adaptive_native_scan_policy_exercised": {
+      "reported": 8632,
+      "positive": 8632,
+      "without_file_kernel": 7584,
+      "with_file_kernel": 1048
+    },
+    "adaptive_native_scan_window_shrunk": {
+      "reported": 8632
+    },
+    "adaptive_native_scan_window_grown": {
+      "reported": 8632
+    },
+    "direct_source_narrow_column_demand": {
+      "reported": 6122,
+      "positive": 6022,
+      "without_file_kernel": 6022
+    },
+    "rank_then_selected_payload_source": {
+      "reported": 24,
+      "positive": 24,
+      "without_file_kernel": 24
+    }
+  },
+  "counter_keys": {
+    "source_buffer_transfer": "intake_columnar_buffer_bytes_transferred",
+    "materialized_relation_reuse": "relational_materialized_reuses",
+    "metadata_pruned_scan": "scans_metadata_pruned",
+    "rank_then_selected_payload_source": "ranked_sources",
+    "adaptive_native_scan_policy_exercised": "adaptive_native_scan_completed_windows",
+    "adaptive_native_scan_window_shrunk": "adaptive_native_scan_shrunk_windows",
+    "adaptive_native_scan_window_grown": "adaptive_native_scan_grown_windows"
+  },
+  "overall_optimization_coverage_percent": null,
+  "overall_coverage_status": "not_complete_existing_and_planned_mechanisms_remain_open",
+  "limits": [
+    "Counts overlap and are not comprehensive optimization coverage.",
+    "Zero or absent counters do not establish ineligibility or a missing implementation.",
+    "Positive counters establish recorded activation/work, not individual speed benefit.",
+    "Adaptive policy execution does not by itself mean a window changed size.",
+    "Column demand does not establish proportional byte savings for every source format."
+  ],
+  "verifier": {
+    "bytes": 4119,
+    "sha256": "40cdbd314e77871715b5f36e64eb6f039e6238fdbd6187dadbdfacc7e09949d6"
+  }
+}

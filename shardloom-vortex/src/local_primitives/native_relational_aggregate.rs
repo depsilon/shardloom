@@ -20,6 +20,9 @@ mod numeric_reuse;
 #[path = "native_relational_aggregate_compact.rs"]
 mod compact;
 
+#[path = "native_relational_aggregate_count_partial.rs"]
+mod count_partial;
+
 #[cfg(test)]
 #[path = "native_relational_aggregate_compact_tests.rs"]
 mod compact_tests;
@@ -116,6 +119,15 @@ pub(super) struct Spec {
 }
 
 impl Spec {
+    pub(super) fn admits_count_partial(&self, fields: &[(String, DType)]) -> bool {
+        count_partial::admitted(self, |name| {
+            fields
+                .iter()
+                .find(|(field, _)| field == name)
+                .map(|(_, dtype)| dtype.clone())
+        })
+    }
+
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     pub(super) fn is_scalar_count_all(&self) -> bool {
         self.groups.is_empty()
@@ -396,6 +408,37 @@ impl<'a> Aggregate<'a> {
         self.consume_inner(array, context, batch_rows, true)
     }
 
+    /// Only an immediate total sort consumer may change first-seen group order.
+    /// Spill and ordinary callers keep `consume` and its existing ordering.
+    pub(super) fn consume_reordered_count(
+        &mut self,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+    ) -> Result<()> {
+        if count_partial::try_consume(self, array, context, batch_rows)? {
+            Ok(())
+        } else {
+            self.consume(array, context, batch_rows)
+        }
+    }
+
+    fn prepare_compact(
+        &mut self,
+        array: &ArrayRef,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if let Some(table) = &self.compact
+            && !table.accepts(self.spec, array, context)
+        {
+            // Keep old state and credit until ordinary storage is ready.
+            table.restore(self.spec, &mut self.states, context)?;
+            self.compact = None;
+            self.specialize = false;
+        }
+        Ok(())
+    }
+
     #[cfg(feature = "vortex-write")]
     pub(super) fn consume_ordered_base(
         &mut self,
@@ -551,15 +594,7 @@ impl<'a> Aggregate<'a> {
             groups.insert_batch(array.clone(), None, context, batch_rows, None)?;
             return context.check_cancelled();
         }
-        if let Some(table) = &self.compact
-            && !table.accepts(self.spec, array, context)
-        {
-            // Internal callers may change representation across batches. Keep
-            // the complete old state and lease until ordinary storage is ready.
-            table.restore(self.spec, &mut self.states, context)?;
-            self.compact = None;
-            self.specialize = false;
-        }
+        self.prepare_compact(array, context)?;
         let all_ordinals = if let Some(groups) = &mut self.groups {
             GroupOrdinals::Grouped(groups.intern_batch(array.clone(), context, batch_rows)?)
         } else {
@@ -779,6 +814,8 @@ impl<'a> Aggregate<'a> {
                     &mut self.states.values[measure_index],
                     u64::try_from(array.len()).map_err(vortex_error)?,
                 )?;
+                #[cfg(all(test, debug_assertions))]
+                super::native_relational_observation::record_count_update(array.len() as u64);
                 continue;
             }
             if let Some(distinct) = self.distinct.values[measure_index].as_mut() {
@@ -1421,6 +1458,10 @@ fn update(
         return Ok(());
     }
     add_count(state, 1)?;
+    #[cfg(all(test, debug_assertions))]
+    if measure.function == Function::Count {
+        super::native_relational_observation::record_count_update(1);
+    }
     match measure.function {
         Function::Count => Ok(()),
         Function::Sum | Function::Avg | Function::SumDistinct | Function::AvgDistinct => {

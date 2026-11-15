@@ -3,6 +3,9 @@
 use super::*;
 use crate::local_primitives::prepared_relational::cyclic_exists::observation;
 
+#[path = "local_primitive_relational_cyclic_source_tests.rs"]
+mod source_tests;
+
 fn prepare(values: &[Relation; 3], plan: VortexRelationalPlan) -> PreparedVortexRelational {
     prepare_relational_with_schema(policy(), |schemas| {
         for (name, value) in ["r", "s", "t"].into_iter().zip(values) {
@@ -19,8 +22,7 @@ fn complete(
     batch_rows: usize,
     wide: bool,
 ) -> observation::Counts {
-    let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let mut fields = vec![
         (
             "outer_id".to_owned(),
@@ -67,8 +69,35 @@ fn complete(
     assert!(result.native_io_certificate.is_certified());
     assert!(!result.native_io_certificate.side_effects.fallback_attempted);
     let counts = observation::snapshot();
+    let work = result.native_io_certificate.join_work.cyclic;
+    assert_eq!(work.executions, counts.executions as u64);
+    assert_eq!(work.last_build_rows, counts.last_rows as u64);
+    assert_eq!(work.middle_build_rows, counts.middle_rows as u64);
+    assert_eq!(work.outer_rows, counts.outer_rows as u64);
+    assert_eq!(work.middle_visits, counts.middle_visits as u64);
+    assert_eq!(work.last_probes, counts.last_probes as u64);
+    assert_eq!(work.witness_exits, counts.witness_exits as u64);
+    assert_eq!(work.gathered_rows, counts.gathered_rows as u64);
+    if result.prepared_file_sources == 3 {
+        assert_eq!(result.native_io_certificate.file_scans.sources.len(), 3);
+        assert!(
+            result
+                .native_io_certificate
+                .file_scans
+                .sources
+                .iter()
+                .all(|source| {
+                    source.segment_requests > 0
+                        && (source.completed_read_bytes > 0
+                            || source.segment_reuse.cross_call_hits > 0)
+                })
+        );
+    }
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     counts
 }
 
@@ -256,6 +285,146 @@ fn nullable_duplicates() -> [Relation; 3] {
     patterns.map(|rows| Relation::new(&rows.into_iter().cycle().take(132).collect::<Vec<_>>()))
 }
 
+fn file_relations(values: &[Relation; 3]) -> [Fixture; 3] {
+    std::array::from_fn(|index| {
+        let value = &values[index];
+        Fixture::new(
+            StructArray::new(
+                ["x", "y", "id"].into(),
+                vec![
+                    PrimitiveArray::from_option_iter(value.x.iter().copied()).into_array(),
+                    PrimitiveArray::from_option_iter(value.y.iter().copied()).into_array(),
+                    PrimitiveArray::new(value.id.clone(), Validity::NonNullable).into_array(),
+                ],
+                value.id.len(),
+                Validity::NonNullable,
+            )
+            .into_array(),
+            17,
+        )
+    })
+}
+
+fn file_plan(fixtures: &[Fixture; 3]) -> VortexRelationalPlan {
+    let VortexRelationalPlan::Join(mut outer) = existence_plan(JoinKind::LeftSemi, false) else {
+        unreachable!()
+    };
+    outer.left = fixtures[0].scan();
+    let VortexRelationalPlan::Join(inner) = &mut outer.right else {
+        unreachable!()
+    };
+    inner.left = fixtures[1].scan();
+    inner.right = fixtures[2].scan();
+    VortexRelationalPlan::Join(outer)
+}
+
+#[test]
+fn cyclic_file_sources_use_compiled_scans_and_preserve_complete_values_and_work() {
+    let values = nullable_duplicates();
+    let expected = existence_reference(&values, JoinKind::LeftSemi);
+    let fixtures = file_relations(&values);
+    for compiled in [true, false] {
+        let mut prepared = prepare_relational(&file_plan(&fixtures), policy()).unwrap();
+        if !compiled {
+            prepared.remove_file_kernels_for_reference().unwrap();
+        }
+        let memory = prepared.session.memory().clone();
+        for batch_rows in [1, 31, 2048] {
+            let work = complete(&prepared, &expected, batch_rows, false);
+            assert_eq!(work.executions, 1);
+            assert_eq!(work.outer_rows, 132);
+            assert_eq!(work.middle_rows, 132);
+            assert_eq!(work.last_rows, 132);
+            assert_eq!(work.witness_exits, 66);
+            assert_eq!(work.middle_visits, 66 + 22 * 44);
+            assert_eq!(work.last_probes, 66 + 22 * 22);
+        }
+        drop(prepared);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn cyclic_file_sources_keep_cancellation_denial_consumer_and_generation_boundaries() {
+    use std::io::{Seek as _, SeekFrom, Write as _};
+    let values = nullable_duplicates();
+    let fixtures = file_relations(&values);
+    let plan = source_tests::hidden_ids(file_plan(&fixtures));
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let memory = prepared.session.memory().clone();
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
+    let cancellation = CancellationToken::default();
+    cancellation.cancel();
+    assert!(prepared.collect_jsonl(&cancellation).is_err());
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
+    let held = memory
+        .reserve(memory.snapshot().limit_bytes - baseline)
+        .unwrap();
+    assert!(
+        prepared
+            .collect_jsonl(&CancellationToken::default())
+            .is_err()
+    );
+    drop(held);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
+    let mut calls = 0;
+    assert!(
+        prepared
+            .for_each_json_batch(&CancellationToken::default(), 1, 4096, |_| {
+                calls += 1;
+                Err(ShardLoomError::InvalidOperation(
+                    "terminal cyclic file consumer error".into(),
+                ))
+            })
+            .is_err()
+    );
+    assert_eq!(calls, 1);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
+    complete(
+        &prepared,
+        &existence_reference(&values, JoinKind::LeftSemi),
+        31,
+        false,
+    );
+    let mut replaced = false;
+    let error = prepared
+        .for_each_json_batch(&CancellationToken::default(), 31, 4096, |_| {
+            if !replaced {
+                let mut file = fs::OpenOptions::new()
+                    .write(true)
+                    .open(fixtures[2].path())
+                    .unwrap();
+                file.seek(SeekFrom::Start(8)).unwrap();
+                file.write_all(&[0x73]).unwrap();
+                file.sync_all().unwrap();
+                replaced = true;
+            }
+            Ok(())
+        })
+        .err()
+        .expect("a changed completed build source must fail final validation");
+    assert!(replaced);
+    assert!(
+        error.to_string().contains("changed") || error.to_string().contains("generation"),
+        "{error}"
+    );
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
+    drop(prepared);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
 #[test]
 fn cyclic_candidate_preserves_admitted_nulls_duplicates_aliases_and_batch_boundaries() {
     let values = nullable_duplicates();
@@ -304,6 +473,7 @@ fn cyclic_candidate_preserves_admitted_nulls_duplicates_aliases_and_batch_bounda
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One candidate must preserve all terminal failure/refund boundaries.
 fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_allocation_denial() {
     let values = [
         Relation::new(&[(Some(2), Some(7)); 128]),
@@ -312,7 +482,7 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
     ];
     let prepared = prepare_existence(&values, JoinKind::LeftSemi, false);
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for cancel in [false, true] {
         observation::reset();
         let token = CancellationToken::default();
@@ -330,7 +500,10 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
         let counts = observation::snapshot();
         assert_eq!(counts.executions, 1);
         assert_eq!(counts.gathered_rows, 2);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     // Include the existing report metadata admission, then observe failures
     // after candidate entry and real input delivery instead of guessing which
@@ -368,7 +541,10 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
             }
         }
         drop(occupied);
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert!(partial_denials > 0);
     assert!(successes > 0);
@@ -393,7 +569,7 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
     ];
     let prepared = prepare_existence(&values, JoinKind::LeftSemi, false);
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     observation::reset();
     let token = CancellationToken::default();
     observation::cancel_at_visit(7, token.clone());
@@ -403,7 +579,10 @@ fn cyclic_candidate_drains_consumer_failure_probe_cancellation_and_partial_alloc
     assert!((7..=1030).contains(&counts.middle_visits));
     assert_eq!(counts.last_probes, 0);
     assert_eq!(counts.gathered_rows, 0);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(complete(&prepared, &[], 2048, false).executions, 1);
     drop(prepared);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -501,7 +680,7 @@ fn cyclic_candidate_admits_identity_but_keeps_real_transformations_ordinary() {
                 false
             )
             .executions,
-            usize::from(shape == "identity"),
+            usize::from(matches!(shape, "identity" | "reordered")),
             "{shape}"
         );
         drop(prepared);
@@ -615,7 +794,7 @@ fn cyclic_candidate_admits_nonnullable_keys_and_preserves_other_left_payload_typ
     })
     .unwrap();
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     observation::reset();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
@@ -624,7 +803,10 @@ fn cyclic_candidate_admits_nonnullable_keys_and_preserves_other_left_payload_typ
     let expected = (0..128).map(|row| json!({"outer_id":integers[row],"b":integers[row],"a":integers[row],"text":strings[row],"flag":bools[row]})).collect::<Vec<_>>();
     assert_eq!(json_rows(&result), expected);
     drop(result);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(prepared);
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }

@@ -1,5 +1,24 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 14 encoded comparison observations
+
+The comparison adaptor optionally records successful ALP, FastLanes BitPacked
+and frame-of-reference dispatches in an explicitly installed session observer.
+Empty/null shortcuts and declined kernel attempts do not count. The observations
+are calls and logical operand rows, including repeated or nested work; they do
+not establish unique rows, avoided reads or decoded bytes. The encoded kernels,
+comparison semantics, serialization and provider version remain unchanged.
+
+The caller establishes exclusive operation ownership and supplies the fixed
+counter allocation's resource credit. Dropping the scope clears the session's
+weak registry before releasing the state, including on a poisoned-registry path.
+Any in-flight record retains its own state and credit until it finishes; it
+cannot enter a later scope's counts. The registry deliberately uses the standard
+mutex so poisoning can invalidate attribution after an unwind; the scoped lint
+exception preserves this failure signal. Overlap, poison and counter overflow make
+attribution unavailable without changing query results. Ordinary sessions that
+do not install the observer retain the existing execution behavior.
+
 ## November 9 wide-schema admission
 
 FlatBuffer-backed struct metadata reserves its name, field, lazy-cache and

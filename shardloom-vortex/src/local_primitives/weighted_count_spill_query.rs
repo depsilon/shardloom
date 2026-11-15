@@ -308,6 +308,7 @@ pub(super) fn execute_with_output(
         LocalVortexAggregateScan {
             scan_columns: None,
             metadata_completed: false,
+            auxiliary_metadata_arrays: 0,
             scan,
             result_summary: summary,
             state_budget,

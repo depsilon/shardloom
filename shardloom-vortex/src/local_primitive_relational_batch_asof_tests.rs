@@ -235,17 +235,20 @@ fn asof_pressure_denies_resident_and_completes_native_spill_under_same_grant() {
     let fixture = ordinary_file();
     let total = 32_771;
     let denied = bulk_prepared(&fixture, false, GRANT);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute_bulk(&denied, total)
         .err()
         .expect("retained right side must exceed grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(denied.snapshot().completed_executions, 0);
     drop(denied);
     for spill in [false, true] {
         let prepared = bulk_prepared(&fixture, spill, if spill { GRANT } else { 128 << 20 });
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let result = execute_bulk(&prepared, total).unwrap();
         assert_eq!(
             result.input.as_ref().unwrap().join_build_rows_detached,
@@ -263,7 +266,10 @@ fn asof_pressure_denies_resident_and_completes_native_spill_under_same_grant() {
             assert_eq!(fs::read_dir(&report.workspace).unwrap().count(), 0);
         }
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -277,7 +283,7 @@ fn asof_spill_faults_cancel_and_refund_with_fresh_retry() {
     for failure in ["producer", "merge-cancel", "consumer", "lookup-corrupt"] {
         let fixture = ordinary_file();
         let prepared = bulk_prepared(&fixture, true, GRANT);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let token = CancellationToken::default();
         let triggered = Rc::new(Cell::new(false));
         if failure == "merge-cancel" {
@@ -346,7 +352,7 @@ fn asof_spill_faults_cancel_and_refund_with_fresh_retry() {
         assert!(result.is_err(), "{failure}");
         assert!(triggered.get(), "{failure}");
         assert_eq!(
-            prepared.snapshot().memory.reserved_bytes,
+            prepared.snapshot().reserved_without_source_segment_cache(),
             baseline,
             "{failure}"
         );
@@ -359,7 +365,10 @@ fn asof_spill_faults_cancel_and_refund_with_fresh_retry() {
         assert!(BEFORE_CACHE_HIT.with(|hook| hook.borrow().is_none()));
         let retry = execute_bulk(&prepared, 1025).unwrap();
         drop(retry);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -373,7 +382,7 @@ fn asof_zero_limit_drains_producer_and_preserves_late_errors() {
             count: 0,
         }));
         let prepared = prepared(&query, &fixture, None, spill);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut calls = 0;
         let mut producer = |session: &ResidentVortexSession| {
             calls += 1;
@@ -394,6 +403,9 @@ fn asof_zero_limit_drains_producer_and_preserves_late_errors() {
                 .contains("late asof producer error")
         );
         assert_eq!(calls, 2);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }

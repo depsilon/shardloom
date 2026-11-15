@@ -14,6 +14,10 @@ mod identity_project_tests;
 #[path = "local_primitive_relational_vector_delivery_tests.rs"]
 mod vector_delivery_tests;
 
+#[cfg(debug_assertions)]
+#[path = "local_primitive_relational_dictionary_exposure_tests.rs"]
+mod dictionary_exposure_tests;
+
 fn expression(kind: ExpressionKind) -> Expression {
     Expression::new(ExprId::new("test").unwrap(), kind)
 }

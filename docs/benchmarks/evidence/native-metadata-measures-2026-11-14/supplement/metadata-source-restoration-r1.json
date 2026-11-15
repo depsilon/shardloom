@@ -1,0 +1,19 @@
+{
+  "status": "restored_accepted_source",
+  "worktree": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+  "retained_commit": "046488dc3431669aba51c9cc16d818b9b5eff3e2",
+  "retained_tree": "d46bf5bca3a2b9e8e6ef38eda90e845c91f702bb",
+  "branch": "codex/native-regional-metadata",
+  "experimental_commit_retained": "6f96504739a5c99a2268d5ac59a4d2de677fb652",
+  "experimental_branch_retained": "codex/native-metadata-measures",
+  "tracked_tree_equals_accepted_base": true,
+  "unrelated_worktrees_untouched": true,
+  "production_candidate_retained": false,
+  "proof_files": {
+    "metadata-disposition-r1.json": "b783918beb2704835df51e8959e9eee27401680b678366f16a192a11771ec3f4",
+    "metadata-portable-replay-r1.json": "1a9973769a0de2e0d4d5af725261ab02dda7c233fe95d8d9ccbc3adc223958f6",
+    "metadata-packet-controls-r1.json": "b368a87d29a0e0f521d962ce3b2d2b81fb82a953e5e6cbef82954d5d7eebaf3d"
+  },
+  "query_executions": 0,
+  "publication_attempted": false
+}

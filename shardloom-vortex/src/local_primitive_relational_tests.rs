@@ -34,6 +34,9 @@ mod bulk_writer_tests;
 mod compact_index_cost_tests;
 #[path = "local_primitive_relational_correlated_tests.rs"]
 mod correlated_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_direct_count_tests.rs"]
+mod direct_count_tests;
 #[path = "local_primitive_relational_dynamic_tests.rs"]
 mod dynamic_tests;
 #[path = "local_primitive_relational_engine_cost_tests.rs"]
@@ -111,6 +114,28 @@ impl Fixture {
     }
 
     fn with_metadata(array: ArrayRef, chunk_rows: usize, metadata: Vec<(&str, Vec<u8>)>) -> Self {
+        let strategy = super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
+            array.len().div_ceil(chunk_rows).max(1),
+        );
+        Self::with_strategy(array, chunk_rows, metadata, strategy)
+    }
+
+    fn with_strategy(
+        array: ArrayRef,
+        chunk_rows: usize,
+        metadata: Vec<(&str, Vec<u8>)>,
+        strategy: std::sync::Arc<dyn vortex::layout::LayoutStrategy>,
+    ) -> Self {
+        Self::with_strategy_statistics(array, chunk_rows, metadata, strategy, vec![])
+    }
+
+    fn with_strategy_statistics(
+        array: ArrayRef,
+        chunk_rows: usize,
+        metadata: Vec<(&str, Vec<u8>)>,
+        strategy: std::sync::Arc<dyn vortex::layout::LayoutStrategy>,
+        statistics: Vec<vortex::array::expr::stats::Stat>,
+    ) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "shardloom-relational-{}-{}",
             std::process::id(),
@@ -125,12 +150,13 @@ impl Fixture {
         let mut writer = session
             .write_options()
             .with_metadata_segments(metadata)
-            .with_strategy(
-                super::super::native_flat_layout::SequentialNativeFlatLayout::strategy(
-                    array.len().div_ceil(chunk_rows).max(1),
-                ),
+            .with_strategy(strategy)
+            .with_file_statistics(
+                statistics
+                    .into_iter()
+                    .filter_map(|stat| stat.aggregate_fn())
+                    .collect(),
             )
-            .with_file_statistics(Vec::new())
             .blocking(&runtime)
             .writer(&mut file, array.dtype().clone());
         if array.is_empty() {
@@ -250,7 +276,10 @@ fn native_relational_prepared_join_reuses_sources_and_validates_after_final_cons
         assert_eq!(collected.execution.runtime.prepared_source_opens, 2);
         assert_eq!(collected.execution.runtime.completed_executions, call);
     }
-    let before = prepared.session.memory().snapshot().reserved_bytes;
+    let before = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let mut replaced = false;
     assert!(
         prepared
@@ -265,7 +294,13 @@ fn native_relational_prepared_join_reuses_sources_and_validates_after_final_cons
     );
     assert!(replaced);
     assert_eq!(prepared.snapshot().completed_executions, 3);
-    assert_eq!(prepared.session.memory().snapshot().reserved_bytes, before);
+    assert_eq!(
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
+        before
+    );
     assert!(
         prepared
             .collect_jsonl(&CancellationToken::default())
@@ -279,7 +314,7 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
     let plan = fixture.scan();
     let prepared = prepare_relational(&plan, policy()).unwrap();
     let memory = prepared.session.memory().clone();
-    let baseline = memory.snapshot().reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for (rows, bytes) in [(0, 1024), (2049, 1024), (1, 0), (1, 8 * 1024 * 1024 + 1)] {
         assert!(
             prepared
@@ -288,7 +323,10 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
                 })
                 .is_err()
         );
-        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert!(
         prepared
@@ -297,7 +335,10 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
             })
             .is_err()
     );
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let error = prepared
         .for_each_json_batch(&CancellationToken::default(), 1, 1024, |_| {
             Err(failed("injected consumer failure"))
@@ -305,7 +346,10 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
         .err()
         .unwrap();
     assert!(error.to_string().contains("injected consumer failure"));
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let cancellation = CancellationToken::default();
     let mut delivered = 0;
     assert!(
@@ -319,7 +363,10 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
     );
     assert_eq!(delivered, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
-    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 
     let mut retained = Vec::new();
     let execution = prepared
@@ -353,7 +400,10 @@ fn native_json_batches_release_failures_and_retain_delivered_buffer_credits() {
 fn native_json_batches_fail_final_validation_after_a_delivered_prefix() {
     let fixture = Fixture::new(keyed(&[Some(2), None, Some(1)], &[10, 11, 12]), 1);
     let prepared = prepare_relational(&fixture.scan(), policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let mut delivered = 0;
     assert!(
         prepared
@@ -369,7 +419,10 @@ fn native_json_batches_fail_final_validation_after_a_delivered_prefix() {
     assert!(delivered > 0);
     assert_eq!(prepared.snapshot().completed_executions, 0);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
 }

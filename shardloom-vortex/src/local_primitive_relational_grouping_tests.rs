@@ -214,7 +214,7 @@ fn grouping_sets_duplicate_null_subtotal_argument_and_filter_semantics() {
                     Nullability::Nullable
                 )
             );
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let result = prepared
                 .collect_jsonl(&CancellationToken::default())
                 .unwrap_or_else(|error| panic!("rows={rows} spill={spill}: {error}"));
@@ -241,7 +241,10 @@ fn grouping_sets_duplicate_null_subtotal_argument_and_filter_semantics() {
                 );
             }
             drop(result);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
         }
     }
 }
@@ -251,7 +254,7 @@ fn grouping_sets_pressure_cancel_delivery_failure_and_retry() {
     let fixture = source(128);
     for spill in [false, true] {
         let prepared = prepare(&fixture, spill);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let pressure = prepared
             .session
             .memory()
@@ -279,7 +282,10 @@ fn grouping_sets_pressure_cancel_delivery_failure_and_retry() {
             });
             assert!(result.is_err());
             assert_eq!(delivered, 1);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(prepared.snapshot().completed_executions, 0);
         }
         let result = prepared
@@ -287,7 +293,10 @@ fn grouping_sets_pressure_cancel_delivery_failure_and_retry() {
             .unwrap();
         compare(json_rows(&result), expected(128));
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         if spill {
             assert_eq!(
                 fs::read_dir(fixture.0.join("grouping-runs"))

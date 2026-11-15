@@ -193,7 +193,7 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
     let uri = request.source_uri.as_ref().unwrap();
     let resident = ResidentVortexSession::for_external_cpu_pool(32 << 20, 4).unwrap();
     let source = resident.prepare_file(&path).unwrap();
-    let baseline = resident.memory().snapshot().reserved_bytes;
+    let baseline = resident.snapshot().reserved_without_source_segment_cache();
     // Exercise pressure and late mutation directly at the shared held-source
     // boundary in addition to the public prepared controls above.
     for pressure in [false, true, false] {
@@ -231,7 +231,10 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
             assert!(work["aggregate_workers_submitted_chunks"].as_u64().unwrap() > 0);
         }
         drop(scan);
-        assert_eq!(resident.memory().snapshot().reserved_bytes, baseline);
+        assert_eq!(
+            resident.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let completed_before = resident.snapshot().completed_executions;
     let rejected = source.with_native_execution(|file, session, runtime| {
@@ -252,7 +255,10 @@ fn utf8_integer_distinct_native_admission_pressure_and_late_generation_release_e
     });
     assert!(rejected.is_err());
     assert_eq!(resident.snapshot().completed_executions, completed_before);
-    assert_eq!(resident.memory().snapshot().reserved_bytes, baseline);
+    assert_eq!(
+        resident.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(source);
     assert_eq!(resident.memory().snapshot().reserved_bytes, 0);
 }

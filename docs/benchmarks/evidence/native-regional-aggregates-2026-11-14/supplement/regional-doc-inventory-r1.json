@@ -1,0 +1,165 @@
+{
+  "schema_version": "shardloom.regional_documentation_integration_inventory.v1",
+  "worktree": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+  "output_directory": "/Users/dylan/LocalData/shardloom/native-regional-aggregates-2026-11-14",
+  "scope": "Read-only documentation integration inventory. No repository documents or validators were changed or run.",
+  "regional_disposition": {
+    "status": "complete_retain_locally",
+    "claim_boundary": "Local retain only; not an item-20 or broader coverage closeout.",
+    "packet_verification": "underway",
+    "source_preservation_commit": "not yet made",
+    "next_in_queue": "constant-key grouping",
+    "broader_queue": "open",
+    "evidence_facts_supplied_by_primary": {
+      "case_count_per_role": 987,
+      "baseline_observations_reused": 637,
+      "new_baseline_observations": 350,
+      "candidate_observations": 987,
+      "fresh_engine_seconds": {
+        "baseline": 14.828472105,
+        "candidate": 13.836163897
+      },
+      "individual_regressions_retained": 429,
+      "prepared_lifecycle": {
+        "two_call_plans_per_role": 10,
+        "baseline_engine_seconds": 0.399843288,
+        "candidate_engine_seconds": 0.221834044
+      },
+      "strict_file_read_witnesses_passed": 10,
+      "regional_coverage_checks_passed": 350,
+      "negative_controls_passed": 34
+    }
+  },
+  "current_status_paragraphs_requiring_correction": [
+    {
+      "path": "docs/architecture/phased-execution-plan.md",
+      "line_start": 338,
+      "line_end": 352,
+      "literal_outdated_statements": [
+        "The [per-measure experiment is complete and dropped](native-metadata-measure-completion-2026-11-14.md): complete results passed, but requested reads did not decrease and the 637-case fresh engine total increased. The accepted source is restored. Exact regional partials are next, followed by constant keys; neither inherits that experiment's acceptance or requires its dropped implementation.",
+        "Complete individually proved aggregate measures from metadata, then exact regional partials and constant-group-key completion through the same state/finalizer.",
+        "The November 14 per-measure experiment has a complete drop disposition; regional and constant-key implementation/evidence remain open."
+      ],
+      "correction_needed": "Keep the per-measure drop unchanged. Record regional partials as locally retained with packet verification underway and source preservation commit pending; move constant-key grouping to the next step, and keep the broader queue open. Preserve the distinction between local retention and full item-20 completion."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line_start": 18,
+      "line_end": 19,
+      "literal_outdated_statements": [
+        "are preserved; the accepted implementation is restored. Exact regional partials are next, followed by constant grouping keys. Broader coverage remains open."
+      ],
+      "correction_needed": "Update current sequence to the regional local-retain disposition, pending packet verification and source preservation; state constant grouping keys are next and broader coverage remains open."
+    },
+    {
+      "path": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "line_start": 61,
+      "line_end": 61,
+      "literal_outdated_statements": [
+        "| First | Per-measure experiment dropped; exact regional partials next, then constant grouping keys | All use the existing aggregate state/finalizer. The preserved per-measure proof informs the design without becoming a runtime prerequisite. Prove disjoint region coverage, then weighted group attachment; keep each acceptance decision separate. |"
+      ],
+      "correction_needed": "Reorder this row to reflect that regional partials are locally retained and constant-key grouping is now next. Keep the per-measure drop separate and retain its proof only as context."
+    },
+    {
+      "path": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "line_start": 5,
+      "line_end": 8,
+      "literal_outdated_statements": [
+        "Status: active implementation experiment, following the completed, dropped [per-measure experiment](native-metadata-measure-completion-2026-11-14.md). The accepted runtime remains `046488dc3`. This prospective contract does not claim a retained optimization, a benchmark result or completion of item 20."
+      ],
+      "correction_needed": "Replace the prospective/active status with complete and retained locally, using the supplied cohort, lifecycle, read-witness, coverage and negative-control facts. Explicitly retain the limitations: packet verification is underway, source-preservation commit is pending, broader item-20/coverage work remains open, and this is not a public or full item-20 claim."
+    },
+    {
+      "path": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "line_start": 9,
+      "line_end": 10,
+      "literal_outdated_statements": [
+        "Regional aggregate partials are next; constant-key grouping and the broader item-20/RFC-0044 queue remain open."
+      ],
+      "correction_needed": "Keep constant-key grouping and the broader queue open, but describe regional partials as locally retained pending packet verification and source preservation rather than next."
+    },
+    {
+      "path": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "line_start": 81,
+      "line_end": 89,
+      "literal_outdated_statements": [
+        "## Next boundary",
+        "Regional work must use actual zoned layouts and prove disjoint, exhaustive row coverage across all required columns. For each region, distinguish no qualifying rows, fully qualifying rows with exact compatible partials and unresolved rows that retain the native scan. Missing metadata or mismatched boundaries must not silently produce an answer. Reuse the current state/finalizer, held generation, native segment source and credited selection owners. Any missing connection is implementation work, not a reason to label the capability complete."
+      ],
+      "correction_needed": "Reframe this as a completed regional handoff/evidence boundary, preserving the technical contract as the basis of the retained result. Avoid presenting these proof obligations as still outstanding; preserve the packet-verification and source-preservation caveats."
+    },
+    {
+      "path": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "line_start": 96,
+      "line_end": 98,
+      "literal_outdated_statements": [
+        "The later dependency review puts regional partials immediately after per-measure metadata completion, settles I's batch/lifetime contract before FSST/codec tuning, and places exact spatial execution before optional spatial summaries."
+      ],
+      "correction_needed": "Update the current dependency reference to reflect regional partials retained locally and constant-key grouping next, while preserving the independent I and spatial dependencies."
+    }
+  ],
+  "reviewed_current_evidence_docs_not_requiring_historical_result_edits": [
+    {
+      "path": "docs/benchmarks/native-metadata-measures-2026-11-14.md",
+      "line_start": 3,
+      "line_end": 54,
+      "reason": "The document reports the separate per-measure experiment's dropped decision and its original results. Those facts remain unchanged; its current cross-experiment sequencing is in the architecture status documents above."
+    },
+    {
+      "path": "docs/benchmarks/evidence/native-metadata-measures-2026-11-14/README.md",
+      "line_start": 32,
+      "line_end": 35,
+      "reason": "This is the per-measure packet's scope statement; saying that this packet does not close regional/constant-key work remains true even though separate regional evidence is now locally retained."
+    },
+    {
+      "path": "docs/benchmarks/native-optimization-activation-2026-11-14.md",
+      "line_start": 3,
+      "line_end": 24,
+      "reason": "This is the frozen activation unit's local acceptance and timing record. It remains historical baseline evidence and does not assert that regional partials are next."
+    }
+  ],
+  "search_scope": {
+    "searched": ["docs/architecture", "docs/benchmarks", "docs/release", "README.md"],
+    "terms": ["regional", "regional-next", "regional aggregate partials", "constant-key grouping", "constant grouping keys"],
+    "result": "No additional canonical status paragraph explicitly placing regional work next was found beyond the correction entries listed above. Historical evidence and technical contract mentions remain in place unless called out."
+  },
+  "local_documentation_validators": [
+    {
+      "path": "scripts/check_release_architecture_tracker.py",
+      "purpose": "Fail-closed architecture/phase tracker check; reads docs/architecture/phased-execution-plan.md and architecture review/traceability inputs.",
+      "applicability": "Direct for the phased plan status/order edits.",
+      "invocation_shape": "python3 -B scripts/check_release_architecture_tracker.py --repo-root <worktree> --output <report.json>",
+      "caveat": "Do not use --allow-blocked to turn an existing open queue into a pass."
+    },
+    {
+      "path": "scripts/check_public_status_docs.py",
+      "purpose": "Validates canonical public-status and claim-boundary anchors and composes claim-language and v1 scope checks.",
+      "applicability": "Run after integration as the local public-status/claim-boundary regression check; it does not replace the phase tracker check."
+    },
+    {
+      "path": "scripts/check_public_claim_language.py",
+      "purpose": "Standalone public claim-language and finished-product claim-row validation; also invoked by check_public_status_docs.py.",
+      "applicability": "Covered transitively by check_public_status_docs.py unless independently needed for diagnosis."
+    },
+    {
+      "path": "scripts/check_use_case_backlinks.py",
+      "purpose": "Validates Use Case Atlas references and the reference backlink ledger.",
+      "applicability": "Only needed if integration edits use-case pages or docs/use-cases/reference-backlinks.md; no such correction was identified here."
+    }
+  ],
+  "validator_execution": "Not run; this assignment requested an inventory only.",
+  "source_sha256": {
+    "docs/architecture/phased-execution-plan.md": "792cbbd0f3d2f0e3a9f0357fe514d8bbd24da77fd7221359505645db2318dc96",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": "d0ddc73a6d66e0c3476870121a12a329c5ee32f9d9b923a8201682478e20a55f",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": "ddf97330e8deb121fe0378bc8ee85cdcfaf84b5db73e33fc5543bc138d0ac19d",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": "b0f10e8bf3244da779457e07da41784f97d082aa5b8f9d8c91e4f5dbb47a05a7",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": "4431d939d80bb3ddaaef75ebda00094361b0093593730a9be2a43f76ac01d58a",
+    "docs/benchmarks/native-metadata-measures-2026-11-14.md": "cc57262aaf7e517f49941c782fada8added99734e270c8a2db8226c1d7fb8b59",
+    "docs/benchmarks/native-optimization-activation-2026-11-14.md": "eb8f64703950b17d4f188fd45a42cd971cdababf28ddb4b197b283ad6654ebb7",
+    "docs/benchmarks/evidence/native-metadata-measures-2026-11-14/README.md": "bb3c426f61861add542ad1ec6a5a680496ca5a33f863671de18bafd607b5b6c0",
+    "scripts/check_public_status_docs.py": "1b61588708b2517c127312b69cda8e4233e322efd7160f08897de14c38d71452",
+    "scripts/check_release_architecture_tracker.py": "543c936d2b34e51b1ac731e4da36cc8cdd77f715dadbdaf77855c950d96558e2",
+    "scripts/check_use_case_backlinks.py": "b016df37077cdec4fc9b070d2d4d816e545f3c42753fa0ac44e2a291bee87912",
+    "scripts/check_public_claim_language.py": "5e5c1f425d3f641bd45f92406e1d3d356c0a608c68d6156677fa04c112c47307"
+  }
+}

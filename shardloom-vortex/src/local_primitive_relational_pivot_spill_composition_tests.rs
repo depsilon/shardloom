@@ -58,7 +58,7 @@ fn native_pivot_spill_counts_discovery_when_outer_zero_limit_skips_emission() {
         count: 0,
     }));
     let prepared = prepare(&fixture, limited, true);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let (rows, report) = complete(&prepared);
     assert_eq!(rows, [] as [serde_json::Value; 0]);
     assert_eq!(report.spilled_pivot_stages, 1);
@@ -72,7 +72,10 @@ fn native_pivot_spill_counts_discovery_when_outer_zero_limit_skips_emission() {
     );
     assert!(report.spill.as_ref().unwrap().merge_passes > 0);
     drop(report);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -81,7 +84,7 @@ fn native_pivot_spill_composes_filter_order_offset_projection_and_owned_reuse() 
     let plan = composed(&fixture);
     let prepared = prepare(&fixture, plan.clone(), true);
     let resident = prepare(&fixture, plan, false);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let expected = (239..=249)
         .rev()
         .map(|index| json!({"entity":key(index), "total":5.0}))
@@ -94,7 +97,10 @@ fn native_pivot_spill_composes_filter_order_offset_projection_and_owned_reuse() 
         assert_eq!(report.spilled_pivot_input_rows, 514);
         assert_eq!(report.spilled_pivot_index_rows, 257);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let memory = prepared.session.memory().clone();
     let owned = prepared.execute_owned().unwrap();
@@ -125,7 +131,7 @@ fn native_pivot_spill_nested_pivots_share_one_owner_and_report_each_discovery_on
         ],
     }));
     let prepared = prepare(&fixture, VortexRelationalPlan::Unary(second), true);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let result = prepared
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
@@ -150,7 +156,10 @@ fn native_pivot_spill_nested_pivots_share_one_owner_and_report_each_discovery_on
             .owned_cleanup_completed
     );
     drop(result);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -174,7 +183,7 @@ fn native_pivot_spill_composed_output_reopens_all_admitted_writers_and_protects_
             plan
         };
         let prepared = prepare(&fixture, plan, true);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let dtype = DType::struct_(
             [
                 ("entity", DType::Utf8(Nullability::NonNullable)),
@@ -215,7 +224,10 @@ fn native_pivot_spill_composed_output_reopens_all_admitted_writers_and_protects_
             assert!(prepared.write(&path, format, false).is_err());
             assert_eq!(fs::read(&path).unwrap(), contents);
             assert_eq!(prepared.snapshot().completed_executions, executions);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             assert_eq!(
                 fs::read_dir(fixture.0.join("pivot-runs")).unwrap().count(),
                 0

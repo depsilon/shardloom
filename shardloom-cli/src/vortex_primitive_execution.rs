@@ -65,8 +65,14 @@ use shardloom_vortex::{execute_vortex_local_primitive_with_policy, run_vortex_lo
 #[path = "vortex_aggregate_spill_policy.rs"]
 mod aggregate_spill_policy;
 
+#[path = "native_count_partial_work_evidence.rs"]
+mod count_partial_work_evidence;
 #[path = "native_decision_evidence.rs"]
 mod decision_evidence;
+#[path = "native_file_scan_evidence.rs"]
+mod file_scan_evidence;
+#[path = "native_join_work_evidence.rs"]
+mod join_work_evidence;
 
 #[cfg(feature = "vortex-write")]
 pub(crate) fn append_native_output_decisions(
@@ -5569,6 +5575,13 @@ fn append_vortex_count_local_native_io_certificate_fields(
         "local_count_native_io",
         &certificate.capability_decisions,
     );
+    file_scan_evidence::append(fields, "local_count_native_io", &certificate.file_scans);
+    join_work_evidence::append(fields, "local_count_native_io", &certificate.join_work);
+    count_partial_work_evidence::append(
+        fields,
+        "local_count_native_io",
+        &certificate.count_partial_work,
+    );
 }
 
 fn append_vortex_count_local_native_io_identity_fields(
@@ -5775,6 +5788,13 @@ pub(crate) fn append_vortex_local_primitive_native_io_certificate_fields(
         fields,
         "local_primitive_native_io",
         &certificate.capability_decisions,
+    );
+    file_scan_evidence::append(fields, "local_primitive_native_io", &certificate.file_scans);
+    join_work_evidence::append(fields, "local_primitive_native_io", &certificate.join_work);
+    count_partial_work_evidence::append(
+        fields,
+        "local_primitive_native_io",
+        &certificate.count_partial_work,
     );
 }
 

@@ -27,6 +27,9 @@ mod decimal_reduction_tests;
 #[path = "local_primitive_relational_decimal_policy_tests.rs"]
 mod decimal_policy_tests;
 
+#[path = "local_primitive_relational_count_partial_tests.rs"]
+mod count_partial_tests;
+
 #[path = "local_primitive_relational_aggregate_spill_tests.rs"]
 mod spill_tests;
 
@@ -102,7 +105,7 @@ fn prepared_grouped_set_results_admit_bounded_final_ordering() {
             count: 3,
         }));
         let prepared = prepare_relational(&plan, policy()).unwrap();
-        let initial = prepared.snapshot().memory.reserved_bytes;
+        let initial = prepared.snapshot().reserved_without_source_segment_cache();
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -121,7 +124,10 @@ fn prepared_grouped_set_results_admit_bounded_final_ordering() {
                 .any(|field| field == "streaming_ordering_prefix_rows_validated=257")
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            initial
+        );
     }
 }
 
@@ -234,7 +240,10 @@ fn integer_extrema_pair_reaches_the_native_bound_grouped_runtime() {
     })
     .unwrap();
     assert!(!prepared.root_has_file_kernel());
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let groups: Vec<_> = (0..2053i64).map(|row| row % 2).collect();
     let values: Vec<_> = (0..2053i64)
         .map(|row| (row % 7 != 0).then_some(row % 101 - 50))
@@ -281,7 +290,10 @@ fn integer_extrema_pair_reaches_the_native_bound_grouped_runtime() {
     }
     drop(collected);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
 }
@@ -292,7 +304,10 @@ fn native_relational_aggregate_exact_grouping_and_distinct_across_batches_preser
     let fixture = fixture();
     let plan = aggregate(fixture.scan(), &["group"], all_measures());
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let expected = serde_json::json!([
         {"group":"B","rows":3,"present":2,"distinct":2,"sum":2.0,"avg":1.0,"min":-2,"max":4,"words":2,"first":"Z","last":"ß"},
         {"group":"A","rows":2,"present":2,"distinct":1,"sum":10.0,"avg":5.0,"min":5,"max":5,"words":1,"first":"é","last":"é"},
@@ -307,7 +322,10 @@ fn native_relational_aggregate_exact_grouping_and_distinct_across_batches_preser
         assert_eq!(collected.execution.runtime.completed_executions, call);
         drop(collected);
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline
         );
     }
@@ -499,7 +517,10 @@ fn native_relational_aggregate_pressure_denial_and_cancel_release_all_query_stat
         policy(),
     )
     .unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let block = prepared
         .session
         .memory()
@@ -513,7 +534,10 @@ fn native_relational_aggregate_pressure_denial_and_cancel_release_all_query_stat
     assert_eq!(prepared.snapshot().completed_executions, 0);
     drop(block);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let token = CancellationToken::default();
@@ -529,7 +553,10 @@ fn native_relational_aggregate_pressure_denial_and_cancel_release_all_query_stat
     );
     assert_eq!(delivered, 1);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let result = prepared

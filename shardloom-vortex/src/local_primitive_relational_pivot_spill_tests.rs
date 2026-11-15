@@ -144,7 +144,7 @@ fn native_pivot_spill_sequential_lookups_reuse_covering_blocks() {
     let groups = 2049;
     let fixture = fixture(&[Some(7.0)], groups, 97);
     let spilled = prepare(&fixture, plan(&fixture, "sum"), true);
-    let baseline = spilled.snapshot().memory.reserved_bytes;
+    let baseline = spilled.snapshot().reserved_without_source_segment_cache();
     let (actual, report) = complete(&spilled);
     let expected = (0..groups)
         .map(|index| json!({"entity":key(index), "pivot_a":7.0}))
@@ -159,7 +159,10 @@ fn native_pivot_spill_sequential_lookups_reuse_covering_blocks() {
         "sequential output must reuse covering native blocks"
     );
     drop(report);
-    assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        spilled.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -169,7 +172,7 @@ fn native_pivot_spill_repeated_updates_bound_lookup_amplification() {
     let mut policy = policy();
     policy.resource_envelope.memory_budget_bytes = 256 << 20;
     let prepared = prepare_with_policy(&fixture, plan(&fixture, "sum"), true, policy);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let (actual, report) = complete(&prepared);
     assert_eq!(
         actual,
@@ -192,7 +195,10 @@ fn native_pivot_spill_repeated_updates_bound_lookup_amplification() {
     );
     assert!(report.spill.as_ref().unwrap().merge_passes > 4);
     drop(report);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -223,7 +229,7 @@ fn native_pivot_spill_nonmonotonic_updates_preserve_keys_at_cached_gap_edges() {
     let mut policy = policy();
     policy.resource_envelope.memory_budget_bytes = 256 << 20;
     let prepared = prepare_with_policy(&fixture, plan(&fixture, "sum"), true, policy);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let (actual, report) = complete(&prepared);
     assert_eq!(
         actual,
@@ -235,7 +241,10 @@ fn native_pivot_spill_nonmonotonic_updates_preserve_keys_at_cached_gap_edges() {
     assert_eq!(report.spilled_pivot_index_rows, groups as u64);
     assert!(report.spill.as_ref().unwrap().merge_passes > 4);
     drop(report);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
@@ -252,7 +261,7 @@ fn native_pivot_spill_repeated_evicted_cells_preserve_sequential_float_prefixes(
         let plan = plan(&fixture, aggregate);
         let resident = prepare(&fixture, plan.clone(), false);
         let spilled = prepare(&fixture, plan, true);
-        let baseline = spilled.snapshot().memory.reserved_bytes;
+        let baseline = spilled.snapshot().reserved_without_source_segment_cache();
         let expected = (0..257)
             .map(|index| json!({"entity":key(index), "pivot_a":expected}))
             .collect::<Vec<_>>();
@@ -272,7 +281,10 @@ fn native_pivot_spill_repeated_evicted_cells_preserve_sequential_float_prefixes(
         assert!(spill.runs_written > 2, "{aggregate}: {spill:?}");
         assert!(spill.merge_passes > 0, "{aggregate}: {spill:?}");
         drop(report);
-        assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            spilled.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
 }
 
@@ -284,12 +296,15 @@ fn native_pivot_spill_first_null_and_exact_duplicate_conflicts_survive_eviction(
         let expected = (0..257)
             .map(|index| json!({"entity":key(index), "pivot_a":values[0]}))
             .collect::<Vec<_>>();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let (actual, report) = complete(&prepared);
         assert_eq!(actual, expected);
         assert!(report.spill.as_ref().unwrap().merge_passes > 0);
         drop(report);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     for values in [vec![None, Some(7.0)], vec![Some(7.0), Some(8.0)]] {
         let fixture = fixture(&values, 257, 51);
@@ -309,7 +324,10 @@ fn native_pivot_spill_first_null_and_exact_duplicate_conflicts_survive_eviction(
         assert_eq!(error.to_string(), reference.to_string());
         assert!(error.to_string().contains("multiple values"));
         assert_eq!(delivered, 0);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("pivot-runs")).unwrap().count(),
             0

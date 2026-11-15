@@ -926,6 +926,7 @@ pub(super) fn export_sort_from_source_controlled(
                         batch_rows,
                         consume: &mut dyn FnMut(ArrayRef) -> Result<bool>| {
         source.with_admitted_native_execution(context, |file, context| {
+            context.register_native_file_scan_source(source)?;
             let generation = sort
                 .spill
                 .as_ref()

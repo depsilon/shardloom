@@ -3,7 +3,11 @@
 
 use super::super::{ArrayRef, Expression, NativeExecutionContext};
 use super::{Function, KeyColumn, Result, Value, growth, output, vortex_error};
+use crate::local_primitives::native_relational_expression::Kind;
 use std::borrow::Cow;
+
+#[path = "native_relational_dictionary_expression.rs"]
+mod dictionary;
 
 #[cfg(test)]
 #[path = "native_relational_scalar_batch_tests.rs"]
@@ -28,14 +32,28 @@ impl Function {
         if !values.is_utf8() {
             return Ok(None);
         }
+        // The public binder requires a literal regex pattern. Keep that
+        // semantic condition explicit here too: a varying sibling's null mask
+        // cannot be represented by one result per text-domain entry.
+        if pattern.is_some()
+            && !matches!(
+                &expression.kind,
+                Kind::Function { args, .. }
+                    if matches!(args.get(1).map(|arg| &arg.kind),
+                        Some(Kind::Literal(_)))
+            )
+        {
+            return Ok(None);
+        }
         #[cfg(all(test, debug_assertions))]
         super::super::super::native_relational_observation::record(|counts| {
             counts.expression_prepared_utf8_batches += 1;
         });
+        let builder = dictionary::Output::prepare(values, rows, context)?;
         let mut scratch = context.memory().reserve(0)?;
         macro_rules! build {
             ($row:ident, $text:ident, $value:expr) => {
-                expression.build(rows, context, |$row| {
+                builder.build(expression, context, |$row| {
                     record_row();
                     match values.utf8_at($row)? {
                         Some($text) => $value,
@@ -63,7 +81,7 @@ impl Function {
                     i64::try_from(text.chars().count()).map_err(vortex_error)?
                 ))
             ),
-            Self::ByteLength => expression.build(rows, context, |row| {
+            Self::ByteLength => builder.build(expression, context, |row| {
                 record_row();
                 // Preparation already validated every UTF8 domain value. Byte
                 // length needs the borrowed byte view, not another text scan.

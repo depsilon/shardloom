@@ -219,6 +219,8 @@ pub(crate) struct ObservedFileReadAt {
     hooks: Arc<ReadHooks>,
     operation_scope: Option<Arc<super::io_ownership::IoScope>>,
     _reader_owner: Option<Arc<super::io_ownership::ReaderOwner>>,
+    #[cfg(feature = "vortex-local-primitives")]
+    file_evidence: Option<Arc<super::file_evidence::ReadWork>>,
     concurrency: usize,
 }
 
@@ -264,6 +266,8 @@ pub(super) fn observe_operation_reader(
         hooks,
         operation_scope: reader.scope,
         _reader_owner: reader.reader_owner,
+        #[cfg(feature = "vortex-local-primitives")]
+        file_evidence: reader.evidence,
         concurrency: reader.concurrency,
     })
 }
@@ -372,6 +376,8 @@ impl ObservedFileReadAt {
             hooks: Arc::new(ReadHooks::default()),
             operation_scope: None,
             _reader_owner: None,
+            #[cfg(feature = "vortex-local-primitives")]
+            file_evidence: None,
             concurrency: limits.max_in_flight,
         })
     }
@@ -490,6 +496,12 @@ impl ObservedFileReadAt {
         // This is the evidence boundary: the positional read really completed.
         // Record it even when a later generation check or result delivery fails.
         job.set_outcome(ReadOutcome::Completed)?;
+        #[cfg(feature = "vortex-local-primitives")]
+        if let Some(evidence) = &self.file_evidence {
+            evidence
+                .read_completed(length)
+                .map_err(|error| vortex_err!("{error}"))?;
+        }
         if let Some(hook) = &self.hooks.after_read {
             hook();
         }

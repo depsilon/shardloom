@@ -143,7 +143,7 @@ fn native_temporal_fill_uses_exact_elapsed_ticks_partitions_and_original_order()
                 .unwrap(),
             )
             .unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let output = prepared
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -165,7 +165,10 @@ fn native_temporal_fill_uses_exact_elapsed_ticks_partitions_and_original_order()
         );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
         drop(output);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let prepared = prepare_relational(&plan(fixture.scan(), false, true, true), policy()).unwrap();
     let dtype = prepared.output_dtype().unwrap();
@@ -218,13 +221,16 @@ fn native_temporal_fill_rejects_ambiguous_times_and_lossy_numeric_inputs() {
         );
         let prepared =
             prepare_relational(&plan(fixture.scan(), false, false, true), policy()).unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert!(
             prepared
                 .execute_native(&CancellationToken::default())
                 .is_err()
         );
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     for values in [
         PrimitiveArray::from_option_iter([Some(9_007_199_254_740_993u64), None]).into_array(),
@@ -233,13 +239,16 @@ fn native_temporal_fill_rejects_ambiguous_times_and_lossy_numeric_inputs() {
         let fixture = simple(&[Some(0), Some(1)], values);
         let prepared =
             prepare_relational(&plan(fixture.scan(), false, false, true), policy()).unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         assert!(
             prepared
                 .execute_native(&CancellationToken::default())
                 .is_err()
         );
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     let fixture = simple(
         &[Some(0), Some(1)],

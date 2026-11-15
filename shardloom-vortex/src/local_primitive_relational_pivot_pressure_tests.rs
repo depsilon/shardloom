@@ -202,27 +202,33 @@ fn streamed_dynamic_pivot_spill_pressure_denies_resident_and_completes_beyond_th
 fn pressure(streamed: bool) {
     let fixture = fixture();
     let denied = prepare(&fixture, GRANT, false, streamed);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied, streamed)
         .err()
         .expect("resident state exceeds this grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(denied.snapshot().completed_executions, 0);
     drop(denied);
 
     let ample = prepare(&fixture, 512 << 20, false, streamed);
-    let baseline = ample.snapshot().memory.reserved_bytes;
+    let baseline = ample.snapshot().reserved_without_source_segment_cache();
     let control = execute(&ample, streamed).unwrap();
     assert_eq!(control.spilled_pivot_stages, 0);
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     assert!(ample_peak > GRANT);
     drop(control);
-    assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ample.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(ample);
 
     let spilled = prepare(&fixture, GRANT, true, streamed);
-    let baseline = spilled.snapshot().memory.reserved_bytes;
+    let baseline = spilled.snapshot().reserved_without_source_segment_cache();
     for call in 1..=2 {
         let report = execute(&spilled, streamed).unwrap();
         assert_eq!(report.spilled_pivot_stages, 1);
@@ -249,7 +255,10 @@ fn pressure(streamed: bool) {
                 "complete_output_rows":report.output_rows,"owned_cleanup_completed":spill.owned_cleanup_completed})
         );
         drop(report);
-        assert_eq!(spilled.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            spilled.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(
             fs::read_dir(fixture.0.join("pivot-runs")).unwrap().count(),
             0

@@ -66,7 +66,7 @@ fn streaming_join_nested_aggregate_order_limit_and_native_write_reopen_preserve_
         for spill in [false, true] {
             let fixture = ordinary_file();
             let prepared = prepared(&composed(&fixture, stream_right), &fixture, None, spill);
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let expected = if stream_right {
                 vec![
                     json!({"group":null,"rows":2}),
@@ -166,7 +166,10 @@ fn streaming_join_nested_aggregate_order_limit_and_native_write_reopen_preserve_
                 assert!(input.end_of_input_observed);
                 assert!(report.native_io_certificate.is_certified());
                 drop(report);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 if spill {
                     assert_eq!(
                         fs::read_dir(fixture.0.join("join-runs")).unwrap().count(),
@@ -191,7 +194,7 @@ fn streaming_join_mixed_file_mutation_and_final_consumer_failure_never_complete(
                     None,
                     spill,
                 );
-                let baseline = prepared.snapshot().memory.reserved_bytes;
+                let baseline = prepared.snapshot().reserved_without_source_segment_cache();
                 let mut calls = 0;
                 let mut producer = |session: &ResidentVortexSession| {
                     calls += 1;
@@ -233,7 +236,10 @@ fn streaming_join_mixed_file_mutation_and_final_consumer_failure_never_complete(
                 assert!(error.to_string().contains(expected), "{failure}: {error}");
                 assert!(changed);
                 assert_eq!(prepared.snapshot().completed_executions, 0);
-                assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    baseline
+                );
                 if spill {
                     assert_eq!(
                         fs::read_dir(fixture.0.join("join-runs")).unwrap().count(),

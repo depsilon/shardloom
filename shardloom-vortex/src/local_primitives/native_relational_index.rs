@@ -10,6 +10,9 @@ const EMPTY_CONTROL: u8 = 0x80;
 const GROUP_BYTES: usize = 8;
 const HIGH_BITS: u64 = 0x8080_8080_8080_8080;
 
+#[path = "native_relational_index_adaptive.rs"]
+mod adaptive;
+
 struct Entry {
     hash: u64,
     first: usize,
@@ -27,6 +30,7 @@ pub(super) struct RowIndex {
     entries: ReservedVec<Entry>,
     links: ReservedVec<Link>,
     memory: LiveMemoryPool,
+    adaptive: adaptive::State,
 }
 
 impl RowIndex {
@@ -37,6 +41,7 @@ impl RowIndex {
             entries: ReservedVec::new(memory)?,
             links: ReservedVec::new(memory)?,
             memory: memory.clone(),
+            adaptive: adaptive::State::default(),
         })
     }
 
@@ -47,6 +52,9 @@ impl RowIndex {
         mut equal: impl FnMut(usize) -> Result<bool>,
     ) -> Result<Option<usize>> {
         cancellation.check()?;
+        if !self.adaptive.might_contain(hash)? {
+            return Ok(None);
+        }
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| {
             counts.row_index_lookups += 1;
@@ -190,6 +198,7 @@ impl RowIndex {
         cancellation: &CancellationToken,
         equal: impl FnMut(usize) -> Result<bool>,
     ) -> Result<(usize, bool)> {
+        self.ensure_building()?;
         let existing = self.find(hash, cancellation, equal)?;
         if !retain_duplicate && let Some(position) = existing {
             return Ok((position, false));
@@ -281,9 +290,15 @@ impl RowIndex {
     }
 
     pub(super) fn rows(&self, entry: usize) -> Result<Rows<'_>> {
+        if let Some(rows) = self.adaptive.hot_rows(entry)? {
+            return Ok(Rows::Hot {
+                index: self,
+                rows: rows.iter(),
+            });
+        }
         let entry = self.entries.values.get(entry).ok_or_else(failed)?;
         let tail = entry.duplicate_tail;
-        Ok(Rows {
+        Ok(Rows::Linked {
             index: self,
             first: Some(entry.first),
             next: if tail == EMPTY {
@@ -356,29 +371,45 @@ fn probe_group(controls: &[u8], bucket: usize, fingerprint: u8) -> (u64, usize) 
     (matches, empty)
 }
 
-pub(super) struct Rows<'a> {
-    index: &'a RowIndex,
-    first: Option<usize>,
-    next: usize,
-    tail: usize,
+pub(super) enum Rows<'a> {
+    Linked {
+        index: &'a RowIndex,
+        first: Option<usize>,
+        next: usize,
+        tail: usize,
+    },
+    Hot {
+        index: &'a RowIndex,
+        rows: std::slice::Iter<'a, usize>,
+    },
 }
 
 impl Iterator for Rows<'_> {
     type Item = usize;
 
     fn next(&mut self) -> Option<usize> {
-        if let Some(first) = self.first.take() {
+        let Self::Linked {
+            index,
+            first,
+            next,
+            tail,
+        } = self
+        else {
+            let Self::Hot { index, rows } = self else {
+                unreachable!()
+            };
+            let row = rows.next().copied()?;
+            index.adaptive.record_hot_row();
+            return Some(row);
+        };
+        if let Some(first) = first.take() {
             return Some(first);
         }
-        if self.next == EMPTY {
+        if *next == EMPTY {
             return None;
         }
-        let link = &self.index.links.values[self.next];
-        self.next = if self.next == self.tail {
-            EMPTY
-        } else {
-            link.next
-        };
+        let link = &index.links.values[*next];
+        *next = if *next == *tail { EMPTY } else { link.next };
         Some(link.row)
     }
 }

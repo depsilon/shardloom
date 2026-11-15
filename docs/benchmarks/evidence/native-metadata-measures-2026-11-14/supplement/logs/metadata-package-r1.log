@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/native-metadata-measures-2026-11-14/package_metadata.py", line 169, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/native-metadata-measures-2026-11-14/package_metadata.py", line 68, in main
+    assert identity(record['path'])==record
+           ~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/evidence.py", line 42, in identity
+    before = generation(path)
+  File "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/evidence.py", line 36, in generation
+    value = path.stat()
+            ^^^^^^^^^
+AttributeError: 'str' object has no attribute 'stat'

@@ -166,6 +166,8 @@ fn count(
                 });
             }
             update_count(&mut states[group * width + index], 1)?;
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record_count_update(1);
         }
     });
     context.check_cancelled()

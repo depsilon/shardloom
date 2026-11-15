@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// ShardLoom change: optionally observe successful encoded comparison dispatches
+// through operation-owned counters without changing comparison semantics.
 
 //! Native comparison kernels.
 //!
@@ -52,6 +54,8 @@ mod nested;
 pub(crate) use nested::build_comparator as build_row_comparator;
 
 mod primitive;
+
+pub mod observation;
 
 /// Trait for encoding-specific comparison kernels that operate in encoded space.
 ///
@@ -132,7 +136,14 @@ where
             ));
         }
 
-        V::compare(array, other, cmp_op, ctx)
+        let observed_family = observation::family(array.encoding_id().as_ref());
+        let result = V::compare(array, other, cmp_op, ctx)?;
+        if result.is_some()
+            && let Some(family) = observed_family
+        {
+            observation::record(ctx.session(), family, len);
+        }
+        Ok(result)
     }
 }
 

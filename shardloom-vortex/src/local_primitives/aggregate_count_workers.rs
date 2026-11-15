@@ -79,6 +79,9 @@ impl CountWorkers {
         let _admission_pressure = ADMISSION_TEST_PRESSURE
             .with(std::cell::Cell::take)
             .then(|| {
+                // This fault fills mandatory headroom. Evict optional owners
+                // first so their later reclamation cannot undo the injection.
+                memory.reclaim_optional_memory();
                 let snapshot = memory.snapshot();
                 memory
                     .reserve(snapshot.limit_bytes - snapshot.reserved_bytes)

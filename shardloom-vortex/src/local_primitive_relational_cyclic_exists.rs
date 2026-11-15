@@ -8,12 +8,14 @@ use super::super::{
     native_relational_join::Spec,
     vortex_error,
 };
-use super::{Metrics, Node, NodeKind, PreparedVortexRelational, ScanSource};
+use super::{Metrics, Node, NodeKind, PipelineKind, PreparedVortexRelational, ScanSource};
+use crate::local_primitives::native_relational_expression::{Expression, Kind as ExpressionKind};
 use crate::{
     relational_query::{VortexRelationalJoinKind as Kind, VortexRelationalSide as Side},
     resident_session::NativeExecutionContext,
 };
 use shardloom_core::Result;
+use shardloom_core::native_join_work::{NativeCyclicExistenceWork, NativeJoinWork};
 use std::hash::Hasher as _;
 use vortex::array::{
     ArrayRef, IntoArray as _,
@@ -30,11 +32,20 @@ pub(super) struct Plan<'a> {
     middle_keys: [&'a str; 2], // b, c
     last_keys: [&'a str; 2],   // a, c
     output: &'a Spec,
+    inner: &'a Spec,
 }
+
+#[path = "local_primitive_relational_cyclic_payload.rs"]
+mod payload;
 
 impl<'a> Plan<'a> {
     /// Pure bound metadata only. The caller has already selected explicit spill.
-    pub(super) fn admit(outer: &'a Node, right: &'a Node, output: &'a Spec) -> Option<Self> {
+    pub(super) fn admit(
+        outer: &'a Node,
+        right: &'a Node,
+        output: &'a Spec,
+        prepared: &PreparedVortexRelational,
+    ) -> Option<Self> {
         if output.kind != Kind::LeftSemi
             || output.condition.is_some()
             || output.left_keys.len() != 2
@@ -43,11 +54,13 @@ impl<'a> Plan<'a> {
         {
             return None;
         }
+        let (right, right_keys) =
+            before_projections(right, [&output.right_keys[0], &output.right_keys[1]])?;
         let NodeKind::Join {
             left: middle,
             right: last,
             spec: inner,
-        } = &right.kind
+        } = right.semantic_kind()
         else {
             return None;
         };
@@ -55,14 +68,15 @@ impl<'a> Plan<'a> {
             || inner.condition.is_some()
             || inner.left_keys.len() != 1
             || inner.right_keys.len() != 1
-            || inner.columns.len() != 2
-            || ![outer, middle, last].into_iter().all(pure_memory_scan)
+            || ![outer, middle, last]
+                .into_iter()
+                .all(|node| pure_native_scan(node, prepared))
         {
             return None;
         }
         let mut middle_edge = None;
         let mut last_edge = None;
-        for (outer_key, projected_key) in output.left_keys.iter().zip(&output.right_keys) {
+        for (outer_key, projected_key) in output.left_keys.iter().zip(right_keys) {
             let position = inner
                 .fields
                 .iter()
@@ -84,6 +98,7 @@ impl<'a> Plan<'a> {
             middle_keys: [middle_b, &inner.left_keys[0]],
             last_keys: [last_a, &inner.right_keys[0]],
             output,
+            inner,
         };
         for (node, keys) in [
             (outer, plan.outer_keys),
@@ -104,6 +119,7 @@ impl<'a> Plan<'a> {
     }
 
     #[allow(clippy::too_many_arguments)] // Preserve the existing recursive execution and consumer boundary.
+    #[allow(clippy::too_many_lines)] // Keep three source lifetimes and inner payload validation in one execution.
     pub(super) fn run(
         &self,
         prepared: &PreparedVortexRelational,
@@ -115,6 +131,10 @@ impl<'a> Plan<'a> {
     ) -> Result<()> {
         #[cfg(test)]
         observation::record(|counts| counts.executions += 1);
+        let mut work = NativeCyclicExistenceWork {
+            executions: 1,
+            ..NativeCyclicExistenceWork::default()
+        };
         // Match ordinary right-before-left source order. Both indexes belong to
         // this execution; repeated prepared calls rebuild them under the grant.
         let mut last = Indexed::new(context)?;
@@ -125,10 +145,24 @@ impl<'a> Plan<'a> {
             batch_rows,
             parameter,
             &mut |array| {
+                add_work(&mut work.last_build_rows, array.len())?;
                 #[cfg(test)]
                 observation::record(|counts| counts.last_rows += array.len());
-                last.build(array, self.last_keys, 2, context)
+                last.build(
+                    metrics.detach_join_build(array, context)?,
+                    self.last_keys,
+                    2,
+                    context,
+                )
             },
+        )?;
+        let mut validation = payload::Validation::new(
+            self.inner,
+            self.middle_keys,
+            self.last_keys,
+            &last.table,
+            batch_rows,
+            context,
         )?;
         let mut middle = Indexed::new(context)?;
         prepared.run(
@@ -138,11 +172,29 @@ impl<'a> Plan<'a> {
             batch_rows,
             parameter,
             &mut |array| {
+                let start = middle.table.rows();
+                add_work(&mut work.middle_build_rows, array.len())?;
                 #[cfg(test)]
                 observation::record(|counts| counts.middle_rows += array.len());
-                middle.build(array, self.middle_keys, 1, context)
+                middle.build(
+                    metrics.detach_join_build(array, context)?,
+                    self.middle_keys,
+                    1,
+                    context,
+                )?;
+                if let Some(validation) = &mut validation {
+                    validation.consume(
+                        &middle.table,
+                        &last.table,
+                        start..middle.table.rows(),
+                        context,
+                        &mut work,
+                    )?;
+                }
+                Ok(())
             },
         )?;
+        drop(validation);
         prepared.run(
             self.outer,
             context,
@@ -159,7 +211,9 @@ impl<'a> Plan<'a> {
                     }
                     #[cfg(test)]
                     observation::record(|counts| counts.outer_rows += 1);
-                    if has_witness(&outer, row, &middle, &last, context)? {
+                    add_work(&mut work.outer_rows, 1)?;
+                    if has_witness(&outer, row, &middle, &last, context, &mut work)? {
+                        add_work(&mut work.witness_exits, 1)?;
                         #[cfg(test)]
                         observation::record(|counts| counts.witness_exits += 1);
                         selected.values.push(row);
@@ -170,6 +224,7 @@ impl<'a> Plan<'a> {
                                 self.output,
                                 context,
                                 consume,
+                                &mut work,
                             )?;
                             selected.values.clear();
                         }
@@ -181,18 +236,95 @@ impl<'a> Plan<'a> {
                     self.output,
                     context,
                     consume,
+                    &mut work,
                 )
             },
-        )
+        )?;
+        context.record_native_join_work(NativeJoinWork {
+            cyclic: work,
+            ..NativeJoinWork::default()
+        })
     }
 }
 
-fn pure_memory_scan(node: &Node) -> bool {
-    matches!(&node.kind, NodeKind::Scan {
-        source: ScanSource::Memory(source), plan, residual: None, ..
-    } if source.source_rows() >= 128 && plan.filter.is_none()
-        && plan.residual_predicate.is_none() && plan.source_order_limit.is_none()
-        && plan.embedded_derived_column_rewrites.is_empty())
+fn before_projections<'a>(
+    mut node: &'a Node,
+    mut keys: [&'a str; 2],
+) -> Option<(&'a Node, [&'a str; 2])> {
+    loop {
+        node = match node.semantic_kind() {
+            NodeKind::Project { input, expressions } => {
+                keys = projected_keys(&node.fields, expressions, keys)?;
+                input
+            }
+            NodeKind::Pipeline { input, stages } => {
+                for stage in stages.iter().rev() {
+                    let PipelineKind::Project(expressions) = &stage.kind else {
+                        return None;
+                    };
+                    keys = projected_keys(&stage.fields, expressions, keys)?;
+                }
+                input
+            }
+            _ => return Some((node, keys)),
+        };
+    }
+}
+
+fn projected_keys<'a>(
+    fields: &[(String, DType)],
+    expressions: &'a [Expression],
+    keys: [&str; 2],
+) -> Option<[&'a str; 2]> {
+    // Even an unused computed output remains an observation barrier.
+    if !super::transform::column_projection(expressions) {
+        return None;
+    }
+    let original = |key| {
+        let position = fields.iter().position(|(name, _)| name == key)?;
+        let ExpressionKind::Column(name) = &expressions.get(position)?.kind else {
+            return None;
+        };
+        Some(name.as_str())
+    };
+    Some([original(keys[0])?, original(keys[1])?])
+}
+
+fn pure_native_scan(node: &Node, prepared: &PreparedVortexRelational) -> bool {
+    let NodeKind::Scan {
+        source,
+        plan,
+        residual: None,
+        ..
+    } = node.before_column_projections().semantic_kind()
+    else {
+        return false;
+    };
+    let admitted_source = match source {
+        ScanSource::Memory(source) => source.source_rows() >= 128,
+        ScanSource::File(index) => prepared
+            .sources
+            .get(*index)
+            .is_some_and(|source| source.file().row_count() >= 128),
+        // A held local reader is finite and generation-checked. Its row count
+        // can be unavailable (e.g. IPC); do not sample it or invent a count.
+        ScanSource::Batch { index, .. } => prepared
+            .batch_sources
+            .get(*index)
+            .is_some_and(|source| !source.external()),
+    };
+    admitted_source
+        && plan.filter.is_none()
+        && plan.residual_predicate.is_none()
+        && plan.source_order_limit.is_none()
+        && plan.embedded_derived_column_rewrites.is_empty()
+}
+
+fn add_work(value: &mut u64, count: usize) -> Result<()> {
+    *value = value
+        .checked_add(count as u64)
+        .ok_or_else(|| super::failed("native cyclic existence work counter overflow"))?;
+    Ok(())
 }
 
 struct Indexed {
@@ -237,6 +369,7 @@ fn has_witness(
     middle: &Indexed,
     last: &Indexed,
     context: &NativeExecutionContext<'_>,
+    work: &mut NativeCyclicExistenceWork,
 ) -> Result<bool> {
     let a = outer.key(1)?;
     if a.is_null(row)? {
@@ -261,6 +394,7 @@ fn has_witness(
         }
         #[cfg(test)]
         observation::record(|counts| counts.middle_visits += 1);
+        add_work(&mut work.middle_visits, 1)?;
         let (c, local) = middle.table.key(candidate, 1)?;
         let mut hash = rustc_hash::FxHasher::default();
         if !a.hash_into(row, &mut hash)? || !c.hash_into(local, &mut hash)? {
@@ -268,6 +402,7 @@ fn has_witness(
         }
         #[cfg(test)]
         observation::record(|counts| counts.last_probes += 1);
+        add_work(&mut work.last_probes, 1)?;
         if last
             .index
             .find(hash.finish(), context.cancellation(), |candidate| {
@@ -291,6 +426,7 @@ fn gather(
     spec: &Spec,
     context: &NativeExecutionContext<'_>,
     consume: &mut dyn FnMut(ArrayRef) -> Result<()>,
+    work: &mut NativeCyclicExistenceWork,
 ) -> Result<()> {
     if selected.is_empty() {
         return Ok(());
@@ -301,20 +437,23 @@ fn gather(
     })?;
     let mut columns = ReservedVec::new(context.memory())?;
     columns.reserve(spec.fields.len())?;
-    for ((_, name), (_, dtype)) in spec.columns.iter().zip(&spec.fields) {
+    for (index, ((_, name), (_, dtype))) in spec.columns.iter().zip(&spec.fields).enumerate() {
         context.check_cancelled()?;
-        columns.values.push(take_column(
-            &logical_field_from_native_array(outer, name)?,
-            &indices,
-            dtype,
-            context,
-        )?);
+        let source = logical_field_from_native_array(outer, name)?;
+        if spec.retains(index) {
+            columns
+                .values
+                .push(take_column(&source, &indices, dtype, context)?);
+        } else {
+            super::super::native_payload::validate_selection(&source, &indices, dtype, context)?;
+        }
     }
     let (columns, _ownership) = columns.into_parts();
     let output = StructArray::try_new(
         spec.fields
             .iter()
-            .map(|(name, _)| name.as_str())
+            .enumerate()
+            .filter_map(|(index, (name, _))| spec.retains(index).then_some(name.as_str()))
             .collect::<FieldNames>(),
         columns,
         selected.len(),
@@ -324,6 +463,7 @@ fn gather(
     .into_array();
     #[cfg(test)]
     observation::record(|counts| counts.gathered_rows += selected.len());
+    add_work(&mut work.gathered_rows, selected.len())?;
     consume(output)?;
     context.check_cancelled()
 }

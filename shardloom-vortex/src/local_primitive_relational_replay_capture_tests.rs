@@ -33,6 +33,7 @@ fn replay_capture_releases_every_fragment_and_preserves_raw_float_bits_and_alias
     let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
     session
         .with_native_execution_context(&CancellationToken::default(), |context| {
+            let entry_bytes = context.memory().snapshot().reserved_bytes;
             let mut recorder = recorder(context, 32)?;
             let bits = [
                 (-0.0f64).to_bits(),
@@ -92,9 +93,9 @@ fn replay_capture_releases_every_fragment_and_preserves_raw_float_bits_and_alias
             assert_eq!(actual, (0..67).map(|row| bits[row % 4]).collect::<Vec<_>>());
             let alias = logical_field_from_native_array(&arrays.values[0], "value")?;
             drop(completed);
-            assert!(context.memory().snapshot().reserved_bytes > 0);
+            assert!(context.memory().snapshot().reserved_bytes > entry_bytes);
             drop(alias);
-            assert_eq!(context.memory().snapshot().reserved_bytes, 0);
+            assert_eq!(context.memory().snapshot().reserved_bytes, entry_bytes);
             Ok(())
         })
         .unwrap();

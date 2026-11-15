@@ -35,7 +35,7 @@ fn check(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[serde_json:
         } else {
             prepared
         };
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
             .unwrap();
@@ -52,7 +52,10 @@ fn check(fixture: &Fixture, plan: &VortexRelationalPlan, expected: &[serde_json:
             );
         }
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(fs::read_dir(&workspace).unwrap().count(), 0);
     }
 }

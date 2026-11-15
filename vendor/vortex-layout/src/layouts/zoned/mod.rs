@@ -414,6 +414,15 @@ impl ZonedLayout {
         self.zone_len
     }
 
+    /// Typed declarations for the auxiliary zone-table columns, in schema order.
+    ///
+    /// ShardLoom extension: consumers can inspect exact aggregate semantics
+    /// without interpreting display names. This shares the existing declarations;
+    /// it does not read data, evaluate aggregates, or change the stored schema.
+    pub fn aggregate_functions(&self) -> Arc<[AggregateFnRef]> {
+        self.data().aggregate_fns()
+    }
+
     /// Returns display names for the zone-map aggregates stored by this layout.
     pub fn present_aggregates(&self) -> Arc<[String]> {
         present_aggregates(&self.zone_map_schema)

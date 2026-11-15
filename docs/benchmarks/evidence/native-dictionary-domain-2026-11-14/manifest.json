@@ -1,0 +1,136 @@
+{
+  "schema": "shardloom.native_dictionary_closeout_packet.v1",
+  "files": {
+    "README.md": {
+      "bytes": 3981,
+      "sha256": "fd1a1ecd342b83d480e31ab89991265371c3c55419716be4771f23f979d6c68d"
+    },
+    "packet/README.md": {
+      "bytes": 3668,
+      "sha256": "75cd0ab6dcfd430661e4311aeb60618d4c98f5bef60da2c797da1470a76778c1"
+    },
+    "packet/evidence.tar.gz.part-001": {
+      "bytes": 50331648,
+      "sha256": "9de774880950437edffca8c13db26469e1cbddc159aedff70c7fc8e764ae4ed7"
+    },
+    "packet/evidence.tar.gz.part-002": {
+      "bytes": 50331648,
+      "sha256": "5ca5d54671c42d4ca5ef5503b99f3d6967a8f990ada05e50203794ba210107ae"
+    },
+    "packet/evidence.tar.gz.part-003": {
+      "bytes": 50331648,
+      "sha256": "a5f06577610a9345c16d1fa79bd106646207f6c3545fffef96ae23fe34574a1b"
+    },
+    "packet/evidence.tar.gz.part-004": {
+      "bytes": 50331648,
+      "sha256": "97c43a6c8bca577bd989bb025b117b822066e986cd1096f9eb0cfc4eacca2c89"
+    },
+    "packet/evidence.tar.gz.part-005": {
+      "bytes": 50331648,
+      "sha256": "511d801c04406a6f90263addd593ede3142c78182a668429e3198a06bebbc108"
+    },
+    "packet/evidence.tar.gz.part-006": {
+      "bytes": 50331648,
+      "sha256": "4473277dfc592748cf7cacc4e0c94a59b2354dd09c6dc8d9b7f37bb7dc87a61f"
+    },
+    "packet/evidence.tar.gz.part-007": {
+      "bytes": 50331648,
+      "sha256": "946a6454ec27a364c155e695cc3266851219f90e635b9d4b36458ee5ba61724e"
+    },
+    "packet/evidence.tar.gz.part-008": {
+      "bytes": 50331648,
+      "sha256": "ea65223e2638ca0c9042ea620ce6d0357bef3ed31ea2cf7ddecd2266fb7617d6"
+    },
+    "packet/evidence.tar.gz.part-009": {
+      "bytes": 47353500,
+      "sha256": "ab87421a4d57cdee54197c6f4e780ae255290e46fcad501d75ff0939ec3eafc2"
+    },
+    "packet/manifest.json": {
+      "bytes": 4925725,
+      "sha256": "6005611e925f4d84a6ddf426f83a169ce0ce6c2daa2aca11ab68cda8b417a883"
+    },
+    "packet/verify.py": {
+      "bytes": 30619,
+      "sha256": "5d5ab5c887fd59c61feee15475f983f55825d5c320262eb6959f1e060e2a3e9f"
+    },
+    "supplement/dictionary-disposition-r1.json": {
+      "bytes": 4527,
+      "sha256": "0803c2b935b42df7c704bf9cf902a306b71210aec6b1513e5c10dfe3dd4ae094"
+    },
+    "supplement/dictionary-doc-inventory-r1.json": {
+      "bytes": 7403,
+      "sha256": "b693975cbbfb9c4c58457eac52b565624b4fe1d3f54d542e6bbe20d85473ec24"
+    },
+    "supplement/dictionary-doc-inventory-r1.md": {
+      "bytes": 7334,
+      "sha256": "5043aa407cd488bb544166e3fdcaa435ec327bb702dba7d4df152588428aa01d"
+    },
+    "supplement/dictionary-doc-primary-r1.json": {
+      "bytes": 1651,
+      "sha256": "97e7fbda2be60d777534d51059e5d23ac46d00724fb905772847ffb55f92015c"
+    },
+    "supplement/dictionary-package-r1.json": {
+      "bytes": 1020628,
+      "sha256": "d7313ba871387fa34f99d99a5578f4aa3988011932632fb6c3bf91b6c7ec7678"
+    },
+    "supplement/dictionary-packet-control-verification-r1.json": {
+      "bytes": 1020623,
+      "sha256": "cb9a1b8457343a5df575288a2a73593d252e033be5c0eac12407be9f85bea3e6"
+    },
+    "supplement/dictionary-packet-controls-r1.json": {
+      "bytes": 7001,
+      "sha256": "7c0a16124522d55599164fbe19800ff28646bfbe982ab9f56734f58dccc69881"
+    },
+    "supplement/dictionary-packet-relocated-r1.json": {
+      "bytes": 1021,
+      "sha256": "a1bd85713112fb793d8624bbc065425ddbadec6099345464094af87d850073a3"
+    },
+    "supplement/dictionary-portable-replay-r1.json": {
+      "bytes": 885,
+      "sha256": "b1c38d27a01238466c905a3df79e729b23e25378266686eb46bc8131dda688d4"
+    },
+    "supplement/dictionary-portable-verification-r1.json": {
+      "bytes": 1020742,
+      "sha256": "ebd8b2f98c4f359b7d0531e02c2d8c0e249d644f1366eb95aa6ffd4102e2c02a"
+    },
+    "supplement/dictionary-source-preservation-r1.json": {
+      "bytes": 1021703,
+      "sha256": "a1b1239da8a5b890dac33de0a69b1ab3676945380f1b1e3a6de6ca90c1b76bfe"
+    },
+    "supplement/dictionary-source-r1.json": {
+      "bytes": 2232,
+      "sha256": "6c95928069d4c3319b05b64b36b510e5cafa0fddc9fe566fc121efb0d6a8507e"
+    },
+    "supplement/install_dictionary_packet.py": {
+      "bytes": 8886,
+      "sha256": "a2548d4220a867f7d1e7a92a78624cc70596f8f24e8280e472ffbf5899c205d1"
+    },
+    "supplement/logs/dictionary-package-r1.log": {
+      "bytes": 155,
+      "sha256": "088389f730e7a8d0b3e131628d84f55282192989a66ed362ac6652ae158bc17a"
+    },
+    "supplement/logs/dictionary-packet-control-verification-r1.log": {
+      "bytes": 69,
+      "sha256": "834bbdd9e18635f57a3f52d3f91c502b5fd67650355a43b57a9551970ec1e334"
+    },
+    "supplement/logs/dictionary-portable-verification-r1.log": {
+      "bytes": 803,
+      "sha256": "562448b041e4980c20acd19756f9a4efec4bf417e3a0aed6e96f3c4d86a75952"
+    },
+    "supplement/logs/dictionary-source-preservation-r1.log": {
+      "bytes": 1937,
+      "sha256": "50d89ff13e04b91978e287287e9465cd5ebb25161c33da5add0612f58ba7697b"
+    },
+    "supplement/test_dictionary_packet.py": {
+      "bytes": 12323,
+      "sha256": "98ff831cfad5569d688a37ebcf06c8f40d09b8a0fcf978fc8ba76e8537ea2849"
+    },
+    "verify.py": {
+      "bytes": 4790,
+      "sha256": "633deb442407bd623a7d99a2abab929990b0512348e682d321cb885dc96cdb6d"
+    }
+  },
+  "original_packet_moved_without_changes": true,
+  "query_executions": 0,
+  "publication_attempted": false
+}

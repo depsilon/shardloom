@@ -376,7 +376,7 @@ fn footer_aggregate_native_complete_scalar_values_avoid_actual_post_prepare_read
 }
 
 #[test]
-fn footer_aggregate_native_metadata_completion_needs_no_payload_io_credit() {
+fn footer_aggregate_native_metadata_completion_needs_only_bounded_evidence_credit() {
     let fixture = Fixture::new(65_536, false);
     for parallelism in [1, 2] {
         for profile in ["complete", "disabled"] {
@@ -384,8 +384,12 @@ fn footer_aggregate_native_metadata_completion_needs_no_payload_io_credit() {
             let (prepared, observer) = observed_prepare(&request, parallelism);
             let memory = prepared.session.memory().clone();
             let baseline = memory.snapshot().reserved_bytes;
+            // Executed source/scan certificates now own credited metadata. Leave
+            // only this bounded control allowance; the no-statistics control
+            // must still fail before any payload read can complete.
+            let evidence_budget = 64 << 10;
             let held = memory
-                .reserve(memory.snapshot().limit_bytes - baseline)
+                .reserve(memory.snapshot().limit_bytes - baseline - evidence_budget)
                 .unwrap();
             let before = observer.snapshot().unwrap();
             for cancellable in [false, true] {
@@ -411,9 +415,20 @@ fn footer_aggregate_native_metadata_completion_needs_no_payload_io_credit() {
                 }
                 assert_eq!(
                     memory.snapshot().reserved_bytes,
-                    memory.snapshot().limit_bytes
+                    memory.snapshot().limit_bytes - evidence_budget
                 );
-                assert_eq!(observer.snapshot().unwrap(), before);
+                let observed = observer.snapshot().unwrap();
+                if profile == "complete" {
+                    assert_eq!(observed, before);
+                } else {
+                    // Ordinary admission may attempt a read, but the held
+                    // grant must refuse it before any payload read completes.
+                    assert_eq!(observed.completed_read_calls, before.completed_read_calls);
+                    assert_eq!(observed.completed_read_bytes, before.completed_read_bytes);
+                    assert_eq!(observed.completed_ranges, before.completed_ranges);
+                    assert!(observed.failed_before_read > before.failed_before_read);
+                    assert_eq!(observed.pending_jobs, 0);
+                }
             }
             drop(held);
             assert_eq!(memory.snapshot().reserved_bytes, baseline);
@@ -434,7 +449,7 @@ fn footer_aggregate_native_metadata_completion_needs_no_payload_io_credit() {
 }
 
 #[test]
-fn footer_aggregate_native_pruned_completion_needs_no_payload_io_credit() {
+fn footer_aggregate_native_pruned_completion_needs_only_bounded_evidence_credit() {
     let fixture = Fixture::new(65_536, false);
     for parallelism in [1, 2] {
         let mut request = fixture.request("complete");
@@ -446,8 +461,9 @@ fn footer_aggregate_native_pruned_completion_needs_no_payload_io_credit() {
         let (prepared, observer) = observed_prepare(&request, parallelism);
         let memory = prepared.session.memory().clone();
         let baseline = memory.snapshot().reserved_bytes;
+        let evidence_budget = 64 << 10;
         let held = memory
-            .reserve(memory.snapshot().limit_bytes - baseline)
+            .reserve(memory.snapshot().limit_bytes - baseline - evidence_budget)
             .unwrap();
         let before = observer.snapshot().unwrap();
         let result = prepared.execute().unwrap();
@@ -461,7 +477,8 @@ fn footer_aggregate_native_pruned_completion_needs_no_payload_io_credit() {
         assert_eq!(observer.snapshot().unwrap(), before);
         assert_eq!(
             memory.snapshot().reserved_bytes,
-            memory.snapshot().limit_bytes
+            memory.snapshot().limit_bytes - evidence_budget
+                + result.file_scan_metadata.as_ref().unwrap().bytes()
         );
         drop((result, held, prepared));
         observer.close_and_drain(DRAIN).unwrap();

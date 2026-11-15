@@ -167,6 +167,37 @@ fn input_matches(measure: &Measure, array: &ArrayRef) -> bool {
 }
 
 impl Table {
+    pub(super) fn add_count_weights(
+        &mut self,
+        ordinals: &[usize],
+        weights: impl ExactSizeIterator<Item = u64>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
+        if !matches!(
+            self.slots.as_slice(),
+            [Slot {
+                kind: Kind::Count,
+                index: 0
+            }]
+        ) || self.widths[Kind::Count as usize] != 1
+            || weights.len() != ordinals.len()
+        {
+            return Err(failed("weighted typed COUNT storage contract changed"));
+        }
+        for (row, (&group, weight)) in ordinals.iter().zip(weights).enumerate() {
+            if row.is_multiple_of(1024) {
+                context.check_cancelled()?;
+            }
+            if group >= self.groups {
+                return Err(failed("weighted typed COUNT group exceeds retained state"));
+            }
+            super::update_count(&mut self.counts[group], weight)?;
+            #[cfg(all(test, debug_assertions))]
+            crate::local_primitives::native_relational_observation::record_count_update(weight);
+        }
+        Ok(())
+    }
+
     pub(super) fn new(
         spec: &Spec,
         array: &ArrayRef,

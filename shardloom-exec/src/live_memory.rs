@@ -4,7 +4,7 @@
 //! capacity before allocation and keep the lease with every retained payload.
 
 use std::sync::{
-    Arc, RwLock,
+    Arc, Mutex, RwLock, Weak,
     atomic::{AtomicU64, Ordering},
 };
 
@@ -16,6 +16,17 @@ struct PoolState {
     live: AtomicU64,
     peak: AtomicU64,
     denied: AtomicU64,
+    optional_reclaimer: Mutex<Option<Weak<dyn OptionalMemoryReclaimer>>>,
+}
+
+/// An optional retention owner that can relinquish memory under mandatory
+/// allocation pressure. The pool retains only a weak endpoint.
+///
+/// Reclamation must not allocate, reserve memory, block, call into the query, or
+/// reenter allocation configuration. A contended owner may decline to reclaim.
+/// Dropping its existing leases is allowed and uses only the atomic release path.
+pub trait OptionalMemoryReclaimer: std::fmt::Debug + Send + Sync {
+    fn reclaim_optional_memory(&self);
 }
 
 #[derive(Debug)]
@@ -84,11 +95,13 @@ impl LiveMemoryPool {
             live: AtomicU64::new(0),
             peak: AtomicU64::new(0),
             denied: AtomicU64::new(0),
+            optional_reclaimer: Mutex::new(None),
         })))
     }
 
-    /// Change an explicitly configurable pool without replacing any owner or
-    /// releasing credits. A smaller allocation must cover every retained lease.
+    /// Change an explicitly configurable pool without replacing mandatory owners.
+    /// Optional retention may be reclaimed; a smaller allocation must still cover
+    /// every surviving lease, including buffers held by consumers after eviction.
     /// Authorization belongs to the caller's validated resource configuration.
     /// Every successful call starts a new allocation peak at retained usage,
     /// even when the limit is unchanged. The lifetime peak is never reset.
@@ -105,7 +118,11 @@ impl LiveMemoryPool {
         let mut limit = limit
             .write()
             .map_err(|_| memory_error("memory allocation configuration poisoned"))?;
-        let live = self.0.live.load(Ordering::Acquire);
+        let mut live = self.0.live.load(Ordering::Acquire);
+        if limit_bytes < limit.limit_bytes || live > limit_bytes {
+            self.reclaim_optional_memory();
+            live = self.0.live.load(Ordering::Acquire);
+        }
         if live > limit_bytes {
             return Err(memory_error(&format!(
                 "memory allocation cannot cover retained owners: reserved={live}, requested_limit={limit_bytes}"
@@ -159,6 +176,49 @@ impl LiveMemoryPool {
         Arc::ptr_eq(&self.0, &lease.pool.0)
     }
 
+    /// Register a weak optional-memory owner. A second live endpoint declines
+    /// rather than replacing another session's retention owner. Dead endpoints
+    /// can be replaced; no endpoint keeps the pool or cache alive by itself.
+    ///
+    /// # Errors
+    /// Returns an error if the registration lock is poisoned.
+    pub fn try_install_optional_reclaimer(
+        &self,
+        reclaimer: Weak<dyn OptionalMemoryReclaimer>,
+    ) -> Result<bool> {
+        let mut current = self
+            .0
+            .optional_reclaimer
+            .lock()
+            .map_err(|_| memory_error("optional memory registration poisoned"))?;
+        if current
+            .as_ref()
+            .is_some_and(|owner| owner.strong_count() != 0)
+            || reclaimer.strong_count() == 0
+        {
+            return Ok(false);
+        }
+        *current = Some(reclaimer);
+        Ok(true)
+    }
+
+    /// Ask the registered optional owner to release reusable storage. Execution
+    /// admission may call this once after a minimum-workspace refusal, then
+    /// inspect fresh headroom. This neither reserves nor retries any query work.
+    pub fn reclaim_optional_memory(&self) {
+        // Never call a retention owner with the endpoint lock held. Neither
+        // endpoint nor cache contention may block a mandatory reservation.
+        let endpoint = self
+            .0
+            .optional_reclaimer
+            .try_lock()
+            .ok()
+            .and_then(|endpoint| endpoint.as_ref().cloned());
+        if let Some(owner) = endpoint.and_then(|owner| owner.upgrade()) {
+            owner.reclaim_optional_memory();
+        }
+    }
+
     /// Reserve before allocating. The lease releases its bytes on drop.
     ///
     /// # Errors
@@ -171,27 +231,55 @@ impl LiveMemoryPool {
         })
     }
 
+    /// Atomically reserve optional state before allocating it. Budget refusal
+    /// returns `None` without changing live ownership; it still records a denial.
+    ///
+    /// # Errors
+    /// Returns an error if the configurable allocation lock is poisoned.
+    pub fn try_reserve(&self, bytes: u64) -> Result<Option<MemoryLease>> {
+        Ok(self.acquire_optional(bytes, true)?.map(|_| MemoryLease {
+            pool: self.clone(),
+            bytes,
+        }))
+    }
+
     fn acquire(&self, bytes: u64) -> Result<()> {
+        self.acquire_optional(bytes, false).map(|_| ())
+    }
+
+    fn acquire_optional(&self, bytes: u64, optional: bool) -> Result<Option<u64>> {
         match &self.0.limit {
-            PoolLimit::Fixed(limit) => self.acquire_with_limit(bytes, *limit).map(|_| ()),
+            PoolLimit::Fixed(limit) => self.acquire_with_limit(bytes, *limit, optional),
             PoolLimit::Configurable(limit) => {
                 let limit = limit
                     .read()
                     .map_err(|_| memory_error("memory allocation configuration poisoned"))?;
-                let reserved = self.acquire_with_limit(bytes, limit.limit_bytes)?;
-                limit
-                    .peak_reserved_bytes
-                    .fetch_max(reserved, Ordering::AcqRel);
-                Ok(())
+                let reserved = self.acquire_with_limit(bytes, limit.limit_bytes, optional)?;
+                if let Some(reserved) = reserved {
+                    limit
+                        .peak_reserved_bytes
+                        .fetch_max(reserved, Ordering::AcqRel);
+                }
+                Ok(reserved)
             }
         }
     }
 
-    fn acquire_with_limit(&self, bytes: u64, limit: u64) -> Result<u64> {
+    fn acquire_with_limit(&self, bytes: u64, limit: u64, optional: bool) -> Result<Option<u64>> {
         let mut live = self.0.live.load(Ordering::Acquire);
+        let mut reclaimed = false;
         loop {
             let Some(next) = live.checked_add(bytes).filter(|next| *next <= limit) else {
+                if !optional && !reclaimed {
+                    reclaimed = true;
+                    self.reclaim_optional_memory();
+                    live = self.0.live.load(Ordering::Acquire);
+                    continue;
+                }
                 self.0.denied.fetch_add(1, Ordering::Relaxed);
+                if optional {
+                    return Ok(None);
+                }
                 return Err(memory_error(&format!(
                     "memory reservation denied: requested={bytes}, reserved={live}, limit={limit}"
                 )));
@@ -203,7 +291,7 @@ impl LiveMemoryPool {
             {
                 Ok(_) => {
                     self.0.peak.fetch_max(next, Ordering::AcqRel);
-                    return Ok(next);
+                    return Ok(Some(next));
                 }
                 Err(observed) => live = observed,
             }
@@ -327,6 +415,14 @@ impl<T> Budgeted<T> {
 fn memory_error(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{message}; fallback execution was not attempted"))
 }
+
+#[cfg(test)]
+#[path = "live_memory_optional_tests.rs"]
+mod optional_tests;
+
+#[cfg(test)]
+#[path = "live_memory_reclaimer_tests.rs"]
+mod reclaimer_tests;
 
 #[cfg(test)]
 mod tests {

@@ -151,24 +151,30 @@ fn execute(prepared: &PreparedVortexRelational) -> Result<ExecutedVortexRelation
 fn calendar_window_pressure_refuses_resident_and_completes_retreating_spill_bounds() {
     let fixture = large_fixture();
     let denied = prepare(&fixture, GRANT, None);
-    let baseline = denied.snapshot().memory.reserved_bytes;
+    let baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied)
         .err()
         .expect("resident partition exceeds its grant");
     assert!(error.to_string().contains("reservation denied"), "{error}");
-    assert_eq!(denied.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(denied.snapshot().completed_executions, 0);
     drop(denied);
     let ample = prepare(&fixture, 128 << 20, None);
-    let baseline = ample.snapshot().memory.reserved_bytes;
+    let baseline = ample.snapshot().reserved_without_source_segment_cache();
     let control = execute(&ample).unwrap();
     let ample_peak = control.runtime.memory.peak_reserved_bytes;
     assert_eq!(control.ordered_window_stages, 0);
     drop(control);
-    assert_eq!(ample.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        ample.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     drop(ample);
     let stored = prepare(&fixture, GRANT, Some(256 << 20));
-    let baseline = stored.snapshot().memory.reserved_bytes;
+    let baseline = stored.snapshot().reserved_without_source_segment_cache();
     let report = execute(&stored).unwrap();
     let spill = report.spill.as_ref().unwrap();
     assert_eq!(report.ordered_window_stages, 1);
@@ -188,14 +194,17 @@ fn calendar_window_pressure_refuses_resident_and_completes_retreating_spill_boun
         "complete_output_rows":report.output_rows,"owned_cleanup_completed":spill.owned_cleanup_completed})
     );
     drop(report);
-    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        stored.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
 }
 
 #[test]
 fn calendar_window_failures_release_actual_spill_and_reusable_prepared_owners() {
     let fixture = large_fixture();
     let stored = prepare(&fixture, GRANT, Some(256 << 20));
-    let baseline = stored.snapshot().memory.reserved_bytes;
+    let baseline = stored.snapshot().reserved_without_source_segment_cache();
     for target in [
         Progress::Bounds,
         Progress::DistinctIntervals,
@@ -241,10 +250,13 @@ fn calendar_window_failures_release_actual_spill_and_reusable_prepared_owners() 
     assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
     assert_eq!(stored.snapshot().completed_executions, 0);
     let denied = prepare(&fixture, GRANT, Some(32 << 10));
-    let denied_baseline = denied.snapshot().memory.reserved_bytes;
+    let denied_baseline = denied.snapshot().reserved_without_source_segment_cache();
     let error = execute(&denied).err().expect("quota denial");
     assert!(error.to_string().contains("quota"), "{error}");
-    assert_eq!(denied.snapshot().memory.reserved_bytes, denied_baseline);
+    assert_eq!(
+        denied.snapshot().reserved_without_source_segment_cache(),
+        denied_baseline
+    );
     assert_eq!(denied.snapshot().completed_executions, 0);
     assert_eq!(
         fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),
@@ -252,7 +264,10 @@ fn calendar_window_failures_release_actual_spill_and_reusable_prepared_owners() 
     );
     // The same prepared owner can complete after cancellation and output errors.
     drop(execute(&stored).unwrap());
-    assert_eq!(stored.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        stored.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(
         fs::read_dir(fixture.0.join("window-runs")).unwrap().count(),
         0

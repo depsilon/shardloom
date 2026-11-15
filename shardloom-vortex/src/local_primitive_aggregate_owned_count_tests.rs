@@ -90,7 +90,7 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                 )
                 .unwrap();
                 let memory = prepared.session.memory().clone();
-                let prepared_bytes = memory.snapshot().reserved_bytes;
+                let prepared_bytes = prepared.snapshot().reserved_without_source_segment_cache();
                 for (index, pressure) in [false, true, false].into_iter().enumerate() {
                     // Apply pressure to the admitted primary-count ordering.
                     // The explicit tie route
@@ -124,7 +124,10 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                     assert_eq!(prepared.snapshot().completed_executions, index as u64 + 1);
                     assert_eq!(prepared.snapshot().prepared_source_opens, 1);
                     drop(completed);
-                    assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+                    assert_eq!(
+                        prepared.snapshot().reserved_without_source_segment_cache(),
+                        prepared_bytes
+                    );
                 }
                 let automatic = prepared.execute_owned().unwrap();
                 let automatic_work = work(&automatic);
@@ -139,7 +142,10 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                     );
                 }
                 drop(automatic);
-                assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    prepared_bytes
+                );
                 let ordinary = prepared.execute().unwrap();
                 let (_, payload) = ordinary
                     .report
@@ -151,7 +157,10 @@ fn owned_count_complete_file_workers_admission_pressure_ties_offsets_and_fresh_s
                 let payload: serde_json::Value = serde_json::from_str(payload).unwrap();
                 assert_eq!(payload["values"], count_oracle(keys, offset, limit));
                 drop(ordinary);
-                assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+                assert_eq!(
+                    prepared.snapshot().reserved_without_source_segment_cache(),
+                    prepared_bytes
+                );
                 drop(prepared);
                 assert_eq!(memory.snapshot().reserved_bytes, 0);
             }
@@ -190,7 +199,7 @@ fn owned_count_filtered_values_and_source_generation_failure_release_ownership()
         )
         .unwrap();
         let memory = prepared.session.memory().clone();
-        let prepared_bytes = memory.snapshot().reserved_bytes;
+        let prepared_bytes = prepared.snapshot().reserved_without_source_segment_cache();
         let completed = prepared.execute_owned().unwrap();
         let work = work(&completed);
         assert!(work["aggregate_workers_partition_source_replays"].is_null());
@@ -200,14 +209,20 @@ fn owned_count_filtered_values_and_source_generation_failure_release_ownership()
             count_oracle(keys.into_iter().filter(|key| *key != 9), 1, 2)
         );
         drop(completed);
-        assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            prepared_bytes
+        );
         // Identical file bytes at a replacement inode are a new generation.
         let replacement = fixture.0.join("replacement.vortex");
         fs::copy(&path, &replacement).unwrap();
         fs::rename(&replacement, &path).unwrap();
         assert!(prepared.execute_owned().is_err());
         assert_eq!(prepared.snapshot().completed_executions, 1);
-        assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            prepared_bytes
+        );
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }
@@ -395,7 +410,7 @@ fn owned_count_general_shapes_preserve_reference_and_reject_excessive_output() {
             prepared.source.file().unwrap().file(),
         );
         let memory = prepared.session.memory().clone();
-        let prepared_bytes = memory.snapshot().reserved_bytes;
+        let prepared_bytes = prepared.snapshot().reserved_without_source_segment_cache();
         if request.simple_aggregate.as_ref().unwrap().offset > 0 {
             assert!(prepared.execute_owned().is_err());
             assert_eq!(prepared.snapshot().completed_executions, 0);
@@ -425,7 +440,10 @@ fn owned_count_general_shapes_preserve_reference_and_reject_excessive_output() {
             assert_eq!(actual, expected["values"]);
             assert_eq!(prepared.snapshot().completed_executions, 2);
         }
-        assert_eq!(memory.snapshot().reserved_bytes, prepared_bytes);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            prepared_bytes
+        );
         drop(prepared);
         assert_eq!(memory.snapshot().reserved_bytes, 0);
     }

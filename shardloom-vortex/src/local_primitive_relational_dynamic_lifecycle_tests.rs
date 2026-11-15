@@ -28,7 +28,7 @@ fn native_dynamic_pivot_rejects_completed_state_in_a_parameterized_relation() {
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let error = prepared.execute_owned().err().unwrap();
     assert!(
         error
@@ -36,7 +36,10 @@ fn native_dynamic_pivot_rejects_completed_state_in_a_parameterized_relation() {
             .contains("cannot be reused across correlated parameters"),
         "{error}"
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 
@@ -70,10 +73,13 @@ fn native_dynamic_pivot_rejects_unconsumed_misplaced_and_repeated_declarations()
             },
         )
         .unwrap();
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let error = prepared.execute_owned().err().unwrap();
         assert!(error.to_string().contains(reason), "mode {mode}: {error}");
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         assert_eq!(prepared.snapshot().completed_executions, 0);
     }
 }
@@ -103,12 +109,18 @@ fn native_dynamic_pivot_rejects_declarations_from_a_previous_execution() {
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     drop(prepared.execute_owned().unwrap());
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let error = prepared.execute_owned().err().unwrap();
     assert!(error.to_string().contains("different execution"), "{error}");
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 1);
 }
 
@@ -137,7 +149,7 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for call in 0..3 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -147,7 +159,10 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
             if call == 1 { expected() } else { vec![] }
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert_eq!(
         *observed.lock().unwrap(),
@@ -164,7 +179,7 @@ fn native_dynamic_pivot_repeated_calls_do_not_retain_a_previous_empty_or_nonempt
 fn native_dynamic_pivot_consumer_failure_cancellation_and_source_changes_release_state() {
     let fixture = fixture();
     let prepared = prepare(&fixture);
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let cancelled = CancellationToken::default();
     cancelled.cancel();
     let target = fixture.0.join("cancelled.vortex");
@@ -189,7 +204,10 @@ fn native_dynamic_pivot_consumer_failure_cancellation_and_source_changes_release
             .is_err()
     );
     assert_eq!(delivered, 1);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     let cancelled = CancellationToken::default();
     assert!(
         prepared
@@ -199,7 +217,10 @@ fn native_dynamic_pivot_consumer_failure_cancellation_and_source_changes_release
             })
             .is_err()
     );
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert!(
         prepared
             .for_each_batch(&CancellationToken::default(), |_, _| {
@@ -209,7 +230,10 @@ fn native_dynamic_pivot_consumer_failure_cancellation_and_source_changes_release
             .is_err()
     );
     assert!(prepared.execute_owned().is_err());
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().prepared_source_opens, 1);
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
@@ -239,7 +263,7 @@ fn native_dynamic_pivot_denies_sparse_state_pressure_before_publication() {
             schemas.resolve_output(&plan).map(|(plan, _)| plan)
         })
         .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let path = fixture.0.join("pressure.vortex");
     let error = prepared
         .write(
@@ -252,7 +276,10 @@ fn native_dynamic_pivot_denies_sparse_state_pressure_before_publication() {
     assert!(error.to_string().contains("reservation"), "{error}");
     assert!(!path.exists());
     assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 
@@ -269,7 +296,7 @@ fn native_dynamic_pivot_shared_completion_drops_partial_state_when_discovery_is_
         prepared.session.memory(),
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     let cancellation = CancellationToken::default();
     let mut consumed = false;
     let result =
@@ -296,7 +323,10 @@ fn native_dynamic_pivot_shared_completion_drops_partial_state_when_discovery_is_
             });
     assert!(consumed);
     assert!(result.is_err());
-    assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+    assert_eq!(
+        prepared.snapshot().reserved_without_source_segment_cache(),
+        baseline
+    );
     assert_eq!(prepared.snapshot().completed_executions, 0);
 }
 
@@ -355,7 +385,7 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
         },
     )
     .unwrap();
-    let baseline = prepared.snapshot().memory.reserved_bytes;
+    let baseline = prepared.snapshot().reserved_without_source_segment_cache();
     for call in 1..=2 {
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -380,7 +410,10 @@ fn native_dynamic_pivot_correlated_state_uses_each_parameter_once_and_releases_i
                 .contains("dynamic_schema_stages=4")
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
     }
     assert_eq!(
         *observed.lock().unwrap(),

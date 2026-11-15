@@ -1,0 +1,9 @@
+{
+  "status": "failed_control_driver",
+  "stage": "relocated_replay_temporary_cleanup",
+  "cause": "The audit interpreted the dir_fd-relative cleanup name data against the inherited source working directory.",
+  "error": "RuntimeError: original source/runtime/evidence read forbidden: data",
+  "original_packet_changed": false,
+  "query_executions": 0,
+  "diagnostic_scope": "Recorded from the failed tool response; not a complete raw subprocess transcript."
+}

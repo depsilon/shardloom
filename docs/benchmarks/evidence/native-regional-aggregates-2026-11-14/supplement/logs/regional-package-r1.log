@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/native-regional-aggregates-2026-11-14/package_regional.py", line 180, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/native-regional-aggregates-2026-11-14/package_regional.py", line 36, in main
+    assert inherited['schema']=='shardloom.native_metadata_portable.v1'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

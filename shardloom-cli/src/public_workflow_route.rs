@@ -3879,6 +3879,18 @@ pub(crate) fn append_local_primitive_result_summary_evidence_fields(
     append_native_numeric_accessor_evidence_fields(fields, object);
     append_encoded_numeric_reduction_evidence_fields(fields, object);
     append_scan_segment_reuse_evidence_fields(fields, object);
+    if let Some(regional) = object
+        .get("regional_aggregate")
+        .and_then(serde_json::Value::as_object)
+    {
+        for (key, value) in regional {
+            push_field(
+                fields,
+                format!("local_primitive_regional_aggregate_{key}"),
+                json_value_to_field_string(value),
+            );
+        }
+    }
     for key in [
         "aggregate_result_boundary",
         "aggregate_result_serialized_json_round_trip",

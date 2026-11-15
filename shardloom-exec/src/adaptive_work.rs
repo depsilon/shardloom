@@ -5,7 +5,7 @@
 //! `complete` only after that work finishes. Neither a shape nor its estimated
 //! bytes grants memory or establishes a provider-allocator/process RSS bound.
 
-use crate::live_memory::LiveMemorySnapshot;
+use crate::live_memory::{LiveMemoryPool, LiveMemorySnapshot};
 use shardloom_core::{Result, ShardLoomError};
 
 /// Additional simultaneous storage for one lane, excluding already held owners.
@@ -169,6 +169,27 @@ pub struct AdaptiveWorkSizer {
 }
 
 impl AdaptiveWorkSizer {
+    /// Select mandatory work, reclaiming optional storage once if its minimum
+    /// cannot fit. Only the allocation-free decision is repeated; the caller
+    /// still reserves actual storage before executing any work.
+    ///
+    /// # Errors
+    /// Rejects invalid geometry, overflow, or a minimum that still cannot fit.
+    pub fn select_in_pool(
+        &self,
+        owner: &str,
+        memory: &LiveMemoryPool,
+        cost: WorkCost,
+        limits: WorkLimits,
+    ) -> Result<WorkShape> {
+        let mut decision = self.decide(owner, memory.snapshot(), cost, limits)?;
+        if matches!(decision, WorkDecision::Declined(_)) {
+            memory.reclaim_optional_memory();
+            decision = self.decide(owner, memory.snapshot(), cost, limits)?;
+        }
+        require_selected(owner, decision)
+    }
+
     /// Select positive work from current accounted headroom. Additional workers
     /// fit only after one useful unit fits; unrelated held owners stay charged.
     ///

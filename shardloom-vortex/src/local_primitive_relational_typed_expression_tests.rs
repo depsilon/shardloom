@@ -779,7 +779,10 @@ fn native_typed_expressions_try_cast_memory_denial_cancellation_and_retry() {
         vec![("parsed", cast(col("text"), decimal128_dtype(6, 2), true))],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     let block = prepared
         .session
         .memory()
@@ -796,14 +799,20 @@ fn native_typed_expressions_try_cast_memory_denial_cancellation_and_retry() {
     assert_eq!(prepared.snapshot().completed_executions, 0);
     drop(block);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     let token = CancellationToken::default();
     token.cancel();
     assert!(prepared.collect_jsonl(&token).is_err());
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     assert_eq!(
@@ -815,7 +824,10 @@ fn native_typed_expressions_try_cast_memory_denial_cancellation_and_retry() {
         vec![json!({"parsed":null})]
     );
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     assert_eq!(prepared.snapshot().completed_executions, 1);
@@ -855,7 +867,10 @@ fn native_typed_expressions_lazy_coalesce_and_strict_errors_release_state() {
         policy(),
     )
     .unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     for _ in 0..2 {
         assert!(
             prepared
@@ -863,7 +878,10 @@ fn native_typed_expressions_lazy_coalesce_and_strict_errors_release_state() {
                 .is_err()
         );
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline
         );
         assert_eq!(prepared.snapshot().completed_executions, 0);
@@ -1107,6 +1125,7 @@ fn computed_expression_oracle(count: u32) -> (Vec<serde_json::Value>, String) {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
+#[allow(clippy::too_many_lines)] // Complete multi-format values and exact retained-owner refunds.
 fn native_typed_expressions_write_complete_computed_values_above_collection_limits() {
     use crate::local_primitives::VortexLocalPrimitiveRowExportFormat as Format;
     let (expected, csv) = computed_expression_oracle(65_537);
@@ -1137,14 +1156,20 @@ fn native_typed_expressions_write_complete_computed_values_above_collection_limi
         ],
     );
     let prepared = prepare_relational(&plan, policy()).unwrap();
-    let baseline = prepared.session.memory().snapshot().reserved_bytes;
+    let baseline = prepared
+        .session
+        .snapshot()
+        .reserved_without_source_segment_cache();
     assert!(
         prepared
             .collect_jsonl(&CancellationToken::default())
             .is_err()
     );
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     assert_eq!(prepared.snapshot().completed_executions, 0);
@@ -1161,7 +1186,10 @@ fn native_typed_expressions_write_complete_computed_values_above_collection_limi
     );
     assert_eq!(delivered, 1);
     assert_eq!(
-        prepared.session.memory().snapshot().reserved_bytes,
+        prepared
+            .session
+            .snapshot()
+            .reserved_without_source_segment_cache(),
         baseline
     );
     for format in [
@@ -1197,7 +1225,10 @@ fn native_typed_expressions_write_complete_computed_values_above_collection_limi
         assert!(prepared.session.memory().snapshot().reserved_bytes > baseline);
         drop(report);
         assert_eq!(
-            prepared.session.memory().snapshot().reserved_bytes,
+            prepared
+                .session
+                .snapshot()
+                .reserved_without_source_segment_cache(),
             baseline,
             "{format:?}"
         );

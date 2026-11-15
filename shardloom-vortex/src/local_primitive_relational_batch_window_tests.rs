@@ -279,7 +279,7 @@ fn streaming_window_composes_with_join_aggregate_order_limit_and_native_write_re
             1,
         );
         let prepared = prepared(&fixture, &composed(&fixture), spill);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         for write in [false, true] {
             let mut input = Input::new();
             let mut producer = |session: &ResidentVortexSession| input.next(session);
@@ -330,7 +330,10 @@ fn streaming_window_composes_with_join_aggregate_order_limit_and_native_write_re
             assert!(source.end_of_input_observed);
             assert!(report.native_io_certificate.is_certified());
             drop(report);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             clean(&fixture, spill);
         }
         assert_eq!(prepared.snapshot().completed_executions, 2);
@@ -362,7 +365,7 @@ fn streaming_window_failures_and_zero_limit_require_complete_input_and_refund_ow
                 window(scan())
             };
             let prepared = prepared(&fixture, &plan, spill);
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let token = CancellationToken::default();
             let mut calls = 0;
             let mut emitted = 0;
@@ -421,7 +424,10 @@ fn streaming_window_failures_and_zero_limit_require_complete_input_and_refund_ow
                 usize::from(matches!(failure, "consumer" | "consumer-cancel"))
             );
             assert_eq!(prepared.snapshot().completed_executions, 0);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             clean(&fixture, spill);
         }
     }
@@ -436,7 +442,7 @@ fn streaming_window_compatibility_writers_require_complete_input_and_refund_owne
                 1,
             );
             let prepared = prepared(&fixture, &window(scan()), spill);
-            let baseline = prepared.snapshot().memory.reserved_bytes;
+            let baseline = prepared.snapshot().reserved_without_source_segment_cache();
             let target = fixture.0.join(format!("window.{}", format.as_str()));
             let mut input = Input::new();
             let mut producer = |session: &ResidentVortexSession| {
@@ -473,7 +479,10 @@ fn streaming_window_compatibility_writers_require_complete_input_and_refund_owne
             assert!(!written.output.evidence.side_effects.fallback_attempted);
             drop(written);
             assert_eq!(prepared.snapshot().completed_executions, 1);
-            assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
             clean(&fixture, spill);
         }
     }
@@ -509,7 +518,7 @@ fn streaming_replay_window_then_self_join_preserves_window_and_input_order() {
             ],
         }));
         let prepared = prepared(&fixture, &plan, spill);
-        let baseline = prepared.snapshot().memory.reserved_bytes;
+        let baseline = prepared.snapshot().reserved_without_source_segment_cache();
         let mut calls = 0;
         let mut producer = |session: &ResidentVortexSession| {
             calls += 1;
@@ -545,7 +554,10 @@ fn streaming_replay_window_then_self_join_preserves_window_and_input_order() {
             5
         );
         drop(result);
-        assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
+        assert_eq!(
+            prepared.snapshot().reserved_without_source_segment_cache(),
+            baseline
+        );
         clean(&fixture, spill);
     }
 }

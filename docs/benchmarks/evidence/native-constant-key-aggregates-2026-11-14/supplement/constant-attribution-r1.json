@@ -1,0 +1,2164 @@
+{
+  "status": "complete_saved_difference_attribution",
+  "replay": {
+    "bytes": 91127714,
+    "sha256": "017226b17035dd3ed5bc443ba0d905edbc49a4e75db1e6bf6ddc7de5e6d956a8"
+  },
+  "protocol": {
+    "bytes": 26451613,
+    "sha256": "7870b1fadfe2fbd510e0062e0aa6d50d1d4ab647b4058d7a4cab559bc1a6ce13"
+  },
+  "helper": {
+    "bytes": 4153,
+    "sha256": "68169d5e54a14a9242de9d86e0324998ee428166ee3c318866e779eb1a6d15d4"
+  },
+  "supervision": {
+    "constant-baseline-r1-supervision.json": {
+      "bytes": 3223,
+      "sha256": "9bd94fac77f6adff4a7e4c570a7bb421e73900c5a057ed2781667f189537e33c"
+    },
+    "constant-candidate-r1-supervision.json": {
+      "bytes": 3227,
+      "sha256": "1916b282790f85426ea98355b6c630cac818398970fe56e63aa6e5dd83ab0806"
+    },
+    "constant-lifecycle-baseline-r1-supervision.json": {
+      "bytes": 3259,
+      "sha256": "fcb3653ab38b8ce81e3d9b2af65e7eb4fb8c026245175da9464f9616d59aaed8"
+    },
+    "constant-lifecycle-candidate-r1-supervision.json": {
+      "bytes": 3263,
+      "sha256": "b0104548572261022a56cde495b81c1b1cb40ffb3d708a2235691946f12b5973"
+    }
+  },
+  "fresh": {
+    "cases": 5014,
+    "complete": true,
+    "baseline_engine_seconds": 556.592642154,
+    "candidate_engine_seconds": 564.033758513,
+    "engine_gain_seconds": -7.4411163589999205,
+    "regressions": 3211,
+    "regression_engine_seconds": 36.945931144999996
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 10,
+    "operations_per_runtime": 20,
+    "baseline_engine_seconds": 3.3258265000000002,
+    "candidate_engine_seconds": 1.998268543
+  },
+  "proof_buckets": [
+    {
+      "kind": "constant_group_v1",
+      "constant_group_proof": "absent",
+      "cases": 250,
+      "baseline_engine_seconds": 12.953756664,
+      "candidate_engine_seconds": 18.132442682,
+      "engine_gain_seconds": -5.1786860180000005
+    },
+    {
+      "kind": "constant_group_v1",
+      "constant_group_proof": "applied",
+      "cases": 460,
+      "baseline_engine_seconds": 28.778852582,
+      "candidate_engine_seconds": 4.090020961,
+      "engine_gain_seconds": 24.688831621
+    },
+    {
+      "kind": "constant_group_v1",
+      "constant_group_proof": "not_applied",
+      "cases": 100,
+      "baseline_engine_seconds": 8.682674213,
+      "candidate_engine_seconds": 13.056269966,
+      "engine_gain_seconds": -4.373595753
+    },
+    {
+      "kind": "mechanism",
+      "constant_group_proof": "absent",
+      "cases": 30,
+      "baseline_engine_seconds": 0.006466709,
+      "candidate_engine_seconds": 0.006582334,
+      "engine_gain_seconds": -0.00011562499999999941
+    },
+    {
+      "kind": "metadata_v1",
+      "constant_group_proof": "absent",
+      "cases": 175,
+      "baseline_engine_seconds": 0.3247792,
+      "candidate_engine_seconds": 0.328246585,
+      "engine_gain_seconds": -0.0034673849999999895
+    },
+    {
+      "kind": "original",
+      "constant_group_proof": "absent",
+      "cases": 3621,
+      "baseline_engine_seconds": 502.485712911,
+      "candidate_engine_seconds": 524.737837726,
+      "engine_gain_seconds": -22.252124814999945
+    },
+    {
+      "kind": "original",
+      "constant_group_proof": "not_applied",
+      "cases": 28,
+      "baseline_engine_seconds": 1.485834957,
+      "candidate_engine_seconds": 1.791430749,
+      "engine_gain_seconds": -0.3055957920000001
+    },
+    {
+      "kind": "regional_v1",
+      "constant_group_proof": "absent",
+      "cases": 350,
+      "baseline_engine_seconds": 1.874564918,
+      "candidate_engine_seconds": 1.89092751,
+      "engine_gain_seconds": -0.01636259200000012
+    }
+  ],
+  "largest_twenty_regressions": [
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_2f4a15220a75122a",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "entities",
+          "build": "empty",
+          "probe": "optional_value",
+          "key": "nullable_flag",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "embedded_workflow",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "dd60d59eb443b6fe69bb52d46a6b6ebc3c068b4ba818dca4242406757e85973f",
+        "semantic_sql_sha256": "55284663cfede0e4268e02473503d16b4a6fb16246a28ee6d50e5a40c99c4283"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.571535,
+      "candidate_engine_seconds": 3.363241208,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_5073f298908f35db",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "relationships",
+          "build": "all",
+          "probe": "entity_id",
+          "key": "group_key",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "dataframe",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "49525de14a91febbcfe220db392d2503a0ee10e73ec4704a79a4452b7ddf8ae7",
+        "semantic_sql_sha256": "4477fcfbb5b1a40454da6a713be6f329680a540dff822bf0a6b88182f82425c1"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.696263542,
+      "candidate_engine_seconds": 2.603862041,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_faa861118a14382b",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "broad",
+          "dimension": "entities",
+          "build": "all",
+          "probe": "optional_value",
+          "key": "nullable_flag",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "embedded_workflow",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "a4617cb8cbe642037d3eb4ac79875957c76810fde637bd280494756c11ca7e46",
+        "semantic_sql_sha256": "f68201ecdbe3457233694ba7aceb759c7704f2c8a6e136868693ae53e2ce2cf4"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.12108925,
+      "candidate_engine_seconds": 1.816725625,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_535ce1660fb85b9c",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "flagged",
+          "dimension": "entities",
+          "build": "all",
+          "probe": "optional_value",
+          "key": "nullable_flag",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "python_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "f823fd8182fd37f1f46b851ec29d63a0eddb37a6c1fd929e0a87ae341e0da416",
+        "semantic_sql_sha256": "5256334d87909c8f0507b674fcaa77115136b8d94d3bfb4175740aa8bd9a10ea"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.369913042,
+      "candidate_engine_seconds": 2.011598666,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_30bc4504a2a6e7a1",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "flagged",
+          "dimension": "relationships",
+          "build": "small",
+          "probe": "product_id",
+          "key": "group_key",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "embedded_workflow",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "b3ac307d68226404943c0ab7e8cf41ab634b8ac952b5d67c56f25d057ab21f63",
+        "semantic_sql_sha256": "a6bd7027b0678b3742bb689ad48c915baac5f9c36074209dbd2b3d37ce6253f9"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.340139583,
+      "candidate_engine_seconds": 1.895435041,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": [
+        "file_scans",
+        "resources"
+      ]
+    },
+    {
+      "case": {
+        "id": "constant_group_work_missing_min_partial_order_v1_python_sql",
+        "case_identity": "7171b822fdfe44c8f9e66dfaf34abe062b6f538ed45b0ecbedb16a185196c852",
+        "constant_group_version": 1,
+        "constant_group_case": "constant_group_work_missing_min_partial_order",
+        "declaration": {
+          "version": 1,
+          "size": "work",
+          "profile": "missing-min",
+          "item": {
+            "id": "constant_group_work_missing_min_partial_order",
+            "family": "grouped_aggregation",
+            "archetype": "constant_group_work_missing_min_partial_order",
+            "factors": {},
+            "partition": "development",
+            "neighbor_of": null,
+            "relation": {
+              "op": "sort",
+              "schema": [
+                [
+                  "key",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key2",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key3",
+                  {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key4",
+                  {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "rows",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "present",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "lo",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "hi",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ]
+              ],
+              "inputs": [
+                {
+                  "op": "aggregate",
+                  "schema": [
+                    [
+                      "key",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key2",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key3",
+                      {
+                        "name": "int32",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key4",
+                      {
+                        "name": "int16",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "rows",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "present",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "lo",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "hi",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ]
+                  ],
+                  "inputs": [
+                    {
+                      "op": "scan",
+                      "schema": [
+                        [
+                          "key",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key2",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key3",
+                          {
+                            "name": "int32",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key4",
+                          {
+                            "name": "int16",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "selector",
+                          {
+                            "name": "int64",
+                            "nullable": false,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "signed_value",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "unsigned_value",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ]
+                      ],
+                      "inputs": [],
+                      "args": [
+                        "facts"
+                      ]
+                    }
+                  ],
+                  "args": [
+                    [
+                      "key",
+                      "key2",
+                      "key3",
+                      "key4"
+                    ],
+                    [
+                      {
+                        "function": "count",
+                        "argument": null,
+                        "alias": "rows",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "count",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "present",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "min",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "lo",
+                        "dtype": {
+                          "name": "int64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "max",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "unsigned_value"
+                        },
+                        "alias": "hi",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "args": [
+                {
+                  "column": "key4",
+                  "descending": false,
+                  "nulls": "last"
+                }
+              ]
+            },
+            "desired_sql": null,
+            "pending_reason": null,
+            "surfaces": [
+              "cli_sql",
+              "embedded_workflow",
+              "python_sql",
+              "dataframe",
+              "typed_relation"
+            ],
+            "contract": {
+              "schema": [
+                {
+                  "name": "key",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key2",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key3",
+                  "type": {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key4",
+                  "type": {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "rows",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "present",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "lo",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "hi",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                }
+              ],
+              "ordered": false,
+              "floats": {},
+              "max_matching_edges": 1000000
+            }
+          },
+          "native_format": "vortex",
+          "surface": "python_sql",
+          "requirement": "partial_order"
+        },
+        "profile": "constant_group_work_missing_min",
+        "family": "grouped_aggregation",
+        "surface": "python_sql",
+        "native_format": "vortex",
+        "requirement": "partial_order"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 0.176154916,
+      "candidate_engine_seconds": 0.724824584,
+      "candidate_constant_group": {
+        "schema_version": 1,
+        "group_keys": 4,
+        "metadata_groups": 0,
+        "constant_regions": 0,
+        "source_order_discarded_regions": 0,
+        "initial_metadata_group_capacity_reserved_bytes": 0,
+        "applied": false,
+        "every_key_exact_over_complete_region": true,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "nullable_key_proof": "all_null_or_exact_zero_nulls_and_equal_integer_extrema",
+        "group_identity": "existing_native_aggregate_group_key",
+        "state_merge": "existing_checked_simple_aggregate_partial_merge",
+        "ordering": "all_qualifying_regions_in_source_order",
+        "memory_scope": "initial_metadata_group_map_key_state_and_order_capacity_allowance;credit_retained_by_group_owner;ordinary_residual_state_policy_unchanged;not_process_rss"
+      },
+      "equal_reported_nonclock_work_fields": [
+        "count_partial_work",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": [
+        "constant_group",
+        "file_scans",
+        "regional",
+        "resources"
+      ]
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_a89e9096b067177c",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "flagged",
+          "dimension": "entities",
+          "build": "empty",
+          "probe": "optional_value",
+          "key": "nullable_flag",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "python_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "c487be9f826de9454beaf827781478a5e1eda5b354736213541868b7adecac63",
+        "semantic_sql_sha256": "de27c0788e5bb849200d6af53015e1b8ba97a5dab0f5eb5c7bcefdd446d4dde6"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.324801667,
+      "candidate_engine_seconds": 1.8181965,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_shared_materialized_consumers_fcfbcb3b385c8ab8",
+        "archetype": "shared_materialized_consumers",
+        "family": "cte_composition",
+        "cell": {
+          "scope": "population",
+          "key": "nullable_flag",
+          "arg": "mostly_null",
+          "threshold": -500,
+          "function": "count"
+        },
+        "profile": "scale",
+        "surface": "python_sql",
+        "native_format": "arrow-ipc",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "cc6b81f405de82530eff3743ee33d557f94f75c01695c719354de5c9c86c7926",
+        "semantic_sql_sha256": "a4e2ac0b0574c3a99e66fb41e8acdb3c734444f9c5f245e690c977e646ebbb0e"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 2.105459125,
+      "candidate_engine_seconds": 2.582464,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_c06d30857987326d",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "relationships",
+          "build": "all",
+          "probe": "product_id",
+          "key": "group_key",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "cli_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "9b708b2233b5fb4d1db7c4cee9f22fb08a78944fccc00394a013beaaed675cc6",
+        "semantic_sql_sha256": "400c958e0f1d7db877940c3d8b391d6bb1b887087147e9b10243e40206a81b47"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.618252917,
+      "candidate_engine_seconds": 2.090816333,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_5e8db248a46427a2",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "flagged",
+          "dimension": "entities",
+          "build": "empty",
+          "probe": "product_id",
+          "key": "group_key",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "dataframe",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "a2c91a3528bd08946721eeaf5f6194c534fc645246498b79d4377bd055cff887",
+        "semantic_sql_sha256": "cf1774f0b70355b87259b48de2b38867b982f263ebe4cef342bfcee868ae48de"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.319717625,
+      "candidate_engine_seconds": 1.773347541,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "constant_group_work_missing_min_partial_order_v1_embedded_workflow",
+        "case_identity": "9db1c07d3b51f9c5799d57afc49462159ec4d56a7386f3ffe1c0ad752b542baa",
+        "constant_group_version": 1,
+        "constant_group_case": "constant_group_work_missing_min_partial_order",
+        "declaration": {
+          "version": 1,
+          "size": "work",
+          "profile": "missing-min",
+          "item": {
+            "id": "constant_group_work_missing_min_partial_order",
+            "family": "grouped_aggregation",
+            "archetype": "constant_group_work_missing_min_partial_order",
+            "factors": {},
+            "partition": "development",
+            "neighbor_of": null,
+            "relation": {
+              "op": "sort",
+              "schema": [
+                [
+                  "key",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key2",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key3",
+                  {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key4",
+                  {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "rows",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "present",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "lo",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "hi",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ]
+              ],
+              "inputs": [
+                {
+                  "op": "aggregate",
+                  "schema": [
+                    [
+                      "key",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key2",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key3",
+                      {
+                        "name": "int32",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key4",
+                      {
+                        "name": "int16",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "rows",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "present",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "lo",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "hi",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ]
+                  ],
+                  "inputs": [
+                    {
+                      "op": "scan",
+                      "schema": [
+                        [
+                          "key",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key2",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key3",
+                          {
+                            "name": "int32",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key4",
+                          {
+                            "name": "int16",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "selector",
+                          {
+                            "name": "int64",
+                            "nullable": false,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "signed_value",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "unsigned_value",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ]
+                      ],
+                      "inputs": [],
+                      "args": [
+                        "facts"
+                      ]
+                    }
+                  ],
+                  "args": [
+                    [
+                      "key",
+                      "key2",
+                      "key3",
+                      "key4"
+                    ],
+                    [
+                      {
+                        "function": "count",
+                        "argument": null,
+                        "alias": "rows",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "count",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "present",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "min",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "lo",
+                        "dtype": {
+                          "name": "int64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "max",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "unsigned_value"
+                        },
+                        "alias": "hi",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "args": [
+                {
+                  "column": "key4",
+                  "descending": false,
+                  "nulls": "last"
+                }
+              ]
+            },
+            "desired_sql": null,
+            "pending_reason": null,
+            "surfaces": [
+              "cli_sql",
+              "embedded_workflow",
+              "python_sql",
+              "dataframe",
+              "typed_relation"
+            ],
+            "contract": {
+              "schema": [
+                {
+                  "name": "key",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key2",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key3",
+                  "type": {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key4",
+                  "type": {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "rows",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "present",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "lo",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "hi",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                }
+              ],
+              "ordered": false,
+              "floats": {},
+              "max_matching_edges": 1000000
+            }
+          },
+          "native_format": "vortex",
+          "surface": "embedded_workflow",
+          "requirement": "partial_order"
+        },
+        "profile": "constant_group_work_missing_min",
+        "family": "grouped_aggregation",
+        "surface": "embedded_workflow",
+        "native_format": "vortex",
+        "requirement": "partial_order"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 0.174448584,
+      "candidate_engine_seconds": 0.595110167,
+      "candidate_constant_group": {
+        "schema_version": 1,
+        "group_keys": 4,
+        "metadata_groups": 0,
+        "constant_regions": 0,
+        "source_order_discarded_regions": 0,
+        "initial_metadata_group_capacity_reserved_bytes": 0,
+        "applied": false,
+        "every_key_exact_over_complete_region": true,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "nullable_key_proof": "all_null_or_exact_zero_nulls_and_equal_integer_extrema",
+        "group_identity": "existing_native_aggregate_group_key",
+        "state_merge": "existing_checked_simple_aggregate_partial_merge",
+        "ordering": "all_qualifying_regions_in_source_order",
+        "memory_scope": "initial_metadata_group_map_key_state_and_order_capacity_allowance;credit_retained_by_group_owner;ordinary_residual_state_policy_unchanged;not_process_rss"
+      },
+      "equal_reported_nonclock_work_fields": [
+        "count_partial_work",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": [
+        "constant_group",
+        "file_scans",
+        "regional",
+        "resources"
+      ]
+    },
+    {
+      "case": {
+        "id": "constant_group_work_missing_min_partial_order_v1_dataframe",
+        "case_identity": "e90254fd402386d0cad1de8ba9286bbcd0e1a2e24a838ef7b552550f9ad10a30",
+        "constant_group_version": 1,
+        "constant_group_case": "constant_group_work_missing_min_partial_order",
+        "declaration": {
+          "version": 1,
+          "size": "work",
+          "profile": "missing-min",
+          "item": {
+            "id": "constant_group_work_missing_min_partial_order",
+            "family": "grouped_aggregation",
+            "archetype": "constant_group_work_missing_min_partial_order",
+            "factors": {},
+            "partition": "development",
+            "neighbor_of": null,
+            "relation": {
+              "op": "sort",
+              "schema": [
+                [
+                  "key",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key2",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key3",
+                  {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "key4",
+                  {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "rows",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "present",
+                  {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "lo",
+                  {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ],
+                [
+                  "hi",
+                  {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                ]
+              ],
+              "inputs": [
+                {
+                  "op": "aggregate",
+                  "schema": [
+                    [
+                      "key",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key2",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key3",
+                      {
+                        "name": "int32",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "key4",
+                      {
+                        "name": "int16",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "rows",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "present",
+                      {
+                        "name": "uint64",
+                        "nullable": false,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "lo",
+                      {
+                        "name": "int64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ],
+                    [
+                      "hi",
+                      {
+                        "name": "uint64",
+                        "nullable": true,
+                        "parameters": []
+                      }
+                    ]
+                  ],
+                  "inputs": [
+                    {
+                      "op": "scan",
+                      "schema": [
+                        [
+                          "key",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key2",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key3",
+                          {
+                            "name": "int32",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "key4",
+                          {
+                            "name": "int16",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "selector",
+                          {
+                            "name": "int64",
+                            "nullable": false,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "signed_value",
+                          {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ],
+                        [
+                          "unsigned_value",
+                          {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          }
+                        ]
+                      ],
+                      "inputs": [],
+                      "args": [
+                        "facts"
+                      ]
+                    }
+                  ],
+                  "args": [
+                    [
+                      "key",
+                      "key2",
+                      "key3",
+                      "key4"
+                    ],
+                    [
+                      {
+                        "function": "count",
+                        "argument": null,
+                        "alias": "rows",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "count",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "present",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": false,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "min",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "int64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "signed_value"
+                        },
+                        "alias": "lo",
+                        "dtype": {
+                          "name": "int64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      },
+                      {
+                        "function": "max",
+                        "argument": {
+                          "op": "column",
+                          "dtype": {
+                            "name": "uint64",
+                            "nullable": true,
+                            "parameters": []
+                          },
+                          "args": [],
+                          "value": "unsigned_value"
+                        },
+                        "alias": "hi",
+                        "dtype": {
+                          "name": "uint64",
+                          "nullable": true,
+                          "parameters": []
+                        }
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "args": [
+                {
+                  "column": "key4",
+                  "descending": false,
+                  "nulls": "last"
+                }
+              ]
+            },
+            "desired_sql": null,
+            "pending_reason": null,
+            "surfaces": [
+              "cli_sql",
+              "embedded_workflow",
+              "python_sql",
+              "dataframe",
+              "typed_relation"
+            ],
+            "contract": {
+              "schema": [
+                {
+                  "name": "key",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key2",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key3",
+                  "type": {
+                    "name": "int32",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "key4",
+                  "type": {
+                    "name": "int16",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "rows",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "present",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": false,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "lo",
+                  "type": {
+                    "name": "int64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                },
+                {
+                  "name": "hi",
+                  "type": {
+                    "name": "uint64",
+                    "nullable": true,
+                    "parameters": []
+                  }
+                }
+              ],
+              "ordered": false,
+              "floats": {},
+              "max_matching_edges": 1000000
+            }
+          },
+          "native_format": "vortex",
+          "surface": "dataframe",
+          "requirement": "partial_order"
+        },
+        "profile": "constant_group_work_missing_min",
+        "family": "grouped_aggregation",
+        "surface": "dataframe",
+        "native_format": "vortex",
+        "requirement": "partial_order"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 0.174233667,
+      "candidate_engine_seconds": 0.578994167,
+      "candidate_constant_group": {
+        "schema_version": 1,
+        "group_keys": 4,
+        "metadata_groups": 0,
+        "constant_regions": 0,
+        "source_order_discarded_regions": 0,
+        "initial_metadata_group_capacity_reserved_bytes": 0,
+        "applied": false,
+        "every_key_exact_over_complete_region": true,
+        "fallback_attempted": false,
+        "external_engine_invoked": false,
+        "nullable_key_proof": "all_null_or_exact_zero_nulls_and_equal_integer_extrema",
+        "group_identity": "existing_native_aggregate_group_key",
+        "state_merge": "existing_checked_simple_aggregate_partial_merge",
+        "ordering": "all_qualifying_regions_in_source_order",
+        "memory_scope": "initial_metadata_group_map_key_state_and_order_capacity_allowance;credit_retained_by_group_owner;ordinary_residual_state_policy_unchanged;not_process_rss"
+      },
+      "equal_reported_nonclock_work_fields": [
+        "count_partial_work",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": [
+        "constant_group",
+        "file_scans",
+        "regional",
+        "resources"
+      ]
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_e11b222f66c61f15",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "flagged",
+          "dimension": "relationships",
+          "build": "all",
+          "probe": "product_id",
+          "key": "category",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "embedded_workflow",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "c483de2ea42f28ed652c6fb01582ad19daf198338dfc1aa8906dbc2bd4d4ceaf",
+        "semantic_sql_sha256": "39e5eb2f70032d7935b68ebc55dd6e00305534fc6caeda89d5b655c21057357f"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.383189584,
+      "candidate_engine_seconds": 1.776904791,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_7e9a761986a56c9e",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "relationships",
+          "build": "small",
+          "probe": "entity_id",
+          "key": "nullable_flag",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "typed_relation",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "126d67507a729a03fcc2bb4b6b15324c19e90d21a4456935608145d479c44fdd",
+        "semantic_sql_sha256": "7955519d38ad8418cd5e8d5d83367ec71902606d0767d9acb080dcba5adc7dfe"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.587980917,
+      "candidate_engine_seconds": 1.915742458,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_membership_09418ea7db0e9a17",
+        "archetype": "subquery_membership",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "relationships",
+          "build": "empty",
+          "probe": "product_id",
+          "key": "group_key",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "python_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "858ae714f10b9c78863d9e5a176b0356c53fdb8743a6fa2b5ec17875c57db8a9",
+        "semantic_sql_sha256": "78d7dc59c84c1010f307ec28b61777eab4626f41d29dc9319feafbe494fb87d4"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.545253417,
+      "candidate_engine_seconds": 1.847269791,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_98c5f9eb514569a2",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "entities",
+          "build": "empty",
+          "probe": "entity_id",
+          "key": "category",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "cli_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "76caadf01f80918af76283e5db0dfdb015864c402b867941bcc5d61d4c2eaadf",
+        "semantic_sql_sha256": "445aac58d5f7f6b61378ae6a66d33f93e3a41822a93bce6f79d148536223919a"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.526579291,
+      "candidate_engine_seconds": 1.808781957,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_0f77e38c02de61ec",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "entities",
+          "build": "all",
+          "probe": "entity_id",
+          "key": "nullable_flag",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "dataframe",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "9e65767d7f96bc9563d17d43d21c487a191eafa1ce3b2dac40c0395bc2ff1af4",
+        "semantic_sql_sha256": "d1268b4dbb52b2dfe8f70c06b60592b4891b585049cb653c7ea6f1172503b853"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.689665875,
+      "candidate_engine_seconds": 1.958551458,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_membership_7e80c7e92398e97f",
+        "archetype": "subquery_membership",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "entities",
+          "build": "all",
+          "probe": "product_id",
+          "key": "category",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "python_sql",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "679f755962a43b3c8cd67c314078a362e53fec1bce7c6049ecbe47a3847c9c2a",
+        "semantic_sql_sha256": "47d80dfeab7e04197c5543375f8849a10ce52f4837d45592e2ac7ccfce9c23c7"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.719334833,
+      "candidate_engine_seconds": 1.985814625,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_2f83db59368142fb",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "population",
+          "dimension": "entities",
+          "build": "small",
+          "probe": "optional_value",
+          "key": "category",
+          "function": "count"
+        },
+        "profile": "primary",
+        "surface": "dataframe",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "ef74baf689b665c0a6087d0553360551a2207dd68d77ca6f59a9c35cb43b9ec8",
+        "semantic_sql_sha256": "367c0bdcf7b96a00c0ad7bdbc5bcd3c961c02ce6a6b4d8c36e11082871003d68"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.659490417,
+      "candidate_engine_seconds": 1.91813925,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    },
+    {
+      "case": {
+        "id": "v2_subquery_null_aware_anti_8b055ed9b49d549b",
+        "archetype": "subquery_null_aware_anti",
+        "family": "subqueries",
+        "cell": {
+          "scope": "broad",
+          "dimension": "entities",
+          "build": "all",
+          "probe": "optional_value",
+          "key": "group_key",
+          "function": "min"
+        },
+        "profile": "primary",
+        "surface": "typed_relation",
+        "native_format": "vortex",
+        "polars_format": "arrow-ipc",
+        "partition": "discovery",
+        "surrogate": null,
+        "case_identity": "178861d80a52f9431d4234695075004abdaefe56dafbb7db3cae0e955b8bbc46",
+        "semantic_sql_sha256": "8f5ce5eb02fc7b4e45dd89b0aa2085341b27137adce851b7d5b846aa0fb11f3f"
+      },
+      "reused_baseline": false,
+      "baseline_engine_seconds": 1.128628,
+      "candidate_engine_seconds": 1.384503333,
+      "candidate_constant_group": null,
+      "equal_reported_nonclock_work_fields": [
+        "constant_group",
+        "count_partial_work",
+        "file_scans",
+        "join_work",
+        "metadata",
+        "numeric_accessor",
+        "other_aggregate_work_fields",
+        "projection_columns",
+        "provider_arrays_read",
+        "regional",
+        "resources",
+        "scalar_measure_update_invocation_counter_available",
+        "source_reads_scope"
+      ],
+      "differing_reported_nonclock_work_fields": []
+    }
+  ],
+  "conclusion": "The frozen complete fresh total is higher, so the fixed candidate is dropped. The new fixture subgroup improves, but controls and original declarations offset that gain. Most original-case cost increase occurs without a reported constant-group proof; this single observation does not establish the cause of those differences. Unchanged identities and completed guards do not prove controlled cache or host state.",
+  "no_new_query_executions": true,
+  "all_original_samples_preserved": true,
+  "frozen_acceptance_unchanged": true,
+  "causal_phase_attribution_established": false
+}
