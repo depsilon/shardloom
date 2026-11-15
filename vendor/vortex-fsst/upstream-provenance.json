@@ -54,7 +54,7 @@
     "Cargo.toml": "909b4202b749f1af92298d471b52aac1790e67702c3c6c3647d49c384895f11b",
     "src/array.rs": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
     "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf",
-    "src/compute/like.rs": "b738f6c2b2aaf9c779a42f3be10159f32325f9ba8770d11bb400cf1a4e69107a",
+    "src/compute/like.rs": "5a5f27f6f208a1bc231428b206047cb989badd76052bc7099b05c22de0fe2ac7",
     "src/dfa/flat_contains.rs": "005412dbbe116d72025c0e72f1f5befc5cd293a26a220cb82ec38c4add7649c9",
     "src/dfa/mod.rs": "1bdaf1535896fd13ad079266b5930e84f62e4ff46c4d57c63aa7c81a2f50087a",
     "src/dfa/tests.rs": "de62a99c1c9a7c20d80d559bbd797260eb51bf24aa1b684fce65988a43d0dadb",

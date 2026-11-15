@@ -58,7 +58,9 @@ impl LikeKernel for FSST {
         let matcher = if options.negated {
             FsstMatcher::try_new(array.symbols(), array.symbol_lengths(), pattern_bytes, None)?
         } else {
-            let reuse = ctx.session().get_opt::<MatcherReuse>();
+            // Release the session variable guard before the lazy offset
+            // expression executes through this same mutable context.
+            let reuse = ctx.session().get_opt::<MatcherReuse>().as_deref().cloned();
             let allocator = ctx.host_allocator();
             FsstMatcher::try_new_with_candidate_codes_and_reuse(
                 array.symbols(),
