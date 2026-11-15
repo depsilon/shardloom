@@ -1,0 +1,190 @@
+{
+  "status": "complete_local_experiment_closeout",
+  "disposition": "retain",
+  "commit": "6ede731e3d6b4fea366816f35c7a7318c390be91",
+  "tree": "14d79c67b28d265ebab0f0697d8ff221176f9747",
+  "branch": "codex/native-source-domain-facts",
+  "candidate_source_commit": "76f3c90c3b25338f3250dff10daf04eee081f9b4",
+  "candidate_source_fingerprint": "d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297",
+  "candidate_retained_in_active_runtime": true,
+  "accepted_runtime_code_unchanged_from": "76f3c90c3b25338f3250dff10daf04eee081f9b4",
+  "accepted_runtime": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/runtime-r4",
+  "accepted_runtime_manifest": {
+    "bytes": 2844,
+    "sha256": "c6c62a333d6ffb0a23c06102c080fff4e258eafe6d21368a6b761ca83be8cd9a"
+  },
+  "source_fingerprint_sha256": "d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297",
+  "runtime_implementation_unchanged_after_validation": true,
+  "repository_source_equals_runtime_build": false,
+  "repository_differences_from_runtime_build": {
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md": {
+      "executed": {
+        "bytes": 7834,
+        "sha256": "0ab876ba514f1cf4df44e81f15b241d492b4a917feffca92b6a1f8ef14369bfc"
+      },
+      "current": {
+        "sha256": "bf5aa14c76352ac745fbcad78d2390934c111cdb062f0003387165f79fa428fb",
+        "bytes": 7917
+      }
+    },
+    "docs/architecture/native-dictionary-domain-2026-11-14.md": {
+      "executed": {
+        "bytes": 13515,
+        "sha256": "2833f5a322d4c6a6a87ae855ef8250e549fd0760429d1ad7e99396b540e88ca8"
+      },
+      "current": {
+        "sha256": "0795fd5831535fafae0e128c12f40f698b0d54d914ef3b2796cca3b0795dc35c",
+        "bytes": 13607
+      }
+    },
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "executed": {
+        "bytes": 19777,
+        "sha256": "6394803306283d6ff3c04120d0994ee5e6650c7cdc3f79e79f37f8d383b095ee"
+      },
+      "current": {
+        "sha256": "72a28d61509b03d17e445cfce0dc7e1c1d989638efeacade850179abbb8f95fa",
+        "bytes": 20247
+      }
+    },
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": {
+      "executed": {
+        "bytes": 6064,
+        "sha256": "e298e4d7aabc82b51b9e8ff2fce1b12872ac5ce8a5259ff2bb76898a1d401b38"
+      },
+      "current": {
+        "sha256": "62f27c8b30034ed59d8c1048dd709501fb615d9ed8f28c2af62dc93b41684425",
+        "bytes": 6158
+      }
+    },
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": {
+      "executed": {
+        "bytes": 9334,
+        "sha256": "cf55cef3d5376233fcfe57418008ae9adf681494b2d4db51e7212f99657905b4"
+      },
+      "current": {
+        "sha256": "051a963fb834a4171fec12c828bb3f9e609ee1991caa1f2690a60bd626c0b413",
+        "bytes": 9434
+      }
+    },
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": {
+      "executed": {
+        "bytes": 19806,
+        "sha256": "927bf748d886fa7b81e4064d1db184b615062fa8d5496216cf5fdd4cb4d56537"
+      },
+      "current": {
+        "sha256": "f7cba708567fd1b7148202862842f788243765e18cd8d8e22b8da98fc6f0b274",
+        "bytes": 19888
+      }
+    },
+    "docs/architecture/native-source-domain-facts-2026-11-14.md": {
+      "executed": {
+        "bytes": 4036,
+        "sha256": "d289b685ff5acd2e4192617c425b6cdd775d29bd97d980663fef133f2421e471"
+      },
+      "current": {
+        "sha256": "5a0221166852fe5c7f43993289a83f4a9b2bf1573d184429a4249345f9d6965f",
+        "bytes": 6347
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "executed": {
+        "bytes": 256790,
+        "sha256": "d4470ef29432a20d92bb7f8ef238d7ed55147045b4e11e3d624b4056e3418e49"
+      },
+      "current": {
+        "sha256": "b0c09ff07436f69fd27ee3cef649d12d438110996f3adc9101e9f932ff667065",
+        "bytes": 257419
+      }
+    },
+    "docs/benchmarks/native-source-domain-facts-2026-11-14.md": {
+      "executed": null,
+      "current": {
+        "sha256": "8afd3b1583f2695e0c70bba6daf281234da9b3be09ffb03628c278ac9e0ecc18",
+        "bytes": 10068
+      }
+    }
+  },
+  "docs_only_commit": true,
+  "packet": {
+    "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/evidence/native-source-domain-facts-2026-11-14",
+    "manifest": {
+      "bytes": 5003,
+      "sha256": "d546956abb60712a952204ae55e2bd1e932368bec35b9a7a5f8d9416630ef17f"
+    }
+  },
+  "inputs": {
+    "source-facts-protocol-r1.json": {
+      "bytes": 24950015,
+      "sha256": "e508f10d2dbf8a6eef73a3464b57f570c8baa110840ea0896346b4ff009c3bd6"
+    },
+    "source-facts-source-r1.json": {
+      "bytes": 3013,
+      "sha256": "249308becba8f4137662c7947420467e1f907708babbc134a94bee3cf08c3b6f"
+    },
+    "source-facts-disposition-r1.json": {
+      "bytes": 5003,
+      "sha256": "8a5fcda13b7a28a2845bee964fad948c7a903550eb58bc0547959947b8de91e8"
+    },
+    "source-facts-validation-r4.json": {
+      "bytes": 10652,
+      "sha256": "8d1c5d1d2ddd79614e662bb473217925c73fa289a07287f23522bc4d0a333c07"
+    },
+    "source-facts-replay-r1.json": {
+      "bytes": 52500495,
+      "sha256": "dce08c6ab099273aa8d65ad052bfad8d50ed5a1486d91df29e5233f5c9e2b372"
+    },
+    "source-facts-negative-controls-r1.json": {
+      "bytes": 4431,
+      "sha256": "596c9cf0b8feb5c65032410713462986952061da7f426fc40cef8ba2432006f4"
+    },
+    "source-facts-packet-controls-r1.json": {
+      "bytes": 9395,
+      "sha256": "b2ff45952773967415ff4538178dddcd1802941dc022e72b52e87b413491821c"
+    },
+    "source-facts-portable-replay-r1.json": {
+      "bytes": 869,
+      "sha256": "8ecfd6cd0c30f287002a75610dd906c7ace9ffd8bcf5401a2f0ce13f0a0b9f04"
+    },
+    "source-facts-closeout-verification-r1.json": {
+      "bytes": 1024257,
+      "sha256": "a259f43cee516f0686233bddcf45d00f6b715040d7ce66102a1d871ac1eaf2c0"
+    },
+    "source-facts-public-status-docs-r1.json": {
+      "bytes": 93915,
+      "sha256": "abeddc65245cd342f3dbabddf090059272c52d4915773bf14e4965f87ac72809"
+    },
+    "source-facts-architecture-tracker-r1.json": {
+      "bytes": 48579,
+      "sha256": "d708d29f730df1ea3e1343676441273a07ee85737a15c57a5af6962191cfb00e"
+    }
+  },
+  "fresh": {
+    "cases": 2786,
+    "complete": true,
+    "baseline_engine_seconds": 34.70602811,
+    "candidate_engine_seconds": 33.876871033,
+    "engine_gain_seconds": 0.8291570769999979,
+    "regressions": 1497,
+    "regression_engine_seconds": 0.263583494
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 60,
+    "operations_per_runtime": 120,
+    "baseline_engine_seconds": 0.112387206,
+    "candidate_engine_seconds": 0.085650882
+  },
+  "work_witnesses": 150,
+  "saved_negative_controls": 28,
+  "packet_negative_controls": 50,
+  "all_original_observations_retained": true,
+  "local_document_links_checked": 366,
+  "release_tracker_status": "blocked_by_106_open_queue_items",
+  "public_status_docs": "passed",
+  "additional_query_executions_during_closeout": 0,
+  "whole_investigation_queue_complete": false,
+  "next_investigation": "predicate_specific_bloom_and_text_zone_evidence",
+  "publication_attempted": false,
+  "merged": false
+}

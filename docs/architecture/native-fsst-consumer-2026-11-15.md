@@ -2,9 +2,11 @@
 
 # FSST consumer investigation
 
-Status: active feasibility work under item 20/RFC 0044 and the
+Status: conservative prefilter **retained locally** under item 20/RFC 0044 and the
 [ordered metadata/consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).
-No performance result or retained production candidate is admitted yet.
+The [complete finite comparison](../benchmarks/native-fsst-consumer-2026-11-15.md)
+and [portable evidence](../benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md)
+pass. Exact-table matcher lifetime remains a separate open experiment.
 The accepted source at intake is `873e60bca36f5030cec27c3baf59017ca49ad8ab`.
 The [survivor screen](native-survivor-admission-2026-11-15.md) leaves existing
 batch boundaries in force. The prior [FSST writer drop](fsst-consumer-screen-2026-09-26.md)
@@ -20,10 +22,11 @@ Literal contains and prefix patterns have finite byte-length limits; nullable
 results and pattern escapes remain part of its contract. This work must reuse
 or explicitly wrap that provider before considering another matcher.
 
-The shared relational scalar evaluator currently prepares text arguments as
+The shared relational scalar evaluator prepares text arguments as
 native UTF-8 views. Its value owner validates every valid value in the requested
 domain. A separate legacy contains helper can call the compressed LIKE kernel.
-Static call sites do not prove dispatch through a particular public request.
+At intake, static call sites did not establish dispatch through a particular
+public request; the finite observations below now establish the selected routes.
 Vortex input and execution stay native; decoded native text is an explicit
 existing route, not external query-engine fallback.
 
@@ -35,12 +38,12 @@ are not proven to be entirely accounted by the existing two-row, zero-payload-
 credit test. A new shared connection must not bypass validation or infer full
 allocation enforcement from that narrow observation.
 
-The initial classification is `blocked_until_vortex_or_shardloom_evidence` for
-a new prefilter/reuse admission, while existing scoped provider calls keep
-their present classification. No unsupported path is delegated to another
-engine; `fallback_attempted=false` and `external_engine_invoked=false` remain
-requirements. The source-based concerns below are hypotheses until the
-executable screen records their outcomes.
+The intake classification was `blocked_until_vortex_or_shardloom_evidence` for
+a new prefilter/reuse admission. The completed screen admits the conservative
+prefilter only inside the existing source LIKE provider; an unvalidated scalar
+projection bridge remains declined, and matcher reuse remains open. No unsupported
+path is delegated to another engine; `fallback_attempted=false` and
+`external_engine_invoked=false` remain requirements.
 
 ### Admission observations and source-pushdown correction
 
@@ -82,7 +85,10 @@ prefix controls record zero calls. Independent replay verifies complete results,
 schemas, certificate identities and refunds; source and input identities are
 preserved. These are logical call counts, without a physical decode claim.
 
-## Selected prefilter experiment, before timing
+## Prefilter contract frozen before timing
+
+The following contract was recorded before candidate measurement. The retained
+implementation and complete decision below preserve it.
 
 Implement one conservative necessary-byte filter inside the existing Vortex
 FSST LIKE provider. This is `use_vortex_native_provider` at the existing native
@@ -130,7 +136,7 @@ comparison only after final validation and exact runtime/input/reference binding
 Reuse prior observations only with full identity equality; do not silently repeat
 successful baseline requests. All regressions and failures remain in the decision.
 
-## Finite feasibility screen
+## Completed finite feasibility screen
 
 First reuse the existing 18 FSST inputs from the necessary text-signature
 experiment, selecting its ordinary layout without the declined summary metadata.
@@ -159,17 +165,44 @@ This screen records no engine timing and cannot establish a performance win.
 The expert comparator is a native encoded-execution maintainer checking errors,
 allocation lifetime and actual dispatch before interpreting reduced work.
 
+## Retained prefilter result
+
+Source commit `45be8e0bd1d9cef920c88fa9bf91811deade41c4` preserves all 5,794
+measured source files byte-for-byte. The actual release build used parent
+`873e60bca` plus its recorded source changes. The candidate executes each of
+9,040 fresh requests once and 270 prepared plans with two calls each. All
+baseline results and 540 baseline prepared operations are reused with exact
+input, request, reference, worker and runtime bindings; no successful baseline
+observation is repeated.
+
+Complete fresh engine time decreases from 682.167470629 to 663.612327731 seconds;
+the separate prepared total decreases from 0.520543159 to 0.511136028 seconds.
+All 1,759 fresh-request regressions remain in the complete decision. These
+single observations with reused baseline data and uncontrolled host/cache state
+do not attribute the total difference causally to the filter. This is neither
+a Full43 nor a complete 10k observation.
+
+The final untimed diagnostic records 688 successful LIKE calls over 198,288
+logical operand rows: 638 calls admit the prefilter, 131,853 rows are rejected
+by its necessary condition, 66,435 rows reach exact matching, and 236 complete
+backing rejections avoid construction. All 1,999 records, including 864
+physical/shared declarations and 378 complete native-core requests with their
+dispatch and refund records, replay against 288 independent nullable Boolean
+vectors. These logical counts include repeated requests and null rows; they are
+not decoded-byte measurements or counters from the scored release requests.
+
+Default/native/provider tests, strict lint, feature and supported-Rust checks,
+and all 455 installed-wheel tests pass. Portable replay checks all 18,080 fresh
+results and 1,080 prepared operations with original paths inaccessible. All
+57 packet corruption controls and eight repair-provenance controls pass.
+The original storage refusal and missing-helper replay failure remain preserved;
+the packaging repair supplies two byte-exact prior validators without changing
+the original archive or measurements. The full comparison report records the
+source, test, allocation and timing limits.
+
 ## Subsequent independent experiments
 
-If admission is feasible, freeze a conservative candidate prefilter followed by
-the existing exact symbol-aware matcher. Compare it with direct compressed
-matching and the admitted native decoded route. False negatives are forbidden;
-false positives retain exact verification. Candidate selection must use actual
-pattern/table/data characteristics and include construction, validation, scratch,
-dense-candidate and nonpredicate costs. An empty or unsupported pattern retains
-an explicitly admitted route rather than silently changing its semantics.
-
-Only after that decision, separately evaluate request-scoped matcher lifetime
+With the prefilter decision complete, separately evaluate request-scoped matcher lifetime
 across existing slices. Exact symbol contents, lengths, pattern and options must
 match, all retained allocations and identity checks must be charged, and changed
 tables or requests must invalidate reuse. No global cache or writer default is

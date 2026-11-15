@@ -1,0 +1,28 @@
+{
+  "status": "passed_complete_closeout_documentation",
+  "query_executions": 0,
+  "reports": {
+    "fsst-public-status-docs-r1.json": {
+      "bytes": 93915,
+      "sha256": "abeddc65245cd342f3dbabddf090059272c52d4915773bf14e4965f87ac72809"
+    },
+    "fsst-gap-burndown-r1.json": {
+      "bytes": 69183,
+      "sha256": "0778324686452fca2eb9541b5acf340e33d184a88e7c14b321f7c99caa2c84fa"
+    },
+    "fsst-queue-tracker-r1.json": {
+      "bytes": 48584,
+      "sha256": "c0a8c04f26ef9cab0ae3576413155048290291aef6ec6bb095f02396f55d9429"
+    },
+    "fsst-local-links-r1.json": {
+      "bytes": 120032,
+      "sha256": "335fc8a36e6f052d6dd0af917662b7351b3130429786b02f818fdb600d5127e3"
+    }
+  },
+  "local_links_checked": 458,
+  "missing_local_links": [],
+  "exact_report_engine_totals_verified": true,
+  "release_tracker_open_items": 106,
+  "release_claim_allowed": false,
+  "runtime_changes_after_measurement": false
+}

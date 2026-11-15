@@ -109,7 +109,8 @@ requests establish sparse preparation exposure; four compaction controls reduce
 actual preparations only when the consumer sees combined arrays. Projection
 error order and source callback counterexamples prevent generic admission, and
 small visible slices retain whole credited allocations. Existing batches remain
-the accepted contract for FSST. Broader attribution and a separately proved
+the accepted contract for the retained [FSST prefilter](native-fsst-consumer-2026-11-15.md)
+and its separate open matcher-lifetime investigation. Broader attribution and a separately proved
 narrow source/consumer route remain open; this does not reject every form of
 survivor batching.
 

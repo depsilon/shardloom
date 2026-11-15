@@ -1,0 +1,20 @@
+[codex/native-fsst-consumer 45be8e0bd] Add conservative FSST candidate filtering with complete native acceptance
+ Committer: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 21 files changed, 1554 insertions(+), 35 deletions(-)
+ create mode 100644 docs/architecture/native-fsst-consumer-2026-11-15.md
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_fsst_admission_tests.rs
+ create mode 100644 shardloom-vortex/src/local_primitive_relational_fsst_existing_inputs_tests.rs
+ create mode 100644 vendor/vortex-fsst/src/dfa/prefilter.rs
+ create mode 100644 vendor/vortex-fsst/src/like_observation.rs
+{"status": "preserved", "head": "45be8e0bd1d9cef920c88fa9bf91811deade41c4", "source_files": 5794, "changed_files": 21, "decision": "retain"}

@@ -1,0 +1,112 @@
+{
+  "status": "passed_final_source_and_generated_reference_binding",
+  "parent": "45be8e0bd1d9cef920c88fa9bf91811deade41c4",
+  "runtime_source_fingerprint_sha256": "f11e53979c13d7b4b253e92397e73813ab0db98507149a11199b892d13030ff1",
+  "current_source_fingerprint_sha256": "f688fd01869789351222762d287ef109676fc3c5e7e8e454c470136a63b0688b",
+  "current_source_files": 5795,
+  "changes_from_measured_source": {
+    "docs/architecture/local-development-storage.md": {
+      "measured": {
+        "bytes": 72620,
+        "sha256": "2715edcbc950767f9969c617c63991e8c8a5f00c05c39c8e736b08961879c5e9"
+      },
+      "current": {
+        "sha256": "8bd2037796ce7a676587bb758344d06c703fbaa787d201a032e103d4f5ea5a66",
+        "bytes": 73638
+      }
+    },
+    "docs/architecture/native-fsst-consumer-2026-11-15.md": {
+      "measured": {
+        "bytes": 11439,
+        "sha256": "3eac59dda69dfa9cb13032bd7ab3538e8fe05c8a3d74a7a7623d7a3b89651f2b"
+      },
+      "current": {
+        "sha256": "92c7681595cef0aaae663c89188f78e70e858577b9792687379e6a282ba88010",
+        "bytes": 13483
+      }
+    },
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "measured": {
+        "bytes": 22031,
+        "sha256": "a8a5e98cdf86acf31bd9571d4cb3a54c9535776ce56eee569d5634e8fc42fae2"
+      },
+      "current": {
+        "sha256": "5b931a972f2adb424fadad2069f05384247e15285ac0ccd6f4aa059a56e5ece0",
+        "bytes": 22553
+      }
+    },
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": {
+      "measured": {
+        "bytes": 20407,
+        "sha256": "8928ea076e94f27bb25c0cffca4506a20d56308e33dab9be0bc01895740a2939"
+      },
+      "current": {
+        "sha256": "0c44c200810a3f2627e961e119c7c7e85df6f878115766ca2e19a321842b64ba",
+        "bytes": 20576
+      }
+    },
+    "docs/architecture/native-structural-work-investigations-2026-11-11.md": {
+      "measured": {
+        "bytes": 19174,
+        "sha256": "cd060345569e9361dffcee0c851e7366f535b175ceaa008717fa068b1c402517"
+      },
+      "current": {
+        "sha256": "fd2a78d25ea66834607c8c24bc67a7b964ba43b9af9f26700ea3d8ea12bca6fb",
+        "bytes": 19288
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "measured": {
+        "bytes": 258943,
+        "sha256": "3b739a295d5c11dbbb56983c8ce02c5aa394665ad5ab46aa9cc7a311db492844"
+      },
+      "current": {
+        "sha256": "6aedf55c5c38c297c7bd638c2037acba3e5444fd25fddfd7f775459046cf58b0",
+        "bytes": 259284
+      }
+    },
+    "docs/benchmarks/native-fsst-consumer-2026-11-15.md": {
+      "measured": null,
+      "current": {
+        "sha256": "9419b8ae4954679718f4edd9d715524258a725f64e903f05d8b8890659a76d54",
+        "bytes": 9038
+      }
+    },
+    "docs/reference/shardloom-user-surface-index.json": {
+      "measured": {
+        "bytes": 279349,
+        "sha256": "faaad5279625ef6bfce02dfbc1b853eb6b337aed9dc9c0d923b1ba3fcdf53d2d"
+      },
+      "current": {
+        "sha256": "3c8b44eb15391a537dddb0530df9e0fefdb0ec7eeaaa551f7b71ca973f16d984",
+        "bytes": 279349
+      }
+    },
+    "docs/reference/shardloom-user-surface-index.md": {
+      "measured": {
+        "bytes": 52671,
+        "sha256": "b48150ba45314e4f59682fff65e11a11274ddaaeb0f50bdc09ab297dba3970ac"
+      },
+      "current": {
+        "sha256": "b00de1e2f58eeeddb1c969333189e63d78c8df253ccaa7ad4c8245e1ab691e29",
+        "bytes": 52671
+      }
+    }
+  },
+  "all_runtime_sources_and_native_artifacts_unchanged": true,
+  "generated_reference_change": "Only Cargo.lock identity and the derived application source identity.",
+  "generated_reference_semantics_unchanged": true,
+  "original_closed_packet": {
+    "bytes": 12066,
+    "sha256": "f02d109d2bba72e29d7094776eeace2c5b1db8f8612fae0ddab65c051739dc55"
+  },
+  "original_closed_packet_files_verified": 74,
+  "queries_executed": 0,
+  "builds_executed": 0,
+  "original_closeout_replay_reused": true,
+  "new_proof": {
+    "api_tests": 15,
+    "api_failures": 0,
+    "governance": "passed"
+  }
+}

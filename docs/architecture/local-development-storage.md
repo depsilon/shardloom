@@ -2,6 +2,20 @@
 
 ## Current retention policy
 
+During [FSST evidence packaging](native-fsst-consumer-2026-11-15.md), the unchanged
+12 GiB headroom floor plus the archive reservation stopped the first attempt
+before archive creation. Verified retirement removed 18,398 idle regenerable
+debug compiler files, totaling 14,114,909,212 logical bytes. Independent and
+repeated inventories and three closed-handle checks passed. All 126 measured
+input generations, accepted/comparison runtimes, the tested wheel and the
+complete release cache remained unchanged. The first inventory comparison stop
+is preserved; it occurred before deletion on a full-stat equality check. The
+corrected check compares stable file generations and excludes access time.
+The [portable packet](../benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md)
+retains the source, identities, original failures and passing retirement receipt.
+Packaging and relocated replay subsequently passed. No storage limit changed,
+no payload backup was created, and no query was rerun for this cleanup.
+
 The November 7 managed-binary, dependency and fixed-tensor integration closeouts
 apply this policy after their exact merges pass all 55 required main checks,
 following 58 checks on each PR. The [binary delivery](native-managed-binary-objects-2026-11-06.md)

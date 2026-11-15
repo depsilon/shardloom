@@ -1,0 +1,112 @@
+{
+  "status": "complete_experiment_retention",
+  "disposition": "retain",
+  "original_replay_status": "passed_complete_acceptance",
+  "original_replay_decision": "retain",
+  "fresh": {
+    "cases": 9040,
+    "complete": true,
+    "baseline_engine_seconds": 682.167470629,
+    "candidate_engine_seconds": 663.612327731,
+    "engine_gain_seconds": 18.555142897999986,
+    "regressions": 1759,
+    "regression_engine_seconds": 1.6758031539999991
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 270,
+    "operations_per_runtime": 540,
+    "baseline_engine_seconds": 0.520543159,
+    "candidate_engine_seconds": 0.511136028
+  },
+  "thresholds_changed": false,
+  "complete_results_replayed": 18080,
+  "complete_lifecycle_operations_replayed": 1080,
+  "additional_query_executions": 0,
+  "whole_investigation_queue_complete": false,
+  "matcher_lifetime_experiment_complete": false,
+  "required_spatial_execution_complete": false,
+  "publication_attempted": false,
+  "candidate_source": {
+    "status": "preserved_exact_candidate_source",
+    "disposition": "retained_complete_comparison",
+    "head": "45be8e0bd1d9cef920c88fa9bf91811deade41c4",
+    "tree": "34e69378a9c4ac0dfe1bfaf0fe11828b7480225c",
+    "parent": "873e60bca36f5030cec27c3baf59017ca49ad8ab",
+    "branch": "codex/native-fsst-consumer",
+    "files": [
+      ".github/ci-native-baseline.json",
+      ".github/provider-locks/vortex-arrow.lock",
+      ".github/provider-locks/vortex-fsst.lock",
+      "Cargo.lock",
+      "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "python/THIRD_PARTY_LICENSES/manifest.json",
+      "shardloom-vortex/src/local_primitive_relational_fsst_admission_tests.rs",
+      "shardloom-vortex/src/local_primitive_relational_fsst_existing_inputs_tests.rs",
+      "shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "shardloom-vortex/src/local_primitives.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_keys.rs",
+      "shardloom-vortex/src/local_primitives/native_relational_observation.rs",
+      "vendor/vortex-fsst/Cargo.toml",
+      "vendor/vortex-fsst/README.shardloom.md",
+      "vendor/vortex-fsst/src/compute/like.rs",
+      "vendor/vortex-fsst/src/dfa/mod.rs",
+      "vendor/vortex-fsst/src/dfa/prefilter.rs",
+      "vendor/vortex-fsst/src/dfa/tests.rs",
+      "vendor/vortex-fsst/src/lib.rs",
+      "vendor/vortex-fsst/src/like_observation.rs",
+      "vendor/vortex-fsst/upstream-provenance.json"
+    ],
+    "patch": {
+      "bytes": 85618,
+      "sha256": "ef178f84b0382c81164c9201aa9bde4f1bf35e186b58e38cdd7a594cc2bbbddb"
+    },
+    "source_fingerprint_sha256": "f11e53979c13d7b4b253e92397e73813ab0db98507149a11199b892d13030ff1",
+    "source_bytes_equal_to_executed_candidate": true,
+    "committed_blobs_verified": 5794,
+    "runtime_build_head": "873e60bca36f5030cec27c3baf59017ca49ad8ab",
+    "runtime_rebuilt_after_commit": false,
+    "publication_attempted": false
+  },
+  "predecessor_commit": "873e60bca36f5030cec27c3baf59017ca49ad8ab",
+  "inputs": {
+    "fsst-protocol-r1.json": {
+      "bytes": 74753857,
+      "sha256": "d44c50ce327d2f8b90231a24e75b5951cd6da51ae0ce79cd230dd19e612e9bd4"
+    },
+    "fsst-runtime-validation-r1.json": {
+      "bytes": 18026,
+      "sha256": "d8b2acf28b370759c737055c70c148fe7db5e9bae0e666727d9627b1e5832929"
+    },
+    "fsst-replay-r1.json": {
+      "bytes": 178889526,
+      "sha256": "97b998a58a5389def2b956dd75e882f699a91bdeca9e012de2489c0c270ff26d"
+    },
+    "fsst-replay-primary-r1.json": {
+      "bytes": 764,
+      "sha256": "2d2ec176746c165c40fa609dbe7d58c4671dd537a0809586014a340bf1f87670"
+    },
+    "fsst-acceptance-controls-r1.json": {
+      "bytes": 2663,
+      "sha256": "63c202ef0d09d926506dd13ed286ac217c5d5e111570a0bc0d007200cdf94788"
+    },
+    "fsst-source-r1.json": {
+      "bytes": 1860,
+      "sha256": "631bd411de5f923fa65f8ceae20b483a8fbb43f1713d62472065d52ff68e58cf"
+    },
+    "fsst-replay-check-r1.json": {
+      "bytes": 1027317,
+      "sha256": "12b70f174907a6fe5e2c6760635fea21ec090b5d2ecbdb9cede8a86f81c91836"
+    },
+    "fsst-preflight-r1.json": {
+      "bytes": 5512,
+      "sha256": "cb2d3c8ce246fa26018924524d04d241bfc64eb6f44c1c50ec12bb3ffa7b25c4"
+    }
+  },
+  "limits": [
+    "Single observations with reused baseline and uncontrolled host/cache state.",
+    "No causal attribution of the complete engine-time difference to FSST.",
+    "Untimed debug dispatch is separate from release observations.",
+    "No full-provider allocation-accounting claim."
+  ]
+}

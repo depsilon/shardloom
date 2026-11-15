@@ -1,0 +1,2791 @@
+{
+  "status": "passed_local_document_target_paths",
+  "documents": {
+    "docs/architecture/local-development-storage.md": {
+      "bytes": 73638,
+      "sha256": "8bd2037796ce7a676587bb758344d06c703fbaa787d201a032e103d4f5ea5a66"
+    },
+    "docs/architecture/native-fsst-consumer-2026-11-15.md": {
+      "bytes": 13483,
+      "sha256": "92c7681595cef0aaae663c89188f78e70e858577b9792687379e6a282ba88010"
+    },
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "bytes": 22553,
+      "sha256": "5b931a972f2adb424fadad2069f05384247e15285ac0ccd6f4aa059a56e5ece0"
+    },
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": {
+      "bytes": 20576,
+      "sha256": "0c44c200810a3f2627e961e119c7c7e85df6f878115766ca2e19a321842b64ba"
+    },
+    "docs/architecture/native-structural-work-investigations-2026-11-11.md": {
+      "bytes": 19288,
+      "sha256": "fd2a78d25ea66834607c8c24bc67a7b964ba43b9af9f26700ea3d8ea12bca6fb"
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "bytes": 259284,
+      "sha256": "6aedf55c5c38c297c7bd638c2037acba3e5444fd25fddfd7f775459046cf58b0"
+    },
+    "docs/benchmarks/native-fsst-consumer-2026-11-15.md": {
+      "bytes": 9038,
+      "sha256": "9419b8ae4954679718f4edd9d715524258a725f64e903f05d8b8890659a76d54"
+    },
+    "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md": {
+      "bytes": 4023,
+      "sha256": "3e528e47d0641caabe3429495a3488f0a3106b486c714d0254eb72695146fe3b"
+    }
+  },
+  "links": [
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "resolved": "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-managed-binary-objects-2026-11-06.md",
+      "resolved": "docs/architecture/native-managed-binary-objects-2026-11-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "dependency-intake-2026-11-06.md",
+      "resolved": "docs/architecture/dependency-intake-2026-11-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-variable-shape-tensor-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-variable-shape-tensor-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-float16-lifecycle-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-float16-lifecycle-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-vector-representations-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-vector-representations-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-provider-upgrade-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-provider-upgrade-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-vector-expressions-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-vector-expressions-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-vector-proof-supervision-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-vector-proof-supervision-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-vector-expressions-2026-11-08.md#hosted-integration-and-cleanup",
+      "resolved": "docs/architecture/native-vector-expressions-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/v1.1.0-source-milestone-2026-11-03/acceptance.json",
+      "resolved": "docs/release/evidence/v1.1.0-source-milestone-2026-11-03/acceptance.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-wide-schema-2026-11-09/README.md",
+      "resolved": "docs/release/evidence/native-wide-schema-2026-11-09/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-variant-lifecycle-2026-11-09/README.md",
+      "resolved": "docs/release/evidence/native-variant-lifecycle-2026-11-09/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/native-uuid-lifecycle-2026-11-10/README.md",
+      "resolved": "docs/release/evidence/native-uuid-lifecycle-2026-11-10/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-dictionary-execution-repair-2026-11-10.md",
+      "resolved": "docs/architecture/native-dictionary-execution-repair-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-shared-index-metadata-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-index-metadata-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-shared-window-state-2026-11-11.md",
+      "resolved": "docs/architecture/native-shared-window-state-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-rolling-distinct-2026-11-11.md",
+      "resolved": "docs/architecture/native-rolling-distinct-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-join-payload-mapping-2026-11-12.md",
+      "resolved": "docs/architecture/native-join-payload-mapping-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "native-direct-count-bridge-2026-11-12.md",
+      "resolved": "docs/architecture/native-direct-count-bridge-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-adaptive-decisions-closeout-2026-11-02/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-adaptive-decisions-closeout-2026-11-02/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-performance-batch-retirement-2026-10-31/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-performance-batch-retirement-2026-10-31/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-typed-ordering-retirement-2026-10-31/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-typed-ordering-retirement-2026-10-31/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-ordered-inputs-closeout-2026-10-31/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-grouped-state-closeout-2026-10-31/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-adjacent-parquet-reads-retirement-2026-10-31/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-adjacent-parquet-reads-retirement-2026-10-31/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-shared-numeric-values-2026-10-28/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-shared-numeric-values-2026-10-28/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../release/evidence/v1.0.0-local-generated-cleanup-2026-10-25.json",
+      "resolved": "docs/release/evidence/v1.0.0-local-generated-cleanup-2026-10-25.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/cyclic-existence-2026-10-21/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-structural-provider-2026-10-21/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-structural-provider-2026-10-21/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-vortex-provider-refresh-2026-10-24/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-vortex-provider-refresh-2026-10-24/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-warm-source-reuse-2026-10-25/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-warm-source-reuse-2026-10-25/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-ingest-ownership-2026-10-25/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-ingest-ownership-2026-10-25/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-source-demand-2026-10-26/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-source-demand-2026-10-26/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-parquet-demand-completion-2026-10-27/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-parquet-demand-completion-2026-10-27/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-shared-key-lookup-2026-10-28/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-shared-key-lookup-2026-10-28/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-analytical-aggregates-2026-10-27/cleanup.json",
+      "resolved": "docs/benchmarks/evidence/native-analytical-aggregates-2026-10-27/cleanup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-09-26.md",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-09-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-10.md",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-11.md",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-11.md#urgent-cleanup-and-current-retention",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-18.md",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-text-aggregation-2026-10-17.md",
+      "resolved": "docs/benchmarks/native-text-aggregation-2026-10-17.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-query-timing-uat-2026-10-15.md",
+      "resolved": "docs/benchmarks/native-query-timing-uat-2026-10-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-15.md",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-11.md#persisted-output-acceptance-cleanup",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-10-11.md#cleanup-before-the-requested-fresh-full-uat",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-10-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-aggregate-ordering-2026-10-02.json.xz",
+      "resolved": "docs/benchmarks/evidence/native-aggregate-ordering-2026-10-02.json.xz",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-typed-keys-2026-10-03.json.xz",
+      "resolved": "docs/benchmarks/evidence/native-typed-keys-2026-10-03.json.xz",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz",
+      "resolved": "docs/benchmarks/evidence/native-typed-expressions-review-2026-10-03.json.xz",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/evidence/native-typed-unary-2026-10-03.json.xz",
+      "resolved": "docs/benchmarks/evidence/native-typed-unary-2026-10-03.json.xz",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-input-growth-2026-10-09.md",
+      "resolved": "docs/benchmarks/native-input-growth-2026-10-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+      "resolved": "docs/benchmarks/release-candidate-fresh-uat-2026-10-05.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-scalar-subqueries-full43-2026-10-05.md",
+      "resolved": "docs/benchmarks/native-scalar-subqueries-full43-2026-10-05.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-nested-pivot-state-full43-2026-10-06.md",
+      "resolved": "docs/benchmarks/native-nested-pivot-state-full43-2026-10-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-codec-workspaces-2026-10-07.md",
+      "resolved": "docs/benchmarks/native-codec-workspaces-2026-10-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-builder-resources-2026-10-07.md",
+      "resolved": "docs/benchmarks/native-builder-resources-2026-10-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-stateful-aggregation-ordering-2026-10-08.md",
+      "resolved": "docs/benchmarks/native-stateful-aggregation-ordering-2026-10-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-join-pressure-2026-10-08.md",
+      "resolved": "docs/benchmarks/native-join-pressure-2026-10-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-window-pressure-2026-10-08.md",
+      "resolved": "docs/benchmarks/native-window-pressure-2026-10-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-pivot-pressure-2026-10-08.md",
+      "resolved": "docs/benchmarks/native-pivot-pressure-2026-10-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/release-candidate-fresh-uat-2026-10-09.md",
+      "resolved": "docs/benchmarks/release-candidate-fresh-uat-2026-10-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../skills/benchmarking.md#isolated-full43-procedure",
+      "resolved": "docs/skills/benchmarking.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../skills/benchmarking.md#timing-communication-decision",
+      "resolved": "docs/skills/benchmarking.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-fresh-unpaced-uat-2026-10-14.md",
+      "resolved": "docs/benchmarks/native-fresh-unpaced-uat-2026-10-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/current-runtime-e2e-2026-09-30.md",
+      "resolved": "docs/benchmarks/current-runtime-e2e-2026-09-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-performance-gap-2026-10-14.md",
+      "resolved": "docs/benchmarks/native-performance-gap-2026-10-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "local-artifact-cleanup-2026-09-30.md#current-runtime-follow-up",
+      "resolved": "docs/architecture/local-artifact-cleanup-2026-09-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-input-completion-2026-10-07.md",
+      "resolved": "docs/benchmarks/native-input-completion-2026-10-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/local-development-storage.md",
+      "target": "../benchmarks/native-fsst-admission-2026-10-07.md",
+      "resolved": "docs/benchmarks/native-fsst-admission-2026-10-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "../benchmarks/native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/benchmarks/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "../benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "resolved": "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "fsst-consumer-screen-2026-09-26.md",
+      "resolved": "docs/architecture/fsst-consumer-screen-2026-09-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "target": "../benchmarks/native-fsst-admission-2026-10-07.md",
+      "resolved": "docs/benchmarks/native-fsst-admission-2026-10-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-optimization-coverage-2026-11-13.md",
+      "resolved": "docs/architecture/native-optimization-coverage-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "phased-execution-plan.md#planned",
+      "resolved": "docs/architecture/phased-execution-plan.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "../benchmarks/native-optimization-activation-2026-11-14.md",
+      "resolved": "docs/benchmarks/native-optimization-activation-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-metadata-measure-completion-2026-11-14.md",
+      "resolved": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-regional-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-constant-key-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-dictionary-domain-2026-11-14.md",
+      "resolved": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-source-domain-facts-2026-11-14.md",
+      "resolved": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-bloom-admission-2026-11-14.md",
+      "resolved": "docs/architecture/native-bloom-admission-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-text-signatures-2026-11-14.md",
+      "resolved": "docs/architecture/native-text-signatures-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-structural-work-investigations-2026-11-11.md",
+      "resolved": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-rich-data-lifecycle-2026-10-24.md",
+      "resolved": "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-metadata-measure-completion-2026-11-14.md",
+      "resolved": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-direct-count-bridge-2026-11-12.md",
+      "resolved": "docs/architecture/native-direct-count-bridge-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "fsst-consumer-screen-2026-09-26.md",
+      "resolved": "docs/architecture/fsst-consumer-screen-2026-09-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-regional-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-constant-key-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-source-domain-facts-2026-11-14.md",
+      "resolved": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-bloom-admission-2026-11-14.md",
+      "resolved": "docs/architecture/native-bloom-admission-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-text-signatures-2026-11-14.md",
+      "resolved": "docs/architecture/native-text-signatures-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-text-signatures-2026-11-14.md",
+      "resolved": "docs/architecture/native-text-signatures-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "../benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "resolved": "docs/benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "perf-column-addressable-writer-2026-09-06.md",
+      "resolved": "docs/architecture/perf-column-addressable-writer-2026-09-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "native-fused-measure-work-elimination-2026-10-25.md",
+      "resolved": "docs/architecture/native-fused-measure-work-elimination-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "target": "../benchmarks/native-workflow-drop-2026-10-25.md",
+      "resolved": "docs/benchmarks/native-workflow-drop-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "phased-execution-plan.md#planned",
+      "resolved": "docs/architecture/phased-execution-plan.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-shared-index-metadata-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-index-metadata-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-shared-window-state-2026-11-11.md",
+      "resolved": "docs/architecture/native-shared-window-state-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-rolling-distinct-2026-11-11.md",
+      "resolved": "docs/architecture/native-rolling-distinct-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-join-payload-mapping-2026-11-12.md",
+      "resolved": "docs/architecture/native-join-payload-mapping-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-direct-count-bridge-2026-11-12.md",
+      "resolved": "docs/architecture/native-direct-count-bridge-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../benchmarks/native-optimization-activation-2026-11-14.md",
+      "resolved": "docs/benchmarks/native-optimization-activation-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-structural-work-investigations-2026-11-11.md",
+      "resolved": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms/results.json",
+      "resolved": "docs/benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms/results.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "resolved": "docs/benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-dictionary-execution-repair-2026-11-10.md",
+      "resolved": "docs/architecture/native-dictionary-execution-repair-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "phased-execution-plan.md#planned",
+      "resolved": "docs/architecture/phased-execution-plan.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-regional-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-constant-key-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-dictionary-domain-2026-11-14.md",
+      "resolved": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-source-domain-facts-2026-11-14.md",
+      "resolved": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-bloom-admission-2026-11-14.md",
+      "resolved": "docs/architecture/native-bloom-admission-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-text-signatures-2026-11-14.md",
+      "resolved": "docs/architecture/native-text-signatures-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "native-structural-work-investigations-2026-11-11.md",
+      "resolved": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../../shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_prepared_relational.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../../shardloom-vortex/src/local_primitive_aggregate_scan_source.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_aggregate_scan_source.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_batch.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../benchmarks/native-workflow-drop-2026-10-25.md",
+      "resolved": "docs/benchmarks/native-workflow-drop-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "target": "../benchmarks/native-selection-retention-2026-11-04.md",
+      "resolved": "docs/benchmarks/native-selection-retention-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-shared-pipeline-investigations-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "phased-execution-plan.md#planned",
+      "resolved": "docs/architecture/phased-execution-plan.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-join-payload-mapping-2026-11-12.md",
+      "resolved": "docs/architecture/native-join-payload-mapping-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-direct-count-bridge-2026-11-12.md",
+      "resolved": "docs/architecture/native-direct-count-bridge-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../benchmarks/evidence/native-structural-exposure-2026-11-11/summary.json",
+      "resolved": "docs/benchmarks/evidence/native-structural-exposure-2026-11-11/summary.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../benchmarks/evidence/native-structural-exposure-2026-11-11/audit.json.gz",
+      "resolved": "docs/benchmarks/evidence/native-structural-exposure-2026-11-11/audit.json.gz",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitive_relational_decorrelate.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_relational_decorrelate.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitive_relational_correlated.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_relational_correlated.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-workflow-work-elimination-2026-10-25.md",
+      "resolved": "docs/architecture/native-workflow-work-elimination-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_join.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_join.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitive_relational_replay_capture.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_relational_replay_capture.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_sort.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_order.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_order.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-typed-ordering-2026-10-31.md",
+      "resolved": "docs/architecture/native-typed-ordering-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_variant.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_variant.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "resolved": "shardloom-vortex/src/local_primitive_relational_transform.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-multiway-join-2026-10-20.md",
+      "resolved": "docs/architecture/native-multiway-join-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "target": "../../vendor/vortex-array/src/arrays/dict/compute/rules.rs",
+      "resolved": "vendor/vortex-array/src/arrays/dict/compute/rules.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-optimization-coverage-2026-11-13.md",
+      "resolved": "docs/architecture/native-optimization-coverage-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-optimization-coverage-2026-11-13.md",
+      "resolved": "docs/benchmarks/native-optimization-coverage-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-optimization-inventory-2026-11-13.md",
+      "resolved": "docs/architecture/native-optimization-inventory-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md",
+      "resolved": "docs/benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-sort-prefix-validation-2026-11-13.md",
+      "resolved": "docs/architecture/native-sort-prefix-validation-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-optimization-activation-2026-11-14.md",
+      "resolved": "docs/benchmarks/native-optimization-activation-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-metadata-encoded-consumer-investigations-2026-11-13.md#sequence-and-deliverables",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-metadata-measure-completion-2026-11-14.md",
+      "resolved": "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-regional-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-constant-key-aggregates-2026-11-14.md",
+      "resolved": "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-domain-2026-11-14.md",
+      "resolved": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-domain-facts-2026-11-14.md",
+      "resolved": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-bloom-admission-2026-11-14.md",
+      "resolved": "docs/architecture/native-bloom-admission-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-text-signatures-2026-11-14.md",
+      "resolved": "docs/architecture/native-text-signatures-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-domain-2026-11-14.md",
+      "resolved": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-domain-facts-2026-11-14.md",
+      "resolved": "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-pipeline-investigations-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-execution-repair-2026-11-10.md",
+      "resolved": "docs/architecture/native-dictionary-execution-repair-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-structural-work-investigations-2026-11-11.md",
+      "resolved": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-pipeline-consolidation-2026-11-12.md",
+      "resolved": "docs/architecture/native-pipeline-consolidation-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-pipeline-consolidation-2026-11-12.md",
+      "resolved": "docs/benchmarks/native-pipeline-consolidation-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-structural-work-investigations-2026-11-11.md#frozen-declaration-exposure-audit",
+      "resolved": "docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-index-metadata-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-index-metadata-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-window-state-2026-11-11.md",
+      "resolved": "docs/architecture/native-shared-window-state-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-rolling-distinct-2026-11-11.md",
+      "resolved": "docs/architecture/native-rolling-distinct-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-join-payload-mapping-2026-11-12.md",
+      "resolved": "docs/architecture/native-join-payload-mapping-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-direct-count-bridge-2026-11-12.md",
+      "resolved": "docs/architecture/native-direct-count-bridge-2026-11-12.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-optimization-activation-2026-11-14.md",
+      "resolved": "docs/benchmarks/native-optimization-activation-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-survivor-admission-2026-11-15.md",
+      "resolved": "docs/architecture/native-survivor-admission-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-domain-2026-11-14.md",
+      "resolved": "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-execution-repair-2026-11-10.md",
+      "resolved": "docs/architecture/native-dictionary-execution-repair-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms/results.json",
+      "resolved": "docs/benchmarks/evidence/native-expanded-query-2026-11-03/shared-mechanisms/results.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_index.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_index.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-index-metadata-2026-11-10.md",
+      "resolved": "docs/architecture/native-shared-index-metadata-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_window.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_window.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_window_partition.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_window_partition.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-window-state-2026-11-11.md",
+      "resolved": "docs/architecture/native-shared-window-state-2026-11-11.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_window_frame_state.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_window_frame_state.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dense-embedding-lifecycle-2026-11-05.md",
+      "resolved": "docs/architecture/native-dense-embedding-lifecycle-2026-11-05.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../reference/rich-columns.md",
+      "resolved": "docs/reference/rich-columns.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-managed-binary-objects-2026-11-06.md",
+      "resolved": "docs/architecture/native-managed-binary-objects-2026-11-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "dependency-intake-2026-11-06.md",
+      "resolved": "docs/architecture/dependency-intake-2026-11-06.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-fixed-tensor-lifecycle-2026-11-07.md",
+      "resolved": "docs/architecture/native-fixed-tensor-lifecycle-2026-11-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-fixed-shape-tensor-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-fixed-shape-tensor-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-variable-tensor-lifecycle-2026-11-07.md",
+      "resolved": "docs/architecture/native-variable-tensor-lifecycle-2026-11-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../reference/variable-shape-tensors.md",
+      "resolved": "docs/reference/variable-shape-tensors.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-variable-shape-tensor-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-variable-shape-tensor-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-float16-lifecycle-2026-11-07.md",
+      "resolved": "docs/architecture/native-float16-lifecycle-2026-11-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-float16-lifecycle-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-float16-lifecycle-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-vector-representations-2026-11-07.md",
+      "resolved": "docs/architecture/native-vector-representations-2026-11-07.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-vector-representations-2026-11-07/README.md",
+      "resolved": "docs/release/evidence/native-vector-representations-2026-11-07/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "dependency-intake-2026-11-08.md",
+      "resolved": "docs/architecture/dependency-intake-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-provider-upgrade-2026-11-08.md",
+      "resolved": "docs/architecture/native-provider-upgrade-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-provider-upgrade-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-provider-upgrade-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-vector-expressions-2026-11-08.md",
+      "resolved": "docs/architecture/native-vector-expressions-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-vector-expressions-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-vector-expressions-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-vector-proof-supervision-2026-11-08/README.md",
+      "resolved": "docs/release/evidence/native-vector-proof-supervision-2026-11-08/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-vector-expressions-2026-11-08.md#hosted-integration-and-cleanup",
+      "resolved": "docs/architecture/native-vector-expressions-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-wide-schema-2026-11-09.md",
+      "resolved": "docs/architecture/native-wide-schema-2026-11-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-variant-lifecycle-2026-11-09.md",
+      "resolved": "docs/architecture/native-variant-lifecycle-2026-11-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-variant-lifecycle-2026-11-09/README.md",
+      "resolved": "docs/release/evidence/native-variant-lifecycle-2026-11-09/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-uuid-lifecycle-2026-11-10.md",
+      "resolved": "docs/architecture/native-uuid-lifecycle-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-uuid-lifecycle-2026-11-10/README.md",
+      "resolved": "docs/release/evidence/native-uuid-lifecycle-2026-11-10/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-variant-expressions-2026-11-10.md",
+      "resolved": "docs/architecture/native-variant-expressions-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-dictionary-execution-repair-2026-11-10.md",
+      "resolved": "docs/architecture/native-dictionary-execution-repair-2026-11-10.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/evidence/native-dictionary-execution-repair-2026-11-10/README.md",
+      "resolved": "docs/release/evidence/native-dictionary-execution-repair-2026-11-10/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-selection-retention-2026-11-04.md",
+      "resolved": "docs/architecture/native-selection-retention-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-selection-retention-2026-11-04.md",
+      "resolved": "docs/benchmarks/native-selection-retention-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "resolved": "docs/benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-release-notes.md",
+      "resolved": "docs/release/v1.1.0-release-notes.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-post-110-optimization-investigation-2026-11-03.md",
+      "resolved": "docs/architecture/native-post-110-optimization-investigation-2026-11-03.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-publication-verification.md",
+      "resolved": "docs/release/v1.1.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-expanded-operator-investigations-2026-11-03.md",
+      "resolved": "docs/benchmarks/native-expanded-operator-investigations-2026-11-03.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-expanded-query-2026-11-03.md",
+      "resolved": "docs/benchmarks/native-expanded-query-2026-11-03.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-expanded-updated-cohort-2026-11-03.md",
+      "resolved": "docs/benchmarks/native-expanded-updated-cohort-2026-11-03.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-serverless-execution-2026-11-08.md",
+      "resolved": "docs/architecture/native-serverless-execution-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-preparation-contracts-2026-11-02.md",
+      "resolved": "docs/benchmarks/native-preparation-contracts-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-universal-io-performance-coverage-2026-10-24.md#cross-surface-and-format-acceptance-gate",
+      "resolved": "docs/architecture/native-universal-io-performance-coverage-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-preparation-query-investigations-2026-11-02.md",
+      "resolved": "docs/architecture/native-preparation-query-investigations-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-parquet-demand-completion-2026-10-26.md",
+      "resolved": "docs/architecture/native-parquet-demand-completion-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-parquet-demand-completion-2026-10-27.md",
+      "resolved": "docs/benchmarks/native-parquet-demand-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-broad-query-program-2026-10-26.md",
+      "resolved": "docs/architecture/native-broad-query-program-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "compression-dependency-intake-2026-10-26.md",
+      "resolved": "docs/architecture/compression-dependency-intake-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-broad-query-review-2026-10-26/pr1611-integration.json",
+      "resolved": "docs/benchmarks/evidence/native-broad-query-review-2026-10-26/pr1611-integration.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-demand-2026-10-26.md",
+      "resolved": "docs/architecture/native-source-demand-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-source-demand-2026-10-26.md",
+      "resolved": "docs/benchmarks/native-source-demand-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/ci-performance-2026-10-25.md#completed-remote-acceptance",
+      "resolved": "docs/release/ci-performance-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.0.0-publication-verification.md",
+      "resolved": "docs/release/v1.0.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "public-documentation-api-acceptance-2026-10-18.md",
+      "resolved": "docs/architecture/public-documentation-api-acceptance-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v0.7.0-publication-verification.md",
+      "resolved": "docs/release/v0.7.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-compact-selection-2026-10-18.md",
+      "resolved": "docs/architecture/native-compact-selection-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-set-membership-spill-2026-10-18.md",
+      "resolved": "docs/benchmarks/native-set-membership-spill-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-unary-membership-spill-2026-10-18.md",
+      "resolved": "docs/benchmarks/native-unary-membership-spill-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "resolved": "docs/benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-subquery-membership-spill-2026-10-19.md",
+      "resolved": "docs/benchmarks/native-subquery-membership-spill-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-conditional-investigations-2026-10-19.md",
+      "resolved": "docs/architecture/native-conditional-investigations-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-format-strategy-parity-2026-10-21.md",
+      "resolved": "docs/architecture/native-format-strategy-parity-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v0.7.0-publication-verification.md",
+      "resolved": "docs/release/v0.7.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-workload-comparisons-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-workload-comparisons-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-workload-guarantees-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-workload-guarantees-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-independent-full43-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-independent-full43-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json",
+      "resolved": "docs/benchmarks/evidence/native-current-attribution-2026-10-22/pr1589-integration-958.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-current-attribution-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-current-attribution-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-pgo-2026-10-23.md",
+      "resolved": "docs/benchmarks/native-pgo-2026-10-23.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-compute-structure-review-2026-10-23.md",
+      "resolved": "docs/architecture/native-compute-structure-review-2026-10-23.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-shared-surfaces-2026-10-23.md",
+      "resolved": "docs/benchmarks/native-shared-surfaces-2026-10-23.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-engine-optimization-acceptance-2026-10-23.md#final-coherent-acceptance",
+      "resolved": "docs/architecture/native-engine-optimization-acceptance-2026-10-23.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-grouped-preparation-2026-10-24.md#final-coherent-acceptance",
+      "resolved": "docs/architecture/native-grouped-preparation-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-surface-parity-2026-10-24.md",
+      "resolved": "docs/benchmarks/native-surface-parity-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-vortex-provider-refresh-2026-10-24.md",
+      "resolved": "docs/architecture/native-vortex-provider-refresh-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "dependency-intake-2026-10-25.md",
+      "resolved": "docs/architecture/dependency-intake-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-warm-source-reuse-2026-10-24.md#final-finite-decision",
+      "resolved": "docs/architecture/native-warm-source-reuse-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "shardloom-public-naming-2026-10-24.md#october-25-local-acceptance",
+      "resolved": "docs/architecture/shardloom-public-naming-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-ingest-ownership-preparation-2026-10-24.md#october-25-retention-and-consumer-decision",
+      "resolved": "docs/architecture/native-ingest-ownership-preparation-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "dependency-intake-2026-10-25.md",
+      "resolved": "docs/architecture/dependency-intake-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-workflow-drop-2026-10-25.md",
+      "resolved": "docs/benchmarks/native-workflow-drop-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-ingest-window-decision-2026-10-25.md",
+      "resolved": "docs/benchmarks/native-ingest-window-decision-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.0.0-publication-verification.md",
+      "resolved": "docs/release/v1.0.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-connected-programming-2026-10-26.md",
+      "resolved": "docs/benchmarks/native-connected-programming-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-local-io-portable-replay-2026-11-02.md",
+      "resolved": "docs/architecture/native-local-io-portable-replay-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-local-table-readers-2026-11-02.md",
+      "resolved": "docs/architecture/native-local-table-readers-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-local-table-readers-2026-11-02.md",
+      "resolved": "docs/architecture/native-local-table-readers-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-documentation-refresh.md",
+      "resolved": "docs/release/v1.1.0-documentation-refresh.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-release-notes.md",
+      "resolved": "docs/release/v1.1.0-release-notes.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-rich-data-lifecycle-2026-10-24.md",
+      "resolved": "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-broad-query-program-2026-10-26.md",
+      "resolved": "docs/architecture/native-broad-query-program-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-demand-2026-10-26.md",
+      "resolved": "docs/architecture/native-source-demand-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-parquet-demand-completion-2026-10-27.md",
+      "resolved": "docs/benchmarks/native-parquet-demand-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-foundry-integration-2026-10-25.md",
+      "resolved": "docs/architecture/native-foundry-integration-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-serverless-execution-2026-11-08.md",
+      "resolved": "docs/architecture/native-serverless-execution-2026-11-08.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-ai-data-workflows-2026-10-24.md",
+      "resolved": "docs/architecture/native-ai-data-workflows-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-sampling-population-spill-2026-10-19.md",
+      "resolved": "docs/architecture/native-sampling-population-spill-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance",
+      "resolved": "docs/architecture/native-analytical-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-broad-query-program-2026-10-26.md#october-30-coverage-expansion-after-item-19",
+      "resolved": "docs/architecture/native-broad-query-program-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-preparation-query-investigations-2026-11-02.md",
+      "resolved": "docs/architecture/native-preparation-query-investigations-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-strategy-investigation-2026-11-02.md",
+      "resolved": "docs/architecture/native-source-strategy-investigation-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-owner-optimizations-2026-10-30.md",
+      "resolved": "docs/architecture/native-shared-owner-optimizations-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-ordered-inputs-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-ordered-inputs-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-owner-optimizations-2026-10-30.md#october-31-maintainer-pruning-decision",
+      "resolved": "docs/architecture/native-shared-owner-optimizations-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-performance-batch-2026-10-31.md#selective-retention-after-the-complete-batch",
+      "resolved": "docs/architecture/native-performance-batch-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-performance-batch-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-performance-batch-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-independent-full43-correctness-2026-10-22.md",
+      "resolved": "docs/architecture/native-independent-full43-correctness-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-independent-full43-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-independent-full43-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-reconciliation-2026-10-18.md",
+      "resolved": "docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-adaptive-acceptance-2026-11-02.md",
+      "resolved": "docs/architecture/native-adaptive-acceptance-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-documentation-refresh.md",
+      "resolved": "docs/release/v1.1.0-documentation-refresh.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-local-io-portable-replay-2026-11-02.md",
+      "resolved": "docs/architecture/native-local-io-portable-replay-2026-11-02.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.1.0-release-notes.md",
+      "resolved": "docs/release/v1.1.0-release-notes.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.0.0-release-notes.md",
+      "resolved": "docs/release/v1.0.0-release-notes.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../release/v1.0.0-publication-verification.md",
+      "resolved": "docs/release/v1.0.0-publication-verification.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-broad-query-program-2026-10-26.md",
+      "resolved": "docs/architecture/native-broad-query-program-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-broad-query-program-2026-10-26.md",
+      "resolved": "docs/architecture/native-broad-query-program-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-broad-query-2026-10-26.md",
+      "resolved": "docs/benchmarks/native-broad-query-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-application-batch-functions-2026-10-30.md",
+      "resolved": "docs/architecture/native-application-batch-functions-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-application-batch-closeout-2026-10-30/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-application-batch-closeout-2026-10-30/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-single-predicate-masks-2026-10-30.md",
+      "resolved": "docs/benchmarks/native-single-predicate-masks-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-grouped-cost-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-grouped-cost-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-grouped-state-access-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-grouped-state-access-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-adjacent-parquet-reads-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-adjacent-parquet-reads-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-adjacent-parquet-reads-closeout-2026-10-31/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-ordered-inputs-2026-10-31.md",
+      "resolved": "docs/benchmarks/native-ordered-inputs-2026-10-31.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-analytical-completion-2026-10-27.md#performance-candidates-after-composition-acceptance",
+      "resolved": "docs/architecture/native-analytical-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-performance-2026-10-29.md",
+      "resolved": "docs/architecture/native-shared-performance-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json",
+      "resolved": "docs/benchmarks/evidence/native-shared-followthrough-2026-10-30/acceptance.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json",
+      "resolved": "docs/benchmarks/evidence/native-shared-followthrough-closeout-2026-10-30/closeout.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-source-demand-2026-10-26.md",
+      "resolved": "docs/architecture/native-source-demand-2026-10-26.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-analytical-completion-2026-10-27.md",
+      "resolved": "docs/architecture/native-analytical-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-analytical-aggregates-2026-10-27.md",
+      "resolved": "docs/benchmarks/native-analytical-aggregates-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-shared-analytical-performance-2026-10-27.md",
+      "resolved": "docs/benchmarks/native-shared-analytical-performance-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-temporal-fidelity-2026-10-27.md",
+      "resolved": "docs/benchmarks/native-temporal-fidelity-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-rich-bounded-retention-2026-10-28.md",
+      "resolved": "docs/benchmarks/native-rich-bounded-retention-2026-10-28.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-shared-key-lookup-2026-10-28.md",
+      "resolved": "docs/benchmarks/native-shared-key-lookup-2026-10-28.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-shared-numeric-values-2026-10-28.md",
+      "resolved": "docs/benchmarks/native-shared-numeric-values-2026-10-28.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/payload-validation-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/join-reuse-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/recursive-payload-validation-followup.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/group-hash-demand-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/selected-payload-validation-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/retained-text-validation.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/typed-numeric-expression-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/integer-extrema-fusion-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/complete-cohort-gain-policy.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/positive-gain-recovery-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/mixed-integer-expression-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/full43-direct-parquet-incomplete-r3.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json",
+      "resolved": "docs/benchmarks/evidence/native-item20-completion-2026-10-28/compact-group-disposition.json",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-analytical-checkpoint-2026-10-28.md",
+      "resolved": "docs/benchmarks/native-analytical-checkpoint-2026-10-28.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-time-series-completion-2026-10-29.md",
+      "resolved": "docs/architecture/native-time-series-completion-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-calendar-windows-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-calendar-windows-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-time-grid-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-time-grid-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-decimal-output-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-decimal-output-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-float-policy-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-float-policy-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-owner-optimizations-2026-10-30.md",
+      "resolved": "docs/architecture/native-shared-owner-optimizations-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-connected-programming-model-2026-10-24.md",
+      "resolved": "docs/architecture/native-connected-programming-model-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-recursive-composition-2026-10-29.md",
+      "resolved": "docs/architecture/native-recursive-composition-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-rich-data-lifecycle-2026-10-24.md",
+      "resolved": "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-application-batch-functions-2026-10-30.md#hosted-integration-and-cleanup",
+      "resolved": "docs/architecture/native-application-batch-functions-2026-10-30.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-universal-io-performance-coverage-2026-10-24.md",
+      "resolved": "docs/architecture/native-universal-io-performance-coverage-2026-10-24.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_relational_aggregate.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-cli/src/sql_native_relational.rs",
+      "resolved": "shardloom-cli/src/sql_native_relational.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/native_temporal.rs",
+      "resolved": "shardloom-vortex/src/native_temporal.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-analytical-completion-2026-10-27.md",
+      "resolved": "docs/architecture/native-analytical-completion-2026-10-27.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-cli/src/sql_native_relation_declaration.rs",
+      "resolved": "shardloom-cli/src/sql_native_relation_declaration.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-recursive-composition-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-recursive-composition-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/local_primitives/native_decimal_reduce.rs",
+      "resolved": "shardloom-vortex/src/local_primitives/native_decimal_reduce.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-time-series-completion-2026-10-29.md",
+      "resolved": "docs/architecture/native-time-series-completion-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-calendar-windows-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-calendar-windows-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-time-grid-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-time-grid-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-decimal-output-2026-10-29.md",
+      "resolved": "docs/architecture/native-decimal-output-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-float-policy-2026-10-29.md",
+      "resolved": "docs/architecture/native-float-policy-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-float-policy-2026-10-29.md",
+      "resolved": "docs/benchmarks/native-float-policy-2026-10-29.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-cli/src/native_runtime_plan.rs",
+      "resolved": "shardloom-cli/src/native_runtime_plan.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../shardloom-vortex/src/native_payload_schema.rs",
+      "resolved": "shardloom-vortex/src/native_payload_schema.rs",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-wide-schema-2026-11-09.md",
+      "resolved": "docs/architecture/native-wide-schema-2026-11-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../skills/benchmarking.md#local-end-to-end-observations",
+      "resolved": "docs/skills/benchmarking.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../../benchmarks/traditional_analytics/workloads.py",
+      "resolved": "benchmarks/traditional_analytics/workloads.py",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-current-attribution-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-current-attribution-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-pgo-2026-10-23.md",
+      "resolved": "docs/benchmarks/native-pgo-2026-10-23.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-region-dependent-prerequisites-2026-10-20.md",
+      "resolved": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-pgo-prerequisite-decision-2026-10-20.md",
+      "resolved": "docs/architecture/native-pgo-prerequisite-decision-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-01",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-region-projection-decision-2026-10-20.md",
+      "resolved": "docs/architecture/native-region-projection-decision-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-03",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-set-membership-spill-2026-10-18.md",
+      "resolved": "docs/benchmarks/native-set-membership-spill-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-unary-membership-spill-2026-10-18.md",
+      "resolved": "docs/benchmarks/native-unary-membership-spill-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "resolved": "docs/benchmarks/native-sampling-population-spill-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-subquery-membership-spill-2026-10-19.md",
+      "resolved": "docs/benchmarks/native-subquery-membership-spill-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-06",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-07",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "public-documentation-api-acceptance-2026-10-18.md",
+      "resolved": "docs/architecture/public-documentation-api-acceptance-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-region-dependent-prerequisites-2026-10-20.md",
+      "resolved": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-10",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-11",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-04",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-05",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-region-dependent-prerequisites-2026-10-20.md",
+      "resolved": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-09",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-region-dependent-prerequisites-2026-10-20.md",
+      "resolved": "docs/architecture/native-region-dependent-prerequisites-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-scalar-regions-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-scalar-regions-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-workload-comparisons-2026-10-22.md",
+      "resolved": "docs/benchmarks/native-workload-comparisons-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-independent-full43-2026-10-22.md#corrected-runtime-workload-matrix",
+      "resolved": "docs/benchmarks/native-independent-full43-2026-10-22.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-12",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-13",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-foundry-integration-2026-10-25.md",
+      "resolved": "docs/architecture/native-foundry-integration-2026-10-25.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md#reference-competitive-engine-gate-detailed-checklist-ledger",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "rfc-phase-traceability.md",
+      "resolved": "docs/architecture/rfc-phase-traceability.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#b--reusable-codec-preparation",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-codec-preparation-2026-10-19.md",
+      "resolved": "docs/architecture/native-codec-preparation-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#e--partition-major-external-memory-state",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-rematerialization-2026-10-19.md",
+      "resolved": "docs/architecture/native-rematerialization-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-merge-tail-2026-10-19.md",
+      "resolved": "docs/architecture/native-merge-tail-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-output-window-integration-2026-10-19.md",
+      "resolved": "docs/architecture/native-output-window-integration-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#d--first-use-summaries-and-exact-predicate-exclusion-reuse",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-wide-schema-2026-11-09.md",
+      "resolved": "docs/architecture/native-wide-schema-2026-11-09.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-multiway-join-2026-10-20.md",
+      "resolved": "docs/architecture/native-multiway-join-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cyclic-existence-intake-2026-10-21.md",
+      "resolved": "docs/architecture/native-cyclic-existence-intake-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-learned-index-decision-2026-10-20.md",
+      "resolved": "docs/architecture/native-learned-index-decision-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-prepared-sampling-decision-2026-10-21.md",
+      "resolved": "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#a--compact-selections-and-execution-descriptors",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-compact-local-indices-2026-10-19.md",
+      "resolved": "docs/architecture/native-compact-local-indices-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-compact-selection-2026-10-18.md",
+      "resolved": "docs/architecture/native-compact-selection-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#d--first-use-summaries-and-exact-predicate-exclusion-reuse",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-predicate-exclusion-2026-10-19.md",
+      "resolved": "docs/architecture/native-predicate-exclusion-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-nested-key-identity-2026-10-19.md",
+      "resolved": "docs/architecture/native-nested-key-identity-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-ingest-overlap-observer-decision-2026-10-20.md",
+      "resolved": "docs/architecture/native-ingest-overlap-observer-decision-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-numeric-portfolio-2026-10-20.md",
+      "resolved": "docs/architecture/native-numeric-portfolio-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-structural-payload-2026-10-20.md",
+      "resolved": "docs/architecture/native-structural-payload-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#c--reversible-structural-payload-encoding",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-builder-frontends-2026-10-19.md",
+      "resolved": "docs/architecture/native-builder-frontends-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-physical-retention-2026-10-19.md",
+      "resolved": "docs/architecture/native-physical-retention-2026-10-19.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-prepared-sampling-decision-2026-10-21.md",
+      "resolved": "docs/architecture/native-prepared-sampling-decision-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-cpu-investigations-2026-10-18.md#f--changed-generation-reuse-and-safe-publication",
+      "resolved": "docs/architecture/native-cpu-investigations-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-changed-source-reuse-2026-10-20.md",
+      "resolved": "docs/architecture/native-changed-source-reuse-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-02",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#perf-08",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-encoded-exchange-protocol.md",
+      "resolved": "docs/architecture/native-encoded-exchange-protocol.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-exchange-arrow-control-2026-10-20.md",
+      "resolved": "docs/architecture/native-exchange-arrow-control-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-exchange-experiment-plan-2026-10-20.md",
+      "resolved": "docs/architecture/native-exchange-experiment-plan-2026-10-20.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-exchange-decision-2026-10-21.md",
+      "resolved": "docs/architecture/native-exchange-decision-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-exchange-decision-2026-10-21.md",
+      "resolved": "docs/architecture/native-exchange-decision-2026-10-21.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-verification-contracts-2026-10-18.md#native-encoded-exchange",
+      "resolved": "docs/architecture/native-roadmap-verification-contracts-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-shared-work-reduction-2026-11-03.md",
+      "resolved": "docs/architecture/native-shared-work-reduction-2026-11-03.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "../benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "resolved": "docs/benchmarks/native-expanded-shared-mechanisms-2026-11-04.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "phased-execution-completed-ledger.md",
+      "resolved": "docs/architecture/phased-execution-completed-ledger.md",
+      "exists": true
+    },
+    {
+      "source": "docs/architecture/phased-execution-plan.md",
+      "target": "native-roadmap-reconciliation-2026-10-18.md",
+      "resolved": "docs/architecture/native-roadmap-reconciliation-2026-10-18.md",
+      "exists": true
+    },
+    {
+      "source": "docs/benchmarks/native-fsst-consumer-2026-11-15.md",
+      "target": "../architecture/native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/benchmarks/native-fsst-consumer-2026-11-15.md",
+      "target": "evidence/native-fsst-consumer-2026-11-15/README.md",
+      "resolved": "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "exists": true
+    },
+    {
+      "source": "docs/benchmarks/native-fsst-consumer-2026-11-15.md",
+      "target": "../architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "resolved": "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "exists": true
+    },
+    {
+      "source": "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "target": "../../native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/benchmarks/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    },
+    {
+      "source": "docs/benchmarks/evidence/native-fsst-consumer-2026-11-15/README.md",
+      "target": "../../../architecture/native-fsst-consumer-2026-11-15.md",
+      "resolved": "docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "exists": true
+    }
+  ],
+  "links_checked": 458,
+  "missing": [],
+  "scope": "Local target path existence; existing fragment labels are not independently revalidated.",
+  "query_executions": 0
+}

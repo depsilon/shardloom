@@ -1,0 +1,270 @@
+{
+  "schema": "shardloom.native_fsst_closeout_packet.v1",
+  "closeout_state": "pending_document_verification",
+  "original_packet_moved_without_changes": true,
+  "query_executions": 0,
+  "publication_attempted": false,
+  "whole_investigation_queue_complete": false,
+  "files": {
+    "README.md": {
+      "bytes": 4023,
+      "sha256": "3e528e47d0641caabe3429495a3488f0a3106b486c714d0254eb72695146fe3b"
+    },
+    "notices/memchr-MIT.txt": {
+      "bytes": 1081,
+      "sha256": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f"
+    },
+    "notices/provenance.json": {
+      "bytes": 564,
+      "sha256": "244e7129f370c109ebe95b712d710bb90408b03191945c4973eca13d54db56e8"
+    },
+    "notices/shardloom-LICENSE": {
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "notices/shardloom-NOTICE": {
+      "bytes": 514,
+      "sha256": "7bd9d8ce38fb09622195f2c2956f9568d3f92fe3037182c8c09cba3c379592bf"
+    },
+    "notices/vortex-APACHE-2.0.txt": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "packet/README.md": {
+      "bytes": 2643,
+      "sha256": "4208a1773fc0a7afb99b309ffa4d3a5a7f3a9fb460ccf7bb7835c83a810a833e"
+    },
+    "packet/evidence.tar.gz.part-001": {
+      "bytes": 50331648,
+      "sha256": "4f040399a1aab024bae1f570e00c9a453bdf0a352794c6f5834b66e10298c171"
+    },
+    "packet/evidence.tar.gz.part-002": {
+      "bytes": 50331648,
+      "sha256": "2ec97a426d408af75244c1d494f5b9405907e7a4b3b305c397625a8fb8aa5663"
+    },
+    "packet/evidence.tar.gz.part-003": {
+      "bytes": 50331648,
+      "sha256": "7439e4bcdb8ae5bd89848ea2c6a87323edf4c102e0e72a4e9a3ddb51c9515af3"
+    },
+    "packet/evidence.tar.gz.part-004": {
+      "bytes": 50331648,
+      "sha256": "aae2d3c721d1fd565aa6287602f15ec1f3bf1032928d8d6d26e70410a2ea9d5f"
+    },
+    "packet/evidence.tar.gz.part-005": {
+      "bytes": 50331648,
+      "sha256": "9a395e030765885259fb75456105660f3967ce12656975ccfccd6e2fb0040df6"
+    },
+    "packet/evidence.tar.gz.part-006": {
+      "bytes": 50331648,
+      "sha256": "c258d608b211238227fd1cd7d24e6c62a98b3e0b0338ead727b33d097fb01c33"
+    },
+    "packet/evidence.tar.gz.part-007": {
+      "bytes": 50331648,
+      "sha256": "ff40069153155128fc22b7a118239d171af799ba6093e5e9f4639584ed512025"
+    },
+    "packet/evidence.tar.gz.part-008": {
+      "bytes": 50331648,
+      "sha256": "8499528582e1fabff5378e64aa8a81ef7bd72ad43b28d773386833b937fd2d1a"
+    },
+    "packet/evidence.tar.gz.part-009": {
+      "bytes": 23796765,
+      "sha256": "6ce691bbb9a393f1c23bc28356e4f9b1b57c8297a1aa86f9a32bb4eb79efe92d"
+    },
+    "packet/manifest.json": {
+      "bytes": 5063867,
+      "sha256": "cdde2e376f79229eeab1e082c7e22d8ba95e9a5f5cee0c5036633640bf055336"
+    },
+    "packet/original-README.md": {
+      "bytes": 2124,
+      "sha256": "9ee5188fe50584ed4ac13af903463d238cd8464ccc0e7bd76c92a7abfa647f62"
+    },
+    "packet/original-verify.py": {
+      "bytes": 15308,
+      "sha256": "644216a5293f5eaf004282e3e07c6eafe5f0068698ed216346fdfc50426bd195"
+    },
+    "packet/supplement-001-source-facts-closeout-r1.json": {
+      "bytes": 7125,
+      "sha256": "6ac0e22eabe0de28308120104ead58ad024ee5381d2cc5667f3781b8ded05ce9"
+    },
+    "packet/supplement-002-source-facts-packet-controls-r1.json": {
+      "bytes": 9395,
+      "sha256": "b2ff45952773967415ff4538178dddcd1802941dc022e72b52e87b413491821c"
+    },
+    "packet/supplement-003-manifest.json": {
+      "bytes": 4968043,
+      "sha256": "837bd3f86f0950c06f13dec224bb19a166a7e813dc3a313c64cc9eb25efff89a"
+    },
+    "packet/supplement-004-source_facts_observations.py": {
+      "bytes": 3984,
+      "sha256": "b35e52a5f404d7b405b634b3908267e98b83f80734d38e06d714669d69bab8b1"
+    },
+    "packet/supplement-005-dictionary-closeout-r1.json": {
+      "bytes": 6919,
+      "sha256": "ce86881b9ddde4d2aee60777d72aa41c37424f5ab48bfeeb88d87d2f5b134ba3"
+    },
+    "packet/supplement-006-dictionary-packet-controls-r1.json": {
+      "bytes": 7001,
+      "sha256": "7c0a16124522d55599164fbe19800ff28646bfbe982ab9f56734f58dccc69881"
+    },
+    "packet/supplement-007-manifest.json": {
+      "bytes": 4925725,
+      "sha256": "6005611e925f4d84a6ddf426f83a169ce0ce6c2daa2aca11ab68cda8b417a883"
+    },
+    "packet/supplement-008-dictionary_observations.py": {
+      "bytes": 3251,
+      "sha256": "d15e66c3eb4ae05fde3076147cd2327f279d5c01e85351832d93e7df72446456"
+    },
+    "packet/supplement-009-portable_fsst_v2.py": {
+      "bytes": 19557,
+      "sha256": "29bb99d763e5ff01c0e14efe40a7fdf7c63db60d7e26cf0bbc5a98c51c37ce60"
+    },
+    "packet/supplement-010-test_fsst_packet_v2.py": {
+      "bytes": 17070,
+      "sha256": "d436c95b629aa6b97399393f293aa7baa1f591f259aeb9d6ea67acd553ca5179"
+    },
+    "packet/supplement-011-repair_fsst_package.py": {
+      "bytes": 11692,
+      "sha256": "48304580fd852126e6f0e1654e7565ed246396a7213ac1a85444ed349e866339"
+    },
+    "packet/supplement-012-fsst-import-closure-r1.json": {
+      "bytes": 21156,
+      "sha256": "cd4454fcfb97053ac8b3142800983de534b3de2e4c935fe6b792612d2dad5070"
+    },
+    "packet/supplement-013-fsst-import-closure-execution-r1.json": {
+      "bytes": 18881,
+      "sha256": "b135cb34a657d568076c893cef5026a289957dd73cdd969b82db3df1eaef706b"
+    },
+    "packet/supplement-014-fsst-packet-relocated-r1.json": {
+      "bytes": 1656,
+      "sha256": "6641f46b076e4a1a686c7d96077b3e4a86766e654e8d1991a0b29c26a68446eb"
+    },
+    "packet/supplement-015-fsst-packet-controls-check-r1.json": {
+      "bytes": 1026305,
+      "sha256": "3905c06bd9ebf4980f5573df39a9a03b55c63a3423f941992b6153681c41d747"
+    },
+    "packet/supplement-016-fsst-package-check-r2.json": {
+      "bytes": 1026303,
+      "sha256": "b3c04fb875f20fe505e733b05cd8389869f531404e7ca9a0bbb01f6563ad7e47"
+    },
+    "packet/supplement-017-fsst-packet-controls-check-r1.log": {
+      "bytes": 1799,
+      "sha256": "df4593c6920a5022b4507c7b564e1a0a729febf2814d723ec162e27d28ec90b0"
+    },
+    "packet/supplement-018-fsst-package-check-r2.log": {
+      "bytes": 184,
+      "sha256": "b35301b7e432c1aa7eca7f13e378428cafbadb2cdc54c9108fdc10ff964ca2ea"
+    },
+    "packet/supplement-019-manifest.json": {
+      "bytes": 5042098,
+      "sha256": "c51a79c57b2c16874b9601db14ad8c36486421f87d007c2054f6abd1bb374b21"
+    },
+    "packet/supplement-020-verify.py": {
+      "bytes": 15308,
+      "sha256": "644216a5293f5eaf004282e3e07c6eafe5f0068698ed216346fdfc50426bd195"
+    },
+    "packet/supplement-021-README.md": {
+      "bytes": 2124,
+      "sha256": "9ee5188fe50584ed4ac13af903463d238cd8464ccc0e7bd76c92a7abfa647f62"
+    },
+    "packet/verify.py": {
+      "bytes": 19557,
+      "sha256": "29bb99d763e5ff01c0e14efe40a7fdf7c63db60d7e26cf0bbc5a98c51c37ce60"
+    },
+    "supplement/fsst-disposition-r1.json": {
+      "bytes": 4497,
+      "sha256": "edaf10eba43f224473e983dd7970f96a8ae184c52eeb19911795e40c547a3b6f"
+    },
+    "supplement/fsst-doc-inventory-r1.json": {
+      "bytes": 48860,
+      "sha256": "b51153b97c562be3b641a429e3debf3aee725125b4316638abc3e6af733ce3d9"
+    },
+    "supplement/fsst-doc-inventory-r1.md": {
+      "bytes": 47029,
+      "sha256": "69bc41060c22c101fa0d509c59fe48f18d6520410c612396e7b7493a435ada25"
+    },
+    "supplement/fsst-doc-primary-r1.json": {
+      "bytes": 245,
+      "sha256": "7123c43fab4dcfd47a5e5d9f467275faa5bfb8d9f378fab3f17292136a936c39"
+    },
+    "supplement/fsst-package-check-r2.json": {
+      "bytes": 1026303,
+      "sha256": "b3c04fb875f20fe505e733b05cd8389869f531404e7ca9a0bbb01f6563ad7e47"
+    },
+    "supplement/fsst-package-repair-check-r1.json": {
+      "bytes": 1026281,
+      "sha256": "6b02ea3f1d7d38305d71195a223c5dfabed4710e1c5223101d1576ab487e7a7a"
+    },
+    "supplement/fsst-package-repair-r1.json": {
+      "bytes": 2037,
+      "sha256": "f9cd6f4f9982c9d35ff4cb16ef1c43b1dd3df4f1dbe9ec7fee00b4473913bcd6"
+    },
+    "supplement/fsst-packet-controls-check-r2.json": {
+      "bytes": 1026309,
+      "sha256": "c1fe11787b8deb81c18e5f9be21f56f55e8c7a9cbdb11c4e55ed112ac164d086"
+    },
+    "supplement/fsst-packet-controls-r2.json": {
+      "bytes": 201296,
+      "sha256": "a4bd89b7ea38f81db6040168b4fab6d050d08fccff216e2deca9e92941227eb5"
+    },
+    "supplement/fsst-packet-relocated-r2.json": {
+      "bytes": 117971,
+      "sha256": "ab5aa3c924619f24e4a5d199100931b1fda3b25f9a62c3485d2547a8a06090b7"
+    },
+    "supplement/fsst-repair-controls-check-r1.json": {
+      "bytes": 1026276,
+      "sha256": "241f0e3810b7d872e393cf1e26e5debc490058b956d5fe8955d809011a95c9a5"
+    },
+    "supplement/fsst-repair-controls-r1.json": {
+      "bytes": 1535,
+      "sha256": "e4482b3155ac52f265b0ff55ff7c2731d0d00ce6a6a89dd6b6daa9ef2d63dd10"
+    },
+    "supplement/fsst-source-preservation-r1.json": {
+      "bytes": 1027307,
+      "sha256": "52a5490a9c0be50396a66ac823756f2218e244f938f54f5b05d3888018db12f7"
+    },
+    "supplement/fsst-source-r1.json": {
+      "bytes": 1860,
+      "sha256": "631bd411de5f923fa65f8ceae20b483a8fbb43f1713d62472065d52ff68e58cf"
+    },
+    "supplement/install_fsst_packet.py": {
+      "bytes": 8925,
+      "sha256": "9582c590fe74a43f6ef018317f371991f9fd32d13a1bc4ecf700735e567e83fa"
+    },
+    "supplement/logs/fsst-package-check-r2.log": {
+      "bytes": 184,
+      "sha256": "b35301b7e432c1aa7eca7f13e378428cafbadb2cdc54c9108fdc10ff964ca2ea"
+    },
+    "supplement/logs/fsst-package-repair-check-r1.log": {
+      "bytes": 146,
+      "sha256": "b2c8628beedc65cada473d435b092d131415907479afc3a23f0f052ffd8236eb"
+    },
+    "supplement/logs/fsst-packet-controls-check-r2.log": {
+      "bytes": 87,
+      "sha256": "824dfa4d8dc236e7b333d6b5a3d0e63b1d55d16d28550384331b05f399635fb5"
+    },
+    "supplement/logs/fsst-repair-controls-check-r1.log": {
+      "bytes": 86,
+      "sha256": "cd0d2b03a75b6433c9a55a824759d16a7e32e141bcd98b8502157f4b129c41fd"
+    },
+    "supplement/logs/fsst-source-preservation-r1.log": {
+      "bytes": 1153,
+      "sha256": "ec527dc0bc9302740734211bdc7e9a78a3ccd2889852de8f885efcd036016f28"
+    },
+    "supplement/repair_fsst_package.py": {
+      "bytes": 11692,
+      "sha256": "48304580fd852126e6f0e1654e7565ed246396a7213ac1a85444ed349e866339"
+    },
+    "supplement/test_fsst_packet_v2.py": {
+      "bytes": 17070,
+      "sha256": "d436c95b629aa6b97399393f293aa7baa1f591f259aeb9d6ea67acd553ca5179"
+    },
+    "supplement/test_fsst_repair.py": {
+      "bytes": 4172,
+      "sha256": "c447ea264377a1cbb795038bea39efb7c1d1e627181954253751a87476ff8645"
+    },
+    "verify.py": {
+      "bytes": 6548,
+      "sha256": "468e53c41636271291f424c1af7677e5c6b4c7ae9997da05dfdd295e35a96fe9"
+    }
+  }
+}

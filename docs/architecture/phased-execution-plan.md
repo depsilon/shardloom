@@ -408,9 +408,13 @@ once, and do not repeat full10k or broad gates after every small edit.
     The finite unconditional-adapter screen is complete and declined with
     portable evidence; the existing batch contract is retained. Broader
     attribution and a separately admitted narrow route remain open.
-  - [ ] Investigate a conservative FSST candidate prefilter and separately
-    bounded exact-table matcher reuse on the resulting accepted consumer path,
-    with selective/dense and hardware controls.
+  - [x] Investigate the conservative FSST candidate prefilter on the accepted
+    consumer path. The [finite November 15 unit](native-fsst-consumer-2026-11-15.md)
+    is retained with complete fresh/lifecycle comparison, untimed dispatch,
+    source/package checks and portable proof; all regressions remain explicit.
+  - [ ] Separately evaluate bounded exact-table FSST matcher lifetime on the
+    accepted prefilter/consumer path, with charged identities/allocations,
+    selective/dense and hardware controls and its own complete decision.
   - [ ] Advance item-19 spatial execution through native coordinate/offset
     arrays, conservative bounds and exact surviving-candidate kernels, then
     evaluate optional persisted spatial summaries. Required spatial support does

@@ -109,8 +109,10 @@ declined with complete evidence and accepted source restored. The finite
 unconditional-callback batching screen is complete and declined before
 performance; the existing batch contract remains for FSST. The
 [survivor admission report](native-survivor-admission-2026-11-15.md) records
-this bounded result. Broader I read/consumer attribution and narrower batching
-remain open. Broader constant-key support remains open. The sequence settles I's
+this bounded result. The subsequent [FSST prefilter](native-fsst-consumer-2026-11-15.md)
+is retained with complete comparison and portable proof; exact-table matcher
+lifetime remains a separate open experiment. Broader I read/consumer attribution,
+narrower batching and constant-key support remain open. The sequence settles I's
 batch/lifetime contract before FSST/codec tuning and places exact spatial
 execution before optional spatial summaries.
 Reconcile B/C/I/N outcomes from those active units once; the table below is an

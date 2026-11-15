@@ -1,0 +1,53 @@
+{
+  "status": "completed_offline_import_repair_pending_complete_replay",
+  "original_packet": {
+    "path": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/fsst-packet-r1/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 179705396,
+      "bytes": 5042098,
+      "mtime_ns": 1794758289934555781,
+      "ctime_ns": 1794758289934555781
+    },
+    "sha256": "c51a79c57b2c16874b9601db14ad8c36486421f87d007c2054f6abd1bb374b21"
+  },
+  "corrected_packet": {
+    "path": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/fsst-packet-r2/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 179713544,
+      "bytes": 5063867,
+      "mtime_ns": 1794758614114742518,
+      "ctime_ns": 1794758614114742518
+    },
+    "sha256": "cdde2e376f79229eeab1e082c7e22d8ba95e9a5f5cee0c5036633640bf055336"
+  },
+  "missing_shared_modules": {
+    "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_observations.py": {
+      "path": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_observations.py",
+      "generation": {
+        "device": 16777234,
+        "inode": 177840235,
+        "bytes": 3984,
+        "mtime_ns": 1794697999689707912,
+        "ctime_ns": 1794697999689707912
+      },
+      "sha256": "b35e52a5f404d7b405b634b3908267e98b83f80734d38e06d714669d69bab8b1"
+    },
+    "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_observations.py": {
+      "path": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_observations.py",
+      "generation": {
+        "device": 16777234,
+        "inode": 177270911,
+        "bytes": 3251,
+        "mtime_ns": 1794684888237458418,
+        "ctime_ns": 1794684888237458418
+      },
+      "sha256": "d15e66c3eb4ae05fde3076147cd2327f279d5c01e85351832d93e7df72446456"
+    }
+  },
+  "original_archive_bytes_unchanged": true,
+  "added_members": 21,
+  "actual_relocated_imports": 62,
+  "query_executions": 0
+}

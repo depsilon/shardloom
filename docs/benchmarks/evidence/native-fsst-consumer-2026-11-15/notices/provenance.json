@@ -1,0 +1,8 @@
+{
+  "source_revision": "45be8e0bd1d9cef920c88fa9bf91811deade41c4",
+  "local": "ShardLoom source, tests, tools and evidence; Apache-2.0.",
+  "upstream": "Pinned Vortex 0.93.0 sources and local modifications; Apache-2.0. Original and modified provenance retained.",
+  "dependency": "Existing memchr 2.8.3 direct edge to vortex-fsst; MIT license option. No new resolved package.",
+  "archive_scope": "All 5,794 measured repository source files, complete raw results/references and explicit external-payload identities.",
+  "no_external_implementation_copied": true
+}
