@@ -190,7 +190,7 @@ fn test_prefix_dfa_longer() -> VortexResult<()> {
 
 #[test]
 fn test_prefix_pushdown_len_13_with_escapes() {
-    let matcher = FsstMatcher::try_new(&[], &[], b"abcdefghijklm%")
+    let matcher = FsstMatcher::try_new(&[], &[], b"abcdefghijklm%", None)
         .unwrap()
         .unwrap();
 
@@ -202,7 +202,7 @@ fn test_prefix_pushdown_len_13_with_escapes() {
 fn test_prefix_pushdown_len_14_now_handled() {
     // 14-byte prefix is now handled by FlatPrefixDfa (was rejected by shift-packed).
     assert!(
-        FsstMatcher::try_new(&[], &[], b"abcdefghijklmn%")
+        FsstMatcher::try_new(&[], &[], b"abcdefghijklmn%", None)
             .unwrap()
             .is_some()
     );
@@ -212,7 +212,7 @@ fn test_prefix_pushdown_len_14_now_handled() {
 fn test_prefix_pushdown_long_prefix() -> VortexResult<()> {
     let prefix = "a".repeat(FlatPrefixDfa::MAX_PREFIX_LEN);
     let pattern = format!("{prefix}%");
-    let matcher = FsstMatcher::try_new(&[], &[], pattern.as_bytes())?.unwrap();
+    let matcher = FsstMatcher::try_new(&[], &[], pattern.as_bytes(), None)?.unwrap();
 
     assert!(matcher.matches(&escaped(prefix.as_bytes())));
 
@@ -229,7 +229,7 @@ fn test_prefix_pushdown_rejects_len_254() {
     let prefix = "a".repeat(254);
     let pattern = format!("{prefix}%");
     assert!(
-        FsstMatcher::try_new(&[], &[], pattern.as_bytes())
+        FsstMatcher::try_new(&[], &[], pattern.as_bytes(), None)
             .unwrap()
             .is_none()
     );
@@ -239,7 +239,7 @@ fn test_prefix_pushdown_rejects_len_254() {
 fn test_contains_pushdown_len_254_with_escapes() {
     let needle = "a".repeat(FlatContainsDfa::MAX_NEEDLE_LEN);
     let pattern = format!("%{needle}%");
-    let matcher = FsstMatcher::try_new(&[], &[], pattern.as_bytes())
+    let matcher = FsstMatcher::try_new(&[], &[], pattern.as_bytes(), None)
         .unwrap()
         .unwrap();
 
@@ -255,7 +255,7 @@ fn test_contains_pushdown_rejects_len_255() {
     let needle = "a".repeat(FlatContainsDfa::MAX_NEEDLE_LEN + 1);
     let pattern = format!("%{needle}%");
     assert!(
-        FsstMatcher::try_new(&[], &[], pattern.as_bytes())
+        FsstMatcher::try_new(&[], &[], pattern.as_bytes(), None)
             .unwrap()
             .is_none()
     );

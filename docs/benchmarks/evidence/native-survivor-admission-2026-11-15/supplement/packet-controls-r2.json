@@ -1,0 +1,60 @@
+{
+  "corruption_control_count": 22,
+  "corruption_controls": [
+    "missing_case",
+    "changed_complete_value",
+    "changed_reference_value",
+    "boolean_for_integer_result",
+    "changed_field_order",
+    "changed_schema_width",
+    "changed_schema_nullability",
+    "fallback_claim",
+    "invented_engine_time",
+    "invented_zone_exclusions",
+    "missing_input_identity",
+    "changed_logical_geometry",
+    "changed_preparation_order",
+    "invented_preparation_savings",
+    "hidden_compaction_preparations",
+    "lost_projection_counterexample",
+    "lost_callback_counterexample",
+    "view_bytes_as_backing_bytes",
+    "unreleased_pending_credit",
+    "changed_baseline_source",
+    "changed_unrelated_production_source",
+    "archive_integrity"
+  ],
+  "forbidden_operation_attempts": [],
+  "original_paths_engines_subprocesses_network_denied": true,
+  "relocated_replay": {
+    "admission_records": 13,
+    "archive_members": 89,
+    "broader_I_complete": false,
+    "complete_values": 40,
+    "decision": "decline_unconditional_callback_adapter",
+    "existing_batch_contract_retained": true,
+    "existing_boundary_controls": 8,
+    "inventory_excerpts": 47,
+    "performance_comparison": false,
+    "preparation_strategies": 4,
+    "preserved_historical_attempts": 6,
+    "production_runtime_change": false,
+    "status": "passed",
+    "validation": {
+      "survivor-default-tests-r1": {
+        "ignored": 0,
+        "passed": 3344
+      },
+      "survivor-final-screen-r1": {
+        "ignored": 0,
+        "passed": 7
+      },
+      "survivor-native-tests-r1": {
+        "ignored": 39,
+        "passed": 7261
+      }
+    },
+    "work_cases": 8
+  },
+  "status": "passed"
+}

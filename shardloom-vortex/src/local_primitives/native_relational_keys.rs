@@ -867,10 +867,10 @@ impl VariableColumn {
             None
         };
         #[cfg(all(test, debug_assertions))]
-        super::native_relational_observation::record(|counts| {
-            counts.variable_domains += 1;
-            counts.variable_domain_values += domain.len() as u64;
-        });
+        super::native_relational_observation::variable_domain(
+            domain.len(),
+            domain.is::<vortex::encodings::fsst::FSST>(),
+        );
         let values = domain
             .clone()
             .execute::<VarBinViewArray>(context)

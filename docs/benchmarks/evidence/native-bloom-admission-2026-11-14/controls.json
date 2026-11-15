@@ -1,0 +1,266 @@
+{
+  "checks": [
+    {
+      "detail": "",
+      "name": "omitted_observation",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "duplicate_observation",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "'default_aggregate_is_not_registered'",
+      "name": "unknown_observation",
+      "passed": true,
+      "rejection": "KeyError"
+    },
+    {
+      "detail": "integer_absent_control",
+      "name": "numeric_false_alias",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "f64_zero_bits_0_require_equality_review",
+      "name": "opposite_zero_claims_present",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "f32_zero_bits_0_require_equality_review",
+      "name": "same_zero_bits",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "zero_blocks_rejected",
+      "name": "missing_options_error",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "maximum_option_acceptance_is_not_memory_admission",
+      "name": "maximum_allocation_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "null_partial_is_empty_not_missing_statistics_proof",
+      "name": "null_is_unknown_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "default_aggregate_is_not_registered",
+      "name": "default_registration_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "public_query_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "performance_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "failed_native_check",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "wrong_disposition",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "production_runtime_changed",
+      "name": "runtime_change_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "build_command_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "restoration_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "locked_archive_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "upstream_unmerged_claim",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "probe_source_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "allocator_source_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "hash_source_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "provider_warning_removed",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "missing_archive_member",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "duplicate_archive_member",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "unsafe_path_../escape",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "unsafe_path_/absolute",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "unsafe_path_evidence/../escape",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "unsafe_path_evidence//empty",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "symlink_member",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "member_size_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "member_digest_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "archive_digest_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "verifier_digest_tamper",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "member_byte_limit",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "member_boolean_size",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "duplicate JSON key",
+      "name": "duplicate_manifest_key",
+      "passed": true,
+      "rejection": "AssertionError"
+    },
+    {
+      "detail": "",
+      "name": "archive_path_escape",
+      "passed": true,
+      "rejection": "AssertionError"
+    }
+  ],
+  "negative_controls": 38,
+  "packet_manifest": {
+    "bytes": 16334,
+    "sha256": "702ff923246590aa52ff9b474406dea38f4925efa684fad8515545888350fb59"
+  },
+  "query_executions": 0,
+  "relocated": "/Users/dylan/LocalData/shardloom/native-bloom-portable-check-2026-11-14",
+  "relocated_process_returncode": 0,
+  "relocated_result": [
+    {
+      "archive_sha256": "62862b6a674dcc2a4d9c73997c5f5f2e63c1dfe0b9d76fc06def4e56c95e7d4a",
+      "benchmark_executed": false,
+      "checks": 28,
+      "disposition": "decline_current_unversioned_provider_before_performance",
+      "members": 92,
+      "production_runtime_changed": false,
+      "public_queries_executed": 0,
+      "scope": "saved source-bound correctness observations and admission decision; no runtime reexecution",
+      "signed_zero_counterexamples": 4,
+      "status": "passed_saved_admission_verification"
+    },
+    {
+      "forbidden_access_attempts": [],
+      "read_denial_control": true,
+      "relocated_verification": true
+    }
+  ],
+  "runtime_executed": false,
+  "schema": "shardloom.bloom_packet_controls.v1",
+  "status": "passed",
+  "verifier": {
+    "bytes": 13065,
+    "sha256": "a65d64595ea06c68a7eb388800a5959ba80fb4595add3aa8112880d38c375869"
+  }
+}

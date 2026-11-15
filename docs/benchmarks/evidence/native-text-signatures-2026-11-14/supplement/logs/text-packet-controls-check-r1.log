@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/test_text_packet.py", line 226, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/test_text_packet.py", line 65, in main
+    assert full.returncode == 0, full.stderr[-6000:]
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: Traceback (most recent call last):
+  File "<string>", line 12, in <module>
+    runpy.run_path(sys.argv[0],run_name='__main__')
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/text-summary-relocated-controls-8bzzuh0c/packet/verify.py", line 320, in <module>
+    main()
+    ~~~~^^
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/text-summary-relocated-controls-8bzzuh0c/packet/verify.py", line 311, in main
+    result = verify(args.root.resolve())
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/text-summary-relocated-controls-8bzzuh0c/packet/verify.py", line 253, in verify
+    support, replay, validation, provenance = bind(store)
+                                              ~~~~^^^^^^^
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/text-summary-relocated-controls-8bzzuh0c/packet/verify.py", line 204, in bind
+    import text_replay_v3 as replay
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-text-summary-replay-5yoeftbv/data/native-predicate-zones-2026-11-14/text_replay_v3.py", line 10, in <module>
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-text-summary-replay-5yoeftbv/data/native-predicate-zones-2026-11-14/text_observations.py", line 4, in <module>
+ModuleNotFoundError: No module named 'source_facts_observations'
+

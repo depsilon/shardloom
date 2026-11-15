@@ -1,0 +1,54 @@
+[codex/native-predicate-zones 0c4aee0b7] Preserve declined native text-summary experiment and complete candidate source
+ Committer: Dylan Heinrich <dylan@Dylans-Air.attlocal.net>
+Your name and email address were configured automatically based
+on your username and hostname. Please check that they are accurate.
+You can suppress this message by setting them explicitly:
+
+    git config --global user.name "Your Name"
+    git config --global user.email you@example.com
+
+After doing this, you may fix the identity used for this commit with:
+
+    git commit --amend --reset-author
+
+ 46 files changed, 3380 insertions(+), 6 deletions(-)
+ create mode 100644 python/tests/data/text-signatures-v1/README.md
+ create mode 100644 python/tests/data/text-signatures-v1/absent-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/absent-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/absent-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/all-null-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/all-null-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/all-null-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/dense-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/dense-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/dense-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/empty-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/empty-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/empty-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/missing-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/missing-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/missing-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/saturated-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/saturated-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/saturated-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/selective-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/selective-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/selective-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/short-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/short-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/short-fsst.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/unclustered-dictionary.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/unclustered-flat.vortex
+ create mode 100644 python/tests/data/text-signatures-v1/unclustered-fsst.vortex
+ create mode 100644 python/tests/native_text_signature_cases.py
+ create mode 100644 shardloom-vortex/examples/native_text_signature_read_evidence.rs
+ create mode 100644 shardloom-vortex/examples/native_text_signature_uat_fixture.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_edition.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_file_tests.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_lifecycle_tests.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_observation.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_provider.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_tests.rs
+ create mode 100644 shardloom-vortex/src/native_text_signature_writer.rs
+{"status": "preserved", "head": "0c4aee0b7e7c97f73598482d2b4b69b4b0f5c531", "source_files": 5823, "changed_files": 46, "source_fingerprint_sha256": "57164ef0b47a70f7e4e5f51bfc0e346d1389c19968751bd39f744ae6cbb82ef0"}

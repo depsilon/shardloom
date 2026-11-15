@@ -27,8 +27,15 @@ Relocated replay works with original source/runtime/evidence reads forbidden.
 The accepted scalar-regional runtime is this experiment's comparison baseline.
 The per-measure and constant-key drops remain unchanged. The subsequent
 [source-domain C unit](native-source-domain-facts-2026-11-14.md) is retained
-locally. Predicate-specific native Bloom admission, then necessary text-zone
-evidence, is next.
+locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
+declines the current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence and accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open; the predicate-summary parent remains open.
 Broader metadata/encoded work, required item-19 spatial execution, item 20,
 RFC 0044 and CG-1 through CG-23 retain their remaining obligations. This local
 acceptance does not merge, publish, release or imply competitive superiority.

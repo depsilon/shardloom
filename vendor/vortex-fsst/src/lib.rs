@@ -17,6 +17,8 @@ mod compress;
 mod compute;
 mod dfa;
 mod kernel;
+#[cfg(debug_assertions)]
+pub mod like_observation;
 mod ops;
 mod rules;
 mod slice;

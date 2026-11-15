@@ -29,8 +29,15 @@ accepted source, and neither a replacement build nor another timing run was adde
 
 The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)
 and [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
-locally. Predicate-specific native Bloom admission, then necessary text-zone
-evidence, is next. Broader constant-key support,
+locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
+declines the current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence and accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader constant-key support,
 the parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.
 No merge, package publication, release or writer-default change is implied.
 

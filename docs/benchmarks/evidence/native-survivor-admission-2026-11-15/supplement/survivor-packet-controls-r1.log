@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/native-read-consumer-batching-2026-11-15/control_survivor_packet.py", line 115, in <module>
+  File "/Users/dylan/LocalData/shardloom/native-read-consumer-batching-2026-11-15/control_survivor_packet.py", line 33, in main
+  File "/Users/dylan/LocalData/shardloom/native-read-consumer-batching-2026-11-15/relocated-packet-r1/verify.py", line 301, in verify
+    members = read_tar((root / 'observations.tar.gz').read_bytes())
+  File "/Users/dylan/LocalData/shardloom/native-read-consumer-batching-2026-11-15/relocated-packet-r1/verify.py", line 67, in read_tar
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r:*') as archive:
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tarfile.py", line 1899, in open
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tarfile.py", line 1962, in gzopen
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1019, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1115, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1214, in get_data
+  File "/Users/dylan/LocalData/shardloom/native-read-consumer-batching-2026-11-15/control_survivor_packet.py", line 31, in audit
+RuntimeError: offline evidence replay read outside the relocated packet

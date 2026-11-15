@@ -30,6 +30,10 @@ pub(crate) struct Counts {
     pub(crate) membership_key_preparations: Vec<MembershipKeyPreparation>,
     pub(crate) variable_domains: u64,
     pub(crate) variable_domain_values: u64,
+    pub(crate) variable_fsst_domains: u64,
+    pub(crate) variable_fsst_domain_values: u64,
+    pub(crate) legacy_fsst_like_calls: u64,
+    pub(crate) legacy_fsst_like_rows: u64,
     pub(crate) variable_hash_slot_bytes: u64,
     pub(crate) variable_hash_values: u64,
     pub(crate) variable_hash_on_demand_values: u64,
@@ -217,6 +221,17 @@ pub(super) fn record(change: impl FnOnce(&mut Counts)) {
             .is_some_and(|(limit, _)| writes.is_some_and(|writes| writes >= *limit))
         {
             cancel.take().unwrap().1.cancel();
+        }
+    });
+}
+
+pub(super) fn variable_domain(rows: usize, fsst: bool) {
+    record(|counts| {
+        counts.variable_domains += 1;
+        counts.variable_domain_values += rows as u64;
+        if fsst {
+            counts.variable_fsst_domains += 1;
+            counts.variable_fsst_domain_values += rows as u64;
         }
     });
 }

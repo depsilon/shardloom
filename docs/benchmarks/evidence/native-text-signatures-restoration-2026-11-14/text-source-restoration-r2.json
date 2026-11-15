@@ -1,0 +1,170 @@
+{
+  "status": "restored_accepted_source",
+  "worktree": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+  "retained_commit": "0e6d15a658c060bd11e9a1001a71515f69f2064e",
+  "retained_tree": "059b55053333ffba5f853d39628cb74cac232f4a",
+  "branch": "codex/native-read-consumer-batching",
+  "experimental_commit_retained": "0c4aee0b7e7c97f73598482d2b4b69b4b0f5c531",
+  "experimental_branch_retained": "codex/native-predicate-zones",
+  "tracked_tree_equals_accepted_base": true,
+  "production_candidate_retained": false,
+  "original_restoration_script_post_switch_assertion_failed": true,
+  "original_failure": {
+    "bytes": 598,
+    "sha256": "3f12184903fbc8939f1a194a874755eb46a622e4a4620711d93c181d95faabbd"
+  },
+  "original_helper": {
+    "bytes": 5796,
+    "sha256": "2b93039978b5aa4d3527c891fbe2dc070e0506cc703ca9778561ae0bf248db23"
+  },
+  "failure_reason": "The immutable C closeout records its original commit; the integration branch has the same tree with changed parents. Source switch and prior branch/worktree assertions completed before this mismatch.",
+  "original_accepted_commit": "6ede731e3d6b4fea366816f35c7a7318c390be91",
+  "equivalent_integration_commit": "494b41cca98349b21dfabd09a129a205c6664ecb",
+  "equivalent_integration_tree": "14d79c67b28d265ebab0f0697d8ff221176f9747",
+  "later_accepted_changes_are_docs_only": [
+    "docs/architecture/native-bloom-admission-2026-11-14.md",
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+    "docs/architecture/native-dictionary-domain-2026-11-14.md",
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+    "docs/architecture/native-regional-aggregates-2026-11-14.md",
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+    "docs/architecture/native-source-domain-facts-2026-11-14.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/README.md",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/controls.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/doc-links.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/evidence.tar.xz",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/manifest.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/notices/provenance.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/notices/shardloom-LICENSE",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/notices/shardloom-NOTICE",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/notices/twox-hash-2.1.2-LICENSE.txt",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/notices/vortex-APACHE-2.0.txt",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/portability.log",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/primary-review.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/public-status-docs.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/queue-tracker.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/review-tools/bloom-packet-inventory-r2.json",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/review-tools/build_bloom_packet.py",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/review-tools/check_bloom_packet.py",
+    "docs/benchmarks/evidence/native-bloom-admission-2026-11-14/verify.py",
+    "docs/benchmarks/native-source-domain-facts-2026-11-14.md"
+  ],
+  "source_switch_repeated": false,
+  "existing_experimental_and_integration_heads_unchanged": true,
+  "accepted_runtime": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/runtime-r4",
+  "accepted_runtime_manifest": {
+    "bytes": 2844,
+    "sha256": "c6c62a333d6ffb0a23c06102c080fff4e258eafe6d21368a6b761ca83be8cd9a"
+  },
+  "accepted_runtime_source_fingerprint": "d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297",
+  "accepted_runtime_code_unchanged": true,
+  "repository_differences_from_accepted_runtime": {
+    "docs/architecture/native-bloom-admission-2026-11-14.md": {
+      "executed": null,
+      "current": {
+        "sha256": "9e1b82e151d7943917e41eff7265db5de6967e0d6cc853375d512d31850c3d33",
+        "bytes": 6358
+      }
+    },
+    "docs/architecture/native-constant-key-aggregates-2026-11-14.md": {
+      "executed": {
+        "bytes": 7834,
+        "sha256": "0ab876ba514f1cf4df44e81f15b241d492b4a917feffca92b6a1f8ef14369bfc"
+      },
+      "current": {
+        "sha256": "fa1c8545179ce1b01eae47a452ae636b99677641929048fc2a487c3e8350ce07",
+        "bytes": 8004
+      }
+    },
+    "docs/architecture/native-dictionary-domain-2026-11-14.md": {
+      "executed": {
+        "bytes": 13515,
+        "sha256": "2833f5a322d4c6a6a87ae855ef8250e549fd0760429d1ad7e99396b540e88ca8"
+      },
+      "current": {
+        "sha256": "1eaf38de5a44389034bcd1c057975db062bf06205b5a43f85e10dbf1ba964620",
+        "bytes": 13737
+      }
+    },
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "executed": {
+        "bytes": 19777,
+        "sha256": "6394803306283d6ff3c04120d0994ee5e6650c7cdc3f79e79f37f8d383b095ee"
+      },
+      "current": {
+        "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7",
+        "bytes": 20744
+      }
+    },
+    "docs/architecture/native-metadata-measure-completion-2026-11-14.md": {
+      "executed": {
+        "bytes": 6064,
+        "sha256": "e298e4d7aabc82b51b9e8ff2fce1b12872ac5ce8a5259ff2bb76898a1d401b38"
+      },
+      "current": {
+        "sha256": "1b30e7de3cf0de5be38e2125709df6e6cd81b7126b00d280af861fbbdb8f0fa0",
+        "bytes": 6245
+      }
+    },
+    "docs/architecture/native-regional-aggregates-2026-11-14.md": {
+      "executed": {
+        "bytes": 9334,
+        "sha256": "cf55cef3d5376233fcfe57418008ae9adf681494b2d4db51e7212f99657905b4"
+      },
+      "current": {
+        "sha256": "6be4f154478b8797c249752a5a209e49d612d08114d229d48741cb9a88a71a4f",
+        "bytes": 9521
+      }
+    },
+    "docs/architecture/native-shared-pipeline-investigations-2026-11-10.md": {
+      "executed": {
+        "bytes": 19806,
+        "sha256": "927bf748d886fa7b81e4064d1db184b615062fa8d5496216cf5fdd4cb4d56537"
+      },
+      "current": {
+        "sha256": "822c9c81188cf59a52224d7d9b11570304988692aa275090c382f4a4bfca6cb4",
+        "bytes": 19975
+      }
+    },
+    "docs/architecture/native-source-domain-facts-2026-11-14.md": {
+      "executed": {
+        "bytes": 4036,
+        "sha256": "d289b685ff5acd2e4192617c425b6cdd775d29bd97d980663fef133f2421e471"
+      },
+      "current": {
+        "sha256": "0c7bfbf6e2a32a119a685f73969894a4a073d0946e2af03d4252dfb16cd2d2f1",
+        "bytes": 6434
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "executed": {
+        "bytes": 256790,
+        "sha256": "d4470ef29432a20d92bb7f8ef238d7ed55147045b4e11e3d624b4056e3418e49"
+      },
+      "current": {
+        "sha256": "314ed19db02eee2a6641457e8fced66748cfaed4e60a714059c743f40f454ca8",
+        "bytes": 257740
+      }
+    },
+    "docs/benchmarks/native-source-domain-facts-2026-11-14.md": {
+      "executed": null,
+      "current": {
+        "sha256": "eaa447e3cca9df58c75bb59e6387b5dad04b74e72d31feb03a05731239e675bc",
+        "bytes": 10171
+      }
+    }
+  },
+  "packet_manifest": {
+    "bytes": 13053,
+    "sha256": "aaf834f6ea6174180e2f6a16aab0274b6010a3b09474e4621f52edb463c7dd1f"
+  },
+  "untracked_packet_preserved": true,
+  "query_executions": 0,
+  "publication_attempted": false,
+  "helper": {
+    "bytes": 5638,
+    "sha256": "5b99d34e92d70e9fdff669b5eb5a8fda0970a105d68ff20fcd82b00fe4641650"
+  }
+}

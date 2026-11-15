@@ -1,0 +1,653 @@
+{
+  "base": "494b41cca98349b21dfabd09a129a205c6664ecb",
+  "count": 92,
+  "members": [
+    {
+      "bytes": 12264,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/twox-hash-2.1.2/src/xxhash3.rs",
+      "sha256": "cef97ce27d7863c7f3d546cb13bd74539216ec8a2dc93ef3141adb870c1a8e5e",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/twox-hash-2.1.2-xxhash3.rs"
+    },
+    {
+      "bytes": 17190,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/twox-hash-2.1.2/src/xxhash3_64.rs",
+      "sha256": "b9b050eec3db19af71d61131ee4604d423bc00974cdcd8f1f1672b21c9799094",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/twox-hash-2.1.2-xxhash3_64.rs"
+    },
+    {
+      "bytes": 21377,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/vortex-0.93.0/src/lib.rs",
+      "sha256": "d2fe5c2d0b0f869141896d97b4c8bdd2fa63582e088d6fca508a07f09a0847e7",
+      "source": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-0.93.0/src/lib.rs"
+    },
+    {
+      "bytes": 43380,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/vortex-expr-0.93.0/src/stats/rewrite/builtins.rs",
+      "sha256": "1b2c3d9492eb61be8fb1d986a07d4ca629a8cca55545e43aa2b9620768b71e2b",
+      "source": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-expr-0.93.0/src/stats/rewrite/builtins.rs"
+    },
+    {
+      "bytes": 2318,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/vortex-expr-0.93.0/src/stats/session.rs",
+      "sha256": "411f81841047d7780a53086bd1e83b139b03a45f7a6fb9e782f9d8707b3ef0d4",
+      "source": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-expr-0.93.0/src/stats/session.rs"
+    },
+    {
+      "bytes": 18626,
+      "kind": "locked_dependency_source",
+      "member": "dependencies/vortex-session-0.93.0/src/session.rs",
+      "sha256": "681e5a5eb2a0662713d4149606368adea32d4df8e5937dcb2e36f8852557f356",
+      "source": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vortex-session-0.93.0/src/session.rs"
+    },
+    {
+      "bytes": 4923,
+      "kind": "evidence",
+      "member": "evidence/bloom-admission-design-r1.md",
+      "sha256": "8d808ac9b3f4d3334c1d63e8e3fda74da79389cf3ae856561b197be5b34c5902",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-admission-design-r1.md"
+    },
+    {
+      "bytes": 4622,
+      "kind": "evidence",
+      "member": "evidence/bloom-admission-disposition-r1.json",
+      "sha256": "0e850e3906967b39c4186b8872d064ebff989e92819334174e470a28e881628f",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-admission-disposition-r1.json"
+    },
+    {
+      "bytes": 330,
+      "kind": "original_packaging_failure",
+      "member": "evidence/bloom-packet-build-r1-failure.json",
+      "sha256": "9c588656b78ae161c653c53a2cca723ad3e999346dda8e04b77562297b20a24b",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-packet-build-r1-failure.json"
+    },
+    {
+      "bytes": 494,
+      "kind": "original_packaging_failure",
+      "member": "evidence/bloom-packet-build-r2-failure.json",
+      "sha256": "6c0e240b0c564be33a512fc50abd4bb373da730733590224f4ac750233d97147",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-packet-build-r2-failure.json"
+    },
+    {
+      "bytes": 4993,
+      "kind": "primary_inventory_review",
+      "member": "evidence/bloom-packet-inventory-primary-review-r1.json",
+      "sha256": "d3eb4fe7a840640ffab66c4222b8cd50b35215a4c21996135ed8d05ef6059a18",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-packet-inventory-primary-review-r1.json"
+    },
+    {
+      "bytes": 21675,
+      "kind": "original_inventory",
+      "member": "evidence/bloom-packet-inventory-r1.json",
+      "sha256": "11c62da8252b22b40ec555d923ff70053fff01065848f9a576e5ab3f2c3ee20b",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-packet-inventory-r1.json"
+    },
+    {
+      "bytes": 1024626,
+      "kind": "evidence",
+      "member": "evidence/bloom-probe-build-r1.json",
+      "sha256": "768f3a29a768893867e0cf82275d07891446d8017c4e978b4ae998c11e8312fa",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-probe-build-r1.json"
+    },
+    {
+      "bytes": 582,
+      "kind": "evidence",
+      "member": "evidence/bloom-probe-executable-r1.json",
+      "sha256": "581945d3ed992df8750ca3d8d6d8363cb2f242dbec68922b53a6917d75103e84",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-probe-executable-r1.json"
+    },
+    {
+      "bytes": 1024509,
+      "kind": "evidence",
+      "member": "evidence/bloom-probe-observation-r1.json",
+      "sha256": "33b730474404d07306fd0fa1ad009798e601a16e0946a4ca0b46a842686d704c",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-probe-observation-r1.json"
+    },
+    {
+      "bytes": 397,
+      "kind": "evidence",
+      "member": "evidence/bloom-probe-restoration-r1.json",
+      "sha256": "c2a008163f811b1316f06debaef8e1cd45cdc9a4d5ba83dd6848caa4f7d4522a",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-probe-restoration-r1.json"
+    },
+    {
+      "bytes": 983,
+      "kind": "evidence",
+      "member": "evidence/bloom-probe-source-r1.json",
+      "sha256": "d5569a96545b1456eee6586f9e9014d6afcc51eff624495f591e4642d87badbf",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-probe-source-r1.json"
+    },
+    {
+      "bytes": 22614,
+      "kind": "evidence",
+      "member": "evidence/bloom-provider-inventory-r1.json",
+      "sha256": "fabd97ee2c2eafef386eca2f9baba63d1a759edad4ffbfa5af13dd52114c2e4f",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-provider-inventory-r1.json"
+    },
+    {
+      "bytes": 10007,
+      "kind": "evidence",
+      "member": "evidence/bloom-provider-inventory-r1.md",
+      "sha256": "d19da566e3eb246e1bf41f15b91e352868a81559d946040e1347e5ba12a463e3",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-provider-inventory-r1.md"
+    },
+    {
+      "bytes": 827,
+      "kind": "evidence",
+      "member": "evidence/bloom-provider-primary-review-r1.json",
+      "sha256": "a899d8cd93e315fe56d4caf13cbd39a6f0dae06ac642c473ecb3c4124e1888f2",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-provider-primary-review-r1.json"
+    },
+    {
+      "bytes": 13912,
+      "kind": "evidence",
+      "member": "evidence/bloom-registration-inventory-r1.json",
+      "sha256": "c6c4c9e72e74da7e3ab77928437f1bfb5302604466b90d09b0ddb451c164f4be",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-registration-inventory-r1.json"
+    },
+    {
+      "bytes": 7339,
+      "kind": "evidence",
+      "member": "evidence/bloom-registration-inventory-r1.md",
+      "sha256": "658df5e3efa8ef3cd85e07aa845ccd229a76dfc88afd0df9b331742788397874",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-registration-inventory-r1.md"
+    },
+    {
+      "bytes": 593,
+      "kind": "evidence",
+      "member": "evidence/bloom-registration-primary-review-r1.json",
+      "sha256": "c89e4f0e748d5ab9aeee6d852285c7e8991115eb05c191fe1feb50e67db39f6b",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-registration-primary-review-r1.json"
+    },
+    {
+      "bytes": 15386,
+      "kind": "evidence",
+      "member": "evidence/bloom-resource-inventory-r1.json",
+      "sha256": "f1708e3a1e7c67d6097fa9185bea4ccdc6e1960f6530e8d4eecdc2d49fbb45d4",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-resource-inventory-r1.json"
+    },
+    {
+      "bytes": 7784,
+      "kind": "evidence",
+      "member": "evidence/bloom-resource-inventory-r1.md",
+      "sha256": "698d77a0661669d28612161d0ae279c07bfab5d0c130ee8d509354c2e4cca5a4",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-resource-inventory-r1.md"
+    },
+    {
+      "bytes": 1611,
+      "kind": "evidence",
+      "member": "evidence/bloom-resource-primary-review-r1.json",
+      "sha256": "850075e67cf3c70927a10c243ed64ba22b3ec6fc7ca7da87c2725b2a295eb26f",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-resource-primary-review-r1.json"
+    },
+    {
+      "bytes": 1988,
+      "kind": "evidence",
+      "member": "evidence/bloom-session-source-check-r1.json",
+      "sha256": "b196e843f97a77e67e76c30d33f185ab4616de37fcebbb079dba013d36d2500b",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/bloom-session-source-check-r1.json"
+    },
+    {
+      "bytes": 6061,
+      "kind": "original_packaging_failure",
+      "member": "evidence/build_bloom_packet_before_complete_union.py",
+      "sha256": "329038cca54c7f23c09128d34f27a700e8d60aaa385ac6d95f7e4eb71a36fd12",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/build_bloom_packet_before_complete_union.py"
+    },
+    {
+      "bytes": 5487,
+      "kind": "original_packaging_failure",
+      "member": "evidence/build_bloom_packet_initial.py",
+      "sha256": "a20d30fb3e703cc5712c7961743213da67607f7bf0d113e92c5de4e18bf8e038",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/build_bloom_packet_initial.py"
+    },
+    {
+      "bytes": 599,
+      "kind": "supervision_source",
+      "member": "evidence/guard_checks.py",
+      "sha256": "4c4b899bbc5b05387c58c9515116f74396ff74d81f90f214a0113aef8959c949",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/guard_checks.py"
+    },
+    {
+      "bytes": 10774,
+      "kind": "evidence_log",
+      "member": "evidence/logs/bloom-probe-build-r1.log",
+      "sha256": "00eebfb77bfbdd49159f54d754b59d387112f566c44dba7c454083c485552e8e",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/logs/bloom-probe-build-r1.log"
+    },
+    {
+      "bytes": 5458,
+      "kind": "evidence_log",
+      "member": "evidence/logs/bloom-probe-observation-r1.log",
+      "sha256": "d7496d5fa1106e46a50ac2915f9c6e29a79e4476dde09e8ce92694d76051b7b4",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/logs/bloom-probe-observation-r1.log"
+    },
+    {
+      "bytes": 5612,
+      "kind": "compiled_probe_source",
+      "member": "evidence/probe-source-r1/Cargo.toml",
+      "sha256": "6bf6282227914020c37a01d8d58c631c4ca189d07a26594280b1bb060788ad95",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/probe-source-r1/Cargo.toml"
+    },
+    {
+      "bytes": 10661,
+      "kind": "compiled_probe_source",
+      "member": "evidence/probe-source-r1/native_bloom_admission_probe.rs",
+      "sha256": "67bf0b21e007ec33c4344be673d9222add5b4a72e8aadcafd783499950ffc5cf",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/probe-source-r1/native_bloom_admission_probe.rs"
+    },
+    {
+      "bytes": 7413,
+      "kind": "evidence",
+      "member": "evidence/shardloom-connection-intake-r1.md",
+      "sha256": "13ba612e5e90f09329a4c5ec36c8d2b9794c79861a404c907e7be500ab0941d6",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/shardloom-connection-intake-r1.md"
+    },
+    {
+      "bytes": 12264,
+      "kind": "source_fact",
+      "member": "evidence/twox-hash-2.1.2-xxhash3.rs",
+      "sha256": "cef97ce27d7863c7f3d546cb13bd74539216ec8a2dc93ef3141adb870c1a8e5e",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/twox-hash-2.1.2-xxhash3.rs"
+    },
+    {
+      "bytes": 17190,
+      "kind": "source_fact",
+      "member": "evidence/twox-hash-2.1.2-xxhash3_64.rs",
+      "sha256": "b9b050eec3db19af71d61131ee4604d423bc00974cdcd8f1f1672b21c9799094",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/twox-hash-2.1.2-xxhash3_64.rs"
+    },
+    {
+      "bytes": 3352,
+      "kind": "evidence",
+      "member": "evidence/upstream-pr8933-info-r1.json",
+      "sha256": "e7f61568e1701815c761ff8d9cedaec6bec9b6d8185f329e4e1f0d3e3352e995",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/upstream-pr8933-info-r1.json"
+    },
+    {
+      "bytes": 4828,
+      "kind": "evidence",
+      "member": "evidence/upstream-pr9398-info-r1.json",
+      "sha256": "57008ee16ef86651b0a8907c5212308530d13fcf74fa357517b16183cb8bce25",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/upstream-pr9398-info-r1.json"
+    },
+    {
+      "bytes": 3972,
+      "kind": "evidence",
+      "member": "evidence/upstream-pr9413-info-r1.json",
+      "sha256": "2df65e61bdbf39bf9f7086be619c5b2789c237581113cbfd3bbb77c0e0484f90",
+      "source": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/upstream-pr9413-info-r1.json"
+    },
+    {
+      "bytes": 26828,
+      "kind": "repository_source",
+      "member": "sources/AGENTS.md",
+      "sha256": "3bed61c6c13e35e2d05dac0f862ed798ce1f2d0403430914d212f782bc5f233f",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:AGENTS.md"
+    },
+    {
+      "bytes": 117208,
+      "kind": "repository_source",
+      "member": "sources/Cargo.lock",
+      "sha256": "2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:Cargo.lock"
+    },
+    {
+      "bytes": 4170,
+      "kind": "repository_source",
+      "member": "sources/Cargo.toml",
+      "sha256": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:Cargo.toml"
+    },
+    {
+      "bytes": 72620,
+      "kind": "repository_source",
+      "member": "sources/docs/architecture/local-development-storage.md",
+      "sha256": "2715edcbc950767f9969c617c63991e8c8a5f00c05c39c8e736b08961879c5e9",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:docs/architecture/local-development-storage.md"
+    },
+    {
+      "bytes": 2602,
+      "kind": "repository_source",
+      "member": "sources/docs/skills/vortex-internals.md",
+      "sha256": "9a3aae35a81ffa23008e500d57f1e7b08ccd7fbc03959964f3365bd02e432817",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:docs/skills/vortex-internals.md"
+    },
+    {
+      "bytes": 2382,
+      "kind": "repository_source",
+      "member": "sources/docs/skills/vortex/vortex-concepts.md",
+      "sha256": "83116b6516ecfcad7bdef77a273b831caaaea249e9012c23af39fc81fa8c311c",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:docs/skills/vortex/vortex-concepts.md"
+    },
+    {
+      "bytes": 14438,
+      "kind": "repository_source",
+      "member": "sources/docs/skills/vortex/vortex-first-provider-check.md",
+      "sha256": "0a357718d8ce2f68afe00d24fc3d7d01441ba0162bb3fbf17da723eab8fa1a33",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:docs/skills/vortex/vortex-first-provider-check.md"
+    },
+    {
+      "bytes": 8451,
+      "kind": "supervision_source",
+      "member": "sources/scripts/local_uat_storage.py",
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d",
+      "source": "/Users/dylan/.codex/worktrees/native-vector-representations/shardloom-local-repo/scripts/local_uat_storage.py"
+    },
+    {
+      "bytes": 5522,
+      "kind": "repository_source",
+      "member": "sources/shardloom-vortex/Cargo.toml",
+      "sha256": "4fb1a989fe5e789815e4ac41d7820ee68698855f447244f4868e55646cd1cc4d",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:shardloom-vortex/Cargo.toml"
+    },
+    {
+      "bytes": 4820,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_binary_type.rs",
+      "sha256": "39357d00237756785ef82de2b9232c328169873373bf0d1feb3aa3510bcf152e",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_binary_type.rs"
+    },
+    {
+      "bytes": 12876,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_embedding.rs",
+      "sha256": "5462f2f93d1a7637a1b4378c3700dfe1b381acce448d5ebe23fcd7416efc32f9",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_embedding.rs"
+    },
+    {
+      "bytes": 1562,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_extensions.rs",
+      "sha256": "8a9df0e6a763f982fb94b9ece931d0f3be3d016630a1321fb7ff7fef86fe31e3",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_extensions.rs"
+    },
+    {
+      "bytes": 27972,
+      "kind": "repository_source",
+      "member": "sources/shardloom-vortex/src/native_provider_memory.rs",
+      "sha256": "62142cafb0c0a6e19f4cc6edb5adb6ba9cb568d8d02457edd2e50270e8faaff5",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:shardloom-vortex/src/native_provider_memory.rs"
+    },
+    {
+      "bytes": 25314,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_temporal.rs",
+      "sha256": "d8232688b4b1d9ff73c2a86926461c1a7d863a3de5a8021b97cc3f6553b03311",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_temporal.rs"
+    },
+    {
+      "bytes": 9140,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_tensor.rs",
+      "sha256": "703b2f29c0cac3d1c140550d2a2b4a670812479e1c6859fed413af92d65bb6cd",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_tensor.rs"
+    },
+    {
+      "bytes": 1613,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_uuid.rs",
+      "sha256": "c44aed086263bf0144c9cc35bc1ece665cf44cd7e2962b808a8923b038e839ae",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_uuid.rs"
+    },
+    {
+      "bytes": 12454,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_variable_tensor.rs",
+      "sha256": "0577e86c0c87bfe78e192f743409088f63dca2e8c856598278ac6a445e28425d",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_variable_tensor.rs"
+    },
+    {
+      "bytes": 7935,
+      "kind": "reviewed_source",
+      "member": "sources/shardloom-vortex/src/native_vector.rs",
+      "sha256": "5066ff5f8eac4658518fe4e44b420a5e4daf4edf751c135ca585eb7d5d794980",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/shardloom-vortex/src/native_vector.rs"
+    },
+    {
+      "bytes": 38303,
+      "kind": "repository_source",
+      "member": "sources/shardloom-vortex/src/resident_execution_context.rs",
+      "sha256": "824e40a8f1830681570cfd9c78a0aae7772ea7cc39658025b44929006b98e37f",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:shardloom-vortex/src/resident_execution_context.rs"
+    },
+    {
+      "bytes": 78696,
+      "kind": "repository_source",
+      "member": "sources/shardloom-vortex/src/resident_session.rs",
+      "sha256": "6787dbc669ddac9404b79c3b4cd34d966f984b3af5f183e6a579a3975057dea8",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:shardloom-vortex/src/resident_session.rs"
+    },
+    {
+      "bytes": 916982,
+      "kind": "repository_source",
+      "member": "sources/shardloom-vortex/src/vortex_ingest.rs",
+      "sha256": "0532b61d83b62a3089e81e6fd86d7fd09c8c7021313d79e81fbbd86354f93669",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:shardloom-vortex/src/vortex_ingest.rs"
+    },
+    {
+      "bytes": 2719,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-array/src/aggregate_fn/plugin.rs",
+      "sha256": "14c23b2a6b0eed27264739dabc81c1077dcfc2e25ca5bf90fc636e53dab5e60b",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/src/aggregate_fn/plugin.rs"
+    },
+    {
+      "bytes": 15489,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-array/src/aggregate_fn/session.rs",
+      "sha256": "20f46711334d023711a09739715fff8c484e69f129b65fe2d3918e7ed08687da",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/src/aggregate_fn/session.rs"
+    },
+    {
+      "bytes": 13106,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-array/src/aggregate_fn/vtable.rs",
+      "sha256": "0d299f21543d5fe5a2a0b9c28928fd455981f81bd901a6232048d1c8bf2a9b20",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/src/aggregate_fn/vtable.rs"
+    },
+    {
+      "bytes": 3744,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-array/src/scalar_fn/session.rs",
+      "sha256": "9f33da30b6be45460f8a18ffb15e080a49975f6ce4646e49bbe3b813bf12b0a0",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/src/scalar_fn/session.rs"
+    },
+    {
+      "bytes": 4936,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-array/src/session/mod.rs",
+      "sha256": "1c38d6afc3371334590facbd67ea1e3ba4b0ece0143af94579986c69ed9ce386",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/src/session/mod.rs"
+    },
+    {
+      "bytes": 18211,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-buffer/src/allocation.rs",
+      "sha256": "7f623de46f1833cab11c00b4908d742677fa9631e473b294b2da301c8119b275",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-buffer/src/allocation.rs"
+    },
+    {
+      "bytes": 44898,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-buffer/src/buffer_mut.rs",
+      "sha256": "4c93f291fbe8697a19690e33defceeb2a59157c0e11e439828394f7f9577739e",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-buffer/src/buffer_mut.rs"
+    },
+    {
+      "bytes": 6466,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/Cargo.toml",
+      "sha256": "a3358a039db86a22a199c24f9e6b26b135e1110e7bd9d8e6e1ef0bfdd0381dcc",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/Cargo.toml"
+    },
+    {
+      "bytes": 55140,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/indexed/tests.rs",
+      "sha256": "4ce9352e1fd4d6bb03c6d2b31feeff336459ac0a9b9389312b48d1d7dcea4c52",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/indexed/tests.rs"
+    },
+    {
+      "bytes": 3396,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/bool.rs",
+      "sha256": "6de50421c9ed2a2c08109809bb046456c953e4756bb27939190543d0de146358",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/bool.rs"
+    },
+    {
+      "bytes": 3185,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/extension.rs",
+      "sha256": "3d4f38911cc06caec50f0dacb75e64682a25dfbbba4a0f88a3cb4fbc0a2c9ba3",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/extension.rs"
+    },
+    {
+      "bytes": 1648,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/mod.rs",
+      "sha256": "1ba42d5503a09b19a89fdc8eb65fd854c713a085378781c46bcea79f0984c014",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/mod.rs"
+    },
+    {
+      "bytes": 8921,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/primitive.rs",
+      "sha256": "20dca01c72f26adb2d5ad3d5816b954421043dc2a3ba266bacf966d827ea765e",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/primitive.rs"
+    },
+    {
+      "bytes": 4710,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/varbin.rs",
+      "sha256": "650a808514d24a1b4079241941883bbf594ab0ab17c26507b9213bb919b980bd",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/varbin.rs"
+    },
+    {
+      "bytes": 3108,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/constant.rs",
+      "sha256": "59a2207d75c6e754691d3adba25e2f871c50eaad856562e6ddeaf3f98b74afd0",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/constant.rs"
+    },
+    {
+      "bytes": 23486,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/mod.rs",
+      "sha256": "6836cb12af344043609471412172890c01c844c6a9b767ce1f85daf06c1fe302",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/mod.rs"
+    },
+    {
+      "bytes": 1968,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/aggregate.rs",
+      "sha256": "d2eba7b248afdaa58d08e0143ea1c935adb4d5f9519a08317a23ed81cbf56cb9",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/aggregate.rs"
+    },
+    {
+      "bytes": 12937,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/mod.rs",
+      "sha256": "e08583325fdcde03dd6736087dda2a4644c399403c318b253394bd834aa4ee8e",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/mod.rs"
+    },
+    {
+      "bytes": 4601,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/scalar.rs",
+      "sha256": "55a9be52053133de118a2a1d34c8ce0f5558efd8fac092754aba03102243b65c",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/scalar.rs"
+    },
+    {
+      "bytes": 4948,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/serde.rs",
+      "sha256": "c2746175f20b6e5e3a89a9d7a3613a2928eafd71352eb6d44678cafce056df79",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/serde.rs"
+    },
+    {
+      "bytes": 22727,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/scalar_fn.rs",
+      "sha256": "a3bcde59272c7c65f883ddb073add55ddf83536e714a9a0d5f94a6f17069e3b7",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/scalar_fn.rs"
+    },
+    {
+      "bytes": 415,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/mod.rs",
+      "sha256": "3d2d9ee796dadf0c6a4c96b7682ed7a0721b860d593ca07ac44945a9ed4d35c1",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/aggregates/mod.rs"
+    },
+    {
+      "bytes": 5072,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/builder.rs",
+      "sha256": "724c5d83cfe29947ae89f448e0cf87107f30dacc93c16015b42106bb8aee3814",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/builder.rs"
+    },
+    {
+      "bytes": 29930,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/mod.rs",
+      "sha256": "2464172466b4c78bbf8ff48e16b01c3111f8687a2cd21de1908ea8bbddbb6b5e",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/mod.rs"
+    },
+    {
+      "bytes": 8962,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/pruning.rs",
+      "sha256": "c253d0a84cfb4ecd933bfaddaa6e0f19a280d4582b8204eecfcce437b4e2949b",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/pruning.rs"
+    },
+    {
+      "bytes": 19589,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/reader.rs",
+      "sha256": "f24c631a7006985cf135ad3144aefc9a131ce18a8a06696f18d2704aec6aa1bd",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/reader.rs"
+    },
+    {
+      "bytes": 20599,
+      "kind": "repository_source",
+      "member": "sources/vendor/vortex-layout/src/layouts/zoned/writer.rs",
+      "sha256": "973456f4d3628d54ddc3dbf5f8080d62468106c080881304cd21d11f3b5b9dca",
+      "source": "git:494b41cca98349b21dfabd09a129a205c6664ecb:vendor/vortex-layout/src/layouts/zoned/writer.rs"
+    },
+    {
+      "bytes": 4256,
+      "kind": "reviewed_source",
+      "member": "sources/vendor/vortex-layout/src/session.rs",
+      "sha256": "8d9cf3345eb07838b9c3304ef0d97599d28610ee4374dffe67280f4886a2af8a",
+      "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-layout/src/session.rs"
+    },
+    {
+      "bytes": 8431,
+      "kind": "supervision_source",
+      "member": "supervision/bounded_build_process_resume_20260912.py",
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97",
+      "source": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py"
+    },
+    {
+      "bytes": 6009,
+      "kind": "supervision_source",
+      "member": "supervision/guard_checks.py",
+      "sha256": "697cdb7cb2622a3089dae62aab8377e07819b882add7a7dcaae940bb3e5c6dd1",
+      "source": "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/guard_checks.py"
+    },
+    {
+      "bytes": 1675,
+      "kind": "supervision_source",
+      "member": "supervision/release_validation_guard.py",
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48",
+      "source": "/Users/dylan/LocalData/shardloom/release-0.3.3-20260930/release_validation_guard.py"
+    }
+  ],
+  "schema": "shardloom.bloom_packet_inventory.v1",
+  "total_bytes": 4136191,
+  "tree": "14d79c67b28d265ebab0f0697d8ff221176f9747"
+}

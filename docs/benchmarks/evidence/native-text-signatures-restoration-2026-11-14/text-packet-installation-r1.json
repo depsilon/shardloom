@@ -1,0 +1,13 @@
+{
+  "status": "installed_exact_packet",
+  "packet": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/evidence/native-text-signatures-2026-11-14",
+  "files": 80,
+  "manifest": {
+    "bytes": 13053,
+    "sha256": "aaf834f6ea6174180e2f6a16aab0274b6010a3b09474e4621f52edb463c7dd1f"
+  },
+  "original_packet_unchanged": true,
+  "doc_excerpts_verified": 17,
+  "query_executions": 0,
+  "publication_attempted": false
+}

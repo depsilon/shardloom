@@ -1,0 +1,82 @@
+{
+  "automated_controls": [
+    "ci_contribution_governance_validator",
+    "pr_template_marker_check",
+    "release_readiness_report_integration"
+  ],
+  "blocked_controls": [
+    "external_cla_assistant",
+    "dco_signoff_route",
+    "broad_governance_transfer",
+    "package_publication_from_contribution_gate"
+  ],
+  "blockers": [],
+  "checks": [
+    {
+      "blockers": [],
+      "check_id": "contributing_entrypoint",
+      "path": "CONTRIBUTING.md",
+      "required_marker_count": 16,
+      "status": "passed"
+    },
+    {
+      "blockers": [],
+      "check_id": "contributor_policy",
+      "path": "docs/legal/contributor-policy.md",
+      "required_marker_count": 11,
+      "status": "passed"
+    },
+    {
+      "blockers": [],
+      "check_id": "contribution_intake_readiness_doc",
+      "path": "docs/legal/contribution-intake-readiness.md",
+      "required_marker_count": 12,
+      "status": "passed"
+    },
+    {
+      "blockers": [],
+      "check_id": "pull_request_template",
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "required_marker_count": 10,
+      "status": "passed"
+    },
+    {
+      "blockers": [],
+      "check_id": "ci_workflow",
+      "path": ".github/workflows/ci.yml",
+      "required_marker_count": 3,
+      "status": "passed"
+    },
+    {
+      "blockers": [],
+      "check_id": "ci_gate_matrix_doc",
+      "path": "docs/release/ci-gate-matrix.md",
+      "required_marker_count": 4,
+      "status": "passed"
+    }
+  ],
+  "cla_assistant_status": "not_active",
+  "contribution_intake_status": "documented_and_ci_checked",
+  "dco_policy_status": "not_active",
+  "decision_escalation_status": "documented",
+  "documented_controls": [
+    "required_signoff_cla_dco_state",
+    "reviewer_roles_and_decision_escalation",
+    "dependency_license_provenance_checklist",
+    "security_release_rfc_checklist",
+    "claim_boundary_checklist",
+    "no_fallback_dependency_policy"
+  ],
+  "external_contribution_acceptance_status": "maintainer_approval_required",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "legal_claim_status": "documented_policy_only",
+  "public_package_claim_allowed": false,
+  "public_release_claim_allowed": false,
+  "publication_attempted": false,
+  "review_state_reporting_status": "pr_template_and_ci_checked",
+  "schema_version": "shardloom.contribution_governance_report.v1",
+  "secrets_required": false,
+  "status": "passed",
+  "tag_created": false
+}

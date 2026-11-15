@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "local_links": 436,
+  "changed_rust_files_match_final_tested_source": [
+    "shardloom-vortex/src/local_primitive_relational_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_transform.rs",
+    "shardloom-vortex/src/local_primitive_relational_survivor_admission_tests.rs",
+    "shardloom-vortex/src/local_primitive_relational_survivor_work_tests.rs"
+  ],
+  "all_other_changes": "documentation/evidence only"
+}

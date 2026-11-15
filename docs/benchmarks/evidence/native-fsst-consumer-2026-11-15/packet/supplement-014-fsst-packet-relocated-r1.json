@@ -1,0 +1,8 @@
+{
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"<string>\", line 12, in <module>\n    runpy.run_path(sys.argv[0],run_name='__main__')\n    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen runpy>\", line 287, in run_path\n  File \"<frozen runpy>\", line 98, in _run_module_code\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/fsst-relocated-controls-3kvnqp9t/packet/verify.py\", line 288, in <module>\n    main()\n    ~~~~^^\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/fsst-relocated-controls-3kvnqp9t/packet/verify.py\", line 280, in main\n    result = verify(args.root.resolve())\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/fsst-relocated-controls-3kvnqp9t/packet/verify.py\", line 240, in verify\n    support, replay = bind(store)\n                      ~~~~^^^^^^^\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/fsst-relocated-controls-3kvnqp9t/packet/verify.py\", line 185, in bind\n    import fsst_replay as replay\n  File \"/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-fsst-replay-2r67dyv0/data/native-fsst-consumer-2026-11-15/fsst_replay.py\", line 19, in <module>\n  File \"/private/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-fsst-replay-2r67dyv0/data/native-predicate-zones-2026-11-14/text_observations.py\", line 4, in <module>\nModuleNotFoundError: No module named 'source_facts_observations'\n",
+  "original_paths_forbidden": true,
+  "network_and_subprocess_forbidden": true,
+  "working_directory": "disposable directory outside original source"
+}

@@ -1,0 +1,284 @@
+{
+  "worktree_architecture_directory": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture",
+  "output_directory": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15",
+  "scope_files": [
+    "native-fsst-consumer-2026-11-15.md",
+    "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+    "phased-execution-plan.md",
+    "native-shared-pipeline-investigations-2026-11-10.md",
+    "native-structural-work-investigations-2026-11-11.md"
+  ],
+  "file_identities": {
+    "native-fsst-consumer-2026-11-15.md": {
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-fsst-consumer-2026-11-15.md",
+      "bytes": 11439,
+      "sha256": "3eac59dda69dfa9cb13032bd7ab3538e8fe05c8a3d74a7a7623d7a3b89651f2b"
+    },
+    "native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "bytes": 22031,
+      "sha256": "a8a5e98cdf86acf31bd9571d4cb3a54c9535776ce56eee569d5634e8fc42fae2"
+    },
+    "phased-execution-plan.md": {
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/phased-execution-plan.md",
+      "bytes": 258943,
+      "sha256": "3b739a295d5c11dbbb56983c8ce02c5aa394665ad5ab46aa9cc7a311db492844"
+    },
+    "native-shared-pipeline-investigations-2026-11-10.md": {
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "bytes": 20407,
+      "sha256": "8928ea076e94f27bb25c0cffca4506a20d56308e33dab9be0bc01895740a2939"
+    },
+    "native-structural-work-investigations-2026-11-11.md": {
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-structural-work-investigations-2026-11-11.md",
+      "bytes": 19174,
+      "sha256": "cd060345569e9361dffcee0c851e7366f535b175ceaa008717fa068b1c402517"
+    }
+  },
+  "findings": [
+    {
+      "kind": "status passage needing reconciliation after retained prefilter result",
+      "location": "native-fsst-consumer-2026-11-15.md:5-7",
+      "observation": "Labels the work active feasibility, says no performance result or retained candidate is admitted, which conflicts with the assigned new state (prefilter comparison complete and retained).",
+      "source_support": "Excerpt current status and linked authorities."
+    },
+    {
+      "kind": "sequence passage needing reconciliation",
+      "location": "native-fsst-consumer-2026-11-15.md:162-170",
+      "observation": "Frames freezing/comparing the prefilter as conditional future work if admission is feasible; this is stale for a completed retained prefilter result.",
+      "source_support": "Excerpt finite screen, subsequent experiments, open queue."
+    },
+    {
+      "kind": "ordered queue passage needing reconciliation",
+      "location": "native-metadata-encoded-consumer-investigations-2026-11-13.md:88-90",
+      "observation": "Lists FSST candidate prefilter as next active work before separate matcher-lifetime work; the prefilter portion is completed under the assigned state, while matcher lifetime stays a separate open experiment.",
+      "source_support": "Excerpt ordered execution sequence and independent decisions."
+    },
+    {
+      "kind": "phase checklist passage needing reconciliation",
+      "location": "phased-execution-plan.md:411-413",
+      "observation": "One unchecked item combines conservative FSST candidate prefilter and bounded exact-table matcher reuse. The assigned state says retain the prefilter result while leaving exact-table matcher lifetime open; passage currently does not represent that split.",
+      "source_support": "Excerpt current coverage queue through FSST/spatial sequence."
+    },
+    {
+      "kind": "still-open exact-table matcher lifetime",
+      "location": "native-fsst-consumer-2026-11-15.md:172-177; native-metadata-encoded-consumer-investigations-2026-11-13.md:88-90; phased-execution-plan.md:407-413",
+      "observation": "Request-scoped matcher lifetime remains a distinct later experiment with exact identity, charged allocations/checks, invalidation and its own complete decision; not completed by the retained prefilter result.",
+      "source_support": "These exact passages distinguish the studies."
+    },
+    {
+      "kind": "still-open required spatial execution",
+      "location": "native-fsst-consumer-2026-11-15.md:179-181; native-metadata-encoded-consumer-investigations-2026-11-13.md:89; phased-execution-plan.md:414-417; native-shared-pipeline-investigations-2026-11-10.md:51-52; native-structural-work-investigations-2026-11-11.md:10-11",
+      "observation": "Required item-19 spatial execution remains open and has explicit independence from FSST success. Optional persisted spatial summaries follow exact spatial semantics/execution.",
+      "source_support": "Exact cited excerpts."
+    },
+    {
+      "kind": "broader open queue obligations to preserve",
+      "location": "native-metadata-encoded-consumer-investigations-2026-11-13.md:36-40, 89-105; phased-execution-plan.md:374-425, 427-453; native-shared-pipeline-investigations-2026-11-10.md:89-119, 277-278",
+      "observation": "Broader I attribution/narrower batching, predicate-summary parent, wider constant-key support, codec/consumer choices, bounded CPU fusion, item-20 owner distinctions, recommendation-13 join-build reuse, D source pruning, deep traversal, and CG-1 through CG-23 remain separate/open as shown. No inference that prefilter closes these obligations.",
+      "source_support": "Queue and broader obligation excerpts."
+    },
+    {
+      "kind": "unknown linked evidence",
+      "location": "all five documents",
+      "observation": "Linked survivor report, FSST screen/benchmark evidence, RFC 0044, item-19 detailed spatial contract, and other referenced evidence contents are outside this read-only five-file scope. Their actual content and link validity are unknown here.",
+      "source_support": "Only link text and adjacent claims in the selected files were read."
+    }
+  ],
+  "excerpts": [
+    {
+      "file": "native-fsst-consumer-2026-11-15.md",
+      "label": "current status and linked authorities",
+      "start_line": 5,
+      "end_line": 12,
+      "source_byte_start": 77,
+      "source_byte_end_exclusive": 677,
+      "excerpt_bytes": 600,
+      "excerpt_sha256": "2455bcb978d96444ba95c5796beb5c70e9b741e360815482af9f6f8370d0142a",
+      "text": "Status: active feasibility work under item 20/RFC 0044 and the\n[ordered metadata/consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).\nNo performance result or retained production candidate is admitted yet.\nThe accepted source at intake is `873e60bca36f5030cec27c3baf59017ca49ad8ab`.\nThe [survivor screen](native-survivor-admission-2026-11-15.md) leaves existing\nbatch boundaries in force. The prior [FSST writer drop](fsst-consumer-screen-2026-09-26.md)\nand the later [decoder validation correction](../benchmarks/native-fsst-admission-2026-10-07.md)\nremain authoritative.\n"
+    },
+    {
+      "file": "native-fsst-consumer-2026-11-15.md",
+      "label": "provider boundary and initial classification",
+      "start_line": 14,
+      "end_line": 43,
+      "source_byte_start": 678,
+      "source_byte_end_exclusive": 2565,
+      "excerpt_bytes": 1887,
+      "excerpt_sha256": "2a622a9cea60247b5bb6ea93dc38d36c4a2f5ab9b00412c81e828d974192901c",
+      "text": "## Provider check and current boundary\n\nThe pinned Apache-2.0 Vortex 0.93.0 provider already has FSST arrays, symbol\ntables, compressed codes, a native LIKE kernel and a symbol-aware exact matcher.\nThe matcher is private to `vortex-fsst` and is reconstructed by each LIKE call.\nLiteral contains and prefix patterns have finite byte-length limits; nullable\nresults and pattern escapes remain part of its contract. This work must reuse\nor explicitly wrap that provider before considering another matcher.\n\nThe shared relational scalar evaluator currently prepares text arguments as\nnative UTF-8 views. Its value owner validates every valid value in the requested\ndomain. A separate legacy contains helper can call the compressed LIKE kernel.\nStatic call sites do not prove dispatch through a particular public request.\nVortex input and execution stay native; decoded native text is an explicit\nexisting route, not external query-engine fallback.\n\nThe native decoder admits integer metadata and checks every selected encoded\nrow's declared length, escape boundaries and populated symbols before payload\nallocation. Generic text preparation then validates UTF-8. The raw LIKE kernel\ndoes not invoke those decoder checks. Its temporary tables and Boolean output\nare not proven to be entirely accounted by the existing two-row, zero-payload-\ncredit test. A new shared connection must not bypass validation or infer full\nallocation enforcement from that narrow observation.\n\nThe initial classification is `blocked_until_vortex_or_shardloom_evidence` for\na new prefilter/reuse admission, while existing scoped provider calls keep\ntheir present classification. No unsupported path is delegated to another\nengine; `fallback_attempted=false` and `external_engine_invoked=false` remain\nrequirements. The source-based concerns below are hypotheses until the\nexecutable screen records their outcomes.\n"
+    },
+    {
+      "file": "native-fsst-consumer-2026-11-15.md",
+      "label": "dispatch evidence and observer result",
+      "start_line": 45,
+      "end_line": 83,
+      "source_byte_start": 2566,
+      "source_byte_end_exclusive": 5206,
+      "excerpt_bytes": 2640,
+      "excerpt_sha256": "ae90a21753c0db7a8379e8dc1abd81e9c9540742703ce5aedf02df2ea65b6c2b",
+      "text": "### Admission observations and source-pushdown correction\n\nThe finite diagnostic now passes 864 physical/shared declarations and 378\ncomplete native-core requests over all 54 existing inputs. Independent replay\nchecks every output against the 288 frozen nullable Boolean references, exact\nschemas, complete declaration keys and every reported owner-close refund. The\noriginal failed harness and replay attempts are preserved. This is correctness\nand route evidence without engine timing.\n\nThe source caller map corrects the scalar-only view above: `contains` filter\nexpressions lower to `PredicateExpr::StringContains` and an escaped Vortex LIKE\nscan filter. Contains count also has a native scalar-count route. In contrast,\nthe selected prefix and projection requests prepare shared text. The diagnostic\nobserves 3,536 direct FSST LIKE calls, but these are explicit kernel witnesses,\nnot proof of invocation inside a public request. Zero legacy helper calls do\nnot mean zero upstream FSST calls. Raw malformed input mismatches rule out an\nunvalidated projection bridge; they do not by themselves reject an optimization\ninside the already-admitted source LIKE path.\n\nBefore selecting a candidate, add a debug-only, explicitly registered Vortex\nsession observer at the successful FSST LIKE return. It counts successful calls\nand logical operand rows, with overflow detection; it is not a decode metric.\nUse one fresh prepared session per request, no global mutable state, and read\ncounts only after the request drains. Its small harness-owned allocation is\noutside the production resource claim and it compiles out of release builds.\nThe finite dispatch check selects both existing sizes, the selective profile,\nand flat/FSST representations: seven complete consumers per input, 28 total.\nContains filter/count/scan requests are positive route candidates; projection,\nprefix and flat inputs are controls. Reuse frozen values, schemas and owner\nrefund assertions. Do not rerun the full 864-declaration diagnostic for this\nobserver and do not record timing or choose a performance candidate from it.\n\nThe dispatch check passes all 28 complete requests. The six FSST contains\nfilter/count/scan requests invoke the upstream compressed kernel: 17 calls for\neach filter/scan request and nine for each count request at both sizes. Each\nroute covers its 67 or 8,195 logical operand rows. All 22 flat, projection and\nprefix controls record zero calls. Independent replay verifies complete results,\nschemas, certificate identities and refunds; source and input identities are\npreserved. These are logical call counts, without a physical decode claim.\n"
+    },
+    {
+      "file": "native-fsst-consumer-2026-11-15.md",
+      "label": "selected prefilter and admission gates",
+      "start_line": 85,
+      "end_line": 131,
+      "source_byte_start": 5207,
+      "source_byte_end_exclusive": 8434,
+      "excerpt_bytes": 3227,
+      "excerpt_sha256": "a6488db2431735f1ebcaddc248c36631e6f1039986adc72bed97b0883f34f2f4",
+      "text": "## Selected prefilter experiment, before timing\n\nImplement one conservative necessary-byte filter inside the existing Vortex\nFSST LIKE provider. This is `use_vortex_native_provider` at the existing native\nscan boundary, with a ShardLoom-authored local provider modification. It does not\nadmit a new scalar projection route, writer policy or persisted metadata format.\n\nFor positive, nonempty, supported literal contains patterns, inspect the actual\nsymbol table once. Choose the first pattern byte represented by the fewest\npopulated symbol codes, and admit the prefilter only when that number is at\nmost two. The two-code limit comes from the existing three-byte search primitive:\nthe escape code is always the third possible candidate. Every escape retains\nexact verification, irrespective of its following byte. Raw byte search may\nmistake escaped literals for symbol codes; that only adds false positives.\nSymbol boundaries and Unicode cannot suppress a true match because every exact\nmatch must contain the selected literal byte in a populated symbol or escape.\n\nUse the already-locked `memchr` 2.8.3 provider (MIT option under\n`Unlicense OR MIT`) for one-, two- or three-byte search. This adds a direct\ndependency edge to the vendored FSST crate, not a new resolved package. Preserve\noriginal registry provenance and update the local modification notice. No\nexternal implementation code, new unsafe block or execution fallback is added.\n\nThe filter table uses bounded stack storage; retained state is at most two code\nbytes and its discriminator. If the complete compressed backing has no candidate,\nskip exact matcher construction. Otherwise preserve its construction and reject\nindividual rows only when the same necessary-byte test is negative. Execute\noffset metadata and visit every row's original slice even for a complete backing\nrejection, preserving bounds/error ordering. Shared text validation is untouched.\nPrefix, empty, unsupported, nonconstant, case-insensitive and negated requests\nretain the existing path. Dense candidates pay the filter and exact-match cost;\nno data-trained thresholds, samples or speculative reuse are introduced.\n\nBefore measurement, require exhaustive small code/escape counterexamples against\nthe original exact matcher, every frozen existing-file result, nullable and\nselected-slice behavior, malformed-value parity, resource denial/cancellation,\nand actual candidate/construction counts. The existing explicit debug-only\nsession observer records these counts in the untimed admission screen; it adds\nno production counter allocations or per-row counter work. Actual performance\nrequests retain their ordinary certificates, and must not be represented as\nhaving measured per-request prefilter counters. Any later production counters\nwould require the exclusive-operation observer/credit contract. Existing\nprovider scratch exclusions remain explicit and\nare not upgraded to a full memory-accounting claim. Freeze the complete public\ncomparison only after final validation and exact runtime/input/reference binding.\nReuse prior observations only with full identity equality; do not silently repeat\nsuccessful baseline requests. All regressions and failures remain in the decision.\n"
+    },
+    {
+      "file": "native-fsst-consumer-2026-11-15.md",
+      "label": "finite screen, subsequent experiments, open queue",
+      "start_line": 133,
+      "end_line": 181,
+      "source_byte_start": 8435,
+      "source_byte_end_exclusive": 11439,
+      "excerpt_bytes": 3004,
+      "excerpt_sha256": "4bea93313ff67d2234b00d3d9ec6a87aeb16f7bfc3a05547560263373635ad11",
+      "text": "## Finite feasibility screen\n\nFirst reuse the existing 18 FSST inputs from the necessary text-signature\nexperiment, selecting its ordinary layout without the declined summary metadata.\nTheir nine logical profiles and two sizes have complete independent readbacks\nand source hashes. Flat and dictionary fixtures provide representation controls.\nNew fixtures are reserved for missing malformed, pattern-boundary and resource\ncases; no repeated writer experiment or full10k/Full43 observation is requested.\n\nBefore selecting a performance candidate:\n\n1. Check complete results through the actual shared and source-predicate routes,\n   identify the physical FSST inputs seen by each consumer, and distinguish\n   direct kernel witnesses from public dispatch. Preserve nulls, Unicode,\n   escaped literals, empty/over-limit patterns, selected slices and nonpredicate\n   consumers. Record actual decode/preparation work where observed.\n2. Compare shared text behavior and direct compressed matching on incorrect\n   row lengths, truncated escapes, unpopulated symbols and invalid UTF-8.\n   Preserve the first required error and selected-domain validation. Successful\n   Boolean output on malformed data does not admit a bypass.\n3. Bound matcher construction, metadata execution, output ownership and scratch\n   overlap. Exercise denial, cancellation, empty/null input and retained output.\n   A count of payload bytes avoided is not complete resource accounting.\n\nKeep each original attempt, exact source, input identity and complete output.\nThis screen records no engine timing and cannot establish a performance win.\nThe expert comparator is a native encoded-execution maintainer checking errors,\nallocation lifetime and actual dispatch before interpreting reduced work.\n\n## Subsequent independent experiments\n\nIf admission is feasible, freeze a conservative candidate prefilter followed by\nthe existing exact symbol-aware matcher. Compare it with direct compressed\nmatching and the admitted native decoded route. False negatives are forbidden;\nfalse positives retain exact verification. Candidate selection must use actual\npattern/table/data characteristics and include construction, validation, scratch,\ndense-candidate and nonpredicate costs. An empty or unsupported pattern retains\nan explicitly admitted route rather than silently changing its semantics.\n\nOnly after that decision, separately evaluate request-scoped matcher lifetime\nacross existing slices. Exact symbol contents, lengths, pattern and options must\nmatch, all retained allocations and identity checks must be charged, and changed\ntables or requests must invalidate reuse. No global cache or writer default is\nauthorized. Each candidate gets its own complete comparison and retain/drop\ndecision; neither can inherit a kernel-only timing claim.\n\nThe parent queue, broader I, required item-19 spatial execution, item 20,\nRFC 0044 and CG-1 through CG-23 remain open. Missing FSST admission must not\nhold required spatial execution indefinitely.\n"
+    },
+    {
+      "file": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "label": "recent intake status including survivor screen",
+      "start_line": 34,
+      "end_line": 46,
+      "source_byte_start": 2085,
+      "source_byte_end_exclusive": 2941,
+      "excerpt_bytes": 856,
+      "excerpt_sha256": "cb53a3a05eac40db7ef8b8a4f5978436f4a362c68259bb5742a7059a4079b5e9",
+      "text": "[necessary text-signature experiment](native-text-signatures-2026-11-14.md) has\na complete drop disposition; accepted source is restored. The\n[survivor admission screen](native-survivor-admission-2026-11-15.md) declines\nunconditional callback batching before performance; the existing batch contract\nremains in force for the next FSST work. Broader I attribution/narrower batching,\nthe predicate-summary parent,\nbroader constant-key support and coverage remain open.\n\nThe supplied research describes source checked at `72680743a34a5db9`, after\nPR #1683. It is an intake, not fresh validation of later implementation. Recheck\nthe current source and pinned provider before selecting a design. Its historical\ntimings and earlier experiment results retain their original source attribution;\nthis queue update runs no benchmark and admits no performance claim.\n"
+    },
+    {
+      "file": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "label": "scope and no-fallback obligations",
+      "start_line": 48,
+      "end_line": 69,
+      "source_byte_start": 2942,
+      "source_byte_end_exclusive": 4288,
+      "excerpt_bytes": 1346,
+      "excerpt_sha256": "2a727812b3d07b780505293ea6065b0bac2422d327d5014607863a3595ba8150",
+      "text": "## Decision and scope\n\nTreat these as major investigations that can produce shared engine alterations,\nprovider integration, execution tests and complete public-operation evidence.\nFinish each with an explicit implemented/retained or evidenced decline/drop\ndisposition. A literature review, declaration count, planning report or new\ncounter does not itself complete the work.\n\nUse existing item-20/RFC-0044 source, aggregate, expression, key, selection,\nmemory and scheduling owners. Extend the existing\n[structural investigations](native-structural-work-investigations-2026-11-11.md)\nN for dictionary expressions and I for survivor batching; attach spatial work\nto [item 19](native-rich-data-lifecycle-2026-10-24.md). Do not create duplicate\nphase IDs or parallel copies of those investigations. This intake does not\nautomatically revive a previously dropped mechanism unchanged.\n\nCLI SQL, embedded workflow, Python SQL, DataFrame and typed-plan interfaces must\nconverge on the same admitted engine implementation. Vortex remains native input, execution\nrepresentation and output. Other engines may supply independent correctness\nreferences only. No Spark, DataFusion, DuckDB, Polars, Velox or Vortex\nquery-engine integration may execute residual work. Dependency and copied-code\nprovenance remain Apache-2.0-compatible and explicitly reviewed.\n"
+    },
+    {
+      "file": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "label": "ordered execution sequence and independent decisions",
+      "start_line": 71,
+      "end_line": 99,
+      "source_byte_start": 4289,
+      "source_byte_end_exclusive": 8575,
+      "excerpt_bytes": 4286,
+      "excerpt_sha256": "cd8f3f88f1872fcce5bbb79bd21dd54d075e64aece410ab5dd89444825e518de",
+      "text": "## Sequence and deliverables\n\nThe maintainer's subsequent November 13 efficiency request orders this work by\ndependencies and shared validation. The activation unit now has a valid accepted\nbaseline. Reconcile its new facts/counters with the existing\n10k inventory, adding separately versioned missing cases for mixed aggregates,\nreal dictionaries, actual FSST inputs and encoded-float semantics. This is a\ndelta review of existing evidence, not another whole-engine inventory phase.\n\n| Execution order | Work and existing owner | Why it belongs here |\n| --- | --- | --- |\n| Completed finite experiments | Per-measure candidate dropped; exact scalar regional partials retained locally; constant-key candidate dropped | All use the existing aggregate state/finalizer. Regional coverage and the rejected grouped candidate's semantic/read proof remain useful evidence, but only the scalar regional implementation is retained. Wider constant-key support remains open. Keep each acceptance decision separate. |\n| Completed finite experiment | Dictionary-domain text transforms and consumers, extending N, retained locally | Actual dictionary retention, exact consumer equality, 210 work witnesses, both complete engine totals and portable proof pass. The added dictionary/control subgroup's small engine increase and all other regressions remain explicit. |\n| Completed finite experiment | Named exact source/domain facts and ALP/FastLanes predicate admission, extending C, retained locally | All 2,786 declarations per runtime, 620 finite-source admissions, 150 actual compressed-dispatch witnesses, separate lifecycles and portable proof pass. Both complete engine totals decrease; all regressions remain explicit. No general fact framework is introduced. |\n| Completed finite admission review | Existing unversioned native Bloom provider declined before performance | Pinned persistence warning, four native signed-zero counterexamples, registration/resource review and portable proof are preserved. This is not a timing drop or a rejection of every Bloom design; the summary parent remains open. |\n| Completed finite experiment | Necessary nonspatial text signatures declined; accepted source restored | All 9,040 declarations per runtime, lifecycles and 840 logical exclusions pass, with separate read/construction evidence. Complete fresh engine time increases despite the favorable new-text and lifecycle results. Preserve the complete drop; the summary parent remains open. |\n| Completed finite admission screen | Unconditional survivor callback adapter declined, extending I | Eight complete requests and preparation/ownership counterexamples settle the prerequisite: existing batches remain in force. Error and callback order prevent unconditional buffering despite fewer preparations in the small control. Broader attribution and a separately admitted narrow route remain open. |\n| Next active work | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |\n| Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |\n| Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |\n\nThe descriptive sections below retain each original contract; the table and\nphase plan own execution order. Within a work unit, reuse fixture generation,\nsource bindings, independent references and narrow regression checks where their\nidentities match. Run required broad/native/package gates at the coherent source\nboundary. Freeze and decide each distinct performance experiment independently;\ndo not add their savings or silently repeat measured declarations. An unavailable\nproof requires an explicit bounded decline or missing-evidence disposition and\ndoes not hold unrelated ready work indefinitely.\n"
+    },
+    {
+      "file": "native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "label": "owner separation and cross-obligation distinction",
+      "start_line": 101,
+      "end_line": 105,
+      "source_byte_start": 8576,
+      "source_byte_end_exclusive": 8958,
+      "excerpt_bytes": 382,
+      "excerpt_sha256": "d5965b3e7545a746993e0f2fb9a0d7a4db35afd1144775c2f173450db064c328",
+      "text": "Reconcile overlaps once: B remains the corrected direct COUNT bridge; C owns\nreusable source/domain facts; N owns dictionary transforms; I owns survivor\nbatching. Active source-segment reuse is not join-build reuse, and post-key-\nvalidation membership rejection is not source scan pruning. The older D and\nrecommendation-13 obligations therefore retain their distinct missing work.\n"
+    },
+    {
+      "file": "phased-execution-plan.md",
+      "label": "current coverage queue through FSST/spatial sequence",
+      "start_line": 366,
+      "end_line": 425,
+      "source_byte_start": 26692,
+      "source_byte_end_exclusive": 31142,
+      "excerpt_bytes": 4450,
+      "excerpt_sha256": "2d8dbb802814ba3610962d41c3c1fc7d7d9fdc223012414ef886c2a38adf18bf",
+      "text": "  The [necessary text-signature experiment](native-text-signatures-2026-11-14.md)\n  has a complete drop disposition: all 9,040 declarations per runtime, 1,080\n  lifecycle operations, 840 logical exclusion witnesses and portable checks\n  pass, but complete fresh engine time rises from 682.167470629 to\n  692.796513379 seconds. The accepted source is restored. The\n  [survivor admission screen](native-survivor-admission-2026-11-15.md) declines\n  unconditional callback batching before performance: eight complete requests,\n  preparation/ownership witnesses, semantic counterexamples and portable replay\n  pass. The existing batch contract remains in force for FSST. Broader I,\n  the predicate-summary parent\n  and broader constant-key support remain open.\n  - [ ] Reconcile only changed activation/exposure against the accepted coverage\n    baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,\n    N's dictionary owner and I's consumer boundaries; attach versioned missing\n    encoding/selectivity controls without restarting the full inventory.\n  - [ ] Complete individually proved aggregate measures from metadata, then\n    exact regional partials and constant-group-key completion through the same\n    state/finalizer. Keep each semantic admission distinct; missing region\n    coverage proof must not block a separately complete per-measure result.\n    The November 14 per-measure experiment has a complete drop disposition,\n    and exact scalar regional partials have a complete local retain disposition.\n    The fixed constant-key candidate has a complete drop disposition with\n    semantic and read-avoidance proof. Wider constant-key support remains open;\n    this parent stays open and does not request a repeat of the rejected experiment.\n  - [x] Extend existing N with dictionary-domain text transforms retained into\n    filter/group/distinct consumers and compatible shared outputs. The\n    [finite November 14 unit](native-dictionary-domain-2026-11-14.md) is retained\n    with complete comparison, lifecycle, ownership and portable evidence.\n  - [x] Extend C with only the exact source/domain facts required by the named\n    ALP/FastLanes predicate consumer. Reuse compatible aggregate proofs; preserve\n    typed comparison and failure semantics without a speculative fact framework.\n    The [finite November 14 unit](native-source-domain-facts-2026-11-14.md) is\n    retained with complete comparison, lifecycle, ownership and portable proof.\n  - [ ] Evaluate predicate-specific zone evidence: the existing unversioned\n    native Bloom provider has a complete finite admission decline before performance.\n    The finite necessary text-signature candidate has a complete drop\n    disposition with logical-exclusion, separate read/construction and portable\n    evidence preserved. This parent remains open; spatial summaries follow\n    the exact spatial execution contract below.\n  - [ ] Extend existing I with separately observed pruning/read/consumer units\n    and survivor-driven batching. Settle its retained or declined batch/lifetime\n    contract before tuning per-batch FSST matcher lifetime or codec choices.\n    The finite unconditional-adapter screen is complete and declined with\n    portable evidence; the existing batch contract is retained. Broader\n    attribution and a separately admitted narrow route remain open.\n  - [ ] Investigate a conservative FSST candidate prefilter and separately\n    bounded exact-table matcher reuse on the resulting accepted consumer path,\n    with selective/dense and hardware controls.\n  - [ ] Advance item-19 spatial execution through native coordinate/offset\n    arrays, conservative bounds and exact surviving-candidate kernels, then\n    evaluate optional persisted spatial summaries. Required spatial support does\n    not depend on a successful FSST, codec or CPU-fusion optimization.\n  - [ ] Assess codec/consumer choices with the accepted consumer and batch\n    contracts. Investigate distinct bounded CPU expression fusion last, only\n    after attributing work left by the accepted upstream reductions and preserving\n    the prior dropped candidate.\n  Preserve all prior FSST, text-zoning, fusion and layout observations. Extend\n  the fixed 10k with versioned encoding/metadata/selectivity controls where it\n  lacks exposure. No speculative codec default, duplicate N/I/spatial queue,\n  broad unmeasured rewrite, new fallback engine or competitive claim is admitted.\n"
+    },
+    {
+      "file": "phased-execution-plan.md",
+      "label": "broader item-20 order and open obligations",
+      "start_line": 427,
+      "end_line": 453,
+      "source_byte_start": 31143,
+      "source_byte_end_exclusive": 33291,
+      "excerpt_bytes": 2148,
+      "excerpt_sha256": "1846984353d694b7ce253db07c8f98197bac2742c05317a702aa7a89c0c2cc34",
+      "text": "- [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**\n  The higher-priority coverage and follow-on items above own the immediate\n  sequence. Reconcile their outcomes into B/C/I/N here rather than implementing\n  them twice. A post-validation join membership filter does not by itself close\n  D's source-pruning obligation, and immutable source-segment reuse does not\n  close recommendation 13's join-build reuse obligation. Keep those distinct\n  residual contracts and the original acceptance records.\n  - Scope: `v1_candidate_pending_feasibility`; the\n    [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)\n    records the initial seven research candidates in existing RFC 0044 owners.\n    The later November 10 maintainer addition below preserves that program and\n    changes the immediate order: complete the\n    [dictionary repair's hosted integration](native-dictionary-execution-repair-2026-11-10.md)\n    following the current-runtime observation (dictionary PR #1677, Variant and\n    UUID hosted checks now pass), investigate recommendations 8 and 9 independently, then evaluate\n    recommendation 10 under its separate resource objective. The November 11\n    [structural-work intake](native-structural-work-investigations-2026-11-11.md)\n    adds H–N. The complete 10,000-declaration exposure audit for H/I/J is recorded;\n    physical activation and removable-work attribution remain prerequisites to\n    their independent experiments. A is closed; B's original invalid baseline\n    remains preserved, while its corrected bounded connection is retained in\n    the November 14 activation unit without an independent COUNT speedup claim.\n    H/I/J retain their structural contracts after the higher-priority sequence, when\n    their exposure gates pass. K/L retain separate semantic gates, M remains\n    topology research and N is dictionary-activation-gated. Select later extensions from\n    demonstrated exposure and value; keep managed-object growth separate. Required useful\n    spatial support and resource-admitted deep traversal remain in item 19.\n"
+    },
+    {
+      "file": "phased-execution-plan.md",
+      "label": "item-20 execution status and remaining gates",
+      "start_line": 454,
+      "end_line": 463,
+      "source_byte_start": 33291,
+      "source_byte_end_exclusive": 33980,
+      "excerpt_bytes": 689,
+      "excerpt_sha256": "04707b8f8bb7fae8ba9ceadeea77635315d46798aef3e73a2c401d82b562792b",
+      "text": "  - Execution checklist:\n    - [x] Implement the November 12 requested\n      [single native pipeline](native-pipeline-consolidation-2026-11-12.md)\n      before further performance investigations. The frozen\n      [original 10,000-case observation](../benchmarks/native-pipeline-consolidation-2026-11-12.md)\n      passes every complete result. The November 13 correction admits minute\n      EXTRACT/DATE_TRUNC SQL through the shared compiler with separate tests;\n      it postdates that measured runtime. Hosted PR integration remains separate,\n      and item 19, item 20 and CG-1 through CG-23 remain open.\n    - [x] Complete hosted integration of the dictionary callback repair. PR #1677\n"
+    },
+    {
+      "file": "native-shared-pipeline-investigations-2026-11-10.md",
+      "label": "structural and item-19 open status",
+      "start_line": 45,
+      "end_line": 59,
+      "source_byte_start": 2983,
+      "source_byte_end_exclusive": 3999,
+      "excerpt_bytes": 1016,
+      "excerpt_sha256": "3fed074d38f8d6767cafe7e274b4cf08c164e047f37e306372db1944dd46a767",
+      "text": "The November 11\n[structural-work addition](native-structural-work-investigations-2026-11-11.md)\nadds H–N below. Its complete 10,000-declaration exposure audit identifies new\nworkload needs and candidate shapes; physical activation and removable-work\nattribution remain open before independent experiments. The existing A/B sequence remains a foundation. Carry later mechanisms\nonly where those paths or separate attribution demonstrate a consumer benefit.\nThe separate required spatial and resource-admitted deep-traversal obligations\nunder item 19 remain open.\n\nThe maintainer's supplied research inspected `0cae77b` and considered UUID PR\n#1675. It is an investigation input, not proof that a candidate is already\nimplemented, safe or faster. Reconcile each hypothesis against the accepted\nsource at experiment start, including the current Variant expression changes.\nCheck pinned Vortex array, selection, source and scan capabilities before\nextending an owner. No external query engine executes ShardLoom work.\n"
+    },
+    {
+      "file": "native-shared-pipeline-investigations-2026-11-10.md",
+      "label": "shared owners, ordered program and distinct open work",
+      "start_line": 81,
+      "end_line": 119,
+      "source_byte_start": 5366,
+      "source_byte_end_exclusive": 8050,
+      "excerpt_bytes": 2684,
+      "excerpt_sha256": "3bfbf3e40a06b274c9cb50dd770d3fa71aeadded654c672bbb528df02c50ec65",
+      "text": "## Intake dispositions and shared owners\n\nThe original A–G and November 11 H–N proposals are accepted for investigation\nand attached to existing runtime obligations. B's bounded connection is now\nretained within the November 14 activation unit; this does not independently\naccept a COUNT speedup or any other lettered hypothesis. The earlier operator-state\nrecommendations 8–15 retain their own recorded dispositions.\n\nThe November 13 [phase-plan priority](phased-execution-plan.md#planned) now\nplaces complete optimization coverage and its explicitly requested runtime\ncapabilities first. The subsequent\n[metadata and encoded-consumer intake](native-metadata-encoded-consumer-investigations-2026-11-13.md)\nfollows that work, extending the same item-20 owners, existing N/I investigations\nand item-19 spatial obligation. Preserve the original protocols and dispositions;\nthe newer priority does not admit the invalid B baseline or a dropped mechanism.\nThe later dependency review puts regional partials immediately after per-measure\nmetadata completion. The per-measure experiment is dropped and the distinct\n[scalar regional unit](native-regional-aggregates-2026-11-14.md) is now retained\nlocally. The subsequent\n[constant-key candidate](native-constant-key-aggregates-2026-11-14.md) has a\ncomplete drop disposition after the full fresh engine total increases, despite\nsemantic, read-reduction and separate lifecycle proof. The subsequent\n[dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent\n[source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained\nlocally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)\ndeclines the current unversioned provider before performance. The subsequent\n[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is\ndeclined with complete evidence and accepted source restored. The finite\nunconditional-callback batching screen is complete and declined before\nperformance; the existing batch contract remains for FSST. The\n[survivor admission report](native-survivor-admission-2026-11-15.md) records\nthis bounded result. Broader I read/consumer attribution and narrower batching\nremain open. Broader constant-key support remains open. The sequence settles I's\nbatch/lifetime contract before FSST/codec tuning and places exact spatial\nexecution before optional spatial summaries.\nReconcile B/C/I/N outcomes from those active units once; the table below is an\nindex of hypothesis contracts rather than a second execution sequence. Source\nsegment reuse and a post-validation membership filter do not close join-build\nreuse or D's source-pruning obligations.\n"
+    },
+    {
+      "file": "native-shared-pipeline-investigations-2026-11-10.md",
+      "label": "independent open gate statement",
+      "start_line": 271,
+      "end_line": 278,
+      "source_byte_start": 19834,
+      "source_byte_end_exclusive": 20407,
+      "excerpt_bytes": 573,
+      "excerpt_sha256": "8619d2a6f8bb8868d8d3c497b3eb856862ba11a12c216a9dc738addeb3b3da63",
+      "text": "The [October 25 workflow rejection](../benchmarks/native-workflow-drop-2026-10-25.md),\nOctober 28 join-probe reuse outcome and\n[#1657 selection-retention rejection](../benchmarks/native-selection-retention-2026-11-04.md)\nremain dropped. A new mechanism needs a new protocol; do not rehabilitate an old\ncandidate by changing its denominator. Verify the supplied external research\nagainst primary sources before adopting a design, and never transfer another\nsystem's measured benefit to ShardLoom. Item 19, item 20, RFC 0044 and CG-1 through\nCG-23 remain independently open.\n"
+    },
+    {
+      "file": "native-structural-work-investigations-2026-11-11.md",
+      "label": "structural program status and scope",
+      "start_line": 5,
+      "end_line": 38,
+      "source_byte_start": 101,
+      "source_byte_end_exclusive": 2429,
+      "excerpt_bytes": 2328,
+      "excerpt_sha256": "3f69fa1ac106ac665b9fce83a30b6ea1a19b8446fb6548fa82b027fc2ad49a96",
+      "text": "Status: maintainer-requested investigations, November 11, 2026;\n`v1_candidate_pending_feasibility`, `claim_gate_status=not_claim_grade`.\nThis extends the [shared-pipeline program](native-shared-pipeline-investigations-2026-11-10.md)\ninside item 20 and RFC 0044. H–N below are hypothesis labels, not new phase or\ncompetitive gate IDs. The [phased plan](phased-execution-plan.md#planned) alone\nowns execution order. Item 19's spatial/deep-traversal obligations, the remaining\nanalytical capability/performance tracks, and CG-1 through CG-23 stay open.\n\n## Intake and evidence boundary\n\nThe supplied research checked accepted source\n`591fdb42f6ffcd5e9003b4a5c130324d7a34a62c`. The source checks below were repeated\nagainst that revision. They establish execution boundaries, not attributable\nCPU shares, runtime activation or a performance result. Shared index PR #1678\nand resident-window PR #1679 are integrated; their independent complete-cohort\nresults remain in their original packets. The original current-runtime 10k\nobservation remains invalid and the 517-case repair remains a separate cohort.\nThere is no new complete 10k total or additive savings claim.\n\nThe declaration exposure audit for H, I and J is complete below. Next match the\nidentified shapes to actual owner activation and removable work, then freeze\nindependent experiments. Declaration counts alone do not admit a candidate.\nRolling DISTINCT's first candidate was dropped and its hosted/retirement closeout\nis complete. The [A join-mapping candidate](native-join-payload-mapping-2026-11-12.md)\nalso passes correctness but is dropped under the complete engine-time rule;\nportable replay and all 30 corruption controls pass. PR #1681, all 58 PR and\n55 exact-main checks, clear review, verified retirement and post-retirement\nreplay are complete. The [B COUNT checkpoint](native-direct-count-bridge-2026-11-12.md)\nrecords an invalid baseline with 60 failed controls, no candidate benchmark\nexecution and exact restoration of accepted runtime/test/CI sources. B remains\npending a versioned harness correction and complete comparison. These foundations\ndo not admit H/I/J by themselves. K and L have\nseparate semantic gates; M is conditional topology research; N requires actual\ndictionary activation. Do not restart a previously rejected mechanism unchanged.\n"
+    },
+    {
+      "file": "native-structural-work-investigations-2026-11-11.md",
+      "label": "survivor batching status and remaining evidence",
+      "start_line": 104,
+      "end_line": 145,
+      "source_byte_start": 7230,
+      "source_byte_end_exclusive": 9995,
+      "excerpt_bytes": 2765,
+      "excerpt_sha256": "836c69c208dbc27b3a1ec95cca45c8ee29d0dad14cee6d814312dbefae35472c",
+      "text": "## I: batches formed from surviving rows\n\nThe [November 15 admission screen](native-survivor-admission-2026-11-15.md)\ndeclines an unconditional callback adapter before performance. Eight complete\nrequests establish sparse preparation exposure; four compaction controls reduce\nactual preparations only when the consumer sees combined arrays. Projection\nerror order and source callback counterexamples prevent generic admission, and\nsmall visible slices retain whole credited allocations. Existing batches remain\nthe accepted contract for FSST. Broader attribution and a separately proved\nnarrow source/consumer route remain open; this does not reject every form of\nsurvivor batching.\n\nThe [transform path](../../shardloom-vortex/src/local_primitive_relational_transform.rs)\ndelivers selected arrays during each input callback. Ordinary\n[join consumption](../../shardloom-vortex/src/local_primitives/native_relational_join.rs)\ncreates pending pairs per incoming batch and flushes its remainder at that batch's\nend. Existing [replay capture](../../shardloom-vortex/src/local_primitive_relational_replay_capture.rs)\nhas a separate retained-fragment compaction boundary. None of these observations\nby itself measures sparse downstream setup cost.\n\nSeparate source admission from consumer batching. At one admitted filter/join\nboundary, retain bounded native selections/owners across input callbacks and\nflush on useful-row capacity, credited backing-byte pressure, finite demand or\nproducer completion. Logical consolidation must remove actual downstream\npreparation; an array list that still invokes each consumer separately is not\nthe proposed improvement. Count physical compaction and copying when necessary.\n[Data Chunk Compaction in Vectorized Execution](https://people.iiis.tsinghua.edu.cn/~huanchen/publications/data-chunk-compaction-sigmod25.pdf)\nstudies this setup-versus-movement tradeoff and logical join compaction. Treat\nits algorithms as research inputs, not measured benefits for this engine.\n\nCharge pinned backing allocations, metadata, queues and overlap, not only selected\nrows. Preserve row order/multiplicity, floating observation order, callbacks,\nerrors and bounded cancellation. Flush when demand can be met rather than pulling\nan unnecessary suffix. Capillary owns hard admission; any PulseWeave feedback\nuses completed work units and has a separate sampling-cost control.\n\nBegin with selective filter → expression → aggregate and join → join workflows,\nincluding dense, tiny, wide-payload and low-grant controls. Report actual survivor\ndistributions, consumer preparations/invocations, retained/peak backing bytes,\ncopies and complete engine time. Keep this distinct from rejected generic range\nselection and parked ingestion topology.\n\n"
+    }
+  ],
+  "method_and_limits": [
+    "Read only the five specified Markdown files.",
+    "No edits to the worktree files.",
+    "No Git operations, imports, builds, tests, benchmarks, packaging, or external requests.",
+    "Every excerpt is stored as the exact source UTF-8 byte slice for its inclusive line range and includes its byte offset, length, and SHA-256.",
+    "No new scope or wording is proposed; findings identify current-state passages and open obligations only."
+  ]
+}

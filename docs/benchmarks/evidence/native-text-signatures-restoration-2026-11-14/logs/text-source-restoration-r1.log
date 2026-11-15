@@ -1,0 +1,9 @@
+Switched to a new branch 'codex/native-read-consumer-batching'
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/restore_text_source.py", line 103, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/restore_text_source.py", line 76, in main
+    assert closeout['commit']=='494b41cca98349b21dfabd09a129a205c6664ecb' and closeout['disposition']=='retain'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

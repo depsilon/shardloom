@@ -1,0 +1,482 @@
+{
+  "findings": [
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 367,
+        "start": 366
+      },
+      "literal_lines": [
+        "  Necessary text-zone evidence is next; the predicate-summary parent stays open. Broader",
+        "  constant-key support remains open."
+      ],
+      "note": "After Bloom admission decline, says necessary text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/phased-execution-plan.md",
+      "sha256": "314ed19db02eee2a6641457e8fced66748cfaed4e60a714059c743f40f454ca8"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 393,
+        "start": 390
+      },
+      "literal_lines": [
+        "  - [ ] Evaluate predicate-specific zone evidence: the existing unversioned",
+        "    native Bloom provider has a complete finite admission decline before performance.",
+        "    Evaluate necessary text signatures next where warranted. Spatial",
+        "    summaries follow the exact spatial execution contract below."
+      ],
+      "note": "Checklist still schedules text signatures next before spatial summaries.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/phased-execution-plan.md",
+      "sha256": "314ed19db02eee2a6641457e8fced66748cfaed4e60a714059c743f40f454ca8"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 35,
+        "start": 32
+      },
+      "literal_lines": [
+        "[pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines",
+        "the current unversioned provider before performance. Necessary text-zone evidence",
+        "is next; broader",
+        "constant-key support and coverage remain open."
+      ],
+      "note": "Top-level current status places text-zone evidence next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    },
+    {
+      "kind": "stale_current_status_with_measurement_contract",
+      "lines": {
+        "end": 81,
+        "start": 81
+      },
+      "literal_lines": [
+        "| Next active work | Necessary nonspatial text-zone evidence | Prove conservative upstream exclusion and measure surviving work before tuning downstream execution. ALP acceptance is not a semantic prerequisite for independent text work. |"
+      ],
+      "note": "Sequence table marks text-zone evidence as next; rationale also states conservative-exclusion and surviving-work proof requirements.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "preserve_as_contract": [
+        "Prove conservative upstream exclusion and measure surviving work before tuning downstream execution.",
+        "ALP acceptance is not a semantic prerequisite for independent text work."
+      ],
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 175,
+        "start": 173
+      },
+      "literal_lines": [
+        "The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines",
+        "the current unversioned provider before performance. Necessary text-zone evidence",
+        "is next; the predicate-summary parent remains open."
+      ],
+      "note": "Regional handoff repeats text-zone-next status.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 10,
+        "start": 5
+      },
+      "literal_lines": [
+        "Status: **complete finite admission review; declined before performance**.",
+        "This resolves the existing Vortex 0.93.0 `vortex.bloom_filter.sbbf` provider",
+        "intake in the November 13 metadata sequence. The broader predicate-summary",
+        "parent stays open. Necessary text-zone evidence is next, followed by I's",
+        "pruning/read/consumer attribution and survivor batching. Item-19 spatial",
+        "execution, item 20, RFC 0044 and CG-1 through CG-23 retain their obligations."
+      ],
+      "note": "Bloom decline is complete, but the passage still says text-zone work is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-bloom-admission-2026-11-14.md",
+      "sha256": "9e1b82e151d7943917e41eff7265db5de6967e0d6cc853375d512d31850c3d33"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 26,
+        "start": 21
+      },
+      "literal_lines": [
+        "[pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines the",
+        "current unversioned provider before performance. Necessary text-zone evidence",
+        "is next. Broader",
+        "metadata/encoded work, required item-19 spatial execution, item 20, RFC 0044 and",
+        "CG-1 through CG-23 retain their remaining obligations. No merge, publication or",
+        "release follows from this local disposition."
+      ],
+      "note": "Source-domain acceptance summary says text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "sha256": "0c7bfbf6e2a32a119a685f73969894a4a073d0946e2af03d4252dfb16cd2d2f1"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 35,
+        "start": 30
+      },
+      "literal_lines": [
+        "locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next; the predicate-summary parent remains open.",
+        "Broader metadata/encoded work, required item-19 spatial execution, item 20,",
+        "RFC 0044 and CG-1 through CG-23 retain their remaining obligations. This local",
+        "acceptance does not merge, publish, release or imply competitive superiority."
+      ],
+      "note": "Dictionary-domain acceptance summary says text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "sha256": "1eaf38de5a44389034bcd1c057975db062bf06205b5a43f85e10dbf1ba964620"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 36,
+        "start": 32
+      },
+      "literal_lines": [
+        "locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next. Broader constant-key support,",
+        "the parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.",
+        "No merge, package publication, release or writer-default change is implied."
+      ],
+      "note": "Constant-key decline summary says text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "sha256": "fa1c8545179ce1b01eae47a452ae636b99677641929048fc2a487c3e8350ce07"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 29,
+        "start": 24
+      },
+      "literal_lines": [
+        "[source-domain C unit](native-source-domain-facts-2026-11-14.md).",
+        "The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next. Broader constant-key support, the metadata/optimization",
+        "queue, item 19/20, RFC 0044 and CG-1 through",
+        "CG-23 remain open. This local acceptance does not merge or publish the change."
+      ],
+      "note": "Regional retain summary says text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "sha256": "6be4f154478b8797c249752a5a209e49d612d08114d229d48741cb9a88a71a4f"
+    },
+    {
+      "kind": "stale_current_status",
+      "lines": {
+        "end": 163,
+        "start": 158
+      },
+      "literal_lines": [
+        "The [pinned Bloom admission review](../architecture/native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next. Pruning/read/consumer attribution and survivor batching, FSST work,",
+        "required item-19 spatial execution and optional summaries, codec choices and",
+        "bounded CPU fusion retain their own gates. Item 20, RFC 0044 and CG-1 through",
+        "CG-23 remain open where recorded. This local disposition creates no PR merge,"
+      ],
+      "note": "Benchmark report\u2019s final status paragraph says text-zone evidence is next.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/native-source-domain-facts-2026-11-14.md",
+      "sha256": "eaa447e3cca9df58c75bb59e6387b5dad04b74e72d31feb03a05731239e675bc"
+    },
+    {
+      "kind": "additional_related_current_status",
+      "lines": {
+        "end": 19,
+        "start": 15
+      },
+      "literal_lines": [
+        "locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next. Broader",
+        "constant-key support and the item-20/RFC-0044 queue remain open. Those separate",
+        "decisions do not change this experiment's drop disposition."
+      ],
+      "note": "Outside the explicitly named architecture set, this related completion note repeats text-zone-next status.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "sha256": "1b30e7de3cf0de5be38e2125709df6e6cd81b7126b00d280af861fbbdb8f0fa0"
+    },
+    {
+      "kind": "additional_related_current_status",
+      "lines": {
+        "end": 110,
+        "start": 105
+      },
+      "literal_lines": [
+        "locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)",
+        "declines the current unversioned provider before performance. Necessary text-zone",
+        "evidence is next. Broader constant-key support remains open. The sequence settles I's",
+        "batch/lifetime contract before FSST/codec tuning and places exact spatial",
+        "execution before optional spatial summaries.",
+        "Reconcile B/C/I/N outcomes from those active units once; the table below is an"
+      ],
+      "note": "Outside the explicitly named architecture set, this shared-pipeline sequence repeats text-zone-next status.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "sha256": "822c9c81188cf59a52224d7d9b11570304988692aa275090c382f4a4bfca6cb4"
+    },
+    {
+      "kind": "historical_measurement_contract_keep_unchanged",
+      "lines": {
+        "end": 8,
+        "start": 3
+      },
+      "literal_lines": [
+        "Decision: **drop unconditional default text zoning**. Retain the test-only zoned",
+        "candidate, bounded completed-read observer, correctness tests and reproducible",
+        "evidence. The final public matrix passes all 129 complete-value checks, but 40 of",
+        "43 query bests are slower than C7: best total is 2.80% higher, geometric mean is",
+        "3.32% higher, and one-ingest-plus-best arithmetic is 2.11% higher. The retained",
+        "numeric compression and earlier C7 query/ownership work remain unchanged."
+      ],
+      "note": "Prior writer-side text zoning experiment is dropped as a default; retain its measured result and test-only artifacts.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "sha256": "87412224edc1337da1a0df2b9f016476c96f34a8e8eff9613d0dc0010b4d4713"
+    },
+    {
+      "kind": "historical_measurement_contract_keep_unchanged",
+      "lines": {
+        "end": 23,
+        "start": 17
+      },
+      "literal_lines": [
+        "The candidate restores native text-zone statistics around selected-field Zstd",
+        "writers. It retains C7's numeric compression, typed query consumers, ownership",
+        "and bounded source-batch writer. Native `RepartitionStrategy -> ZonedStrategy ->",
+        "existing Zstd leaf` supplies row-aligned bounded text extrema and null counts;",
+        "native Vortex scans consume that metadata. No external query engine, answer",
+        "cache, text dictionary redesign or predicate rewrite is introduced. Public ingest",
+        "admission remains unchanged and there is no new user-facing tuning knob."
+      ],
+      "note": "Old experiment mechanism and boundaries: writer-side zoned text extrema/null counts, native Vortex scan consumer, unchanged ingest admission.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "sha256": "87412224edc1337da1a0df2b9f016476c96f34a8e8eff9613d0dc0010b4d4713"
+    },
+    {
+      "kind": "historical_measurement_contract_keep_unchanged",
+      "lines": {
+        "end": 43,
+        "start": 36
+      },
+      "literal_lines": [
+        "The paired executable includes the unzoned control and zoned candidate together;",
+        "it does not compare different query implementations. The later promoted source",
+        "moves the zoned helper into ordinary writer dispatch and retains the unzoned",
+        "helper only for paired tests. Applied-strategy and stage-plan reports identify",
+        "the added zoning. That local promotion was measured and then dropped. The production writer and",
+        "text-zone tests are restored to the `14e54146` configuration, which keeps zoning",
+        "as a test-only candidate. Final restoration identity and post-restoration checks",
+        "are recorded separately below."
+      ],
+      "note": "Old paired writer candidate/restoration statement; production writer and tests remain at recorded prior configuration.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "sha256": "87412224edc1337da1a0df2b9f016476c96f34a8e8eff9613d0dc0010b4d4713"
+    },
+    {
+      "kind": "next_work_contract_keep_unchanged",
+      "lines": {
+        "end": 82,
+        "start": 82
+      },
+      "literal_lines": [
+        "| Next | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |"
+      ],
+      "note": "The successor I batching/read attribution row is the current post-text direction supplied by the task owner; its bounded-selection, pinned-byte, flush-point, preparation-reduction criteria are a contract, not stale text evidence.",
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    }
+  ],
+  "outcome_context_from_task_owner": {
+    "fresh_engine_seconds": {
+      "baseline": 682.167470629,
+      "candidate": 692.796513379
+    },
+    "fresh_results_per_runtime": 9040,
+    "lifecycle_engine_seconds": {
+      "baseline": 0.520543159,
+      "candidate": 0.39972614
+    },
+    "lifecycle_operations_per_runtime": 540,
+    "next_direction": "I read attribution and survivor batching",
+    "read_witnesses": 840,
+    "text_candidate": "complete_decline"
+  },
+  "requested_architecture_coverage": [
+    {
+      "current_text_next_or_pending_passages": 2,
+      "lines": [
+        {
+          "end": 367,
+          "start": 366
+        },
+        {
+          "end": 393,
+          "start": 390
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/phased-execution-plan.md",
+      "sha256": "314ed19db02eee2a6641457e8fced66748cfaed4e60a714059c743f40f454ca8"
+    },
+    {
+      "current_text_next_or_pending_passages": 2,
+      "lines": [
+        {
+          "end": 35,
+          "start": 32
+        },
+        {
+          "end": 175,
+          "start": 173
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    },
+    {
+      "current_text_next_or_pending_passages": 0,
+      "lines": [],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-optimization-inventory-2026-11-13.md",
+      "sha256": "5e38fd89bc91d8bf7c1eb9262ed09e265327ff4f7184e93bdb9fc8f32e5e6691"
+    },
+    {
+      "current_text_next_or_pending_passages": 1,
+      "lines": [
+        {
+          "end": 10,
+          "start": 5
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-bloom-admission-2026-11-14.md",
+      "sha256": "9e1b82e151d7943917e41eff7265db5de6967e0d6cc853375d512d31850c3d33"
+    },
+    {
+      "current_text_next_or_pending_passages": 1,
+      "lines": [
+        {
+          "end": 26,
+          "start": 21
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "sha256": "0c7bfbf6e2a32a119a685f73969894a4a073d0946e2af03d4252dfb16cd2d2f1"
+    },
+    {
+      "current_text_next_or_pending_passages": 1,
+      "lines": [
+        {
+          "end": 35,
+          "start": 30
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "sha256": "1eaf38de5a44389034bcd1c057975db062bf06205b5a43f85e10dbf1ba964620"
+    },
+    {
+      "current_text_next_or_pending_passages": 1,
+      "lines": [
+        {
+          "end": 36,
+          "start": 32
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "sha256": "fa1c8545179ce1b01eae47a452ae636b99677641929048fc2a487c3e8350ce07"
+    },
+    {
+      "current_text_next_or_pending_passages": 1,
+      "lines": [
+        {
+          "end": 29,
+          "start": 24
+        }
+      ],
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "sha256": "6be4f154478b8797c249752a5a209e49d612d08114d229d48741cb9a88a71a4f"
+    }
+  ],
+  "schema": "shardloom.text_document_status_inventory.v1",
+  "scope": "Current documentation passages in the eight requested architecture files and corresponding non-evidence benchmark Markdown. Additional directly related current-status passages outside that named list are included and labeled. Historical text-writer experiment material is recorded separately as unchanged.",
+  "search_scope_and_gaps": {
+    "evidence_archives_excluded": true,
+    "historical_text_writer_benchmark_is_not_a_pending_text_signature_queue_item": "docs/benchmarks/perf-text-layout-pruning-2026-09-05.md records the prior writer-side default-zoning drop and its frozen measurement boundaries; it is separated under historical_measurement_contract_keep_unchanged.",
+    "matching_current_status_in_non_evidence_benchmark_markdown": [
+      "docs/benchmarks/native-source-domain-facts-2026-11-14.md:158-163"
+    ],
+    "native_optimization_inventory_has_no_matching_current_text_next_or_pending_passage": true,
+    "no_worktree_source_edits_or_native_execution_tests_builds_publication": true,
+    "searched_requested_architecture_docs": [
+      "docs/architecture/phased-execution-plan.md",
+      "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "docs/architecture/native-optimization-inventory-2026-11-13.md",
+      "docs/architecture/native-bloom-admission-2026-11-14.md",
+      "docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "docs/architecture/native-regional-aggregates-2026-11-14.md"
+    ]
+  },
+  "source_files": [
+    {
+      "bytes": 6358,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-bloom-admission-2026-11-14.md",
+      "sha256": "9e1b82e151d7943917e41eff7265db5de6967e0d6cc853375d512d31850c3d33"
+    },
+    {
+      "bytes": 8004,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-constant-key-aggregates-2026-11-14.md",
+      "sha256": "fa1c8545179ce1b01eae47a452ae636b99677641929048fc2a487c3e8350ce07"
+    },
+    {
+      "bytes": 13737,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-dictionary-domain-2026-11-14.md",
+      "sha256": "1eaf38de5a44389034bcd1c057975db062bf06205b5a43f85e10dbf1ba964620"
+    },
+    {
+      "bytes": 20744,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md",
+      "sha256": "f25887d73435011022748a165cc8900fc34b5da30dc3b60b8fdfc259df19a5a7"
+    },
+    {
+      "bytes": 6245,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-metadata-measure-completion-2026-11-14.md",
+      "sha256": "1b30e7de3cf0de5be38e2125709df6e6cd81b7126b00d280af861fbbdb8f0fa0"
+    },
+    {
+      "bytes": 9521,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-regional-aggregates-2026-11-14.md",
+      "sha256": "6be4f154478b8797c249752a5a209e49d612d08114d229d48741cb9a88a71a4f"
+    },
+    {
+      "bytes": 19975,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-shared-pipeline-investigations-2026-11-10.md",
+      "sha256": "822c9c81188cf59a52224d7d9b11570304988692aa275090c382f4a4bfca6cb4"
+    },
+    {
+      "bytes": 6434,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/native-source-domain-facts-2026-11-14.md",
+      "sha256": "0c7bfbf6e2a32a119a685f73969894a4a073d0946e2af03d4252dfb16cd2d2f1"
+    },
+    {
+      "bytes": 257740,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/architecture/phased-execution-plan.md",
+      "sha256": "314ed19db02eee2a6641457e8fced66748cfaed4e60a714059c743f40f454ca8"
+    },
+    {
+      "bytes": 10171,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/native-source-domain-facts-2026-11-14.md",
+      "sha256": "eaa447e3cca9df58c75bb59e6387b5dad04b74e72d31feb03a05731239e675bc"
+    },
+    {
+      "bytes": 18336,
+      "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/perf-text-layout-pruning-2026-09-05.md",
+      "sha256": "87412224edc1337da1a0df2b9f016476c96f34a8e8eff9613d0dc0010b4d4713"
+    }
+  ],
+  "status": "read_only_inventory_complete",
+  "worktree": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree"
+}

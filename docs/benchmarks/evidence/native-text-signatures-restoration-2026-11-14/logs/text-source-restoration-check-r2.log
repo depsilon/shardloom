@@ -1,0 +1,1 @@
+{"status": "restored_accepted_source", "retained_commit": "0e6d15a658c060bd11e9a1001a71515f69f2064e", "branch": "codex/native-read-consumer-batching", "experimental_commit_retained": "0c4aee0b7e7c97f73598482d2b4b69b4b0f5c531", "accepted_runtime_code_unchanged": true, "source_switch_repeated": false, "query_executions": 0}

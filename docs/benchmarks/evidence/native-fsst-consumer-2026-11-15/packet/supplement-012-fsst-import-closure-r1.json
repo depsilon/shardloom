@@ -1,0 +1,509 @@
+{
+  "status": "passed_relocated_actual_imports",
+  "loaded": [
+    {
+      "module": "activation_observations",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/activation_observations.py",
+      "identity": {
+        "bytes": 8512,
+        "sha256": "d3326f258acbd69a48cbf81f7b553f50d2e9af23cb5d6beea34d246810828209"
+      }
+    },
+    {
+      "module": "activation_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/activation_support.py",
+      "identity": {
+        "bytes": 5693,
+        "sha256": "a80937f09b32867bc94a17babbe054714f858500bb0e6a945f50bd444a77a26e"
+      }
+    },
+    {
+      "module": "clickbench_native_sql",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/clickbench_native_sql.py",
+      "identity": {
+        "bytes": 9770,
+        "sha256": "964fb0799147650cda754c95240e5afea780b9bd89b5a46b91b2bc4a3a92d0ff"
+      }
+    },
+    {
+      "module": "clickbench_reference_packet",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/clickbench_reference_packet.py",
+      "identity": {
+        "bytes": 4863,
+        "sha256": "8d20759e0b2d41dcdba4b9d4033abfa7961f888d62cdf3e3e2545d8482ba5102"
+      }
+    },
+    {
+      "module": "dictionary_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_cases.py",
+      "identity": {
+        "bytes": 5118,
+        "sha256": "495dbcaa4318afcfa85daf2e03b3a06fcce32e10b0f150c1e21ac9f5121c83b7"
+      }
+    },
+    {
+      "module": "dictionary_contract",
+      "origin": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_contract.py",
+      "identity": {
+        "bytes": 2912,
+        "sha256": "54b3b22a142be9071301ac0f1be52839b243a4b9241dc048bfb4269db78f5def"
+      }
+    },
+    {
+      "module": "dictionary_observations",
+      "origin": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_observations.py",
+      "identity": {
+        "bytes": 3251,
+        "sha256": "d15e66c3eb4ae05fde3076147cd2327f279d5c01e85351832d93e7df72446456"
+      }
+    },
+    {
+      "module": "dictionary_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_support.py",
+      "identity": {
+        "bytes": 4240,
+        "sha256": "0a827f9bd3ff6d9924f8d1e25f5bb8ced45447d88e9154553fb8931faf52a6f6"
+      }
+    },
+    {
+      "module": "direct_count_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/count-cohort-v2/client/direct_count_cases.py",
+      "identity": {
+        "bytes": 12210,
+        "sha256": "7ff5ee4ed54191a00de84c423af0d4c3a5aaf898d1d05617b47e582b39c6284d"
+      }
+    },
+    {
+      "module": "fsst_offline_import",
+      "origin": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/portable_fsst_v2.py",
+      "identity": {
+        "bytes": 19557,
+        "sha256": "29bb99d763e5ff01c0e14efe40a7fdf7c63db60d7e26cf0bbc5a98c51c37ce60"
+      }
+    },
+    {
+      "module": "fsst_replay",
+      "origin": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/fsst_replay.py",
+      "identity": {
+        "bytes": 16739,
+        "sha256": "27db5cfc43d7ceb8f268e27b6279375ad78baa23a88a5799c0205ed71c9d08f8"
+      }
+    },
+    {
+      "module": "fsst_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/fsst_support.py",
+      "identity": {
+        "bytes": 3342,
+        "sha256": "2187ca2225cf78af5bb19fd68dc501f687e2991cab02240a7a9311f16db3d921"
+      }
+    },
+    {
+      "module": "local_uat_storage",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/local_uat_storage.py",
+      "identity": {
+        "bytes": 8451,
+        "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+      }
+    },
+    {
+      "module": "mechanism_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-tools/mechanism_cases.py",
+      "identity": {
+        "bytes": 2783,
+        "sha256": "7359a961fd9797a779cdca10a259fada66ed25824fe866fed7e2f574e4d899d6"
+      }
+    },
+    {
+      "module": "native_dictionary_text_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/python/tests/native_dictionary_text_cases.py",
+      "identity": {
+        "bytes": 13165,
+        "sha256": "333d6024076026aa364f20ddf5e482cbe05c96cc8cce764ff04b70da2f25cd92"
+      }
+    },
+    {
+      "module": "native_source_fact_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/python/tests/native_source_fact_cases.py",
+      "identity": {
+        "bytes": 10433,
+        "sha256": "f68d82d814150342868816bf6f97ab4e044d991e3ef8985376a56de0a4f9ca74"
+      }
+    },
+    {
+      "module": "native_text_signature_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-fsst-consumer-2026-11-15/input-freeze-r1/native_text_signature_cases.py",
+      "identity": {
+        "bytes": 9654,
+        "sha256": "efa98dd58ed50dfd1c3ea2f251b955513d2592f7990a19e6830db0b282406ffd"
+      }
+    },
+    {
+      "module": "native_workflow_protocol",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/native_workflow_protocol.py",
+      "identity": {
+        "bytes": 7464,
+        "sha256": "43555348ec3cff00464881568f2f557d797db039589d5191b37a21e1c048c855"
+      }
+    },
+    {
+      "module": "query_surface",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/__init__.py",
+      "identity": {
+        "bytes": 273,
+        "sha256": "00b24d3eb534096b9b1f2ec7e022e27ebee44125dd1c0737373490ad0272b471"
+      }
+    },
+    {
+      "module": "query_surface.activation_matrix",
+      "origin": "/Users/dylan/LocalData/shardloom/native-optimization-coverage-2026-11-13/activation-client-r1/activation_cases.py",
+      "identity": {
+        "bytes": 7100,
+        "sha256": "55857971cea925a4e6751aa481f1fc112cd2c6863bda3050489475b47421694e"
+      }
+    },
+    {
+      "module": "query_surface.adapters",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/adapters.py",
+      "identity": {
+        "bytes": 18555,
+        "sha256": "40fd521032b5d55a8aeeadec316b9defcfe7d776f24c70308635966351ee4060"
+      }
+    },
+    {
+      "module": "query_surface.corpus",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/corpus.py",
+      "identity": {
+        "bytes": 21241,
+        "sha256": "8eb6554c580d9c3f228902f8959c54e76da52b61690496dabd164023193ce390"
+      }
+    },
+    {
+      "module": "query_surface.coverage",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/coverage.py",
+      "identity": {
+        "bytes": 2175,
+        "sha256": "3ef87299341acdf568972949495f446e2e76ae99ddcd189ff61d48e5b08f6ec9"
+      }
+    },
+    {
+      "module": "query_surface.datasets",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/datasets.py",
+      "identity": {
+        "bytes": 20182,
+        "sha256": "328f71d55942ea22144b71a8f894210f37d21c0b8f9edd8942b46a71ee6698ff"
+      }
+    },
+    {
+      "module": "query_surface.evidence",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/evidence.py",
+      "identity": {
+        "bytes": 12445,
+        "sha256": "bc0216b9d4bcfb88742d719cb0712b69927d4726d5567824918aa47eafcca36f"
+      }
+    },
+    {
+      "module": "query_surface.expanded_asof",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_asof.py",
+      "identity": {
+        "bytes": 8057,
+        "sha256": "904d48fb1a2d0f5b316bc98fdf14e67fdaca11618822e03bdb38dec9c41f3bc5"
+      }
+    },
+    {
+      "module": "query_surface.expanded_catalog",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_catalog.py",
+      "identity": {
+        "bytes": 26703,
+        "sha256": "48af8599cb4e7fbaa049a3fb195a5c845689eaa9840fbd8b21c5d547dda23c15"
+      }
+    },
+    {
+      "module": "query_surface.expanded_freeze",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_freeze.py",
+      "identity": {
+        "bytes": 24462,
+        "sha256": "7184c190e47612e488aa688e623a0dd4f9d1210b151e001c3aa319d16d6fe52d"
+      }
+    },
+    {
+      "module": "query_surface.expanded_inputs",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_inputs.py",
+      "identity": {
+        "bytes": 5478,
+        "sha256": "80e0179d9c530a61e43fbc8c1e485d389957f400b5f993bf4eb868bccf9fa140"
+      }
+    },
+    {
+      "module": "query_surface.expanded_metrics",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_metrics.py",
+      "identity": {
+        "bytes": 7917,
+        "sha256": "a5a295f3acb3d9794dd5c38818963dcf685ab60fc3322e77600bf92c4ff39c0b"
+      }
+    },
+    {
+      "module": "query_surface.expanded_nested",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_nested.py",
+      "identity": {
+        "bytes": 9207,
+        "sha256": "d075cfd318cf5ee791ce10917d673749c22bb5a893695fc59b8ae8f4d7695d0c"
+      }
+    },
+    {
+      "module": "query_surface.expanded_reference",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_reference.py",
+      "identity": {
+        "bytes": 10927,
+        "sha256": "7e49fbed0b13c3eb0a8e70c2e408290ea24ad83feb11c5e0516ffa824480dc0b"
+      }
+    },
+    {
+      "module": "query_surface.expanded_reference_input",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_reference_input.py",
+      "identity": {
+        "bytes": 8837,
+        "sha256": "3f0a43f9ad5bcf99a17c45370ab514cbea6dc33769c5d46c8f9a480c08cc9996"
+      }
+    },
+    {
+      "module": "query_surface.expanded_report",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_report.py",
+      "identity": {
+        "bytes": 13968,
+        "sha256": "76ec57bdf3b63d121fd6889914a787faa7dafe059dace7fe349da0d7ec058436"
+      }
+    },
+    {
+      "module": "query_surface.expanded_reuse",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_reuse.py",
+      "identity": {
+        "bytes": 2479,
+        "sha256": "b845ec3734fa8f0b870d0af70c315307ff8c8f868baacff0374cdf981301a509"
+      }
+    },
+    {
+      "module": "query_surface.expanded_run",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_run.py",
+      "identity": {
+        "bytes": 17201,
+        "sha256": "ed1123f54b35cc171fd55280b4f92bbb1ce6aef4b9c8d537bc7f642b9e2fa1c1"
+      }
+    },
+    {
+      "module": "query_surface.expanded_windows",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/expanded_windows.py",
+      "identity": {
+        "bytes": 8487,
+        "sha256": "f7de003984372e0db4b3743f3141b0850a144b154cc35f345ec5912649b9579a"
+      }
+    },
+    {
+      "module": "query_surface.polars_adapter",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/polars_adapter.py",
+      "identity": {
+        "bytes": 10051,
+        "sha256": "5dbc02b0400e0c2a5340a0bb45db0d87e06a944227b52a7838ed401455fc3e1d"
+      }
+    },
+    {
+      "module": "query_surface.report",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/report.py",
+      "identity": {
+        "bytes": 5527,
+        "sha256": "7e47454caa4db9e9fd7536cbc1b1cf83b382be2ae3fcdec20e21f190609eb5fc"
+      }
+    },
+    {
+      "module": "query_surface.run",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/run.py",
+      "identity": {
+        "bytes": 19241,
+        "sha256": "375c6a0e9bbe16e1d1ee166612eac7c3d02b954538aa47a50e0e5b75b119a816"
+      }
+    },
+    {
+      "module": "query_surface.semantics",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/semantics.py",
+      "identity": {
+        "bytes": 18504,
+        "sha256": "e6f0eff612506c129b64188e4916968281feecdedb855043a1ce2f69768bf074"
+      }
+    },
+    {
+      "module": "query_surface.specification",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/query_surface/specification.py",
+      "identity": {
+        "bytes": 11184,
+        "sha256": "d5320307d497e17be12874188b0e020a7b1c7b22a348bae970bfb3f973623401"
+      }
+    },
+    {
+      "module": "query_timing_report",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/query_timing_report.py",
+      "identity": {
+        "bytes": 4235,
+        "sha256": "1b0fd51d1ef359ee6603f8ffddad9223df3b10e2ee5195f17acaf4a3ad86d5d1"
+      }
+    },
+    {
+      "module": "resources",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/benchmarks/traditional_analytics/resources.py",
+      "identity": {
+        "bytes": 2987,
+        "sha256": "68a44a5c837bf6d639cc7f506a9f9fabcee3f1ab24db436fc081fa97d7efcdd0"
+      }
+    },
+    {
+      "module": "run_clickbench_query_uat",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/scripts/run_clickbench_query_uat.py",
+      "identity": {
+        "bytes": 30336,
+        "sha256": "43cf7d9f3bca1dc1a27296c7b46db63a938527bb051c3f50edd0b95f85dbce6e"
+      }
+    },
+    {
+      "module": "shardloom",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/__init__.py",
+      "identity": {
+        "bytes": 2795,
+        "sha256": "3c3bd9f73a86b74ed8678e4ee62a82c8ba4dd1d9943ee36c869f6130e94ae971"
+      }
+    },
+    {
+      "module": "shardloom._compat",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/_compat.py",
+      "identity": {
+        "bytes": 802,
+        "sha256": "e45cc0674b26eaae5b9992affc180092e2957d1d9e6e064940d8a4bc98cdce0f"
+      }
+    },
+    {
+      "module": "shardloom._exports",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/_exports.py",
+      "identity": {
+        "bytes": 15773,
+        "sha256": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd"
+      }
+    },
+    {
+      "module": "shardloom._result_schema",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/_result_schema.py",
+      "identity": {
+        "bytes": 10782,
+        "sha256": "d174b14d2c08b896a5b3e96fbd489b6b830f0c0d245b236bfa16b2eb7a54cb1b"
+      }
+    },
+    {
+      "module": "shardloom._temporal",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/_temporal.py",
+      "identity": {
+        "bytes": 9389,
+        "sha256": "b3779de1a6dc8c5504dbfa3a32b98e078173194e27fde4e08ebced4c96240fea"
+      }
+    },
+    {
+      "module": "shardloom.errors",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/errors.py",
+      "identity": {
+        "bytes": 9096,
+        "sha256": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955"
+      }
+    },
+    {
+      "module": "shardloom.models",
+      "origin": "/Users/dylan/LocalData/shardloom/expanded-query-2026-11-03/investigation-original-harness-r1/python/src/shardloom/models.py",
+      "identity": {
+        "bytes": 64175,
+        "sha256": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825"
+      }
+    },
+    {
+      "module": "source_facts_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_cases.py",
+      "identity": {
+        "bytes": 3921,
+        "sha256": "14c802fdfccc1fabffd184c10f95ee36a10e9eafc5ffa14bd9257042afaea3f2"
+      }
+    },
+    {
+      "module": "source_facts_contract",
+      "origin": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_contract.py",
+      "identity": {
+        "bytes": 2358,
+        "sha256": "96e5b6427ea9bb4d1cd944d93bb3f78f2a5c973fbdc0a742c71ac9cf7df74069"
+      }
+    },
+    {
+      "module": "source_facts_observations",
+      "origin": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_observations.py",
+      "identity": {
+        "bytes": 3984,
+        "sha256": "b35e52a5f404d7b405b634b3908267e98b83f80734d38e06d714669d69bab8b1"
+      }
+    },
+    {
+      "module": "source_facts_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_support.py",
+      "identity": {
+        "bytes": 4356,
+        "sha256": "33753d9827f9cab1d93f23085da3dc6ebd29a140226dabb11329c2d806c35a73"
+      }
+    },
+    {
+      "module": "source_facts_transport",
+      "origin": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_transport.py",
+      "identity": {
+        "bytes": 2641,
+        "sha256": "49801fcd0126d2c6fbb3edf3ebf91a3d7e27c07a19235b34bf9121544f3f34e4"
+      }
+    },
+    {
+      "module": "text_cases",
+      "origin": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text_cases.py",
+      "identity": {
+        "bytes": 4036,
+        "sha256": "7e113473622acad8d6b5bbb78bd9fe550241571fd34319fd5a649e7ebcebd76b"
+      }
+    },
+    {
+      "module": "text_contract",
+      "origin": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text_contract.py",
+      "identity": {
+        "bytes": 2350,
+        "sha256": "f4b51274d0fb5f1d3756853e0c5bfa44fbb5e35bc0dc005a5e932d49e7b0224d"
+      }
+    },
+    {
+      "module": "text_observations",
+      "origin": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text_observations.py",
+      "identity": {
+        "bytes": 2087,
+        "sha256": "3a5211a1176548bb69528b72a29fa35fc08ba2b611707853221805661d0753ef"
+      }
+    },
+    {
+      "module": "text_recovery_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text_recovery_support.py",
+      "identity": {
+        "bytes": 2105,
+        "sha256": "82390d3f6c3dba8ac1f9bd27e24f1cd8dc3bb4b7c02cfcd32b25caeedc7cf628"
+      }
+    },
+    {
+      "module": "text_support",
+      "origin": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text_support.py",
+      "identity": {
+        "bytes": 3546,
+        "sha256": "a26778aac89e10c7b550905c8c40f78b75b168bc8cc6e3ed40aff98cf48de844"
+      }
+    }
+  ],
+  "original_reads_forbidden": true,
+  "network_and_subprocess_forbidden": true,
+  "query_executions": 0,
+  "relocated_python_sources": 941,
+  "helper": {
+    "bytes": 11692,
+    "sha256": "48304580fd852126e6f0e1654e7565ed246396a7213ac1a85444ed349e866339"
+  }
+}

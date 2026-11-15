@@ -1,0 +1,1518 @@
+{
+  "acceptance_summary": {
+    "all_claim_boundaries_named": true,
+    "all_families_have_active_phase_owner": true,
+    "all_families_have_evidence_and_validators": true,
+    "all_families_have_phase_items": true,
+    "all_no_fallback_invariants_named": true,
+    "all_unchecked_global_review_rows_mapped": true
+  },
+  "blockers": [],
+  "claim_gate_status": "not_claim_grade",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "gate_id": "gar-runtime-impl-6d.runtime_gap_family_burn_down",
+  "global_review_unchecked_count": 36,
+  "mapped_gap_count": 36,
+  "performance_claim_allowed": false,
+  "production_claim_allowed": false,
+  "rows": [
+    {
+      "claim_boundary": "Scoped language/runtime admission only; no broad SQL/DataFrame, production, or performance claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "SQL/Python/DataFrame front-door runtime breadth",
+      "global_review_line": 66,
+      "global_review_title": "Executable SQL/DataFrame runtime, distributed runtime, broad lakehouse-compatible output, and",
+      "next_action": "Promote the next admitted grammar/API family only with runtime fixtures and parity evidence.",
+      "no_fallback_invariant": "SQL and DataFrame helpers must lower to ShardLoom-owned runtime or fail before fallback or external execution.",
+      "owning_modules": [
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "python/src/shardloom/query.py",
+        "python/src/shardloom/context.py",
+        "python/src/shardloom/session.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar",
+        "GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "SQL",
+        "Python context/session",
+        "DataFrame-style helpers",
+        "CLI"
+      ],
+      "required_evidence": [
+        "positive runtime fixtures",
+        "decoded-reference expectations",
+        "front-door parity rows",
+        "deterministic unsupported diagnostics"
+      ],
+      "runtime_gap_family": "language_front_door_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_sql_python_dataframe_parity.py",
+        "python3 scripts/check_python_user_surface_completion.py",
+        "python3 -m unittest python/tests/test_query_builder.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 95,
+      "global_review_title": "Native Vortex support is not universal across every source, sink, operator, and workload.",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 116,
+      "global_review_title": "Full production Vortex segment extraction and broad operator coverage remain incomplete.",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local/fixture object-store or table proof only; no production lakehouse/cloud claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Object-store, table, catalog, lakehouse, commit, and recovery runtime",
+      "global_review_line": 134,
+      "global_review_title": "Table/catalog metadata reads, object-store commits, generalized manifest serialization, CDC",
+      "next_action": "Promote one credential-safe local/table workflow or leave it as deterministic blocked evidence.",
+      "no_fallback_invariant": "Provider probes, credentials, commits, and table writes require explicit policy and cannot delegate fallback execution.",
+      "owning_modules": [
+        "shardloom-cli/src/object_store_runtime.rs",
+        "shardloom-cli/src/table_intelligence_plan.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "object-store CLI/Python helpers",
+        "table helpers",
+        "lakehouse capability rows"
+      ],
+      "required_evidence": [
+        "credential/effect policy",
+        "local or isolated provider fixture",
+        "commit/rollback/recovery proof",
+        "cleanup evidence"
+      ],
+      "runtime_gap_family": "object_store_table_lakehouse_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli object_store",
+        "cargo test -p shardloom-cli local_table",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 162,
+      "global_review_title": "Broad Vortex reader/writer execution, object-store Vortex I/O execution, general",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 183,
+      "global_review_title": "Claim-grade broad predicate, DType, nested, null, and production metadata-only runtime",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped output/fanout proof only; no production sink or platform write claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Production output, fanout, sink, and user-facing write runtime",
+      "global_review_line": 206,
+      "global_review_title": "Production output sink APIs, object-store output, broad user-facing write methods,",
+      "next_action": "Promote the next sink only after artifact, replay, and metadata-loss evidence exist.",
+      "no_fallback_invariant": "Compatibility export is translation, not fallback execution; partial writes must fail closed.",
+      "owning_modules": [
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "shardloom-vortex/src",
+        "python/src/shardloom/session.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime",
+        "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "output helpers",
+        "fanout routes",
+        "native Vortex output",
+        "compatibility exports"
+      ],
+      "required_evidence": [
+        "OutputPlan",
+        "sink artifact proof",
+        "metadata preservation/loss report",
+        "replay/fidelity evidence"
+      ],
+      "runtime_gap_family": "output_sink_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli output",
+        "python3 scripts/check_user_route_capability_report.py",
+        "python3 scripts/check_release_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local/fixture object-store or table proof only; no production lakehouse/cloud claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Object-store, table, catalog, lakehouse, commit, and recovery runtime",
+      "global_review_line": 230,
+      "global_review_title": "Object-store I/O providers, probes, coordinator/worker runtime, checkpoint writes, retry",
+      "next_action": "Promote one credential-safe local/table workflow or leave it as deterministic blocked evidence.",
+      "no_fallback_invariant": "Provider probes, credentials, commits, and table writes require explicit policy and cannot delegate fallback execution.",
+      "owning_modules": [
+        "shardloom-cli/src/object_store_runtime.rs",
+        "shardloom-cli/src/table_intelligence_plan.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "object-store CLI/Python helpers",
+        "table helpers",
+        "lakehouse capability rows"
+      ],
+      "required_evidence": [
+        "credential/effect policy",
+        "local or isolated provider fixture",
+        "commit/rollback/recovery proof",
+        "cleanup evidence"
+      ],
+      "runtime_gap_family": "object_store_table_lakehouse_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli object_store",
+        "cargo test -p shardloom-cli local_table",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "No performance, superiority, Spark-displacement, or replacement claim until CG-5/CG-6 evidence passes.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Claim-grade benchmark, performance, Spark-displacement, and replacement evidence",
+      "global_review_line": 255,
+      "global_review_title": "Broad claim-grade Spark-displacement evidence and public performance claims remain gated.",
+      "next_action": "Keep front-door performance equivalence fail-closed until measured equivalent front-door rows, rerun approval, and claim gates are satisfied.",
+      "no_fallback_invariant": "External engines are comparison baselines or test oracles only, never ShardLoom execution or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "website-src/src",
+        "scripts/check_benchmark_publication_claim_gate.py",
+        "scripts/check_front_door_benchmark_publication.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "benchmark artifacts",
+        "website benchmark page",
+        "README claims",
+        "release gates"
+      ],
+      "required_evidence": [
+        "reproducible artifact",
+        "correctness evidence",
+        "hardware/runtime context",
+        "claim-grade route/certificate linkage",
+        "front-door equivalence admission blockers"
+      ],
+      "runtime_gap_family": "performance_claim_evidence",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_benchmark_artifact_completeness.py",
+        "python3 scripts/check_benchmark_publication_claim_gate.py",
+        "python3 scripts/check_front_door_benchmark_publication.py",
+        "python3 scripts/check_website_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped deterministic effect admission only; no arbitrary plugin/UDF/LLM/vector/platform claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Extensions, UDFs, LLM/API calls, embeddings, vector search, and external effects",
+      "global_review_line": 316,
+      "global_review_title": "Extension execution, UDF execution, LLM/API calls, embeddings, and external effects remain",
+      "next_action": "Promote one effect family only after policy, sandbox, and deterministic denial evidence exist.",
+      "no_fallback_invariant": "Effectful work requires explicit admission and must not hide network, credentials, plugin execution, or fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/extension_manifest_effect_matrix.rs",
+        "shardloom-cli/src/effect_budget_plan.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.effectful_operations"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "extension reports",
+        "UDF helpers",
+        "effect policy",
+        "security/release gates"
+      ],
+      "required_evidence": [
+        "capability declaration",
+        "permission policy",
+        "sandbox posture",
+        "security/effect diagnostics"
+      ],
+      "runtime_gap_family": "effects_extensions_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli extension",
+        "cargo test -p shardloom-cli effect",
+        "python3 scripts/check_release_security_gate.py"
+      ]
+    },
+    {
+      "claim_boundary": "Fixture/contract scope only; no production streaming, broker, REST, or exactly-once claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Streaming, live/hybrid, CDC, broker/state-store, and remote API runtime",
+      "global_review_line": 355,
+      "global_review_title": "Full streaming runtime and object-store streaming reads remain gated/report-only.",
+      "next_action": "Promote the next bounded live/hybrid transition or keep remote API paths contract-only.",
+      "no_fallback_invariant": "Live, hybrid, broker, and remote execution must be ShardLoom-owned and explicit or blocked before fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/cg22_engine_fabric.rs",
+        "shardloom-cli/src/rest_api_planning.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "live/hybrid CLI",
+        "engine selection",
+        "REST planning",
+        "remote API surfaces"
+      ],
+      "required_evidence": [
+        "freshness/snapshot proof",
+        "bounded state fixture",
+        "retry/cancellation cleanup proof",
+        "remote/control-plane safety fields"
+      ],
+      "runtime_gap_family": "streaming_live_hybrid_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli cg22",
+        "cargo test -p shardloom-cli rest_api",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local safety evidence only; no distributed/shuffle/spill production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Spill, OOM, adaptive execution, retry, cancellation, commit, and fault tolerance",
+      "global_review_line": 377,
+      "global_review_title": "Actual runtime spill/OOM production enforcement remains limited to synthetic or local",
+      "next_action": "Promote one bounded memory/fault-tolerance guard with cleanup evidence.",
+      "no_fallback_invariant": "Memory pressure, retry, and commit failures must fail deterministically before fallback, external delegation, or process OOM.",
+      "owning_modules": [
+        "shardloom-cli/src/cg14_memory_runtime_hardening.rs",
+        "shardloom-cli/src/fault_tolerance_promotion_gate.rs",
+        "shardloom-exec/src"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "memory/spill diagnostics",
+        "runtime reports",
+        "benchmark safety rows"
+      ],
+      "required_evidence": [
+        "memory reservation proof",
+        "pre-OOM deterministic blocker",
+        "spill cleanup proof",
+        "retry/cancellation state evidence"
+      ],
+      "runtime_gap_family": "spill_fault_tolerance_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli memory",
+        "cargo test -p shardloom-cli fault_tolerance",
+        "cargo test -p shardloom-exec"
+      ]
+    },
+    {
+      "claim_boundary": "No performance, superiority, Spark-displacement, or replacement claim until CG-5/CG-6 evidence passes.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Claim-grade benchmark, performance, Spark-displacement, and replacement evidence",
+      "global_review_line": 394,
+      "global_review_title": "Broad property/fuzz execution and claim-grade benchmark superiority coverage remain blocked",
+      "next_action": "Keep front-door performance equivalence fail-closed until measured equivalent front-door rows, rerun approval, and claim gates are satisfied.",
+      "no_fallback_invariant": "External engines are comparison baselines or test oracles only, never ShardLoom execution or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "website-src/src",
+        "scripts/check_benchmark_publication_claim_gate.py",
+        "scripts/check_front_door_benchmark_publication.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "benchmark artifacts",
+        "website benchmark page",
+        "README claims",
+        "release gates"
+      ],
+      "required_evidence": [
+        "reproducible artifact",
+        "correctness evidence",
+        "hardware/runtime context",
+        "claim-grade route/certificate linkage",
+        "front-door equivalence admission blockers"
+      ],
+      "runtime_gap_family": "performance_claim_evidence",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_benchmark_artifact_completeness.py",
+        "python3 scripts/check_benchmark_publication_claim_gate.py",
+        "python3 scripts/check_front_door_benchmark_publication.py",
+        "python3 scripts/check_website_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local safety evidence only; no distributed/shuffle/spill production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Spill, OOM, adaptive execution, retry, cancellation, commit, and fault tolerance",
+      "global_review_line": 417,
+      "global_review_title": "Runtime adaptive execution, runtime filters, skew handling, and compaction writes remain",
+      "next_action": "Promote one bounded memory/fault-tolerance guard with cleanup evidence.",
+      "no_fallback_invariant": "Memory pressure, retry, and commit failures must fail deterministically before fallback, external delegation, or process OOM.",
+      "owning_modules": [
+        "shardloom-cli/src/cg14_memory_runtime_hardening.rs",
+        "shardloom-cli/src/fault_tolerance_promotion_gate.rs",
+        "shardloom-exec/src"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "memory/spill diagnostics",
+        "runtime reports",
+        "benchmark safety rows"
+      ],
+      "required_evidence": [
+        "memory reservation proof",
+        "pre-OOM deterministic blocker",
+        "spill cleanup proof",
+        "retry/cancellation state evidence"
+      ],
+      "runtime_gap_family": "spill_fault_tolerance_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli memory",
+        "cargo test -p shardloom-cli fault_tolerance",
+        "cargo test -p shardloom-exec"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local safety evidence only; no distributed/shuffle/spill production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Spill, OOM, adaptive execution, retry, cancellation, commit, and fault tolerance",
+      "global_review_line": 433,
+      "global_review_title": "Broad retry, cancellation, and commit execution remain incomplete.",
+      "next_action": "Promote one bounded memory/fault-tolerance guard with cleanup evidence.",
+      "no_fallback_invariant": "Memory pressure, retry, and commit failures must fail deterministically before fallback, external delegation, or process OOM.",
+      "owning_modules": [
+        "shardloom-cli/src/cg14_memory_runtime_hardening.rs",
+        "shardloom-cli/src/fault_tolerance_promotion_gate.rs",
+        "shardloom-exec/src"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.distributed_spill_oom_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "memory/spill diagnostics",
+        "runtime reports",
+        "benchmark safety rows"
+      ],
+      "required_evidence": [
+        "memory reservation proof",
+        "pre-OOM deterministic blocker",
+        "spill cleanup proof",
+        "retry/cancellation state evidence"
+      ],
+      "runtime_gap_family": "spill_fault_tolerance_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli memory",
+        "cargo test -p shardloom-cli fault_tolerance",
+        "cargo test -p shardloom-exec"
+      ]
+    },
+    {
+      "claim_boundary": "Diagnostics and scoped trace evidence only; no production observability/exporter claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Live profiling, traces, metrics exporters, debug bundles, and runtime introspection",
+      "global_review_line": 454,
+      "global_review_title": "Live profiling collectors, profile artifacts, debug bundles, metrics exporters, trace",
+      "next_action": "Split live profiling/exporters into explicit safe-admission slices before runtime promotion.",
+      "no_fallback_invariant": "Profiling/exporting must not execute hidden probes, external collectors, or fallback engines.",
+      "owning_modules": [
+        "shardloom-cli/src/observability_schema_coverage.rs",
+        "shardloom-cli/src/query_trace.rs"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "observability reports",
+        "profile plans",
+        "debug/trace artifacts"
+      ],
+      "required_evidence": [
+        "safe profiler admission",
+        "artifact redaction policy",
+        "exporter capability matrix",
+        "side-effect-free diagnostics"
+      ],
+      "runtime_gap_family": "observability_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli observability",
+        "cargo test -p shardloom-cli query_trace",
+        "python3 scripts/check_release_security_gate.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped local/fixture object-store or table proof only; no production lakehouse/cloud claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Object-store, table, catalog, lakehouse, commit, and recovery runtime",
+      "global_review_line": 532,
+      "global_review_title": "Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,",
+      "next_action": "Promote one credential-safe local/table workflow or leave it as deterministic blocked evidence.",
+      "no_fallback_invariant": "Provider probes, credentials, commits, and table writes require explicit policy and cannot delegate fallback execution.",
+      "owning_modules": [
+        "shardloom-cli/src/object_store_runtime.rs",
+        "shardloom-cli/src/table_intelligence_plan.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "object-store CLI/Python helpers",
+        "table helpers",
+        "lakehouse capability rows"
+      ],
+      "required_evidence": [
+        "credential/effect policy",
+        "local or isolated provider fixture",
+        "commit/rollback/recovery proof",
+        "cleanup evidence"
+      ],
+      "runtime_gap_family": "object_store_table_lakehouse_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli object_store",
+        "cargo test -p shardloom-cli local_table",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "Interop direction/report scope only; no broad imported-plan execution claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Plan interoperability, Substrait direction, and universal harness execution",
+      "global_review_line": 749,
+      "global_review_title": "Real Substrait parser/exporter support, dependency adoption, round-trip fixtures, and",
+      "next_action": "Add one import/export or harness execution fixture only after capability and provenance gates are explicit.",
+      "no_fallback_invariant": "Imported plans must pass ShardLoom capability checks and cannot execute residual work through external engines or fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/plan_portability.rs",
+        "shardloom-cli/src/universal_harness_plan.rs"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "plan import/export",
+        "universal harness",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "import/export fixtures",
+        "capability checks",
+        "round-trip or deterministic blocked diagnostics",
+        "license/dependency review"
+      ],
+      "runtime_gap_family": "plan_interop_harness_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli plan_",
+        "cargo test -p shardloom-cli universal_harness",
+        "cargo test -p shardloom-contract-tests --test release_readiness_metadata"
+      ]
+    },
+    {
+      "claim_boundary": "No performance, superiority, Spark-displacement, or replacement claim until CG-5/CG-6 evidence passes.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Claim-grade benchmark, performance, Spark-displacement, and replacement evidence",
+      "global_review_line": 836,
+      "global_review_title": "Full competitive replacement remains incomplete until every sufficiency row has",
+      "next_action": "Keep front-door performance equivalence fail-closed until measured equivalent front-door rows, rerun approval, and claim gates are satisfied.",
+      "no_fallback_invariant": "External engines are comparison baselines or test oracles only, never ShardLoom execution or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "website-src/src",
+        "scripts/check_benchmark_publication_claim_gate.py",
+        "scripts/check_front_door_benchmark_publication.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "benchmark artifacts",
+        "website benchmark page",
+        "README claims",
+        "release gates"
+      ],
+      "required_evidence": [
+        "reproducible artifact",
+        "correctness evidence",
+        "hardware/runtime context",
+        "claim-grade route/certificate linkage",
+        "front-door equivalence admission blockers"
+      ],
+      "runtime_gap_family": "performance_claim_evidence",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_benchmark_artifact_completeness.py",
+        "python3 scripts/check_benchmark_publication_claim_gate.py",
+        "python3 scripts/check_front_door_benchmark_publication.py",
+        "python3 scripts/check_website_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 957,
+      "global_review_title": "Generalized direct encoded count/filter/project execution and production compressed-execution",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 976,
+      "global_review_title": "Real SIMD/vectorized dispatch, production vectorized kernel path, adaptive parallelism",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "No performance, superiority, Spark-displacement, or replacement claim until CG-5/CG-6 evidence passes.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Claim-grade benchmark, performance, Spark-displacement, and replacement evidence",
+      "global_review_line": 1107,
+      "global_review_title": "Broad CG-5/CG-6 coverage, production stateful reuse runtime, and performance/superiority",
+      "next_action": "Keep front-door performance equivalence fail-closed until measured equivalent front-door rows, rerun approval, and claim gates are satisfied.",
+      "no_fallback_invariant": "External engines are comparison baselines or test oracles only, never ShardLoom execution or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "website-src/src",
+        "scripts/check_benchmark_publication_claim_gate.py",
+        "scripts/check_front_door_benchmark_publication.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "benchmark artifacts",
+        "website benchmark page",
+        "README claims",
+        "release gates"
+      ],
+      "required_evidence": [
+        "reproducible artifact",
+        "correctness evidence",
+        "hardware/runtime context",
+        "claim-grade route/certificate linkage",
+        "front-door equivalence admission blockers"
+      ],
+      "runtime_gap_family": "performance_claim_evidence",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_benchmark_artifact_completeness.py",
+        "python3 scripts/check_benchmark_publication_claim_gate.py",
+        "python3 scripts/check_front_door_benchmark_publication.py",
+        "python3 scripts/check_website_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Interop direction/report scope only; no broad imported-plan execution claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Plan interoperability, Substrait direction, and universal harness execution",
+      "global_review_line": 1128,
+      "global_review_title": "Imported-plan execution and actual universal harness execution remain unimplemented without",
+      "next_action": "Add one import/export or harness execution fixture only after capability and provenance gates are explicit.",
+      "no_fallback_invariant": "Imported plans must pass ShardLoom capability checks and cannot execute residual work through external engines or fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/plan_portability.rs",
+        "shardloom-cli/src/universal_harness_plan.rs"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "plan import/export",
+        "universal harness",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "import/export fixtures",
+        "capability checks",
+        "round-trip or deterministic blocked diagnostics",
+        "license/dependency review"
+      ],
+      "runtime_gap_family": "plan_interop_harness_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli plan_",
+        "cargo test -p shardloom-cli universal_harness",
+        "cargo test -p shardloom-contract-tests --test release_readiness_metadata"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 1192,
+      "global_review_title": "CG-19 is not universal across object-store/range-read, streaming sinks, table/catalog,",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped language/runtime admission only; no broad SQL/DataFrame, production, or performance claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "SQL/Python/DataFrame front-door runtime breadth",
+      "global_review_line": 1279,
+      "global_review_title": "Executable SQL parser/binder/runtime, DataFrame execution, UDF runtime, notebook runtime,",
+      "next_action": "Promote the next admitted grammar/API family only with runtime fixtures and parity evidence.",
+      "no_fallback_invariant": "SQL and DataFrame helpers must lower to ShardLoom-owned runtime or fail before fallback or external execution.",
+      "owning_modules": [
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "python/src/shardloom/query.py",
+        "python/src/shardloom/context.py",
+        "python/src/shardloom/session.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar",
+        "GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "SQL",
+        "Python context/session",
+        "DataFrame-style helpers",
+        "CLI"
+      ],
+      "required_evidence": [
+        "positive runtime fixtures",
+        "decoded-reference expectations",
+        "front-door parity rows",
+        "deterministic unsupported diagnostics"
+      ],
+      "runtime_gap_family": "language_front_door_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_sql_python_dataframe_parity.py",
+        "python3 scripts/check_python_user_surface_completion.py",
+        "python3 -m unittest python/tests/test_query_builder.py"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped language/runtime admission only; no broad SQL/DataFrame, production, or performance claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "SQL/Python/DataFrame front-door runtime breadth",
+      "global_review_line": 1343,
+      "global_review_title": "Mature DataFrame execution, SQL execution, joins, aggregations, windows, data-quality",
+      "next_action": "Promote the next admitted grammar/API family only with runtime fixtures and parity evidence.",
+      "no_fallback_invariant": "SQL and DataFrame helpers must lower to ShardLoom-owned runtime or fail before fallback or external execution.",
+      "owning_modules": [
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "python/src/shardloom/query.py",
+        "python/src/shardloom/context.py",
+        "python/src/shardloom/session.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar",
+        "GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "SQL",
+        "Python context/session",
+        "DataFrame-style helpers",
+        "CLI"
+      ],
+      "required_evidence": [
+        "positive runtime fixtures",
+        "decoded-reference expectations",
+        "front-door parity rows",
+        "deterministic unsupported diagnostics"
+      ],
+      "runtime_gap_family": "language_front_door_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_sql_python_dataframe_parity.py",
+        "python3 scripts/check_python_user_surface_completion.py",
+        "python3 -m unittest python/tests/test_query_builder.py"
+      ]
+    },
+    {
+      "claim_boundary": "Fixture/contract scope only; no production streaming, broker, REST, or exactly-once claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Streaming, live/hybrid, CDC, broker/state-store, and remote API runtime",
+      "global_review_line": 1366,
+      "global_review_title": "Production live/hybrid engines, broker/state-store runtime, object-store execution,",
+      "next_action": "Promote the next bounded live/hybrid transition or keep remote API paths contract-only.",
+      "no_fallback_invariant": "Live, hybrid, broker, and remote execution must be ShardLoom-owned and explicit or blocked before fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/cg22_engine_fabric.rs",
+        "shardloom-cli/src/rest_api_planning.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "live/hybrid CLI",
+        "engine selection",
+        "REST planning",
+        "remote API surfaces"
+      ],
+      "required_evidence": [
+        "freshness/snapshot proof",
+        "bounded state fixture",
+        "retry/cancellation cleanup proof",
+        "remote/control-plane safety fields"
+      ],
+      "runtime_gap_family": "streaming_live_hybrid_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli cg22",
+        "cargo test -p shardloom-cli rest_api",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "Fixture/contract scope only; no production streaming, broker, REST, or exactly-once claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Streaming, live/hybrid, CDC, broker/state-store, and remote API runtime",
+      "global_review_line": 1397,
+      "global_review_title": "HTTP listener, remote execution, Flight/ADBC runtime bridge, broker integration, production",
+      "next_action": "Promote the next bounded live/hybrid transition or keep remote API paths contract-only.",
+      "no_fallback_invariant": "Live, hybrid, broker, and remote execution must be ShardLoom-owned and explicit or blocked before fallback.",
+      "owning_modules": [
+        "shardloom-cli/src/cg22_engine_fabric.rs",
+        "shardloom-cli/src/rest_api_planning.rs",
+        "python/src/shardloom/context.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.live_hybrid_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "live/hybrid CLI",
+        "engine selection",
+        "REST planning",
+        "remote API surfaces"
+      ],
+      "required_evidence": [
+        "freshness/snapshot proof",
+        "bounded state fixture",
+        "retry/cancellation cleanup proof",
+        "remote/control-plane safety fields"
+      ],
+      "runtime_gap_family": "streaming_live_hybrid_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli cg22",
+        "cargo test -p shardloom-cli rest_api",
+        "python3 scripts/check_user_route_capability_report.py"
+      ]
+    },
+    {
+      "claim_boundary": "Release readiness remains blocked until explicit publication approval and all runtime claim gates pass.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Public package, release, signing, attestations, platform packs, and publication readiness",
+      "global_review_line": 1440,
+      "global_review_title": "Production `shardloom-foundry`, package publication, Foundry service invocation, Artifact",
+      "next_action": "Keep publication blocked until runtime families and release/security/package gates close.",
+      "no_fallback_invariant": "Release/package readiness cannot imply runtime fallback, hidden publication, or unapproved secrets.",
+      "owning_modules": [
+        "scripts/check_release_readiness.py",
+        "scripts/final_release_rehearsal.py",
+        "docs/release"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "release gates",
+        "package docs",
+        "Foundry/package channels",
+        "publication APIs"
+      ],
+      "required_evidence": [
+        "publication approval gate",
+        "package-channel matrix",
+        "security/provenance attestations",
+        "final release rehearsal"
+      ],
+      "runtime_gap_family": "release_package_platform_readiness",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_release_readiness.py",
+        "python3 scripts/final_release_rehearsal.py --allow-blocked",
+        "python3 scripts/check_package_channel_readiness.py --require-local-evidence"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped language/runtime admission only; no broad SQL/DataFrame, production, or performance claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "SQL/Python/DataFrame front-door runtime breadth",
+      "global_review_line": 1481,
+      "global_review_title": "SQL/DataFrame runtime, object-store runtime, writes, and any executable legacy facade shim",
+      "next_action": "Promote the next admitted grammar/API family only with runtime fixtures and parity evidence.",
+      "no_fallback_invariant": "SQL and DataFrame helpers must lower to ShardLoom-owned runtime or fail before fallback or external execution.",
+      "owning_modules": [
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "python/src/shardloom/query.py",
+        "python/src/shardloom/context.py",
+        "python/src/shardloom/session.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar",
+        "GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "SQL",
+        "Python context/session",
+        "DataFrame-style helpers",
+        "CLI"
+      ],
+      "required_evidence": [
+        "positive runtime fixtures",
+        "decoded-reference expectations",
+        "front-door parity rows",
+        "deterministic unsupported diagnostics"
+      ],
+      "runtime_gap_family": "language_front_door_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_sql_python_dataframe_parity.py",
+        "python3 scripts/check_python_user_surface_completion.py",
+        "python3 -m unittest python/tests/test_query_builder.py"
+      ]
+    },
+    {
+      "claim_boundary": "API-shape migration only; no runtime or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Typed result-envelope migration and legacy flat-field compatibility",
+      "global_review_line": 1505,
+      "global_review_title": "Legacy flat `fields` mirror, remaining command-family result migration beyond the",
+      "next_action": "Migrate one remaining command family to typed payloads with compatibility lock coverage.",
+      "no_fallback_invariant": "Result-envelope migration must not hide support, claim, fallback, or diagnostic fields.",
+      "owning_modules": [
+        "shardloom-cli/src/typed_envelope.rs",
+        "python/src/shardloom/client.py",
+        "shardloom-cli/tests/typed_envelope_contract_snapshots.rs"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "CLI JSON",
+        "Python client reports",
+        "agent-facing typed envelopes"
+      ],
+      "required_evidence": [
+        "typed envelope snapshots",
+        "Python accessor coverage",
+        "legacy mirror migration plan",
+        "agent contract compatibility"
+      ],
+      "runtime_gap_family": "result_envelope_migration",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli --test typed_envelope_contract_snapshots",
+        "cargo test -p shardloom-cli --test typed_envelope_compatibility_lock",
+        "PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client"
+      ]
+    },
+    {
+      "claim_boundary": "No performance, superiority, Spark-displacement, or replacement claim until CG-5/CG-6 evidence passes.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Claim-grade benchmark, performance, Spark-displacement, and replacement evidence",
+      "global_review_line": 1586,
+      "global_review_title": "Full comparative reruns, source-backed claim-grade promotion, managed-platform lanes,",
+      "next_action": "Keep front-door performance equivalence fail-closed until measured equivalent front-door rows, rerun approval, and claim gates are satisfied.",
+      "no_fallback_invariant": "External engines are comparison baselines or test oracles only, never ShardLoom execution or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "website-src/src",
+        "scripts/check_benchmark_publication_claim_gate.py",
+        "scripts/check_front_door_benchmark_publication.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.front_door_performance_benchmark_publication"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "benchmark artifacts",
+        "website benchmark page",
+        "README claims",
+        "release gates"
+      ],
+      "required_evidence": [
+        "reproducible artifact",
+        "correctness evidence",
+        "hardware/runtime context",
+        "claim-grade route/certificate linkage",
+        "front-door equivalence admission blockers"
+      ],
+      "runtime_gap_family": "performance_claim_evidence",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_benchmark_artifact_completeness.py",
+        "python3 scripts/check_benchmark_publication_claim_gate.py",
+        "python3 scripts/check_front_door_benchmark_publication.py",
+        "python3 scripts/check_website_readiness.py"
+      ]
+    },
+    {
+      "claim_boundary": "Release readiness remains blocked until explicit publication approval and all runtime claim gates pass.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Public package, release, signing, attestations, platform packs, and publication readiness",
+      "global_review_line": 1617,
+      "global_review_title": "Passing public release/package/performance/production/platform claims remain incomplete until",
+      "next_action": "Keep publication blocked until runtime families and release/security/package gates close.",
+      "no_fallback_invariant": "Release/package readiness cannot imply runtime fallback, hidden publication, or unapproved secrets.",
+      "owning_modules": [
+        "scripts/check_release_readiness.py",
+        "scripts/final_release_rehearsal.py",
+        "docs/release"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "release gates",
+        "package docs",
+        "Foundry/package channels",
+        "publication APIs"
+      ],
+      "required_evidence": [
+        "publication approval gate",
+        "package-channel matrix",
+        "security/provenance attestations",
+        "final release rehearsal"
+      ],
+      "runtime_gap_family": "release_package_platform_readiness",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "python3 scripts/check_release_readiness.py",
+        "python3 scripts/final_release_rehearsal.py --allow-blocked",
+        "python3 scripts/check_package_channel_readiness.py --require-local-evidence"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 1676,
+      "global_review_title": "Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped Vortex-native/provider evidence only; no universal operator, source, sink, or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "Native Vortex source/sink/operator and encoded execution coverage",
+      "global_review_line": 1745,
+      "global_review_title": "Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit",
+      "next_action": "Convert the next Vortex operator/source/sink blocker into encoded/runtime evidence or deterministic admission denial.",
+      "no_fallback_invariant": "Vortex query-engine integrations and external engines remain prohibited as runtime fallbacks.",
+      "owning_modules": [
+        "shardloom-vortex/src",
+        "shardloom-cli/src",
+        "benchmarks/traditional_analytics/run.py"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6A compute-engine completion gate and residual blocker burn-down"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "Vortex-native CLI",
+        "prepared/native benchmark rows",
+        "capability reports"
+      ],
+      "required_evidence": [
+        "Native I/O certificates",
+        "operator blocker matrix",
+        "encoded/residual/materialized mode evidence",
+        "Vortex provider admission evidence"
+      ],
+      "runtime_gap_family": "native_vortex_operator_runtime",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-vortex",
+        "cargo test -p shardloom-cli vortex_",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark"
+      ]
+    },
+    {
+      "claim_boundary": "Scoped fanout/reuse evidence only; no broad performance or production claim.",
+      "claim_gate_status": "not_claim_grade",
+      "external_engine_invoked": false,
+      "fallback_attempted": false,
+      "family_display_name": "I/O reuse and cross-format fanout follow-through",
+      "global_review_line": 1877,
+      "global_review_title": "`GAR-IOREUSE-1` adds I/O reuse and cross-format fanout follow-through. `GAR-IOREUSE-1A`",
+      "next_action": "Attach remaining fanout/reuse follow-through to concrete output or benchmark slices.",
+      "no_fallback_invariant": "Fanout and reuse must reuse ShardLoom-prepared state and local output stages, not external engines or fallback.",
+      "owning_modules": [
+        "benchmarks/traditional_analytics/run.py",
+        "shardloom-cli/src/sql_local_source_runtime.rs",
+        "website-src/src"
+      ],
+      "performance_claim_allowed": false,
+      "phase_items": [
+        "GLOBAL-RUNTIME-GAP-CARRY-FORWARD-1",
+        "GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime"
+      ],
+      "production_claim_allowed": false,
+      "public_surfaces": [
+        "fanout outputs",
+        "benchmark rows",
+        "website summaries",
+        "agent handoff packets"
+      ],
+      "required_evidence": [
+        "shared conversion DAG evidence",
+        "prepared-state reuse evidence",
+        "fanout replay proof",
+        "route-stage attribution"
+      ],
+      "runtime_gap_family": "io_reuse_fanout_followthrough",
+      "runtime_support_claim_allowed": false,
+      "validators": [
+        "cargo test -p shardloom-cli fanout",
+        "PYTHONPATH=benchmarks/traditional_analytics:scripts python3 -m unittest python.tests.test_public_native_benchmark",
+        "python3 scripts/check_benchmark_publish_doctor.py"
+      ]
+    }
+  ],
+  "runtime_gap_family_count": 13,
+  "runtime_gap_family_counts": {
+    "effects_extensions_runtime": 1,
+    "io_reuse_fanout_followthrough": 1,
+    "language_front_door_runtime": 4,
+    "native_vortex_operator_runtime": 9,
+    "object_store_table_lakehouse_runtime": 3,
+    "observability_runtime": 1,
+    "output_sink_runtime": 1,
+    "performance_claim_evidence": 5,
+    "plan_interop_harness_runtime": 2,
+    "release_package_platform_readiness": 2,
+    "result_envelope_migration": 1,
+    "spill_fault_tolerance_runtime": 3,
+    "streaming_live_hybrid_runtime": 3
+  },
+  "runtime_support_claim_allowed": false,
+  "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
+  "status": "passed"
+}

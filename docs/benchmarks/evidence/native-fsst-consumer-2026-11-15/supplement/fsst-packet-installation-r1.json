@@ -1,0 +1,11 @@
+{
+  "status": "installed_exact_packet_pending_document_closeout",
+  "destination": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/evidence/native-fsst-consumer-2026-11-15",
+  "manifest": {
+    "bytes": 10626,
+    "sha256": "a325273c391d4e3af5762ea7ddeac0730fd836d1a74fc371b7c5a738edc4b2a0"
+  },
+  "original_packet_unchanged": true,
+  "query_executions": 0,
+  "files": 65
+}

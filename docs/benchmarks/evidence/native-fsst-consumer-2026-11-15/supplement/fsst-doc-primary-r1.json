@@ -1,0 +1,10 @@
+{
+  "status": "passed_primary_document_inventory_verification",
+  "files": 5,
+  "excerpts": 17,
+  "queries_executed": 0,
+  "inventory": {
+    "bytes": 48860,
+    "sha256": "b51153b97c562be3b641a429e3debf3aee725125b4316638abc3e6af733ce3d9"
+  }
+}

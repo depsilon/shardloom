@@ -1,0 +1,454 @@
+{
+  "status": "passed_packet_corruption_controls",
+  "count": 61,
+  "controls": [
+    {
+      "name": "disabled_assertions",
+      "status": "rejected",
+      "boundary": "entrypoint",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "unsafe_archive_name_'../escape'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'/escape'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'a//b'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_'a\\\\b'",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unsafe_archive_name_''",
+      "status": "rejected",
+      "boundary": "archive_path",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbundled_read",
+      "status": "rejected",
+      "boundary": "archive_identity",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_part",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_transport_size",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_archive_digest",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_archive_format",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "reordered_parts",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_complete_archive_digest",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_archive_bytes",
+      "status": "rejected",
+      "boundary": "archive_transport",
+      "error": "AssertionError"
+    },
+    {
+      "name": "external_payload_read",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "external_identity_not_explicitly_allowed",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_external_identity",
+      "status": "rejected",
+      "boundary": "external_identity_only",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_source_member",
+      "status": "rejected",
+      "boundary": "source_identity",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_dictionary_controls",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_dictionary_manifest",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "failed_prior_dictionary_controls",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_prior_dictionary_module",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "hidden_second_import_failure",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_prior_repair_archive",
+      "status": "rejected",
+      "boundary": "repair_provenance",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_required_test_receipt",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "filtered_native_tests",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unreaped_validation_process",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "validation_source_changed",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_installed_test_total",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_public_test_total",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_provider_validation",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "failed_provider_test",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_provider_test_configuration",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_runtime_fingerprint",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_prior_native_bytes",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_example_only_source_delta",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "AssertionError"
+    },
+    {
+      "name": "unbound_public_source_compatibility",
+      "status": "rejected",
+      "boundary": "source_bound_validation",
+      "error": "KeyError"
+    },
+    {
+      "name": "omitted_consumer_dependency",
+      "status": "rejected",
+      "boundary": "consumer_environment",
+      "error": "KeyError"
+    },
+    {
+      "name": "changed_consumer_python_version",
+      "status": "rejected",
+      "boundary": "consumer_environment",
+      "error": "AssertionError"
+    },
+    {
+      "name": "wrong_consumer_environment_prefix",
+      "status": "rejected",
+      "boundary": "consumer_environment",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_fixture_readback",
+      "status": "rejected",
+      "boundary": "read_attribution",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_fixture_reference",
+      "status": "rejected",
+      "boundary": "read_attribution",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_diagnostic_scan_record",
+      "status": "rejected",
+      "boundary": "read_attribution",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_diagnostic_read_count",
+      "status": "rejected",
+      "boundary": "read_attribution",
+      "error": "AssertionError"
+    },
+    {
+      "name": "falsely_claimed_read_reduction",
+      "status": "rejected",
+      "boundary": "read_attribution",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_construction_record",
+      "status": "rejected",
+      "boundary": "construction_boundary",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_construction_payload",
+      "status": "rejected",
+      "boundary": "construction_boundary",
+      "error": "AssertionError"
+    },
+    {
+      "name": "changed_construction_clock",
+      "status": "rejected",
+      "boundary": "construction_boundary",
+      "error": "AssertionError"
+    },
+    {
+      "name": "false_first_use_claim",
+      "status": "rejected",
+      "boundary": "construction_boundary",
+      "error": "AssertionError"
+    },
+    {
+      "name": "hidden_original_harness_failure",
+      "status": "rejected",
+      "boundary": "capture_recovery",
+      "error": "AssertionError"
+    },
+    {
+      "name": "interrupted_stage_given_accepted_total",
+      "status": "rejected",
+      "boundary": "capture_recovery",
+      "error": "AssertionError"
+    },
+    {
+      "name": "successful_observations_repeated",
+      "status": "rejected",
+      "boundary": "capture_recovery",
+      "error": "AssertionError"
+    },
+    {
+      "name": "lock_failure_reclassified_as_success",
+      "status": "rejected",
+      "boundary": "capture_recovery",
+      "error": "AssertionError"
+    },
+    {
+      "name": "missing_independent_protocol_admission",
+      "status": "rejected",
+      "boundary": "capture_recovery",
+      "error": "AssertionError"
+    },
+    {
+      "name": "forbidden_import_shardloom._native",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_import_polars",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_import_pyarrow",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_import_duckdb",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_import_pyspark",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_import_datafusion",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    },
+    {
+      "name": "forbidden_subprocess",
+      "status": "rejected",
+      "boundary": "no_engine",
+      "error": "RuntimeError"
+    }
+  ],
+  "relocated_complete_replay": {
+    "status": "passed_complete_portable_replay",
+    "query_executions": 0,
+    "complete_fresh_results": 18080,
+    "complete_lifecycle_operations": 1080,
+    "baseline_reuse": 4631,
+    "source_fingerprint_sha256": "57164ef0b47a70f7e4e5f51bfc0e346d1389c19968751bd39f744ae6cbb82ef0",
+    "external_payloads_not_reopened": 663,
+    "fresh": {
+      "cases": 9040,
+      "complete": true,
+      "baseline_engine_seconds": 682.167470629,
+      "candidate_engine_seconds": 692.796513379,
+      "engine_gain_seconds": -10.62904274999994,
+      "regressions": 4581,
+      "regression_engine_seconds": 18.451585205
+    },
+    "lifecycle": {
+      "complete": true,
+      "lifecycles": 270,
+      "operations_per_runtime": 540,
+      "baseline_engine_seconds": 0.520543159,
+      "candidate_engine_seconds": 0.39972614
+    },
+    "disposition": "drop",
+    "original_replay_decision": "drop",
+    "negative_controls_bound": 28,
+    "recovery": {
+      "successes_reused": 4631,
+      "earlier_reuse": 336,
+      "harness_errors_before_collect": 16,
+      "interrupted_unaccepted_observations": 1,
+      "never_started_before_recovery": 4392,
+      "fresh_baseline": 4409,
+      "fresh_candidate": 9040,
+      "successful_observations_repeated": 0
+    },
+    "read_evidence": {
+      "complete_fixture_readbacks": 108,
+      "direct_provider_scans": 648,
+      "paired_read_changes": {
+        "more": 185,
+        "equal": 103,
+        "fewer": 36
+      }
+    },
+    "construction": {
+      "files": 108,
+      "totals": {
+        "plain": {
+          "files": 54,
+          "bytes": 30825376,
+          "native_writer_construction_seconds": 0.047249172
+        },
+        "summary": {
+          "files": 54,
+          "bytes": 31235608,
+          "native_writer_construction_seconds": 0.048371278999999996
+        }
+      },
+      "first_use_break_even_claim": false
+    },
+    "archive_repair": {
+      "shared_module_bound_through_frozen_prior_closeout": true,
+      "original_archive_bytes_unchanged": true,
+      "query_executions": 0,
+      "corrected_boundary": "offline archive import closure only; original helpers, measurements and decision unchanged",
+      "dictionary_module_bound_through_frozen_prior_closeout": true,
+      "prior_failed_packets_retained": 2
+    }
+  },
+  "query_executions": 0,
+  "original_packet_unchanged": true,
+  "original_source_runtime_evidence_reads_forbidden": true,
+  "helper": {
+    "bytes": 16224,
+    "sha256": "be9656270fe8310b5cb0b861e2e5931ce2eedd3cda732b40fc56579d74f15383"
+  },
+  "manifest": {
+    "bytes": 6182434,
+    "sha256": "6c440f5344e158dee4faca3a699cda66683ca361b3b9196a6ac89323ab5fad1c"
+  }
+}

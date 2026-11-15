@@ -17,8 +17,16 @@ or general performance superiority.
 The executed source fingerprint is
 `d078ce9a718bb8c56985ae9376a5eccbd7725724b83483e277db56a91b3c6297`.
 All 5,782 captured source files match the preservation commit. The runtime
-retains its actual build parent and dirty-source identity. Predicate-specific
-native Bloom admission, then necessary text-zone evidence, is next. Broader
+retains its actual build parent and dirty-source identity. The
+[pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines the
+current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence; this accepted runtime remains the baseline.
+The finite unconditional-callback batching screen is complete and declined
+before performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader
 metadata/encoded work, required item-19 spatial execution, item 20, RFC 0044 and
 CG-1 through CG-23 retain their remaining obligations. No merge, publication or
 release follows from this local disposition.

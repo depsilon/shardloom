@@ -1,0 +1,13 @@
+{
+  "status": "passed_primary_document_inventory_verification",
+  "inventory": {
+    "bytes": 24672,
+    "sha256": "b0081f64a9b1307b55030058b466e5a3dd5f14ee2f127c9f24f1ae86211aa489"
+  },
+  "verified_excerpts": 17,
+  "verified_files": 11,
+  "current_status_passages": 13,
+  "semantic_correction": "The 840 required witnesses prove logical summary exclusion; they are not completed-read witnesses. The separate direct-provider evidence covers 648 scans and 324 paired reads.",
+  "historical_writer_zone_drop_to_remain_unchanged": true,
+  "query_executions": 0
+}
