@@ -22,8 +22,9 @@ after its complete fresh engine total increases; this scalar implementation
 remains accepted. The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)
 is retained locally, as is the subsequent
 [source-domain C unit](native-source-domain-facts-2026-11-14.md).
-Predicate-specific native Bloom admission, then necessary text-zone evidence,
-is next. Broader constant-key support, the metadata/optimization
+The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
+declines the current unversioned provider before performance. Necessary text-zone
+evidence is next. Broader constant-key support, the metadata/optimization
 queue, item 19/20, RFC 0044 and CG-1 through
 CG-23 remain open. This local acceptance does not merge or publish the change.
 

@@ -1,0 +1,98 @@
+{
+  "base": "494b41cca98349b21dfabd09a129a205c6664ecb",
+  "existing_runtime_validation": "Accepted source-domain C; byte-identical runtime source; broad suites not repeated for documentation/evidence changes.",
+  "expert_objections": [
+    {
+      "objection": "Persistence identity and numerical equality could be silently treated as admitted.",
+      "resolution": "Provider declined; pinned warning and four signed-zero counterexamples bound into portable verifier."
+    },
+    {
+      "objection": "A passing verifier may look like an independent runtime rerun.",
+      "resolution": "Architecture and README explicitly limit it to saved observations; no performance or full-build claim."
+    },
+    {
+      "objection": "Dependency and supervisor sources, notices or registry facts could be missing.",
+      "resolution": "Primary repaired and verified the exact source union, added supervision dependencies, retained licenses, and preserved original inventory/failures."
+    }
+  ],
+  "file_hashes": {
+    "README.md": {
+      "bytes": 2507,
+      "sha256": "8d8894db15de28402d43ac79feb2c822022dca1828e14a0a3e9b8eebf01f29fd"
+    },
+    "controls.json": {
+      "bytes": 6504,
+      "sha256": "ecbbf83dc6f1edf3df5a99aaf42d300d7d48cd4e17d19a86fe995b1e27e69050"
+    },
+    "doc-links.json": {
+      "bytes": 57785,
+      "sha256": "66c2d3cd223195c3edda3c07e4365a224cb40c3970161d1488a0a42204353a79"
+    },
+    "evidence.tar.xz": {
+      "bytes": 558980,
+      "sha256": "62862b6a674dcc2a4d9c73997c5f5f2e63c1dfe0b9d76fc06def4e56c95e7d4a"
+    },
+    "manifest.json": {
+      "bytes": 16334,
+      "sha256": "702ff923246590aa52ff9b474406dea38f4925efa684fad8515545888350fb59"
+    },
+    "notices/provenance.json": {
+      "bytes": 999,
+      "sha256": "a68a931216b9a8886e695127e9be17491ec3ae99d63ddb8f08f27b616ba9e27b"
+    },
+    "notices/shardloom-LICENSE": {
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "notices/shardloom-NOTICE": {
+      "bytes": 514,
+      "sha256": "7bd9d8ce38fb09622195f2c2956f9568d3f92fe3037182c8c09cba3c379592bf"
+    },
+    "notices/twox-hash-2.1.2-LICENSE.txt": {
+      "bytes": 1080,
+      "sha256": "f59bcb1c02654665f78a5f290bae76b6358137675f6459f51e6d474a4623d8ea"
+    },
+    "notices/vortex-APACHE-2.0.txt": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "portability.log": {
+      "bytes": 567,
+      "sha256": "93f14f8d8012b4c8f8d192e297d8c48157afaa5d8e385f5fb14b7c4094bf4d38"
+    },
+    "public-status-docs.json": {
+      "bytes": 93915,
+      "sha256": "abeddc65245cd342f3dbabddf090059272c52d4915773bf14e4965f87ac72809"
+    },
+    "queue-tracker.json": {
+      "bytes": 48582,
+      "sha256": "ea5d15d87345d94c6fc53a1f50cdc5b9e72223c57edabc870a0b33629fb3c736"
+    },
+    "review-tools/bloom-packet-inventory-r2.json": {
+      "bytes": 31700,
+      "sha256": "ca2713a7f13a4732c99253d85a9720a9a3d96691f08307a454c2531f0e5c1200"
+    },
+    "review-tools/build_bloom_packet.py": {
+      "bytes": 6985,
+      "sha256": "3339944fbaa5b61b05d788e00f12743fb2db08f8a9a5e5215f4390f6d9d67512"
+    },
+    "review-tools/check_bloom_packet.py": {
+      "bytes": 10550,
+      "sha256": "7823bb106fae5082a34d83c4c5182e6fb2400a505c1373892e262697c8673ac8"
+    },
+    "verify.py": {
+      "bytes": 13065,
+      "sha256": "a65d64595ea06c68a7eb388800a5959ba80fb4595add3aa8112880d38c375869"
+    }
+  },
+  "fresh_native_checks": 28,
+  "local_link_targets": 379,
+  "public_status_docs": "passed",
+  "queue_status": "blocked",
+  "relocated_read_blocked": true,
+  "runtime_changed": false,
+  "saved_evidence_negative_controls": 38,
+  "scope": "Complete finite admission decline for pinned unversioned Bloom provider only; parent summary obligation open.",
+  "signed_zero_counterexamples": 4,
+  "status": "passed_primary_closeout_review"
+}

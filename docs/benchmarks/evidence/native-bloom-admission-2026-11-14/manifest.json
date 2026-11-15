@@ -1,0 +1,385 @@
+{
+  "archive": {
+    "bytes": 558980,
+    "path": "evidence.tar.xz",
+    "sha256": "62862b6a674dcc2a4d9c73997c5f5f2e63c1dfe0b9d76fc06def4e56c95e7d4a"
+  },
+  "base": "494b41cca98349b21dfabd09a129a205c6664ecb",
+  "claim_scope": "Saved source-bound admission evidence, not an independent runtime rerun or a complete build-source bundle.",
+  "members": {
+    "dependencies/twox-hash-2.1.2/src/xxhash3.rs": {
+      "bytes": 12264,
+      "sha256": "cef97ce27d7863c7f3d546cb13bd74539216ec8a2dc93ef3141adb870c1a8e5e"
+    },
+    "dependencies/twox-hash-2.1.2/src/xxhash3_64.rs": {
+      "bytes": 17190,
+      "sha256": "b9b050eec3db19af71d61131ee4604d423bc00974cdcd8f1f1672b21c9799094"
+    },
+    "dependencies/vortex-0.93.0/src/lib.rs": {
+      "bytes": 21377,
+      "sha256": "d2fe5c2d0b0f869141896d97b4c8bdd2fa63582e088d6fca508a07f09a0847e7"
+    },
+    "dependencies/vortex-expr-0.93.0/src/stats/rewrite/builtins.rs": {
+      "bytes": 43380,
+      "sha256": "1b2c3d9492eb61be8fb1d986a07d4ca629a8cca55545e43aa2b9620768b71e2b"
+    },
+    "dependencies/vortex-expr-0.93.0/src/stats/session.rs": {
+      "bytes": 2318,
+      "sha256": "411f81841047d7780a53086bd1e83b139b03a45f7a6fb9e782f9d8707b3ef0d4"
+    },
+    "dependencies/vortex-session-0.93.0/src/session.rs": {
+      "bytes": 18626,
+      "sha256": "681e5a5eb2a0662713d4149606368adea32d4df8e5937dcb2e36f8852557f356"
+    },
+    "evidence/bloom-admission-design-r1.md": {
+      "bytes": 4923,
+      "sha256": "8d808ac9b3f4d3334c1d63e8e3fda74da79389cf3ae856561b197be5b34c5902"
+    },
+    "evidence/bloom-admission-disposition-r1.json": {
+      "bytes": 4622,
+      "sha256": "0e850e3906967b39c4186b8872d064ebff989e92819334174e470a28e881628f"
+    },
+    "evidence/bloom-packet-build-r1-failure.json": {
+      "bytes": 330,
+      "sha256": "9c588656b78ae161c653c53a2cca723ad3e999346dda8e04b77562297b20a24b"
+    },
+    "evidence/bloom-packet-build-r2-failure.json": {
+      "bytes": 494,
+      "sha256": "6c0e240b0c564be33a512fc50abd4bb373da730733590224f4ac750233d97147"
+    },
+    "evidence/bloom-packet-inventory-primary-review-r1.json": {
+      "bytes": 4993,
+      "sha256": "d3eb4fe7a840640ffab66c4222b8cd50b35215a4c21996135ed8d05ef6059a18"
+    },
+    "evidence/bloom-packet-inventory-r1.json": {
+      "bytes": 21675,
+      "sha256": "11c62da8252b22b40ec555d923ff70053fff01065848f9a576e5ab3f2c3ee20b"
+    },
+    "evidence/bloom-probe-build-r1.json": {
+      "bytes": 1024626,
+      "sha256": "768f3a29a768893867e0cf82275d07891446d8017c4e978b4ae998c11e8312fa"
+    },
+    "evidence/bloom-probe-executable-r1.json": {
+      "bytes": 582,
+      "sha256": "581945d3ed992df8750ca3d8d6d8363cb2f242dbec68922b53a6917d75103e84"
+    },
+    "evidence/bloom-probe-observation-r1.json": {
+      "bytes": 1024509,
+      "sha256": "33b730474404d07306fd0fa1ad009798e601a16e0946a4ca0b46a842686d704c"
+    },
+    "evidence/bloom-probe-restoration-r1.json": {
+      "bytes": 397,
+      "sha256": "c2a008163f811b1316f06debaef8e1cd45cdc9a4d5ba83dd6848caa4f7d4522a"
+    },
+    "evidence/bloom-probe-source-r1.json": {
+      "bytes": 983,
+      "sha256": "d5569a96545b1456eee6586f9e9014d6afcc51eff624495f591e4642d87badbf"
+    },
+    "evidence/bloom-provider-inventory-r1.json": {
+      "bytes": 22614,
+      "sha256": "fabd97ee2c2eafef386eca2f9baba63d1a759edad4ffbfa5af13dd52114c2e4f"
+    },
+    "evidence/bloom-provider-inventory-r1.md": {
+      "bytes": 10007,
+      "sha256": "d19da566e3eb246e1bf41f15b91e352868a81559d946040e1347e5ba12a463e3"
+    },
+    "evidence/bloom-provider-primary-review-r1.json": {
+      "bytes": 827,
+      "sha256": "a899d8cd93e315fe56d4caf13cbd39a6f0dae06ac642c473ecb3c4124e1888f2"
+    },
+    "evidence/bloom-registration-inventory-r1.json": {
+      "bytes": 13912,
+      "sha256": "c6c4c9e72e74da7e3ab77928437f1bfb5302604466b90d09b0ddb451c164f4be"
+    },
+    "evidence/bloom-registration-inventory-r1.md": {
+      "bytes": 7339,
+      "sha256": "658df5e3efa8ef3cd85e07aa845ccd229a76dfc88afd0df9b331742788397874"
+    },
+    "evidence/bloom-registration-primary-review-r1.json": {
+      "bytes": 593,
+      "sha256": "c89e4f0e748d5ab9aeee6d852285c7e8991115eb05c191fe1feb50e67db39f6b"
+    },
+    "evidence/bloom-resource-inventory-r1.json": {
+      "bytes": 15386,
+      "sha256": "f1708e3a1e7c67d6097fa9185bea4ccdc6e1960f6530e8d4eecdc2d49fbb45d4"
+    },
+    "evidence/bloom-resource-inventory-r1.md": {
+      "bytes": 7784,
+      "sha256": "698d77a0661669d28612161d0ae279c07bfab5d0c130ee8d509354c2e4cca5a4"
+    },
+    "evidence/bloom-resource-primary-review-r1.json": {
+      "bytes": 1611,
+      "sha256": "850075e67cf3c70927a10c243ed64ba22b3ec6fc7ca7da87c2725b2a295eb26f"
+    },
+    "evidence/bloom-session-source-check-r1.json": {
+      "bytes": 1988,
+      "sha256": "b196e843f97a77e67e76c30d33f185ab4616de37fcebbb079dba013d36d2500b"
+    },
+    "evidence/build_bloom_packet_before_complete_union.py": {
+      "bytes": 6061,
+      "sha256": "329038cca54c7f23c09128d34f27a700e8d60aaa385ac6d95f7e4eb71a36fd12"
+    },
+    "evidence/build_bloom_packet_initial.py": {
+      "bytes": 5487,
+      "sha256": "a20d30fb3e703cc5712c7961743213da67607f7bf0d113e92c5de4e18bf8e038"
+    },
+    "evidence/guard_checks.py": {
+      "bytes": 599,
+      "sha256": "4c4b899bbc5b05387c58c9515116f74396ff74d81f90f214a0113aef8959c949"
+    },
+    "evidence/logs/bloom-probe-build-r1.log": {
+      "bytes": 10774,
+      "sha256": "00eebfb77bfbdd49159f54d754b59d387112f566c44dba7c454083c485552e8e"
+    },
+    "evidence/logs/bloom-probe-observation-r1.log": {
+      "bytes": 5458,
+      "sha256": "d7496d5fa1106e46a50ac2915f9c6e29a79e4476dde09e8ce92694d76051b7b4"
+    },
+    "evidence/probe-source-r1/Cargo.toml": {
+      "bytes": 5612,
+      "sha256": "6bf6282227914020c37a01d8d58c631c4ca189d07a26594280b1bb060788ad95"
+    },
+    "evidence/probe-source-r1/native_bloom_admission_probe.rs": {
+      "bytes": 10661,
+      "sha256": "67bf0b21e007ec33c4344be673d9222add5b4a72e8aadcafd783499950ffc5cf"
+    },
+    "evidence/shardloom-connection-intake-r1.md": {
+      "bytes": 7413,
+      "sha256": "13ba612e5e90f09329a4c5ec36c8d2b9794c79861a404c907e7be500ab0941d6"
+    },
+    "evidence/twox-hash-2.1.2-xxhash3.rs": {
+      "bytes": 12264,
+      "sha256": "cef97ce27d7863c7f3d546cb13bd74539216ec8a2dc93ef3141adb870c1a8e5e"
+    },
+    "evidence/twox-hash-2.1.2-xxhash3_64.rs": {
+      "bytes": 17190,
+      "sha256": "b9b050eec3db19af71d61131ee4604d423bc00974cdcd8f1f1672b21c9799094"
+    },
+    "evidence/upstream-pr8933-info-r1.json": {
+      "bytes": 3352,
+      "sha256": "e7f61568e1701815c761ff8d9cedaec6bec9b6d8185f329e4e1f0d3e3352e995"
+    },
+    "evidence/upstream-pr9398-info-r1.json": {
+      "bytes": 4828,
+      "sha256": "57008ee16ef86651b0a8907c5212308530d13fcf74fa357517b16183cb8bce25"
+    },
+    "evidence/upstream-pr9413-info-r1.json": {
+      "bytes": 3972,
+      "sha256": "2df65e61bdbf39bf9f7086be619c5b2789c237581113cbfd3bbb77c0e0484f90"
+    },
+    "sources/AGENTS.md": {
+      "bytes": 26828,
+      "sha256": "3bed61c6c13e35e2d05dac0f862ed798ce1f2d0403430914d212f782bc5f233f"
+    },
+    "sources/Cargo.lock": {
+      "bytes": 117208,
+      "sha256": "2b6de5d8877c7260e155e72e7d36318b7e26a3f0b9f3d191172e563acb92d80b"
+    },
+    "sources/Cargo.toml": {
+      "bytes": 4170,
+      "sha256": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7"
+    },
+    "sources/docs/architecture/local-development-storage.md": {
+      "bytes": 72620,
+      "sha256": "2715edcbc950767f9969c617c63991e8c8a5f00c05c39c8e736b08961879c5e9"
+    },
+    "sources/docs/skills/vortex-internals.md": {
+      "bytes": 2602,
+      "sha256": "9a3aae35a81ffa23008e500d57f1e7b08ccd7fbc03959964f3365bd02e432817"
+    },
+    "sources/docs/skills/vortex/vortex-concepts.md": {
+      "bytes": 2382,
+      "sha256": "83116b6516ecfcad7bdef77a273b831caaaea249e9012c23af39fc81fa8c311c"
+    },
+    "sources/docs/skills/vortex/vortex-first-provider-check.md": {
+      "bytes": 14438,
+      "sha256": "0a357718d8ce2f68afe00d24fc3d7d01441ba0162bb3fbf17da723eab8fa1a33"
+    },
+    "sources/scripts/local_uat_storage.py": {
+      "bytes": 8451,
+      "sha256": "558920fa007e001682f11c2bc3bc2bf34c8ec1af664fec396cf45c8987186a9d"
+    },
+    "sources/shardloom-vortex/Cargo.toml": {
+      "bytes": 5522,
+      "sha256": "4fb1a989fe5e789815e4ac41d7820ee68698855f447244f4868e55646cd1cc4d"
+    },
+    "sources/shardloom-vortex/src/native_binary_type.rs": {
+      "bytes": 4820,
+      "sha256": "39357d00237756785ef82de2b9232c328169873373bf0d1feb3aa3510bcf152e"
+    },
+    "sources/shardloom-vortex/src/native_embedding.rs": {
+      "bytes": 12876,
+      "sha256": "5462f2f93d1a7637a1b4378c3700dfe1b381acce448d5ebe23fcd7416efc32f9"
+    },
+    "sources/shardloom-vortex/src/native_extensions.rs": {
+      "bytes": 1562,
+      "sha256": "8a9df0e6a763f982fb94b9ece931d0f3be3d016630a1321fb7ff7fef86fe31e3"
+    },
+    "sources/shardloom-vortex/src/native_provider_memory.rs": {
+      "bytes": 27972,
+      "sha256": "62142cafb0c0a6e19f4cc6edb5adb6ba9cb568d8d02457edd2e50270e8faaff5"
+    },
+    "sources/shardloom-vortex/src/native_temporal.rs": {
+      "bytes": 25314,
+      "sha256": "d8232688b4b1d9ff73c2a86926461c1a7d863a3de5a8021b97cc3f6553b03311"
+    },
+    "sources/shardloom-vortex/src/native_tensor.rs": {
+      "bytes": 9140,
+      "sha256": "703b2f29c0cac3d1c140550d2a2b4a670812479e1c6859fed413af92d65bb6cd"
+    },
+    "sources/shardloom-vortex/src/native_uuid.rs": {
+      "bytes": 1613,
+      "sha256": "c44aed086263bf0144c9cc35bc1ece665cf44cd7e2962b808a8923b038e839ae"
+    },
+    "sources/shardloom-vortex/src/native_variable_tensor.rs": {
+      "bytes": 12454,
+      "sha256": "0577e86c0c87bfe78e192f743409088f63dca2e8c856598278ac6a445e28425d"
+    },
+    "sources/shardloom-vortex/src/native_vector.rs": {
+      "bytes": 7935,
+      "sha256": "5066ff5f8eac4658518fe4e44b420a5e4daf4edf751c135ca585eb7d5d794980"
+    },
+    "sources/shardloom-vortex/src/resident_execution_context.rs": {
+      "bytes": 38303,
+      "sha256": "824e40a8f1830681570cfd9c78a0aae7772ea7cc39658025b44929006b98e37f"
+    },
+    "sources/shardloom-vortex/src/resident_session.rs": {
+      "bytes": 78696,
+      "sha256": "6787dbc669ddac9404b79c3b4cd34d966f984b3af5f183e6a579a3975057dea8"
+    },
+    "sources/shardloom-vortex/src/vortex_ingest.rs": {
+      "bytes": 916982,
+      "sha256": "0532b61d83b62a3089e81e6fd86d7fd09c8c7021313d79e81fbbd86354f93669"
+    },
+    "sources/vendor/vortex-array/src/aggregate_fn/plugin.rs": {
+      "bytes": 2719,
+      "sha256": "14c23b2a6b0eed27264739dabc81c1077dcfc2e25ca5bf90fc636e53dab5e60b"
+    },
+    "sources/vendor/vortex-array/src/aggregate_fn/session.rs": {
+      "bytes": 15489,
+      "sha256": "20f46711334d023711a09739715fff8c484e69f129b65fe2d3918e7ed08687da"
+    },
+    "sources/vendor/vortex-array/src/aggregate_fn/vtable.rs": {
+      "bytes": 13106,
+      "sha256": "0d299f21543d5fe5a2a0b9c28928fd455981f81bd901a6232048d1c8bf2a9b20"
+    },
+    "sources/vendor/vortex-array/src/scalar_fn/session.rs": {
+      "bytes": 3744,
+      "sha256": "9f33da30b6be45460f8a18ffb15e080a49975f6ce4646e49bbe3b813bf12b0a0"
+    },
+    "sources/vendor/vortex-array/src/session/mod.rs": {
+      "bytes": 4936,
+      "sha256": "1c38d6afc3371334590facbd67ea1e3ba4b0ece0143af94579986c69ed9ce386"
+    },
+    "sources/vendor/vortex-buffer/src/allocation.rs": {
+      "bytes": 18211,
+      "sha256": "7f623de46f1833cab11c00b4908d742677fa9631e473b294b2da301c8119b275"
+    },
+    "sources/vendor/vortex-buffer/src/buffer_mut.rs": {
+      "bytes": 44898,
+      "sha256": "4c93f291fbe8697a19690e33defceeb2a59157c0e11e439828394f7f9577739e"
+    },
+    "sources/vendor/vortex-layout/Cargo.toml": {
+      "bytes": 6466,
+      "sha256": "a3358a039db86a22a199c24f9e6b26b135e1110e7bd9d8e6e1ef0bfdd0381dcc"
+    },
+    "sources/vendor/vortex-layout/src/layouts/indexed/tests.rs": {
+      "bytes": 55140,
+      "sha256": "4ce9352e1fd4d6bb03c6d2b31feeff336459ac0a9b9389312b48d1d7dcea4c52"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/bool.rs": {
+      "bytes": 3396,
+      "sha256": "6de50421c9ed2a2c08109809bb046456c953e4756bb27939190543d0de146358"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/extension.rs": {
+      "bytes": 3185,
+      "sha256": "3d4f38911cc06caec50f0dacb75e64682a25dfbbba4a0f88a3cb4fbc0a2c9ba3"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/mod.rs": {
+      "bytes": 1648,
+      "sha256": "1ba42d5503a09b19a89fdc8eb65fd854c713a085378781c46bcea79f0984c014"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/primitive.rs": {
+      "bytes": 8921,
+      "sha256": "20dca01c72f26adb2d5ad3d5816b954421043dc2a3ba266bacf966d827ea765e"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/canonical/varbin.rs": {
+      "bytes": 4710,
+      "sha256": "650a808514d24a1b4079241941883bbf594ab0ab17c26507b9213bb919b980bd"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/constant.rs": {
+      "bytes": 3108,
+      "sha256": "59a2207d75c6e754691d3adba25e2f871c50eaad856562e6ddeaf3f98b74afd0"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/mod.rs": {
+      "bytes": 23486,
+      "sha256": "6836cb12af344043609471412172890c01c844c6a9b767ce1f85daf06c1fe302"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/aggregate.rs": {
+      "bytes": 1968,
+      "sha256": "d2eba7b248afdaa58d08e0143ea1c935adb4d5f9519a08317a23ed81cbf56cb9"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/mod.rs": {
+      "bytes": 12937,
+      "sha256": "e08583325fdcde03dd6736087dda2a4644c399403c318b253394bd834aa4ee8e"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/scalar.rs": {
+      "bytes": 4601,
+      "sha256": "55a9be52053133de118a2a1d34c8ce0f5558efd8fac092754aba03102243b65c"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/partial/serde.rs": {
+      "bytes": 4948,
+      "sha256": "c2746175f20b6e5e3a89a9d7a3613a2928eafd71352eb6d44678cafce056df79"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/bloom_filter/scalar_fn.rs": {
+      "bytes": 22727,
+      "sha256": "a3bcde59272c7c65f883ddb073add55ddf83536e714a9a0d5f94a6f17069e3b7"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/aggregates/mod.rs": {
+      "bytes": 415,
+      "sha256": "3d2d9ee796dadf0c6a4c96b7682ed7a0721b860d593ca07ac44945a9ed4d35c1"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/builder.rs": {
+      "bytes": 5072,
+      "sha256": "724c5d83cfe29947ae89f448e0cf87107f30dacc93c16015b42106bb8aee3814"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/mod.rs": {
+      "bytes": 29930,
+      "sha256": "2464172466b4c78bbf8ff48e16b01c3111f8687a2cd21de1908ea8bbddbb6b5e"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/pruning.rs": {
+      "bytes": 8962,
+      "sha256": "c253d0a84cfb4ecd933bfaddaa6e0f19a280d4582b8204eecfcce437b4e2949b"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/reader.rs": {
+      "bytes": 19589,
+      "sha256": "f24c631a7006985cf135ad3144aefc9a131ce18a8a06696f18d2704aec6aa1bd"
+    },
+    "sources/vendor/vortex-layout/src/layouts/zoned/writer.rs": {
+      "bytes": 20599,
+      "sha256": "973456f4d3628d54ddc3dbf5f8080d62468106c080881304cd21d11f3b5b9dca"
+    },
+    "sources/vendor/vortex-layout/src/session.rs": {
+      "bytes": 4256,
+      "sha256": "8d9cf3345eb07838b9c3304ef0d97599d28610ee4374dffe67280f4886a2af8a"
+    },
+    "supervision/bounded_build_process_resume_20260912.py": {
+      "bytes": 8431,
+      "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+    },
+    "supervision/guard_checks.py": {
+      "bytes": 6009,
+      "sha256": "697cdb7cb2622a3089dae62aab8377e07819b882add7a7dcaae940bb3e5c6dd1"
+    },
+    "supervision/release_validation_guard.py": {
+      "bytes": 1675,
+      "sha256": "5e8298a7b8bec17f7f2ebf9e48d1b14bed23660989feb92c5794ea047a2e2f48"
+    }
+  },
+  "schema": "shardloom.bloom_admission_packet.v1",
+  "tree": "14d79c67b28d265ebab0f0697d8ff221176f9747",
+  "verifier": {
+    "bytes": 13065,
+    "sha256": "a65d64595ea06c68a7eb388800a5959ba80fb4595add3aa8112880d38c375869"
+  }
+}

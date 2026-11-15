@@ -12,8 +12,9 @@ retained locally at `c9baefd00`. The subsequent
 under its own complete-cohort rule. The subsequent
 [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent
 [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
-locally. Predicate-specific native Bloom admission, then necessary text-zone
-evidence, is next. Broader
+locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
+declines the current unversioned provider before performance. Necessary text-zone
+evidence is next. Broader
 constant-key support and the item-20/RFC-0044 queue remain open. Those separate
 decisions do not change this experiment's drop disposition.
 

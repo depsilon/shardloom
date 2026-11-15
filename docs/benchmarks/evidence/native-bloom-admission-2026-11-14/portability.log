@@ -1,0 +1,2 @@
+{"archive_sha256": "62862b6a674dcc2a4d9c73997c5f5f2e63c1dfe0b9d76fc06def4e56c95e7d4a", "benchmark_executed": false, "checks": 28, "disposition": "decline_current_unversioned_provider_before_performance", "members": 92, "production_runtime_changed": false, "public_queries_executed": 0, "scope": "saved source-bound correctness observations and admission decision; no runtime reexecution", "signed_zero_counterexamples": 4, "status": "passed_saved_admission_verification"}
+{"read_denial_control": true, "forbidden_access_attempts": [], "relocated_verification": true}

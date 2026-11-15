@@ -1,0 +1,22 @@
+{
+  "notices/shardloom-LICENSE": {
+    "bytes": 11357,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/LICENSE"
+  },
+  "notices/shardloom-NOTICE": {
+    "bytes": 514,
+    "sha256": "7bd9d8ce38fb09622195f2c2956f9568d3f92fe3037182c8c09cba3c379592bf",
+    "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/NOTICE"
+  },
+  "notices/twox-hash-2.1.2-LICENSE.txt": {
+    "bytes": 1080,
+    "sha256": "f59bcb1c02654665f78a5f290bae76b6358137675f6459f51e6d474a4623d8ea",
+    "source": "/Users/dylan/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/twox-hash-2.1.2/LICENSE.txt"
+  },
+  "notices/vortex-APACHE-2.0.txt": {
+    "bytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "source": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/vendor/vortex-array/LICENSE"
+  }
+}

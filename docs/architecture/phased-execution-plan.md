@@ -359,8 +359,11 @@ once, and do not repeat full10k or broad gates after every small edit.
   operations, 620 finite-source admission requirements, 150 encoded-dispatch
   witnesses and portable checks pass. Complete fresh engine time decreases
   from 34.706028110 to 33.876871033 seconds, with all 1,497 individual regressions
-  preserved; the separate lifecycle total also decreases. Predicate-specific
-  native Bloom admission, then necessary text-zone evidence, is next. Broader
+  preserved; the separate lifecycle total also decreases. The
+  [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines
+  the existing unversioned provider before performance: all 28 native admission
+  checks, four signed-zero counterexamples and portable verification are retained.
+  Necessary text-zone evidence is next; the predicate-summary parent stays open. Broader
   constant-key support remains open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
@@ -384,8 +387,9 @@ once, and do not repeat full10k or broad gates after every small edit.
     typed comparison and failure semantics without a speculative fact framework.
     The [finite November 14 unit](native-source-domain-facts-2026-11-14.md) is
     retained with complete comparison, lifecycle, ownership and portable proof.
-  - [ ] Evaluate predicate-specific zone evidence: existing native Bloom
-    admission first, then necessary text signatures where warranted. Spatial
+  - [ ] Evaluate predicate-specific zone evidence: the existing unversioned
+    native Bloom provider has a complete finite admission decline before performance.
+    Evaluate necessary text signatures next where warranted. Spatial
     summaries follow the exact spatial execution contract below.
   - [ ] Extend existing I with separately observed pruning/read/consumer units
     and survivor-driven batching. Settle its retained or declined batch/lifetime
