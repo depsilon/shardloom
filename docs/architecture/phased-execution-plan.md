@@ -412,6 +412,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     consumer path. The [finite November 15 unit](native-fsst-consumer-2026-11-15.md)
     is retained with complete fresh/lifecycle comparison, untimed dispatch,
     source/package checks and portable proof; all regressions remain explicit.
+    PR #1692's active-slice correction has separate source-bound correctness
+    checks; the original measured runtime and its observations remain unchanged.
   - [ ] Separately evaluate bounded exact-table FSST matcher lifetime on the
     accepted prefilter/consumer path, with charged identities/allocations,
     selective/dense and hardware controls and its own complete decision.

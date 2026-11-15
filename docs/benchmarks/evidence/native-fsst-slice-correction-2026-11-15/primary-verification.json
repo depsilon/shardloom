@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "verification": {
+    "bytes": 24364,
+    "sha256": "c1f3d52125ba1ad2defe394182b06c5e3a56525e596401f367ec326852867759"
+  },
+  "archive": {
+    "path": "verification.tar.xz",
+    "bytes": 1034964,
+    "sha256": "4a5321343f285d58d3a2ade6d579ac2f4a93150cc857324cf9cf01862e813199"
+  },
+  "reopened_members": 69,
+  "current_source_files_verified": 11,
+  "passing_source_bound_checks": 9,
+  "scored_performance_observations": 0
+}

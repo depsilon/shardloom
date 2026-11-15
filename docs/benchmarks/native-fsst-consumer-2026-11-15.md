@@ -10,6 +10,11 @@ engine totals decrease under the frozen gain/loss rule. The
 [portable packet](evidence/native-fsst-consumer-2026-11-15/README.md) preserve the
 admission boundary, every observation and the remaining work.
 
+The subsequent [PR #1692 slice correction](../architecture/native-fsst-consumer-2026-11-15.md#pr-review-correction-active-compressed-slices)
+limits the prefilter to active offset bounds. All timings and dispatch counts
+in this report remain historical observations of the original runtime; they
+are not measurements of that corrected source.
+
 ## Complete engine comparison
 
 | Population | Requests or operations per runtime | Accepted baseline, engine seconds | FSST candidate, engine seconds |

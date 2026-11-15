@@ -182,6 +182,24 @@ impl FsstMatcher {
         pattern: &[u8],
         candidate_codes: Option<&[u8]>,
     ) -> VortexResult<Option<Self>> {
+        Self::try_new_with_candidate_codes(
+            symbols,
+            symbol_lengths,
+            pattern,
+            candidate_codes.map(|codes| move || Ok(codes)),
+        )
+    }
+
+    /// Resolve active compressed bytes only after admitting a necessary-byte
+    /// filter. This preserves pattern admission before offset execution and
+    /// lets the caller reuse evaluated offsets for the subsequent row scan.
+    /// The returned bytes must contain every row later passed to `matches`.
+    pub(crate) fn try_new_with_candidate_codes<'a>(
+        symbols: &[Symbol],
+        symbol_lengths: &[u8],
+        pattern: &[u8],
+        candidate_codes: Option<impl FnOnce() -> VortexResult<&'a [u8]>>,
+    ) -> VortexResult<Option<Self>> {
         let Some(like_kind) = LikeKind::parse(pattern) else {
             return Ok(None);
         };
@@ -208,9 +226,15 @@ impl FsstMatcher {
                     return Ok(None);
                 }
                 // ShardLoom's conservative filter is enabled only by the caller
-                // supplying the actual compressed backing for a positive LIKE.
+                // supplying the active compressed bytes for a positive LIKE.
                 let prefilter = candidate_codes
+                    .as_ref()
                     .and_then(|_| CodePrefilter::new(symbols, symbol_lengths, needle.as_ref()));
+                let candidate_codes = if prefilter.is_some() {
+                    candidate_codes.map(|codes| codes()).transpose()?
+                } else {
+                    None
+                };
                 if prefilter
                     .zip(candidate_codes)
                     .is_some_and(|(filter, codes)| !filter.may_match(codes))

@@ -42,7 +42,7 @@ pub struct LikeObservationSnapshot {
     pub exact_rows: u64,
     /// Exact prefix/contains DFA constructions (not match-all or block rejection).
     pub matcher_constructions: u64,
-    /// Calls whose complete compressed backing contained no possible candidate.
+    /// Calls whose active compressed span contained no possible candidate.
     pub block_rejections: u64,
     /// Whether either counter could not represent an increment.
     pub overflowed: bool,
