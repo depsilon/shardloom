@@ -293,6 +293,12 @@ once, and do not repeat full10k or broad gates after every small edit.
   through CG-23 remain open.
   The latest maintainer instruction prioritizes these active implementation
   deliverables, with public execution, semantic and activation evidence:
+  - [ ] Complete the November 15 [propagation follow-on](native-optimization-propagation-2026-11-15.md):
+    preserve dictionaries through shared set alignment/selection, prove grouped
+    COUNT admission through equivalent pure projections, and audit ordered-spill
+    and physical-reader boundaries. Extend work-weighted and verified-encoding
+    scale evidence; retain current correctness fixes and accepted work. This
+    takes priority over the remaining speculative metadata/codec investigations.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
     at `788a8925e`: complete validation, default/native/package checks, all 388
     answers and unchanged pipeline counts pass; the same-baseline engine total

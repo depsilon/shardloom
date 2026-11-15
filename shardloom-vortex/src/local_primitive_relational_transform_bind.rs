@@ -138,18 +138,8 @@ impl Binder<'_> {
                 self.schema_scope(),
             )?;
         }
-        if let NodeKind::Aggregate {
-            input: source,
-            spec,
-            expansion: None,
-            count_partial,
-        } = &mut input.kind
-            && spec.admits_count_partial(&source.fields)
-            && keys
-                .iter()
-                .any(|key| key.column.as_str() == spec.group_names[0])
-        {
-            *count_partial = true;
+        for key in keys {
+            admit_count_partial(&mut input, key.column.as_str());
         }
         self.charge(
             input
@@ -207,6 +197,59 @@ impl Binder<'_> {
                 count,
             },
         })
+    }
+}
+
+fn projection_source<'a>(
+    fields: &[(String, DType)],
+    expressions: &'a [crate::local_primitives::native_relational_expression::Expression],
+    name: &str,
+) -> Option<&'a str> {
+    use crate::local_primitives::native_relational_expression::Kind;
+    let index = fields.iter().position(|(field, _)| field == name)?;
+    match &expressions.get(index)?.kind {
+        Kind::Column(source) => Some(source),
+        _ => None,
+    }
+}
+
+fn admit_count_partial(node: &mut Node, name: &str) {
+    // A total order containing the sole group key hides partial construction's
+    // insertion order. Pure projections preserve that proof after binding all
+    // fields; leave every stage in place and stop at any value/cardinality work.
+    match &mut node.kind {
+        NodeKind::Aggregate {
+            input,
+            spec,
+            expansion: None,
+            count_partial,
+        } if spec.admits_count_partial(&input.fields) && spec.group_names[0] == name => {
+            *count_partial = true;
+        }
+        NodeKind::Project { input, expressions } if column_projection(expressions) => {
+            if let Some(source) = projection_source(&node.fields, expressions, name) {
+                admit_count_partial(input, source);
+            }
+        }
+        NodeKind::Pipeline { input, stages }
+            if stages.iter().all(|stage| {
+                matches!(&stage.kind, PipelineKind::Project(expressions)
+                    if column_projection(expressions))
+            }) =>
+        {
+            let mut source = name;
+            for stage in stages.iter().rev() {
+                let PipelineKind::Project(expressions) = &stage.kind else {
+                    return;
+                };
+                let Some(column) = projection_source(&stage.fields, expressions, source) else {
+                    return;
+                };
+                source = column;
+            }
+            admit_count_partial(input, source);
+        }
+        _ => {}
     }
 }
 
