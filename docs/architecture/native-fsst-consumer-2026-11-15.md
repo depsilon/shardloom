@@ -200,6 +200,31 @@ the packaging repair supplies two byte-exact prior validators without changing
 the original archive or measurements. The full comparison report records the
 source, test, allocation and timing limits.
 
+## PR review correction: active compressed slices
+
+PR #1692 review found that the initial prefilter used `VarBinArray::bytes`,
+which retains a parent's entire buffer after slicing. A small selected slice
+could therefore search unrelated rows and miss an available early rejection.
+The correction uses the existing offset representation to restrict the
+necessary-byte search to the first and last active offsets. It evaluates those
+offsets once, only after the pattern and filter are admitted, and reuses them
+for the original row traversal. Unsupported, prefix, empty-pattern, negated and
+dense-table routes keep their existing order; offset execution errors propagate.
+No byte copy, decode, external execution or retained cache is introduced.
+
+The regression first fails on PR head `7c34815a0` with a one-row slice retaining
+131,074 parent bytes. It then passes with primitive and chunked offsets,
+nonzero starts, empty and all-null FSST views, mixed validity and surviving
+matches. The complete corrected provider suite passes 115 tests with its one
+existing opt-in ignore. The original test-fixture setup failures and the
+storage preflight refusal remain preserved alongside the failing reproducer.
+
+This is a later source correction. The release comparison, counters and
+installed-wheel results above remain bound to their original measured runtime;
+they are not new measurements of the corrected code. Separate source checks
+and native integration establish correction acceptance, without repeating the
+performance cohort or changing the original packet.
+
 ## Subsequent independent experiments
 
 With the prefilter decision complete, separately evaluate request-scoped matcher lifetime

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 
+use num_traits::AsPrimitive;
 use vortex_array::ArrayRef;
 use vortex_array::ArrayView;
 use vortex_array::ExecutionCtx;
@@ -52,22 +53,32 @@ impl LikeKernel for FSST {
         let codes = array.codes();
         let all_bytes = codes.bytes();
         let all_bytes = all_bytes.as_slice();
-        let candidate_codes = (!options.negated).then_some(all_bytes);
-        let matcher = if let Some(reuse) = ctx.session().get_opt::<MatcherReuse>() {
-            let allocator = ctx.host_allocator();
-            FsstMatcher::try_new_with_reuse(
-                array.symbols(),
-                array.symbol_lengths(),
-                pattern_bytes,
-                candidate_codes,
-                Some((&reuse, &allocator)),
-            )?
+        let n = codes.len();
+        let mut evaluated_offsets = None;
+        let matcher = if options.negated {
+            FsstMatcher::try_new(array.symbols(), array.symbol_lengths(), pattern_bytes, None)?
         } else {
-            FsstMatcher::try_new(
+            let reuse = ctx.session().get_opt::<MatcherReuse>();
+            let allocator = ctx.host_allocator();
+            FsstMatcher::try_new_with_candidate_codes_and_reuse(
                 array.symbols(),
                 array.symbol_lengths(),
                 pattern_bytes,
-                candidate_codes,
+                Some(|| {
+                    let offsets = codes.offsets().clone().execute::<PrimitiveArray>(ctx)?;
+                    // VarBin slices retain the parent's bytes and slice only
+                    // offsets. Search exactly the active span, including the
+                    // empty span, without copying or reading parent rows.
+                    let active_bytes = match_each_integer_ptype!(offsets.ptype(), |T| {
+                        let off = offsets.as_slice::<T>();
+                        let start: usize = off[0].as_();
+                        let end: usize = off[n].as_();
+                        &all_bytes[start..end]
+                    });
+                    evaluated_offsets = Some(offsets);
+                    Ok(active_bytes)
+                }),
+                reuse.as_ref().map(|reuse| (reuse, &allocator)),
             )?
         };
         let Some(matcher) = matcher else {
@@ -75,8 +86,10 @@ impl LikeKernel for FSST {
         };
 
         let negated = options.negated;
-        let offsets = codes.offsets().clone().execute::<PrimitiveArray>(ctx)?;
-        let n = codes.len();
+        let offsets = match evaluated_offsets {
+            Some(offsets) => offsets,
+            None => codes.offsets().clone().execute::<PrimitiveArray>(ctx)?,
+        };
 
         let result = match_each_integer_ptype!(offsets.ptype(), |T| {
             let off = offsets.as_slice::<T>();
@@ -524,3 +537,8 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[cfg(debug_assertions)]
+#[path = "like_slice_tests.rs"]
+mod slice_tests;

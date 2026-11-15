@@ -5,8 +5,12 @@
 Status: active feasibility/design work under item 20/RFC 0044 and the
 [ordered consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).
 There is no retained reuse candidate or new performance result. The accepted
-[prefilter](native-fsst-consumer-2026-11-15.md) is complete and remains unchanged
-at intake, source `7c34815a0d99eb53afff7e11432682c096ad12cf` in PR #1692.
+[prefilter](native-fsst-consumer-2026-11-15.md) is complete. Intake used source
+`7c34815a0d99eb53afff7e11432682c096ad12cf`; the later PR #1692 review correction
+`f326e6328010b89cecbd7d5d70cc73d9f09a8b69` limits filtering to active slice bytes
+and is integrated before further candidate admission. Its source-bound
+[correctness packet](../benchmarks/evidence/native-fsst-slice-correction-2026-11-15/README.md)
+does not replace or reinterpret the original measured runtime.
 This independent experiment precedes required item-19 spatial execution; it does
 not extend the earlier prefilter decision or authorize a writer change.
 
@@ -126,7 +130,10 @@ decision.
 Only after admission and source/package proof, freeze the candidate and compare
 complete public operations against the accepted FSST prefilter. Reuse prior
 observations only when source, runtime, input, request, worker and reference
-bindings are exact. The existing 9,040 declarations and separate 270 prepared
+bindings are exact. The slice correction changes the comparison source, so the
+old pre-correction engine observations cannot serve as the corrected baseline.
+Both compared runtimes must include the same slice correction. The existing
+9,040 declarations and separate 270 prepared
 plans provide the starting population; prove coverage before adopting it.
 Construction, identity checking, credit admission, dense-candidate and
 nonpredicate controls remain scored. Both complete fresh and prepared engine

@@ -135,6 +135,48 @@ fn whole_backing_rejection_never_becomes_a_reused_table_result() {
 }
 
 #[test]
+fn lazy_offsets_keep_dense_reuse_and_error_admission_order() {
+    let (allocator, live) = allocator(4 * TABLE_BYTES);
+    let reuse = MatcherReuse::try_new(&allocator).unwrap();
+    let scope = reuse.begin().unwrap();
+    let failed = FsstMatcher::try_new_with_candidate_codes_and_reuse(
+        &[symbol(b"a"), symbol(b"z")],
+        &[1, 1],
+        b"%z%",
+        Some(|| Err(vortex_err!("active offsets failed"))),
+        Some((&reuse, &allocator)),
+    );
+    assert!(
+        failed
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("active offsets failed")
+    );
+    assert_eq!(scope.snapshot(), Some(MatcherReuseSnapshot::default()));
+    assert_eq!(live.load(Ordering::SeqCst), REGISTRY_BYTES + SCOPE_BYTES);
+
+    // Every symbol contains 'a': the prefilter declines, but the immutable
+    // table remains eligible for reuse without moving offset evaluation.
+    for _ in 0..2 {
+        let table = FsstMatcher::try_new_with_candidate_codes_and_reuse(
+            &[symbol(b"a"), symbol(b"ba"), symbol(b"ca")],
+            &[1, 2, 2],
+            b"%a%",
+            Some(|| panic!("dense table must not execute offsets early")),
+            Some((&reuse, &allocator)),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(table.matches(&[0, 1, 2]));
+    }
+    let work = scope.snapshot().unwrap();
+    assert_eq!((work.lookups, work.hits, work.constructions), (2, 1, 1));
+    drop((scope, reuse));
+    assert_eq!(live.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn exact_contents_lengths_and_patterns_define_identity_and_other_routes_do_not_lookup() {
     let (allocator, _) = allocator(4 * TABLE_BYTES);
     let reuse = MatcherReuse::try_new(&allocator).unwrap();

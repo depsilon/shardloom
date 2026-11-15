@@ -192,9 +192,15 @@ impl FsstMatcher {
         pattern: &[u8],
         candidate_codes: Option<&[u8]>,
     ) -> VortexResult<Option<Self>> {
-        Self::try_new_with_reuse(symbols, symbol_lengths, pattern, candidate_codes, None)
+        Self::try_new_with_candidate_codes(
+            symbols,
+            symbol_lengths,
+            pattern,
+            candidate_codes.map(|codes| move || Ok(codes)),
+        )
     }
 
+    #[cfg(test)]
     pub(crate) fn try_new_with_reuse(
         symbols: &[Symbol],
         symbol_lengths: &[u8],
@@ -202,12 +208,48 @@ impl FsstMatcher {
         candidate_codes: Option<&[u8]>,
         reuse: Option<(&MatcherReuse, &HostAllocatorRef)>,
     ) -> VortexResult<Option<Self>> {
+        Self::try_new_with_candidate_codes_and_reuse(
+            symbols,
+            symbol_lengths,
+            pattern,
+            candidate_codes.map(|codes| move || Ok(codes)),
+            reuse,
+        )
+    }
+
+    /// Resolve active compressed bytes only after admitting a necessary-byte
+    /// filter. This preserves pattern admission before offset execution and
+    /// lets the caller reuse evaluated offsets for the subsequent row scan.
+    /// The returned bytes must contain every row later passed to `matches`.
+    pub(crate) fn try_new_with_candidate_codes<'a>(
+        symbols: &[Symbol],
+        symbol_lengths: &[u8],
+        pattern: &[u8],
+        candidate_codes: Option<impl FnOnce() -> VortexResult<&'a [u8]>>,
+    ) -> VortexResult<Option<Self>> {
+        Self::try_new_with_candidate_codes_and_reuse(
+            symbols,
+            symbol_lengths,
+            pattern,
+            candidate_codes,
+            None,
+        )
+    }
+
+    pub(crate) fn try_new_with_candidate_codes_and_reuse<'a>(
+        symbols: &[Symbol],
+        symbol_lengths: &[u8],
+        pattern: &[u8],
+        candidate_codes: Option<impl FnOnce() -> VortexResult<&'a [u8]>>,
+        reuse: Option<(&MatcherReuse, &HostAllocatorRef)>,
+    ) -> VortexResult<Option<Self>> {
         let Some(like_kind) = LikeKind::parse(pattern) else {
             return Ok(None);
         };
 
+        let positive_like = candidate_codes.is_some();
         #[cfg(debug_assertions)]
-        let eligible_contains = candidate_codes.is_some()
+        let eligible_contains = positive_like
             && matches!(&like_kind, LikeKind::Contains(needle) if !needle.is_empty() && needle.len() <= FlatContainsDfa::MAX_NEEDLE_LEN);
         let inner = match like_kind {
             LikeKind::Prefix(pattern) | LikeKind::Contains(pattern) if pattern.is_empty() => {
@@ -228,16 +270,22 @@ impl FsstMatcher {
                     return Ok(None);
                 }
                 // ShardLoom's conservative filter is enabled only by the caller
-                // supplying the actual compressed backing for a positive LIKE.
+                // supplying the active compressed bytes for a positive LIKE.
                 let prefilter = candidate_codes
+                    .as_ref()
                     .and_then(|_| CodePrefilter::new(symbols, symbol_lengths, needle.as_ref()));
+                let candidate_codes = if prefilter.is_some() {
+                    candidate_codes.map(|codes| codes()).transpose()?
+                } else {
+                    None
+                };
                 if prefilter
                     .zip(candidate_codes)
                     .is_some_and(|(filter, codes)| !filter.may_match(codes))
                 {
                     MatcherInner::NoMatch
                 } else {
-                    let shared = if candidate_codes.is_some() {
+                    let shared = if positive_like {
                         reuse
                             .map(|(reuse, allocator)| {
                                 reuse.get_or_compile(

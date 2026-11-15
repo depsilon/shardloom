@@ -184,4 +184,73 @@ mod tests {
             assert_eq!(work.exact_rows, 2);
         }
     }
+
+    #[test]
+    fn candidate_bytes_are_lazy_and_offset_errors_propagate() {
+        use std::cell::Cell;
+
+        use vortex_error::vortex_err;
+
+        use crate::dfa::FsstMatcher;
+
+        let symbols = [symbol(b"a"), symbol(b"z")];
+        let lengths = [1, 1];
+        for pattern in [b"a%".as_slice(), b"%", b"%%", b"a_b%", b"exact", b"%a%b%"] {
+            FsstMatcher::try_new_with_candidate_codes(
+                &symbols,
+                &lengths,
+                pattern,
+                Some(|| panic!("non-filter pattern must not execute offsets")),
+            )
+            .unwrap();
+        }
+        let too_long = format!("%{}%", "a".repeat(255));
+        assert!(
+            FsstMatcher::try_new_with_candidate_codes(
+                &symbols,
+                &lengths,
+                too_long.as_bytes(),
+                Some(|| panic!("unsupported contains must not execute offsets")),
+            )
+            .unwrap()
+            .is_none()
+        );
+        // All three symbols contain the necessary byte, so this table declines
+        // filtering and retains the original construction-before-offset order.
+        FsstMatcher::try_new_with_candidate_codes(
+            &[symbol(b"a"), symbol(b"ba"), symbol(b"ca")],
+            &[1, 2, 2],
+            b"%a%",
+            Some(|| panic!("dense table must not execute offsets early")),
+        )
+        .unwrap();
+
+        let calls = Cell::new(0);
+        let matcher = FsstMatcher::try_new_with_candidate_codes(
+            &symbols,
+            &lengths,
+            b"%z%",
+            Some(|| {
+                calls.set(calls.get() + 1);
+                Ok([0u8].as_slice())
+            }),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(calls.get(), 1);
+        assert!(!matcher.matches(&[0]));
+        let result = FsstMatcher::try_new_with_candidate_codes(
+            &symbols,
+            &lengths,
+            b"%z%",
+            Some(|| Err(vortex_err!("offset execution witness"))),
+        );
+        assert!(
+            result
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("offset execution witness")
+        );
+    }
 }
