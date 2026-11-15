@@ -51,18 +51,24 @@
     "provenance_path": "vendor/vortex-fsst/upstream-provenance.json"
   },
   "modified_files_sha256": {
-    "Cargo.toml": "7fb38654f19eba59766ef06bff4373f41a19bdb40d60d073b52f218eed050fa0",
+    "Cargo.toml": "909b4202b749f1af92298d471b52aac1790e67702c3c6c3647d49c384895f11b",
     "src/array.rs": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
-    "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf"
+    "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf",
+    "src/compute/like.rs": "228b90fb1e0fc1b6ed482cb299e91351b6d90664b610ab771baf0081a1498f4a",
+    "src/dfa/mod.rs": "6749343a78c61b4e4f02ce41e7058ca2f859894acfa9ba6a2659c8b31883c6e9",
+    "src/dfa/tests.rs": "de62a99c1c9a7c20d80d559bbd797260eb51bf24aa1b684fce65988a43d0dadb",
+    "src/lib.rs": "896de0b9d80f79994c5c147ae5b71e5a4146ecb16b72b920d274261086148316"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "ab2f8397b130110f90bc6d699539c595a145af33bd59c1f8b324a55a45a428db",
-    "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40"
+    "README.shardloom.md": "c128977372029316a8e0077d3147532fd7bb64f6c719222c3b63f21a6821a586",
+    "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40",
+    "src/dfa/prefilter.rs": "0fca03a7cb131e2cd5c11ed32e752eb3c485629a8bc605daf22e4678a726e76b",
+    "src/like_observation.rs": "8ad1f16654cd81e13f170a6e4441d3a509991bc5356408c41c48a3c5dcecae82"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "ab2f8397b130110f90bc6d699539c595a145af33bd59c1f8b324a55a45a428db"
+    "sha256": "c128977372029316a8e0077d3147532fd7bb64f6c719222c3b63f21a6821a586"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

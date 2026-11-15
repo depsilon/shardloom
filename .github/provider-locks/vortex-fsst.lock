@@ -2821,6 +2821,7 @@ version = "0.93.0"
 dependencies = [
  "codspeed-divan-compat",
  "fsst-rs",
+ "memchr",
  "mimalloc",
  "num-traits",
  "prost",

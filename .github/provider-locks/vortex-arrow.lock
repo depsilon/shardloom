@@ -1920,6 +1920,7 @@ name = "vortex-fsst"
 version = "0.93.0"
 dependencies = [
  "fsst-rs",
+ "memchr",
  "num-traits",
  "prost",
  "vortex-array",

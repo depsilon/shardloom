@@ -47,17 +47,22 @@ impl LikeKernel for FSST {
             return Ok(None);
         };
 
-        let Some(matcher) =
-            FsstMatcher::try_new(array.symbols(), array.symbol_lengths(), pattern_bytes)?
+        let codes = array.codes();
+        let all_bytes = codes.bytes();
+        let all_bytes = all_bytes.as_slice();
+        let candidate_codes = (!options.negated).then_some(all_bytes);
+        let Some(matcher) = FsstMatcher::try_new(
+            array.symbols(),
+            array.symbol_lengths(),
+            pattern_bytes,
+            candidate_codes,
+        )?
         else {
             return Ok(None);
         };
 
         let negated = options.negated;
-        let codes = array.codes();
         let offsets = codes.offsets().clone().execute::<PrimitiveArray>(ctx)?;
-        let all_bytes = codes.bytes();
-        let all_bytes = all_bytes.as_slice();
         let n = codes.len();
 
         let result = match_each_integer_ptype!(offsets.ptype(), |T| {
@@ -72,7 +77,19 @@ impl LikeKernel for FSST {
             .validity()?
             .union_nullability(pattern_scalar.dtype().nullability());
 
-        Ok(Some(BoolArray::new(result, validity).into_array()))
+        let result = BoolArray::new(result, validity).into_array();
+        // ShardLoom diagnostic only: no registration, allocation or global state.
+        #[cfg(debug_assertions)]
+        {
+            use vortex_session::SessionExt as _;
+            if let Some(observer) = ctx
+                .session()
+                .get_opt::<crate::like_observation::LikeObservation>()
+            {
+                observer.record(matcher.observation(n));
+            }
+        }
+        Ok(Some(result))
     }
 }
 

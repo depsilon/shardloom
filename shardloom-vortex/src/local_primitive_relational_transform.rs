@@ -11,6 +11,10 @@ use super::{
 #[path = "local_primitive_relational_survivor_admission_tests.rs"]
 mod survivor_admission_tests;
 
+#[cfg(all(test, debug_assertions, feature = "vortex-write"))]
+#[path = "local_primitive_relational_fsst_admission_tests.rs"]
+mod fsst_admission_tests;
+
 pub(super) fn column_projection(expressions: &[native_relational_expression::Expression]) -> bool {
     expressions.iter().all(|expression| {
         matches!(

@@ -13422,6 +13422,11 @@ fn fast_utf8_contains_fsst_matches(
     else {
         return Ok(None);
     };
+    #[cfg(all(test, debug_assertions))]
+    native_relational_observation::record(|counts| {
+        counts.legacy_fsst_like_calls += 1;
+        counts.legacy_fsst_like_rows += array.len() as u64;
+    });
     let Some(mask) = result.as_opt::<vortex::array::arrays::Bool>() else {
         return Ok(None);
     };
