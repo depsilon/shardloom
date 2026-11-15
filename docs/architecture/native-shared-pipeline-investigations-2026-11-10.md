@@ -103,8 +103,10 @@ semantic, read-reduction and separate lifecycle proof. The subsequent
 [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent
 [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
 locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
-declines the current unversioned provider before performance. Necessary text-zone
-evidence is next. Broader constant-key support remains open. The sequence settles I's
+declines the current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence and accepted source restored. I's read/consumer
+attribution and survivor batching are next. Broader constant-key support remains open. The sequence settles I's
 batch/lifetime contract before FSST/codec tuning and places exact spatial
 execution before optional spatial summaries.
 Reconcile B/C/I/N outcomes from those active units once; the table below is an

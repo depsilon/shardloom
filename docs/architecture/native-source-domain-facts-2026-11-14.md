@@ -19,8 +19,10 @@ The executed source fingerprint is
 All 5,782 captured source files match the preservation commit. The runtime
 retains its actual build parent and dirty-source identity. The
 [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines the
-current unversioned provider before performance. Necessary text-zone evidence
-is next. Broader
+current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence; this accepted runtime remains the baseline.
+I's read/consumer attribution and survivor batching are next. Broader
 metadata/encoded work, required item-19 spatial execution, item 20, RFC 0044 and
 CG-1 through CG-23 retain their remaining obligations. No merge, publication or
 release follows from this local disposition.

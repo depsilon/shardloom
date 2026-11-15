@@ -363,8 +363,13 @@ once, and do not repeat full10k or broad gates after every small edit.
   [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines
   the existing unversioned provider before performance: all 28 native admission
   checks, four signed-zero counterexamples and portable verification are retained.
-  Necessary text-zone evidence is next; the predicate-summary parent stays open. Broader
-  constant-key support remains open.
+  The [necessary text-signature experiment](native-text-signatures-2026-11-14.md)
+  has a complete drop disposition: all 9,040 declarations per runtime, 1,080
+  lifecycle operations, 840 logical exclusion witnesses and portable checks
+  pass, but complete fresh engine time rises from 682.167470629 to
+  692.796513379 seconds. The accepted source is restored; I's read/consumer
+  attribution and survivor batching are next. The predicate-summary parent
+  and broader constant-key support remain open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
     N's dictionary owner and I's consumer boundaries; attach versioned missing
@@ -389,8 +394,10 @@ once, and do not repeat full10k or broad gates after every small edit.
     retained with complete comparison, lifecycle, ownership and portable proof.
   - [ ] Evaluate predicate-specific zone evidence: the existing unversioned
     native Bloom provider has a complete finite admission decline before performance.
-    Evaluate necessary text signatures next where warranted. Spatial
-    summaries follow the exact spatial execution contract below.
+    The finite necessary text-signature candidate has a complete drop
+    disposition with logical-exclusion, separate read/construction and portable
+    evidence preserved. This parent remains open; spatial summaries follow
+    the exact spatial execution contract below.
   - [ ] Extend existing I with separately observed pruning/read/consumer units
     and survivor-driven batching. Settle its retained or declined batch/lifetime
     contract before tuning per-batch FSST matcher lifetime or codec choices.

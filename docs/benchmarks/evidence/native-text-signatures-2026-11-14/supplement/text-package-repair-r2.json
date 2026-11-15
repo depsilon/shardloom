@@ -1,0 +1,73 @@
+{
+  "status": "completed_offline_import_closure_pending_replay",
+  "query_executions": 0,
+  "original_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text-packet-r2/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178987549,
+      "bytes": 6160352,
+      "mtime_ns": 1794732271766921205,
+      "ctime_ns": 1794732271766921205
+    },
+    "sha256": "b241c7c73ecfd6f827acd5d7e9ba8f8e6a52720ef7b0c92ea2ee642b9d966832"
+  },
+  "corrected_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text-packet-r3/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178997631,
+      "bytes": 6182434,
+      "mtime_ns": 1794733211340428963,
+      "ctime_ns": 1794733211340428963
+    },
+    "sha256": "6c440f5344e158dee4faca3a699cda66683ca361b3b9196a6ac89323ab5fad1c"
+  },
+  "original_archive_bytes_unchanged": true,
+  "transport_parts": 13,
+  "added_members": 23,
+  "missing_module": {
+    "path": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_observations.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 177270911,
+      "bytes": 3251,
+      "mtime_ns": 1794684888237458418,
+      "ctime_ns": 1794684888237458418
+    },
+    "sha256": "d15e66c3eb4ae05fde3076147cd2327f279d5c01e85351832d93e7df72446456"
+  },
+  "prior_closeout": {
+    "path": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary-closeout-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 177813977,
+      "bytes": 6919,
+      "mtime_ns": 1794694094821655978,
+      "ctime_ns": 1794694094821655978
+    },
+    "sha256": "ce86881b9ddde4d2aee60777d72aa41c37424f5ab48bfeeb88d87d2f5b134ba3"
+  },
+  "prior_controls": {
+    "path": "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary-packet-controls-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 177806505,
+      "bytes": 7001,
+      "mtime_ns": 1794693338902847056,
+      "ctime_ns": 1794693338902847056
+    },
+    "sha256": "7c0a16124522d55599164fbe19800ff28646bfbe982ab9f56734f58dccc69881"
+  },
+  "prior_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/evidence/native-dictionary-domain-2026-11-14/packet/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 177782922,
+      "bytes": 4925725,
+      "mtime_ns": 1794693173312393543,
+      "ctime_ns": 1794693173312393543
+    },
+    "sha256": "6005611e925f4d84a6ddf426f83a169ce0ce6c2daa2aca11ab68cda8b417a883"
+  }
+}

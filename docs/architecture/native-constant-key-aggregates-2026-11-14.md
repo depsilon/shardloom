@@ -30,8 +30,10 @@ accepted source, and neither a replacement build nor another timing run was adde
 The subsequent [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md)
 and [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
 locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
-declines the current unversioned provider before performance. Necessary text-zone
-evidence is next. Broader constant-key support,
+declines the current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence and accepted source restored. I's read/consumer
+attribution and survivor batching are next. Broader constant-key support,
 the parent metadata family, item 19/20, RFC 0044 and CG-1 through CG-23 remain open.
 No merge, package publication, release or writer-default change is implied.
 

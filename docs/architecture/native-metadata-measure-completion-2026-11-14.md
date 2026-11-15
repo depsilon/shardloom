@@ -13,8 +13,10 @@ under its own complete-cohort rule. The subsequent
 [dictionary-domain N unit](native-dictionary-domain-2026-11-14.md) and subsequent
 [source-domain C unit](native-source-domain-facts-2026-11-14.md) are retained
 locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
-declines the current unversioned provider before performance. Necessary text-zone
-evidence is next. Broader
+declines the current unversioned provider before performance. The subsequent
+[necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
+declined with complete evidence and accepted source restored. I's read/consumer
+attribution and survivor batching are next. Broader
 constant-key support and the item-20/RFC-0044 queue remain open. Those separate
 decisions do not change this experiment's drop disposition.
 

@@ -1,0 +1,73 @@
+{
+  "status": "completed_offline_import_closure_pending_replay",
+  "query_executions": 0,
+  "original_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text-packet-r1/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178978884,
+      "bytes": 6148056,
+      "mtime_ns": 1794731917187937818,
+      "ctime_ns": 1794731917187937818
+    },
+    "sha256": "5d14344e7f5036c8453de19d1f882b7e8f13d163025d086f1b5d6a908585f824"
+  },
+  "corrected_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/native-predicate-zones-2026-11-14/text-packet-r2/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178987549,
+      "bytes": 6160352,
+      "mtime_ns": 1794732271766921205,
+      "ctime_ns": 1794732271766921205
+    },
+    "sha256": "b241c7c73ecfd6f827acd5d7e9ba8f8e6a52720ef7b0c92ea2ee642b9d966832"
+  },
+  "original_archive_bytes_unchanged": true,
+  "transport_parts": 13,
+  "added_members": 12,
+  "missing_module": {
+    "path": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source_facts_observations.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 177840235,
+      "bytes": 3984,
+      "mtime_ns": 1794697999689707912,
+      "ctime_ns": 1794697999689707912
+    },
+    "sha256": "b35e52a5f404d7b405b634b3908267e98b83f80734d38e06d714669d69bab8b1"
+  },
+  "prior_closeout": {
+    "path": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source-facts-closeout-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178451396,
+      "bytes": 7125,
+      "mtime_ns": 1794706900221177353,
+      "ctime_ns": 1794706900221177353
+    },
+    "sha256": "6ac0e22eabe0de28308120104ead58ad024ee5381d2cc5667f3781b8ded05ce9"
+  },
+  "prior_controls": {
+    "path": "/Users/dylan/LocalData/shardloom/native-source-domain-facts-2026-11-14/source-facts-packet-controls-r1.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178444177,
+      "bytes": 9395,
+      "mtime_ns": 1794706677065050556,
+      "ctime_ns": 1794706677065050556
+    },
+    "sha256": "b2ff45952773967415ff4538178dddcd1802941dc022e72b52e87b413491821c"
+  },
+  "prior_manifest": {
+    "path": "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree/docs/benchmarks/evidence/native-source-domain-facts-2026-11-14/packet/manifest.json",
+    "generation": {
+      "device": 16777234,
+      "inode": 178423427,
+      "bytes": 4968043,
+      "mtime_ns": 1794706519477308336,
+      "ctime_ns": 1794706519477308336
+    },
+    "sha256": "837bd3f86f0950c06f13dec224bb19a166a7e813dc3a313c64cc9eb25efff89a"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schema": "shardloom.native_text_signature_restoration.v1",
+  "files": {
+    "logs/text-closeout-verification-r1.log": {
+      "bytes": 778,
+      "sha256": "2032bda9d1e82b67e69b26b17c2c8b232c3342254812fec1511cf7a1a19653aa"
+    },
+    "logs/text-source-restoration-check-r2.log": {
+      "bytes": 324,
+      "sha256": "f2f3f55b0c87a6c7c3eb3387122e7b74448936cead11468c260072d8b6ed2b32"
+    },
+    "logs/text-source-restoration-r1.log": {
+      "bytes": 598,
+      "sha256": "3f12184903fbc8939f1a194a874755eb46a622e4a4620711d93c181d95faabbd"
+    },
+    "restore_text_source.py": {
+      "bytes": 5796,
+      "sha256": "2b93039978b5aa4d3527c891fbe2dc070e0506cc703ca9778561ae0bf248db23"
+    },
+    "text-closeout-verification-r1.json": {
+      "bytes": 1031573,
+      "sha256": "806a3f0c62885206692150a732c8eb1fd7bc266ba417d0073dbbfa9af3936d55"
+    },
+    "text-packet-installation-r1.json": {
+      "bytes": 454,
+      "sha256": "c3eef45248329ed153a75cd17925d0cbcd0f71a75278d3125ddc35e0814ee537"
+    },
+    "text-source-restoration-check-r2.json": {
+      "bytes": 1024547,
+      "sha256": "55f0b2b4fd322a2b99ad6bc35e64105910c95a197586070dac8b68bfed06365f"
+    },
+    "text-source-restoration-r2.json": {
+      "bytes": 7824,
+      "sha256": "7cc9f9e9886edf99f279cefb16307689ee9c7d573e2d993bf3d7feabd9f5b378"
+    },
+    "verify.py": {
+      "bytes": 2978,
+      "sha256": "17c0c7cd6df4d61c66fb77aff64125d21a6eea59513838943f4c9ad8c9634650"
+    },
+    "verify_text_restoration.py": {
+      "bytes": 5638,
+      "sha256": "5b99d34e92d70e9fdff669b5eb5a8fda0970a105d68ff20fcd82b00fe4641650"
+    }
+  },
+  "observation_packet_manifest": {
+    "bytes": 13053,
+    "sha256": "aaf834f6ea6174180e2f6a16aab0274b6010a3b09474e4621f52edb463c7dd1f"
+  },
+  "query_executions": 0,
+  "publication_attempted": false
+}

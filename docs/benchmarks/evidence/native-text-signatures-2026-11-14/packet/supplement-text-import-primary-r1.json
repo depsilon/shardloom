@@ -1,0 +1,14 @@
+{
+  "status": "passed_primary_import_inventory_verification",
+  "inventory": {
+    "bytes": 239288,
+    "sha256": "a1534d56b4764af438b4ff1375fb9a6bb82602444d4af808aa1115d09400e7a0"
+  },
+  "missing_replay_helpers": [
+    "/Users/dylan/LocalData/shardloom/native-dictionary-domain-2026-11-14/dictionary_observations.py"
+  ],
+  "actual_relocated_imports_passed": true,
+  "loaded_local_modules": 64,
+  "source_identities_verified": 956,
+  "query_executions": 0
+}
