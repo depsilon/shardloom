@@ -25,8 +25,12 @@ is retained locally, as is the subsequent
 The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
 declines the current unversioned provider before performance. The subsequent
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
-declined with complete evidence and accepted source restored. I's read/consumer
-attribution and survivor batching are next. Broader constant-key support, the metadata/optimization
+declined with complete evidence and accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader constant-key support, the metadata/optimization
 queue, item 19/20, RFC 0044 and CG-1 through
 CG-23 remain open. This local acceptance does not merge or publish the change.
 

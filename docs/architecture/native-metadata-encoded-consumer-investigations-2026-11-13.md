@@ -32,8 +32,11 @@ ALP/FastLanes dispatch, lifecycle and portable proof. The
 [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines
 the current unversioned provider before performance. The
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) has
-a complete drop disposition; accepted source is restored. I's read/consumer
-attribution and survivor batching are next. The predicate-summary parent,
+a complete drop disposition; accepted source is restored. The
+[survivor admission screen](native-survivor-admission-2026-11-15.md) declines
+unconditional callback batching before performance; the existing batch contract
+remains in force for the next FSST work. Broader I attribution/narrower batching,
+the predicate-summary parent,
 broader constant-key support and coverage remain open.
 
 The supplied research describes source checked at `72680743a34a5db9`, after
@@ -81,8 +84,8 @@ delta review of existing evidence, not another whole-engine inventory phase.
 | Completed finite experiment | Named exact source/domain facts and ALP/FastLanes predicate admission, extending C, retained locally | All 2,786 declarations per runtime, 620 finite-source admissions, 150 actual compressed-dispatch witnesses, separate lifecycles and portable proof pass. Both complete engine totals decrease; all regressions remain explicit. No general fact framework is introduced. |
 | Completed finite admission review | Existing unversioned native Bloom provider declined before performance | Pinned persistence warning, four native signed-zero counterexamples, registration/resource review and portable proof are preserved. This is not a timing drop or a rejection of every Bloom design; the summary parent remains open. |
 | Completed finite experiment | Necessary nonspatial text signatures declined; accepted source restored | All 9,040 declarations per runtime, lifecycles and 840 logical exclusions pass, with separate read/construction evidence. Complete fresh engine time increases despite the favorable new-text and lifecycle results. Preserve the complete drop; the summary parent remains open. |
-| Next active work | Survivor batching and separate logical-zone/read/consumer attribution, extending I | Settle bounded selections, pinned bytes, flush points and actual preparation reduction before matcher-lifetime or codec tuning depends on batch shape. A documented decline leaves the existing batch contract in force. |
-| Next | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |
+| Completed finite admission screen | Unconditional survivor callback adapter declined, extending I | Eight complete requests and preparation/ownership counterexamples settle the prerequisite: existing batches remain in force. Error and callback order prevent unconditional buffering despite fewer preparations in the small control. Broader attribution and a separately admitted narrow route remain open. |
+| Next active work | FSST candidate prefilter, then a separate exact-table matcher-lifetime experiment | Use the accepted encoded consumer and batch contract; retain construction, dense-candidate and nonpredicate controls. Neither result authorizes a writer default. |
 | Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
 | Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |
 
@@ -175,8 +178,10 @@ scalar implementation. The subsequent dictionary-domain N and
 The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md) declines
 the current unversioned provider before performance. The
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) has
-a complete drop disposition. I's read/consumer attribution and survivor
-batching are next; the predicate-summary parent remains open.
+a complete drop disposition. The
+[survivor admission screen](native-survivor-admission-2026-11-15.md) declines
+unconditional callback batching before performance and retains the existing
+batch contract for FSST. Broader I and the predicate-summary parent remain open.
 
 Reuse native zoned-layout aggregate/path and partial-state concepts. For an
 identified region, distinguish no qualifying rows, complete qualification with

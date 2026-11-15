@@ -15,10 +15,13 @@ under its own complete-cohort rule. The subsequent
 locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
 declines the current unversioned provider before performance. The subsequent
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
-declined with complete evidence and accepted source restored. I's read/consumer
-attribution and survivor batching are next. Broader
-constant-key support and the item-20/RFC-0044 queue remain open. Those separate
-decisions do not change this experiment's drop disposition.
+declined with complete evidence and accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader constant-key support and the item-20/RFC-0044 queue remain
+open. Those separate decisions do not change this experiment's drop disposition.
 
 ## Implementation and provider contract
 

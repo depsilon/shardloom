@@ -22,7 +22,11 @@ retains its actual build parent and dirty-source identity. The
 current unversioned provider before performance. The subsequent
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
 declined with complete evidence; this accepted runtime remains the baseline.
-I's read/consumer attribution and survivor batching are next. Broader
+The finite unconditional-callback batching screen is complete and declined
+before performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader
 metadata/encoded work, required item-19 spatial execution, item 20, RFC 0044 and
 CG-1 through CG-23 retain their remaining obligations. No merge, publication or
 release follows from this local disposition.

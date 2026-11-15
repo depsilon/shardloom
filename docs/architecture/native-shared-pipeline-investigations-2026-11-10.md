@@ -105,8 +105,12 @@ semantic, read-reduction and separate lifecycle proof. The subsequent
 locally. The [pinned Bloom admission review](native-bloom-admission-2026-11-14.md)
 declines the current unversioned provider before performance. The subsequent
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
-declined with complete evidence and accepted source restored. I's read/consumer
-attribution and survivor batching are next. Broader constant-key support remains open. The sequence settles I's
+declined with complete evidence and accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I read/consumer attribution and narrower batching
+remain open. Broader constant-key support remains open. The sequence settles I's
 batch/lifetime contract before FSST/codec tuning and places exact spatial
 execution before optional spatial summaries.
 Reconcile B/C/I/N outcomes from those active units once; the table below is an

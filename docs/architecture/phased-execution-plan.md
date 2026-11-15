@@ -367,8 +367,12 @@ once, and do not repeat full10k or broad gates after every small edit.
   has a complete drop disposition: all 9,040 declarations per runtime, 1,080
   lifecycle operations, 840 logical exclusion witnesses and portable checks
   pass, but complete fresh engine time rises from 682.167470629 to
-  692.796513379 seconds. The accepted source is restored; I's read/consumer
-  attribution and survivor batching are next. The predicate-summary parent
+  692.796513379 seconds. The accepted source is restored. The
+  [survivor admission screen](native-survivor-admission-2026-11-15.md) declines
+  unconditional callback batching before performance: eight complete requests,
+  preparation/ownership witnesses, semantic counterexamples and portable replay
+  pass. The existing batch contract remains in force for FSST. Broader I,
+  the predicate-summary parent
   and broader constant-key support remain open.
   - [ ] Reconcile only changed activation/exposure against the accepted coverage
     baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
@@ -401,6 +405,9 @@ once, and do not repeat full10k or broad gates after every small edit.
   - [ ] Extend existing I with separately observed pruning/read/consumer units
     and survivor-driven batching. Settle its retained or declined batch/lifetime
     contract before tuning per-batch FSST matcher lifetime or codec choices.
+    The finite unconditional-adapter screen is complete and declined with
+    portable evidence; the existing batch contract is retained. Broader
+    attribution and a separately admitted narrow route remain open.
   - [ ] Investigate a conservative FSST candidate prefilter and separately
     bounded exact-table matcher reuse on the resulting accepted consumer path,
     with selective/dense and hardware controls.
@@ -535,6 +542,9 @@ once, and do not repeat full10k or broad gates after every small edit.
     - [ ] I: prove survivor-based downstream batching at one filter/join
       boundary, charging pinned backing bytes and requiring fewer actual
       consumer preparations; include dense/wide/tiny and finite-demand controls.
+      The [November 15 screen](native-survivor-admission-2026-11-15.md) declines
+      unconditional callback buffering before performance and preserves the
+      existing batch contract. This broader item remains open.
     - [ ] J: evaluate normalized fixed-width keys plus one bulk full-sort
       algorithm after full validation; preserve ordered-input and Top-K paths,
       stable ties and scratch admission, with window/ASOF consumers scoped.

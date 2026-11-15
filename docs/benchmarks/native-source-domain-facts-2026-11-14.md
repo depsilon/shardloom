@@ -158,8 +158,10 @@ raw observations and diagnostic resource records remain in the packet.
 The [pinned Bloom admission review](../architecture/native-bloom-admission-2026-11-14.md)
 declines the current unversioned provider before performance. The subsequent
 [necessary text-signature experiment](native-text-signatures-2026-11-14.md) is
-declined with complete evidence and accepted source restored. Pruning/read/consumer
-attribution and survivor batching are next. FSST work,
+declined with complete evidence and accepted source restored. The
+[survivor admission screen](../architecture/native-survivor-admission-2026-11-15.md)
+declines unconditional callback batching before performance and retains the
+existing batch contract for FSST. Broader I attribution and narrower batching,
 required item-19 spatial execution and optional summaries, codec choices and
 bounded CPU fusion retain their own gates. Item 20, RFC 0044 and CG-1 through
 CG-23 remain open where recorded. This local disposition creates no PR merge,

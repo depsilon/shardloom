@@ -103,6 +103,16 @@ remains unchanged; this is a new precisely admitted scalar transformation.
 
 ## I: batches formed from surviving rows
 
+The [November 15 admission screen](native-survivor-admission-2026-11-15.md)
+declines an unconditional callback adapter before performance. Eight complete
+requests establish sparse preparation exposure; four compaction controls reduce
+actual preparations only when the consumer sees combined arrays. Projection
+error order and source callback counterexamples prevent generic admission, and
+small visible slices retain whole credited allocations. Existing batches remain
+the accepted contract for FSST. Broader attribution and a separately proved
+narrow source/consumer route remain open; this does not reject every form of
+survivor batching.
+
 The [transform path](../../shardloom-vortex/src/local_primitive_relational_transform.rs)
 delivers selected arrays during each input callback. Ordinary
 [join consumption](../../shardloom-vortex/src/local_primitives/native_relational_join.rs)

@@ -139,8 +139,11 @@ declared ignore, feature/MSRV checks, 457 installed-package tests with no skips,
 and all 21 new regressions. The restored source matches the accepted C runtime
 outside documentation, so the decline introduces no new production engine code.
 
-The finite text candidate is closed. The predicate-summary parent and I's
-pruning/read/consumer attribution and survivor batching remain open. FSST,
-required item-19 spatial execution, optional spatial summaries, codec choices
+The finite text candidate is closed; the predicate-summary parent remains open.
+The [survivor admission screen](../architecture/native-survivor-admission-2026-11-15.md)
+declines unconditional callback batching before performance. Broader I
+attribution and narrower batching remain open; the existing batch contract
+remains in force for FSST. Required item-19 spatial execution, optional spatial
+summaries, codec choices
 and bounded CPU fusion retain their own gates. Item 20, RFC 0044 and CG-1 through
 CG-23 remain open where recorded. This local result does not publish or merge.

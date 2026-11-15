@@ -7,6 +7,10 @@ use super::{
     Validity, add, failed, native_relational_expression, native_relational_sort, vortex_error,
 };
 
+#[cfg(all(test, debug_assertions, feature = "vortex-write"))]
+#[path = "local_primitive_relational_survivor_admission_tests.rs"]
+mod survivor_admission_tests;
+
 pub(super) fn column_projection(expressions: &[native_relational_expression::Expression]) -> bool {
     expressions.iter().all(|expression| {
         matches!(

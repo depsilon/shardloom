@@ -1,0 +1,7 @@
+{
+  "source_revision": "236dbccd590a301ede8f34cce09715be92f025e5",
+  "archive_source_scope": "Exact cited source subset and test source snapshots; not a complete rebuild bundle.",
+  "upstream": "Vortex 0.93.0; vendor/vortex-array and vendor/vortex-buffer; Apache-2.0.",
+  "local": "ShardLoom source, tests, observations and tools; Apache-2.0.",
+  "copied_implementation_changes": false
+}

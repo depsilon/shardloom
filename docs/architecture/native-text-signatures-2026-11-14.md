@@ -15,8 +15,12 @@ baseline. The declined source is preserved at
 The [comparison](../benchmarks/native-text-signatures-2026-11-14.md) and
 [portable evidence](../benchmarks/evidence/native-text-signatures-2026-11-14/README.md)
 retain all observations and failed attempts. This closes this candidate, not
-the broader predicate-summary parent. I's separate pruning/read/consumer
-attribution and survivor batching are next. FSST prefilter and matcher lifetime,
+the broader predicate-summary parent. The finite unconditional-callback
+batching screen is complete and declined before performance; the existing batch
+contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I pruning/read/consumer attribution and narrower
+batching remain open. FSST prefilter and matcher lifetime,
 required item-19 spatial execution before optional spatial summaries, and
 codec/CPU-fusion work keep their existing order. Item 20, RFC 0044 and CG-1
 through CG-23 retain their obligations. No publication, release, writer-default

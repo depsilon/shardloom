@@ -6,8 +6,12 @@ Status: **complete finite admission review; declined before performance**.
 This resolves the existing Vortex 0.93.0 `vortex.bloom_filter.sbbf` provider
 intake in the November 13 metadata sequence. The broader predicate-summary
 parent stays open. The subsequent [necessary text-signature experiment](native-text-signatures-2026-11-14.md)
-has a complete drop disposition with accepted source restored. I's
-pruning/read/consumer attribution and survivor batching are next. Item-19 spatial
+has a complete drop disposition with accepted source restored. The finite
+unconditional-callback batching screen is complete and declined before
+performance; the existing batch contract remains for FSST. The
+[survivor admission report](native-survivor-admission-2026-11-15.md) records
+this bounded result. Broader I pruning/read/consumer attribution and narrower
+batching remain open. Item-19 spatial
 execution, item 20, RFC 0044 and CG-1 through CG-23 retain their obligations.
 
 The [portable evidence](../benchmarks/evidence/native-bloom-admission-2026-11-14/README.md)

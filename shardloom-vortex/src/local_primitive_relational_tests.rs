@@ -88,6 +88,9 @@ mod source_demand_tests;
 mod spill_tests;
 #[path = "local_primitive_relational_subquery_tests.rs"]
 mod subquery_tests;
+#[cfg(debug_assertions)]
+#[path = "local_primitive_relational_survivor_work_tests.rs"]
+mod survivor_work_tests;
 #[path = "local_primitive_relational_typed_tests.rs"]
 mod typed_tests;
 #[path = "local_primitive_relational_unary_tests.rs"]
