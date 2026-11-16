@@ -8,6 +8,56 @@ maintainer review requests improving propagation while retaining the current
 work. Shared implementation and positive activation counts do not establish
 that every eligible occurrence reaches an optimized owner.
 
+## Current disposition and next unit
+
+The combined observation at `3cec5a410` completes all 11,579 fresh requests and
+540 prepared operations per runtime with matching complete results, schemas,
+order and no-fallback/resource evidence. Its original gate remains **not
+admitted**: 60 required selected-dictionary witnesses fail, and engine totals
+increase from 894.235685490 to 894.646518681 seconds for fresh requests and from
+0.516182452 to 0.521095814 seconds for prepared operations. These are one
+observation per request, not per-change causal evidence. The population contains
+5,309 exact original-full10k requests and 6,270 mechanism cases; it is not the
+full10k with only additions. No 1,500-to-900-second speedup is claimed.
+
+The maintainer separately permits retaining useful behavior and directs a
+focused selection fix, a cohesive verified PR, then continued development. The
+original protocol, gate failures and observations remain unchanged. Future
+investigations follow the [affected-scope policy](../skills/benchmarking.md#investigation-scope).
+All 120 required grouped-COUNT projection witnesses pass. The dictionary misses
+are work/scale, dictionary/sparse/all-null, UNION ALL then noncontiguous selection,
+checksum/group-summary compositions across all five public surfaces.
+
+Saved-packet inspection verifies all 23,158 fresh records without executing
+queries. Candidate activation includes join membership in 2,668 requests,
+dictionary text in 1,020, COUNT partials in 559, existing-order owners in 6,157,
+and representation retention in 3,205. These are observed request counts, not
+eligible-opportunity denominators. Join and multiway families contain
+500.383376588 seconds of complete-query engine time, about 55.93% of the candidate
+total. The selected-dictionary misses contain 10.408416377 seconds, about 1.16%.
+After closing this bounded propagation gap, attribute resident join input, keys,
+indexing, payload and downstream consumption before selecting the next change.
+Existing counters do not divide the family total among those phases.
+
+The selected-dictionary regression reproduces correct results with 204 row text
+kernel calls and no dictionary calls. A noncontiguous selection wraps the
+compact dictionary; preparation sees the inner row count as the value domain.
+The local fix preserves checked native views for the already copied small domain
+and composes plain host codes only at demanded UTF-8 values-only preparation.
+Complete inner-code and outer-index bounds remain required. An immutable UTF-8
+validation receipt prevents newly observing unproved discarded values. Hash
+preparation, deferred/unknown shapes and the original native error paths remain
+unchanged. The prepared column retains opaque source ownership; final expression
+outputs retain independent receiving credits. Focused work and lifetime tests
+pass; broader correctness checks and the targeted comparison remain pending.
+
+The pinned Vortex `Dict::take` supplies the correct composition semantics, but
+its fixed-width provider uses the infallible buffer allocator. A pressure
+regression caught that allocation outside the fallible host budget. The fix
+therefore reuses ShardLoom's existing typed native result builder for composed
+codes and Vortex's dictionary representation, preserving width and nullability.
+It adds no dependency, unsafe code or query-engine fallback.
+
 ## Intake and sequence
 
 | Reviewed opportunity | Disposition and evidence boundary |

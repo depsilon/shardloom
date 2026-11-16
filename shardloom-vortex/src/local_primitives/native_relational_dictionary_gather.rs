@@ -15,7 +15,9 @@ use shardloom_core::{
 };
 use vortex::array::{
     ArrayRef, IntoArray as _, VortexSessionExecute as _,
-    arrays::{Dict, DictArray, Primitive, PrimitiveArray, dict::DictArraySlotsExt as _},
+    arrays::{
+        Dict, DictArray, Primitive, PrimitiveArray, VarBinViewArray, dict::DictArraySlotsExt as _,
+    },
     dtype::{DType, PType},
     memory::{HostAllocatorRef, HostMemorySessionExt as _},
 };
@@ -127,6 +129,18 @@ pub(super) fn try_copy(
             values.value(slot)
         },
     )?;
+    // These are exactly the already observed, independently copied values.
+    // Keep their checked native views so a later selection can compose codes
+    // without re-expanding a row-sized text domain. No unused source value is
+    // canonicalized here; the original source domain was selected above.
+    let output_values = output_values
+        .execute::<VarBinViewArray>(
+            &mut vortex::session::VortexSession::empty()
+                .with_host_allocator(allocator.clone())
+                .create_execution_ctx(),
+        )
+        .map_err(vortex_error)?
+        .into_array();
     let output_codes = selected.copy_codes(dtype, &mapping.values, &allocator, context)?;
     let output = DictArray::try_new(output_codes, output_values)
         .map_err(vortex_error)?

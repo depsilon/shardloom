@@ -71,6 +71,15 @@ validation. They check logical dtype, selected bounds and host residency. A
 generic builder or public unchecked constructor does not establish the receipt;
 its selected bytes still pass UTF-8 validation. Selection and byte-identical
 replacement preserve an existing receipt only for unchanged UTF-8 values.
+
+The November 15 selected-dictionary preparation exposes this immutable evidence
+through the read-only `has_validated_utf8` accessor. Admission still checks host
+residency, dictionary code bounds and selection bounds independently. It does not
+validate discarded values to obtain admission. New composed codes use ShardLoom's
+existing credited native builder because upstream fixed-width take uses a separate
+allocator. The existing UTF-8 receipt test checks the accessor for checked,
+unchecked, selected and binary arrays.
+
 The two string conversions reuse immutable native ownership inside this pinned
 provider; no workspace unsafe code, new dependency or serialized field is added.
 The [implementation contract](../../docs/architecture/native-text-validity-2026-10-17.md)

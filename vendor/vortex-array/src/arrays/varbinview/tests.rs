@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-10-17: validate native UTF-8 receipt propagation.
 // Modified by ShardLoom on 2026-10-28: check malformed selected text diagnostics.
+// Modified by ShardLoom on 2026-11-15: verify the read-only UTF-8 validation receipt.
 
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -62,6 +63,7 @@ pub fn varbin_view() {
 fn utf8_validation_receipt_requires_checked_construction_and_survives_selection() {
     let raw = VarBinViewArray::from_iter_str(["λ", "outlined native text with 猫"]);
     assert!(!raw.utf8_validated);
+    assert!(!raw.has_validated_utf8());
     let checked = VarBinViewArray::new_handle(
         raw.views_handle().clone(),
         Arc::clone(raw.data_buffers()),
@@ -69,6 +71,7 @@ fn utf8_validation_receipt_requires_checked_construction_and_survives_selection(
         Validity::NonNullable,
     );
     assert!(checked.utf8_validated);
+    assert!(checked.has_validated_utf8());
     let mut ctx = VortexSession::empty().create_execution_ctx();
     let slice = checked
         .slice(1..2)
@@ -76,6 +79,7 @@ fn utf8_validation_receipt_requires_checked_construction_and_survives_selection(
         .execute::<VarBinViewArray>(&mut ctx)
         .unwrap();
     assert!(slice.utf8_validated);
+    assert!(slice.has_validated_utf8());
     assert_eq!(
         slice.utf8_slice_at(0).unwrap(),
         "outlined native text with 猫"
@@ -87,6 +91,7 @@ fn utf8_validation_receipt_requires_checked_construction_and_survives_selection(
         Validity::NonNullable,
     );
     assert!(!binary.utf8_validated);
+    assert!(!binary.has_validated_utf8());
     assert!(binary.utf8_slice_at(0).is_err());
 }
 

@@ -912,14 +912,14 @@
     "src/arrays/runend/compress.rs": "eb168da21b0f7c21a61a14d464b4e3243ffc6fa545d5721f0f797239274a8627",
     "src/arrays/slice/vtable.rs": "c0167e4bb2b3e32f2c3e3260b5dd644e3dd89397f1caed11f51411d5526c14fb",
     "src/arrays/varbin/vtable/canonical.rs": "9f3acc1e97558c5dc58b86d5f8529a6edd933f7246a0e742d8df0e353748c467",
-    "src/arrays/varbinview/array.rs": "cf0aa1b67de5195c79b46fcab2253de84b804fea5f1ae0b53d50d5ca759193f1",
+    "src/arrays/varbinview/array.rs": "c049471abf6331be605ff47ba0733e31d0fd72f2b67f169b634cabff699b69d0",
     "src/arrays/varbinview/build_views.rs": "faf486aba88be4fa19e048edb4cd262d736f56c05fe2ee93c5e42c2b18b867eb",
     "src/arrays/varbinview/compute/cast.rs": "fb6c348084f84a1da08c5738c1f499a1d95bb84b47c5a8f0d4dd6b02fa6e1977",
     "src/arrays/varbinview/compute/mask.rs": "1cc45525b403f621b5f30e5353492c7b2d2dbe711ff24a2c0c8700f1bb866e3a",
     "src/arrays/varbinview/compute/slice.rs": "c297c66991080f36413fcb7b8df5b6bc6225f6434b864fc5af74ca05a7afa94a",
     "src/arrays/varbinview/compute/take.rs": "a6cc9e199c30ea6c8b68c097c6402aa19969ec36d98bf725f2579f75cc7a1ca4",
     "src/arrays/varbinview/mod.rs": "db53e0d433783b6013395657adfa113795a427bd4829bcdc0cf283d586869b07",
-    "src/arrays/varbinview/tests.rs": "dc00e510942cf36c590ecd51d774fd26061d98764616cd1b1095fc94a79cc3b5",
+    "src/arrays/varbinview/tests.rs": "95ab0c00510a131f2d1ee36744e754d7bd5213aa0bae5165163aa69135c247d6",
     "src/arrays/varbinview/vtable/mod.rs": "084a6f64ddf4e594b61b954497463142d51ca42ee15f2fe39d21e432dce68c8f",
     "src/builders/varbinview.rs": "47e231823766797f114a53cfd031708a96c5a6d7a1aa56b764c315c899b56ec9",
     "src/canonical.rs": "c5230dfd3e0ccc9b8ef7213241180d7f9e34032d6d307f6efdfb4fd1e293a539",
@@ -941,7 +941,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "6e9f49e92b63bd2c0ccb9a1a285109c4d02189a1f43daf165aa506406dcb9e0a",
+    "README.shardloom.md": "4a054ad606c01017acf7c9a1ccbaed65ca3ab1af044adbe8526f653fa228d4ff",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -954,7 +954,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "6e9f49e92b63bd2c0ccb9a1a285109c4d02189a1f43daf165aa506406dcb9e0a"
+    "sha256": "4a054ad606c01017acf7c9a1ccbaed65ca3ab1af044adbe8526f653fa228d4ff"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

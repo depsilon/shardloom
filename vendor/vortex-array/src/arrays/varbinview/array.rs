@@ -3,6 +3,7 @@
 // Modified by ShardLoom on 2026-10-16: retain admitted buffer-table ownership.
 // Modified by ShardLoom on 2026-10-17: carry checked native UTF-8 value validation.
 // Modified by ShardLoom on 2026-10-28: preserve selected-row UTF-8 diagnostics.
+// Modified by ShardLoom on 2026-11-15: expose immutable UTF-8 validation evidence.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -1077,6 +1078,14 @@ impl VarBinViewData {
 }
 
 pub trait VarBinViewArrayExt: TypedArrayRef<VarBinView> {
+    /// Whether checked construction established UTF-8 for these immutable views
+    /// and payloads. This is evidence about physical values, including null
+    /// slots, not about logical validity, selection bounds or host residency.
+    #[inline]
+    fn has_validated_utf8(&self) -> bool {
+        matches!(self.as_ref().dtype(), DType::Utf8(_)) && self.utf8_validated
+    }
+
     /// Borrow a physical UTF-8 value without cloning its payload owner.
     ///
     /// Checked native construction can reuse its immutable value validation.

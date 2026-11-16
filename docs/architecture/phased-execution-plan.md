@@ -299,6 +299,16 @@ once, and do not repeat full10k or broad gates after every small edit.
     and physical-reader boundaries. Extend work-weighted and verified-encoding
     scale evidence; retain current correctness fixes and accepted work. This
     takes priority over the remaining speculative metadata/codec investigations.
+    The completed 11,579-request comparison preserves its original not-admitted
+    decision: all answers pass, but 60 selected-dictionary work witnesses fail
+    and both complete engine totals increase. The maintainer separately permits
+    retaining useful behavior and requests the bounded selection fix, a cohesive
+    PR when verified, then continued development. Future investigation cohorts
+    are impact-relevant, not default repeats of that population. Close the
+    selected-dictionary validation/ownership gap, then attribute resident
+    join-to-consumer work before choosing the next material optimization. The
+    saved join/multiway family total is complete-query time, not exclusive join
+    cost; the broader coverage queue remains open.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
     at `788a8925e`: complete validation, default/native/package checks, all 388
     answers and unchanged pipeline counts pass; the same-baseline engine total

@@ -240,6 +240,80 @@ fn dictionary_text_filter_and_full_output_preserve_codes_values_nulls_and_order(
 }
 
 #[test]
+fn dictionary_text_selection_before_transform_keeps_small_domain() {
+    let rows = 96_i64;
+    let fixture = |domain: [Option<&str>; 3]| {
+        let dictionary = DictArray::try_new(
+            PrimitiveArray::from_iter((0..rows).map(|row| u8::try_from(row % 3).unwrap()))
+                .into_array(),
+            VarBinViewArray::from_iter_nullable_str(domain).into_array(),
+        )
+        .unwrap()
+        .into_array();
+        Fixture::new(
+            StructArray::from_fields(&[
+                ("row_id", PrimitiveArray::from_iter(0..rows).into_array()),
+                ("value", dictionary),
+            ])
+            .unwrap()
+            .into_array(),
+            usize::try_from(rows).unwrap(),
+        )
+    };
+    let left = fixture([Some(" A "), Some("a"), None]);
+    let right = fixture([Some(" B "), Some("a"), None]);
+    let union = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+        left: left.scan(),
+        right: right.scan(),
+        kind: VortexRelationalSetKind::UnionAll,
+    }));
+    let selected = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+        input: union,
+        predicate: compare(
+            binary(
+                col("row_id"),
+                BinaryOp::Remainder,
+                lit(ScalarValue::Int64(5)),
+            ),
+            ComparisonOp::NotEq,
+            lit(ScalarValue::Int64(0)),
+        ),
+    }));
+    let plan = transformed(selected);
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let memory = prepared.session.memory().clone();
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let expected = [[Some("a"), Some("a"), None], [Some("b"), Some("a"), None]]
+        .into_iter()
+        .flat_map(|domain| {
+            (0..rows).filter(|row| row % 5 != 0).map(
+                move |row| serde_json::json!({"key": domain[usize::try_from(row % 3).unwrap()]}),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(json_rows(&result), expected);
+    let certificate = &result.execution.native_io_certificate;
+    assert!(certificate.is_certified());
+    assert!(!certificate.side_effects.fallback_attempted);
+    let proof = &certificate.source_pushdown_report.proof_basis;
+    for expected in [
+        "dictionary_text_dictionary_batches=4",
+        "dictionary_text_dictionary_kernel_calls=8",
+        "dictionary_text_row_kernel_calls=0",
+        "dictionary_text_no_reduction_batches=0",
+    ] {
+        assert!(
+            proof.split_whitespace().any(|token| token == expected),
+            "{expected}: {proof}"
+        );
+    }
+    drop((result, prepared));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn dictionary_text_compatible_outputs_reuse_the_same_completed_transform() {
     let fixture = dictionary_fixture([Some("İßΣΟΣ"), Some("é"), None]);
     let lower = || function("lower", vec![col("value")]);
