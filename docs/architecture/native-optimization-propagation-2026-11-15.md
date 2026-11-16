@@ -2,7 +2,9 @@
 
 # Native optimization propagation
 
-Status: active implementation under item 20/RFC 0044 and the existing
+Status: the bounded dictionary/COUNT/matcher propagation unit is verified for
+integration under the maintainer's useful-behavior retention instruction;
+broader work remains active under item 20/RFC 0044 and the existing
 [coverage priority](native-optimization-coverage-2026-11-13.md). The November 15
 maintainer review requests improving propagation while retaining the current
 work. Shared implementation and positive activation counts do not establish
@@ -28,6 +30,17 @@ All 120 required grouped-COUNT projection witnesses pass. The dictionary misses
 are work/scale, dictionary/sparse/all-null, UNION ALL then noncontiguous selection,
 checksum/group-summary compositions across all five public surfaces.
 
+The focused correction at `75596d0ee` now passes all 2,190 fresh requests and
+540 prepared operations, all 120 required dictionary-retention and 80 kernel-
+reduction obligations, and all 60 previously missing witnesses. Its frozen
+performance decision is **drop**: fresh engine time increases from 99.601052609
+to 100.161598045 seconds while prepared time decreases from 0.521095814 to
+0.513496733 seconds. Complete source/package checks and relocated portable replay
+pass. The [report and separate integration record](../benchmarks/native-optimization-propagation-2026-11-15.md)
+retain useful behavior within the maintainer's instruction without rewriting
+either failed performance decision. UNION ALL and scale all-null increases
+remain explicit; the next unit is resident join-to-consumer attribution.
+
 Saved-packet inspection verifies all 23,158 fresh records without executing
 queries. Candidate activation includes join membership in 2,668 requests,
 dictionary text in 1,020, COUNT partials in 559, existing-order owners in 6,157,
@@ -48,8 +61,10 @@ Complete inner-code and outer-index bounds remain required. An immutable UTF-8
 validation receipt prevents newly observing unproved discarded values. Hash
 preparation, deferred/unknown shapes and the original native error paths remain
 unchanged. The prepared column retains opaque source ownership; final expression
-outputs retain independent receiving credits. Focused work and lifetime tests
-pass; broader correctness checks and the targeted comparison remain pending.
+outputs retain independent receiving credits. Focused work/lifetime controls,
+3,344 default and 7,288 native tests, provider checks, 455 installed-wheel tests
+and the complete targeted result/work replay pass. This does not establish a
+complete-cohort performance gain.
 
 The pinned Vortex `Dict::take` supplies the correct composition semantics, but
 its fixed-width provider uses the infallible buffer allocator. A pressure
@@ -149,16 +164,16 @@ stored array tree before measurement. Logical references remain independent
 Python populations. Large cases use bounded aggregate outputs; no output-limit
 or memory-limit increase is authorized by the larger source.
 
-The affected population includes all 4,150 existing text/UTF8 identity requests
-and the complete 2,543-request COUNT cohort, deduplicated by declaration identity,
-plus the 1,380 existing dictionary cases and new explicit propagation/scale
-controls. The COUNT cohort is not 2,543 grouped originals: it contains 1,964
-grouped originals, 134 scalar COUNT originals, 160 neighboring controls and 285
-versioned composition cases. Selection uses declarations, not timing values.
-Freeze the final identity-complete population and exact runtime boundaries before
-any new scored execution. Preserve the existing matcher candidate unchanged;
-its separate acceptance remains open unless explicitly bound into a combined
-prospective protocol.
+The original frozen combined population contains 5,309 original declarations,
+1,380 dictionary cases, 3,510 text-signature controls, 285 versioned COUNT cases
+and 1,095 new propagation cases (525 dictionary and 570 COUNT projections).
+It includes the complete earlier 2,543-request COUNT cohort after deduplication:
+1,964 grouped originals, 134 scalar COUNT originals, 160 neighboring controls
+and 285 versioned compositions. Its prospective protocol explicitly binds the
+matcher and propagation changes together; no independent matcher speedup is
+established. Selection used declarations, not timing values. The focused follow-on
+reuses the proven 2,190-request/540-operation baseline subset and executes only
+the new candidate. Neither population is a default future investigation suite.
 
 ## Vortex-first provider check
 
@@ -191,8 +206,9 @@ existing isolation, deadlines and storage guards, and all observations. Judge
 the complete declared engine total; do not infer benefit from kernel counts or
 sum unlike historical cohorts. No extra full10k, Full43, warmup or competitor
 pass follows from this item. Default/native workspace, feature and installed
-proof precede acceptance. The current matcher experiment's acceptance remains
-separate unless a prospective combined contract explicitly binds both changes.
+proof precede acceptance. The original matcher/propagation combined result and
+the focused correction retain their separate failed performance decisions; the
+later useful-behavior integration judgment is recorded independently.
 
 ShardLoom technique review: retain current PulseWeave/capillary batch geometry;
 reduce representation expansion inside existing work units. Shared memory

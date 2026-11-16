@@ -1,0 +1,46 @@
+{
+  "status": "passed_complete_portable_replay",
+  "query_executions": 0,
+  "original_fresh_observations_replayed": 23158,
+  "original_prepared_operations_replayed": 1080,
+  "focused_new_fresh_observations_replayed": 2190,
+  "focused_new_prepared_operations_replayed": 540,
+  "focused_reused_fresh_results": 2190,
+  "focused_reused_prepared_operations": 540,
+  "fresh": {
+    "cases": 2190,
+    "complete": true,
+    "baseline_engine_seconds": 99.601052609,
+    "candidate_engine_seconds": 100.161598045,
+    "engine_gain_seconds": -0.5605454359999982,
+    "regressions": 605,
+    "regression_engine_seconds": 1.80303852
+  },
+  "lifecycle": {
+    "complete": true,
+    "lifecycles": 270,
+    "operations_per_runtime": 540,
+    "baseline_engine_seconds": 0.521095814,
+    "candidate_engine_seconds": 0.513496733
+  },
+  "decision": "drop",
+  "required_work_complete": true,
+  "source_fingerprints": {
+    "baseline": "031f519ca695afc158fce6ca56def6a412e96cb423abd3c74b92bbfe0c1676a0",
+    "candidate": "c01bccc4c62d14b29c34741b6907cd00284feb74cc4b69555758e5c9eb58baa1"
+  },
+  "original_gate_unchanged": true,
+  "original_decision": "not_admitted",
+  "recorded_post_query_archive_rebindings": {
+    "count": 16,
+    "scope": "post-query archive hardlinks only; frozen observations unchanged"
+  },
+  "disposition": {
+    "performance_decision": "drop",
+    "original_gate_unchanged": true
+  },
+  "original_reads_forbidden": true,
+  "network_and_process_execution_forbidden": true,
+  "causal_speedup_claim": false,
+  "external_payloads_not_reopened": 510
+}

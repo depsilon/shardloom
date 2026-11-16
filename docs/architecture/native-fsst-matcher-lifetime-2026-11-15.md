@@ -2,9 +2,13 @@
 
 # Operation-scoped FSST matcher lifetime investigation
 
-Status: active feasibility/design work under item 20/RFC 0044 and the
+Status: finite implementation and validation complete under item 20/RFC 0044 and the
 [ordered consumer queue](native-metadata-encoded-consumer-investigations-2026-11-13.md).
-There is no retained reuse candidate or new performance result. The accepted
+The operation-scoped implementation is retained as useful behavior within the
+maintainer's later propagation/PR instruction. Its combined performance gate is
+**not admitted**, and no independent matcher speedup is established. The
+[propagation report](../benchmarks/native-optimization-propagation-2026-11-15.md)
+preserves that gate and the separate integration judgment. The accepted
 [prefilter](native-fsst-consumer-2026-11-15.md) is complete. Intake used source
 `7c34815a0d99eb53afff7e11432682c096ad12cf`; the later PR #1692 review correction
 `f326e6328010b89cecbd7d5d70cc73d9f09a8b69` limits filtering to active slice bytes
@@ -45,9 +49,9 @@ host-reservation and native-owner source. A bounded inventory preserves nine
 complete source identities and 22 exact excerpts. Static observations establish
 design constraints; they do not prove activation or a runtime saving.
 
-## Prospective candidate
+## Implemented finite candidate
 
-Evaluate one retained positive-contains table per exclusive native operation.
+Retain at most one positive-contains table per exclusive native operation.
 The cache is optional, bounded and initially empty. Prefix, negated,
 case-insensitive, unsupported-pattern and shared projection paths keep their
 existing behavior. A request uses existing native execution when reuse admission
@@ -101,7 +105,10 @@ explicit at certificate-producing prepared count, relational, aggregate and
 sort-consumer boundaries; nested operators borrow the same scope. Serving,
 metadata, ordinary provider callers and report-only legacy entry points do not
 install reuse. The sort owner captures the drained scope counters before its
-certificate is built. Complete public-request proof remains unaccepted.
+certificate is built. Complete public requests and source/package proof pass in
+the combined propagation comparison, but its work/performance gate remains not
+admitted. The final native suite and unchanged-provider identity bindings retain
+these ownership controls; they do not turn the failed comparison into a speedup.
 
 ## Admission and correctness proof
 
@@ -127,23 +134,25 @@ decision.
 
 ## Separate finite comparison and next work
 
-Only after admission and source/package proof, freeze the candidate and compare
-complete public operations against the accepted FSST prefilter. Reuse prior
-observations only when source, runtime, input, request, worker and reference
-bindings are exact. The slice correction changes the comparison source, so the
-old pre-correction engine observations cannot serve as the corrected baseline.
-Both compared runtimes must include the same slice correction. The existing
-9,040 declarations and separate 270 prepared
-plans provide the starting population; prove coverage before adopting it.
-Construction, identity checking, credit admission, dense-candidate and
-nonpredicate controls remain scored. Both complete fresh and prepared engine
-totals must strictly decrease under the standing binary rule, with every
-regression and uncertainty preserved.
+The initial prospective matcher-only 9,040-case comparison was superseded before
+execution by the 11,579-case combined propagation protocol, with the same 270
+two-call prepared plans. Both runtimes include PR #1692's active-slice correction.
+The corrected `f326e6328` baseline is freshly observed; older pre-correction
+timings are not substituted. Construction, identity, credit, dense-candidate and
+nonpredicate controls stay in the declared population.
+
+The combined candidate `3cec5a410` passes complete values/resources but fails
+60 selected-dictionary work witnesses, and both complete engine totals increase.
+The original **not-admitted** decision remains unchanged. The selected-dictionary
+follow-on closes those work misses; its separate performance gate still drops.
+The maintainer permits retaining useful candidate behavior, so source/package
+and portable proof support integration without a matcher performance claim.
 
 No Full43/full10k repeat, warmup, cache manipulation or competitor run is implied.
 Keep other task-owned work idle during observations and use the established
 lightweight supervisors; full hashing and inventories stay outside execution.
-Portable full-result replay and a separate retain/drop decision close only this
-bounded experiment. Required spatial execution follows regardless of a reuse
-performance win. Optional spatial summaries, codec/fusion work, broader item 20,
+Portable full-result replay closes this finite evidence unit. The later
+maintainer-prioritized propagation queue next attributes resident join-to-consumer
+costs; required spatial execution remains scheduled regardless of a reuse
+performance win. Hardware breadth, optional spatial summaries, codec/fusion work, broader item 20,
 RFC 0044 and CG-1 through CG-23 remain open.

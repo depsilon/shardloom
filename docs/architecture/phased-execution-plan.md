@@ -304,9 +304,13 @@ once, and do not repeat full10k or broad gates after every small edit.
     and both complete engine totals increase. The maintainer separately permits
     retaining useful behavior and requests the bounded selection fix, a cohesive
     PR when verified, then continued development. Future investigation cohorts
-    are impact-relevant, not default repeats of that population. Close the
-    selected-dictionary validation/ownership gap, then attribute resident
-    join-to-consumer work before choosing the next material optimization. The
+    are impact-relevant, not default repeats of that population. The bounded
+    selection gap now closes with all 60 previously missing witnesses, final
+    source/installed checks and [portable replay](../benchmarks/native-optimization-propagation-2026-11-15.md).
+    Its focused 2,190-request performance gate still drops (99.601052609 to
+    100.161598045 engine seconds); useful-behavior integration is a separate
+    judgment under the maintainer's instruction, not a speedup. Next attribute
+    resident join-to-consumer work before choosing a material optimization. The
     saved join/multiway family total is complete-query time, not exclusive join
     cost; the broader coverage queue remains open.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
@@ -433,6 +437,10 @@ once, and do not repeat full10k or broad gates after every small edit.
   - [ ] Separately evaluate bounded [exact-table FSST matcher lifetime](native-fsst-matcher-lifetime-2026-11-15.md) on the
     accepted prefilter/consumer path, with charged identities/allocations,
     selective/dense and hardware controls and its own complete decision.
+    The finite implementation/portable proof is complete within the propagation
+    bundle and retained under the separate useful-behavior instruction; the
+    combined performance gate remains not admitted. No independent matcher
+    speedup or broader hardware acceptance is established.
   - [ ] Advance item-19 spatial execution through native coordinate/offset
     arrays, conservative bounds and exact surviving-candidate kernels, then
     evaluate optional persisted spatial summaries. Required spatial support does
