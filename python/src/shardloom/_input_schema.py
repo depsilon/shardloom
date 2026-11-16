@@ -15,6 +15,7 @@ from ._embedding import EXTENSION_ID, normalize_metadata, metadata_json
 from . import _tensor
 from . import _variable_tensor
 from . import _vector
+from . import _spatial
 from ._temporal import parse_temporal_declaration, encode_temporal_dtype, temporal_parts, validate_temporal_ticks
 
 _ENCODING = "vortex.dtype.serde.v1"
@@ -49,13 +50,16 @@ def _result_type_parameters(dtype: ResultType) -> dict[str, object]:
         raise TypeError("ResultType requires a string name and tuple parameters")
     expected = {"list": 1, "fixed_size_list": 2, "embedding": 3, "fixed_shape_tensor": 3,
                 "variable_shape_tensor": 2, "sparse_vector": 2, "quantized_vector": 2, "decimal128": 2,
-                "binary_object": 0}.get(dtype.name)
+                "binary_object": 0, "point": 2, "linestring": 2, "polygon": 2}.get(dtype.name)
     if (expected is not None and len(dtype.parameters) != expected) or (
         expected is None and dtype.name != "struct" and dtype.parameters
     ):
         raise ValueError("ResultType has invalid parameters")
     value: dict[str, object] = {"type": dtype.name, "nullable": dtype.nullable}
-    if dtype.name == "fixed_shape_tensor":
+    if dtype.name in _spatial.KINDS:
+        storage, metadata = dtype.parameters
+        value.update({"storage": storage, "metadata": json.loads(_spatial.decode_metadata(metadata))})
+    elif dtype.name == "fixed_shape_tensor":
         metadata = dtype.parameters[2]
         if (not isinstance(metadata, tuple) or any(not isinstance(pair, tuple) or len(pair) != 2
                 or not isinstance(pair[1], tuple) for pair in metadata)):
@@ -159,12 +163,22 @@ def _parse_type(specification: object, depth: int, budget: list[int]) -> ResultT
     if token in _vector.KINDS:
         allowed.update(("storage", "metadata", "uniform_size"))
         allowed.update(("item", "index", "index_policy") if token == "sparse_vector" else ("code", "scale", "block_size"))
+    if token in _spatial.KINDS:
+        allowed.update(("storage", "metadata"))
     if token == "struct":
         allowed.add("fields")
     if set(parameters) - allowed:
         raise ValueError("unknown native input type parameters")
     if temporal is not None or token in _PRIMITIVES | {"bool", "utf8", "binary", "binary_object"}:
         return ResultType(token, nullable)
+    if token in _spatial.KINDS:
+        storage = _parse_type(parameters.get("storage", _spatial.storage_type(token, nullable)), depth + 1, budget)
+        if storage.nullable != nullable:
+            raise ValueError("spatial storage nullability must match the geometry declaration")
+        _spatial.validate_storage(token, storage)
+        metadata = _spatial.normalize_metadata(parameters.get("metadata"))
+        _schema_wire_add(budget, len(metadata.encode("utf-8")))
+        return ResultType(token, nullable, (storage, metadata))
     if token == "fixed_shape_tensor":
         if "item" not in parameters:
             raise ValueError("tensor input requires an item type")
@@ -300,6 +314,10 @@ def wire_schema(fields: Sequence[tuple[str, ResultType]]) -> tuple[tuple[str, ob
 
 def _wire_type(dtype: ResultType) -> object:
     name, nullable = dtype.name, dtype.nullable
+    if name in _spatial.KINDS:
+        return {"Extension": {"id": _spatial.IDS[name],
+            "metadata": list(_spatial.decode_metadata(dtype.parameters[1]).encode("utf-8")),
+            "storage_dtype": _wire_type(dtype.parameters[0])}}
     if name in _vector.KINDS:
         return {"Extension": {"id": _vector.IDS[name],
             "metadata": list(_vector.metadata_json(dtype.parameters[1]).encode("utf-8")),
@@ -468,6 +486,9 @@ def _value(value: object, dtype: ResultType, budget: list[int]) -> object:
         storage, metadata = dtype.parameters
         _vector.validate_value(name, value, storage, metadata)
         return _value(value, storage, budget)
+    if name in _spatial.KINDS:
+        _spatial.validate_value(name, value)
+        return _value(value, dtype.parameters[0], budget)
     if name == "variable_shape_tensor":
         storage, metadata = dtype.parameters
         _variable_tensor.validate_value(value, storage, metadata)

@@ -18,6 +18,26 @@ pub(super) fn fields(py: Python<'_>, fields: &Fields) -> PyResult<Py<PyList>> {
 fn descriptor(py: Python<'_>, field: &Field) -> PyResult<Py<PyDict>> {
     let result = PyDict::new(py);
     result.set_item("nullable", field.is_nullable())?;
+    if let Some(name @ ("geoarrow.point" | "geoarrow.linestring" | "geoarrow.polygon")) = field
+        .metadata()
+        .get("ARROW:extension:name")
+        .map(String::as_str)
+    {
+        result.set_item(
+            "type",
+            name.strip_prefix("geoarrow.").expect("spatial identity"),
+        )?;
+        result.set_item(
+            "metadata",
+            field
+                .metadata()
+                .get("ARROW:extension:metadata")
+                .map_or("{}", String::as_str),
+        )?;
+        let physical = Field::new(field.name(), field.data_type().clone(), field.is_nullable());
+        result.set_item("storage", descriptor(py, &physical)?)?;
+        return Ok(result.unbind());
+    }
     let temporal = shardloom_vortex::temporal_arrow::dtype(field.data_type());
     let name = match field.data_type() {
         DataType::Boolean => "bool",

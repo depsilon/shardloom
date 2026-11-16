@@ -16,13 +16,13 @@ const INFINITY: u64 = 0x7ff0_0000_0000_0000;
 const _: () = assert!(usize::BITS <= 64);
 type Bank = [u64; WORDS];
 
-pub(super) struct Accumulator {
+pub(in crate::local_primitives) struct Accumulator {
     positive: Bank,
     negative: Bank,
 }
 
 impl Accumulator {
-    pub(super) fn new() -> Self {
+    pub(in crate::local_primitives) fn new() -> Self {
         Self {
             positive: [0; WORDS],
             negative: [0; WORDS],
@@ -30,7 +30,7 @@ impl Accumulator {
     }
 
     /// Add exactly `left * right`, optionally negated and/or doubled.
-    pub(super) fn product(
+    pub(in crate::local_primitives) fn product(
         &mut self,
         left: f64,
         right: f64,
@@ -58,7 +58,7 @@ impl Accumulator {
         add_shifted(bank, product, shift)
     }
 
-    pub(super) fn finish(mut self) -> Magnitude {
+    pub(in crate::local_primitives) fn finish(mut self) -> Magnitude {
         match self.positive.iter().rev().cmp(self.negative.iter().rev()) {
             Ordering::Less => {
                 subtract(&mut self.negative, &self.positive);
@@ -82,12 +82,22 @@ impl Accumulator {
     }
 }
 
-pub(super) struct Magnitude {
+pub(in crate::local_primitives) struct Magnitude {
     words: Bank,
     negative: bool,
 }
 
 impl Magnitude {
+    /// Preserve the exact sign even when rounding would underflow to zero.
+    pub(in crate::local_primitives) fn sign(&self) -> Ordering {
+        if self.highest().is_none() {
+            Ordering::Equal
+        } else if self.negative {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
     fn highest(&self) -> Option<usize> {
         self.words
             .iter()
@@ -100,7 +110,7 @@ impl Magnitude {
         self.highest().is_none()
     }
 
-    pub(super) fn rounded(&self) -> f64 {
+    pub(in crate::local_primitives) fn rounded(&self) -> f64 {
         let Some(high) = self.highest() else {
             return 0.0;
         };
@@ -115,7 +125,7 @@ impl Magnitude {
     }
 
     /// Round sqrt(M * 2^-2148) directly, including exact midpoint ties.
-    pub(super) fn sqrt(&self) -> Result<f64> {
+    pub(in crate::local_primitives) fn sqrt(&self) -> Result<f64> {
         if self.negative {
             return Err(failed("exact vector squared magnitude became negative"));
         }

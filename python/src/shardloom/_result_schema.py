@@ -19,6 +19,7 @@ from ._embedding import EXTENSION_ID, decode_metadata, metadata_json
 from . import _tensor
 from . import _variable_tensor
 from . import _vector
+from . import _spatial
 from ._temporal import decode_temporal_dtype, temporal_parts, validate_temporal_ticks, arrow_temporal_type
 
 _PRIMITIVES = {
@@ -82,6 +83,15 @@ def _dtype(wire: Any, depth: int) -> ResultType:
         if not isinstance(payload, dict):
             raise ValueError("invalid extension dtype parameters")
         storage = _dtype(payload["storage_dtype"], depth + 1)
+        if payload.get("id") in _spatial.IDS.values():
+            raw = payload.get("metadata")
+            if (set(payload) != {"id", "metadata", "storage_dtype"} or not isinstance(raw, list)
+                    or any(type(byte) is not int or not 0 <= byte <= 255 for byte in raw)):
+                raise ValueError("spatial metadata requires UTF8 bytes")
+            name = next(name for name, identity in _spatial.IDS.items() if identity == payload["id"])
+            metadata = _spatial.decode_metadata(bytes(raw).decode("utf-8"))
+            _spatial.validate_storage(name, storage)
+            return ResultType(name, storage.nullable, (storage, metadata))
         if payload.get("id") == "vortex.uuid":
             if (set(payload) != {"id", "metadata", "storage_dtype"}
                     or payload.get("metadata") != []
@@ -252,6 +262,9 @@ def _python_value(value: Any, dtype: ResultType, temporal: bool, variant_scalars
             storage, metadata = dtype.parameters
             _vector.validate_value(dtype.name, value, storage, metadata)
             return _python_value(value, storage, temporal, variant_scalars)
+        if dtype.name in _spatial.KINDS:
+            _spatial.validate_value(dtype.name, value)
+            return _python_value(value, dtype.parameters[0], temporal, variant_scalars)
         if dtype.name == "variable_shape_tensor":
             storage, metadata = dtype.parameters
             _variable_tensor.validate_value(value, storage, metadata)
@@ -319,6 +332,10 @@ def _arrow_array(values: Sequence[Any], dtype: ResultType, pyarrow: Any) -> Any:
 
 def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
     metadata = None
+    if dtype.name in _spatial.KINDS:
+        metadata = {b"ARROW:extension:name": _spatial.IDS[dtype.name].encode("utf-8")}
+        if dtype.parameters[1] != "{}":
+            metadata[b"ARROW:extension:metadata"] = dtype.parameters[1].encode("utf-8")
     if dtype.name in _vector.KINDS:
         metadata = {b"ARROW:extension:name": _vector.IDS[dtype.name].encode("utf-8"),
                     b"ARROW:extension:metadata": _vector.metadata_json(dtype.parameters[1]).encode("utf-8")}
@@ -341,6 +358,8 @@ def _arrow_field(name: str, dtype: ResultType, pyarrow: Any) -> Any:
 
 
 def _arrow_type(dtype: ResultType, pyarrow: Any) -> Any:
+    if dtype.name in _spatial.KINDS:
+        return _arrow_type(dtype.parameters[0], pyarrow)
     if dtype.name == "variable_shape_tensor" or dtype.name in _vector.KINDS:
         return _arrow_type(dtype.parameters[0], pyarrow)
     if dtype.name == "struct":

@@ -47,6 +47,11 @@ impl Layout {
 
     pub(super) fn observe(&mut self, dtype: &DType, value: Option<&Json>) -> Result<()> {
         if let Some(value) = value.filter(|value| !value.is_null())
+            && let Some(metadata) = crate::native_spatial::metadata(dtype)
+        {
+            crate::native_spatial::values::validate_json(metadata.kind(), value)?;
+        }
+        if let Some(value) = value.filter(|value| !value.is_null())
             && let Some(metadata) = crate::native_vector::metadata(dtype)
         {
             metadata.validate_json(value).map_err(super::vortex_error)?;

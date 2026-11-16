@@ -137,6 +137,8 @@ mod native_dictionary_expression;
 mod native_embedding;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_extensions;
+#[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]
+mod native_spatial;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write"))]
 mod native_spill_session;
 #[cfg(any(feature = "vortex-local-primitives", feature = "vortex-write"))]

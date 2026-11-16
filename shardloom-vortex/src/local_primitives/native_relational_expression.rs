@@ -21,6 +21,8 @@ use vortex::array::{
 #[path = "native_relational_scalar.rs"]
 pub(super) mod scalar;
 
+#[path = "native_relational_spatial.rs"]
+pub(super) mod spatial;
 #[path = "native_relational_vector.rs"]
 pub(super) mod vector;
 
@@ -280,6 +282,16 @@ impl Expression {
         if let scalar::Function::Variant(kernel) = function {
             let value = args[0].evaluate_in_scope(input, context, completed)?;
             return kernel.evaluate(&value, &self.dtype, context);
+        }
+        if let scalar::Function::Spatial(kernel) = function {
+            let mut values = ReservedVec::new(context.memory())?;
+            values.reserve(args.len())?;
+            for arg in args {
+                values
+                    .values
+                    .push(arg.evaluate_in_scope(input, context, completed)?);
+            }
+            return kernel.evaluate(&values.values, input.len(), &self.dtype, context);
         }
         if let scalar::Function::Vector(kernel) = function {
             // Rich arguments retain native arrays. Converting them to scalar

@@ -305,6 +305,9 @@ fn extension_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DTy
     if let Some(kind) = id.and_then(crate::native_vector::Kind::from_id) {
         return vector_dtype(kind, value, depth, nodes);
     }
+    if let Some(kind) = id.and_then(crate::native_spatial::Kind::from_id) {
+        return spatial_dtype(kind, value, depth, nodes);
+    }
     temporal_dtype(value)
 }
 
@@ -430,6 +433,40 @@ fn vector_dtype(
     }
     .map_err(vortex_error)?;
     crate::native_vector::dtype(metadata, storage).map_err(vortex_error)
+}
+
+fn spatial_dtype(
+    kind: crate::native_spatial::Kind,
+    value: &Value,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let bytes = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("spatial metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("spatial metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = match kind {
+        crate::native_spatial::Kind::Point => {
+            crate::native_spatial::Point::default().deserialize_metadata(&bytes)
+        }
+        crate::native_spatial::Kind::LineString => {
+            crate::native_spatial::LineString::default().deserialize_metadata(&bytes)
+        }
+        crate::native_spatial::Kind::Polygon => {
+            crate::native_spatial::Polygon::default().deserialize_metadata(&bytes)
+        }
+    }
+    .map_err(vortex_error)?;
+    crate::native_spatial::dtype(metadata, storage).map_err(vortex_error)
 }
 
 fn decimal_dtype(value: &Value, nullable: Nullability) -> Result<DType> {

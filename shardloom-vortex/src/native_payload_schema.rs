@@ -409,6 +409,16 @@ fn visit_dtype(
                 budget.add((zone.len() as u64).saturating_mul(2))?;
             }
         }
+        DType::Extension(extension) if crate::native_spatial::metadata(dtype).is_some() => {
+            let metadata =
+                crate::native_spatial::metadata(dtype).expect("admitted spatial metadata");
+            budget.add(
+                (metadata.as_str().len() as u64)
+                    .checked_mul(128)
+                    .ok_or_else(|| failed("spatial metadata size overflow"))?,
+            )?;
+            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+        }
         DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
             visit_dtype(child, depth + 1, budget, allow_null)?;
         }
@@ -456,6 +466,9 @@ pub(crate) fn arrow_field_metadata_admitted(field: &arrow_schema::Field) -> bool
         }
         (Some(name), _) if crate::native_vector::Kind::from_id(name).is_some() => {
             crate::native_vector::arrow::admitted(field)
+        }
+        (Some(name), _) if crate::native_spatial::Kind::from_id(name).is_some() => {
+            crate::native_spatial::arrow::admitted(field)
         }
         (Some(name), metadata)
             if name == "shardloom.duration.v1"

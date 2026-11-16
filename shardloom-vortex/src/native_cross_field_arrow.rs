@@ -21,6 +21,7 @@ fn contains(field: &Field) -> bool {
         .get(NAME)
         .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
         || crate::native_vector::arrow::kind(field).is_some()
+        || crate::native_spatial::arrow::kind(field).is_some()
         || crate::native_variant::arrow::is_variant(field)
     {
         return true;
@@ -40,6 +41,7 @@ enum Validator {
     Variant,
     Tensor(Metadata, usize),
     Vector(crate::native_vector::Metadata),
+    Spatial(crate::native_spatial::Kind),
     Struct(Vec<(usize, Self)>),
     List(Box<Self>),
     LargeList(Box<Self>),
@@ -48,6 +50,10 @@ enum Validator {
 
 impl Validator {
     fn new(field: &Field) -> Result<Self> {
+        if let Some(kind) = crate::native_spatial::arrow::kind(field) {
+            crate::native_spatial::arrow::dtype(field).map_err(failed)?;
+            return Ok(Self::Spatial(kind));
+        }
         if crate::native_variant::arrow::is_variant(field) {
             if !crate::native_variant::arrow::admitted(field) {
                 return Err(failed("invalid Variant storage declaration"));
@@ -122,6 +128,9 @@ impl Validator {
             }
             Self::Vector(metadata) => {
                 crate::native_vector::arrow::values::validate(metadata, array, start, end, check)
+            }
+            Self::Spatial(kind) => {
+                crate::native_spatial::arrow::values::validate(*kind, array, start, end, check)
             }
             Self::Struct(fields) => {
                 let array = array

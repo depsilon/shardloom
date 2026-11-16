@@ -307,6 +307,7 @@ fn function_result_dtype(
         | T::VectorSlice
         | T::VectorReduction
         | T::VectorNormalize
+        | T::Spatial
         | T::VariantGet
         | T::VariantIsNull
         | T::DecimalOutput => Err(EvalFailure::unsupported(
