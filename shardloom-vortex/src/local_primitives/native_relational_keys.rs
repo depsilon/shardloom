@@ -32,6 +32,13 @@ pub(super) use cache::KeyLookupCache;
 #[path = "native_relational_selected_dictionary.rs"]
 mod selected_dictionary;
 
+#[path = "native_relational_borrowed_keys.rs"]
+mod borrowed;
+
+#[path = "native_relational_variable_domain.rs"]
+mod variable_domain;
+use variable_domain::VariableDomain;
+
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::float_key_bits};
 use shardloom_exec::{
@@ -97,7 +104,7 @@ pub(super) enum Preparation {
 }
 
 pub(super) struct VariableColumn {
-    values: VarBinViewArray,
+    values: VariableDomain,
     valid: Mask,
     codes: Option<NativeNumericOwner>,
     hashes: VariableHashing,
@@ -412,14 +419,14 @@ impl KeyColumn {
             } else {
                 Cell::Null
             }),
-            Self::Variable(values) => Ok(values.index(row)?.map_or(Cell::Null, |index| {
-                let bytes = values.values.bytes_at(index);
-                if values.binary {
+            Self::Variable(values) => values.index(row)?.map_or(Ok(Cell::Null), |index| {
+                let bytes = values.values.bytes_at(index)?;
+                Ok(if values.binary {
                     Cell::Binary(bytes)
                 } else {
                     Cell::Utf8(bytes)
-                }
-            })),
+                })
+            }),
             Self::Decimal(values) => values.cell(row),
             Self::Uuid(values) => Ok(values.value(row)?.map_or(Cell::Null, Cell::Uuid)),
             Self::Date(values) => Ok(match temporal_value(values, row)? {
@@ -498,10 +505,10 @@ impl KeyColumn {
                 (None, None) => Ordering::Equal,
                 (None, Some(_)) => Ordering::Less,
                 (Some(_), None) => Ordering::Greater,
-                (Some(left_row), Some(right_row)) => {
-                    super::native_utf8::borrowed_bytes(&left.values, left_row)
-                        .cmp(super::native_utf8::borrowed_bytes(&right.values, right_row))
-                }
+                (Some(left_row), Some(right_row)) => left
+                    .values
+                    .borrowed_bytes(left_row)?
+                    .cmp(right.values.borrowed_bytes(right_row)?),
             });
         }
         compare_cells(self.cell(row)?, other.cell(other_row)?)
@@ -548,7 +555,12 @@ impl KeyColumn {
         }
         match self {
             Self::Nested(values) => values.validate_at(row),
-            Self::Variable(values) => values.index(row).map(|_| ()),
+            Self::Variable(values) => {
+                if let Some(index) = values.index(row)? {
+                    values.values.validate_at(index, values.binary)?;
+                }
+                Ok(())
+            }
             _ => self.cell(row).map(|_| ()),
         }
     }
@@ -567,7 +579,7 @@ impl KeyColumn {
                 let value_hash = match &values.hashes {
                     VariableHashing::Prepared(hashes) => hashes.values[index],
                     VariableHashing::OnDemand => {
-                        let bytes = values.values.bytes_at(index);
+                        let bytes = values.values.bytes_at(index)?;
                         #[cfg(all(test, debug_assertions))]
                         super::native_relational_observation::record(|counts| {
                             counts.variable_hash_values += 1;
@@ -946,7 +958,7 @@ impl VariableColumn {
             }
         }
         Ok(Self {
-            values,
+            values: VariableDomain::Views(values),
             valid,
             codes,
             hashes: match hashes {
@@ -1010,7 +1022,7 @@ impl VariableColumn {
             return Err(failed("UTF8 value access exceeds its prepared text domain"));
         }
         self.index(row)?
-            .map(|index| self.values.utf8_slice_at(index).map_err(vortex_error))
+            .map(|index| self.values.utf8_at(index))
             .transpose()
     }
 
@@ -1018,9 +1030,9 @@ impl VariableColumn {
         if row >= self.rows {
             return Err(failed("byte length exceeds its prepared value domain"));
         }
-        Ok(self
-            .index(row)?
-            .map(|index| super::native_utf8::borrowed_bytes(&self.values, index).len()))
+        self.index(row)?
+            .map(|index| self.values.borrowed_bytes(index).map(<[u8]>::len))
+            .transpose()
     }
 
     pub(super) fn index(&self, row: usize) -> Result<Option<usize>> {

@@ -23,6 +23,9 @@ mod compact;
 #[path = "native_relational_aggregate_count_partial.rs"]
 mod count_partial;
 
+#[path = "native_relational_aggregate_matches.rs"]
+mod matches;
+
 #[cfg(test)]
 #[path = "native_relational_aggregate_compact_tests.rs"]
 mod compact_tests;
@@ -337,6 +340,14 @@ impl<'a> Aggregate<'a> {
         array: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        self.reserve_states_dtype(array.dtype(), context)
+    }
+
+    fn reserve_states_dtype(
+        &mut self,
+        dtype: &DType,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
         #[cfg(test)]
         let _cost = super::native_relational_grouped_cost::scope(
             super::native_relational_grouped_cost::Phase::StateReservation,
@@ -352,7 +363,7 @@ impl<'a> Aggregate<'a> {
             } else if self.specialize
                 && self.states.values.is_empty()
                 && let Some(table) =
-                    compact::Table::specialize(self.spec, array, groups.rows(), context)?
+                    compact::Table::specialize_dtype(self.spec, dtype, groups.rows(), context)?
             {
                 self.compact = Some(table);
             } else if let Some(table) =
@@ -428,8 +439,16 @@ impl<'a> Aggregate<'a> {
         array: &ArrayRef,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        self.prepare_compact_dtype(array.dtype(), context)
+    }
+
+    fn prepare_compact_dtype(
+        &mut self,
+        dtype: &DType,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
         if let Some(table) = &self.compact
-            && !table.accepts(self.spec, array, context)
+            && !table.accepts_dtype(self.spec, dtype, context)
         {
             // Keep old state and credit until ordinary storage is ready.
             table.restore(self.spec, &mut self.states, context)?;

@@ -252,7 +252,7 @@ the ledger.
 Current autonomous execution order:
 
 **November 16 material-potential priority.** The resident-join/copy change is
-merged in PR #1694; its exact-main verification remains in progress. The
+merged in PR #1694; all 54 exact-main jobs now pass and scoped cleanup is complete. The
 [dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
 is implemented and locally accepted: all 630 scoped requests pass, with engine
 time 102.926667930 → 94.178862655 seconds. Its integration is next. Keep required
@@ -271,6 +271,34 @@ This prospective performance priority precedes the previously next spatial
 unit; the required feature roadmap remains intact. The investigation lists
 below are candidate contracts, not instructions to implement every hypothesis.
 
+The subsequent November 16 maintainer feedback prioritizes
+[direct aggregate consumption of exact join matches](native-join-aggregate-2026-11-16.md)
+within item 20. Implement the unique inner-dimension path through existing native
+indexes, value owners, group state and ordered aggregate updates, preserving all
+intermediate validation. Both star join orders and pure aliases are in scope;
+duplicate multiplicity reduction is a separately proved extension. The spatial
+draft remains saved and unfinished while this higher-potential work proceeds.
+
+The subsequent November 16 maintainer request inserts
+[Chrysalis Cells/Map, then Resonance Cells/Leases](native-chrysalis-resonance-cells-2026-11-16.md)
+**after rich-data and analytical acceptance and before portable serverless and
+item-21 Foundry integration**. First investigate exact partial native coverage
+for one immutable local Parquet source; then bounded shared live preparation
+for explicitly composed consumers. Each needs a targeted RFC, existing-provider
+review, bounded implementation and complete-workflow acceptance. These are
+item-20/shared-source extensions, not new phase IDs or existing capabilities.
+Their accepted contracts feed the subsequent remote/selective-preparation and
+AI work without duplicating those owners.
+
+The latest November 16 [queue disposition](native-optimization-pruning-2026-11-16.md)
+removes the remaining blanket Vortex demand/encoding campaign, earlier join
+source pruning (D), further scan/build reuse (13), full-sort experimentation (J)
+and spill-performance investigations (11/12). None currently demonstrates
+material removable work or a separate necessary feature. These are removed
+from the active queue, not waiting prerequisites before rich-data acceptance.
+Retain supported-path correctness/resources and original experiment decisions.
+Reopen only for concrete new workload evidence or a named required capability.
+
 The separately requested [one Polars pass](../benchmarks/polars-propagation-once-2026-11-16.md)
 on the exact 11,579 historical propagation requests is complete: 11,489 pass
 and 90 retain a constant-projection benchmark-adapter mismatch. No query is
@@ -280,15 +308,13 @@ there is no accepted complete-set competitive total. Reuse the saved evidence
 while selecting material work, preserving the original historical native gate
 failure and the impact-relevant cohort policy.
 
-The November 13 efficiency review keeps the active coverage work first and
-orders its follow-ons by shared owners and concrete prerequisites. The order
-below supersedes the historical A–N/recommendation numbering; those labels
-identify contracts, not additional passes through the same work. Reuse the
-current inventory and exact compatible evidence. Add missing exposure controls
-once, and do not repeat full10k or broad gates after every small edit.
+The November 13 coverage records below preserve delivered work and historical
+contracts. The November 16 sequence and pruning decision supersede their former
+blanket completion obligation. Historical A–N/recommendation labels do not
+authorize additional experiments. Reuse compatible saved evidence.
 
-- [ ] **November 13 optimization coverage priority.** The maintainer requests
-  complete optimization coverage across the supported engine. The
+- **November 13 optimization coverage — umbrella retired November 16.** The
+  earlier request sought complete optimization coverage across the supported engine. The
   [coverage contract](native-optimization-coverage-2026-11-13.md) starts with
   mechanism/opportunity inventory and equivalent-pipeline integration gaps,
   then closes verified omissions through existing item-20/RFC-0044 owners.
@@ -305,10 +331,9 @@ once, and do not repeat full10k or broad gates after every small edit.
   close all 194 excessive-column observations in the Parquet/IPC dependency
   audit; they are not a new full-corpus observation. The
   [mechanism inventory](native-optimization-inventory-2026-11-13.md) records
-  existing owners, exact test evidence and remaining work. Continue Vortex
-  demand/validation coverage, per-opportunity decisions, missing current
-  compositions and planned mechanisms. Current admission restrictions do not
-  close missing opportunities. The bounded-sort audit also reproduces skipped
+  existing owners, exact test evidence and remaining unknowns. The new scope
+  removes blanket Vortex demand/encoding and per-opportunity completion work;
+  this does not claim those unknowns are covered. The bounded-sort audit reproduces skipped
   hidden/outside-prefix payload validation in the file shortcut; its admission
   correction is now covered by a source-bound 388-case cohort at
   `4d5fa4a46268380a634e78f057abba087f4042f5`. It removes all 21 prior file-Sort
@@ -320,14 +345,12 @@ once, and do not repeat full10k or broad gates after every small edit.
   [portable evidence packet](../benchmarks/evidence/native-sort-payload-validation-2026-11-13/README.md)
   preserves the source-bound validation. Item 19, item 20, RFC 0044 and CG-1
   through CG-23 remain open.
-  The latest maintainer instruction prioritizes these active implementation
-  deliverables, with public execution, semantic and activation evidence:
-  - [ ] Complete the November 15 [propagation follow-on](native-optimization-propagation-2026-11-15.md):
-    preserve dictionaries through shared set alignment/selection, prove grouped
-    COUNT admission through equivalent pure projections, and audit ordered-spill
-    and physical-reader boundaries. Extend work-weighted and verified-encoding
-    scale evidence; retain current correctness fixes and accepted work. This
-    takes priority over the remaining speculative metadata/codec investigations.
+  The bounded implementation dispositions are retained:
+  - [x] Integrate the November 15 [propagation follow-on](native-optimization-propagation-2026-11-15.md):
+    dictionary selection, grouped COUNT through pure projections and the bounded
+    matcher lifetime are retained under the useful-behavior instruction. Further
+    ordered-spill, physical-reader and blanket scale/encoding investigations are
+    removed by the November 16 scope decision.
     The completed 11,579-request comparison preserves its original not-admitted
     decision: all answers pass, but 60 selected-dictionary work witnesses fail
     and both complete engine totals increase. The maintainer separately permits
@@ -343,19 +366,19 @@ once, and do not repeat full10k or broad gates after every small edit.
     pass local and relocated portable verification at `ffe0d077a`. The complete
     engine total decreases 60.778284678 → 60.597904154 seconds, with all 186
     individual regressions retained; this approximately 0.3% result is small.
-    PR #1694 is merged; exact-main verification remains in progress. The next
+    PR #1694 is merged; all 54 exact-main jobs pass and scoped cleanup is complete. The next
     dense integer join unit is locally accepted as recorded above. Future work
     must meet the material-potential priority. The older join-family total remains
-    complete-query time, and the broader coverage queue remains open.
+    complete-query time. The former broader coverage queue is retired.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
     at `788a8925e`: complete validation, default/native/package checks, all 388
     answers and unchanged pipeline counts pass; the same-baseline engine total
     decreases from 337.804658081 to 327.589944482 seconds. Portable replay and
-    all 26 negative/refusal controls pass; broader coverage stays open.
+    all 26 negative/refusal controls pass; this does not establish broader coverage.
   - [x] Complete the bounded Vortex scan reporting/decision unit: executed
     logical contracts, completed positional reads and admitted whole-file
-    projection pruning. Physical per-column/decode counts and complete
-    per-opportunity coverage remain open.
+    projection pruning. Missing physical per-column/decode counts and complete
+    per-opportunity coverage are recorded limitations, no longer an active campaign.
   - [x] Connect eligible direct-source COUNT and file-backed cyclic semi-join
     opportunities through shared owners and versioned complete evidence.
     The complete COUNT subgroup is slower; no independent COUNT speedup is
@@ -363,7 +386,8 @@ once, and do not repeat full10k or broad gates after every small edit.
   - [x] Implement the first native runtime-filter, skew and cross-query reuse
     owners under their existing RFC contracts: post-key-validation membership
     filters, stable heavy-duplicate ranges and held-generation immutable segment
-    retention. Source-filter pushdown and join-build/result reuse remain open.
+    retention. Further source-filter pushdown and join-build/result reuse are removed
+    from the active queue under the November 16 decision.
   - [x] Validate these connected owners with complete multi-window,
     correlated-membership, melt/pivot, seeded-sampling and rich expression
     compositions across the public surfaces. The
@@ -374,10 +398,12 @@ once, and do not repeat full10k or broad gates after every small edit.
     from 1267.114826002 to 1263.682737384 seconds; the complete lifecycle total
     also falls. All 5,189 individual regressions and slower subgroups remain
     recorded. This advances the accepted baseline for the next unit without
-    closing the parent coverage item or the remaining opportunity obligations.
+    establishing complete optimization coverage.
 
-- [ ] **November 13 metadata and encoded-consumer investigations — follow the
-  active optimization-coverage implementation above.** The maintainer's supplied
+- **November 13 metadata and encoded-consumer investigation record.** The
+  November 16 material-potential and queue-pruning decisions govern any further
+  candidate; the historical program is not a blanket completion requirement.
+  The maintainer's supplied
   research is incorporated as major investigation and implementation work in the
   [follow-on contract](native-metadata-encoded-consumer-investigations-2026-11-13.md).
   Recheck actual source/provider activation, develop the missing shared engine
@@ -428,10 +454,9 @@ once, and do not repeat full10k or broad gates after every small edit.
   pass. The existing batch contract remains in force for FSST. Broader I,
   the predicate-summary parent
   and broader constant-key support remain open.
-  - [ ] Reconcile only changed activation/exposure against the accepted coverage
-    baseline. Reuse B's corrected COUNT contract, C's exact fact ownership,
-    N's dictionary owner and I's consumer boundaries; attach versioned missing
-    encoding/selectivity controls without restarting the full inventory.
+  - Historical exposure preparation: B/C/N/I retain their exact accepted owners
+    and evidence. The blanket missing-encoding/selectivity campaign is removed
+    November 16; required feature tests remain attached to their own work unit.
   - [ ] Complete individually proved aggregate measures from metadata, then
     exact regional partials and constant-group-key completion through the same
     state/finalizer. Keep each semantic admission distinct; missing region
@@ -488,13 +513,12 @@ once, and do not repeat full10k or broad gates after every small edit.
   lacks exposure. No speculative codec default, duplicate N/I/spatial queue,
   broad unmeasured rewrite, new fallback engine or competitive claim is admitted.
 
-- [ ] **Item 20 shared-pipeline and operator-state investigations — November 10–11 maintainer additions.**
-  The higher-priority coverage and follow-on items above own the immediate
-  sequence. Reconcile their outcomes into B/C/I/N here rather than implementing
-  them twice. A post-validation join membership filter does not by itself close
-  D's source-pruning obligation, and immutable source-segment reuse does not
-  close recommendation 13's join-build reuse obligation. Keep those distinct
-  residual contracts and the original acceptance records.
+- **Item 20 shared-pipeline and operator-state investigation record — November 10–11.**
+  The November 16 sequence owns active work. Reconcile delivered outcomes into
+  B/C/I/N without duplicate implementation. D/J/11/12/13 are explicitly removed
+  below; accepted post-validation membership and immutable segment reuse remain.
+  Other historical hypotheses require a concrete material opportunity or named
+  required feature before activation. Preserve original acceptance records.
   - Scope: `v1_candidate_pending_feasibility`; the
     [shared execution contract](native-shared-pipeline-investigations-2026-11-10.md)
     records the initial seven research candidates in existing RFC 0044 owners.
@@ -510,8 +534,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     their independent experiments. A is closed; B's original invalid baseline
     remains preserved, while its corrected bounded connection is retained in
     the November 14 activation unit without an independent COUNT speedup claim.
-    H/I/J retain their structural contracts after the higher-priority sequence, when
-    their exposure gates pass. K/L retain separate semantic gates, M remains
+    H/I retain historical structural contracts subject to the current material
+    opportunity rule; J is removed. K/L retain separate semantic gates, M remains
     topology research and N is dictionary-activation-gated. Select later extensions from
     demonstrated exposure and value; keep managed-object growth separate. Required useful
     spatial support and resource-admitted deep traversal remain in item 19.
@@ -534,10 +558,10 @@ once, and do not repeat full10k or broad gates after every small edit.
       single fixed-width sorts without an immediate LIMIT parent. Preserve
       all matching IDs and counter gaps in the [exposure record](native-structural-work-investigations-2026-11-11.md#frozen-declaration-exposure-audit).
       These are syntactic candidates, not measured activation or cost.
-    - [ ] Reconcile the original fifteen hypotheses, the seven H–N additions and saved accepted/rejected
-      observations against the accepted head. Map case IDs and actual activation
-      for index probes, repeated window updates, spill, repeated builds and
-      selected-run lookup before implementation. Freeze each protocol and reuse map.
+    - Historical hypothesis inventory: preserve the original fifteen candidates,
+      H–N additions and accepted/rejected observations. The November 16 disposition
+      removes further spill, repeated-build and blanket encoding exposure work;
+      no inventory-completion prerequisite blocks the required capability queue.
     - [x] 8: evaluate one compact metadata layout for the shared native hash
       index through complete joins, grouping and membership requests. The
       [fixed candidate is retained and integrated](native-shared-index-metadata-2026-11-10.md):
@@ -589,17 +613,17 @@ once, and do not repeat full10k or broad gates after every small edit.
       capabilities and H/I/J keep their own contracts and execution order.
     - [ ] C: attribute and remove one demonstrated repeated key/order/structural
       fact reconstruction using existing native owners and compatible domains.
-    - [ ] D: prove completed inner/semi-join constraints in source demand and
-      Capillary with conservative pruning and full-population controls.
+    - Removed November 16 — D: earlier source pruning lacks attributable
+      removable-work evidence; existing post-validation filtering remains.
     - [ ] E: prove selected-domain expression sharing/query-vector invariant
       reuse, then exact scoring into bounded ranking with separate vector cases.
     - [ ] F: attribute one pipeline imbalance and compare finite PulseWeave
       feedback choices with sampling-overhead and small-query controls.
     - [ ] G: verify managed-object insertion/capture costs and compare credited
       amortized metadata growth with deduplication, publication and cleanup proof.
-    - [ ] Audit H/I/J exposure: map exact scalar-summary, sparse-intermediate
-      and disordered-full-sort shapes to existing owners/counters, quantify
-      demonstrated work and version missing compositions before candidate code.
+    - Historical H/I/J exposure audit is preserved. J's full-sort experiment
+      is removed November 16; H/I need a new concrete material opportunity before
+      further exposure work or candidate code.
     - [ ] H: prove one same-snapshot, nonnullable fixed-width scalar COUNT
       rewrite into an existing native summary/window plus exact row attachment.
       Preserve inner population, outer demand, errors, multiplicity and order.
@@ -609,9 +633,8 @@ once, and do not repeat full10k or broad gates after every small edit.
       The [November 15 screen](native-survivor-admission-2026-11-15.md) declines
       unconditional callback buffering before performance and preserves the
       existing batch contract. This broader item remains open.
-    - [ ] J: evaluate normalized fixed-width keys plus one bulk full-sort
-      algorithm after full validation; preserve ordered-input and Top-K paths,
-      stable ties and scratch admission, with window/ASOF consumers scoped.
+    - Removed November 16 — J: normalized fixed-width keys/full-sort replacement
+      lacks material benefit evidence. Accepted ordering/Top-K and validation remain.
     - [ ] K: evaluate physical Variant path extraction and shared prefixes
       under exact raw/typed conversion and complete selected-value validation;
       compare 1/4/16 paths, large unused subtrees and raw/shredded controls.
@@ -626,15 +649,14 @@ once, and do not repeat full10k or broad gates after every small edit.
       merged-value equality, cross-dictionary identity and the detached-code repair.
       The [bounded November 14 extension](native-dictionary-domain-2026-11-14.md)
       is retained locally; this closes the same finite N unit listed above.
-    - [ ] 11: use actual spill exposure to prioritize admitted mergeable native
-      aggregate states; keep pressured-workload results separate from the stable 10k.
-    - [ ] 12: evaluate a charged spilled-join block directory, then separately
-      evaluate bounded probe grouping if the directory evidence warrants it.
-    - [ ] 13: test action-local completed join-build reuse against an explicitly
-      materialized invariant dimension, with one-use and changed-input controls.
-    - [ ] 14: establish meaningful selected-RunEnd activation before a cursor
-      experiment; preserve encoded results across adjacent operators as a later,
-      independently attributed experiment.
+    - Removed November 16 — 11/12: no material workload spill exposure supports
+      new aggregate-state, directory or probe-grouping experiments. Supported
+      spill correctness, bounded memory and cleanup remain required.
+    - Removed November 16 — 13: no attributed repeated-build cost supports the
+      proposed join-build reuse. Existing immutable segment reuse remains.
+    - Removed November 16 — 14: the selected-RunEnd cursor and wider encoded
+      retention experiment have no measured material exposure. Current supported
+      encoded execution and required type/format correctness remain.
     - [ ] 15: attach an executable grouped-COUNT incremental workflow to the
       existing logical incremental/runtime queue, with a distinct workflow benchmark.
     - [ ] Measure interactions only after individual acceptance; do not add
@@ -665,8 +687,8 @@ once, and do not repeat full10k or broad gates after every small edit.
   repaired requests into the old observation, infer an optimization gain from
   historical runtime totals, or rerun full10k routinely.
 
-  **Operator-state contracts for recommendations 8–15.** These are investigation
-  obligations, not accepted implementations or new phase IDs. The supplied
+  **Historical operator-state contracts for recommendations 8–15.** These are
+  preserved proposals, not active obligations, accepted implementations or new phase IDs. The supplied
   research used `0cae77b4` and the then-open UUID PR #1675; inspect the accepted
   source at each experiment start. No new timings accompany this intake.
 
@@ -676,9 +698,9 @@ once, and do not repeat full10k or broad gates after every small edit.
   spill throughout. The spill-byte diagnostic is reported for every case;
   narrower absent provider fields remain unavailable. All 776 window declarations
   contain one textual `OVER(...)` clause: 120 row-number, 219 LAG, 219 LEAD and
-  218 rolling SUM. Preserve these original cases as controls, add versioned
-  multi-output window cases, and measure spill candidates on an explicit pressured
-  cohort. This inventory ran no query and does not attribute family engine time
+  218 rolling SUM. The original cases and subsequent window outcomes remain
+  preserved. The proposed pressured spill-performance campaign is removed
+  November 16. This inventory ran no query and does not attribute family engine time
   to probes, shared accumulators or spill work.
 
   - **8 — Shared probe metadata.** At intake, the
@@ -721,7 +743,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     Evaluate this resource objective separately from window fusion, with frozen
     throughput controls; later SUM/AVG DISTINCT and more complex movement require
     their own proof. Timing claims still require the complete timing gate.
-  - **11 — Mergeable spill states.** Target the general aggregate path that emits
+  - **11 — Mergeable spill states (removed November 16).** Historical contract:
+    target the general aggregate path that emits
     base records, not a specialized path already reducing its inputs. Begin with
     exact counts and admitted integer MIN/MAX, preserving keys, required ordinals,
     validation and native run ownership. Define each merge algebra explicitly:
@@ -730,7 +753,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     require separate contracts. Vary low/intermediate/near-unique cardinality under
     confirmed spill; measure base/partial records, bytes, merge passes, preparation,
     finalization and complete engine time.
-  - **12 — Spilled join lookup.** First test a charged directory of sorted-store
+  - **12 — Spilled join lookup (removed November 16).** Historical contract:
+    first test a charged directory of sorted-store
     hash boundaries/block identities; cover complete equal-hash ranges spanning
     blocks and retain exact key equality. Bound directory growth or admit a sparse
     form under the same grant. Then independently test bounded probe batches that
@@ -738,7 +762,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     and residual-error visitation. Confirm actual spill with random/ordered probes,
     absent keys, skew, cross-block duplicates and narrow/wide payloads. Resident
     joins receive no attributed benefit from this mechanism.
-  - **13 — Repeated immutable builds.** Split completed native table/index/key
+  - **13 — Repeated immutable builds (removed November 16).** Historical contract:
+    split completed native table/index/key
     identity from fresh probe match flags, cursors and output state. Start with
     inner equality joins against an explicitly materialized invariant dimension
     within one action; parameter-dependent retention and changing recursive
@@ -746,7 +771,8 @@ once, and do not repeat full10k or broad gates after every small edit.
     identity and release after the last admitted consumer. Measure repeated
     dimension scans/builds/inserts and retained bytes in hierarchy/report workflows,
     including one-use and changed-input controls. Independent requests stay cold.
-  - **14 — Encoded-run activation.** First identify real selected-RunEnd work.
+  - **14 — Encoded-run activation (removed November 16).** Historical contract:
+    first identify real selected-RunEnd work.
     An increasing-selection cursor must preserve duplicate observations, sparse
     large-gap behavior, arbitrary-gather routing and ordered floating arithmetic.
     Keep the existing selection representation for this first experiment. A later
@@ -1127,9 +1153,11 @@ uses offline replay. Assess further native changes against their affected
 cases and controls when independently justified.
 [Complete updated pass](../benchmarks/native-expanded-updated-cohort-2026-11-03.md).
 
-After the promoted shared-work batch, deliver item 19's rich-data lifecycle and
-add cases requiring those capabilities. The November 8
-[portable serverless addition](native-serverless-execution-2026-11-08.md) then
+After the active join-to-aggregate decision, deliver item 19's rich-data lifecycle
+and analytical acceptance, adding cases requiring those capabilities. The
+November 16 [Chrysalis/Resonance addition](native-chrysalis-resonance-cells-2026-11-16.md)
+then queues exact partial native coverage followed by bounded shared live work.
+The November 8 [portable serverless addition](native-serverless-execution-2026-11-08.md) subsequently
 queues bounded native workers and durable preparation/result artifacts, one
 actual host alongside item 21's Foundry integration, deployment-policy/routing
 measurements, then real selective remote access and partial preparation before

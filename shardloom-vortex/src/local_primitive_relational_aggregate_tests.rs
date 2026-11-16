@@ -33,14 +33,14 @@ mod count_partial_tests;
 #[path = "local_primitive_relational_aggregate_spill_tests.rs"]
 mod spill_tests;
 
-fn measure(function: &str, column: Option<&str>, alias: &str) -> Measure {
+pub(super) fn measure(function: &str, column: Option<&str>, alias: &str) -> Measure {
     Measure::new(
         function,
         column.map(|name| ColumnRef::new(name).unwrap()),
         alias.into(),
     )
 }
-fn aggregate(
+pub(super) fn aggregate(
     input: VortexRelationalPlan,
     groups: &[&str],
     measures: Vec<Measure>,

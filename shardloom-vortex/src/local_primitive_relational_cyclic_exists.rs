@@ -240,7 +240,7 @@ impl<'a> Plan<'a> {
                 )
             },
         )?;
-        context.record_native_join_work(NativeJoinWork {
+        context.record_native_join_work(&NativeJoinWork {
             cyclic: work,
             ..NativeJoinWork::default()
         })

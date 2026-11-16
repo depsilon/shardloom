@@ -3,7 +3,11 @@
 # Portable serverless execution with durable preparation
 
 Status: accepted November 8 maintainer queue addition, following the active
-item-19 rich-data lifecycle work. This document queues implementation and
+item-19 rich-data lifecycle work. The November 16 sequence additionally places
+[Chrysalis and Resonance](native-chrysalis-resonance-cells-2026-11-16.md) after
+rich-data/analytical acceptance and before this package. Reuse their accepted
+coverage and lifetime contracts when extending selective remote preparation;
+do not implement parallel owners for the same responsibility. This document queues implementation and
 acceptance; it establishes no deployed worker, remote service or performance
 result. The [phase plan](phased-execution-plan.md) remains the execution order.
 

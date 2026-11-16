@@ -268,6 +268,56 @@ impl NativeNumericOwner {
         numeric_dispatch!(self, visit_numeric_typed, visit)
     }
 
+    #[cfg(unix)]
+    pub(super) fn visit_selected_numeric(
+        &self,
+        rows: &[usize],
+        visit: impl FnMut(usize, Option<f64>, bool) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_selected_numeric_typed, rows, visit)
+    }
+
+    #[cfg(unix)]
+    fn visit_selected_numeric_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        rows: &[usize],
+        mut visit: impl FnMut(usize, Option<f64>, bool) -> Result<()>,
+    ) -> Result<()> {
+        for (position, &row) in rows.iter().enumerate() {
+            visit(
+                position,
+                self.value::<T, ALL_VALID>(row)?.map(Wide::numeric),
+                T::Wide::INTEGER,
+            )?;
+        }
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    pub(super) fn visit_selected_values(
+        &self,
+        rows: &[usize],
+        visit: impl FnMut(usize, StatValue) -> Result<()>,
+    ) -> Result<()> {
+        numeric_dispatch!(self, visit_selected_values_typed, rows, visit)
+    }
+
+    #[cfg(unix)]
+    fn visit_selected_values_typed<T: Numeric, const ALL_VALID: bool>(
+        &self,
+        rows: &[usize],
+        mut visit: impl FnMut(usize, StatValue) -> Result<()>,
+    ) -> Result<()> {
+        for (position, &row) in rows.iter().enumerate() {
+            visit(
+                position,
+                self.value::<T, ALL_VALID>(row)?
+                    .map_or(StatValue::Null, Wide::stat),
+            )?;
+        }
+        Ok(())
+    }
+
     fn visit_numeric_typed<T: Numeric, const ALL_VALID: bool>(
         &self,
         mut visit: impl FnMut(usize, Option<f64>, bool) -> Result<()>,

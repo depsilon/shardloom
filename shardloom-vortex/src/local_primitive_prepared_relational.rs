@@ -51,6 +51,8 @@ mod batch_input;
 mod bind;
 #[path = "local_primitive_relational_grouping.rs"]
 mod grouping;
+#[path = "local_primitive_relational_join_aggregate.rs"]
+mod join_aggregate;
 #[path = "local_primitive_relational_batch_replay.rs"]
 mod replay;
 #[path = "local_primitive_relational_request_plan.rs"]
@@ -1896,6 +1898,20 @@ impl PreparedVortexRelational {
                 }
                 let mut aggregate =
                     native_relational_aggregate::Aggregate::new(spec, context.memory())?;
+                if expansion.is_none()
+                    && parameter.is_none()
+                    && let Some(plan) = join_aggregate::Plan::admit(input, spec, context)?
+                {
+                    plan.run(
+                        self,
+                        &mut aggregate,
+                        context,
+                        metrics,
+                        batch_rows,
+                        *count_partial,
+                    )?;
+                    return aggregate.finish(context, batch_rows, consume);
+                }
                 produce(&mut |array| {
                     if *count_partial {
                         aggregate.consume_reordered_count(&array, context, batch_rows)
@@ -2176,7 +2192,7 @@ impl PreparedVortexRelational {
                 join.finish(context, batch_rows, consume)?;
                 #[cfg(test)]
                 drop(finish_cost);
-                context.record_native_join_work(join.join_work()?)
+                context.record_native_join_work(&join.join_work()?)
             }
             NodeKind::Set { .. } => {
                 self.run_set(node, context, metrics, batch_rows, parameter, consume)

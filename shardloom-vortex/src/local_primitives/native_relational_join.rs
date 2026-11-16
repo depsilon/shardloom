@@ -50,6 +50,8 @@ pub(super) mod asof;
 mod condition;
 #[path = "native_relational_join_integer.rs"]
 mod integer;
+#[path = "native_relational_join_matches.rs"]
+mod matches;
 #[cfg(feature = "vortex-write")]
 #[path = "native_relational_join_spill.rs"]
 pub(super) mod spill;

@@ -158,10 +158,10 @@ fn kind(measure: &Measure, policy: FloatPolicy) -> Option<Kind> {
 
 /// Inspect only the existing logical schema. Optional admission must not
 /// execute, mask, allocate, or diagnose a future measure's source.
-fn input_matches(measure: &Measure, array: &ArrayRef) -> bool {
+fn input_matches(measure: &Measure, dtype: &DType) -> bool {
     measure.function == Function::Count
         || measure.column.as_deref().is_some_and(|name| {
-            matches!(array.dtype().as_struct_fields_opt().and_then(|fields| fields.field(name)),
+            matches!(dtype.as_struct_fields_opt().and_then(|fields| fields.field(name)),
             Some(DType::Primitive(ptype, _)) if Some(ptype) == measure.input_ptype)
         })
 }
@@ -198,9 +198,19 @@ impl Table {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(super) fn new(
         spec: &Spec,
         array: &ArrayRef,
+        groups: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Option<Self>> {
+        Self::new_dtype(spec, array.dtype(), groups, context)
+    }
+
+    pub(super) fn new_dtype(
+        spec: &Spec,
+        dtype: &DType,
         groups: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<Self>> {
@@ -211,7 +221,7 @@ impl Table {
             || spec
                 .measures
                 .iter()
-                .any(|measure| kind(measure, policy).is_none() || !input_matches(measure, array))
+                .any(|measure| kind(measure, policy).is_none() || !input_matches(measure, dtype))
         {
             return Ok(None);
         }
@@ -259,14 +269,14 @@ impl Table {
     pub(super) fn accepts(
         &self,
         spec: &Spec,
-        array: &ArrayRef,
+        dtype: &DType,
         context: &NativeExecutionContext<'_>,
     ) -> bool {
         self.policy == context.float_policy()
             && spec
                 .measures
                 .iter()
-                .all(|measure| input_matches(measure, array))
+                .all(|measure| input_matches(measure, dtype))
     }
 
     pub(super) fn reserve_groups(
@@ -483,16 +493,20 @@ impl Table {
         numeric_reuse::record_copy(rows, context)
     }
 
-    pub(super) fn consume(
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn consume_selection(
         &mut self,
         index: usize,
         measure: &Measure,
         ordinals: &GroupOrdinals,
         values: Option<&KeyColumn>,
         validity: Option<&Mask>,
+        rows: Option<&[usize]>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
-        updates::consume(self, index, measure, ordinals, values, validity, context)
+        updates::consume(
+            self, index, measure, ordinals, values, validity, rows, context,
+        )
     }
 
     #[allow(clippy::too_many_arguments)] // Preserve the existing prepared owner/proof and group domain.

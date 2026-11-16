@@ -2,12 +2,14 @@
 
 # Metadata and encoded-consumer investigations
 
-Status: accepted into the investigation and implementation queue by the
-maintainer's November 13 request. This work follows the active
-[optimization-coverage implementation](native-optimization-coverage-2026-11-13.md),
-including Vortex scan gaps, COUNT/cyclic connections, public breadth, native
-runtime filters, skew handling and cross-query reuse. The
-[phase plan](phased-execution-plan.md#planned) owns execution order.
+Status: historical investigation and implementation record from November 13.
+The November 16 [queue disposition](native-optimization-pruning-2026-11-16.md)
+retires blanket optimization coverage and further Vortex demand/encoding,
+source-pruning, scan/build-reuse, sorting and spill-performance campaigns.
+Accepted implementations and required feature/correctness work remain. Other
+unimplemented hypotheses below require concrete material opportunity evidence
+before activation; they are not an obligation to implement every proposal.
+The [phase plan](phased-execution-plan.md#planned) owns execution order.
 
 The [November 14 activation unit](../benchmarks/native-optimization-activation-2026-11-14.md)
 is locally accepted at `f414d9dd3`, with complete comparison, lifecycle and

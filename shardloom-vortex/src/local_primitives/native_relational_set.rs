@@ -2,8 +2,9 @@
 
 use super::{
     native_capacity::ReservedVec,
-    native_relational_batch::{Batch, Gather, Table, failed, take_batch},
+    native_relational_batch::{Batch, Gather, Table, failed},
     native_relational_index::RowIndex,
+    native_relational_rows::Rows,
 };
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
@@ -56,13 +57,23 @@ impl<'a> RowSet<'a> {
         row: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<bool> {
+        self.contains_rows(batch, row, context)
+    }
+
+    fn contains_rows(
+        &self,
+        batch: &impl Rows,
+        row: usize,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<bool> {
         let Some(hash) = batch.hash(row, self.nulls_equal)? else {
             return Ok(false);
         };
         Ok(self
             .index
             .find(hash, context.cancellation(), |old| {
-                self.table.equal_batch(old, batch, row, self.nulls_equal)
+                let (old_batch, old_row) = self.table.locate_batch(old)?;
+                batch.equal_batch(row, old_batch, old_row, self.nulls_equal)
             })?
             .is_some())
     }
@@ -107,6 +118,21 @@ impl<'a> RowSet<'a> {
         Ok(mapping)
     }
 
+    pub(super) fn intern_rows(
+        &mut self,
+        rows: &impl Rows,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+    ) -> Result<ReservedVec<usize>> {
+        if !self.nulls_equal {
+            return Err(failed("group ordinals require null-equal membership"));
+        }
+        let mut mapping = ReservedVec::new(context.memory())?;
+        mapping.reserve(rows.len())?;
+        self.ingest_rows(rows, None, context, batch_rows, None, Some(&mut mapping))?;
+        Ok(mapping)
+    }
+
     pub(super) fn rows(&self) -> usize {
         self.table.rows()
     }
@@ -134,8 +160,8 @@ impl<'a> RowSet<'a> {
         other: Option<(&Self, bool)>,
         context: &NativeExecutionContext<'_>,
         batch_rows: usize,
-        mut consume: Option<&mut dyn FnMut(ArrayRef) -> Result<()>>,
-        mut mapping: Option<&mut ReservedVec<usize>>,
+        consume: Option<&mut dyn FnMut(ArrayRef) -> Result<()>>,
+        mapping: Option<&mut ReservedVec<usize>>,
     ) -> Result<u64> {
         self.index.ensure_building()?;
         if batch_rows == 0 {
@@ -152,18 +178,34 @@ impl<'a> RowSet<'a> {
         } else {
             Batch::new(array, self.names, context)?
         };
-        let mut selected = ReservedVec::new(context.memory())?;
-        selected.reserve(batch.array.len())?;
-        let mut cache = batch.key_cache(context)?;
         #[cfg(test)]
         drop(preparation_cost);
+        self.ingest_rows(&batch, other, context, batch_rows, consume, mapping)
+    }
+
+    fn ingest_rows(
+        &mut self,
+        batch: &impl Rows,
+        other: Option<(&Self, bool)>,
+        context: &NativeExecutionContext<'_>,
+        batch_rows: usize,
+        mut consume: Option<&mut dyn FnMut(ArrayRef) -> Result<()>>,
+        mut mapping: Option<&mut ReservedVec<usize>>,
+    ) -> Result<u64> {
+        self.index.ensure_building()?;
+        if batch_rows == 0 {
+            return Err(failed("set output batch rows must be positive"));
+        }
+        let mut selected = ReservedVec::new(context.memory())?;
+        selected.reserve(batch.len())?;
+        let mut cache = batch.key_cache(context)?;
         let prior_rows = self.table.rows();
-        for row in 0..batch.array.len() {
+        for row in 0..batch.len() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
             if let Some((other, want_match)) = other
-                && other.contains(&batch, row, context)? != want_match
+                && other.contains_rows(batch, row, context)? != want_match
             {
                 continue;
             }
@@ -189,13 +231,14 @@ impl<'a> RowSet<'a> {
             };
             let equal = |old| {
                 if old < prior_rows {
-                    self.table.equal_batch(old, &batch, row, self.nulls_equal)
+                    let (old_batch, old_row) = self.table.locate_batch(old)?;
+                    batch.equal_batch(row, old_batch, old_row, self.nulls_equal)
                 } else {
                     let selected_row = selected
                         .values
                         .get(old - prior_rows)
                         .ok_or_else(|| failed("pending set ordinal is absent"))?;
-                    batch.equal(*selected_row, &batch, row, self.nulls_equal)
+                    batch.equal(*selected_row, row, self.nulls_equal)
                 }
             };
             let ordinal = prior_rows
@@ -226,7 +269,7 @@ impl<'a> RowSet<'a> {
         drop(cache);
         for rows in selected.values.chunks(batch_rows) {
             context.check_cancelled()?;
-            let array = take_batch(&batch.array, self.fields, rows, context)?;
+            let array = batch.gather(self.fields, rows, context)?;
             self.table
                 .push(Batch::new(array.clone(), self.names, context)?)?;
             if let Some(consume) = consume.as_mut() {

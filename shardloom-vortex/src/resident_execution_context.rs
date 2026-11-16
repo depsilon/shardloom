@@ -370,12 +370,12 @@ impl NativeExecutionContext<'_> {
 
     pub(crate) fn record_native_join_work(
         &self,
-        work: shardloom_core::native_join_work::NativeJoinWork,
+        work: &shardloom_core::native_join_work::NativeJoinWork,
     ) -> Result<()> {
         self.join_work
             .lock()
             .map_err(|_| resident_error("native join work evidence poisoned"))?
-            .merge(work)
+            .merge(*work)
     }
 
     pub(crate) fn record_native_count_partial_work(

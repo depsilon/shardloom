@@ -9,6 +9,7 @@ use crate::local_primitives::native_relational_keys::validate_float_scalar;
 use shardloom_core::{StatValue, float_policy::float_key_bits};
 use std::cmp::Ordering;
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // Keep all ordered typed updates in one dispatch.
 pub(super) fn consume(
     table: &mut Table,
     index: usize,
@@ -16,6 +17,7 @@ pub(super) fn consume(
     ordinals: &GroupOrdinals,
     values: Option<&KeyColumn>,
     validity: Option<&Mask>,
+    rows: Option<&[usize]>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     let slot = table.slots[index];
@@ -28,23 +30,24 @@ pub(super) fn consume(
             measure.column.is_some(),
             ordinals,
             validity,
+            rows,
             context,
         );
     }
     let Some(KeyColumn::Numeric(owner)) = values else {
         return Err(failed("bound compact aggregate input is not numeric"));
     };
-    if owner.len() != ordinals.len() {
+    if rows.map_or(owner.len(), <[usize]>::len) != ordinals.len() {
         return Err(failed("numeric group ordinals changed row count"));
     }
     if Some(owner.ptype()) != measure.input_ptype || owner.float_policy() != table.policy {
         return Err(failed("bound compact aggregate input domain changed"));
     }
     #[cfg(all(test, debug_assertions))]
-    record_bound(slot.kind, owner.len());
+    record_bound(slot.kind, ordinals.len());
     match slot.kind {
         Kind::Integer => bind_states!(table.integers, states, {
-            numeric(owner, ordinals, context, |group, value| {
+            numeric(owner, rows, ordinals, context, |group, value| {
                 let state = &mut states[group * width + slot.index];
                 update_count(&mut state.count, 1)?;
                 NumericAggregateSum::add_integer_parts(
@@ -56,7 +59,7 @@ pub(super) fn consume(
             })
         })?,
         Kind::StrictFloat => bind_states!(table.strict, states, {
-            numeric(owner, ordinals, context, |group, value| {
+            numeric(owner, rows, ordinals, context, |group, value| {
                 validate_float_scalar(value, FloatPolicy::Strict)?;
                 let state = &mut states[group * width + slot.index];
                 update_count(&mut state.count, 1)?;
@@ -65,7 +68,7 @@ pub(super) fn consume(
             })
         })?,
         Kind::ExtendedFloat => bind_states!(table.extended, states, {
-            numeric(owner, ordinals, context, |group, value| {
+            numeric(owner, rows, ordinals, context, |group, value| {
                 let state = &mut states[group * width + slot.index];
                 update_count(&mut state.numeric.count, 1)?;
                 if !state.specials.add(value)? {
@@ -76,7 +79,7 @@ pub(super) fn consume(
             })
         })?,
         Kind::SignedExtreme => bind_states!(table.signed_extrema, states, {
-            extremum(owner, ordinals, context, |group, value| {
+            extremum(owner, rows, ordinals, context, |group, value| {
                 let StatValue::Int64(value) = value else {
                     return Err(failed("signed extremum domain changed"));
                 };
@@ -89,7 +92,7 @@ pub(super) fn consume(
             })
         })?,
         Kind::UnsignedExtreme => bind_states!(table.unsigned_extrema, states, {
-            extremum(owner, ordinals, context, |group, value| {
+            extremum(owner, rows, ordinals, context, |group, value| {
                 let StatValue::UInt64(value) = value else {
                     return Err(failed("unsigned extremum domain changed"));
                 };
@@ -102,7 +105,7 @@ pub(super) fn consume(
             })
         })?,
         Kind::FloatExtreme => bind_states!(table.float_extrema, states, {
-            extremum(owner, ordinals, context, |group, value| {
+            extremum(owner, rows, ordinals, context, |group, value| {
                 let StatValue::Float64(value) = value else {
                     return Err(failed("floating extremum domain changed"));
                 };
@@ -138,6 +141,7 @@ fn record_bound(kind: Kind, rows: usize) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn count(
     pages: &mut DensePages<u64>,
     width: usize,
@@ -145,6 +149,7 @@ fn count(
     column: bool,
     ordinals: &GroupOrdinals,
     validity: Option<&Mask>,
+    rows: Option<&[usize]>,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     bind_states!(*pages, states, {
@@ -155,7 +160,7 @@ fn count(
             if column {
                 if !validity
                     .ok_or_else(|| failed("COUNT validity absent"))?
-                    .value(row)
+                    .value(rows.map_or(row, |rows| rows[row]))
                 {
                     continue;
                 }
@@ -183,11 +188,12 @@ fn finite_sum(value: f64) -> Result<()> {
 
 fn numeric(
     owner: &NativeNumericOwner,
+    rows: Option<&[usize]>,
     ordinals: &GroupOrdinals,
     context: &NativeExecutionContext<'_>,
     mut update: impl FnMut(usize, f64) -> Result<()>,
 ) -> Result<()> {
-    owner.visit_numeric(|row, value, _| {
+    let visit = |row: usize, value, _| {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
@@ -195,16 +201,21 @@ fn numeric(
             update(ordinals.at(row), value)?;
         }
         Ok(())
-    })
+    };
+    match rows {
+        Some(rows) => owner.visit_selected_numeric(rows, visit),
+        None => owner.visit_numeric(visit),
+    }
 }
 
 fn extremum(
     owner: &NativeNumericOwner,
+    rows: Option<&[usize]>,
     ordinals: &GroupOrdinals,
     context: &NativeExecutionContext<'_>,
     mut update: impl FnMut(usize, StatValue) -> Result<()>,
 ) -> Result<()> {
-    owner.visit_values(|row, value| {
+    let visit = |row: usize, value| {
         if row.is_multiple_of(1024) {
             context.check_cancelled()?;
         }
@@ -212,7 +223,11 @@ fn extremum(
             update(ordinals.at(row), value)?;
         }
         Ok(())
-    })
+    };
+    match rows {
+        Some(rows) => owner.visit_selected_values(rows, visit),
+        None => owner.visit_values(visit),
+    }
 }
 
 pub(super) fn compare_float(left: f64, right: f64) -> Ordering {

@@ -56,6 +56,14 @@ impl Batch {
         )
     }
 
+    pub(super) fn from_key_names<'a>(
+        array: ArrayRef,
+        names: impl ExactSizeIterator<Item = &'a str>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<Self> {
+        Self::from_names(array, names, context, Preparation::Hash)
+    }
+
     pub(super) fn for_ordering(
         array: ArrayRef,
         key_names: &[String],
@@ -291,7 +299,7 @@ impl Table {
     }
 
     /// Borrow retained batches in source order without resolving row ordinals.
-    pub(super) fn batches(&self) -> impl ExactSizeIterator<Item = (usize, &Batch)> {
+    pub(super) fn batches(&self) -> impl ExactSizeIterator<Item = (usize, &Batch)> + Clone {
         self.segments
             .values
             .iter()
