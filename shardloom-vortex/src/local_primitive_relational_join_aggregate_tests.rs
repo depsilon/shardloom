@@ -272,8 +272,8 @@ fn direct_join_aggregate_borrows_offset_text_and_keeps_null_and_byte_identity() 
                     ]
                 );
                 let work = result.native_io_certificate.join_work.direct_aggregate;
-                assert_eq!(work.aggregate_rows, 4, "{work:?}");
-                assert_eq!(work.source_batches_declined, 0, "{work:?}");
+                assert_eq!(work.aggregate_rows, 4);
+                assert_eq!(work.source_batches_declined, 0);
                 drop(result);
                 assert_eq!(
                     prepared.snapshot().reserved_without_source_segment_cache(),
@@ -331,8 +331,8 @@ fn direct_join_aggregate_both_orders_aliases_and_batches_keep_exact_groups() {
                     assert_eq!(rows, expected, "{reverse}/{alias}/{batch_rows}/{function}");
                     let work = result.native_io_certificate.join_work.direct_aggregate;
                     assert_eq!(work.chains_considered, 1);
-                    assert!(work.source_batches_direct > 0, "{work:?}");
-                    assert_eq!(work.source_batches_declined, 0, "{work:?}");
+                    assert!(work.source_batches_direct > 0);
+                    assert_eq!(work.source_batches_declined, 0);
                     assert_eq!(work.aggregate_rows, 4);
                     assert!(work.match_rows > work.aggregate_rows);
                     assert!(work.validated_cells >= work.match_rows);
@@ -765,8 +765,8 @@ fn direct_join_aggregate_groups_across_dictionary_codebooks_and_build_chunks() {
             .native_io_certificate
             .join_work
             .direct_aggregate;
-        assert_eq!(work.aggregate_rows, 4, "{work:?}");
-        assert_eq!(work.source_batches_declined, 0, "{work:?}");
+        assert_eq!(work.aggregate_rows, 4);
+        assert_eq!(work.source_batches_declined, 0);
     }
 }
 
