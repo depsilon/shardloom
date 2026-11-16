@@ -1,0 +1,404 @@
+{
+  "status": "relocated_exact_packets",
+  "query_executions": 0,
+  "files": [
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/README.md",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634939,
+          "bytes": 1316,
+          "mtime_ns": 1794809828378171334,
+          "ctime_ns": 1794809828378171334
+        },
+        "sha256": "782974cbda8b9890be1cb7d8e32387a7913a2fc7df68e7f38e15c217910216e1"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/README.md",
+      "content": {
+        "bytes": 1316,
+        "sha256": "782974cbda8b9890be1cb7d8e32387a7913a2fc7df68e7f38e15c217910216e1"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/evidence.tar.gz.part-001",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634935,
+          "bytes": 50331648,
+          "mtime_ns": 1794809828309940472,
+          "ctime_ns": 1794809828309940472
+        },
+        "sha256": "81e1a73e7248a8ea3e5074b4ca1e414f587eaccf395570d093f1fdfb350e1e40"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/evidence.tar.gz.part-001",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "81e1a73e7248a8ea3e5074b4ca1e414f587eaccf395570d093f1fdfb350e1e40"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/evidence.tar.gz.part-002",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634936,
+          "bytes": 14717235,
+          "mtime_ns": 1794809828362347228,
+          "ctime_ns": 1794809828362347228
+        },
+        "sha256": "8c46738c626587d09d139c12460510a152aedc94ac0e2eb7f1076db88b201b83"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/evidence.tar.gz.part-002",
+      "content": {
+        "bytes": 14717235,
+        "sha256": "8c46738c626587d09d139c12460510a152aedc94ac0e2eb7f1076db88b201b83"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/manifest.json",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634940,
+          "bytes": 9820444,
+          "mtime_ns": 1794809828523983181,
+          "ctime_ns": 1794809828523983181
+        },
+        "sha256": "bd95bd1e5b983ba2e6316a1a9e73069d6fab754a699482754f8e5a4752f0dac0"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/manifest.json",
+      "content": {
+        "bytes": 9820444,
+        "sha256": "bd95bd1e5b983ba2e6316a1a9e73069d6fab754a699482754f8e5a4752f0dac0"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/selection_portable_store.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634938,
+          "bytes": 5893,
+          "mtime_ns": 1794809828378082876,
+          "ctime_ns": 1794809828378088918
+        },
+        "sha256": "00c89f327b21fd66116103486489d9738236ec1606f524f0806824681ab9bd70"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/selection_portable_store.py",
+      "content": {
+        "bytes": 5893,
+        "sha256": "00c89f327b21fd66116103486489d9738236ec1606f524f0806824681ab9bd70"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-packet-r2/verify.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 181634937,
+          "bytes": 8939,
+          "mtime_ns": 1794809828377953834,
+          "ctime_ns": 1794809828377961167
+        },
+        "sha256": "d4b366c8ced96638fee2ba43b25930200b2465b28789218dcf681d845f141dbb"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/selection/verify.py",
+      "content": {
+        "bytes": 8939,
+        "sha256": "d4b366c8ced96638fee2ba43b25930200b2465b28789218dcf681d845f141dbb"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/README.md",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009693,
+          "bytes": 1843,
+          "mtime_ns": 1794798391626532489,
+          "ctime_ns": 1794809134165376808
+        },
+        "sha256": "ef7039d6f38ddda03f44f303a9e241291f04900245c9bacc491d948cc7af7754"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/README.md",
+      "content": {
+        "bytes": 1843,
+        "sha256": "ef7039d6f38ddda03f44f303a9e241291f04900245c9bacc491d948cc7af7754"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-001",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009679,
+          "bytes": 50331648,
+          "mtime_ns": 1794798390902395182,
+          "ctime_ns": 1794809134182398545
+        },
+        "sha256": "8045addba9d918492f6bed157f789a3d1c87bf5d7cc20aca1eedb296ec9120d6"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-001",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "8045addba9d918492f6bed157f789a3d1c87bf5d7cc20aca1eedb296ec9120d6"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-002",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009680,
+          "bytes": 50331648,
+          "mtime_ns": 1794798390963074258,
+          "ctime_ns": 1794809134215679306
+        },
+        "sha256": "99bd0a6a0e7dff3933b7bbcc979993ed0cfd98622614883b9551d872b06153e7"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-002",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "99bd0a6a0e7dff3933b7bbcc979993ed0cfd98622614883b9551d872b06153e7"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-003",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009681,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391017540763,
+          "ctime_ns": 1794809134249040859
+        },
+        "sha256": "ee5331e79eabe1f086197cf291fbb84ca7bf5685cf9fcf7bc78d4a92b4e6839a"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-003",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "ee5331e79eabe1f086197cf291fbb84ca7bf5685cf9fcf7bc78d4a92b4e6839a"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-004",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009682,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391071773725,
+          "ctime_ns": 1794809134282315454
+        },
+        "sha256": "cff0b56fa2c64681da12d3d798934c86a7ace5f45b1c72a6089d097dce2738a9"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-004",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "cff0b56fa2c64681da12d3d798934c86a7ace5f45b1c72a6089d097dce2738a9"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-005",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009683,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391128808992,
+          "ctime_ns": 1794809134315659673
+        },
+        "sha256": "0321a68c8de9e63a39fdf33faeccbebfbd2fe2bd3535c8a491d07fb93b6c174d"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-005",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "0321a68c8de9e63a39fdf33faeccbebfbd2fe2bd3535c8a491d07fb93b6c174d"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-006",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009684,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391198039316,
+          "ctime_ns": 1794809134349069727
+        },
+        "sha256": "46552977513da10275403e1f0b8165106b6fa1cf13dc4ff0e9f34a92879d8efb"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-006",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "46552977513da10275403e1f0b8165106b6fa1cf13dc4ff0e9f34a92879d8efb"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-007",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009685,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391252474279,
+          "ctime_ns": 1794809134382457197
+        },
+        "sha256": "8e432478515a97a92f9b2d784d6efc1036d2938f0e17802df7b00ef7fca8a82c"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-007",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "8e432478515a97a92f9b2d784d6efc1036d2938f0e17802df7b00ef7fca8a82c"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-008",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009686,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391306969993,
+          "ctime_ns": 1794809134415699499
+        },
+        "sha256": "7b31a42761e754131e2e7a826d77a2a346cc962adc31345d99eacc9116abb3f7"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-008",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "7b31a42761e754131e2e7a826d77a2a346cc962adc31345d99eacc9116abb3f7"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-009",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009687,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391378847163,
+          "ctime_ns": 1794809134449046386
+        },
+        "sha256": "4d407572925c9017a276dbbe00b6d4198841f26a292fa96d42416efe7ad6083e"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-009",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "4d407572925c9017a276dbbe00b6d4198841f26a292fa96d42416efe7ad6083e"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-010",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009688,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391433484085,
+          "ctime_ns": 1794809134482330147
+        },
+        "sha256": "3efb029010e967f27304ce7425cf5c0e03296a78f69971c0b46fd35844d57b40"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-010",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "3efb029010e967f27304ce7425cf5c0e03296a78f69971c0b46fd35844d57b40"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-011",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009689,
+          "bytes": 50331648,
+          "mtime_ns": 1794798391490427769,
+          "ctime_ns": 1794809134515540116
+        },
+        "sha256": "b02b293d4806d16da94fc322aa9165be7802d118f7cc8e1b63d727318b1450a3"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-011",
+      "content": {
+        "bytes": 50331648,
+        "sha256": "b02b293d4806d16da94fc322aa9165be7802d118f7cc8e1b63d727318b1450a3"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/evidence.tar.gz.part-012",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009690,
+          "bytes": 43331519,
+          "mtime_ns": 1794798391560015553,
+          "ctime_ns": 1794809134546533868
+        },
+        "sha256": "826782dd11b4688038f64424a63daa97eb37008779b01e83222ff885fac569ee"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/evidence.tar.gz.part-012",
+      "content": {
+        "bytes": 43331519,
+        "sha256": "826782dd11b4688038f64424a63daa97eb37008779b01e83222ff885fac569ee"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/manifest.json",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009694,
+          "bytes": 9259434,
+          "mtime_ns": 1794798392009761325,
+          "ctime_ns": 1794809134563825689
+        },
+        "sha256": "0bcd8ec03f21f439e2092adf6a7fd3c36cea20a0959403fee8f941d1340219cc"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/manifest.json",
+      "content": {
+        "bytes": 9259434,
+        "sha256": "0bcd8ec03f21f439e2092adf6a7fd3c36cea20a0959403fee8f941d1340219cc"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/propagation_portable_store.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009692,
+          "bytes": 7140,
+          "mtime_ns": 1794798391626427572,
+          "ctime_ns": 1794809134567020369
+        },
+        "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/propagation_portable_store.py",
+      "content": {
+        "bytes": 7140,
+        "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+      }
+    },
+    {
+      "source": {
+        "path": "/Users/dylan/LocalData/shardloom/native-optimization-propagation-2026-11-15/propagation-packet-r4/verify.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 181009691,
+          "bytes": 5953,
+          "mtime_ns": 1794798391626265905,
+          "ctime_ns": 1794809134567246078
+        },
+        "sha256": "d542895876298b458de973b18baf039f500d860416095d185fd4d22634c85ab0"
+      },
+      "relocated": "/Users/dylan/LocalData/shardloom-selection-portable-r2/propagation/verify.py",
+      "content": {
+        "bytes": 5953,
+        "sha256": "d542895876298b458de973b18baf039f500d860416095d185fd4d22634c85ab0"
+      }
+    }
+  ],
+  "method": "byte-verified copies preserving original file generations",
+  "destination": "/Users/dylan/LocalData/shardloom-selection-portable-r2"
+}

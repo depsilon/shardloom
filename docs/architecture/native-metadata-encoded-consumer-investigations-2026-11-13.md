@@ -86,7 +86,8 @@ delta review of existing evidence, not another whole-engine inventory phase.
 | Completed finite experiment | Necessary nonspatial text signatures declined; accepted source restored | All 9,040 declarations per runtime, lifecycles and 840 logical exclusions pass, with separate read/construction evidence. Complete fresh engine time increases despite the favorable new-text and lifecycle results. Preserve the complete drop; the summary parent remains open. |
 | Completed finite admission screen | Unconditional survivor callback adapter declined, extending I | Eight complete requests and preparation/ownership counterexamples settle the prerequisite: existing batches remain in force. Error and callback order prevent unconditional buffering despite fewer preparations in the small control. Broader attribution and a separately admitted narrow route remain open. |
 | Completed finite experiment | Conservative FSST prefilter retained inside the existing source LIKE provider | All 9,040 requests per runtime and separate prepared lifecycles pass with both complete engine totals lower; untimed dispatch, source/package checks and portable proof pass. Preserve all regressions and the limits on causal attribution and provider scratch accounting. No writer default or scalar projection bridge is admitted. |
-| Next active work | Separate exact-table FSST matcher-lifetime experiment | Use the accepted prefilter, encoded consumer and batch contract; charge retained allocations and identity checks, and retain construction, dense-candidate and nonpredicate controls. This does not inherit the prefilter's performance result or authorize a writer default. |
+| Completed finite combined unit | [Exact-table FSST matcher lifetime](native-fsst-matcher-lifetime-2026-11-15.md), dictionary selection and grouped COUNT projections | The [propagation closeout](../benchmarks/native-optimization-propagation-2026-11-15.md) preserves the original not-admitted and focused drop decisions. Useful behavior is retained under the maintainer's separate instruction, after source/package/work/portable proof; no independent matcher speedup or writer default is admitted. |
+| Next active work | Resident join-to-consumer attribution under the [propagation queue](native-optimization-propagation-2026-11-15.md) | Map exact saved request inputs, then separate input, keys, indexing, payload and downstream work before choosing a mechanism. Existing 500.383376588-second family evidence is complete-query time, not exclusive join cost. Use an affected-owner population and nearby controls; do not default to another full11k. |
 | Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
 | Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |
 
@@ -287,6 +288,9 @@ as the comparison clock. Correctness, resource, ownership and no-fallback proof
 precede retention: lower complete-cohort engine time retains an optimization;
 equal/higher drops it under the standing rule. Functional spatial acceptance and
 any separately specified resource objective retain their own explicit criteria.
+The maintainer's later useful-behavior retention instruction permits the bounded
+propagation integration separately; its failed performance gates remain unchanged
+and are not counted as optimization wins.
 
 Public syntax and result contracts stay stable unless a reviewed capability
 extension is required. New diagnostics must distinguish planned, admitted,

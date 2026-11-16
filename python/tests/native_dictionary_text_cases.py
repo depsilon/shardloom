@@ -23,13 +23,18 @@ def population(size, profile):
     """Enumerate logical values independently of the Rust physical writer."""
     if profile == "empty":
         return
-    lengths = (23, 24, 24) if size == "public" else (4097, 4097, 4097)
+    if size == "scale":
+        chunks, remaining = divmod(1_048_577, 4097)
+        lengths = (4097,) * chunks + (remaining,)
+    else:
+        assert size in ("public", "work")
+        lengths = (23, 24, 24) if size == "public" else (4097, 4097, 4097)
     row_id = 0
     for chunk, length in enumerate(lengths):
-        regular = (f" {'ABC'[chunk]} ", "a",
+        regular = (f" {'ABC'[chunk % 3]} ", "a",
                    " \u2003ΣΟΣİß東京\0 e\u0301 Case \u2003" * 8,
                    None, "", " \u2003Λ\u2003 ", "İßΣΟΣ")
-        sparse = (f" {'ABC'[chunk]} ", "a", None, "\u2003東京\0\u2003")
+        sparse = (f" {'ABC'[chunk % 3]} ", "a", None, "\u2003東京\0\u2003")
         for local in range(length):
             if profile == "all-null" or row_id % 11 == 0:
                 value = None
@@ -186,7 +191,7 @@ def dictionary_work(proof):
 
 def check_report(test, profile, kind, get_field):
     work = dictionary_work(get_field(PROOF))
-    if profile in ("dictionary", "sparse", "all-null") and not kind.startswith(("union_", "selected_")):
+    if profile in ("dictionary", "sparse", "all-null") and not kind.startswith("selected_"):
         test.assertGreater(work.get("dictionary_batches", 0), 0, (profile, kind, get_field(PROOF)))
         test.assertEqual(work["row_output_rows"], 0)
         test.assertEqual(work["code_rows_copied"], work["retained_dictionary_rows"])

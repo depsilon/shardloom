@@ -103,7 +103,7 @@ fn ordered(input: VortexRelationalPlan) -> VortexRelationalPlan {
     }))
 }
 
-fn checked(plan: &VortexRelationalPlan, dictionary: bool) -> Vec<serde_json::Value> {
+fn checked(plan: &VortexRelationalPlan, dictionary_slots: usize) -> Vec<serde_json::Value> {
     let prepared = prepare_relational(plan, policy()).unwrap();
     let memory = prepared.session.memory().clone();
     let result = prepared
@@ -118,17 +118,17 @@ fn checked(plan: &VortexRelationalPlan, dictionary: bool) -> Vec<serde_json::Val
             .source_pushdown_report
             .accepted_operations
             .contains(&"native_dictionary_text_expression".into()),
-        dictionary,
+        dictionary_slots > 0,
         "{proof}"
     );
-    let expected = if dictionary {
+    let expected = if dictionary_slots > 0 {
         [
             "dictionary_text_dictionary_batches=4",
             "dictionary_text_dictionary_kernel_calls=8",
-            "dictionary_text_domain_slots=12",
             "dictionary_text_code_rows_copied=48",
             "dictionary_text_retained_dictionary_rows=48",
             "dictionary_text_row_output_rows=0",
+            "dictionary_text_no_dictionary_batches=0",
         ]
     } else {
         [
@@ -140,6 +140,12 @@ fn checked(plan: &VortexRelationalPlan, dictionary: bool) -> Vec<serde_json::Val
             "dictionary_text_row_output_rows=48",
         ]
     };
+    assert!(
+        proof
+            .split_whitespace()
+            .any(|token| token == format!("dictionary_text_domain_slots={dictionary_slots}")),
+        "{proof}"
+    );
     for expected in expected {
         assert!(
             proof.split_whitespace().any(|token| token == expected),
@@ -162,9 +168,9 @@ fn dictionary_text_group_and_distinct_use_transformed_values_across_dictionaries
         right: right.scan(),
         kind: VortexRelationalSetKind::UnionAll,
     }));
-    // UNION ALL's existing cast/copy boundary expands strings. Keep that exact
-    // composed shape as a no-dictionary control alongside actual file chunks.
-    for (input, dictionary) in [(fixture.scan(), true), (union, false)] {
+    // Shared set alignment copies selected values once and remaps the codes.
+    // Different source dictionaries keep their own exact values and nulls.
+    for (input, dictionary) in [(fixture.scan(), 12), (union, 12)] {
         let grouped = VortexRelationalPlan::Aggregate(Box::new(VortexRelationalAggregate {
             input: transformed(input.clone()),
             group_by: vec![ColumnRef::new("key").unwrap()],
@@ -211,7 +217,7 @@ fn dictionary_text_filter_and_full_output_preserve_codes_values_nulls_and_order(
         right: right.scan(),
         kind: VortexRelationalSetKind::UnionAll,
     }));
-    for (input, dictionary) in [(fixture.scan(), true), (union, false)] {
+    for (input, dictionary) in [(fixture.scan(), 12), (union, 12)] {
         let filter = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
             input: transformed(input.clone()),
             predicate: compare(
@@ -231,6 +237,80 @@ fn dictionary_text_filter_and_full_output_preserve_codes_values_nulls_and_order(
             .collect::<Vec<_>>();
         assert_eq!(checked(&ordered(transformed(input)), dictionary), expected);
     }
+}
+
+#[test]
+fn dictionary_text_selection_before_transform_keeps_small_domain() {
+    let rows = 96_i64;
+    let fixture = |domain: [Option<&str>; 3]| {
+        let dictionary = DictArray::try_new(
+            PrimitiveArray::from_iter((0..rows).map(|row| u8::try_from(row % 3).unwrap()))
+                .into_array(),
+            VarBinViewArray::from_iter_nullable_str(domain).into_array(),
+        )
+        .unwrap()
+        .into_array();
+        Fixture::new(
+            StructArray::from_fields(&[
+                ("row_id", PrimitiveArray::from_iter(0..rows).into_array()),
+                ("value", dictionary),
+            ])
+            .unwrap()
+            .into_array(),
+            usize::try_from(rows).unwrap(),
+        )
+    };
+    let left = fixture([Some(" A "), Some("a"), None]);
+    let right = fixture([Some(" B "), Some("a"), None]);
+    let union = VortexRelationalPlan::Set(Box::new(VortexRelationalSet {
+        left: left.scan(),
+        right: right.scan(),
+        kind: VortexRelationalSetKind::UnionAll,
+    }));
+    let selected = VortexRelationalPlan::Filter(Box::new(VortexRelationalFilter {
+        input: union,
+        predicate: compare(
+            binary(
+                col("row_id"),
+                BinaryOp::Remainder,
+                lit(ScalarValue::Int64(5)),
+            ),
+            ComparisonOp::NotEq,
+            lit(ScalarValue::Int64(0)),
+        ),
+    }));
+    let plan = transformed(selected);
+    let prepared = prepare_relational(&plan, policy()).unwrap();
+    let memory = prepared.session.memory().clone();
+    let result = prepared
+        .collect_jsonl(&CancellationToken::default())
+        .unwrap();
+    let expected = [[Some("a"), Some("a"), None], [Some("b"), Some("a"), None]]
+        .into_iter()
+        .flat_map(|domain| {
+            (0..rows).filter(|row| row % 5 != 0).map(
+                move |row| serde_json::json!({"key": domain[usize::try_from(row % 3).unwrap()]}),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(json_rows(&result), expected);
+    let certificate = &result.execution.native_io_certificate;
+    assert!(certificate.is_certified());
+    assert!(!certificate.side_effects.fallback_attempted);
+    let proof = &certificate.source_pushdown_report.proof_basis;
+    for expected in [
+        "dictionary_text_dictionary_batches=4",
+        "dictionary_text_dictionary_kernel_calls=8",
+        "dictionary_text_row_kernel_calls=0",
+        "dictionary_text_no_reduction_batches=0",
+    ] {
+        assert!(
+            proof.split_whitespace().any(|token| token == expected),
+            "{expected}: {proof}"
+        );
+    }
+    drop((result, prepared));
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 
 #[test]

@@ -413,6 +413,7 @@ impl PreparedVortexCountWhere {
                     let (evidence, metadata) = context.take_native_file_scan_evidence()?;
                     execution.native_io_certificate.file_scans = evidence;
                     execution.file_scan_metadata = metadata;
+                    context.append_fsst_matcher_certificate(&mut execution.native_io_certificate);
                     Ok(execution)
                 })?;
         let provider_workers = execution.runtime.provider_background_workers;
@@ -437,6 +438,7 @@ impl PreparedVortexCountWhere {
         context: &crate::resident_session::NativeExecutionContext<'_>,
     ) -> Result<ExecutedVortexCountWhere> {
         self.session.validate_execution_context(context)?;
+        context.enable_fsst_matcher_reuse();
         let cancellation = context.cancellation();
         let uri = self
             .request

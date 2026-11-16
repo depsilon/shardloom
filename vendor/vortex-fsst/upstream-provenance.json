@@ -54,22 +54,25 @@
     "Cargo.toml": "909b4202b749f1af92298d471b52aac1790e67702c3c6c3647d49c384895f11b",
     "src/array.rs": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
     "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf",
-    "src/compute/like.rs": "df51fc5c5886fdd083fa871e747364a448e7c513f1291c98efc00cfdca976966",
-    "src/dfa/mod.rs": "1b7c50b29df91eb4cb814939c8fe07891bf6298bb1720f215266c0997ac9a263",
+    "src/compute/like.rs": "5a5f27f6f208a1bc231428b206047cb989badd76052bc7099b05c22de0fe2ac7",
+    "src/dfa/flat_contains.rs": "005412dbbe116d72025c0e72f1f5befc5cd293a26a220cb82ec38c4add7649c9",
+    "src/dfa/mod.rs": "1bdaf1535896fd13ad079266b5930e84f62e4ff46c4d57c63aa7c81a2f50087a",
     "src/dfa/tests.rs": "de62a99c1c9a7c20d80d559bbd797260eb51bf24aa1b684fce65988a43d0dadb",
-    "src/lib.rs": "896de0b9d80f79994c5c147ae5b71e5a4146ecb16b72b920d274261086148316"
+    "src/lib.rs": "6f49b3b339b3cb8e4b07c7ed7b93401b2495abe46468aee959b096eb3aad8803"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "2564e26a8255f1254ac7ff09dc63884a4828f3e560bf3a14c51bf8e4f994067c",
+    "README.shardloom.md": "eb4fa5d074ce5cc8b4c86f5f1314613bdd1213200959d35eca96ab10c4b15312",
     "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40",
     "src/dfa/prefilter.rs": "d85f5aad923b3030730f11351443308b68dacf1b5228f15154045aee70865dbb",
     "src/like_observation.rs": "3c3c25f1de057645701b652c4f04105322229cd8fee1680132dd5614572d6239",
-    "src/compute/like_slice_tests.rs": "c963a8e0627d4dcb4ed1faf1e1b0795234f31cc5735e85e1b625f49c82084f01"
+    "src/matcher_reuse.rs": "f1be91766ce8997d066e32c7352c579bdb1bdc624c4c51289cca83217e2f1098",
+    "src/matcher_reuse/tests.rs": "ef6692d83a5448764ead3b4a7aa1ec669b95602c51da6b715f9d1ee34c2437c5",
+    "src/compute/like_slice_tests.rs": "91302586838bb4272a5d8d6f370701957739e0c0d0cc3c9aba3de926df4866aa"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "2564e26a8255f1254ac7ff09dc63884a4828f3e560bf3a14c51bf8e4f994067c"
+    "sha256": "eb4fa5d074ce5cc8b4c86f5f1314613bdd1213200959d35eca96ab10c4b15312"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

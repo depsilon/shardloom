@@ -24,6 +24,9 @@ use vortex::array::{
 #[path = "native_relational_numeric_gather.rs"]
 mod numeric_gather;
 
+#[path = "native_relational_dictionary_gather.rs"]
+mod dictionary_gather;
+
 pub(super) fn failed(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "native relational execution: {reason}; no fallback execution was attempted"
@@ -785,6 +788,9 @@ fn take_column_with_policy(
         return native_payload::take_with_policy(array, indices, dtype, policy, context);
     }
     if let Some(output) = numeric_gather::try_copy(array, indices, dtype, context)? {
+        return Ok(output);
+    }
+    if let Some(output) = dictionary_gather::try_copy(array, indices, dtype, context)? {
         return Ok(output);
     }
     let mut execution = context.native_session().create_execution_ctx();

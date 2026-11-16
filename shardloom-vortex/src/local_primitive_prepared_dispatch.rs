@@ -3,7 +3,9 @@
 use super::{
     Result, ShardLoomError, VortexLocalPrimitiveExecutionPolicy, VortexQueryPrimitiveRequest,
 };
-use crate::resident_session::{PreparedVortexSource, ResidentVortexSession};
+use crate::resident_session::{
+    NativeExecutionContext, PreparedVortexSource, ResidentVortexSession,
+};
 use shardloom_exec::compute_pool::CancellationToken;
 use vortex::array::dtype::{DType, PType};
 
@@ -347,10 +349,15 @@ pub fn for_each_sort_batch(
         provider_background_workers,
         file_scans,
         file_scan_metadata,
+        fsst_matcher_work,
     } = execute_sort_with_consumer(request, policy, source, Some(&mut consume), cancellation)?;
     cancellation.check()?;
     let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
     native_io_certificate.file_scans = file_scans;
+    NativeExecutionContext::append_fsst_matcher_work(
+        &mut native_io_certificate.source_pushdown_report.proof_basis,
+        fsst_matcher_work,
+    );
     if report.has_errors() || !native_io_certificate.is_certified() {
         return Err(failed(
             "sort execution did not produce a certified native report",
@@ -436,11 +443,16 @@ pub fn collect_sort_controlled(
         report,
         file_scans,
         file_scan_metadata,
+        fsst_matcher_work,
         ..
     } = execute_sort_with_sink(request, policy, source, Some(&mut sink), cancellation)?;
     cancellation.check()?;
     let mut native_io_certificate = super::local_primitive_native_io_certificate(request, &report)?;
     native_io_certificate.file_scans = file_scans;
+    NativeExecutionContext::append_fsst_matcher_work(
+        &mut native_io_certificate.source_pushdown_report.proof_basis,
+        fsst_matcher_work,
+    );
     cancellation.check()?;
     let (result_jsonl, result_schema_json, mut timing) =
         sink.finish_with_timing(&mut native_io_certificate, started)?;
@@ -491,6 +503,7 @@ struct SortOperation {
     provider_background_workers: usize,
     file_scans: shardloom_core::native_file_scan::NativeFileScanEvidence,
     file_scan_metadata: Option<shardloom_exec::live_memory::MemoryLease>,
+    fsst_matcher_work: Option<vortex::encodings::fsst::matcher_reuse::MatcherReuseSnapshot>,
 }
 
 fn execute_sort_with_consumer(
@@ -517,6 +530,11 @@ fn execute_sort_with_consumer(
     );
     cancellation.check()?;
     let execution = session.with_native_execution_context(&cancellation, |context| {
+        // These consumers return the terminal native I/O certificate. The
+        // legacy report-only sort retains its uncached provider behavior.
+        if consumer.is_some() {
+            context.enable_fsst_matcher_reuse();
+        }
         let (report, provider_background_workers) =
             execute_sort_in_context(request, policy, source, consumer, context)?;
         let (file_scans, file_scan_metadata) = context.take_native_file_scan_evidence()?;
@@ -525,6 +543,7 @@ fn execute_sort_with_consumer(
             provider_background_workers,
             file_scans,
             file_scan_metadata,
+            fsst_matcher_work: context.fsst_matcher_work(),
         })
     })?;
     cancellation.check()?;

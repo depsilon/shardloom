@@ -7,6 +7,9 @@ use crate::{
 };
 use serde_json::json;
 
+#[path = "local_primitive_relational_count_projection_tests.rs"]
+mod projection_tests;
+
 fn source(
     session: &ResidentVortexSession,
     rows: usize,

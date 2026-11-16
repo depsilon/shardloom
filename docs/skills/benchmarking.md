@@ -37,6 +37,31 @@ Use this skill for tasks involving:
 - Avoid cherry-picked results.
 - Include correctness validation for benchmark queries.
 
+## Investigation scope
+
+Standing maintainer decision, November 15, 2026: future investigations use tests
+and performance cases relevant to the changed owners, with nearby controls for
+semantics, negative admission, formats, compositions and resource behavior.
+The 11,579-request propagation comparison is a completed historical population,
+not a default suite to repeat after each investigation. Neither it nor the
+original full10k or Full43 is automatically authorized by continued development.
+
+Declare the affected population and selection rule before measuring a new
+candidate. Use source contracts and recorded work/activation evidence to choose
+cases; do not choose from favorable timing deltas. Include all cases in that
+declared population when deciding the complete engine-time total. Reuse saved
+observations only with exact request, runtime, input, reference, clock and
+resource identity proof. Preserve every failure, unchanged/slower case and
+disposition. Broaden only when the changed behavior or missing evidence warrants
+it, with separate authorization for a new broad benchmark pass.
+
+Required correctness and ownership checks still follow the change's blast
+radius. A maintainer may explicitly retain useful behavior even when a frozen
+performance gate does not admit it; record that later decision, its scope and
+limitations separately. Do not rewrite the original protocol, work failure or
+gain/loss result to turn it into a pass. Smaller work counts alone are not a
+measured speedup.
+
 ## Competitor observation reuse
 
 For the October 26 broad-query and source-demand program, the maintainer

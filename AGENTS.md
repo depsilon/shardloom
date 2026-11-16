@@ -82,6 +82,16 @@ checks pass. There is no minimum percentage gain. Preserve original protocols
 and observations, record changed dispositions explicitly, and advance the
 accepted baseline as small improvements compound. See the benchmarking policy.
 
+The November 15 maintainer decision scopes future performance investigations to
+the owners they change and nearby regression controls. Do not default to the
+11,579-request propagation population or another full10k/Full43. Freeze the
+affected population before measurement, preserve complete results and all
+observations, and apply the complete-cohort rule to that declared population.
+Broader runs need a separate impact-based reason and authorization. An explicit
+maintainer decision to retain useful behavior after a failed performance gate
+must be recorded separately; it never changes the original gate or observations.
+See [investigation scope](docs/skills/benchmarking.md#investigation-scope).
+
 ## Architecture principles
 
 ShardLoom should avoid work before optimizing work.

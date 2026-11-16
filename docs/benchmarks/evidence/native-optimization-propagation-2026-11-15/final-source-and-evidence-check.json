@@ -1,0 +1,52 @@
+{
+  "status": "passed_unchanged_measured_engine_sources_and_exact_packet_copy",
+  "measured_source_commit": "75596d0ee32e59ba77ea7cf4429166cb3052b3de",
+  "measured_source_files": 5807,
+  "changed_existing_files": {
+    "docs/architecture/native-fsst-matcher-lifetime-2026-11-15.md": {
+      "before": {
+        "bytes": 9358,
+        "sha256": "fe58e051a6e284b8c595f17b1cdef62a65a6ee4d89e23b242ca3a11fc99be378"
+      },
+      "after": {
+        "bytes": 10109,
+        "sha256": "b1ebb58837f08b7a5857a5c6a10d0218b7bf6a610ee8c6158f08a1431892f393"
+      }
+    },
+    "docs/architecture/native-metadata-encoded-consumer-investigations-2026-11-13.md": {
+      "before": {
+        "bytes": 22599,
+        "sha256": "962a92f38057b466580c66e8d39a1b6952934b200aba0c41fa2e52e0c1616b8e"
+      },
+      "after": {
+        "bytes": 23359,
+        "sha256": "d5319651175068022d4935fd0709eb9cf15f99aa64ef400f486df42ba12f7214"
+      }
+    },
+    "docs/architecture/native-optimization-propagation-2026-11-15.md": {
+      "before": {
+        "bytes": 16510,
+        "sha256": "8ac0f51d60a8b2290ab5aaae27425fe43a36697602801b04d0440a95f1e73c4e"
+      },
+      "after": {
+        "bytes": 17711,
+        "sha256": "fa497b82c023975032e03801e417cc0f8c4762a1f9cac50ac65548eb98b15711"
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "before": {
+        "bytes": 260748,
+        "sha256": "c4800f96156228d894cf2270f9f6d5444b827dd70937a6f335e7052f2c26c9a0"
+      },
+      "after": {
+        "bytes": 261389,
+        "sha256": "c6458b4819e1f5c6121f9cdd2e168fbd4a6663237712d6db79e23aa03d208f93"
+      }
+    }
+  },
+  "new_paths_are_reports_and_evidence_only": true,
+  "verified_copied_files": 32,
+  "new_files_checked": 35,
+  "query_executions": 0,
+  "source_check_scope": "All measured source files; only the four listed architecture reports changed afterward."
+}

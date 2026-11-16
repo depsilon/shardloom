@@ -40,7 +40,7 @@ fn domain(
     }
     if profile == "sparse" {
         let mut values = vec![Some("unused".to_owned()); if public { 16 } else { 128 }];
-        values[0] = Some(format!(" {} ", ["A", "B", "C"][chunk]));
+        values[0] = Some(format!(" {} ", ["A", "B", "C"][chunk % 3]));
         values[1] = Some("UNREFERENCED İΣΟΣ ".repeat(if public { 128 } else { 4096 }));
         let indices = if public { [5, 11, 15] } else { [17, 63, 127] };
         values[indices[0]] = Some("a".into());
@@ -49,7 +49,7 @@ fn domain(
         return values;
     }
     vec![
-        Some(format!(" {} ", ["A", "B", "C"][chunk])),
+        Some(format!(" {} ", ["A", "B", "C"][chunk % 3])),
         Some("a".into()),
         Some(" \u{2003}ΣΟΣİß東京\0 e\u{301} Case \u{2003}".repeat(8)),
         None,
@@ -112,16 +112,22 @@ fn batch(profile: &str, chunk: usize, start: usize, rows: usize, public: bool) -
     .into_array())
 }
 
-fn write(root: &Path, profile: &str, public: bool) -> Result<()> {
+fn write(root: &Path, profile: &str, size: &str) -> Result<()> {
+    let public = size == "public";
     let lengths = if profile == "empty" {
         vec![0]
     } else if public {
         vec![23, 24, 24]
-    } else {
+    } else if size == "work" {
         vec![4097; 3]
+    } else {
+        let mut lengths = vec![4097; 1_048_577 / 4097];
+        lengths.push(1_048_577 % 4097);
+        lengths
     };
-    // There are at most three leaves. Flat serialization preserves the supplied
-    // arrays; no compressor or source-dictionary preservation heuristic runs.
+    // Flat serialization preserves each supplied dictionary, including the
+    // changed code domains across 256 scale chunks. No compressor or automatic
+    // source-dictionary preservation heuristic runs.
     let strategy = Arc::new(ChunkedLayoutStrategy::new(FlatLayoutStrategy::default()));
     let runtime = CurrentThreadRuntime::new();
     let session = VortexSession::default().with_handle(runtime.handle());
@@ -154,7 +160,7 @@ fn main() -> Result<()> {
     let args = std::env::args_os().skip(1).collect::<Vec<_>>();
     if args.len() != 2 {
         return Err(
-            "usage: native_dictionary_uat_fixture <guarded-existing-directory> <public|work>"
+            "usage: native_dictionary_uat_fixture <guarded-existing-directory> <public|work|scale>"
                 .into(),
         );
     }
@@ -162,13 +168,11 @@ fn main() -> Result<()> {
     if !root.is_dir() {
         return Err("fixture directory must exist under the UAT storage guard".into());
     }
-    let public = match args[1].to_str() {
-        Some("public") => true,
-        Some("work") => false,
-        _ => return Err("fixture size must be public or work".into()),
+    let Some(size @ ("public" | "work" | "scale")) = args[1].to_str() else {
+        return Err("fixture size must be public, work or scale".into());
     };
     for profile in PROFILES {
-        write(root, profile, public)?;
+        write(root, profile, size)?;
     }
     Ok(())
 }

@@ -25,13 +25,24 @@ use crate::FSST;
 use crate::FSSTArrayExt;
 use crate::FSSTArraySlotsExt;
 use crate::like_observation::LikeObservation;
+use crate::matcher_reuse::MatcherReuse;
 
 #[test]
 fn prefilter_uses_only_active_codes_for_slices() -> VortexResult<()> {
+    check_prefilter_slices(false)
+}
+
+#[test]
+fn reused_tables_keep_active_slice_rejections_per_call() -> VortexResult<()> {
+    check_prefilter_slices(true)
+}
+
+fn check_prefilter_slices(reuse_enabled: bool) -> VortexResult<()> {
     for chunked_offsets in [false, true] {
         let session = VortexSession::empty();
         crate::initialize(&session);
         let mut ctx = session.create_execution_ctx();
+        let scope = reuse_enabled.then(|| MatcherReuse::begin_in(&session).unwrap());
         // Six rows: large matching parent, "a", null, empty, "z", large
         // matching parent. The middle slices retain both parent byte buffers.
         let mut bytes = vec![0; 131_074];
@@ -65,6 +76,8 @@ fn prefilter_uses_only_active_codes_for_slices() -> VortexResult<()> {
             &mut ctx,
         )?;
 
+        let mut constructions = 0u64;
+        let mut lookups = 0u64;
         for (range, expected, rejected) in [
             (1..2, vec![Some(false)], true),
             (1..4, vec![Some(false), None, Some(false)], true),
@@ -77,6 +90,8 @@ fn prefilter_uses_only_active_codes_for_slices() -> VortexResult<()> {
                 vec![Some(false), None, Some(false), Some(true)],
                 false,
             ),
+            (1..2, vec![Some(false)], true),
+            (4..5, vec![Some(true)], false),
         ] {
             let sliced = if range.is_empty() || range == (2..3) {
                 // Generic Slice canonicalizes empty/all-null arrays. Construct
@@ -120,8 +135,17 @@ fn prefilter_uses_only_active_codes_for_slices() -> VortexResult<()> {
             assert_eq!(work.calls, 1);
             assert_eq!(work.prefilter_calls, 1);
             assert_eq!(work.block_rejections, u64::from(rejected));
-            assert_eq!(work.matcher_constructions, u64::from(!rejected));
+            let constructed = !rejected && (!reuse_enabled || constructions == 0);
+            assert_eq!(work.matcher_constructions, u64::from(constructed));
             assert!(!work.overflowed);
+            lookups += u64::from(!rejected);
+            constructions += u64::from(constructed);
+            if let Some(scope) = &scope {
+                let work = scope.snapshot().unwrap();
+                assert_eq!(work.lookups, lookups);
+                assert_eq!(work.constructions, constructions);
+                assert_eq!(work.hits, lookups - constructions);
+            }
         }
     }
     Ok(())

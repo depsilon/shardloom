@@ -1,0 +1,59 @@
+{
+  "status": "passed_independent_inventory_reconstruction",
+  "pairs": 2190,
+  "axes": 5,
+  "composite_groups": 677,
+  "source_subgroups": 81,
+  "top_pairs": 30,
+  "coverage_rows": 525,
+  "prepared_operations_per_runtime": 540,
+  "source_identities": [
+    {
+      "bytes": 69347470,
+      "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-replay-r1.json",
+      "sha256": "4279ffbf49c7336ede24853472bb457fa8b905d47fa032d236b784be125e14e4"
+    },
+    {
+      "bytes": 29521949,
+      "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-protocol-r1.json",
+      "sha256": "55bc015a36d60759617e51dbe4bb3102c2921910edae6179d5013ec64781bc30"
+    },
+    {
+      "bytes": 39012801,
+      "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/selection-r1.json",
+      "sha256": "af8db5fea585f295b477b5fc4b8c8dd662acdd7f76a2e085fe2734b1e809045b"
+    },
+    {
+      "bytes": 42672146,
+      "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/baseline-reuse-r1.json",
+      "sha256": "88bf6c69db0f698e319904c3ce7e6881b696e06a1f9b457637b6051268cc1a07"
+    }
+  ],
+  "inventory": {
+    "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/postprocessing/selection-cost-inventory-r1.json",
+    "bytes": 386773,
+    "sha256": "dfe3225ab4df94aaae168b07be3b04cd92f1e2cb8d0d8886accf0352a052b473"
+  },
+  "summary": {
+    "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/postprocessing/selection-cost-inventory-r1.md",
+    "bytes": 15561,
+    "sha256": "5ca503e6f80181c09c6d69ab66e676bff87abac8969b0e44d752025d04199b0c"
+  },
+  "original_inventory": {
+    "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/postprocessing/selection-cost-inventory-original-r1.json",
+    "bytes": 386735,
+    "sha256": "432eadb7e0ff5c7a100b8278c48e9bb76d7c8b40334faeeb3ac240ebb2783c32"
+  },
+  "original_summary": {
+    "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/postprocessing/selection-cost-inventory-original-r1.md",
+    "bytes": 15509,
+    "sha256": "98d8428360f2a86e2eeaa7b2a868db95f9b77f58ae64bc6780ecaed9cb07fef2"
+  },
+  "correction": "Clarified recorded execution counts versus zero-query offline replay; costs unchanged.",
+  "query_executions": 0,
+  "verifier": {
+    "path": "/Users/dylan/LocalData/shardloom/selected-dictionary-2026-11-15/postprocessing/verify_selection_cost_inventory.py",
+    "bytes": 6449,
+    "sha256": "530b4b1988e57fe5a484864a0efa8a5e4df057a382968e0e7644b46b7b1358c2"
+  }
+}

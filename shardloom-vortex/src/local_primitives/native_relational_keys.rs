@@ -29,6 +29,9 @@ mod nested;
 mod cache;
 pub(super) use cache::KeyLookupCache;
 
+#[path = "native_relational_selected_dictionary.rs"]
+mod selected_dictionary;
+
 use super::{AggregateDistinctValue, NativeNumericOwner, compound_count_partial, vortex_error};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError, float_policy::float_key_bits};
 use shardloom_exec::{
@@ -108,7 +111,12 @@ struct VariableHashes {
 }
 
 enum VariableHashing {
-    Unavailable,
+    Unavailable {
+        // Values-only preparation may compose a selection into its children.
+        // Keep the opaque parent in the existing non-hashing state rather than
+        // enlarge every key owner, including unrelated numeric/window keys.
+        _selected_source: Option<ArrayRef>,
+    },
     Prepared(VariableHashes),
     OnDemand,
 }
@@ -568,7 +576,7 @@ impl KeyColumn {
                         });
                         compound_count_partial::string_hash(bytes.as_slice())
                     }
-                    VariableHashing::Unavailable => {
+                    VariableHashing::Unavailable { .. } => {
                         return Err(failed("value-only text owner has no admitted hash state"));
                     }
                 };
@@ -857,6 +865,13 @@ impl VariableColumn {
         purpose: Preparation,
     ) -> Result<Self> {
         let binary = matches!(array.dtype(), DType::Binary(_));
+        let normalized = if purpose == Preparation::Values && !binary {
+            selected_dictionary::compose(array, context, cancellation)?
+        } else {
+            None
+        };
+        let selected_source = normalized.as_ref().map(|_| array.clone());
+        let array = normalized.as_ref().unwrap_or(array);
         let dictionary = array.as_opt::<Dict>();
         let domain = dictionary
             .as_ref()
@@ -885,23 +900,7 @@ impl VariableColumn {
             .execute_mask(values.len(), context)
             .map_err(vortex_error)?;
         let codes = dictionary
-            .map(|dict| {
-                let source = dict.codes();
-                let codes = source
-                    .clone()
-                    .execute::<PrimitiveArray>(context)
-                    .map_err(vortex_error)?;
-                if codes.dtype() != source.dtype() || codes.len() != array.len() {
-                    return Err(failed(
-                        "dictionary code execution changed dtype or row count",
-                    ));
-                }
-                let owner = NativeNumericOwner::new(codes, context)?;
-                if !owner.is_integer() {
-                    return Err(failed("dictionary codes must be integers"));
-                }
-                Ok(owner)
-            })
+            .map(|dict| Self::prepare_codes(dict.codes(), array.len(), context))
             .transpose()?;
         if let Some(hashes) = &mut hashes {
             hashes
@@ -953,11 +952,34 @@ impl VariableColumn {
             hashes: match hashes {
                 Some(hashes) => VariableHashing::Prepared(hashes),
                 None if purpose == Preparation::HashOnDemand => VariableHashing::OnDemand,
-                None => VariableHashing::Unavailable,
+                None => VariableHashing::Unavailable {
+                    _selected_source: selected_source,
+                },
             },
             rows: array.len(),
             binary,
         })
+    }
+
+    fn prepare_codes(
+        source: &ArrayRef,
+        rows: usize,
+        context: &mut ExecutionCtx,
+    ) -> Result<NativeNumericOwner> {
+        let codes = source
+            .clone()
+            .execute::<PrimitiveArray>(context)
+            .map_err(vortex_error)?;
+        if codes.dtype() != source.dtype() || codes.len() != rows {
+            return Err(failed(
+                "dictionary code execution changed dtype or row count",
+            ));
+        }
+        let owner = NativeNumericOwner::new(codes, context)?;
+        if !owner.is_integer() {
+            return Err(failed("dictionary codes must be integers"));
+        }
+        Ok(owner)
     }
 
     fn validate_unhashed_value(values: &VarBinViewArray, index: usize, binary: bool) -> Result<()> {
