@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "benchmarks/traditional_analytics"))
+sys.path.insert(0, str(ROOT / "scripts"))
 if __package__:
     from .test_native_binding import _load_native
 else:
@@ -132,17 +133,31 @@ class NativeJoinAggregateTests(unittest.TestCase):
                             self.assertEqual(fields["fallback_attempted"], "false")
                             self.assertEqual(fields["external_engine_invoked"], "false")
                             work = json.loads(fields["local_primitive_native_io_join_work_json"])["direct_aggregate"]
+                            self.assertEqual(work["strategy"], "exact_unique_inner_matches_in_original_update_order")
                             self.assertEqual(work["chains_considered"], 1)
                             self.assertEqual(work["chains_declined_duplicates"], 0)
                             if extension != "vortex":
                                 self.assertGreater(work["source_batches_direct"], 0)
                                 self.assertEqual(work["source_batches_declined"], 0)
                                 self.assertEqual(work["aggregate_rows"], 4)
+                                self.assertEqual(work["match_rows"], 10 if reverse else 9)
+                                self.assertEqual(work["validated_cells"], 30 if reverse else 27)
                             else:
                                 # The normal writer chooses encodings. Admission
                                 # follows those owners without forcing a codec.
                                 self.assertGreater(work["source_batches_direct"] + work["source_batches_declined"], 0)
-                            observed.append(work)
+                                if work["aggregate_rows"]:
+                                    self.assertEqual(work["aggregate_rows"], 4)
+                                    self.assertEqual(work["match_rows"], 10 if reverse else 9)
+                                    # The public declarations retain different
+                                    # intermediate fields before the final pure
+                                    # projection. Each still owes its own checks.
+                                    first, final = {"dataframe": (5, 6),
+                                                    "typed_relation": (4, 3)}.get(surface, (4, 5))
+                                    self.assertEqual(work["validated_cells"],
+                                                     (6 if reverse else 5) * first + 4 * final)
+                            observed.append({key: value for key, value in work.items()
+                                             if key != "validated_cells"})
                     self.assertEqual(len(observed), len(SURFACES))
                     self.assertTrue(all(work == observed[0] for work in observed))
 
