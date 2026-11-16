@@ -357,6 +357,10 @@ impl Spec {
         if rows == 0 {
             return Ok(());
         }
+        #[cfg(test)]
+        let _cost = super::native_relational_join_cost::scope(
+            super::native_relational_join_cost::Phase::Payload,
+        );
         context.check_cancelled()?;
         let right = self
             .columns
@@ -475,7 +479,19 @@ impl Spec {
                 (rows * (self.fields.len() - output_width)) as u64;
         });
         let _ = output_width;
+        #[cfg(test)]
+        super::native_relational_join_cost::output(
+            rows,
+            output_width,
+            self.fields.len() - output_width,
+        );
+        #[cfg(test)]
+        let downstream = super::native_relational_join_cost::scope(
+            super::native_relational_join_cost::Phase::Downstream,
+        );
         consume(array)?;
+        #[cfg(test)]
+        drop(downstream);
         context.check_cancelled()?;
         *written = next;
         pairs.left.values.clear();

@@ -62,6 +62,8 @@ pub(super) fn copy_column(
     float_policy: shardloom_core::FloatPolicy,
     check_cancelled: impl FnMut() -> Result<()>,
 ) -> Result<ArrayRef> {
+    #[cfg(test)]
+    super::super::native_relational_join_cost::selected_numeric_copy(values.len());
     visit_column::<true>(
         dtype,
         values,

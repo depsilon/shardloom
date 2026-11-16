@@ -48,6 +48,11 @@ mod expression_tests;
 mod grouped_cost_tests;
 #[path = "local_primitive_relational_join_condition_tests.rs"]
 mod join_condition_tests;
+#[path = "local_primitive_relational_join_cost_tests.rs"]
+mod join_cost_tests;
+#[cfg(feature = "universal-format-io")]
+#[path = "local_primitive_relational_join_diagnostic_tests.rs"]
+mod join_diagnostic_tests;
 #[path = "local_primitive_relational_join_spill_tests.rs"]
 mod join_spill_tests;
 #[path = "local_primitive_relational_memory_tests.rs"]

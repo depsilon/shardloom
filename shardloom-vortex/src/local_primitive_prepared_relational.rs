@@ -1,5 +1,7 @@
 //! Prepared native relational trees sharing one resource and source admission.
 
+#[cfg(test)]
+use super::native_relational_join_cost::{self as join_cost, Phase as JoinPhase};
 #[cfg(all(test, feature = "vortex-write"))]
 use super::result_batch;
 use super::{
@@ -2016,6 +2018,8 @@ impl PreparedVortexRelational {
             NodeKind::Join { left, right, spec } => {
                 #[cfg(feature = "vortex-write")]
                 if let Some(spill) = &metrics.spill {
+                    #[cfg(test)]
+                    let _cost = join_cost::scope(JoinPhase::OrderedExcluded);
                     let report = if spec.asof.is_some() {
                         native_relational_join::asof::spill::run(
                             spec,
@@ -2063,6 +2067,8 @@ impl PreparedVortexRelational {
                     return Ok(());
                 }
                 if spec.asof.is_some() {
+                    #[cfg(test)]
+                    let _cost = join_cost::scope(JoinPhase::AsOfExcluded);
                     let mut join = native_relational_join::asof::Join::new(spec, context.memory())?;
                     self.run(
                         right,
@@ -2085,9 +2091,38 @@ impl PreparedVortexRelational {
                     );
                 }
                 if let Some(cyclic) = cyclic_exists::Plan::admit(left, right, spec, self) {
+                    #[cfg(test)]
+                    let _cost = join_cost::scope(JoinPhase::CyclicExcluded);
                     return cyclic.run(self, context, metrics, batch_rows, parameter, consume);
                 }
+                #[cfg(test)]
+                let cost = {
+                    use crate::relational_query::VortexRelationalJoinKind as Kind;
+                    let kind = match spec.kind {
+                        Kind::Inner => "inner",
+                        Kind::Left => "left",
+                        Kind::Right => "right",
+                        Kind::Full => "full",
+                        Kind::LeftSemi => "left_semi",
+                        Kind::LeftAnti => "left_anti",
+                        Kind::Cross => "cross",
+                    };
+                    join_cost::node(
+                        kind,
+                        spec.right_keys.len(),
+                        matches!(spec.kind, Kind::LeftSemi | Kind::LeftAnti)
+                            && spec.condition.is_none()
+                            && !spec.right_keys.is_empty(),
+                        spec.condition.is_some(),
+                    )
+                };
+                #[cfg(test)]
+                let setup_cost = cost.scope(JoinPhase::Setup);
                 let mut join = native_relational_join::Join::new(spec, context.memory())?;
+                #[cfg(test)]
+                drop(setup_cost);
+                #[cfg(test)]
+                let build_input_cost = cost.scope(JoinPhase::BuildInput);
                 self.run(
                     right,
                     context,
@@ -2095,14 +2130,30 @@ impl PreparedVortexRelational {
                     batch_rows,
                     parameter,
                     &mut |array| {
+                        #[cfg(test)]
+                        cost.input(true, array.len());
+                        #[cfg(test)]
+                        let _build_cost = cost.scope(JoinPhase::BuildState);
                         join.build(
-                            metrics.detach_join_build(array, context)?,
+                            {
+                                #[cfg(test)]
+                                let _detach_cost = cost.scope(JoinPhase::BuildDetach);
+                                metrics.detach_join_build(array, context)?
+                            },
                             context,
                             batch_rows,
                         )
                     },
                 )?;
+                #[cfg(test)]
+                drop(build_input_cost);
+                #[cfg(test)]
+                let seal_cost = cost.scope(JoinPhase::Seal);
                 join.finish_build(context)?;
+                #[cfg(test)]
+                drop(seal_cost);
+                #[cfg(test)]
+                let probe_input_cost = cost.scope(JoinPhase::ProbeInput);
                 self.run(
                     left,
                     context,
@@ -2110,11 +2161,21 @@ impl PreparedVortexRelational {
                     batch_rows,
                     parameter,
                     &mut |array| {
+                        #[cfg(test)]
+                        cost.input(false, array.len());
+                        #[cfg(test)]
+                        let _probe_cost = cost.scope(JoinPhase::ProbeMatch);
                         join.consume(array, context, batch_rows, consume)
                             .map(|_| ())
                     },
                 )?;
+                #[cfg(test)]
+                drop(probe_input_cost);
+                #[cfg(test)]
+                let finish_cost = cost.scope(JoinPhase::OuterFinish);
                 join.finish(context, batch_rows, consume)?;
+                #[cfg(test)]
+                drop(finish_cost);
                 context.record_native_join_work(join.join_work()?)
             }
             NodeKind::Set { .. } => {
@@ -2262,7 +2323,11 @@ impl PreparedVortexRelational {
             BATCH_ROWS,
             FileScanBatching::Output,
             input,
-            |array, context| sink.append_native(&array, context),
+            |array, context| {
+                #[cfg(test)]
+                let _cost = join_cost::scope(JoinPhase::SinkExcluded);
+                sink.append_native(&array, context)
+            },
         )?;
         #[cfg(test)]
         sample_preparation::BEFORE_JSON_COMPLETION.with_borrow_mut(|slot| {

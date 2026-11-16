@@ -195,6 +195,9 @@ mod native_relational_index;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_join.rs"]
 mod native_relational_join;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_join_cost.rs"]
+pub(crate) mod native_relational_join_cost;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_keys.rs"]
 mod native_relational_keys;
