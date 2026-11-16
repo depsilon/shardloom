@@ -347,6 +347,7 @@ fn native_resident_join_attribution() {
     let engine_ns = result.timing.execution.as_nanos();
     let nodes: Vec<_> = report.nodes[..report.node_count].iter().enumerate().map(|(index, node)| {
         let work = &report.payload_work[index];
+        let integer = &report.integer_lookup_work[index];
         json!({
         "node":index, "parent_attribution_context":node.parent, "kind":node.kind,
         "key_columns":node.key_columns, "membership_only":node.membership_only,
@@ -355,6 +356,15 @@ fn native_resident_join_attribution() {
         "probe_batches":node.probe_batches, "probe_rows":node.probe_rows,
         "output_batches":node.output_batches, "output_rows":node.output_rows,
         "output_cells":node.output_cells, "validation_only_cells":node.validation_only_cells,
+        "integer_lookup_work":{
+            "considered":integer.considered, "admitted":integer.admitted,
+            "declined_shape":integer.declined_shape, "declined_small":integer.declined_small,
+            "declined_range":integer.declined_range, "declined_memory":integer.declined_memory,
+            "build_keys":integer.build_keys, "directory_slots":integer.directory_slots,
+            "retained_bytes":integer.retained_bytes, "probe_batches":integer.probe_batches,
+            "probe_rows":integer.probe_rows, "null_rows":integer.null_rows,
+            "matched_rows":integer.matched_rows,
+        },
         "payload_work":{
             "coordinate_batches":work.coordinate_batches,
             "coordinate_rows":work.coordinate_rows,

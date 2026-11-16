@@ -48,6 +48,8 @@ pub(super) struct Condition {
 pub(super) mod asof;
 #[path = "native_relational_join_condition.rs"]
 mod condition;
+#[path = "native_relational_join_integer.rs"]
+mod integer;
 #[cfg(feature = "vortex-write")]
 #[path = "native_relational_join_spill.rs"]
 pub(super) mod spill;
@@ -59,6 +61,7 @@ pub(super) struct Join<'a> {
     matched: ReservedVec<bool>,
     membership: Option<RowSet<'a>>,
     build_finished: bool,
+    integer: integer::State,
 }
 
 impl<'a> Join<'a> {
@@ -69,6 +72,7 @@ impl<'a> Join<'a> {
             index: RowIndex::new(memory)?,
             matched: ReservedVec::new(memory)?,
             build_finished: false,
+            integer: integer::State::default(),
             membership: (spec.short_circuit()
                 && spec.condition.is_none()
                 && !spec.right_keys.is_empty())
@@ -173,12 +177,18 @@ impl<'a> Join<'a> {
             return self.consume_condition(&left, context, batch_rows, consume);
         }
         let mut pairs = Pairs::new(batch_rows, context.memory())?;
+        // Required probe keys and pair buffers precede optional lookup state.
+        self.integer
+            .prepare_once(self.spec, &self.right, &self.index, &left, context)?;
+        let integer_probe = self.integer.probe(&left)?;
         let mut written = 0u64;
         for row in 0..left.array.len() {
             if row.is_multiple_of(1024) {
                 context.check_cancelled()?;
             }
-            let entry = if self.membership.is_none() {
+            let entry = if let Some(probe) = &integer_probe {
+                probe.entry(row)
+            } else if self.membership.is_none() {
                 left.hash(row, false)?
                     .map(|hash| {
                         self.index.find(hash, context.cancellation(), |right| {

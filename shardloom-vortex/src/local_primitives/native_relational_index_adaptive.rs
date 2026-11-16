@@ -236,7 +236,7 @@ impl State {
     }
 }
 
-fn has_headroom(memory: &LiveMemoryPool, bytes: u64) -> bool {
+pub(super) fn has_headroom(memory: &LiveMemoryPool, bytes: u64) -> bool {
     let snapshot = memory.snapshot();
     bytes <= snapshot.limit_bytes.saturating_sub(snapshot.reserved_bytes) / 16
 }

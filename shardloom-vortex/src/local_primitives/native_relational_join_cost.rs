@@ -70,9 +70,27 @@ pub(crate) struct NodeReport {
 pub(crate) struct Report {
     pub(crate) nodes: [NodeReport; MAX_NODES],
     pub(crate) payload_work: [PayloadWork; MAX_NODES],
+    pub(crate) integer_lookup_work: [IntegerLookupWork; MAX_NODES],
     pub(crate) node_count: usize,
     pub(crate) excluded_nanos: [u128; 16],
     pub(crate) excluded_calls: [u64; 16],
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct IntegerLookupWork {
+    pub(crate) considered: u64,
+    pub(crate) admitted: u64,
+    pub(crate) declined_shape: u64,
+    pub(crate) declined_small: u64,
+    pub(crate) declined_range: u64,
+    pub(crate) declined_memory: u64,
+    pub(crate) build_keys: u64,
+    pub(crate) directory_slots: u64,
+    pub(crate) retained_bytes: u64,
+    pub(crate) probe_batches: u64,
+    pub(crate) probe_rows: u64,
+    pub(crate) null_rows: u64,
+    pub(crate) matched_rows: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -97,6 +115,7 @@ impl Default for Report {
         Self {
             nodes: [NodeReport::default(); MAX_NODES],
             payload_work: [PayloadWork::default(); MAX_NODES],
+            integer_lookup_work: [IntegerLookupWork::default(); MAX_NODES],
             node_count: 0,
             excluded_nanos: [0; 16],
             excluded_calls: [0; 16],
@@ -355,6 +374,17 @@ fn payload_record(update: impl FnOnce(&mut PayloadWork)) {
             }) = active.state.current()
         {
             update(&mut active.state.report.payload_work[id]);
+        }
+    });
+}
+
+/// Aggregate one admission or probe-batch record; no thread-local row-loop hook.
+pub(crate) fn integer_lookup_record(update: impl FnOnce(&mut IntegerLookupWork)) {
+    LOCAL.with_borrow_mut(|local| {
+        if let Some(active) = &mut local.active
+            && let Some(id) = active.state.current().and_then(|frame| frame.node)
+        {
+            update(&mut active.state.report.integer_lookup_work[id]);
         }
     });
 }
