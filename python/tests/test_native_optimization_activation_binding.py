@@ -31,7 +31,7 @@ def evidence(fields, suffix):
     raise AssertionError(f"missing completed native evidence: {suffix}")
 
 
-def write_sources(native, root, extension):
+def write_sources(native, root, extension, *, sparse_join_keys=False):
     import pyarrow as pa
     import pyarrow.parquet as parquet
     from shardloom._result_schema import _arrow_type
@@ -40,6 +40,11 @@ def write_sources(native, root, extension):
     session = native.Session(native.ExecutionResources(64 << 20, 1))
     try:
         for name, rows in tables().items():
+            if sparse_join_keys and name in {"probe", "build"}:
+                # Preserve equality, NULLs and every output ID while excluding
+                # dense integer addressing from the Bloom-filter activation proof.
+                rows = [dict(row, key=None if row["key"] is None else row["key"] * 17)
+                        for row in rows]
             schema = pa.schema([pa.field(field, _arrow_type(dtype, pa), dtype.nullable)
                                 for field, dtype in SCHEMAS[name]])
             table = pa.Table.from_pylist(rows, schema=schema)
@@ -81,7 +86,7 @@ class NativeOptimizationActivationTests(unittest.TestCase):
             else:
                 self.assertEqual(work["considered_batches"], 0)
                 self.assertEqual(work["admitted_batches"], 0)
-        if requirement.startswith("filter_"):
+        if requirement.startswith(("filter_", "dense_")):
             work = evidence(fields, "join_work")
             runtime_filter, skew = work["runtime_filter"], work["skew"]
             self.assertEqual(runtime_filter["considered"], 1)
@@ -92,9 +97,16 @@ class NativeOptimizationActivationTests(unittest.TestCase):
             else:
                 self.assertEqual(runtime_filter["admitted"], 1)
                 self.assertEqual(runtime_filter["build_keys"], 128)
-                self.assertGreater(runtime_filter["rejected_rows"], 450)
+                if requirement == "dense_and_skew":
+                    # The allocated filter remains unused by direct integer
+                    # addressing; its counters describe only actual filter work.
+                    self.assertEqual(runtime_filter["probe_rows"], 0)
+                    self.assertEqual(runtime_filter["rejected_rows"], 0)
+                else:
+                    self.assertEqual(runtime_filter["probe_rows"], 514)
+                    self.assertGreater(runtime_filter["rejected_rows"], 450)
                 self.assertEqual(runtime_filter["index_lookups_avoided"], runtime_filter["rejected_rows"])
-                if requirement == "filter_and_skew":
+                if requirement in {"filter_and_skew", "dense_and_skew"}:
                     self.assertEqual(skew["admitted_groups"], 1)
                     self.assertEqual(skew["admitted_rows"], 70)
                     self.assertEqual(skew["range_visits"], 1)
@@ -144,13 +156,19 @@ class NativeOptimizationActivationTests(unittest.TestCase):
         self.assertEqual(len(cases), 17)
         self.assertEqual(len({item.id for item, _, _ in cases}), len(cases))
         with tempfile.TemporaryDirectory(prefix="shardloom-optimization-activation-") as directory:
-            for extension in ("vortex", "parquet", "arrow"):
-                root = Path(directory) / extension
+            modes = [(extension, sparse) for extension in ("vortex", "parquet", "arrow")
+                     for sparse in (True, False)]
+            for extension, sparse in modes:
+                root = Path(directory) / f"{extension}-{'sparse' if sparse else 'dense'}"
                 root.mkdir()
-                sources = write_sources(self.native, root, extension)
+                sources = write_sources(self.native, root, extension, sparse_join_keys=sparse)
                 for item, expected, requirement in cases:
+                    if not sparse:
+                        if requirement != "filter_and_skew":
+                            continue
+                        requirement = "dense_and_skew"
                     for surface in SURFACES:
-                        with self.subTest(format=extension, case=item.id, surface=surface):
+                        with self.subTest(format=extension, case=item.id, surface=surface, sparse=sparse):
                             kwargs = dict(native=self.native, binary=binary,
                                           memory_bytes=128 << 20, parallelism=2)
                             if surface == "cli_sql":

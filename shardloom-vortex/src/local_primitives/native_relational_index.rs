@@ -313,6 +313,20 @@ impl RowIndex {
     pub(super) fn unique_rows(&self) -> usize {
         self.entries.values.len()
     }
+
+    /// Borrow the stable entry identity and its first retained row. A sealed
+    /// join may derive an optional lookup without replacing duplicate storage.
+    pub(super) fn representative_rows(&self) -> impl ExactSizeIterator<Item = (usize, usize)> {
+        self.entries
+            .values
+            .iter()
+            .enumerate()
+            .map(|(entry, value)| (entry, value.first))
+    }
+
+    pub(super) fn has_adaptive_headroom(&self, bytes: u64) -> bool {
+        adaptive::has_headroom(&self.memory, bytes)
+    }
 }
 
 fn fingerprint(hash: u64) -> u8 {

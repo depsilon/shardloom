@@ -251,9 +251,14 @@ the ledger.
 
 Current autonomous execution order:
 
-**November 16 material-potential priority.** Finish the already measured
-[resident-join/copy closeout](native-resident-join-attribution-2026-11-16.md),
-then select new performance work only when saved evidence supports credible
+**November 16 material-potential priority.** The resident-join/copy change is
+merged in PR #1694; its exact-main verification remains in progress. The
+[dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
+is implemented and locally accepted: all 630 scoped requests pass, with engine
+time 102.926667930 → 94.178862655 seconds. Its integration is next. Keep required
+correctness and CI checks, retain observations, and follow the maintainer's
+latest instruction to reduce optional packaging/report ceremony and move on.
+Select new performance work only when saved evidence supports credible
 material upside. Prioritize reducing join input/intermediate-result volume,
 repeated scans/builds, expensive sorting and spill work. Identify actual
 exposure, cost and removable work before implementation; do not add another
@@ -338,9 +343,10 @@ once, and do not repeat full10k or broad gates after every small edit.
     pass local and relocated portable verification at `ffe0d077a`. The complete
     engine total decreases 60.778284678 → 60.597904154 seconds, with all 186
     individual regressions retained; this approximately 0.3% result is small.
-    Hosted integration is pending. The next candidate must meet the material-
-    potential priority above. The older join-family total remains complete-query
-    time, and the broader coverage queue remains open.
+    PR #1694 is merged; exact-main verification remains in progress. The next
+    dense integer join unit is locally accepted as recorded above. Future work
+    must meet the material-potential priority. The older join-family total remains
+    complete-query time, and the broader coverage queue remains open.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
     at `788a8925e`: complete validation, default/native/package checks, all 388
     answers and unchanged pipeline counts pass; the same-baseline engine total

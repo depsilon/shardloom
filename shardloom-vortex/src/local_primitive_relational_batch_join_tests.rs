@@ -26,6 +26,9 @@ mod replay_tests;
 #[path = "local_primitive_relational_batch_asof_tests.rs"]
 mod asof_tests;
 
+#[path = "local_primitive_relational_batch_join_integer_tests.rs"]
+mod integer_tests;
+
 const ORDINARY: [(Option<i64>, &str); 3] = [(Some(1), "r1"), (Some(3), "r3"), (None, "rn")];
 const STREAM: [(Option<i64>, &str); 4] =
     [(Some(1), "a"), (Some(2), "b"), (None, "n"), (Some(1), "c")];
