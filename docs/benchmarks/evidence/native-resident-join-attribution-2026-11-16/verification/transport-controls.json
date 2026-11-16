@@ -1,0 +1,123 @@
+{
+  "status": "passed",
+  "controls": [
+    {
+      "control": "valid",
+      "status": "accepted_valid_control"
+    },
+    {
+      "control": "wrong_schema",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "wrong_count",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "reused_observation",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "part_tamper",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "missing_part",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "unlisted_file",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "packet_symlink",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "unsafe_part",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "wrong_archive_hash",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "wrong_member_hash",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "wrong_member_size",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "traversal_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "absolute_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "symlink_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "hardlink_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "duplicate_archive_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "duplicate_origin",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "overlapping_external",
+      "status": "rejected",
+      "error": "AssertionError"
+    },
+    {
+      "control": "unlisted_archive_member",
+      "status": "rejected",
+      "error": "AssertionError"
+    }
+  ],
+  "rejected_count": 19,
+  "valid_controls": 1,
+  "query_executions": 0,
+  "packet_manifest": {
+    "bytes": 10824683,
+    "sha256": "133c617c0131eed75047ec566afaf5c0ca78b0458bae3a3e6fa657265c6e85dc"
+  },
+  "verifier": {
+    "bytes": 6880,
+    "sha256": "95d1f8eaef97ebf13dfc52337f38cb47fbbbbee4dfe782c57da7f11a36da8667"
+  },
+  "transport": {
+    "bytes": 3754,
+    "sha256": "77b6a4088881d721e43c182b3474aafc8dbeecaf20007c7cda34908a2a95759b"
+  },
+  "primitive": {
+    "bytes": 7140,
+    "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+  }
+}

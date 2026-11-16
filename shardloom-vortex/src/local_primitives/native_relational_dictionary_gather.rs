@@ -145,6 +145,11 @@ pub(super) fn try_copy(
     let output = DictArray::try_new(output_codes, output_values)
         .map_err(vortex_error)?
         .into_array();
+    #[cfg(test)]
+    crate::local_primitives::native_relational_join_cost::dictionary_copy(
+        indices.len(),
+        referenced.values.len(),
+    );
     context.check_cancelled()?;
     record(
         context,

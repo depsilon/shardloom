@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "source_copies": 28,
+  "retirement_records": 32050,
+  "historical_source_generation_tuples_missing": 24,
+  "inventory_sha256": "6c253060be6f78f80ec881a1152434df49cb5c9963fe54a00eb43c550e9fcd4f",
+  "leaf_report_sha256": "6e97ce055394d4bad5cd61cf3436c4a8fda563476bc128c6749c92f2efdf2c76",
+  "validator_sha256": "b9f0f96ab81696c706a73dd088d46890fefb9d55f7ca3d8a213cf3f67e4bb29d",
+  "query_executions": 0
+}

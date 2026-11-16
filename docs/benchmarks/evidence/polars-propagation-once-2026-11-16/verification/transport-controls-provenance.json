@@ -1,0 +1,88 @@
+{
+  "schema": "shardloom.polars_transport_controls_provenance.v1",
+  "scope": "provenance inventory only; no test rerun and no source/report reconstruction",
+  "current_final_files": {
+    "test_source": {
+      "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/postprocessing/test_polars_transport.py",
+      "bytes": 11335,
+      "sha256": "056fbd717ec73f626d4ddd3b6743b7a8e2bb8321c25337132a3eaced4c9f5f74"
+    },
+    "control_report": {
+      "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/polars-transport-controls-r1.json",
+      "bytes": 4613,
+      "sha256": "463a9fe82bd1bd3f4a2fcbb118c6d84aabecfa4977064608af74d606e04f4021",
+      "control_count": 25,
+      "rejections": 24,
+      "positive_controls": 1
+    }
+  },
+  "retained_run_records": [
+    {
+      "run_name": "transport-controls-r1",
+      "status": "failed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1.json",
+        "bytes": 1926,
+        "sha256": "ef4c7fd777de426101886426e5624c2ee6b179e10b780557ff273cfbafe93c01"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1.log",
+        "bytes": 1395,
+        "sha256": "4704689fbb9b310a0b5a0ccbcd946a67732d3a86353eae44cbcc2e2507b4bb3b"
+      },
+      "note": "The run report recorded a failed assertion because the missing-part control expected FileNotFoundError; the Store rejected earlier with AssertionError."
+    },
+    {
+      "run_name": "transport-controls-r1-retry",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1-retry.json",
+        "bytes": 1930,
+        "sha256": "6acab663854ac6e7a47c4eaf08a6506124a5d9ff6b00186e0b948cf85a1a0c2f"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1-retry.log",
+        "bytes": 199,
+        "sha256": "7c85c13ef8fd5e568f5e9d5e379a876460a752413fc7b3134f14e906cd5bc662"
+      },
+      "note": "The passing run's control report used the same shared report path and was later overwritten by the final run."
+    },
+    {
+      "run_name": "transport-controls-r1-final",
+      "status": "passed",
+      "receipt": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1-final.json",
+        "bytes": 1930,
+        "sha256": "c5fdcb529ea284e7525c9a994ea7fa42c9b69a57f7d03403fa1330fc72640f02"
+      },
+      "log": {
+        "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-r1-final.log",
+        "bytes": 199,
+        "sha256": "ea548a05d6cf404486bd0f348e40b3d697aa958d450cc4e1490fc64e6e3e4466"
+      },
+      "note": "Final passing run; its report bytes are the currently retained control report."
+    }
+  ],
+  "missing_variants": [
+    {
+      "artifact": "test source used by failed transport-controls-r1 run",
+      "status": "not retained",
+      "details": "The pre-correction test source was overwritten; no exact copy or source snapshot was saved."
+    },
+    {
+      "artifact": "control report produced by failed transport-controls-r1 run",
+      "status": "not retained",
+      "details": "The partial report at polars-transport-controls-r1.json was overwritten by a later run; only the failed runner receipt/log remain."
+    },
+    {
+      "artifact": "test source used by transport-controls-r1-retry run",
+      "status": "not retained",
+      "details": "The retry source version was overwritten by the final control-name edit; no exact copy or source snapshot was saved."
+    },
+    {
+      "artifact": "control report produced by transport-controls-r1-retry run",
+      "status": "not retained",
+      "details": "The retry report at polars-transport-controls-r1.json was overwritten by the final run; only the retry runner receipt/log remain."
+    }
+  ]
+}

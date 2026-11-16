@@ -1,0 +1,149 @@
+{
+  "status": "passed_local_and_portable_acceptance_hosted_integration_pending",
+  "candidate_commit": "ffe0d077a676fd8b23cfebed9e11bf189e1ae459",
+  "baseline_commit": "75596d0ee32e59ba77ea7cf4429166cb3052b3de",
+  "source_fingerprints": {
+    "baseline": "c01bccc4c62d14b29c34741b6907cd00284feb74cc4b69555758e5c9eb58baa1",
+    "candidate": "f6c5dbf3317a9b0099e19c3f93a8acaf460356fe85f5503f8e95a71f31584523"
+  },
+  "fresh": {
+    "cases": 403,
+    "complete": true,
+    "baseline_engine_seconds": 60.778284678,
+    "candidate_engine_seconds": 60.597904154,
+    "engine_gain_seconds": 0.18038052400000026,
+    "regressions": 186,
+    "regression_engine_seconds": 0.21580469899999993
+  },
+  "original_frozen_decision": "retain",
+  "query_executions_during_postprocessing": 0,
+  "fresh_result_packets": 806,
+  "diagnostic_requests": 54,
+  "gather_requests": 3,
+  "original_and_relocated_replay_passed": true,
+  "new_packet_corruptions_rejected": 126,
+  "decision_boundary_controls": 7,
+  "transport_corruptions_rejected": 19,
+  "prior_source_and_guard_controls_retained": true,
+  "archive_members": 6399,
+  "external_identity_only_records": 440,
+  "source_members": {
+    "candidate": 5813,
+    "baseline": 5807,
+    "diagnostic-r1": 5812,
+    "diagnostic-r2": 5812,
+    "gather-work-r1": 5812
+  },
+  "all_historical_build_source_bytes_reconstructed": true,
+  "historical_source_filesystem_generation_tuples_unavailable": 24,
+  "absolute_gain_seconds": 0.18038052400000026,
+  "relative_gain_fraction": 0.0029678449294126405,
+  "material_performance_gain_claim": false,
+  "causal_speedup_claim": false,
+  "latest_maintainer_direction": "Prioritize material performance gains, not further sliver gains; finish this already measured closeout and screen substantial work elimination before selecting another candidate.",
+  "new_numeric_material_threshold_not_specified": true,
+  "original_protocol_and_decision_unchanged": true,
+  "publication_attempted": false,
+  "bindings": {
+    "verification/original-replay.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-portable-replay-r3.log",
+      "bytes": 18331,
+      "sha256": "509d822f536552fe2e997e69e93b7b0490ac6f72c9935772781145c3381cb4e7"
+    },
+    "verification/relocated-replay.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/logs/variable-copy-portable-relocated-r1.log",
+      "bytes": 18331,
+      "sha256": "509d822f536552fe2e997e69e93b7b0490ac6f72c9935772781145c3381cb4e7"
+    },
+    "verification/relocation.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-relocation-verification-r1.json",
+      "bytes": 2039,
+      "sha256": "5e9a7dbc070207b41f5523818f63389ec76e85ae504afa76bb82bff4651cab33"
+    },
+    "verification/relocation-guard.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-portable-relocated-r1.json",
+      "bytes": 1029788,
+      "sha256": "a0487ac03f2a12207c4bc73dde61c10c38178cc6f7dd02ee689fb1504a26e0ab"
+    },
+    "verification/transport-controls.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-transport-controls-r1.json",
+      "bytes": 2777,
+      "sha256": "b0887b2230fd54ab23021a9c63829da2087e25f885b3b7936718bb2bb414fc4a"
+    },
+    "verification/diagnostic-inventory-primary.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/portable-diagnostic-inventory-primary-verification-r1.json",
+      "bytes": 429,
+      "sha256": "2aae865eeef050e97c5d74e0e7125b5555352ddbf45ffee740b88385f8871fca"
+    },
+    "verification/preceding-pr-main.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/pr1693-primary-main-final-r1.json",
+      "bytes": 540734,
+      "sha256": "a380ae96cdfa89b265255c0e93801ced7b52830d4ad66f5a857a067dd843a5b6"
+    },
+    "failures/package-r1.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-package-r1.log",
+      "bytes": 870,
+      "sha256": "d93e7f3c63268eecced266b263e4b4b31a059b12ce7909e238cae8e77faa0554"
+    },
+    "failures/replay-r2.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-portable-replay-r2.log",
+      "bytes": 2730,
+      "sha256": "051d1a57fe44b216228866e13103a538023776c1e9f1a35b8939cba5c6a4a518"
+    },
+    "failures/seal-r1.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-seal-r1.log",
+      "bytes": 1118,
+      "sha256": "a80e74cfce72c321478845680e2bdfa4137e1c01508091b218df798e155c3947"
+    },
+    "postprocessing/check_variable_copy_transport.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/check_variable_copy_transport.py",
+      "bytes": 6880,
+      "sha256": "95d1f8eaef97ebf13dfc52337f38cb47fbbbbee4dfe782c57da7f11a36da8667"
+    },
+    "postprocessing/verify_variable_copy_relocation.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/verify_variable_copy_relocation.py",
+      "bytes": 2855,
+      "sha256": "2aa089e569a1348ed9166cb0ad00527bfacb2180dac05f8f70ceae7077d8075f"
+    },
+    "postprocessing/seal_variable_copy_evidence.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/seal_variable_copy_evidence.py",
+      "bytes": 10661,
+      "sha256": "74f35ff1a4fe63ab611e85a74ce1503fe3596e59b5354cf8a70dd20780d18b11"
+    }
+  },
+  "failed_packet_r2_manifest": {
+    "bytes": 10824072,
+    "sha256": "87d8f5c57f5a750b753e3920798e778436c77da7982763b14349f09d079eeb8d"
+  },
+  "failed_packet_r2_retained_locally": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2",
+  "failed_packet_r2_changed_sources": {
+    "data/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py": {
+      "origin": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py",
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 182028437,
+          "bytes": 14769,
+          "mtime_ns": 1794824681592080303,
+          "ctime_ns": 1794824681592080303
+        },
+        "sha256": "3cbf6560d43044a2faa969586eef27ef6f7248d5b4e6d990fafe2a48977224f6"
+      }
+    },
+    "data/resident-join-attribution-2026-11-16/postprocessing/portable_variable_copy.py": {
+      "origin": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/portable_variable_copy.py",
+      "identity": {
+        "path": "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/portable_variable_copy.py",
+        "generation": {
+          "device": 16777234,
+          "inode": 181893793,
+          "bytes": 6111,
+          "mtime_ns": 1794824645072301340,
+          "ctime_ns": 1794824645072301340
+        },
+        "sha256": "335c940d80ff3888673b62dc4adcc87fd41ef074b5d12066173c5a4e9d68d82e"
+      }
+    }
+  }
+}

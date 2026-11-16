@@ -1,0 +1,126 @@
+{
+  "README.md": {
+    "bytes": 3534,
+    "sha256": "a897780c4d963f9d16dc63e063aad73a5c26d4defc62ac1ef1d3ae5c47e0f2ee"
+  },
+  "acceptance.json": {
+    "bytes": 6556,
+    "sha256": "1ca61f8eca4a69729509173d74929452d04bf5d587b9669af2220889534ee5ac"
+  },
+  "packet/README.md": {
+    "bytes": 1945,
+    "sha256": "998c245301c5cca7e33f9bc205e56a8ddc646c9ec4fd7e23d72a93d4ae37cfec"
+  },
+  "packet/evidence.tar.gz.part-001": {
+    "bytes": 50331648,
+    "sha256": "ce85fba47b6467fa182b4b5f827fd41c8c9deaa57e870d9ab948b6eca6bf5505"
+  },
+  "packet/evidence.tar.gz.part-002": {
+    "bytes": 50331648,
+    "sha256": "6bca4568669df2c9f34b936c6499967e45596028b74a1f7e4d8cded09b5fd40f"
+  },
+  "packet/evidence.tar.gz.part-003": {
+    "bytes": 50331648,
+    "sha256": "ee9a2dfdfba67bdc81717a6629298db826db04f84a88886ea91cd3c268e583f8"
+  },
+  "packet/evidence.tar.gz.part-004": {
+    "bytes": 50331648,
+    "sha256": "2ddcac1e1c3055cf1c03ec1a0debc6fa69c4c1f0bde80fa495d18b3baa961a71"
+  },
+  "packet/evidence.tar.gz.part-005": {
+    "bytes": 50331648,
+    "sha256": "15f9ebb7e00753fff3e90e342fbb0b719f560640be62fc37135d9c0ab95d9fff"
+  },
+  "packet/evidence.tar.gz.part-006": {
+    "bytes": 50331648,
+    "sha256": "97d56344b8326eba3610150291ad2b2014c2ffef6025fa97b8d63aaca146740c"
+  },
+  "packet/evidence.tar.gz.part-007": {
+    "bytes": 40669332,
+    "sha256": "f44aa3857ad299be3b2301bb3f67707773c028d3120c4aeb8c01588618f2e53a"
+  },
+  "packet/manifest.json": {
+    "bytes": 823824,
+    "sha256": "19042d60f7582985ae6b8f475d817371382c02e7bb0d4176f59df274642ff649"
+  },
+  "packet/polars_portable_store.py": {
+    "bytes": 4113,
+    "sha256": "f9b57e71546dc04abbe006e752c33f5f8cb88a5ab8b1df4f0d5882c3c887dc91"
+  },
+  "packet/propagation_portable_store.py": {
+    "bytes": 7140,
+    "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+  },
+  "packet/verify.py": {
+    "bytes": 8285,
+    "sha256": "11c918a7d91b2956208b313baf02045afdc1701aad3ea845bae1c8c20c60be4a"
+  },
+  "postprocessing/check_polars_transport.py": {
+    "bytes": 11872,
+    "sha256": "a929861c7d2bfec3d67214f3ce95a9d213ff39356b542c2d5ef688dea7e97697"
+  },
+  "postprocessing/seal_polars_evidence.py": {
+    "bytes": 9885,
+    "sha256": "ed75c219eb912abf8a289de616ba32558822b711937dc64e59c871206ce5b3e3"
+  },
+  "postprocessing/verify_polars_relocation.py": {
+    "bytes": 3355,
+    "sha256": "89d32ff4008d27a9090abf1db7c03fa3a100b85de2bfa15f68598cba051d0246"
+  },
+  "verification/packet-build-r4.json": {
+    "bytes": 1944,
+    "sha256": "c785515c031b490ff8fb3587e86f4dbefc4db073ad737c953d0ef683adb61917"
+  },
+  "verification/packet-build-r4.log": {
+    "bytes": 751,
+    "sha256": "042974dcdaa058c4512b2b5da2955e2ab5c08c27938e4637415287bf1c76e1b1"
+  },
+  "verification/portable-check-r4.json": {
+    "bytes": 1918,
+    "sha256": "a22ddf9f1fafc6b14170d7306d53d666743a0e67b3ae9ef14be18142fc604b04"
+  },
+  "verification/portable-check-r4.log": {
+    "bytes": 4320,
+    "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+  },
+  "verification/relocation-check-r1.json": {
+    "bytes": 1954,
+    "sha256": "0bdbbf3f1e30521b3cb38327c63f50a1e77510560e31dfe4223743becee046f0"
+  },
+  "verification/relocation-check-r1.log": {
+    "bytes": 4320,
+    "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+  },
+  "verification/relocation-wrapper-r1.json": {
+    "bytes": 1925,
+    "sha256": "d0678daaf3b324daf5ecfd3c28495a9e1c5b7fd3f352edd148b1160761049636"
+  },
+  "verification/relocation-wrapper-r1.log": {
+    "bytes": 177,
+    "sha256": "ea29c0833eb936e45c408dafd9882302e5655e3a80a41fae5f6cbde0b20a13a5"
+  },
+  "verification/relocation.json": {
+    "bytes": 3987,
+    "sha256": "e2192758296c7a4a1b57fbc656b5c73ed959b700b077cf48b7d036617f713a95"
+  },
+  "verification/replay-summary.json": {
+    "bytes": 1283,
+    "sha256": "19d91b07761bf3a7a02dff9d929102ffd5d582d55261d4028b2d57497c76fff1"
+  },
+  "verification/transport-controls-portable-r2.json": {
+    "bytes": 2031,
+    "sha256": "3186aaa6af609fc1b83422b94c0c897013dd5a4c37d27d0a4b82ce94764bf78a"
+  },
+  "verification/transport-controls-portable-r2.log": {
+    "bytes": 199,
+    "sha256": "011ea90e4181df57dc9d2d9e61bab5c098fc59be483bce0255986aa86f6d5e9b"
+  },
+  "verification/transport-controls-provenance.json": {
+    "bytes": 3991,
+    "sha256": "35c34b3958ab74aaa294b44503fbaa29978abc92a7a6a2bdd507469224b8c424"
+  },
+  "verification/transport-controls.json": {
+    "bytes": 4757,
+    "sha256": "65f587a72986e8f6d71a4fbb406134b2cec6c07d5919d6fdf0d0d91f6fb07223"
+  }
+}

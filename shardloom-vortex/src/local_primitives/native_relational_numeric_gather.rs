@@ -140,6 +140,11 @@ pub(super) fn try_copy(
             context.float_policy()
         )),
     }?;
+    #[cfg(test)]
+    crate::local_primitives::native_relational_join_cost::direct_numeric_gather(
+        indices.len(),
+        chunks,
+    );
     #[cfg(all(test, debug_assertions))]
     crate::local_primitives::native_relational_observation::record(|counts| {
         counts.numeric_output_copy_batches += 1;

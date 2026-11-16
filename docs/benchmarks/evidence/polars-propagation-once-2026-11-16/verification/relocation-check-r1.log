@@ -1,0 +1,81 @@
+{"replayed": 1000, "queries_executed": 0}
+{"replayed": 2000, "queries_executed": 0}
+{"replayed": 3000, "queries_executed": 0}
+{"replayed": 4000, "queries_executed": 0}
+{"replayed": 5000, "queries_executed": 0}
+{"replayed": 6000, "queries_executed": 0}
+{"replayed": 7000, "queries_executed": 0}
+{"replayed": 8000, "queries_executed": 0}
+{"replayed": 9000, "queries_executed": 0}
+{"replayed": 10000, "queries_executed": 0}
+{"replayed": 11000, "queries_executed": 0}
+{
+  "status": "passed_evidence_replay_with_retained_incorrect_results",
+  "fullset": {
+    "cases": 11579,
+    "outcomes": {
+      "incorrect": 90,
+      "passed": 11489
+    },
+    "complete_correctness": false,
+    "engine_execution_seconds": null,
+    "result_validated_collect_call_seconds": null,
+    "os_high_water_above_sampled_ceiling_count": 69,
+    "maximum_os_process_high_water_bytes": 5302255616,
+    "strict_peak_ceiling_claim": false,
+    "observed_clocks_diagnostic_only": {
+      "setup_and_declaration_seconds": 3.368852889048867,
+      "collect_call_seconds": 101.25465431786142,
+      "delivery_seconds": 309.66199968219735,
+      "complete_workflow_seconds": 414.28550688910764
+    }
+  },
+  "passing_subset": {
+    "cases": 11489,
+    "outcomes": {
+      "passed": 11489
+    },
+    "complete_correctness": true,
+    "engine_execution_seconds": null,
+    "result_validated_collect_call_seconds": 101.07273444440216,
+    "os_high_water_above_sampled_ceiling_count": 69,
+    "maximum_os_process_high_water_bytes": 5302255616,
+    "strict_peak_ceiling_claim": false,
+    "observed_clocks_diagnostic_only": {
+      "setup_and_declaration_seconds": 3.3463101376546547,
+      "collect_call_seconds": 101.07273444440216,
+      "delivery_seconds": 307.28134418232366,
+      "complete_workflow_seconds": 411.7003887643805
+    }
+  },
+  "failure_form_counts": {
+    "direct": 30,
+    "rename_reorder": 30,
+    "double_duplicate": 30
+  },
+  "resources": {
+    "samples": 1773,
+    "observed_max_owned_rss_bytes": 1399586816,
+    "observed_min_available_bytes": 18014744576,
+    "observed_max_active_ledger_bytes": 85954560,
+    "observed_max_active_raw_bytes": 9426924,
+    "failures": 0,
+    "process_group_drained": true,
+    "active_output_empty": true,
+    "recursive_scans_during_execution": false,
+    "source_hashes_during_execution": false
+  }
+}
+{"saved_native_results_replayed": 1000, "queries_executed": 0}
+{"saved_native_results_replayed": 2000, "queries_executed": 0}
+{"saved_native_results_replayed": 3000, "queries_executed": 0}
+{"saved_native_results_replayed": 4000, "queries_executed": 0}
+{"saved_native_results_replayed": 5000, "queries_executed": 0}
+{"saved_native_results_replayed": 6000, "queries_executed": 0}
+{"saved_native_results_replayed": 7000, "queries_executed": 0}
+{"saved_native_results_replayed": 8000, "queries_executed": 0}
+{"saved_native_results_replayed": 9000, "queries_executed": 0}
+{"saved_native_results_replayed": 10000, "queries_executed": 0}
+{"saved_native_results_replayed": 11000, "queries_executed": 0}
+{"status": "passed_saved_evidence_corruption_controls", "positive_packets": 35, "rejected_corruptions": 1120, "queries_executed": 0}
+{"status": "passed_complete_portable_evidence_replay_with_retained_failures", "queries_executed": 0, "polars_attempts_replayed": 11579, "historical_native_results_replayed": 11579, "outcomes": {"incorrect": 90, "passed": 11489}, "fullset_competitive_total": null, "passing_subset": {"cases": 11489, "outcomes": {"passed": 11489}, "complete_result_match": true, "polars_collect_call_seconds": 101.07273444440216, "historical_native_engine_seconds": 888.133524476, "os_high_water_above_sampled_ceiling_count": 69, "common_engine_clock": false, "speedup_ratio": null}, "adapter_failure_count": 90, "evidence_corruptions_rejected": 1120, "memory_peak_exceptions_retained": 69, "original_reads_forbidden": true, "engine_imports_forbidden": true, "process_and_network_forbidden": true, "identity_only_external_payloads": 539, "historical_native_disposition": {"status": "incomplete_or_invalid_evidence", "decision": "not_admitted", "fresh_complete": true, "required_work_complete": false, "interpretation": "original decision remains not_admitted because the total gate failed and required work gate was incomplete; complete saved fresh observations are a separate fact"}}

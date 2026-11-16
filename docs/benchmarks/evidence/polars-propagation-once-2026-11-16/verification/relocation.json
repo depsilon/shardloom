@@ -1,0 +1,115 @@
+{
+  "status": "passed",
+  "identical_complete_replay": true,
+  "queries_executed": 0,
+  "original_reads_engine_imports_processes_network_forbidden": true,
+  "relocated_outside_original_roots": true,
+  "temporary_copy_removed": true,
+  "result": {
+    "status": "passed_complete_portable_evidence_replay_with_retained_failures",
+    "queries_executed": 0,
+    "polars_attempts_replayed": 11579,
+    "historical_native_results_replayed": 11579,
+    "outcomes": {
+      "incorrect": 90,
+      "passed": 11489
+    },
+    "fullset_competitive_total": null,
+    "passing_subset": {
+      "cases": 11489,
+      "outcomes": {
+        "passed": 11489
+      },
+      "complete_result_match": true,
+      "polars_collect_call_seconds": 101.07273444440216,
+      "historical_native_engine_seconds": 888.133524476,
+      "os_high_water_above_sampled_ceiling_count": 69,
+      "common_engine_clock": false,
+      "speedup_ratio": null
+    },
+    "adapter_failure_count": 90,
+    "evidence_corruptions_rejected": 1120,
+    "memory_peak_exceptions_retained": 69,
+    "original_reads_forbidden": true,
+    "engine_imports_forbidden": true,
+    "process_and_network_forbidden": true,
+    "identity_only_external_payloads": 539,
+    "historical_native_disposition": {
+      "status": "incomplete_or_invalid_evidence",
+      "decision": "not_admitted",
+      "fresh_complete": true,
+      "required_work_complete": false,
+      "interpretation": "original decision remains not_admitted because the total gate failed and required work gate was incomplete; complete saved fresh observations are a separate fact"
+    }
+  },
+  "packet_files": {
+    "propagation_portable_store.py": {
+      "bytes": 7140,
+      "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+    },
+    "evidence.tar.gz.part-004": {
+      "bytes": 50331648,
+      "sha256": "2ddcac1e1c3055cf1c03ec1a0debc6fa69c4c1f0bde80fa495d18b3baa961a71"
+    },
+    "evidence.tar.gz.part-003": {
+      "bytes": 50331648,
+      "sha256": "ee9a2dfdfba67bdc81717a6629298db826db04f84a88886ea91cd3c268e583f8"
+    },
+    "evidence.tar.gz.part-002": {
+      "bytes": 50331648,
+      "sha256": "6bca4568669df2c9f34b936c6499967e45596028b74a1f7e4d8cded09b5fd40f"
+    },
+    "evidence.tar.gz.part-005": {
+      "bytes": 50331648,
+      "sha256": "15f9ebb7e00753fff3e90e342fbb0b719f560640be62fc37135d9c0ab95d9fff"
+    },
+    "README.md": {
+      "bytes": 1945,
+      "sha256": "998c245301c5cca7e33f9bc205e56a8ddc646c9ec4fd7e23d72a93d4ae37cfec"
+    },
+    "evidence.tar.gz.part-007": {
+      "bytes": 40669332,
+      "sha256": "f44aa3857ad299be3b2301bb3f67707773c028d3120c4aeb8c01588618f2e53a"
+    },
+    "manifest.json": {
+      "bytes": 823824,
+      "sha256": "19042d60f7582985ae6b8f475d817371382c02e7bb0d4176f59df274642ff649"
+    },
+    "evidence.tar.gz.part-006": {
+      "bytes": 50331648,
+      "sha256": "97d56344b8326eba3610150291ad2b2014c2ffef6025fa97b8d63aaca146740c"
+    },
+    "evidence.tar.gz.part-001": {
+      "bytes": 50331648,
+      "sha256": "ce85fba47b6467fa182b4b5f827fd41c8c9deaa57e870d9ab948b6eca6bf5505"
+    },
+    "verify.py": {
+      "bytes": 8285,
+      "sha256": "11c918a7d91b2956208b313baf02045afdc1701aad3ea845bae1c8c20c60be4a"
+    },
+    "polars_portable_store.py": {
+      "bytes": 4113,
+      "sha256": "f9b57e71546dc04abbe006e752c33f5f8cb88a5ab8b1df4f0d5882c3c887dc91"
+    }
+  },
+  "original_guard": {
+    "bytes": 1918,
+    "sha256": "a22ddf9f1fafc6b14170d7306d53d666743a0e67b3ae9ef14be18142fc604b04"
+  },
+  "relocated_guard": {
+    "bytes": 1954,
+    "sha256": "0bdbbf3f1e30521b3cb38327c63f50a1e77510560e31dfe4223743becee046f0"
+  },
+  "original_log": {
+    "bytes": 4320,
+    "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+  },
+  "relocated_log": {
+    "bytes": 4320,
+    "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+  },
+  "verifier": {
+    "bytes": 3355,
+    "sha256": "89d32ff4008d27a9090abf1db7c03fa3a100b85de2bfa15f68598cba051d0246"
+  }
+}

@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/seal_variable_copy_evidence.py", line 171, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/seal_variable_copy_evidence.py", line 77, in main
+    target.write_bytes(raw)
+    ~~~~~~~~~~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/pathlib/_abc.py", line 641, in write_bytes
+    with self.open(mode='wb') as f:
+         ~~~~~~~~~^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/pathlib/_local.py", line 537, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-evidence-r1/failures/packet-r2/changed-source/package_variable_copy.py'

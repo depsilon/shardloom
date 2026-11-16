@@ -1,0 +1,8 @@
+{"packaged_members": 0, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 100, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 200, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 300, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 400, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 500, "total_members": 601, "queries_executed": 0}
+{"packaged_members": 600, "total_members": 601, "queries_executed": 0}
+{"status": "packaged_complete_evidence_with_retained_failures", "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/polars-packet-r4", "members": 601, "identity_only": 539, "archive_bytes": 342659220, "parts": 7, "queries_executed": 0}

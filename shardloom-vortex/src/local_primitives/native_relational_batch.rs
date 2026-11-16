@@ -96,6 +96,8 @@ impl Batch {
         context: &NativeExecutionContext<'_>,
         purpose: Preparation,
     ) -> Result<Self> {
+        #[cfg(test)]
+        let _join_cost = super::native_relational_join_cost::key_preparation();
         let mut keys = ReservedVec::new(context.memory())?;
         keys.reserve(key_names.len())?;
         let mut execution = context.native_session().create_execution_ctx();
@@ -556,6 +558,8 @@ impl Table {
                 })
                 .transpose()
         })?;
+        #[cfg(test)]
+        super::native_relational_join_cost::gathered_coordinates(rows.len(), segments.values.len());
         Ok(Gather {
             table: self,
             segments,
@@ -830,22 +834,26 @@ fn take_column_with_policy(
         )?
     } else {
         let variable = result_batch::VariableValues::try_new(&selected, &mut execution)?;
-        result_batch::build_column_with_float_policy(
-            dtype,
-            indices.len(),
-            &allocator,
-            context.float_policy(),
-            |row| {
-                if row.is_multiple_of(1024) {
-                    context.check_cancelled()?;
-                }
-                if let Some(variable) = &variable {
-                    variable.value(row)
-                } else {
+        #[cfg(test)]
+        super::native_relational_join_cost::leaf_copy(indices.len(), variable.is_some());
+        if let Some(variable) = variable {
+            variable.copy_column(dtype, indices.len(), &allocator, || {
+                context.check_cancelled()
+            })?
+        } else {
+            result_batch::build_column_with_float_policy(
+                dtype,
+                indices.len(),
+                &allocator,
+                context.float_policy(),
+                |row| {
+                    if row.is_multiple_of(1024) {
+                        context.check_cancelled()?;
+                    }
                     result_batch::scalar_value(&selected, row, &mut execution)
-                }
-            },
-        )?
+                },
+            )?
+        }
     };
     context.check_cancelled()?;
     Ok(output)

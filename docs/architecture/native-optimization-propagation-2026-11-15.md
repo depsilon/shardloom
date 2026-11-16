@@ -39,7 +39,33 @@ to 100.161598045 seconds while prepared time decreases from 0.521095814 to
 pass. The [report and separate integration record](../benchmarks/native-optimization-propagation-2026-11-15.md)
 retain useful behavior within the maintainer's instruction without rewriting
 either failed performance decision. UNION ALL and scale all-null increases
-remain explicit; the next unit is resident join-to-consumer attribution.
+remain explicit. The subsequent
+[resident join attribution/copy unit](native-resident-join-attribution-2026-11-16.md)
+passes local and portable acceptance: 54 diagnostic requests, three debug
+gather observations and 403 complete production requests per runtime. The
+complete engine total decreases 60.778284678 → 60.597904154 seconds, with all
+186 individual regressions retained. This small, roughly 0.3% result satisfies
+its frozen rule without establishing material improvement or repeatability;
+hosted integration remains pending.
+
+The maintainer separately requests one Polars pass on the exact 11,579 saved
+fresh requests. The [November 16 observation](../benchmarks/polars-propagation-once-2026-11-16.md)
+executes each once: 11,489 pass and 90 retain a constant-projection adapter
+cardinality error. No query is retried and no new native pass is added. The
+passing subset supplies a labelled collect-time observation; the failed full
+population has no accepted competitive total. Preserve physical-format and
+clock differences, OS peak-memory exceptions, and the original native gate
+decision. This does not make full11k a default per-change suite.
+
+The November 16 maintainer direction now requires credible **material
+potential before starting new optimization work**. Screen join input and
+intermediate volume, repeated scans/builds, expensive sorting and spill using
+actual cost and removable-work evidence. Do not add sliver-potential tuning
+merely because it might lower a total. Useful existing work may remain and a
+smaller-than-expected positive result does not by itself force a drop. Preserve
+all original gates; no fixed material percentage is inferred. This priority
+precedes the previously next spatial work without deleting that required
+feature roadmap.
 
 Saved-packet inspection verifies all 23,158 fresh records without executing
 queries. Candidate activation includes join membership in 2,668 requests,

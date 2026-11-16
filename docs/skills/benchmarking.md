@@ -64,6 +64,17 @@ measured speedup.
 
 ## Competitor observation reuse
 
+**November 16 explicit one-pass exception:** the maintainer requests one Polars
+observation on the exact saved 11,579 propagation requests. The
+[completed observation](../benchmarks/polars-propagation-once-2026-11-16.md)
+retains 11,489 passing results and 90 constant-projection adapter mismatches.
+Each request ran once, with no retries, new native pass or prepared-lifecycle
+execution. There is no accepted complete-set competitive total. Keep the saved
+observations for further analysis; this exception does not authorize another
+competitor pass or make the full11k set a default per-change suite. Polars
+collect and native engine clocks remain distinct, and the original historical
+native performance/work decision is unchanged.
+
 For the October 26 broad-query and source-demand program, the maintainer
 requested one initial Polars observation per case and subsequently directed
 that Polars need not be rerun. Reuse those observations while iterating on
@@ -229,6 +240,23 @@ performance checks. Do not add historical savings together as though they were
 measured on the same implementation.
 
 ## Local end-to-end observations
+
+### November 16 prospective material-potential screen
+
+For the active optimization program, the maintainer requests material gains
+and clarifies that the filter applies to **new work selection**. Establish
+actual exposure, measured cost, the shared owner and credible removable work
+before starting a new candidate. Prioritize join input/intermediate volume,
+repeated scans/builds, expensive sorting and spill; discard implausible
+proposals rather than implementing every research-list entry. Do not add
+another experiment whose plausible upside is only a sliver gain.
+
+This is not a requirement to remove useful existing behavior or automatically
+drop a candidate whose realized positive gain is smaller than expected. Keep
+its prospectively frozen correctness/resource/no-fallback and gain/loss rules.
+No fixed numerical definition of material was provided. The completed
+[403-request copy comparison](../benchmarks/native-resident-join-attribution-2026-11-16.md)
+retains its original decision, and historical failures remain unchanged.
 
 - Freeze the source revision, build command/features, executable hash, workload,
   input generation and complete reference results before timing. A reused binary
