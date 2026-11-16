@@ -251,6 +251,30 @@ the ledger.
 
 Current autonomous execution order:
 
+**November 16 material-potential priority.** Finish the already measured
+[resident-join/copy closeout](native-resident-join-attribution-2026-11-16.md),
+then select new performance work only when saved evidence supports credible
+material upside. Prioritize reducing join input/intermediate-result volume,
+repeated scans/builds, expensive sorting and spill work. Identify actual
+exposure, cost and removable work before implementation; do not add another
+accessor/bookkeeping or speculative tuning experiment with only sliver
+potential. Implausible proposals may leave the active pool. The maintainer's
+clarification does not require dropping useful existing work or a candidate
+solely because its eventual positive gain is smaller than expected. No fixed
+numeric material threshold is implied, and frozen decisions remain unchanged.
+This prospective performance priority precedes the previously next spatial
+unit; the required feature roadmap remains intact. The investigation lists
+below are candidate contracts, not instructions to implement every hypothesis.
+
+The separately requested [one Polars pass](../benchmarks/polars-propagation-once-2026-11-16.md)
+on the exact 11,579 historical propagation requests is complete: 11,489 pass
+and 90 retain a constant-projection benchmark-adapter mismatch. No query is
+retried and no new native pass is added. The passing-subset collect timing is
+available with explicit clock, input-format and memory-observation boundaries;
+there is no accepted complete-set competitive total. Reuse the saved evidence
+while selecting material work, preserving the original historical native gate
+failure and the impact-relevant cohort policy.
+
 The November 13 efficiency review keeps the active coverage work first and
 orders its follow-ons by shared owners and concrete prerequisites. The order
 below supersedes the historical A–N/recommendation numbering; those labels
@@ -309,10 +333,14 @@ once, and do not repeat full10k or broad gates after every small edit.
     source/installed checks and [portable replay](../benchmarks/native-optimization-propagation-2026-11-15.md).
     Its focused 2,190-request performance gate still drops (99.601052609 to
     100.161598045 engine seconds); useful-behavior integration is a separate
-    judgment under the maintainer's instruction, not a speedup. Next attribute
-    resident join-to-consumer work before choosing a material optimization. The
-    saved join/multiway family total is complete-query time, not exclusive join
-    cost; the broader coverage queue remains open.
+    judgment under the maintainer's instruction, not a speedup. The subsequent
+    [54-request resident attribution and 403-request variable-copy comparison](native-resident-join-attribution-2026-11-16.md)
+    pass local and relocated portable verification at `ffe0d077a`. The complete
+    engine total decreases 60.778284678 → 60.597904154 seconds, with all 186
+    individual regressions retained; this approximately 0.3% result is small.
+    Hosted integration is pending. The next candidate must meet the material-
+    potential priority above. The older join-family total remains complete-query
+    time, and the broader coverage queue remains open.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
     at `788a8925e`: complete validation, default/native/package checks, all 388
     answers and unchanged pipeline counts pass; the same-baseline engine total

@@ -1,0 +1,180 @@
+{
+  "control_count": 25,
+  "controls": [
+    {
+      "alias_resolved_to": "/private/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/sl-polars-transport-positive-35ho1dug/private/var/extract",
+      "name": "positive_payload_bytes_and_canonical_directory_alias_round_trip",
+      "original_path_round_trip": true,
+      "outcome": "accepted",
+      "payload_bytes": 35,
+      "payload_sha256": "38099059d39e8f86e90a92951fee6d1edead2d8e834b552b0f6a5cd0e486fc88"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "traversal_member_name",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "absolute_member_name",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "backslash_member_name",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "tar_symbolic_link",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "tar_hard_link",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "duplicate_tar_member",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "missing_tar_member",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "extra_tar_member",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "wrong_member_size",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "data/tiny.bin",
+      "exception_class": "AssertionError",
+      "name": "wrong_member_hash",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "origin_identity_mismatch",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "duplicate_origins",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "combined_archive_hash_mismatch",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "evidence.tar.gz.part-001",
+      "exception_class": "AssertionError",
+      "name": "part_hash_mismatch",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "part_sequence_failure",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "missing_part",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "extra_root_file",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "packet_member_symlink",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "unrecognized_external_reason",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "internal_external_origin_collision",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "altered_expected_outcome_counts",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "incorrect_complete_competitive_baseline",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "nonzero_packaging_query_count",
+      "outcome": "rejected"
+    },
+    {
+      "detail": "",
+      "exception_class": "AssertionError",
+      "name": "publication_true",
+      "outcome": "rejected"
+    }
+  ],
+  "engines_imported": [],
+  "large_archive_opened": false,
+  "packet": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/polars-packet-r3",
+  "positive_controls": 1,
+  "query_executions": 0,
+  "rejections": 24,
+  "schema": "shardloom.polars_transport_controls.v1",
+  "scope": "synthetic transport fixtures only; no query execution",
+  "sources": {
+    "polars_portable_store.py": {
+      "bytes": 4113,
+      "sha256": "f9b57e71546dc04abbe006e752c33f5f8cb88a5ab8b1df4f0d5882c3c887dc91"
+    },
+    "propagation_portable_store.py": {
+      "bytes": 7140,
+      "sha256": "8c943744c011cf0b538aae09e4bc37682a480052bc718178c4bb0edb3ba608b9"
+    }
+  },
+  "status": "passed",
+  "verifier": {
+    "bytes": 11872,
+    "sha256": "a929861c7d2bfec3d67214f3ce95a9d213ff39356b542c2d5ef688dea7e97697"
+  }
+}

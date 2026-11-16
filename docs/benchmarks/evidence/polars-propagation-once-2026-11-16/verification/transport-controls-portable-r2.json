@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "command": [
+    "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+    "-B",
+    "postprocessing/check_polars_transport.py",
+    "--packet",
+    "polars-packet-r3",
+    "--output",
+    "polars-transport-controls-r2.json"
+  ],
+  "query_execution": false,
+  "storage_before": {
+    "workspace_bytes": 1463324672,
+    "log_bytes": 0,
+    "max_log_bytes": 201326592,
+    "free_bytes": 16908750848,
+    "reserved_candidate_bytes": 536870912,
+    "reserved_log_bytes": 0
+  },
+  "helper": {
+    "path": "/Users/dylan/LocalData/shardloom/perf-all-20260906/bounded_build_process_resume_20260912.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 89406795,
+      "bytes": 8431,
+      "mtime_ns": 1789246837532150184,
+      "ctime_ns": 1789246837532150184
+    },
+    "sha256": "1e83cd760be0dce608a3449b1b170db8d12e141f08e84c0ec7dfd347cb585e97"
+  },
+  "supervisor": {
+    "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/run_preparation.py",
+    "generation": {
+      "device": 16777234,
+      "inode": 182052160,
+      "bytes": 2661,
+      "mtime_ns": 1794826721389727510,
+      "ctime_ns": 1794826721389727510
+    },
+    "sha256": "775da250c362e66065119b9cf70458c8016dc4f84bd9e634f3c6fd3b80ebda27"
+  },
+  "timeout_seconds": 600,
+  "cleanup_grace_seconds_per_signal": 3.0,
+  "output_limit_bytes": 8388608,
+  "timed_out": false,
+  "interrupted_signal": null,
+  "process_group_drained": true,
+  "direct_child_reaped": true,
+  "pid": 62668,
+  "output_bytes": 199,
+  "group_absence_unproved_at_cleanup": false,
+  "returncode": 0,
+  "seconds": 0.09007429191842675,
+  "source_unchanged": true,
+  "log": {
+    "path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-portable-r2.log",
+    "generation": {
+      "device": 16777234,
+      "inode": 182142177,
+      "bytes": 199,
+      "mtime_ns": 1794834021519360180,
+      "ctime_ns": 1794834021519360180
+    },
+    "sha256": "011ea90e4181df57dc9d2d9e61bab5c098fc59be483bce0255986aa86f6d5e9b"
+  }
+}

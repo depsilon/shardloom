@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py", line 255, in <module>
+    main()
+    ~~~~^^
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py", line 143, in main
+    add(path)
+    ~~~^^^^^^
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py", line 83, in add
+    actual = identity(path)
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/postprocessing/package_variable_copy.py", line 28, in identity
+    assert path.stat() == stat, path
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError: /Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/gather-inventory-primary-verification-r1.json

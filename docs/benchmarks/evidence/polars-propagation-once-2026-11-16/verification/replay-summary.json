@@ -1,0 +1,37 @@
+{
+  "status": "passed_complete_portable_evidence_replay_with_retained_failures",
+  "queries_executed": 0,
+  "polars_attempts_replayed": 11579,
+  "historical_native_results_replayed": 11579,
+  "outcomes": {
+    "incorrect": 90,
+    "passed": 11489
+  },
+  "fullset_competitive_total": null,
+  "passing_subset": {
+    "cases": 11489,
+    "outcomes": {
+      "passed": 11489
+    },
+    "complete_result_match": true,
+    "polars_collect_call_seconds": 101.07273444440216,
+    "historical_native_engine_seconds": 888.133524476,
+    "os_high_water_above_sampled_ceiling_count": 69,
+    "common_engine_clock": false,
+    "speedup_ratio": null
+  },
+  "adapter_failure_count": 90,
+  "evidence_corruptions_rejected": 1120,
+  "memory_peak_exceptions_retained": 69,
+  "original_reads_forbidden": true,
+  "engine_imports_forbidden": true,
+  "process_and_network_forbidden": true,
+  "identity_only_external_payloads": 539,
+  "historical_native_disposition": {
+    "status": "incomplete_or_invalid_evidence",
+    "decision": "not_admitted",
+    "fresh_complete": true,
+    "required_work_complete": false,
+    "interpretation": "original decision remains not_admitted because the total gate failed and required work gate was incomplete; complete saved fresh observations are a separate fact"
+  }
+}

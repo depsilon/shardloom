@@ -64,7 +64,7 @@ automatically revive a previously dropped mechanism unchanged.
 CLI SQL, embedded workflow, Python SQL, DataFrame and typed-plan interfaces must
 converge on the same admitted engine implementation. Vortex remains native input, execution
 representation and output. Other engines may supply independent correctness
-references only. No Spark, DataFusion, DuckDB, Polars, Velox or Vortex
+references or separately authorized benchmark baselines only. No Spark, DataFusion, DuckDB, Polars, Velox or Vortex
 query-engine integration may execute residual work. Dependency and copied-code
 provenance remain Apache-2.0-compatible and explicitly reviewed.
 
@@ -87,9 +87,17 @@ delta review of existing evidence, not another whole-engine inventory phase.
 | Completed finite admission screen | Unconditional survivor callback adapter declined, extending I | Eight complete requests and preparation/ownership counterexamples settle the prerequisite: existing batches remain in force. Error and callback order prevent unconditional buffering despite fewer preparations in the small control. Broader attribution and a separately admitted narrow route remain open. |
 | Completed finite experiment | Conservative FSST prefilter retained inside the existing source LIKE provider | All 9,040 requests per runtime and separate prepared lifecycles pass with both complete engine totals lower; untimed dispatch, source/package checks and portable proof pass. Preserve all regressions and the limits on causal attribution and provider scratch accounting. No writer default or scalar projection bridge is admitted. |
 | Completed finite combined unit | [Exact-table FSST matcher lifetime](native-fsst-matcher-lifetime-2026-11-15.md), dictionary selection and grouped COUNT projections | The [propagation closeout](../benchmarks/native-optimization-propagation-2026-11-15.md) preserves the original not-admitted and focused drop decisions. Useful behavior is retained under the maintainer's separate instruction, after source/package/work/portable proof; no independent matcher speedup or writer default is admitted. |
-| Next active work | Resident join-to-consumer attribution under the [propagation queue](native-optimization-propagation-2026-11-15.md) | Map exact saved request inputs, then separate input, keys, indexing, payload and downstream work before choosing a mechanism. Existing 500.383376588-second family evidence is complete-query time, not exclusive join cost. Use an affected-owner population and nearby controls; do not default to another full11k. |
-| Next | Required item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
+| Completed finite local unit; hosted closeout pending | [Resident join attribution and selected-variable copying](native-resident-join-attribution-2026-11-16.md) | All 54 diagnostic requests and 403 complete production requests per runtime pass; source/package/portable proof passes. The 60.778284678 → 60.597904154 engine-second result retains the candidate under its frozen rule, with all 186 individual regressions. The roughly 0.3% gain is not a material-performance claim. |
+| Completed separately authorized external observation | [One Polars pass on the saved 11,579 requests](../benchmarks/polars-propagation-once-2026-11-16.md) | Each request runs once: 11,489 pass and 90 preserve a constant-projection adapter error. Passing-subset collect timing is labelled with input/clock/memory boundaries; no accepted complete-set total, native rerun or repeat is claimed. |
+| Next active performance selection | Measured material work elimination under the [propagation queue](native-optimization-propagation-2026-11-15.md) | The November 16 priority screens join input/intermediate volume, repeated scans/builds, expensive sorting and spill for credible material upside before starting code. Do not add sliver-potential experiments; useful existing work or a smaller-than-expected positive result need not be dropped. Preserve earlier rejected mechanisms and use affected-owner cohorts, not default full11k repeats. |
+| Required feature roadmap, after the current performance priority | Item-19 coordinate/offset spatial execution, then optional persisted spatial summaries | Exact geometry/type/invalid-value semantics must precede a summary that can suppress work. Functional support does not depend on successful text, codec or fusion experiments. |
 | Last | Consumer-specific representation/codec choices and any new bounded CPU fusion | Attribute the work remaining after accepted upstream reductions. Reuse the established consumer contract; keep the prior layout/fusion drops intact. |
+
+The November 16 clarification applies to prospective candidate selection, not
+retroactive threshold changes. The remaining hypotheses require credible
+material potential before implementation; an investigation list is not a
+commitment to implement every entry. No fixed percentage was supplied. The
+separate feature-delivery roadmap remains intact.
 
 The descriptive sections below retain each original contract; the table and
 phase plan own execution order. Within a work unit, reuse fixture generation,

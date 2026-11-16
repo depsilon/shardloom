@@ -1,0 +1,134 @@
+{
+  "schema": "shardloom.polars_once_acceptance.v1",
+  "status": "passed_complete_observation_and_offline_proof_with_retained_failures",
+  "polars_attempts": 11579,
+  "outcomes": {
+    "passed": 11489,
+    "incorrect": 90
+  },
+  "query_executions_during_postprocessing": 0,
+  "scored_retries": 0,
+  "new_native_observations": 0,
+  "historical_native_observations_replayed": 11579,
+  "complete_competitive_baseline": false,
+  "fullset_competitive_total": null,
+  "polars_engine_execution_seconds": null,
+  "comparable_engine_clock": false,
+  "speedup_ratio": null,
+  "passing_subset": {
+    "cases": 11489,
+    "outcomes": {
+      "passed": 11489
+    },
+    "complete_result_match": true,
+    "polars_collect_call_seconds": 101.07273444440216,
+    "historical_native_engine_seconds": 888.133524476,
+    "os_high_water_above_sampled_ceiling_count": 69,
+    "common_engine_clock": false,
+    "speedup_ratio": null
+  },
+  "historical_native_disposition": {
+    "status": "incomplete_or_invalid_evidence",
+    "decision": "not_admitted",
+    "fresh_complete": true,
+    "required_work_complete": false,
+    "interpretation": "original decision remains not_admitted because the total gate failed and required work gate was incomplete; complete saved fresh observations are a separate fact"
+  },
+  "latest_native_runtime_observed": false,
+  "original_and_relocated_replay_passed": true,
+  "evidence_corruptions_rejected": 1120,
+  "transport_corruptions_rejected": 24,
+  "positive_transport_controls": 1,
+  "memory_peak_exceptions_retained": 69,
+  "archive_members": 601,
+  "identity_only_external_payloads": 539,
+  "archive_bytes": 342659220,
+  "archive_parts": 7,
+  "bulk_inputs_and_installed_engines_reopened_during_portable_replay": false,
+  "frozen_queries_references_outcomes_and_clocks_unchanged": true,
+  "failed_or_intermediate_transport_test_source_and_report_variants_unavailable": 4,
+  "provenance_limitation_scope": "Synthetic transport controls only; every scored query packet and its frozen source remains retained.",
+  "bindings": {
+    "verification/portable-check-r4.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/portable-check-r4.log",
+      "bytes": 4320,
+      "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+    },
+    "verification/relocation-check-r1.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/relocation-check-r1.log",
+      "bytes": 4320,
+      "sha256": "15eb6b13a3a172e60f9468d67db251f1bc3276e4145edb18684b9c15e1a7053e"
+    },
+    "verification/relocation.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/polars-relocation-verification-r1.json",
+      "bytes": 3987,
+      "sha256": "e2192758296c7a4a1b57fbc656b5c73ed959b700b077cf48b7d036617f713a95"
+    },
+    "verification/transport-controls.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/polars-transport-controls-r2.json",
+      "bytes": 4757,
+      "sha256": "65f587a72986e8f6d71a4fbb406134b2cec6c07d5919d6fdf0d0d91f6fb07223"
+    },
+    "verification/transport-controls-provenance.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/postprocessing/transport-controls-provenance-r1.json",
+      "bytes": 3991,
+      "sha256": "35c34b3958ab74aaa294b44503fbaa29978abc92a7a6a2bdd507469224b8c424"
+    },
+    "postprocessing/check_polars_transport.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/postprocessing/check_polars_transport.py",
+      "bytes": 11872,
+      "sha256": "a929861c7d2bfec3d67214f3ce95a9d213ff39356b542c2d5ef688dea7e97697"
+    },
+    "postprocessing/verify_polars_relocation.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/postprocessing/verify_polars_relocation.py",
+      "bytes": 3355,
+      "sha256": "89d32ff4008d27a9090abf1db7c03fa3a100b85de2bfa15f68598cba051d0246"
+    },
+    "postprocessing/seal_polars_evidence.py": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/postprocessing/seal_polars_evidence.py",
+      "bytes": 9885,
+      "sha256": "ed75c219eb912abf8a289de616ba32558822b711937dc64e59c871206ce5b3e3"
+    },
+    "verification/packet-build-r4.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/packet-build-r4.json",
+      "bytes": 1944,
+      "sha256": "c785515c031b490ff8fb3587e86f4dbefc4db073ad737c953d0ef683adb61917"
+    },
+    "verification/packet-build-r4.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/packet-build-r4.log",
+      "bytes": 751,
+      "sha256": "042974dcdaa058c4512b2b5da2955e2ab5c08c27938e4637415287bf1c76e1b1"
+    },
+    "verification/portable-check-r4.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/portable-check-r4.json",
+      "bytes": 1918,
+      "sha256": "a22ddf9f1fafc6b14170d7306d53d666743a0e67b3ae9ef14be18142fc604b04"
+    },
+    "verification/relocation-check-r1.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/relocation-check-r1.json",
+      "bytes": 1954,
+      "sha256": "0bdbbf3f1e30521b3cb38327c63f50a1e77510560e31dfe4223743becee046f0"
+    },
+    "verification/relocation-wrapper-r1.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/relocation-wrapper-r1.json",
+      "bytes": 1925,
+      "sha256": "d0678daaf3b324daf5ecfd3c28495a9e1c5b7fd3f352edd148b1160761049636"
+    },
+    "verification/relocation-wrapper-r1.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/relocation-wrapper-r1.log",
+      "bytes": 177,
+      "sha256": "ea29c0833eb936e45c408dafd9882302e5655e3a80a41fae5f6cbde0b20a13a5"
+    },
+    "verification/transport-controls-portable-r2.json": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-portable-r2.json",
+      "bytes": 2031,
+      "sha256": "3186aaa6af609fc1b83422b94c0c897013dd5a4c37d27d0a4b82ce94764bf78a"
+    },
+    "verification/transport-controls-portable-r2.log": {
+      "original_path": "/Users/dylan/LocalData/shardloom/polars-propagation-2026-11-16/transport-controls-portable-r2.log",
+      "bytes": 199,
+      "sha256": "011ea90e4181df57dc9d2d9e61bab5c098fc59be483bce0255986aa86f6d5e9b"
+    }
+  },
+  "publication_attempted": false
+}

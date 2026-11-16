@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/verify.py", line 62, in verify
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-variable-copy-replay-_ezjbebk/data/resident-join-attribution-2026-11-16/postprocessing/variable_copy_portable_validation.py", line 77, in validate
+    receipt(store, build_path, sources[role])
+  File "/var/folders/k3/bvkvx11d0djbcn207fk9bcfc0000gn/T/shardloom-variable-copy-replay-_ezjbebk/data/resident-join-attribution-2026-11-16/postprocessing/variable_copy_portable_validation.py", line 39, in receipt
+    assert value['guard_sha256'] == store.identity(guard)['sha256']
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/propagation_portable_store.py", line 120, in identity
+KeyError: '/Users/dylan/LocalData/shardloom/native-fsst-matcher-lifetime-2026-11-15/guard_checks.py'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/verify.py", line 108, in <module>
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/verify.py", line 99, in main
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/verify.py", line 45, in verify
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tempfile.py", line 951, in __exit__
+    self.cleanup()
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tempfile.py", line 955, in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tempfile.py", line 935, in _rmtree
+    _shutil.rmtree(name, onexc=onexc)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/shutil.py", line 763, in rmtree
+    _rmtree_safe_fd(stack, onexc)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.13_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/shutil.py", line 670, in _rmtree_safe_fd
+    topfd = os.open(name, os.O_RDONLY | os.O_NONBLOCK, dir_fd=dirfd)
+  File "/Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/verify.py", line 33, in audit
+RuntimeError: original evidence/source read forbidden during portable replay: /Users/dylan/LocalData/shardloom/resident-join-attribution-2026-11-16/variable-copy-packet-r2/data
