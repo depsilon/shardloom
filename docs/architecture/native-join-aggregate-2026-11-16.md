@@ -3,10 +3,14 @@
 ## Status and work unit
 
 Accepted for implementation by the November 16 maintainer feedback. This is an
-item-20 shared execution extension under RFC 0044. The local implementation and
-17 focused native tests and the adjacent join source-demand tests pass.
-Broad source gates, installed public activation
-and performance acceptance remain pending. The unfinished
+item-20 shared execution extension under RFC 0044. The unique-dimension stage is
+locally retained: all 630 declared requests pass, with complete engine time
+94.178862655 → 91.576505630 seconds. Direct execution activates in 40 requests;
+that subset changes from 5.718050585 to 5.596205335 seconds. Most of the total
+difference is on inactive paths, and both original large star requests regress.
+These single observations do not establish a causal or large speedup.
+[Complete acceptance and limits](../benchmarks/native-join-aggregate-2026-11-16.md).
+Hosted integration remains pending. The unfinished
 item-19 spatial draft is preserved separately; its required roadmap remains open.
 
 For admitted unique inner dimension joins, let the existing aggregate consume
@@ -115,7 +119,7 @@ grid pressure control. A focused regression test reproduced an 80-byte variable
 domain replacing the ordinary 16-byte view owner. Borrowed offset metadata now
 lives in its own credited allocation, preserving the original shared slot size.
 The regression test passes, including admission denial and credit release; the
-full pressure recheck remains part of the pending broad gate. Existing source-
+full native pressure suite also passes at its unchanged grant. Existing source-
 demand tests now assert zero joined copies and exact direct validation counts
 for admitted joins while retaining the ordinary-path expectations elsewhere.
 
@@ -127,6 +131,17 @@ These are work observations, not timing claims. The normal representation
 choice remains authoritative: unsupported borrowed leaves use the already-built
 ordinary native joins. Float16, nested/extension leaves, numeric dictionaries
 and nullable-parent expressions are outside this first physical admission.
+
+Formatting, strict default/native lint, full default/native tests, all-feature
+and no-default checks, actual Rust 1.96 compatibility and all 456 isolated
+installed-package tests pass. The installed fixture checks both orders and
+aliases across all five interfaces and three formats. Its first assertion
+incorrectly equated Vortex validation-cell counts across different intermediate
+declarations; the corrected test checks each exact count and unchanged match
+and aggregate contributions. Only that Python test changed after the release
+build, with complete source correspondence and binary identities retained.
+All 1,260 result packets replay against independent references. The standalone
+offline replay passes 130 corruption controls and executes no queries.
 
 ## Later separate admission
 

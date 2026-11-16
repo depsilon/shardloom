@@ -5,8 +5,8 @@
 The bounded join directory is retained: all 630 declared requests pass, and
 complete engine time decreases **102.926667930 → 94.178862655 seconds** (8.5%).
 This is one scoped observation with a mixed reused/new baseline and uncontrolled
-host/cache state, not a full-corpus or repeatability claim. Hosted integration
-is pending.
+host/cache state, not a full-corpus or repeatability claim. PR #1695 is merged
+as `90d036d6e3ce465e622f5fb330186a8c5e5db4d2`; exact-main validation is finishing.
 
 ## Implementation
 

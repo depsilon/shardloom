@@ -1,0 +1,125 @@
+{
+  "schema": "shardloom.direct_join_aggregate_review_records.v1",
+  "records": {
+    "protocol.json.gz": {
+      "source": "join-aggregate-protocol-r1.json",
+      "original": {
+        "bytes": 3975182,
+        "sha256": "46dda63b07a563f815170ac2956cf802f18bd7cf4511f331fcf00873bf10fdc6"
+      },
+      "compressed": {
+        "bytes": 646801,
+        "sha256": "7822464ed9d677da12b32c9c68dec5320e23201aad190ebffaae6217ed487c4a"
+      }
+    },
+    "replay.json.gz": {
+      "source": "join-aggregate-replay-r1.json",
+      "original": {
+        "bytes": 9730635,
+        "sha256": "b526df235da503d004ecc203aec0d21a54613c276c881397e175fa7e470b8ff7"
+      },
+      "compressed": {
+        "bytes": 365888,
+        "sha256": "365ae2eff32ee7a87d40d155e9ca6bf7cdab1c8c9ae2a815ac4c89a9f577d310"
+      }
+    },
+    "validation.json.gz": {
+      "source": "join-aggregate-runtime-validation-r1.json",
+      "original": {
+        "bytes": 18609,
+        "sha256": "e3a6b269e2833e30449b84d29f0e9531b284be6090bafba5d7ab939225c8511e"
+      },
+      "compressed": {
+        "bytes": 4981,
+        "sha256": "dafe4c81ef9bdedf5439f06c8bd3e78a33eb0fac736f8bade2e0b4260a169d6d"
+      }
+    },
+    "decision.json.gz": {
+      "source": "join-aggregate-disposition-r1.json",
+      "original": {
+        "bytes": 17511,
+        "sha256": "c1a3b6abbeb4d35c2e84c2bdaa86f49d5b571984aad7174ec30f13bd9057b463"
+      },
+      "compressed": {
+        "bytes": 3828,
+        "sha256": "a39406e756a94dea30615090c52a30befabdf12372135b4842c16fc5e4d1f57d"
+      }
+    },
+    "source-review.json.gz": {
+      "source": "join-aggregate-adversarial-review-r1.json",
+      "original": {
+        "bytes": 24954,
+        "sha256": "5329f74a0b51b09f6f58b66b04381b36579e32f40e970f309b2bcf99c96f746f"
+      },
+      "compressed": {
+        "bytes": 7378,
+        "sha256": "21b0334c0fb6cbbaa94f21ba1eb8173650685d15cec5df9a8e971f743ea506e2"
+      }
+    },
+    "test-correction.json.gz": {
+      "source": "join-aggregate-test-correction-r1.json",
+      "original": {
+        "bytes": 1038990,
+        "sha256": "a95c3ebf05a9c200859ca222e2ba7deed4126e3c3ee27e9ee6f1ba4ae5ebe928"
+      },
+      "compressed": {
+        "bytes": 309538,
+        "sha256": "2d72eb6978d807fd4fb24a3ada837d008b69f7d3e11f811b84bf9548fa4cc78e"
+      }
+    },
+    "controls.json.gz": {
+      "source": "join-aggregate-evidence-controls-r4.json",
+      "original": {
+        "bytes": 3951,
+        "sha256": "5e82e7bb3727e85f54753c12e065866a55b03e9599d860b95e55553eb6999e86"
+      },
+      "compressed": {
+        "bytes": 1245,
+        "sha256": "a73e94b32c953f2b27b738857ca11117afee45b959c0f419012d0a8287b9af9f"
+      }
+    },
+    "portable-replay.json.gz": {
+      "source": "join-aggregate-portable-replay-r1.json",
+      "original": {
+        "bytes": 17257,
+        "sha256": "743e769d562fb5dfdc94da6f4f9dd990b898da63fbef4b7add6e56c000cfde50"
+      },
+      "compressed": {
+        "bytes": 1895,
+        "sha256": "85e13562f1f4e032a977ce710a6f493043d32b2111e517211452b232be2a72a0"
+      }
+    }
+  },
+  "standalone_raw_evidence_in_this_directory": false,
+  "retained_standalone_packet": "/Users/dylan/LocalData/shardloom/join-aggregate-2026-11-16/join-aggregate-packet-r1",
+  "retained_raw_evidence_root": "/Users/dylan/LocalData/shardloom/join-aggregate-2026-11-16",
+  "packet_archive": {
+    "format": "concatenated_gzip_tar",
+    "parts": [
+      "evidence.tar.gz.part-001",
+      "evidence.tar.gz.part-002",
+      "evidence.tar.gz.part-003",
+      "evidence.tar.gz.part-004",
+      "evidence.tar.gz.part-005"
+    ],
+    "bytes": 222536988,
+    "sha256": "5dea2848d3f8d5a7712581ef4857578a2667c150334c8983ebc2b6137db90412"
+  },
+  "complete_cohort": {
+    "cases": 630,
+    "complete": true,
+    "baseline_engine_seconds": 94.178862655,
+    "candidate_engine_seconds": 91.57650563,
+    "engine_gain_seconds": 2.6023570250000034,
+    "regressions": 121,
+    "regression_engine_seconds": 0.37697521199999984
+  },
+  "decision": "retain",
+  "activated_cases": 40,
+  "query_executions_during_export": 0,
+  "runtime_or_source_tests_repeated": false,
+  "source_commit": "1f80b27145fcbd212b4889fdba0077fa5fde48ce",
+  "test_correction_commit": "9ceeb5b493d767aa63c80aaada8bd0637a28ab56",
+  "source_publication_pending": true,
+  "package_publication_attempted": false
+}

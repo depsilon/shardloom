@@ -254,8 +254,8 @@ Current autonomous execution order:
 **November 16 material-potential priority.** The resident-join/copy change is
 merged in PR #1694; all 54 exact-main jobs now pass and scoped cleanup is complete. The
 [dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
-is implemented and locally accepted: all 630 scoped requests pass, with engine
-time 102.926667930 → 94.178862655 seconds. Its integration is next. Keep required
+is merged in PR #1695: all 630 scoped requests pass, with engine
+time 102.926667930 → 94.178862655 seconds. Exact-main validation is finishing. Keep required
 correctness and CI checks, retain observations, and follow the maintainer's
 latest instruction to reduce optional packaging/report ceremony and move on.
 Select new performance work only when saved evidence supports credible
@@ -273,11 +273,16 @@ below are candidate contracts, not instructions to implement every hypothesis.
 
 The subsequent November 16 maintainer feedback prioritizes
 [direct aggregate consumption of exact join matches](native-join-aggregate-2026-11-16.md)
-within item 20. Implement the unique inner-dimension path through existing native
-indexes, value owners, group state and ordered aggregate updates, preserving all
-intermediate validation. Both star join orders and pure aliases are in scope;
-duplicate multiplicity reduction is a separately proved extension. The spatial
-draft remains saved and unfinished while this higher-potential work proceeds.
+within item 20. That unique inner-dimension stage is now
+[locally retained](../benchmarks/native-join-aggregate-2026-11-16.md): all 630
+requests pass, with engine time 94.178862655 → 91.576505630 seconds. Direct work
+activates in 40 requests; its subset changes 5.718050585 → 5.596205335 seconds,
+while both original large star requests regress. Most of the overall difference
+is on inactive paths; no causal or large speedup is established. All source,
+installed-package and complete-result checks pass. Finish hosted integration,
+then resume the saved item-19 spatial and rich-data acceptance work. Duplicate
+multiplicity reduction remains a separately proved extension; it is not an
+extra prerequisite before the accepted roadmap sequence.
 
 The subsequent November 16 maintainer request inserts
 [Chrysalis Cells/Map, then Resonance Cells/Leases](native-chrysalis-resonance-cells-2026-11-16.md)
@@ -366,8 +371,9 @@ authorize additional experiments. Reuse compatible saved evidence.
     pass local and relocated portable verification at `ffe0d077a`. The complete
     engine total decreases 60.778284678 → 60.597904154 seconds, with all 186
     individual regressions retained; this approximately 0.3% result is small.
-    PR #1694 is merged; all 54 exact-main jobs pass and scoped cleanup is complete. The next
-    dense integer join unit is locally accepted as recorded above. Future work
+    PR #1694 is merged; all 54 exact-main jobs pass and scoped cleanup is complete.
+    Dense integer lookup is merged in #1695; the subsequent direct join-aggregate
+    unit is locally retained with the limits recorded above. Future work
     must meet the material-potential priority. The older join-family total remains
     complete-query time. The former broader coverage queue is retired.
   - [x] Retain the [shared Sort prefix connection](native-sort-prefix-validation-2026-11-13.md)
