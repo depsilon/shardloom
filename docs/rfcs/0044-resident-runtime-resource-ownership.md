@@ -546,6 +546,39 @@ providers and the supported Rust version. Physical verification alone does not
 certify logical values, array decoding, formatting or the complete runtime
 lifecycle.
 
+### Native schema formatting amendment, November 17, 2026
+
+Schema `Display` bytes participate in prepared-source and layout identities.
+Keep those bytes unchanged, including nullable suffixes, union tags, field
+order, extension metadata and the alternate standalone-struct form. Replace
+child recursion with borrowed ordered continuations. Resolve both map children
+before displaying either, as the original argument evaluation does. Preserve
+the struct/union join boundary: complete its child text before writing that
+joined value to the caller. While already inside such an infallible string
+buffer, nested joins may append to the same buffer; do not allocate one full
+subtree string per ancestor. Keep extension metadata formatting callbacks and
+lazy parse/error order. No child dtype clone or new schema representation is
+needed. Native admission must cover the continuation stack, joined text and
+metadata-format overlap before exposing deeper schemas.
+
+`Debug` is diagnostic text, not the schema identity format. It must not parse
+lazy fields merely to assess depth. Inspect only owned and already cached
+schema children using a fixed-capacity borrowed stack. Preserve the previous
+derived representation, raw lazy/cache information and formatter flags for
+schemas with at most 32 child edges. A deeper owned/cached tree prints the
+ordinary Rust non-exhaustive variant form, such as `List(..)`, instead of
+recursively expanding it. Standalone field/map/union/extension debug wrappers
+reach the same dtype guard. This is an explicit diagnostic presentation change,
+not loss of schema data, a serialization change or an execution depth limit.
+Opaque third-party metadata callbacks retain their own contract; native
+admission covers the supported bounded metadata providers.
+
+Require shallow recursive-reference Display comparisons, formatter variants,
+lazy cache/failure and metadata callback ordering, failed output sinks,
+deep and wide schemas and small-stack diagnostic/Display checks. Do not
+truncate Display or use the bounded Debug form in identity calculations.
+Public data depth limits remain until the rest of the lifecycle is admitted.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

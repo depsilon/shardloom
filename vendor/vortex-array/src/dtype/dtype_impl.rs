@@ -9,7 +9,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use DType::*;
-use itertools::Itertools;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_panic;
@@ -514,29 +513,7 @@ impl DType {
 
 impl Display for DType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Null => write!(f, "null"),
-            Bool(null) => write!(f, "bool{null}"),
-            Primitive(pdt, null) => write!(f, "{pdt}{null}"),
-            Decimal(ddt, null) => write!(f, "{ddt}{null}"),
-            Utf8(null) => write!(f, "utf8{null}"),
-            Binary(null) => write!(f, "binary{null}"),
-            List(edt, null) => write!(f, "list({edt}){null}"),
-            FixedSizeList(edt, size, null) => write!(f, "fixed_size_list({edt})[{size}]{null}"),
-            Map(map, null) => write!(f, "{map}{null}"),
-            Struct(sf, null) => write!(
-                f,
-                "{{{}}}{null}",
-                sf.names()
-                    .iter()
-                    .zip(sf.fields())
-                    .map(|(field_null, dt)| format!("{field_null}={dt}"))
-                    .join(", "),
-            ),
-            Union(uv, null) => write!(f, "union({uv}){null}"),
-            Variant(null) => write!(f, "variant{null}"),
-            Extension(ext) => write!(f, "{}", ext),
-        }
+        super::formatting::display_dtype(self, f)
     }
 }
 

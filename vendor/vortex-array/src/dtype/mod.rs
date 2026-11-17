@@ -26,6 +26,7 @@ mod f16;
 mod field;
 mod field_mask;
 mod field_names;
+mod formatting;
 mod map;
 mod native_dtype;
 mod nullability;
@@ -62,7 +63,7 @@ use std::sync::Arc;
 ///
 /// [`I32`]: PType::I32
 /// [`NonNullable`]: Nullability::NonNullable
-#[derive(Debug, Clone, Eq)]
+#[derive(Clone, Eq)]
 pub enum DType {
     /// A logical null type.
     ///

@@ -80,25 +80,7 @@ impl fmt::Debug for UnionVariants {
 
 impl fmt::Display for UnionVariants {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Surface non-consecutive type tags so they aren't hidden by the format. Consecutive
-        // `[0, 1, ..., N-1]` is the common case and is left implicit.
-        let show_tags = !self.is_consecutive();
-        write!(
-            f,
-            "{}",
-            self.names()
-                .iter()
-                .zip(self.variants())
-                .zip(self.type_ids().iter())
-                .map(|((name, dt), tag)| {
-                    if show_tags {
-                        format!("{name}@{tag}={dt}")
-                    } else {
-                        format!("{name}={dt}")
-                    }
-                })
-                .join(", ")
-        )
+        super::formatting::display_union(self, f)
     }
 }
 

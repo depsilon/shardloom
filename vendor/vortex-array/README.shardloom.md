@@ -1,5 +1,21 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative schema formatting
+
+Native schema Display now uses borrowed ordered continuations. Its text remains
+byte-identical to the original recursive implementation, including standalone
+alternate struct formatting, lazy parse order, metadata callbacks and partial
+output on sink failure. Nested struct/union joins reuse their enclosing string
+buffer rather than retaining a full subtree string per ancestor. The test-only
+recursive reference preserves the original Apache-2.0 source and copyright.
+
+Debug keeps raw lazy/cache details and formatter flags through 32 owned/cached
+child edges without initializing lazy fields. Deeper trees use an explicit
+non-exhaustive variant form, such as `List(..)`. Display is never truncated.
+Small-stack subprocesses cover the full Debug boundary and 8,192-level Display
+for all compound shapes. These are formatting checks, not public deep-lifecycle
+admission; see the [formatting amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-formatting-amendment-november-17-2026).
+
 ## November 17 ordered physical schema verification
 
 Generated DType verification delegates to an explicit parent-continuation loop

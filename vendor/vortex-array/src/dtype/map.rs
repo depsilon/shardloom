@@ -45,13 +45,7 @@ impl fmt::Debug for MapDType {
 
 impl fmt::Display for MapDType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "map({}, {}, keys_sorted={})",
-            self.key_dtype(),
-            self.value_dtype(),
-            self.keys_sorted()
-        )
+        super::formatting::display_map(self, f)
     }
 }
 

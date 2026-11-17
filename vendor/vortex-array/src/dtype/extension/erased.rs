@@ -21,6 +21,7 @@ use crate::dtype::extension::ExtId;
 use crate::dtype::extension::ExtVTable;
 use crate::dtype::extension::Matcher;
 use crate::dtype::extension::typed::DynExtDType;
+use crate::dtype::formatting::display_extension;
 use crate::scalar::ScalarValue;
 
 /// A type-erased extension dtype.
@@ -204,15 +205,7 @@ impl fmt::Debug for ExtDTypeRef {
 
 impl fmt::Display for ExtDTypeRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let metadata = MetadataDisplay(&*self.0).to_string();
-
-        if metadata.is_empty() {
-            write!(f, "{}", self.id())?;
-        } else {
-            write!(f, "{}[{}]", self.id(), metadata)?;
-        }
-
-        write!(f, "({})", self.storage_dtype())
+        display_extension(self, f)
     }
 }
 
