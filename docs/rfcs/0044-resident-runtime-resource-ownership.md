@@ -847,6 +847,37 @@ unchanged. Native admission must prepay clone output, continuation growth and
 cleanup overlap before deeper public input is accepted. These raw provider
 traits are not an allocation grant or an end-to-end deep-data support claim.
 
+### Protobuf wire-writing amendment, November 17, 2026
+
+Keep the existing protobuf fields and oneofs and replace Message derivation only
+at `DType` and `ScalarValue`. Their handwritten Message implementations measure
+and write borrowed protobuf nodes through ordered continuations. A flat preorder
+writing plan records subtree ends and each message's complete encoded length;
+compute each descendant length once before emitting its parent delimiter.
+Do not remeasure the full subtree at every ancestor. Emit prefixes, children and
+tails in the generated tag order, using the existing Prost leaf codecs.
+Preserve optional empty fields, oneof zero/false/empty presence, unknown enum
+integers, packed union tags, float bits and every length delimiter.
+
+The same Message implementation must retain the original generated merge_field
+dispatch, oneof merge helper, error context and unknown-field skip helper with
+the untouched DecodeContext. Default and clear preserve their original empty
+state. This change authorizes stack-safe writing, not a different decode policy.
+Prost's default recursion limit, partial-merge behavior and malformed-input
+diagnostics remain unchanged; explicit bounded iterative deep decoding remains
+required separately in this same deep-lifecycle unit. Do not disable the limit,
+inspect private context layout or use another engine.
+
+Compare raw and length-delimited bytes/lengths with the immutable generated
+references, including every shape, malformed object, missing/present child,
+varint boundary and insufficient output capacity. Check default decode errors,
+unknown fields/groups, same-variant partial merges and different-variant failed
+commits against those references. Require deep writing/measurement/cleanup on
+128-KiB stacks, including independent generated containers. Update the two root
+regeneration overrides and provenance. Native operation admission must prepay
+the writing plan, continuations, output and cleanup overlap before public depth
+guards can change. Writer tests alone do not establish a deep wire round trip.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

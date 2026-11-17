@@ -1,5 +1,28 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative protobuf wire writing
+
+The existing protobuf roots now measure and write with borrowed continuations.
+A flat writing plan records subtree boundaries and bottom-up lengths, preserving
+the original tag order, optional empty payloads, oneof defaults, packed tags and
+floating-point bits. Length measurement retains only active ancestors; empty
+messages and leaf oneofs need no heap plan. Generated containers and oneofs use
+the same root implementations. No wire schema, unsafe operation or dependency
+changes. Default decoding still calls the original generated oneof merger and
+Prost unknown-field helper with the original context and depth limit.
+
+Independent raw fixtures instantiate the original generated types without using
+the replacement writer to construct the reference. Exact bytes, lengths,
+delimited output, capacity refusal, varint boundaries, malformed decode errors,
+input consumption, groups and partial merge behavior match. Complete fixture
+grammar inspection verifies 8,192-level schema/value writing and standalone
+generated containers on 128-KiB stacks, including a Variant with both a deep
+schema and a deep value. All 5,872 provider tests pass (one existing ignored
+test), with strict provider and native workspace lint. Explicit bounded deep
+decoding and native resource/lifecycle admission remain required. The public
+depth guards are unchanged. See the
+[wire-writing amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-wire-writing-amendment-november-17-2026).
+
 ## November 17 intrinsic protobuf structural traits
 
 The existing protobuf DType and ScalarValue owners now clone and compare through
@@ -17,8 +40,9 @@ and Debug flags. Every compound schema/value shape and mixed paths pass
 8,192-level clone, equality, standalone-container and unwind cleanup checks on
 128-KiB stacks; the exact diagnostic boundary also passes on those stacks.
 All 5,868 provider tests pass (one existing ignored test), with strict provider
-and native workspace lint. Prost writing and decoding, native scratch admission
-and the full deep workflow remain required. Default decode and public depth
+and native workspace lint at that checkpoint. Writing is covered by the later
+section above; deep decoding, native scratch admission and the full workflow
+remain required. Default decode and public depth
 limits are unchanged. See the
 [structural trait amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-structural-traits-amendment-november-17-2026).
 

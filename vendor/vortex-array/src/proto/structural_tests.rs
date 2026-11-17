@@ -20,7 +20,7 @@ use super::scalar::{self as sv, scalar_value::Kind};
     missing_docs,
     dead_code
 )]
-mod reference {
+pub(super) mod reference {
     pub mod dtype {
         include!("reference/vortex.dtype.rs");
     }
@@ -81,7 +81,7 @@ fn wrap_dtype(child: dt::DType, kind: usize) -> dt::DType {
     })
 }
 
-fn dtype_chain(kind: usize, depth: usize, nullable: bool) -> dt::DType {
+pub(super) fn dtype_chain(kind: usize, depth: usize, nullable: bool) -> dt::DType {
     let mut result = dtype(Type::Bool(dt::Bool { nullable }));
     for level in 0..depth {
         result = wrap_dtype(result, if kind == 7 { level % 7 } else { kind });
@@ -89,7 +89,7 @@ fn dtype_chain(kind: usize, depth: usize, nullable: bool) -> dt::DType {
     result
 }
 
-fn dtype_fixtures() -> Vec<dt::DType> {
+pub(super) fn dtype_fixtures() -> Vec<dt::DType> {
     let mut fixtures = vec![dt::DType::default(), dtype(Type::Null(dt::Null {}))];
     for nullable in [false, true] {
         fixtures.extend([
@@ -179,7 +179,7 @@ fn wrap_value(child: sv::ScalarValue, kind: usize) -> sv::ScalarValue {
     })
 }
 
-fn value_chain(kind: usize, depth: usize, different: bool) -> sv::ScalarValue {
+pub(super) fn value_chain(kind: usize, depth: usize, different: bool) -> sv::ScalarValue {
     let mut result = value(Kind::BoolValue(different));
     for level in 0..depth {
         result = wrap_value(result, if kind == 3 { level % 3 } else { kind });
@@ -187,7 +187,7 @@ fn value_chain(kind: usize, depth: usize, different: bool) -> sv::ScalarValue {
     result
 }
 
-fn value_fixtures() -> Vec<sv::ScalarValue> {
+pub(super) fn value_fixtures() -> Vec<sv::ScalarValue> {
     let mut fixtures = vec![
         sv::ScalarValue::default(),
         value(Kind::NullValue(0)),

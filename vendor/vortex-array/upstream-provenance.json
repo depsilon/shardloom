@@ -946,9 +946,9 @@
     "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
     "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
     "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
-    "src/proto.rs": "de7d795d22f2c33edd978d4be8d1a8411f06fb5f8c3fec814dd3cb266dcaec32",
-    "src/proto/generated/vortex.dtype.rs": "f151864fc8c2248d6efd79123545b488a5a8d52cd8a110f11f36a8dbfa2b5e38",
-    "src/proto/generated/vortex.scalar.rs": "c55bd6c018e8044e3b184816533a2629cbe69e9c01983850eb4f48297ccbbc39",
+    "src/proto.rs": "bda4e0c1c754cc19a5be4e873474fefcbb3f1ea85e72372cfef1d3249bae959f",
+    "src/proto/generated/vortex.dtype.rs": "7e7571651fcd5717208791420d9962567e923cb94fcbf24f115070e102be1e32",
+    "src/proto/generated/vortex.scalar.rs": "35b10680d4c21bf4c2b0df6d6a284a246e8d44878c3b87abb796f1bfa6325440",
     "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
     "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
     "src/scalar/mod.rs": "8f8c57a4eec2b4f093b899b2d15e2008d1d5b0edf6f56bf21a7eb559eb820470",
@@ -975,7 +975,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "7f5e2b8f0433d4581e316cc5773ed7b90d7e0fc4d6396b2fb13118e598921bc4",
+    "README.shardloom.md": "4fcaf7fe66beae587b36d9947013c32c76761d5c292aa72fd54ea4dfacf27cdf",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -1011,12 +1011,15 @@
     "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
     "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
     "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
-    "src/proto/generated/README.shardloom.md": "f6ef4f21479db576553f5c3d38f19396e7226eba2b8cf7b06c6befe1d774cb6b",
+    "src/proto/generated/README.shardloom.md": "c6ecb6c6c23f42c16f1a0a7c638dbc12de08c9435837ae41aabc39acbc24b6ea",
     "src/proto/owned_release.rs": "65cee75a047402fa4b08cfa43cd715e79bec60808600b4dc7e1f4e7c8b2f2f59",
     "src/proto/reference/vortex.dtype.rs": "5173b11734a782f4f88816de73629280dc99384436ce081f98a051d3d068a54b",
     "src/proto/reference/vortex.scalar.rs": "5037a75d1a1beb73e0373576f478e505b86eb328b7b19472919f433869afd235",
     "src/proto/structural.rs": "65fa696d63cda9a5dd36eb1f6c1b0053df950388d54ae88555184a932c707e51",
-    "src/proto/structural_tests.rs": "17e62995145b6b7879b70a43a53e1517692614c107e32870e74589cf94c851d7",
+    "src/proto/structural_tests.rs": "3c83980395aed92e2db3d521a55c6ea735ea63dd809d03e5a45dd73b285b500b",
+    "src/proto/wire.rs": "74f9f3589128ca1c53b32f061d09a26f6fac4636f545dea6bc88d974a3cc9081",
+    "src/proto/wire_reference_fixtures.rs": "2613fb75b2ee1836d6aeaa8fe85ece28215d5e878ce97cb7613ef525d672d208",
+    "src/proto/wire_tests.rs": "6c642e7434409ad0a8c1333138b824b655015f1cf55885c061195e7c9ca759fc",
     "src/scalar/diagnostic.rs": "9bc1c222c539077bdbaa79ce27a10446f26d2c6a95608f1abe3bf01dfd5ffdb9",
     "src/scalar/diagnostic_tests.rs": "223ae9b78291f4575e7c8b07c987a882931ea4b6863ba57a2da6ca1c8ece5d94",
     "src/scalar/formatting.rs": "e0d6bbb8348f554f06a00a87fb985128be194ce27dbe5aacf872f3612f0e01f1",
@@ -1050,7 +1053,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "7f5e2b8f0433d4581e316cc5773ed7b90d7e0fc4d6396b2fb13118e598921bc4"
+    "sha256": "4fcaf7fe66beae587b36d9947013c32c76761d5c292aa72fd54ea4dfacf27cdf"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

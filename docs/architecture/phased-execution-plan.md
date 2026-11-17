@@ -328,8 +328,13 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   retained generated containers share them. Original generated references verify
   shallow bytes, malformed objects, floating-point equality and diagnostic flags.
   The 32-owner-edge diagnostic boundary and 8,192-level trait/cleanup checks pass
-  on 128-KiB stacks. All 5,868 provider tests and strict provider/native lint pass.
-  Protobuf wire transport and complete deep-workflow runtime/resource acceptance
+  on 128-KiB stacks. Protobuf writing and length measurement now use borrowed
+  continuations and a flat writing plan. Independent original-model fixtures
+  verify exact bytes, capacity refusal and unchanged default decoding, including
+  malformed errors, input consumption, groups and partial merges. Complete
+  fixture grammar checks cover 8,192-level writing on the same small stacks.
+  All 5,872 provider tests and strict provider/native lint pass. Explicit bounded
+  protobuf deep decoding and complete deep-workflow runtime/resource acceptance
   remain open; default decode and public depth limits are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

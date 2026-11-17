@@ -8,9 +8,13 @@
 
 mod owned_release;
 mod structural;
+mod wire;
 
 #[cfg(test)]
 mod structural_tests;
+
+#[cfg(test)]
+mod wire_tests;
 
 /// Data types.
 #[allow(clippy::all)]
