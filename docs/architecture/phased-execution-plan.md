@@ -387,9 +387,18 @@ workflow, performance and acceptance work recorded in the historical notes.
   partial-container refusal and width-independent cleanup pass on small stacks.
   All 221 typed-boundary tests pass, including real spill and writer/reopen
   cases, together with strict native workspace lint and formatting. These are
-  source checkpoints; JSON-to-native schema conversion, native memory
-  prepayment and complete deep-workflow acceptance remain open. The full native
-  workspace total above predates the typed input changes.
+  source checkpoints. JSON-to-native schema conversion now uses admitted
+  ordered continuations, preserving all native leaf/extension schemas, exact
+  errors and metadata/child validation order against the original converter.
+  Four focused tests cover 8,192-level conversion, detached children, late
+  failure, allocation refusal and cleanup on 128-KiB stacks. The complete
+  native test population passes all 7,375 tests across source-identical bounded
+  runs (42 existing opt-in tests ignored), with strict lint and formatting.
+  Preserve the original workspace deadline failure: its sole unfinished
+  calendar cleanup test and remaining integration/example targets passed in
+  separate bounded runs. Public depth limits are unchanged. Native payload
+  operations, provider memory prepayment and complete deep-workflow acceptance
+  remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

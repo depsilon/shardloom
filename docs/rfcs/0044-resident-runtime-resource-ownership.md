@@ -1110,6 +1110,40 @@ pool refunds. Test the real typed-source and extension boundaries. Schema
 conversion, native payload operations and final lifecycle admission remain
 separate obligations; this amendment does not raise public depth limits.
 
+### Typed JSON schema conversion amendment, November 17, 2026
+
+Build the existing native DType from the restricted typed-input JSON vocabulary
+using borrowed ordered continuations. Reuse pinned Vortex DType, StructFields
+and extension constructors; its broader generic serde vocabulary does not
+replace ShardLoom's restricted input contract. Increment the checked node count
+and apply the depth limit before inspecting each one-variant declaration.
+Validate nullability and fixed width before the child; validate all struct names
+before any child dtype, then visit children in declaration order. Preserve
+unsupported-kind diagnostics and exact parameter checks.
+
+Keep extension validation split at its original child boundary. Binary-object
+metadata validation precedes its storage dtype. Other admitted rich extensions
+validate their field set, convert storage, then deserialize metadata and invoke
+the existing native constructor. Temporal extensions retain their direct signed
+primitive-storage parsing and canonical metadata checks. Never inspect a later
+metadata error or sibling before an earlier storage conversion completes.
+
+Continuation storage and completed child vectors use the existing admitted
+capacity containers. Retain unfinished parent state and drain it innermost first
+on errors or unwinding. Each native completed subtree uses the already adopted
+intrinsic DType cleanup. The existing JSON workspace continues to cover temporary
+provider construction, and execution intake must still reserve complete schema
+metadata before returning it. This does not establish all provider cleanup
+allowances or change inert caller-owned application declaration semantics.
+
+Compare complete shallow schemas, serialized forms and exact errors against the
+byte-exact original converter, including every admitted leaf/extension family,
+duplicate names, malformed metadata, competing failures and width/depth bounds.
+Private explicit deep options must prove 8,192-level List/FixedSizeList/Struct/
+mixed conversion, complete field inspection, late failure, capacity refusal,
+detached children and cleanup on 128-KiB subprocess stacks. Keep the public
+depth-24 schema and depth-96 JSON limits until whole-lifecycle admission passes.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

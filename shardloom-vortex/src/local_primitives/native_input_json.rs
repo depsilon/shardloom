@@ -253,7 +253,11 @@ pub(in crate::local_primitives) fn parse(raw: &str, memory: &LiveMemoryPool) -> 
     parse_with_depth(raw, memory, MAX_DEPTH)
 }
 
-fn parse_with_depth(raw: &str, memory: &LiveMemoryPool, max_depth: usize) -> Result<ParsedJson> {
+pub(super) fn parse_with_depth(
+    raw: &str,
+    memory: &LiveMemoryPool,
+    max_depth: usize,
+) -> Result<ParsedJson> {
     let mut parser = serde_json::Deserializer::from_str(raw);
     let root = <&RawValue>::deserialize(&mut parser).map_err(|error| failed(&error.to_string()))?;
     let mut building = Building {
