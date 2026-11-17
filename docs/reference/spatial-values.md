@@ -47,7 +47,7 @@ plans, embedded workflows and CLI lower into the same native kernels.
 | `ST_NPOINTS(g)` | UInt64 count of stored vertices, including ring closing vertices. Empty geometries have zero vertices. |
 | `ST_XMIN(g)`, `ST_YMIN(g)`, `ST_XMAX(g)`, `ST_YMAX(g)` | Planar coordinate bounds. Empty geometries return null. |
 | `ST_DISTANCE(a, b)` | Point distance, rounded once from the exact Cartesian squared distance to nearest-even Float64. Empty operands return null. |
-| `ST_DWITHIN(a, b, radius)` | Exact squared-distance comparison against a finite nonnegative radius. Empty operands return false. |
+| `ST_DWITHIN(a, b, radius)` | Exact squared-distance comparison against a finite nonnegative radius; integer conversion must be exact. Empty operands return false. |
 | `ST_LENGTH(line)` | Sum of individually rounded segment distances using an exact accumulator. An empty line has length zero. |
 | `ST_CONTAINS(polygon, point)` | True strictly inside the exterior and outside all holes. Boundary points and empty geometries return false. |
 | `ST_COVERS(polygon, point)` | Also includes exterior and hole boundaries. Empty geometries return false. |

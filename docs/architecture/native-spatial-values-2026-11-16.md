@@ -2,12 +2,12 @@
 
 # Native spatial values and bounded planar operations
 
-Status: implementation and focused acceptance in progress under the existing
-item-19 rich-data contract. Dense integer joins are merged in PR #1695; direct
-join aggregation passed its scoped acceptance and is in ready PR #1696. The next
-full-sort proposal has no saved proof of actual disordered full-sort cost, so
-it does not justify another optimization experiment at this point. Continue
-the required spatial feature roadmap; do not treat this as a performance claim.
+Status: native implementation, complete source checks and installed-package
+acceptance passed under the existing item-19 rich-data contract. The finite
+delivery adds 15 shared expressions over two-dimensional Point, LineString and
+Polygon values. Hosted integration is separate; this is functional acceptance,
+with no new benchmark or performance claim. Resource-admitted deep traversal
+and combined rich-data/analytical acceptance remain the next obligations.
 
 The first delivery preserves two-dimensional Point, LineString and Polygon
 values through the existing native input, selection, relational payload, spill,
@@ -53,13 +53,39 @@ support does not require another Full43, full11k or competitor timing pass.
 Keep evidence concise and retain original failures; no optional archive pipeline
 is part of this delivery. Item 19, item 20 and CG-1 through CG-23 remain open.
 
-Focused native checks currently pass 12 tests; the added extreme-orientation
-control awaits its next run. Six public native tests pass all 15 functions
-through five interfaces, fresh-process Vortex reopen, independent Arrow/Parquet
-reads, masking, native spill, cancellation and last-owner release. Five Python
-schema tests pass. They found and corrected Python's accidental acceptance of
-JSON `null` metadata and its unhelpful errors for nonstring CRS/edge declarations.
-Complete workspace, feature, catalog and installed-package gates remain pending.
+## Local acceptance
+
+All 13 focused native tests pass, including exact orientation under extreme
+coordinate magnitudes. Six public native tests pass all 15 functions through
+five interfaces, fresh-process Vortex reopen after the original input is
+removed, independent Arrow/Parquet reads, masking, native spill, cancellation
+and last-owner release. Five Python schema tests pass. Coverage includes the
+correction of Python's accidental acceptance of JSON `null` metadata and its
+unhelpful errors for nonstring CRS/edge declarations.
+
+| Check | Result |
+| --- | --- |
+| Default workspace tests | 3,344 passed; zero failures or ignores |
+| Native workspace tests | 7,346 passed; zero failures; the same 42 ignored cases as the accepted predecessor |
+| Formatting and strict lint | Default and native workspace checks passed |
+| Feature and compiler checks | All features, no default features, and actual Rust 1.96 minimal/native checks passed |
+| Function catalog and references | Five catalog tests and all three generated-reference checks passed |
+| Python source suite | 1,329 tests run; zero failures/errors; 83 optional-environment skips retained |
+| Fresh release and installed package | All 462 tests passed with zero failures, errors or skips; isolated load and uninstall verification passed |
+
+The fresh CLI and native library bind to clean source commit
+`db151f11ed7be9334822a3cd9a81cf7873e90490`. All 13 source/reference gates,
+the release build and installed proof saw the same source-file inventory. The
+[compact acceptance record](../release/evidence/native-spatial-values-2026-11-16/acceptance.json)
+identifies the retained runtime, wheel, commands, original failed/stopped checks
+and subsequent documentation-only changes. Raw receipts and logs remain in the
+local task directory; no additional source or runtime archive was created.
+
+Early compile/lint failures and the original Python test failures remain
+recorded. Three native-test attempts stopped at storage admission or during
+linking, before executing the suite. Verified retirement of completed artifacts
+provided headroom; the final full run passed with the same storage floor,
+deadlines and test selection. No package publication is part of this delivery.
 
 The representation follows the [GeoArrow 0.2 format](https://geoarrow.org/format)
 and [extension metadata](https://geoarrow.org/extension-types). The existing
