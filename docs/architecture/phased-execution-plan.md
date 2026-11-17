@@ -421,9 +421,19 @@ workflow, performance and acceptance work recorded in the historical notes.
   documentation tests pass, alongside 198 native credit and 243 payload tests,
   strict provider/native workspace lint and provenance/license checks. Preserve
   the original lint failures and the guard's refusal of an overlapping check.
-  Public depth limits are unchanged. Variant validation, remaining recursive
-  provider compute, native memory prepayment and complete deep-workflow
-  acceptance remain open.
+  The pinned Parquet Variant byte reader now fully validates container children
+  through borrowed ordered continuations. Four frozen original methods preserve
+  complete values, malformed-error order, inherited panic behavior, lazy views
+  and validated no-ops. Raw 8,192-level object/list/mixed validation and deep/late
+  failures pass on 128-KiB stacks. All 160 reader tests, eight upstream
+  interoperability tests and 59 documentation tests pass, alongside 38 native
+  Variant and 243 payload tests and strict provider/native workspace lint.
+  Same-version archive, all 61 upstream fixture identities, lock and license
+  checks pass. Preserve the original compile/lint/corpus failures and eight
+  connector-altered binary fixture observations; corrected fixture bytes match
+  every recorded Git blob. Public depth limits are unchanged. Native Variant
+  traversal, remaining recursive provider compute, native memory prepayment
+  and complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

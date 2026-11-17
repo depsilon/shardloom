@@ -19,7 +19,7 @@ NEW_PROVIDERS = (
     "vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data",
     "arrow-array", "parquet", "vortex-arrow", "flatbuffers", "prost", "vortex-alp",
     "vortex-bytebool", "vortex-decimal-byte-parts", "vortex-fastlanes", "vortex-onpair",
-    "vortex-parquet-variant", "vortex-pco", "vortex-sparse", "vortex-zigzag",
+    "vortex-parquet-variant", "vortex-pco", "vortex-sparse", "vortex-zigzag", "parquet-variant",
 )
 RETIRED_PROVIDERS = {"vortex-runend"}  # 0.93 moves its implementation/tests into vortex-array.
 CURRENT_PROVIDERS = (set(FROZEN_CRATES) | set(NEW_PROVIDERS)) - RETIRED_PROVIDERS
@@ -88,7 +88,7 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 26)
+        self.assertEqual(len(assigned), 27)
         self.assertEqual(set(assigned), CURRENT_PROVIDERS)
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), CURRENT_PROVIDERS)
@@ -119,7 +119,7 @@ class ProviderCommandTests(unittest.TestCase):
 
     def test_orc_provider_matches_admitted_runtime_features_and_checks_tests(self) -> None:
         self.assertEqual(providers.GROUPS["formats"],
-                         ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet"))
+                         ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "parquet-variant"))
         self.assertEqual(providers.commands("orc-rust"), [
             ["cargo", "test", "--locked", "--manifest-path", "vendor/orc-rust/Cargo.toml",
              "--config", 'patch.crates-io.flatbuffers.path="vendor/flatbuffers"',
@@ -192,7 +192,7 @@ class ProviderCommandTests(unittest.TestCase):
 
     def test_parquet_checks_default_codecs_and_integration_with_patched_arrow_providers(self) -> None:
         arguments = ["--manifest-path", "vendor/parquet/Cargo.toml"]
-        for crate in ("arrow-array", "arrow-data", "arrow-ipc", "flatbuffers"):
+        for crate in ("arrow-array", "arrow-data", "arrow-ipc", "flatbuffers", "parquet-variant"):
             arguments += ["--config", f'patch.crates-io.{crate}.path="vendor/{crate}"']
         arguments += ["--features", "default", "--lib", "--tests"]
         self.assertEqual(providers.commands("parquet"), [
@@ -243,7 +243,7 @@ class ProviderCommandTests(unittest.TestCase):
             "vortex-fastlanes": ["vortex-array", "flatbuffers", "prost"],
             "vortex-onpair": ["vortex-array", "flatbuffers", "prost"],
             "vortex-parquet-variant": ["vortex-array", "vortex-file", "vortex-layout",
-                                        "vortex-io", "vortex-datetime-parts", "flatbuffers", "prost"],
+                                        "vortex-io", "vortex-datetime-parts", "flatbuffers", "prost", "parquet-variant"],
             "vortex-pco": ["vortex-array", "flatbuffers", "prost"],
             "vortex-sparse": ["vortex-array", "flatbuffers", "prost"],
             "vortex-zigzag": ["vortex-array", "flatbuffers", "prost"],
@@ -339,13 +339,15 @@ class RunGroupTests(unittest.TestCase):
         parquet_arrow.mkdir(parents=True)
         parquet_data = self.root / "vendor/parquet/test/parquet-testing/data"
         parquet_data.mkdir(parents=True)
+        variant_data = self.root / "vendor/parquet-variant/test/parquet-testing/data"
+        variant_data.mkdir(parents=True)
         with patch.dict(providers.os.environ, {"CLIPPY_CONF_DIR": "/inherited/vortex-policy",
                                                "ARROW_TEST_DATA": "/inherited/fixtures",
                                                "PARQUET_TEST_DATA": "/inherited/parquet"}):
             with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
                 report = providers.run_group("formats", self.root / "out", root=self.root)
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(run.call_count, 12)
+        self.assertEqual(run.call_count, 14)
         for call, command in zip(run.call_args_list, report["commands"]):
             crate = command["crate"]
             expected = str(self.root / "vendor" / crate)
@@ -359,6 +361,11 @@ class RunGroupTests(unittest.TestCase):
                 self.assertEqual(command["arrow_test_data"], str(parquet_arrow))
                 self.assertEqual(call.kwargs["env"]["PARQUET_TEST_DATA"], str(parquet_data))
                 self.assertEqual(command["parquet_test_data"], str(parquet_data))
+            elif crate == "parquet-variant":
+                self.assertEqual(call.kwargs["env"]["PARQUET_TEST_DATA"], str(variant_data))
+                self.assertEqual(command["parquet_test_data"], str(variant_data))
+                self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], "/inherited/fixtures")
+                self.assertNotIn("arrow_test_data", command)
             else:
                 self.assertEqual(call.kwargs["env"]["ARROW_TEST_DATA"], "/inherited/fixtures")
                 self.assertNotIn("arrow_test_data", command)

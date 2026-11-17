@@ -19,7 +19,7 @@ GROUPS = {
                "vortex-parquet-variant", "vortex-pco", "vortex-sparse", "vortex-zigzag"),
     "io": ("vortex-layout", "vortex-file", "vortex-io", "vortex-arrow"),
     "buffer": ("vortex-buffer", "flatbuffers", "prost"),
-    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet"),
+    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "parquet-variant"),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": ["flatbuffers", "prost"]},
@@ -44,7 +44,8 @@ CONFIGURATIONS = {
                       "clippy_tests": True},
     "vortex-parquet-variant": {"features": "vortex-array/table-display",
                                "patches": ["vortex-array", "vortex-file", "vortex-layout",
-                                           "vortex-io", "vortex-datetime-parts", "flatbuffers", "prost"],
+                                           "vortex-io", "vortex-datetime-parts", "flatbuffers", "prost",
+                                           "parquet-variant"],
                                "clippy_tests": True},
     "vortex-pco": {"features": "vortex-array/table-display",
                    "patches": ["vortex-array", "flatbuffers", "prost"],
@@ -77,11 +78,15 @@ CONFIGURATIONS = {
                    "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-data"},
     "arrow-array": {"features": "ffi", "patches": ["arrow-data"],
                     "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-array"},
-    "parquet": {"features": "default", "patches": ["arrow-array", "arrow-data", "arrow-ipc", "flatbuffers"],
+    "parquet": {"features": "default", "patches": ["arrow-array", "arrow-data", "arrow-ipc", "flatbuffers", "parquet-variant"],
                 "integration_tests": True, "clippy_tests": True,
                 "clippy_conf_dir": "vendor/parquet",
                 "arrow_test_data": "vendor/parquet/test/arrow-testing/data",
                 "parquet_test_data": "vendor/parquet/test/parquet-testing/data"},
+    "parquet-variant": {"features": None, "patches": ["arrow-array", "arrow-data"],
+                        "integration_tests": True, "clippy_tests": True,
+                        "clippy_conf_dir": "vendor/parquet-variant",
+                        "parquet_test_data": "vendor/parquet-variant/test/parquet-testing/data"},
 }
 
 

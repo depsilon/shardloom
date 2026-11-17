@@ -1,11 +1,27 @@
 # Standalone patched-provider validation locks
 
-These twenty-six lockfiles freeze the current excluded provider test configurations.
+These twenty-seven lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 17 full Variant validation
+
+`parquet-variant` remains at 59.3.2 and gains a standalone configuration for its
+ordered full-validation source patch. Its 144-package test graph contains only
+package/version/source/checksum identities already present in the reviewed root
+or provider locks. The existing Parquet and Vortex ParquetVariant locks change
+only this package's registry source to the local path; all other resolution
+entries are unchanged. Both recipes explicitly select that patch.
+
+The new format recipe runs library and upstream integration tests with the
+complete, Git-identity-verified `variant/` fixture directory from the existing
+59.3.2 Parquet-testing submodule pin. Its fixture path and Clippy configuration
+are scoped to the provider. The 61 files, upstream license and exact source
+identities are recorded in the provider provenance. No runtime feature, format
+version or public depth boundary changes with this configuration.
 
 ## November 17 registered codec continuations
 

@@ -8,7 +8,7 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/flatbuffers", "vendor/orc-rust", "vendor/parquet", "vendor/prost", "vendor/vortex-alp", "vendor/vortex-array", "vendor/vortex-arrow", "vendor/vortex-buffer", "vendor/vortex-bytebool", "vendor/vortex-datetime-parts", "vendor/vortex-decimal-byte-parts", "vendor/vortex-fastlanes", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-onpair", "vendor/vortex-parquet-variant", "vendor/vortex-pco", "vendor/vortex-sparse", "vendor/vortex-zigzag", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/flatbuffers", "vendor/orc-rust", "vendor/parquet", "vendor/parquet-variant", "vendor/prost", "vendor/vortex-alp", "vendor/vortex-array", "vendor/vortex-arrow", "vendor/vortex-buffer", "vendor/vortex-bytebool", "vendor/vortex-datetime-parts", "vendor/vortex-decimal-byte-parts", "vendor/vortex-fastlanes", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-onpair", "vendor/vortex-parquet-variant", "vendor/vortex-pco", "vendor/vortex-sparse", "vendor/vortex-zigzag", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
@@ -20,6 +20,7 @@ flatbuffers = { path = "vendor/flatbuffers" }
 prost = { path = "vendor/prost" }
 orc-rust = { path = "vendor/orc-rust" }
 parquet = { path = "vendor/parquet" }
+parquet-variant = { path = "vendor/parquet-variant" }
 vortex-alp = { path = "vendor/vortex-alp" }
 vortex-array = { path = "vendor/vortex-array" }
 vortex-arrow = { path = "vendor/vortex-arrow" }

@@ -1,5 +1,31 @@
 # Vortex Upstream Dependency Review
 
+## November 17, 2026 full Variant validation intake
+
+The existing Apache-2.0 `parquet-variant` 59.3.2 byte reader becomes a reviewed
+same-version source patch for the [RFC 0044 Variant validation contract](../rfcs/0044-resident-runtime-resource-ownership.md#variant-validation-continuation-amendment-november-17-2026).
+Its archive checksum remains
+`4d0085fde95ccfae0b8d703acd1245bda8855a0bf996eba848e8e2f9995f8606`.
+All twenty archive members match the cached source. The archive supplies no
+source-revision metadata or legal text; no source commit is inferred. The
+same-release Parquet LICENSE and NOTICE already attributed in the dependency
+bundle are preserved in the patch. Publication is disabled.
+
+The patch preserves full validation, metadata/field/child order, object suffix
+and list-range behavior, errors and already-validated no-ops through borrowed
+continuations. It does not replace validation with a shallow constructor.
+The [patch notes](../../vendor/parquet-variant/README.shardloom.md) and complete
+member provenance distinguish source changes, frozen original test methods and
+upstream fixtures. All 61 Variant fixture files match the Git blobs at the
+previously reviewed Parquet-testing 59.3.2 submodule pin; their Apache-2.0 license
+is separately preserved. The standalone graph introduces no package/version
+identity absent from the reviewed root or provider locks. Existing root and
+consumer lockfiles change only this package to its same-version local source.
+
+The notice bundle now covers 424 registry packages, 27 path patches, 838
+legal-file records and the same 249 distinct texts. These source and license
+checks grant no deeper public admission or complete native lifecycle acceptance.
+
 ## November 17, 2026 registered codec continuation intake
 
 The existing Apache-2.0 Vortex 0.93.0 ALP, ByteBool, DecimalByteParts,

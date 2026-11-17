@@ -1227,6 +1227,46 @@ overlap. Recursive work inside individual take/filter/scalar/cast/canonical
 providers remains a separate obligation. Public depth limits remain unchanged
 until complete lifecycle acceptance.
 
+### Variant validation continuation amendment, November 17, 2026
+
+Classify this as `use_vortex_native_provider` for the existing Vortex Parquet
+Variant representation and its pinned Apache-2.0 `parquet-variant` 59.3.2 byte
+reader. Its full object/list validator recursively validates children; its
+public shallow constructors are not a substitute for that validation. Preserve
+the exact package version, wire representation, metadata rules and public
+constructor contracts in a reviewed same-version source patch. Record the
+published archive checksum, all original/changed members, and the same-release
+Parquet license/notice already used by the license bundle.
+
+Replace the provider's full-validation recursion with ordered borrowed parent
+continuations. Parse each container header first, validate its metadata and all
+object field names before any child, then obtain and fully validate one child
+at a time. Preserve object suffix access, list adjacent-offset bounds, the
+original first failure, already-validated no-ops, and the root's validation
+flag and metadata state. Leave lazy accessors lazy. Borrowed Variant wrappers
+own no recursive children; error/unwind cleanup discards only shallow frames.
+No new unsafe operation, second format parser, query engine or dependency
+version is needed.
+
+ShardLoom's envelope and duplicate-name walks must likewise retain their
+original preorder callbacks, byte-work budget, object suffixes, list ranges,
+and error precedence. Its shredded validators must retain raw-byte validation
+before typed inspection, field/element order, null shortcuts, metadata and
+overlap checks at their existing before/after-child positions. Charge native
+continuation capacity and growth overlap to the existing operation owner.
+An owned raw buffer may be retained across a child and viewed again only after
+full validation has succeeded; reconstructing that unchanged borrowed view
+must not replace the original full check or extend its lifetime.
+
+Keep frozen recursive references for shallow complete-value/error comparisons,
+including competing malformed conditions and cancellation points. Exercise
+deep list/object/mixed byte trees and shredded native arrays on small stacks,
+including malformed descendants, late sibling errors, denied growth and
+cleanup. Run the full pinned-provider tests, nearby native Variant/payload
+tests, strict lint and source/license/lock checks. The existing public depth
+guards remain until complete native traversal/output/cleanup prepayment and
+deep import/retain/filter/join/spill/write/reopen/export acceptance pass.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex
