@@ -443,8 +443,14 @@ workflow, performance and acceptance work recorded in the historical notes.
   All 42 Variant tests and 245 payload regressions pass; the final extended
   fixtures and strict native workspace lint pass on the current sources.
   The inherited out-of-range provider date panic is preserved, not corrected
-  by this continuation work. Public depth limits remain unchanged. Remaining
-  native Variant workspace/Arrow conversions, recursive provider compute,
+  by this continuation work. Variant workspace sizing now uses credited ordered
+  continuations for physical storage, expanded raw values and typed shells.
+  Nine frozen original functions and five unchanged helpers preserve sizing,
+  partial credit and error order; 8,192-level small-stack controls prove costs,
+  denied growth, cancellation and panic cleanup. All 44 Variant tests, 245
+  payload regressions and strict native workspace lint pass on the same sources.
+  Public depth limits remain unchanged. Remaining native schema classification,
+  Variant/Arrow conversions, recursive provider compute,
   native memory prepayment and complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

@@ -1280,6 +1280,28 @@ tests, strict lint and source/license/lock checks. The existing public depth
 guards remain until complete native traversal/output/cleanup prepayment and
 deep import/retain/filter/join/spill/write/reopen/export acceptance pass.
 
+### Native Variant workspace continuation amendment, November 17, 2026
+
+Use the existing native Variant provider and its current admission arithmetic.
+Replace the physical-storage, expanded-byte and typed-shell workspace walks
+with ordered continuations charged to the same operation owner. The physical
+walk borrows the provider's existing `ArrayRef::slots` in their original order;
+it must retain each parent's buffer-inspection grant through its children.
+The raw-value walk borrows the fully validated provider object/list headers,
+adds object-name work before each child, and retains the existing node and
+string/binary size charges. Typed-shell traversal retains complete native list
+coordinate and struct owners across descendants and preserves raw validation
+before typed traversal, cancellation order, null shortcuts and error order.
+No decoded value tree or new storage representation is needed.
+
+Keep the original depth guards and sizing formulas at production entrypoints
+until complete native admission is accepted. Use private depth parameters only
+to prove the control mechanism. Compare frozen shallow implementations for
+returned and partially accumulated credit, complete errors and ordering. Deep
+physical wrapper, raw object/list and typed-shell fixtures must prove credited
+growth, cancellation/error/unwind cleanup and final owner release on small
+stacks. They do not replace full deep workflow or Arrow conversion proof.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex
