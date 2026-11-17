@@ -129,8 +129,13 @@ fn adaptive_compatibility_canonicalization_shares_the_admitted_root_dtype() {
             let credit =
                 memory.reserve(sizing::canonical_metadata(&prepared.plan.dtype, execution)?)?;
             let mut context = execution.native_session().create_execution_ctx();
-            let (canonical, _) =
-                admitted_canonical(&input, &prepared.plan.dtype, &mut context, &prepared.limits)?;
+            let (canonical, _) = admitted_canonical(
+                &input,
+                &prepared.plan.dtype,
+                &mut context,
+                &prepared.limits,
+                execution.memory(),
+            )?;
             assert_eq!(canonical.len(), ROWS);
             assert_eq!(canonical.dtype(), input.dtype());
             // Equal values alone would miss reconstruction of the wide name/type
@@ -187,6 +192,7 @@ fn adaptive_compatibility_writers_use_prepaid_workspace_and_regrow_after_pressur
                     &prepared.plan.dtype,
                     &mut context,
                     &prepared.limits,
+                    execution.memory(),
                 )?;
                 drop(measured);
                 let window = sizing::ConversionWindow::new(&prepared, initial, ROWS, execution)?;

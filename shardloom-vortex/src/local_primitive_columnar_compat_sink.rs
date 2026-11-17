@@ -337,6 +337,7 @@ fn admitted_canonical(
     dtype: &DType,
     ctx: &mut ExecutionCtx,
     limits: &CompatibilityLimits,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<(ArrayRef, u64)> {
     if array.len() > limits.batch_rows {
         return Err(error("native scan exceeded batch row admission"));
@@ -348,6 +349,7 @@ fn admitted_canonical(
     let mut children = Vec::with_capacity(fields.nfields());
     let check = || limits.check();
     let conversion = nested::ConversionLimits {
+        memory,
         string_bytes: limits.string_bytes,
         arrow_batch_bytes: limits.arrow_batch_bytes,
         check: &check,

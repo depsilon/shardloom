@@ -456,10 +456,18 @@ workflow, performance and acceptance work recorded in the historical notes.
   denied growth, shared-subtree work bounds and cancellation/unwind cleanup pass.
   The focused three tests, 538 nearby regressions and strict native workspace
   lint pass; one existing release benchmark remains ignored. The initial
-  invalid nonnullable-Null fixture failure is retained. Public depth limits
-  remain unchanged. Binary-object classification owner boundaries,
-  Variant/Arrow conversions, recursive provider compute,
-  native memory prepayment and complete deep-workflow acceptance remain open.
+  invalid nonnullable-Null fixture failure is retained.
+  Native preparation for Arrow export now uses one credited traversal for
+  ordinary arrays, Variant wrappers and shredded values. Eight original
+  functions verify prepared bytes, encodings, expansion counters, first
+  errors and callback order. Deep structs, lists, mixed values with UUID
+  leaves and Variant wrappers pass at 8,192 levels on 128-KiB stacks.
+  Retained offsets, denied growth, cancellation and panic cleanup pass.
+  All 542 selected regressions pass with one existing release benchmark
+  ignored. Both focused tests and strict native workspace lint pass on the
+  final sources. Public depth admission still waits for binary-object
+  classification, Arrow intake and schema handling, provider export and compute,
+  native memory prepayment and complete deep-workflow acceptance.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

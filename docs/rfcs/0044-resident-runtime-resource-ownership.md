@@ -1327,6 +1327,31 @@ chains, branching/wide schemas, shared-subtree amplification, early matches,
 denied growth and cancellation must be checked on small stacks. Keep every
 public payload-depth guard until full lifecycle acceptance.
 
+### Native preparation for Arrow export, November 17, 2026
+
+Use the existing Vortex providers to prepare native arrays at the export
+boundary. Run canonical preparation, Variant storage inspection and logical
+shredded-list reframing on one ordered continuation stack. Charge its capacity
+and replacement overlap to the caller's live memory pool. Each frame retains
+the complete native parent, including its validity, offsets and partial
+children. Drain parents innermost first on error or unwind. Struct and chunk
+constructors consume individual handles while the temporary child vector
+still owns its capacity grant. The existing schema reservation covers the
+provider's separate result metadata at the production boundary.
+
+Preserve the row and byte charges, provider choices and cancellation points.
+Visit struct fields and chunks in order. Finish Variant core storage before
+preparing and reframing the shredded child. For Parquet Variant, prepare
+metadata, raw values and typed values in that order, then size field names
+and framing before validating rows. Preserve the original name arithmetic
+after each child and check list contiguity before descending into elements.
+
+Compare complete shallow prepared arrays, counts, failures and callback order
+with the original implementation. Exercise deep native construction, denied
+growth, cancellation and final release on small stacks. Keep the public depth
+limits through the separate Arrow schema, provider export and full lifecycle
+acceptance gates.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex

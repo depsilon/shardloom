@@ -289,6 +289,7 @@ impl NativeArrowBatchStream {
         let mut ctx = context.native_session().create_execution_ctx();
         let check = || context.check_cancelled();
         let limits = ConversionLimits {
+            memory: context.memory(),
             string_bytes: usize::MAX,
             arrow_batch_bytes: context.memory().snapshot().limit_bytes,
             check: &check,

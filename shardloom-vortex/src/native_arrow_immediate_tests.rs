@@ -9,6 +9,7 @@ use vortex::{
     VortexSessionDefault as _,
     array::{
         VortexSessionExecute as _,
+        arrays::StructArray,
         arrays::varbinview::BinaryView,
         dtype::{FieldNames, Nullability},
         memory::{HostAllocator as _, HostMemorySessionExt as _},
@@ -71,9 +72,10 @@ fn fixture(
     (array, schema, memory, session, pointer)
 }
 
-fn admit(array: &ArrayRef, session: &VortexSession) -> (ArrayRef, u64) {
+fn admit(array: &ArrayRef, session: &VortexSession, memory: &LiveMemoryPool) -> (ArrayRef, u64) {
     let check = || Ok(());
     let limits = ConversionLimits {
+        memory,
         string_bytes: 64 * 1024,
         arrow_batch_bytes: 8 << 20,
         check: &check,
@@ -92,7 +94,7 @@ fn admit(array: &ArrayRef, session: &VortexSession) -> (ArrayRef, u64) {
 #[test]
 fn immediate_parquet_views_share_payload_keep_credit_and_reopen_declared_schema() {
     let (source, schema, memory, session, pointer) = fixture(512);
-    let (canonical, expanded) = admit(&source, &session);
+    let (canonical, expanded) = admit(&source, &session, &memory);
     let (view_schema, admitted) = immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
         .unwrap()
         .expect("bounded immediate view target");
@@ -170,15 +172,15 @@ fn immediate_parquet_views_share_payload_keep_credit_and_reopen_declared_schema(
 
 #[test]
 fn immediate_parquet_views_keep_compaction_for_large_backing_and_tight_budgets() {
-    let (source, schema, _, session, _) = fixture(2 << 20);
-    let (canonical, expanded) = admit(&source, &session);
+    let (source, schema, memory, session, _) = fixture(2 << 20);
+    let (canonical, expanded) = admit(&source, &session, &memory);
     assert!(
         immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
             .unwrap()
             .is_none()
     );
-    let (source, schema, _, session, _) = fixture(512);
-    let (canonical, expanded) = admit(&source, &session);
+    let (source, schema, memory, session, _) = fixture(512);
+    let (canonical, expanded) = admit(&source, &session, &memory);
     assert!(
         immediate_parquet_target(&canonical, &schema, expanded, expanded)
             .unwrap()
@@ -189,7 +191,7 @@ fn immediate_parquet_views_keep_compaction_for_large_backing_and_tight_budgets()
 #[test]
 fn immediate_parquet_views_leave_contiguous_and_nested_text_on_existing_targets() {
     use vortex::array::arrays::VarBinArray;
-    let (source, _, _, session, _) = fixture(512);
+    let (source, _, memory, session, _) = fixture(512);
     let dtype = DType::Utf8(Nullability::NonNullable);
     let contiguous =
         VarBinArray::from_iter_nonnull(std::iter::repeat_n(TEXT, ROWS), dtype).into_array();
@@ -205,7 +207,7 @@ fn immediate_parquet_views_leave_contiguous_and_nested_text_on_existing_targets(
         panic!("struct");
     };
     let schema = Arc::new(Schema::new(fields));
-    let (canonical, expanded) = admit(&array, &session);
+    let (canonical, expanded) = admit(&array, &session, &memory);
     assert!(
         immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
             .unwrap()
@@ -216,7 +218,7 @@ fn immediate_parquet_views_leave_contiguous_and_nested_text_on_existing_targets(
 #[test]
 fn immediate_parquet_views_preserve_binary_nulls_beside_nested_text() {
     use arrow_array::{BinaryArray, BinaryViewArray};
-    let (source, _, _, session, _) = fixture(512);
+    let (source, _, memory, session, _) = fixture(512);
     let binary_value = [0xffu8; 32];
     let binary = VarBinViewArray::from_iter(
         (0..ROWS).map(|row| (row % 3 != 1).then_some(binary_value)),
@@ -235,7 +237,7 @@ fn immediate_parquet_views_preserve_binary_nulls_beside_nested_text() {
         panic!("struct");
     };
     let schema = Arc::new(Schema::new(fields));
-    let (canonical, expanded) = admit(&array, &session);
+    let (canonical, expanded) = admit(&array, &session, &memory);
     let (view_schema, _) = immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
         .unwrap()
         .expect("binary views admitted");
