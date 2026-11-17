@@ -431,9 +431,21 @@ workflow, performance and acceptance work recorded in the historical notes.
   Same-version archive, all 61 upstream fixture identities, lock and license
   checks pass. Preserve the original compile/lint/corpus failures and eight
   connector-altered binary fixture observations; corrected fixture bytes match
-  every recorded Git blob. Public depth limits are unchanged. Native Variant
-  traversal, remaining recursive provider compute, native memory prepayment
-  and complete deep-workflow acceptance remain open.
+  every recorded Git blob.
+  Native raw framing/duplicate-name inspection and typed/shredded Variant
+  validation now use ordered continuations. Seven frozen original functions
+  preserve complete shallow results, first errors and raw cancellation/panic
+  callback order. Raw frames remain inside the existing byte-work grant with
+  checked capacity overlap; typed parents retain raw buffers, complete list
+  coordinate owners and shell credits until their children finish. Private
+  8,192-level object/list/mixed validation, denied growth, late errors,
+  cancellation and inherited decoder-panic cleanup pass on 128-KiB stacks.
+  All 42 Variant tests and 245 payload regressions pass; the final extended
+  fixtures and strict native workspace lint pass on the current sources.
+  The inherited out-of-range provider date panic is preserved, not corrected
+  by this continuation work. Public depth limits remain unchanged. Remaining
+  native Variant workspace/Arrow conversions, recursive provider compute,
+  native memory prepayment and complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

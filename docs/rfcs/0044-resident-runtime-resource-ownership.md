@@ -1258,6 +1258,19 @@ An owned raw buffer may be retained across a child and viewed again only after
 full validation has succeeded; reconstructing that unchanged borrowed view
 must not replace the original full check or extend its lifetime.
 
+For raw-byte framing and duplicate-name inspection, reuse the caller's existing
+`64 * encoded_bytes + 4096` validation grant. Each suspended native frame must
+fit 80 bytes, each descended container consumes at least four framing bytes,
+and geometric capacity growth must admit old/new overlap before allocating.
+Enforce the computed grant at every growth, use fallible exact reservation and
+reject unexpected capacity expansion. Framing, provider validation and name
+inspection run sequentially; their continuation storage does not overlap.
+Do not claim a grant for the existing optional-memory Arrow inspection path
+when no pool was supplied. Its depth boundary remains unchanged. Native
+typed-tree parents use the existing credited vector and retain complete list
+coordinate owners through descendants. Private depth parameters are test
+mechanisms, not a new public admission route.
+
 Keep frozen recursive references for shallow complete-value/error comparisons,
 including competing malformed conditions and cancellation points. Exercise
 deep list/object/mixed byte trees and shredded native arrays on small stacks,
