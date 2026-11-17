@@ -68,6 +68,7 @@ mod dispatch;
 mod macros;
 #[cfg(feature = "memmap2")]
 mod memmap2;
+mod retained_owner;
 #[cfg(feature = "serde")]
 mod serde;
 mod string;

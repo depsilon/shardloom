@@ -1,5 +1,15 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 host allocator owner inspection
+
+The already-static `HostAllocator` trait now has the `Any` supertrait for safe
+concrete owner inspection. This lets ShardLoom flatten its own repeated credit
+attachments while forwarding allocations and external reservations to the same
+base provider. Method signatures and default refusal remain unchanged. There
+is no new unsafe operation or allocator implementation. Native credit-chain,
+buffer alias, denial and cleanup tests live at the adapter boundary; see the
+[buffer-credit amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-buffer-credit-continuation-amendment-november-17-2026).
+
 ## November 17 ordered optimizer traversal
 
 The existing optimizer entrypoints now use ordered owned continuations. Root

@@ -1227,6 +1227,48 @@ overlap. Recursive work inside individual take/filter/scalar/cast/canonical
 providers remains a separate obligation. Public depth limits remain unchanged
 until complete lifecycle acceptance.
 
+### Native buffer-credit continuation amendment, November 17, 2026
+
+Remove recursive ShardLoom credit wrappers while retaining the same Vortex
+buffers and fallible host allocator. The provider check selects the existing
+`Buffer` backing, `HostAllocator`, `HostMemoryReservation` and shared native
+leases. Pinned Vortex does not expose typed retention of a second owner on an
+existing buffer; its `Bytes` owner erases that link. Add a safe retained-owner
+backing to the same buffer provider, rather than copying bytes or building a
+separate buffer model. This is a native-provider ownership extension, with no
+new allocator implementation, unsafe operation or external execution dependency.
+
+The added buffer method moves its existing backing into an explicit owner link
+without changing pointer, length, alignment or visible values. Clones, nonempty
+slices, typed conversions, and Bytes/Arrow exports retain the link, including
+owned empty buffers. Ordinary empty slices keep their existing detach behavior.
+Retained buffers remain immutable for `try_into_mut`, as the previous owner-
+wrapped buffers were. Release the underlying storage before attached owners,
+and older attached owners before newer ones when all become uniquely owned.
+Use concurrent-safe `Arc::into_inner` extraction and ordered local cleanup;
+stop at shared links. A single panicking storage/owner destructor must still
+drain remaining owners in that order. Arbitrary foreign owners remain opaque.
+
+Add `Any` as a supertrait on the already-static host allocator boundary so
+ShardLoom can safely recognize its own credit wrapper. Repeated attachments
+retain one base allocator and a persistent shared credit chain. Allocation and
+external reservation each invoke that base once, preserving its exact inputs,
+typed errors and refusal behavior. Writable buffers, frozen buffers and foreign
+reservation owners retain the complete chain independently of the allocator.
+Release the base storage/reservation before the chain, and drain uniquely owned
+credits oldest first. No global/thread-local queue, raw Arc manipulation, or
+new execution grant during cleanup is permitted. Native deep admission must
+prepay owner-link and cleanup-vector capacity/overlap before public depth
+limits change; fixed headers and arbitrary external destructors are not a
+process-RSS guarantee.
+
+Require 8,192-link allocation, access, freeze, external reservation and cleanup
+on 128-KiB stacks; detached/intermediate aliases, weak witnesses, concurrent
+last owners, denied allocations, partial construction and one-panic cleanup.
+Verify pointer identity, bytes, alignment, empty ownership and exact live
+credits through buffer, typed, Bytes and Arrow aliases. Compare shallow release
+order to the old wrapper semantics and keep public depth limits unchanged.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

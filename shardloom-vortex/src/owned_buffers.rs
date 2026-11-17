@@ -13,6 +13,10 @@ use vortex::{
     error::{VortexResult, vortex_err},
 };
 
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "owned_buffers_credit.rs"]
+mod credit;
+
 #[derive(Debug, Clone)]
 pub struct ReservedHostAllocator {
     memory: LiveMemoryPool,
@@ -127,33 +131,17 @@ impl HostBufferMut for ReservedWritableBuffer {
 
     fn freeze(self: Box<Self>) -> ByteBuffer {
         let Self { buffer, lease } = *self;
-        let alignment = buffer.alignment();
-        let owner = ReservedBufferOwner {
-            buffer: buffer.freeze(),
-            _lease: lease,
-        };
-        ByteBuffer::from_bytes_aligned_with_owner(bytes::Bytes::from_owner(owner), alignment)
+        buffer
+            .freeze()
+            .with_retained_owner(std::sync::Arc::new(lease))
     }
-}
-
-// Field order ensures the last buffer owner releases memory before its credit.
-struct ReservedBufferOwner<L = MemoryLease> {
-    buffer: ByteBuffer,
-    _lease: L,
 }
 
 /// Keep a pre-reserved native metadata owner with an existing required buffer.
 /// No payload copy is needed; clones of this buffer retain both reservations.
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) fn retain_credit(buffer: ByteBuffer, lease: MemoryLease) -> ByteBuffer {
-    let alignment = buffer.alignment();
-    ByteBuffer::from_bytes_aligned_with_owner(
-        bytes::Bytes::from_owner(ReservedBufferOwner {
-            buffer,
-            _lease: lease,
-        }),
-        alignment,
-    )
+    buffer.with_retained_owner(std::sync::Arc::new(lease))
 }
 
 /// Retain one admitted provider allocation across all of its native buffers.
@@ -162,20 +150,7 @@ pub(crate) fn retain_shared_credit(
     buffer: ByteBuffer,
     lease: std::sync::Arc<MemoryLease>,
 ) -> ByteBuffer {
-    let alignment = buffer.alignment();
-    ByteBuffer::from_bytes_aligned_with_owner(
-        bytes::Bytes::from_owner(ReservedBufferOwner {
-            buffer,
-            _lease: lease,
-        }),
-        alignment,
-    )
-}
-
-impl<L> AsRef<[u8]> for ReservedBufferOwner<L> {
-    fn as_ref(&self) -> &[u8] {
-        self.buffer.as_slice()
-    }
+    buffer.with_retained_owner(lease)
 }
 
 /// Keep the admitted backing owner even for a zero-row Boolean/validity array.
@@ -228,66 +203,7 @@ pub(crate) fn with_shared_credit(
     allocator: vortex::array::memory::HostAllocatorRef,
     lease: std::sync::Arc<MemoryLease>,
 ) -> vortex::array::memory::HostAllocatorRef {
-    std::sync::Arc::new(CreditAllocator { allocator, lease })
-}
-
-#[cfg(all(feature = "vortex-local-primitives", unix))]
-#[derive(Debug)]
-struct CreditAllocator {
-    allocator: vortex::array::memory::HostAllocatorRef,
-    lease: std::sync::Arc<MemoryLease>,
-}
-
-#[cfg(all(feature = "vortex-local-primitives", unix))]
-impl HostAllocator for CreditAllocator {
-    fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer> {
-        Ok(WritableHostBuffer::new(Box::new(CreditBuffer {
-            buffer: self.allocator.allocate(len, alignment)?,
-            lease: std::sync::Arc::clone(&self.lease),
-        })))
-    }
-
-    fn reserve_external(&self, len: usize) -> VortexResult<HostMemoryReservation> {
-        // Keep both the foreign-storage credit and the existing structural owner
-        // alive until the provider has released its covered allocations.
-        Ok(HostMemoryReservation::new((
-            self.allocator.reserve_external(len)?,
-            std::sync::Arc::clone(&self.lease),
-        )))
-    }
-}
-
-#[cfg(all(feature = "vortex-local-primitives", unix))]
-struct CreditBuffer {
-    buffer: WritableHostBuffer,
-    lease: std::sync::Arc<MemoryLease>,
-}
-
-#[cfg(all(feature = "vortex-local-primitives", unix))]
-impl HostBufferMut for CreditBuffer {
-    fn len(&self) -> usize {
-        self.buffer.len()
-    }
-
-    fn alignment(&self) -> Alignment {
-        self.buffer.alignment()
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [u8] {
-        self.buffer.as_mut_slice()
-    }
-
-    fn freeze(self: Box<Self>) -> ByteBuffer {
-        let Self { buffer, lease } = *self;
-        let alignment = buffer.alignment();
-        ByteBuffer::from_bytes_aligned_with_owner(
-            bytes::Bytes::from_owner(ReservedBufferOwner {
-                buffer: buffer.freeze(),
-                _lease: lease,
-            }),
-            alignment,
-        )
-    }
+    credit::allocator(allocator, lease)
 }
 
 #[cfg(test)]

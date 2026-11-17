@@ -201,7 +201,9 @@ impl Debug for WritableHostBuffer {
 }
 
 /// Allocator for exact-size writable host buffers.
-pub trait HostAllocator: Debug + Send + Sync + 'static {
+/// The existing static lifetime also supports safe `Any` inspection so a
+/// downstream owner wrapper can retain one base without recursive dispatch.
+pub trait HostAllocator: Any + Debug + Send + Sync + 'static {
     /// Allocate a writable host buffer with the requested byte length and alignment.
     fn allocate(&self, len: usize, alignment: Alignment) -> VortexResult<WritableHostBuffer>;
 

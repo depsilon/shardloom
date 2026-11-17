@@ -413,9 +413,17 @@ workflow, performance and acceptance work recorded in the historical notes.
   deep identity validation without preparing fixture layers. All 5,885 array
   provider tests pass (one existing opt-in test ignored), together with strict
   provider/native workspace lint, formatting and provenance/license checks.
-  Public depth limits are unchanged. Variant validation, nested credit owners,
-  remaining recursive provider compute and native memory prepayment, and
-  complete deep-workflow acceptance remain open.
+  Explicit buffer owner links and a shared native credit chain now replace
+  recursive allocator/buffer wrappers. Shallow original-wrapper comparisons
+  preserve pointer identity, views and release order; 8,192-link allocation,
+  freeze, external reservation, shared/weak/concurrent owners and one-panic
+  cleanup pass on 128-KiB stacks. All 285 buffer-provider tests and 19
+  documentation tests pass, alongside 198 native credit and 243 payload tests,
+  strict provider/native workspace lint and provenance/license checks. Preserve
+  the original lint failures and the guard's refusal of an overlapping check.
+  Public depth limits are unchanged. Variant validation, remaining recursive
+  provider compute, native memory prepayment and complete deep-workflow
+  acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

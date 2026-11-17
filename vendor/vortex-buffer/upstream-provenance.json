@@ -53,16 +53,20 @@
   "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
     "Cargo.toml": "bf8898715f8c5c5592928a880f56202784e6121bdbeefe77d25e41b0b42c8b24",
+    "src/allocation.rs": "69163d095c6e40c1acfbdc0e6ac33275ad800b21ed9f5390e29f3202a1f25960",
     "src/arrow.rs": "2c115eb6c7e0588b7d93ed0d3ad79883ff0e7d7812d423cb3826ad73f50b9b5d",
-    "src/buffer.rs": "3f470511a20b8828de0e8369d998c191ca25cc6c9f5c36ace43feb5b6e22b719"
+    "src/buffer.rs": "103c53db0cbd9572c80c4e5b17acd64da4d8a697ab4665c6830aa4619f4cadba",
+    "src/lib.rs": "86490bc88b61dfff06f039a2e50fda4272358361e734704ec8af8f34b9229868"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "cf2ad600dbfe71166767dd807383306061a386159b9a12a6ed6eec50e8c2b24b"
+    "README.shardloom.md": "22e9af3976ec5afc1137054f0bdcf37f212905d3027b4cbccd731a42005ac896",
+    "src/retained_owner.rs": "94ba171641ba03baabd8509db82151ef0eb64382e7148b2f1408a63e8e281a7a",
+    "src/retained_owner_tests.rs": "51ccc92e91325779f6b61c371312cb2157dd65268aa4dd461659e570f416f69d"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "cf2ad600dbfe71166767dd807383306061a386159b9a12a6ed6eec50e8c2b24b"
+    "sha256": "22e9af3976ec5afc1137054f0bdcf37f212905d3027b4cbccd731a42005ac896"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
