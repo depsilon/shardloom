@@ -24,7 +24,6 @@ use vortex::{
             HostAllocator, HostAllocatorRef, HostMemoryReservation, HostMemorySessionExt as _,
             WritableHostBuffer,
         },
-        optimizer::ArrayOptimizer as _,
         scalar::Scalar,
         serde::SerializeOptions,
         validity::Validity,
@@ -502,11 +501,9 @@ fn deep_array(shape: usize, depth: usize, invalid: bool) -> ArrayRef {
             .unwrap()
             .into_array(),
         };
-        // Prepare each fixture layer while its children are already prepared.
-        // This isolates the copier's stack behavior. The provider optimizer's
-        // unprepared deep traversal remains a separate, recorded blocker.
-        array = array.optimize_ctx(&session).unwrap();
     }
+    // Exercise the real optimizer boundary when the copier reaches an
+    // unprepared source; no fixture layer is optimized ahead of that call.
     array
 }
 

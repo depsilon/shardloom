@@ -404,10 +404,18 @@ workflow, performance and acceptance work recorded in the historical notes.
   128-KiB stacks, including deep/late errors, denied growth, allocation panic,
   cancellation and escaped-owner refunds. All 243 payload-related tests and
   strict native workspace lint pass at this checkpoint. Preserve the original
-  unprepared-source stack failure: provider optimizer traversal remains
-  recursive and must be replaced before retained deep selection is admitted.
-  Public depth limits are unchanged. Variant validation, provider compute and
-  memory prepayment, and complete deep-workflow acceptance remain open.
+  unprepared-source stack failure as an original observation. The following
+  optimizer checkpoint replaces that recursive driver with ordered native
+  continuations. Frozen original methods verify rule/trace order, sharing,
+  graphs, values, statistics, marking, exact errors and rewrite limits.
+  Unprepared 8,192-level compound arrays, rewritten descendants and deep
+  error/panic cleanup pass on 128-KiB stacks; the native copier now passes its
+  deep identity validation without preparing fixture layers. All 5,885 array
+  provider tests pass (one existing opt-in test ignored), together with strict
+  provider/native workspace lint, formatting and provenance/license checks.
+  Public depth limits are unchanged. Variant validation, nested credit owners,
+  remaining recursive provider compute and native memory prepayment, and
+  complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

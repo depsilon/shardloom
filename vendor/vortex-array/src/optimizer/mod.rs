@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: ordered traversal without native call-stack recursion.
 
 //! The optimizer applies metadata-only rewrite rules (`reduce` and `reduce_parent`) in a
 //! fixpoint loop until no more transformations are possible.
@@ -40,9 +41,7 @@ use std::hash::Hasher;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use smallvec::SmallVec;
 use vortex_error::VortexResult;
-use vortex_error::vortex_bail;
 use vortex_session::VortexSession;
 use vortex_utils::aliases::hash_map::HashMap;
 
@@ -53,6 +52,14 @@ use crate::trace_op;
 
 pub mod kernels;
 pub mod rules;
+
+mod continuation;
+
+#[cfg(test)]
+mod reference;
+
+#[cfg(test)]
+mod continuation_tests;
 
 /// Last zero-based fixpoint pass attempted before treating continued rewrites as an infinite loop.
 /// Increasing this value permits longer rewrite chains but delays detection of cyclic rules.
@@ -219,177 +226,15 @@ impl<'a> Optimizer<'a> {
         }
     }
 
-    /// Optimizes `array` and the descendants below it that were never optimized, and marks the
-    /// result.
-    ///
-    /// If another owner holds `array` too, the rewrite is remembered, and a later call with the
-    /// same array returns it.
+    /// Optimizes the root and its previously unoptimized descendants, preserving
+    /// shared rewrite caching and the original rule/marking boundaries.
     pub(crate) fn optimize_array(&mut self, array: &ArrayRef) -> VortexResult<ArrayRef> {
-        if !array.is_shared() {
-            return self.optimize(array.clone());
-        }
-
-        let key = ArrayByPtr(array.clone());
-        if let Some(rewritten) = self.rewritten_shared.get(&key) {
-            return Ok(rewritten.clone());
-        }
-
-        let optimized = self.optimize(array.clone())?;
-        if !ArrayRef::ptr_eq(&optimized, array) {
-            self.rewritten_shared.insert(key, optimized.clone());
-        }
-
-        Ok(optimized)
+        continuation::optimize_array(self, array)
     }
 
-    /// Optimizes the root of `array` top down: first the root, then the descendants below it that
-    /// were never optimized, then the root again while its children change. Marks the result.
-    fn optimize(&mut self, array: ArrayRef) -> VortexResult<ArrayRef> {
-        if array.optimized_state().is_optimized() {
-            return Ok(array);
-        }
-
-        // The rules of the root get the first try, on children that can still be lazy, so a rule
-        // that drops or replaces a child does not pay to optimize that child's subtree first.
-        let mut optimized = self.optimize_root(array.clone())?;
-
-        for _ in 0..=MAX_OPTIMIZER_REWRITE_PASS {
-            let with_children = self.optimize_new_nodes(optimized.clone())?;
-            if ArrayRef::ptr_eq(&with_children, &optimized) {
-                break;
-            }
-
-            // A child changed its encoding, so a parent rule keyed on that encoding can apply now.
-            optimized = self.optimize_root(with_children)?;
-        }
-
-        // A rewrite keeps the logical values, so every statistic of the input stays valid. Lazy
-        // constructors such as `slice` put the statistics they carry over on the lazy node.
-        if !ArrayRef::ptr_eq(&optimized, &array) {
-            optimized.statistics().inherit_from(array.statistics());
-        }
-
-        optimized.optimized_state().mark_optimized();
-        Ok(optimized)
-    }
-
-    /// Runs the reduce and parent-reduce rules on the root of `current_array` to fixpoint.
-    ///
-    /// With session kernels, the nodes each rewrite built are optimized before the next pass.
-    fn optimize_root(&mut self, mut current_array: ArrayRef) -> VortexResult<ArrayRef> {
-        let mut any_optimizations = false;
-
-        trace_op!(record_optimize_start(
-            &current_array,
-            self.session_kernels.is_some()
-        ));
-
-        for _ in 0..=MAX_OPTIMIZER_REWRITE_PASS {
-            trace_op!(record_optimize_loop_start(&current_array));
-
-            if let Some(new_array) = current_array.reduce()? {
-                current_array = self.optimize_rewritten(new_array)?;
-                any_optimizations = true;
-                trace_op!(record_optimize_loop_end());
-                continue;
-            }
-
-            trace_op!(record_optimize_reduce_none(&current_array));
-
-            // Try children in order; the first parent rewrite restarts the fixpoint loop.
-            let mut reduced_parent = None;
-            for (slot_idx, slot) in current_array.slots().iter().enumerate() {
-                let Some(child) = slot else {
-                    continue;
-                };
-
-                // Session kernels take precedence over the child's static parent-reduce rules.
-                if let Some(session_kernels) = self.session_kernels
-                    && let Some(new_array) =
-                        try_session_parent_reduce(session_kernels, &current_array, child, slot_idx)?
-                {
-                    reduced_parent = Some(new_array);
-                    break;
-                }
-
-                if let Some(new_array) = child.reduce_parent(&current_array, slot_idx)? {
-                    reduced_parent = Some(new_array);
-                    break;
-                }
-            }
-
-            if let Some(new_array) = reduced_parent {
-                current_array = self.optimize_rewritten(new_array)?;
-                any_optimizations = true;
-                trace_op!(record_optimize_loop_end());
-                continue;
-            }
-
-            trace_op!(record_optimize_parent_reduce_none(&current_array));
-            trace_op!(record_optimize_loop_end());
-
-            trace_op!(record_optimize_done(&current_array, any_optimizations));
-
-            return Ok(current_array);
-        }
-
-        vortex_bail!("Exceeded maximum optimization iterations (possible infinite loop)");
-    }
-
-    /// Optimizes the nodes that a rule built below the array it returned, if the optimizer has
-    /// session kernels.
-    fn optimize_rewritten(&mut self, array: ArrayRef) -> VortexResult<ArrayRef> {
-        if self.session_kernels.is_none() {
-            return Ok(array);
-        }
-
-        self.optimize_new_nodes(array)
-    }
-
-    /// Optimizes the nodes below `array` that were never optimized, such as those a rule built
-    /// below its result.
-    ///
-    /// Rules and constructors build lazy arrays, so these nodes are not yet optimized, at any
-    /// depth. Optimizing them as each rewrite happens keeps the optimizer from undoing one rule
-    /// with its inverse: `slice(get_item(s))` and `get_item(slice(s))` rewrite into each other
-    /// until the inner `slice(s)` collapses into `s`'s own encoding.
-    ///
-    /// A child that is already optimized is left as it is without visiting its subtree, which
-    /// skips the subtrees a rule carries over from the array it rewrote.
-    fn optimize_new_nodes(&mut self, array: ArrayRef) -> VortexResult<ArrayRef> {
-        let mut new_slots: Option<SmallVec<_>> = None;
-        for (slot_idx, slot) in array.slots().iter().enumerate() {
-            let optimized = match slot {
-                Some(child) if !child.optimized_state().is_optimized() => {
-                    let optimized = self.optimize_array(child)?;
-                    (!ArrayRef::ptr_eq(&optimized, child)).then_some(optimized)
-                }
-                _ => None,
-            };
-
-            match optimized {
-                Some(optimized) => new_slots
-                    .get_or_insert_with(|| {
-                        let mut slots = SmallVec::with_capacity(array.slots().len());
-                        slots.extend(array.slots()[..slot_idx].iter().cloned());
-                        slots
-                    })
-                    .push(Some(optimized)),
-                None => {
-                    if let Some(new_slots) = &mut new_slots {
-                        new_slots.push(slot.clone());
-                    }
-                }
-            }
-        }
-
-        let Some(new_slots) = new_slots else {
-            return Ok(array);
-        };
-
-        // SAFETY: optimizer rules only replace child slots with logically equivalent arrays, so
-        // the parent's logical values and statistics remain valid.
-        unsafe { array.with_slots(new_slots) }
+    /// Runs root rules to fixpoint; without a session descendants remain untouched.
+    fn optimize_root(&mut self, array: ArrayRef) -> VortexResult<ArrayRef> {
+        continuation::optimize_root(self, array)
     }
 }
 

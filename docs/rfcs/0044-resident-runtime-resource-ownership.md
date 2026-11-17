@@ -1192,6 +1192,41 @@ nested allocator-owner cleanup retain their separate obligations. Do not lift
 public depth limits or claim full lifecycle or performance acceptance from
 this amendment alone.
 
+### Native optimizer continuation amendment, November 17, 2026
+
+Replace the pinned array optimizer's recursive driver with ordered owned
+continuations inside the existing provider. Keep root-only optimization,
+session optimization, execution's shared optimizer and native rule callbacks
+on their existing entrypoints. This does not add another optimizer or execute
+through an external engine.
+
+Preserve root-first rules before previously unoptimized children, session parent
+rules before static parent rules, slot order and first-match restart. Each
+rewrite's new descendants finish before the next root pass. Keep the existing
+inclusive 101-pass limits, including the outer child-change loop's existing
+completion behavior, exact errors and trace event order. Preserve statistics
+inheritance and optimized marking only at the original completion boundary.
+
+Check shared ownership before making continuation-owned clones. Keep original
+nodes, rewritten nodes and lazy slot replacements alive for the same callback
+boundaries as before; cache only nonidentity rewrites of originally shared
+nodes. Do not clone child arrays to queue them before that decision. Visit one
+child at a time and allocate replacement slots only after the first changed
+child. Error and panic cleanup drains suspended calls innermost first, using
+the intrinsic native array cleanup and requesting no new execution grant.
+
+Require frozen original-driver comparisons of shallow output graphs, complete
+values, pointer-sharing relationships, callback order, sharing observations,
+statistics, optimized marks, trace events and exact errors. Cover missing
+slots, rewrite-created descendants, parent short circuits, session precedence,
+the rewrite threshold and errors/panics after earlier deep children. Unprepared
+8,192-level compound native arrays and changed descendants must optimize and
+release on 128-KiB stacks. These provider tests are not a memory grant: native
+deep admission must prepay continuation, replacement-slot, cache and cleanup
+overlap. Recursive work inside individual take/filter/scalar/cast/canonical
+providers remains a separate obligation. Public depth limits remain unchanged
+until complete lifecycle acceptance.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

@@ -15018,6 +15018,7 @@
           "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
           "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
+          "src/optimizer/mod.rs": "4d833eac8c8b87d963cf34213ca68a3eb823f0f355f264158915a558ca77de1f",
           "src/proto.rs": "e235425fbdad3f97fa52a04b15f6d3e42fb4f4fa837976882b90112bf399941e",
           "src/proto/generated/vortex.dtype.rs": "7e7571651fcd5717208791420d9962567e923cb94fcbf24f115070e102be1e32",
           "src/proto/generated/vortex.scalar.rs": "35b10680d4c21bf4c2b0df6d6a284a246e8d44878c3b87abb796f1bfa6325440",
@@ -15047,7 +15048,7 @@
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "de0be00aa139425150ad4af42a01b7457c006242c72cd9fbe422f69b5a6d6f60",
+          "README.shardloom.md": "e042901c6878b9c944316ade214f04e1842502128ac09470e033a92b179cfb83",
           "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
           "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
           "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -15083,6 +15084,9 @@
           "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
           "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
           "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
+          "src/optimizer/continuation.rs": "1ebd7bdabb13a008a362c13b2119b74971373d5e348b5ead0e7a733da1d48550",
+          "src/optimizer/continuation_tests.rs": "edff99bf8f731cba05312e0dfd7630d8936ceba94ee4ad3099bb92171ce55f07",
+          "src/optimizer/reference.rs": "831d65207b3a58101687c3005096d832d017ff1deafbca30a193d987f6229fd9",
           "src/proto/decode.rs": "6cbc9d0f08c42e7129ba3160277fcac5ca26bc94f44941152a6e861d5e7eac7e",
           "src/proto/decode_tests.rs": "74544351a6631a3b5221b8ac5f815282e972e9b12caaa63b849c3303d4595179",
           "src/proto/generated/README.shardloom.md": "3730e84f844a6652731dce62a8b102a87c8b15ca585fd7afd6639854d8158553",
@@ -15129,7 +15133,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "de0be00aa139425150ad4af42a01b7457c006242c72cd9fbe422f69b5a6d6f60"
+          "sha256": "e042901c6878b9c944316ade214f04e1842502128ac09470e033a92b179cfb83"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

@@ -1,5 +1,25 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 ordered optimizer traversal
+
+The existing optimizer entrypoints now use ordered owned continuations. Root
+rules still run before unoptimized children; rewritten descendants finish
+before the next root pass. Session parent rules retain precedence, with the
+same slot order, first-match restart, rewrite limits, statistics inheritance,
+optimized marks and trace events. Shared-node caching tests ownership before
+cloning, and partial slot replacement stays lazy. Suspended calls unwind
+innermost first without new cleanup grants.
+
+The test-only original driver preserves its six method bodies and session
+helper. Comparisons cover complete values and graphs, sharing, marks,
+statistics, callback/error order and traces. Private 8,192-level unprepared
+Struct/List/FixedSizeList/mixed arrays, rewritten descendants and deep
+error/panic cleanup exercise 128-KiB stacks. Native deep admission still must
+prepay continuation, replacement-slot, cache and cleanup overlap; recursion
+inside individual compound compute providers remains separate. Public depth
+limits are unchanged. See the
+[optimizer amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-optimizer-continuation-amendment-november-17-2026).
+
 ## November 17 ordered logical array decoding
 
 `SerializedArray::decode_iterative` drives a flat stack of decoder continuations.
