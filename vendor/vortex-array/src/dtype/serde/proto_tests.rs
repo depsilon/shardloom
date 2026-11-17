@@ -21,8 +21,7 @@ use crate::flatbuffers::{FlatBuffer, WriteFlatBufferExt};
 use crate::proto::scalar as scalar_pb;
 use crate::scalar::ScalarValue;
 
-#[path = "proto_reference.rs"]
-mod reference;
+use crate::dtype::serde::proto_reference as reference;
 
 const KINDS: [&str; 7] = [
     "list",

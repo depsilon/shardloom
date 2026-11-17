@@ -14962,6 +14962,7 @@
           "src/dtype/mod.rs": "5938b4356852b6e1df597709752f8b2f2de7e32ef8bbed64862257316ee5fe73",
           "src/dtype/ptype.rs": "99384aa1e554f792c00516f1bbd256c3330683e82929c949f3c073bf92624dba",
           "src/dtype/serde/flatbuffers.rs": "567ed641a56faf51c2307037269de7a5370467d11b62bd4c9e48a0ca455f0e7d",
+          "src/dtype/serde/mod.rs": "dbfb1740140aaf3ab218140d3b48732ac83c4030ae55476823ec795c003d3b8d",
           "src/dtype/serde/proto.rs": "c05269720836abbc977cf0503a0d4fac2121a23015a4300482a4e099142fa1dc",
           "src/dtype/struct_.rs": "f2a73ec0d02dafdebcc6c7379d4ef6732eb5a980bd22cab84c3887a503a4634c",
           "src/dtype/union.rs": "2b2d70e3ce28cd4e64572189bc9ab5402e09afaa21facf707b8167547f652dd3",
@@ -14978,6 +14979,7 @@
           "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
           "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
           "src/scalar/mod.rs": "8f8c57a4eec2b4f093b899b2d15e2008d1d5b0edf6f56bf21a7eb559eb820470",
+          "src/scalar/proto.rs": "df879a1f11e71d2ad860096e7470ac8178d4adf8dcc26207cf79099cb6518890",
           "src/scalar/scalar_impl.rs": "ee0f07a9bdfd2b50cb5c8737d17a32131ac245ed401b30e1fc02795392309790",
           "src/scalar/scalar_value.rs": "c70acf6505c82aee55b1bcf28b833d4972a9bc848a118d640da330d7366616e2",
           "src/scalar/typed_view/list.rs": "a45a406fa5bad5f74ebb39565f390691bf6743a1749f9f1101a7f6cdde3c7653",
@@ -15022,8 +15024,8 @@
           "src/dtype/serde/flatbuffers_write_reference.rs": "b38a0ebdc751ad7c5b22057a3869c783e5c34e6226271a490c51e898b2ae8e0b",
           "src/dtype/serde/flatbuffers_write_tests.rs": "a44e88bc7c91db8880f9fac749efb2ae936b9b781b7a09d159dac4f0c11bca27",
           "src/dtype/serde/proto_read.rs": "26ee332bae46d8df627c941acb6960f99acf34aca3ba0747fa1cd1f55b8b1cc1",
-          "src/dtype/serde/proto_reference.rs": "b861a4f707aba28d96b3e4ddff9dddd16f7534669ad956a46c80c5866d301486",
-          "src/dtype/serde/proto_tests.rs": "b2f82db4367793ecf9f58e108d90a0c7d7c8c86acd52ddcb4a950560bf6c2d7b",
+          "src/dtype/serde/proto_reference.rs": "9cffe3b29a68ed3fd82966d8d8f8390cfdaea77e7f747e0174c24fbdc7a03496",
+          "src/dtype/serde/proto_tests.rs": "fef491a8bdcfb53467c2a3429bb235cfb626be813140cfddede38186d911f708",
           "src/dtype/serde/proto_write.rs": "17e5d6810f0f9b49332644677ff0905ad08aa6dfc26de3be12e163d1e69783fe",
           "src/dtype/struct_memory_tests.rs": "8f20bc1ce5af7bb66188d5509e515a424e43c3317afd1629e5fb3aff2ea86f96",
           "src/dtype/structural.rs": "25f1b0c5bd753ca81df7000401e75869a8aeaf4cf451fbd03b22c7548c66e1f9",
@@ -15052,6 +15054,10 @@
           "src/scalar/ordering.rs": "6ccabd278b4a3b4faa2bbaa04b385b316eee87dba5b5518e3764281b9b94cdb9",
           "src/scalar/ordering_reference.rs": "c5209cead887306e1267dc7d42bee3b60b9d0288dbd580c60ff7cd92e23817fd",
           "src/scalar/ordering_tests.rs": "8315a4cc885dfe55964f0ddfbb7df50bf754ae42c1db45047833abfe2d098dab",
+          "src/scalar/proto_read.rs": "09a53de433acc677686875bcb21ea5639cfefc89d7bbeaf2aa4912ae76f84cc3",
+          "src/scalar/proto_reference.rs": "5d53270877f9329298f54a99827646985c4c6debc55bdcbf4822ae91a980edf8",
+          "src/scalar/proto_tests.rs": "472c8e2d264f170c500b3ae63958f6622970d138900fa8d606e05c75fa70e437",
+          "src/scalar/proto_write.rs": "bb85b026c7b29aa9e3962784b4211c59f8ebbc2f798ff1791e139910e3bcd0e9",
           "src/scalar/release.rs": "7cec148f9e6bfd81ddb6c448d18a6bcf1db2abd599a2261aa1f3362cb0263b3f",
           "src/scalar/release_tests.rs": "2b20da3e716641e206f2a15ba9eaaf4f319f379cc9206eaa4047efe40505cfb1",
           "src/scalar/structural.rs": "ea4576461dc2b420fa78204749c80a03fed839a67a6b01664e3aa0ac15669524",
@@ -15066,7 +15072,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "21cb36fba5b32854cf5e090b35735c82e732076048815157b552a39b414ede54"
+          "sha256": "b8cc4aea2713061df24ef00533683d1c9c9d2413d27fb6a525e2e798df6fc778"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

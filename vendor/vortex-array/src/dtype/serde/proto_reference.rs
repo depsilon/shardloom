@@ -12,7 +12,7 @@ use std::sync::Arc;
 use vortex_error::{VortexResult, vortex_err};
 use vortex_session::VortexSession;
 
-pub(super) fn read(value: &pb::DType, session: &VortexSession) -> VortexResult<DType> {
+pub(crate) fn read(value: &pb::DType, session: &VortexSession) -> VortexResult<DType> {
     match value
         .dtype_type
         .as_ref()
@@ -141,7 +141,7 @@ pub(super) fn read(value: &pb::DType, session: &VortexSession) -> VortexResult<D
     }
 }
 
-pub(super) fn write(value: &DType) -> VortexResult<pb::DType> {
+pub(crate) fn write(value: &DType) -> VortexResult<pb::DType> {
     Ok(pb::DType {
         dtype_type: Some(match value {
             DType::Null => DtypeType::Null(pb::Null {}),

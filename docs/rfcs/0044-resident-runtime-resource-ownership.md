@@ -790,6 +790,18 @@ existing malformed-field errors and constructor panic behavior; unwind partial
 native owners from the innermost continuation. Use the same native scalar model
 for the following value-conversion work, preserving its existing leaf policies.
 
+Scalar-value conversion uses borrowed protobuf/native value cursors and ordered
+partial tuple, union and Variant continuations. A read cursor may own a shallow
+native dtype header, sharing the existing schema children; a Variant continuation
+retains its newly parsed dtype until final construction. Unwrap exactly one
+extension storage layer per value invocation. Preserve struct width checks before
+lazy field resolution, one entries dtype per map invocation, union tag and child
+validation order, and Variant dtype parsing before missing-value checks. Keep
+the original repeated validation and extension callback counts; removing recursive
+calls does not authorize eliminating observable validation work. Leaf numeric,
+decimal, byte/string and legacy F16 conversion policy stays unchanged. Partial
+native owners unwind inside-out, including failure after an earlier deep sibling.
+
 Require mechanically checked original-source shallow references, complete type
 shapes, exact shallow protobuf bytes, malformed objects, lazy and extension
 callback order, and 8,192-level small-stack conversion and temporary-owner

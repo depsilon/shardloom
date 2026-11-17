@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: ordered iterative scalar object conversion.
 
 //! Protobuf serialization and deserialization for scalars.
 
-use num_traits::ToBytes;
+#[cfg(test)]
+#[path = "proto_tests.rs"]
+mod iterative_tests;
+#[path = "proto_read.rs"]
+mod read;
+#[path = "proto_write.rs"]
+mod write;
+
 use num_traits::ToPrimitive;
 use prost::Message;
 use vortex_buffer::BufferString;
@@ -12,7 +20,6 @@ use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_ensure;
-use vortex_error::vortex_ensure_eq;
 use vortex_error::vortex_err;
 use vortex_session::VortexSession;
 
@@ -21,14 +28,11 @@ use crate::dtype::PType;
 use crate::dtype::half::f16;
 use crate::dtype::i256;
 use crate::proto::scalar as pb;
-use crate::proto::scalar::ListValue;
-use crate::proto::scalar::UnionValue as PbUnionValue;
 use crate::proto::scalar::scalar_value::Kind;
 use crate::scalar::DecimalValue;
 use crate::scalar::PValue;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
-use crate::scalar::UnionValue;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Serialize INTO proto.
@@ -58,12 +62,7 @@ impl ScalarValue {
     /// `pb::ScalarValue` are not types defined in this crate). So we must make this a method on
     /// `vortex_array::scalar::ScalarValue` directly.
     pub fn to_proto(this: Option<&Self>) -> pb::ScalarValue {
-        match this {
-            None => pb::ScalarValue {
-                kind: Some(Kind::NullValue(0)),
-            },
-            Some(this) => pb::ScalarValue::from(this),
-        }
+        write::write(this)
     }
 
     /// Serialize an optional [`ScalarValue`] to protobuf bytes (handles null values).
@@ -79,50 +78,7 @@ impl ScalarValue {
 
 impl From<&ScalarValue> for pb::ScalarValue {
     fn from(value: &ScalarValue) -> Self {
-        match value {
-            ScalarValue::Bool(v) => pb::ScalarValue {
-                kind: Some(Kind::BoolValue(*v)),
-            },
-            ScalarValue::Primitive(v) => pb::ScalarValue::from(v),
-            ScalarValue::Decimal(v) => {
-                let inner_value = match v {
-                    DecimalValue::I8(v) => v.to_le_bytes().to_vec(),
-                    DecimalValue::I16(v) => v.to_le_bytes().to_vec(),
-                    DecimalValue::I32(v) => v.to_le_bytes().to_vec(),
-                    DecimalValue::I64(v) => v.to_le_bytes().to_vec(),
-                    DecimalValue::I128(v128) => v128.to_le_bytes().to_vec(),
-                    DecimalValue::I256(v256) => v256.to_le_bytes().to_vec(),
-                };
-
-                pb::ScalarValue {
-                    kind: Some(Kind::BytesValue(inner_value)),
-                }
-            }
-            ScalarValue::Utf8(v) => pb::ScalarValue {
-                kind: Some(Kind::StringValue(v.to_string())),
-            },
-            ScalarValue::Binary(v) => pb::ScalarValue {
-                kind: Some(Kind::BytesValue(v.to_vec())),
-            },
-            ScalarValue::Tuple(v) => {
-                let mut values = Vec::with_capacity(v.len());
-                for elem in v.iter() {
-                    values.push(ScalarValue::to_proto(elem.as_ref()));
-                }
-                pb::ScalarValue {
-                    kind: Some(Kind::ListValue(ListValue { values })),
-                }
-            }
-            ScalarValue::Union(v) => pb::ScalarValue {
-                kind: Some(Kind::UnionValue(Box::new(PbUnionValue {
-                    type_id: u32::from(v.type_id()),
-                    value: Some(Box::new(ScalarValue::to_proto(v.child_value()))),
-                }))),
-            },
-            ScalarValue::Variant(v) => pb::ScalarValue {
-                kind: Some(Kind::VariantValue(Box::new(pb::Scalar::from(v.as_ref())))),
-            },
-        }
+        write::write(Some(value))
     }
 }
 
@@ -245,36 +201,7 @@ impl ScalarValue {
         dtype: &DType,
         session: &VortexSession,
     ) -> VortexResult<Option<Self>> {
-        let kind = value
-            .kind
-            .as_ref()
-            .ok_or_else(|| vortex_err!("Scalar value missing kind"))?;
-
-        // `DType::Extension` store their serialized values using the storage `DType`.
-        let dtype = match dtype {
-            DType::Extension(ext) => ext.storage_dtype(),
-            _ => dtype,
-        };
-
-        Ok(match kind {
-            Kind::NullValue(_) => None,
-            Kind::BoolValue(v) => Some(bool_from_proto(*v, dtype)?),
-            Kind::Int64Value(v) => Some(int64_from_proto(*v, dtype)?),
-            Kind::Uint64Value(v) => Some(uint64_from_proto(*v, dtype)?),
-            Kind::F16Value(v) => Some(f16_from_proto(*v, dtype)?),
-            Kind::F32Value(v) => Some(f32_from_proto(*v, dtype)?),
-            Kind::F64Value(v) => Some(f64_from_proto(*v, dtype)?),
-            Kind::StringValue(s) => Some(string_from_proto(s, dtype)?),
-            Kind::BytesValue(b) => Some(bytes_from_proto(b, dtype)?),
-            Kind::ListValue(v) => Some(list_from_proto(v, dtype, session)?),
-            Kind::UnionValue(v) => Some(union_from_proto(v, dtype, session)?),
-            Kind::VariantValue(v) => match dtype {
-                DType::Variant(_) => Some(ScalarValue::Variant(Box::new(Scalar::from_proto(
-                    v, session,
-                )?))),
-                _ => vortex_bail!("expected non-Variant scalar proto for dtype {dtype}"),
-            },
-        })
+        read::read(value, dtype, session)
     }
 }
 
@@ -441,82 +368,6 @@ fn bytes_from_proto(bytes: &[u8], dtype: &DType) -> VortexResult<ScalarValue> {
     }
 }
 
-/// Deserialize a [`ScalarValue::Tuple`] from a protobuf `ListValue`.
-fn list_from_proto(
-    v: &ListValue,
-    dtype: &DType,
-    session: &VortexSession,
-) -> VortexResult<ScalarValue> {
-    let values = match dtype {
-        DType::List(element_dtype, _) | DType::FixedSizeList(element_dtype, ..) => v
-            .values
-            .iter()
-            .map(|elem| ScalarValue::from_proto(elem, element_dtype.as_ref(), session))
-            .collect::<VortexResult<Vec<_>>>()?,
-        DType::Struct(fields, _) => {
-            vortex_ensure_eq!(
-                v.values.len(),
-                fields.nfields(),
-                "ListValue has the wrong number of struct fields"
-            );
-
-            v.values
-                .iter()
-                .zip(fields.fields())
-                .map(|(value, field_dtype)| ScalarValue::from_proto(value, &field_dtype, session))
-                .collect::<VortexResult<Vec<_>>>()?
-        }
-        DType::Map(map, _) => {
-            let entry_dtype = map.entries_dtype();
-            v.values
-                .iter()
-                .map(|entry| ScalarValue::from_proto(entry, &entry_dtype, session))
-                .collect::<VortexResult<Vec<_>>>()?
-        }
-        _ => vortex_bail!("expected a tuple-backed dtype for ListValue, got {dtype}"),
-    };
-    Ok(ScalarValue::Tuple(values))
-}
-
-/// Deserialize a present union scalar value.
-fn union_from_proto(
-    value: &PbUnionValue,
-    dtype: &DType,
-    session: &VortexSession,
-) -> VortexResult<ScalarValue> {
-    let DType::Union(variants, _) = dtype else {
-        vortex_bail!("expected Union dtype for UnionValue, got {dtype}");
-    };
-
-    let type_id = u8::try_from(value.type_id)
-        .map_err(|_| vortex_err!("union type ID {} is outside the u8 range", value.type_id))?;
-
-    let child_index = variants.tag_to_child_index(type_id).ok_or_else(|| {
-        vortex_err!(
-            "union type ID {type_id} is not present in {:?}",
-            variants.type_ids()
-        )
-    })?;
-
-    let child_dtype = variants
-        .variant_by_index(child_index)
-        .ok_or_else(|| vortex_err!("union type ID {type_id} resolved out of bounds"))?;
-
-    let child_proto = value
-        .value
-        .as_deref()
-        .ok_or_else(|| vortex_err!("UnionValue missing child value"))?;
-
-    let child_value = ScalarValue::from_proto(child_proto, &child_dtype, session)?;
-    Scalar::validate(&child_dtype, child_value.as_ref()).map_err(|error| {
-        error.with_context(format!(
-            "union type ID {type_id} has invalid child for dtype {child_dtype}"
-        ))
-    })?;
-
-    Ok(ScalarValue::Union(UnionValue::new(type_id, child_value)))
-}
-
 #[cfg(test)]
 mod tests {
     use std::f32;
@@ -535,6 +386,7 @@ mod tests {
     use crate::dtype::UnionVariants;
     use crate::dtype::half::f16;
     use crate::proto::scalar as pb;
+    use crate::proto::scalar::UnionValue as PbUnionValue;
     use crate::scalar::DecimalValue;
     use crate::scalar::Scalar;
     use crate::scalar::ScalarValue;
