@@ -878,6 +878,54 @@ regeneration overrides and provenance. Native operation admission must prepay
 the writing plan, continuations, output and cleanup overlap before public depth
 guards can change. Writer tests alone do not establish a deep wire round trip.
 
+### Protobuf decode-continuation amendment, November 17, 2026
+
+Vendor the already pinned Apache-2.0 Prost 0.14.4 package, with its published
+archive and source identities, for a narrow safe decode-context extension.
+`DecodeContext::with_recursion_limit` supplies an explicit remaining bound;
+`check_recursion_limit` reads that bound and `enter_recursion_checked` returns
+a checked child context without changing its parent. Keep the existing default
+of 100 and the original recursive helper behavior. The optional upstream
+`no-recursion-limit` feature retains its unbounded **default**, but an explicitly
+constructed bounded context remains bounded even under feature unification.
+Do not enable that feature, inspect private representation, manufacture callback
+probes, or change dependency versions. Preserve the separate older Prost graph
+and independent fixture producers.
+
+Make unknown-group skipping iterative inside that pinned codec. Ordinary unknown
+fields retain their existing codecs and depth checks. Group continuations must
+preserve key consumption, matching end tags, error precedence and the original
+rule that an immediate matching end tag consumes no further recursion budget.
+Use no new unsafe operation; allocate continuations only for group nesting.
+
+Then replace the recursive Vortex protobuf root merge paths with owned model
+continuations. Preserve the original field/oneof model, primitive codecs and
+caller context. Delimited loops retain remaining-byte end offsets and detect
+overrun after each complete field, rather than limiting the underlying buffer.
+Same-variant updates and singular optional children retain partial changes on
+error; different-variant candidates and repeated children commit only after
+successful completion. Optional message slots are initialized before the original
+wire/depth/length checks. Accumulate exactly the generated known-field error
+contexts; unknown-field failures acquire no new local context. No callback replay,
+model serialization bootstrap or alternate execution engine is permitted.
+
+Expose a pinned `message::DecodeContinuation` that enters a checked delimited
+message and returns its next field or completion using those same end offsets.
+Its private bound and child context preserve Prost's own error variants and
+check order without exposing error internals or using synthetic callbacks to
+obtain them. Consumers retain the same buffer and restore parent continuations
+after child completion. This is a parser continuation, not a memory grant.
+
+Require exact shallow values, errors and remaining-input comparisons against the
+immutable generated model and original unknown-field helper, including malformed
+wire, optional/repeated partial failure, replacement oneofs, sibling completion,
+depth boundaries and feature-unified explicit bounds. Require 8,192-level valid,
+invalid and unknown-group decoding/cleanup on 128-KiB stacks. This is provider
+foundation work within the full lifecycle unit: native operation owners must
+prepay model, continuation, error-context and cleanup overlap before public deep
+admission. Public depth 24 and all existing guards remain unchanged until the
+remaining native array/value/workflow acceptance passes.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

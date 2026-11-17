@@ -1,6 +1,6 @@
 # Standalone patched-provider validation locks
 
-These sixteen lockfiles freeze the current excluded provider test configurations.
+These seventeen lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
@@ -21,6 +21,23 @@ package identities and registry checksums already occur in the root lock.
 All-feature standalone testing activates the existing optional serde edge;
 root runtime features are unchanged. This is source/graph registration, not
 complete deep-runtime or all-provider acceptance.
+
+## November 17 Prost decode-context source patch
+
+Prost remains at 0.14.4. The local source patch provides checked decode
+continuations and iterative unknown-group skipping. It retains the default
+recursion limit of 100 and keeps explicit
+bounds active when `no-recursion-limit` is selected. The standalone Prost
+configuration checks default and `no-recursion-limit` tests and strict lint,
+plus both no-default-feature builds. The four groups remain unchanged; Prost
+joins the buffer group. Nine Vortex provider configurations select the path
+patch, while `orc-rust` retains its independent Prost 0.13.5 lock entry.
+The nine lock changes remove only the Prost 0.14.4 registry source and checksum;
+all other package identities, checksums and dependency edges remain unchanged.
+The new standalone lock's 112 identities and registry checksums already occur
+in the reviewed root and provider graphs. No dependency version changes.
+These recipes and source identities do not establish acceptance until the
+reviewed patch, lock provenance, and provider checks are complete.
 
 ## November 8 provider migration
 

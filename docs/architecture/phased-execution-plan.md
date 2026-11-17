@@ -333,8 +333,14 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   verify exact bytes, capacity refusal and unchanged default decoding, including
   malformed errors, input consumption, groups and partial merges. Complete
   fixture grammar checks cover 8,192-level writing on the same small stacks.
-  All 5,872 provider tests and strict provider/native lint pass. Explicit bounded
-  protobuf deep decoding and complete deep-workflow runtime/resource acceptance
+  All 5,872 provider tests and strict provider/native lint pass at that checkpoint.
+  The pinned Prost 0.14.4 patch now supplies checked delimited-message/depth
+  continuations and iterative unknown-group skipping. Both default and optional
+  unlimited-default configurations pass all 418 codec tests; explicitly supplied
+  bounds remain enforced in either configuration. Strict checks, both no-standard-
+  library builds and native workspace lint pass. Nine provider graphs select the
+  same-version patch without other lock changes; the older ORC graph is unchanged.
+  Explicit bounded protobuf model decoding and complete deep-workflow runtime/resource acceptance
   remain open; default decode and public depth limits are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

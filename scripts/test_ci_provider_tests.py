@@ -15,7 +15,7 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "vortex-arrow", "flatbuffers")
+NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "vortex-arrow", "flatbuffers", "prost")
 RETIRED_PROVIDERS = {"vortex-runend"}  # 0.93 moves its implementation/tests into vortex-array.
 CURRENT_PROVIDERS = (set(FROZEN_CRATES) | set(NEW_PROVIDERS)) - RETIRED_PROVIDERS
 
@@ -60,7 +60,7 @@ FROZEN_COMMANDS = {
 
 
 def normalize_frozen_command(command: list[str]) -> list[str]:
-    """Apply the locked-resolution and reviewed same-version verifier deltas."""
+    """Apply locked-resolution and reviewed same-version provider patch deltas."""
     if command[0] != "cargo":
         raise AssertionError(command)
     if "--locked" not in command:
@@ -69,13 +69,21 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
         position = command.index("--features")
         command = [*command[:position], "--config",
                    'patch.crates-io.flatbuffers.path="vendor/flatbuffers"', *command[position:]]
+    manifest_position = command.index("--manifest-path")
+    crate = command[manifest_position + 1].removeprefix("vendor/").removesuffix("/Cargo.toml")
+    if crate in (*FROZEN_CRATES, "vortex-datetime-parts") and crate not in RETIRED_PROVIDERS:
+        position = manifest_position + 2
+        while position < len(command) and command[position] == "--config":
+            position += 2
+        command = [*command[:position], "--config",
+                   'patch.crates-io.prost.path="vendor/prost"', *command[position:]]
     return command
 
 
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 16)
+        self.assertEqual(len(assigned), 17)
         self.assertEqual(set(assigned), CURRENT_PROVIDERS)
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), CURRENT_PROVIDERS)
@@ -84,7 +92,7 @@ class ProviderCommandTests(unittest.TestCase):
     def test_new_datetime_parts_provider_is_configured_without_rewriting_frozen_history(self) -> None:
         self.assertEqual(providers.GROUPS["arrays"][-1:], ("vortex-datetime-parts",))
         self.assertEqual(providers.CONFIGURATIONS["vortex-datetime-parts"], {
-            "features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers"]})
+            "features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers", "prost"]})
         test_command, clippy_command = providers.commands("vortex-datetime-parts")
         expected = normalize_frozen_command(FROZEN_COMMANDS["vortex-zstd"][0].replace(
             "vortex-zstd", "vortex-datetime-parts").split())
@@ -97,7 +105,7 @@ class ProviderCommandTests(unittest.TestCase):
         self.assertIn("vortex-arrow", providers.GROUPS["io"])
         config = providers.CONFIGURATIONS["vortex-arrow"]
         self.assertEqual(config["patches"],
-                         ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst", "flatbuffers"])
+                         ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst", "flatbuffers", "prost"])
         test_command, lint_command = providers.commands("vortex-arrow")
         self.assertIn("vortex-array/_test-harness,vortex-array/table-display", test_command)
         self.assertEqual(test_command[-3:], ["--lib", "--", "--test-threads=2"])
@@ -114,6 +122,10 @@ class ProviderCommandTests(unittest.TestCase):
              "--config", 'patch.crates-io.flatbuffers.path="vendor/flatbuffers"',
              "--no-default-features", "--lib", "--tests", "--", "-D", "warnings"],
         ])
+        self.assertEqual(providers.CONFIGURATIONS["orc-rust"]["patches"], ["flatbuffers"])
+        orc_lock = Path(__file__).resolve().parents[1] / ".github/provider-locks/orc-rust.lock"
+        self.assertIn('name = "prost"\nversion = "0.13.5"', orc_lock.read_text())
+        self.assertNotIn("prost", providers.CONFIGURATIONS["orc-rust"]["patches"])
 
     def test_avro_runs_complete_library_with_only_the_admitted_codecs(self) -> None:
         self.assertEqual(providers.commands("arrow-avro"), [
@@ -193,6 +205,30 @@ class ProviderCommandTests(unittest.TestCase):
         for crate in ("vortex-buffer", "arrow-array", "arrow-data", "arrow-avro"):
             self.assertNotIn("flatbuffers", providers.CONFIGURATIONS[crate]["patches"])
 
+    def test_prost_checks_default_bounded_and_no_std_configurations(self) -> None:
+        self.assertIn("prost", providers.GROUPS["buffer"])
+        self.assertEqual(providers.CONFIGURATIONS["prost"], {
+            "features": None, "patches": [], "clippy_conf_dir": "vendor/prost"})
+        self.assertEqual(providers.commands("prost"), [
+            ["cargo", "test", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--lib", "--", "--test-threads=2"],
+            ["cargo", "test", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--lib", "--features", "no-recursion-limit", "--", "--test-threads=2"],
+            ["cargo", "clippy", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--lib", "--tests", "--", "-D", "warnings"],
+            ["cargo", "clippy", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--lib", "--tests", "--features", "no-recursion-limit", "--", "-D", "warnings"],
+            ["cargo", "check", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--no-default-features"],
+            ["cargo", "check", "--locked", "--manifest-path", "vendor/prost/Cargo.toml",
+             "--no-default-features", "--features", "no-recursion-limit"],
+        ])
+        patched = ("vortex-array", "vortex-fsst", "vortex-zstd", "vortex-datetime-parts",
+                   "vortex-layout", "vortex-file", "vortex-io", "vortex-arrow", "vortex-buffer")
+        for crate in patched:
+            self.assertEqual(providers.CONFIGURATIONS[crate]["patches"][-1], "prost")
+        self.assertNotIn("prost", providers.CONFIGURATIONS["orc-rust"]["patches"])
+
 
 class RunGroupTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -220,13 +256,36 @@ class RunGroupTests(unittest.TestCase):
         with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
             report = providers.run_group(self.group, output, root=self.root)
         self.assertEqual(report["status"], "passed")
-        self.assertEqual(run.call_count, 5)
+        self.assertEqual(run.call_count, 11)
         self.assertEqual(run.call_args.kwargs["env"]["CLIPPY_CONF_DIR"],
-                         str(self.root / "vendor/flatbuffers"))
+                         str(self.root / "vendor/prost"))
         self.assertEqual((self.root / "vendor/vortex-buffer/Cargo.lock").read_text(), "vortex-buffer lock\n")
         saved = json.loads((output / "report.json").read_text())
         self.assertEqual(saved["status"], "passed")
-        self.assertEqual(len(saved["commands"]), 5)
+        self.assertEqual(len(saved["commands"]), 11)
+
+    def test_prost_repeated_verbs_get_distinct_write_once_logs_and_receipts(self) -> None:
+        output = self.root / "out"
+        with patch.object(providers.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
+            report = providers.run_group(self.group, output, root=self.root)
+            self.assertEqual(run.call_count, 11)
+            prost_entries = [entry for entry in report["commands"] if entry["crate"] == "prost"]
+            expected_logs = {
+                "prost-01-test.log", "prost-02-test.log",
+                "prost-01-clippy.log", "prost-02-clippy.log",
+                "prost-01-check.log", "prost-02-check.log",
+            }
+            self.assertEqual({entry["log"] for entry in prost_entries}, expected_logs)
+            original = {name: (output / name).read_bytes() for name in expected_logs}
+            with self.assertRaisesRegex(ValueError, "evidence directory must be new"):
+                providers.run_group(self.group, output, root=self.root)
+            self.assertEqual(run.call_count, 11)
+        self.assertEqual(len(prost_entries), 6)
+        for name in expected_logs:
+            path = output / name
+            self.assertTrue(path.is_file())
+        self.assertTrue(all(data == b"" for data in original.values()))
+        self.assertEqual({name: (output / name).read_bytes() for name in expected_logs}, original)
 
     def test_format_commands_have_scoped_lint_and_fixture_paths(self) -> None:
         for crate in providers.GROUPS["formats"]:

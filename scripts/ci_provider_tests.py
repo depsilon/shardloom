@@ -16,25 +16,26 @@ GROUPS = {
     "arrays": ("vortex-array", "vortex-fsst", "vortex-zstd",
                "vortex-datetime-parts"),
     "io": ("vortex-layout", "vortex-file", "vortex-io", "vortex-arrow"),
-    "buffer": ("vortex-buffer", "flatbuffers"),
+    "buffer": ("vortex-buffer", "flatbuffers", "prost"),
     "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet"),
 }
 CONFIGURATIONS = {
-    "vortex-array": {"features": "_test-harness,table-display", "patches": ["flatbuffers"]},
-    "vortex-fsst": {"features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers"]},
-    "vortex-zstd": {"features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers"]},
+    "vortex-array": {"features": "_test-harness,table-display", "patches": ["flatbuffers", "prost"]},
+    "vortex-fsst": {"features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers", "prost"]},
+    "vortex-zstd": {"features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers", "prost"]},
     "vortex-datetime-parts": {"features": "vortex-array/table-display",
-                               "patches": ["vortex-array", "flatbuffers"]},
+                               "patches": ["vortex-array", "flatbuffers", "prost"]},
     "vortex-layout": {"features": "tokio,vortex-io/tokio,vortex-array/_test-harness",
-                      "patches": ["vortex-array", "vortex-io", "flatbuffers"], "clippy_tests": True},
+                      "patches": ["vortex-array", "vortex-io", "flatbuffers", "prost"], "clippy_tests": True},
     "vortex-file": {"features": "tokio,vortex-array/table-display",
-                    "patches": ["vortex-array", "vortex-io", "vortex-layout", "flatbuffers"], "clippy_tests": True},
-    "vortex-io": {"features": "object_store", "patches": ["vortex-array", "flatbuffers"], "clippy_tests": True},
+                    "patches": ["vortex-array", "vortex-io", "vortex-layout", "flatbuffers", "prost"], "clippy_tests": True},
+    "vortex-io": {"features": "object_store", "patches": ["vortex-array", "flatbuffers", "prost"], "clippy_tests": True},
     "vortex-arrow": {"features": "vortex-array/_test-harness,vortex-array/table-display",
-                     "patches": ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst", "flatbuffers"],
+                     "patches": ["vortex-array", "vortex-buffer", "arrow-array", "arrow-data", "vortex-fsst", "flatbuffers", "prost"],
                      "clippy_tests": True},
-    "vortex-buffer": {"features": None, "patches": []},
+    "vortex-buffer": {"features": None, "patches": ["prost"]},
     "flatbuffers": {"features": None, "patches": [], "clippy_conf_dir": "vendor/flatbuffers"},
+    "prost": {"features": None, "patches": [], "clippy_conf_dir": "vendor/prost"},
     "orc-rust": {"features": None, "patches": ["flatbuffers"], "no_default_features": True,
                  "clippy_tests": True, "clippy_conf_dir": "vendor/orc-rust"},
     "arrow-avro": {"features": "deflate,snappy", "patches": [], "no_default_features": True,
@@ -69,6 +70,18 @@ def configuration_arguments(crate: str) -> list[str]:
 
 
 def commands(crate: str) -> list[list[str]]:
+    if crate == "prost":
+        manifest = ["--locked", "--manifest-path", "vendor/prost/Cargo.toml"]
+        return [
+            ["cargo", "test", *manifest, "--lib", "--", "--test-threads=2"],
+            ["cargo", "test", *manifest, "--lib", "--features", "no-recursion-limit",
+             "--", "--test-threads=2"],
+            ["cargo", "clippy", *manifest, "--lib", "--tests", "--", "-D", "warnings"],
+            ["cargo", "clippy", *manifest, "--lib", "--tests", "--features", "no-recursion-limit",
+             "--", "-D", "warnings"],
+            ["cargo", "check", *manifest, "--no-default-features"],
+            ["cargo", "check", *manifest, "--no-default-features", "--features", "no-recursion-limit"],
+        ]
     args = configuration_arguments(crate)
     if crate == "flatbuffers":
         return [["cargo", "test", "--locked", *args],
@@ -117,8 +130,19 @@ def run_group(group: str, output: Path, *, root: Path = ROOT) -> dict:
             if lock.is_symlink():
                 raise ValueError("provider lockfile must not be a symlink")
             shutil.copyfile(frozen, lock)
-            for command in commands(crate):
-                log = output / f"{crate}-{command[1]}.log"
+            provider_commands = commands(crate)
+            verb_totals = {}
+            for command in provider_commands:
+                verb_totals[command[1]] = verb_totals.get(command[1], 0) + 1
+            verb_ordinals = {}
+            for command in provider_commands:
+                verb = command[1]
+                verb_ordinals[verb] = verb_ordinals.get(verb, 0) + 1
+                if verb_totals[verb] > 1:
+                    log_name = f"{crate}-{verb_ordinals[verb]:02d}-{verb}.log"
+                else:
+                    log_name = f"{crate}-{verb}.log"
+                log = output / log_name
                 started = time.monotonic()
                 entry = {"crate": crate, "command": command, "lock_sha256": sha(frozen),
                          "clippy_conf_dir": crate_env["CLIPPY_CONF_DIR"]}
