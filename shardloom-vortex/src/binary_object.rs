@@ -715,15 +715,16 @@ pub(crate) fn validate_descriptors(
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
     use vortex::array::VortexSessionExecute as _;
-    if !crate::native_binary_type::contains(array.dtype())
-        .map_err(|cause| error("SCHEMA", cause))?
-    {
+    if !crate::native_binary_type::contains(array.dtype(), context.into(), |cause| {
+        error("SCHEMA", cause)
+    })? {
         return Ok(());
     }
     let arena = Arena::get(context.native_session())?;
     writer::visit(
         array,
         &mut context.native_session().create_execution_ctx(),
+        context.memory(),
         context.cancellation(),
         &mut |raw| {
             if let descriptor::Descriptor::Managed { id, length } = descriptor::parse(raw)? {

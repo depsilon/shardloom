@@ -1375,6 +1375,33 @@ callback order and selected rows with the original validator. Prove borrowed
 deep traversal, denial and error cleanup independently of the lifetime of
 the caller's Arrow arrays.
 
+### Binary-object discovery and descriptor traversal, November 17, 2026
+
+Binary-object discovery uses Vortex's borrowed, fallible child-type iterator
+and the existing native payload search order. Inspect extensions as leaves.
+Return at the first object match, before evaluating later lazy fields. Native
+callers charge each inspected type and pending sibling storage to their live
+operation. Preserve each caller's mapping of provider metadata failures.
+Layout deserialization and compatibility writes without an ingest pool use
+their Vortex session's configured host allocator. At those boundaries, retain
+an external work reservation for each visit and admit replacement capacity
+before growing the temporary owner and sibling arrays. A custom allocator's
+refusal propagates through the original calling boundary.
+
+Descriptor collection uses the existing Vortex execution context and the
+memory and cancellation owners of validation, writing or transfer. Visit
+struct fields in declaration order, then each valid parent row in order.
+For lists, visit only the selected elements of valid rows. Keep each typed
+parent alive while its child is in progress. Continue to use native provider
+execution, validity, slicing and descriptor parsing at their existing points.
+Credit parent continuation storage before allocation and release partial
+parents innermost first on failure or cancellation.
+
+Compare eager and lazy discovery, complete descriptor callback sequences,
+error precedence, null ancestors, list offsets and fixed lists against the
+original functions. Include deep traversal, refusal, cancellation, callback
+failure and last-owner checks before expanding the public depth domain.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex

@@ -45,7 +45,7 @@ pub(super) fn validate_schema(
         ));
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(dtype).map_err(vortex_error)? {
+    if crate::native_binary_type::contains(dtype, scope, vortex_error)? {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "text output cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",

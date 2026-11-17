@@ -4,14 +4,15 @@
 use super::{DType, MemoryLease, Result, failed, provider_error};
 use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::dtype::DTypeChildren;
+use vortex::error::{VortexError, VortexResult};
 
-struct Frame<'a> {
+pub(super) struct Frame<'a> {
     children: DTypeChildren<'a>,
     depth: usize,
 }
 
 pub(super) struct Pending<'a> {
-    frames: Vec<Frame<'a>>,
+    cursor: Cursor<'a>,
     // Frames are released before their temporary capacity credit.
     credit: MemoryLease,
 }
@@ -19,7 +20,7 @@ pub(super) struct Pending<'a> {
 impl<'a> Pending<'a> {
     pub(super) fn new(memory: &LiveMemoryPool) -> Result<Self> {
         Ok(Self {
-            frames: Vec::new(),
+            cursor: Cursor::default(),
             credit: memory.reserve(0)?,
         })
     }
@@ -29,29 +30,51 @@ impl<'a> Pending<'a> {
         dtype: &'a DType,
         depth: usize,
     ) -> Result<Option<(&'a DType, usize)>> {
+        self.cursor.enter(
+            dtype,
+            depth,
+            |frames| reserve_frame(frames, Some(&mut self.credit)),
+            &|error| provider_error(&error),
+        )
+    }
+
+    pub(super) fn next(&mut self) -> Result<Option<(&'a DType, usize)>> {
+        self.cursor.next().map_err(|error| provider_error(&error))
+    }
+}
+
+#[derive(Default)]
+pub(super) struct Cursor<'a> {
+    frames: Vec<Frame<'a>>,
+}
+
+impl<'a> Cursor<'a> {
+    pub(super) fn enter<E>(
+        &mut self,
+        dtype: &'a DType,
+        depth: usize,
+        grow: impl FnOnce(&mut Vec<Frame<'a>>) -> std::result::Result<(), E>,
+        provider_error: &impl Fn(VortexError) -> E,
+    ) -> std::result::Result<Option<(&'a DType, usize)>, E> {
         let mut children = dtype.try_child_dtypes();
         if children.len() > 1 {
-            reserve_frame(&mut self.frames, Some(&mut self.credit))?;
+            grow(&mut self.frames)?;
         }
-        let first = children
-            .next()
-            .transpose()
-            .map_err(|error| provider_error(&error))?;
+        let first = children.next().transpose().map_err(provider_error)?;
         if children.len() > 0 {
             self.frames.push(Frame { children, depth });
         }
         Ok(first.map(|dtype| (dtype, depth)))
     }
 
-    pub(super) fn next(&mut self) -> Result<Option<(&'a DType, usize)>> {
+    pub(super) fn next(&mut self) -> VortexResult<Option<(&'a DType, usize)>> {
         let Some(frame) = self.frames.last_mut() else {
             return Ok(None);
         };
         let child = frame
             .children
             .next()
-            .expect("schema cursor stays within its borrowed fields")
-            .map_err(|error| provider_error(&error))?;
+            .expect("schema cursor stays within its borrowed fields")?;
         let depth = frame.depth;
         if frame.children.len() == 0 {
             self.frames.pop();

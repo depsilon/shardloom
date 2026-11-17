@@ -21,15 +21,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use vortex::{
-    array::{
-        ArrayRef, ExecutionCtx, VortexSessionExecute as _,
-        arrays::{
-            ExtensionArray, FixedSizeListArray, ListViewArray, StructArray, VarBinViewArray,
-            extension::ExtensionArrayExt as _, fixed_size_list::FixedSizeListArrayExt as _,
-            listview::ListViewArrayExt as _, struct_::StructArrayExt as _,
-        },
-        dtype::DType,
-    },
+    array::{ArrayRef, VortexSessionExecute as _, dtype::DType},
     buffer::ByteBuffer,
     error::{VortexResult, vortex_err},
     layout::{
@@ -62,7 +54,8 @@ pub(crate) fn strategy(
     dtype: &DType,
     context: &NativeExecutionContext<'_>,
 ) -> Result<StrategyOwner> {
-    if !crate::native_binary_type::contains(dtype).map_err(|cause| error("SCHEMA", cause))? {
+    if !crate::native_binary_type::contains(dtype, context.into(), |cause| error("SCHEMA", cause))?
+    {
         return Ok((base, None));
     }
     let (entries, credit) = reserved_vec(context.memory(), 0)?;
@@ -112,60 +105,66 @@ impl Objects {
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
         let mut ctx = context.native_session().create_execution_ctx();
-        visit(array, &mut ctx, &self.cancellation, &mut |bytes| {
-            match descriptor::parse(bytes)? {
-                Descriptor::External { .. } => {
-                    // Validate the declared wire shape without opening externally
-                    // owned files or converting them into managed payloads.
-                    Ok(())
-                }
-                Descriptor::Managed { id, length } => {
-                    let mut state = self
-                        .entries
-                        .lock()
-                        .map_err(|_| error("OWNER", "object writer is poisoned"))?;
-                    let entries = state
-                        .as_mut()
-                        .ok_or_else(|| error("OWNER", "object writer is already closed"))?;
-                    match entries.value().binary_search_by_key(&id, |entry| {
-                        entry.payload.id.expect("managed writer")
-                    }) {
-                        Ok(index) => {
-                            if entries.value()[index].payload.length != length {
-                                return Err(error(
-                                    "DESCRIPTOR",
-                                    "selected object length differs from its owner",
-                                ));
+        visit(
+            array,
+            &mut ctx,
+            context.memory(),
+            &self.cancellation,
+            &mut |bytes| {
+                match descriptor::parse(bytes)? {
+                    Descriptor::External { .. } => {
+                        // Validate the declared wire shape without opening externally
+                        // owned files or converting them into managed payloads.
+                        Ok(())
+                    }
+                    Descriptor::Managed { id, length } => {
+                        let mut state = self
+                            .entries
+                            .lock()
+                            .map_err(|_| error("OWNER", "object writer is poisoned"))?;
+                        let entries = state
+                            .as_mut()
+                            .ok_or_else(|| error("OWNER", "object writer is already closed"))?;
+                        match entries.value().binary_search_by_key(&id, |entry| {
+                            entry.payload.id.expect("managed writer")
+                        }) {
+                            Ok(index) => {
+                                if entries.value()[index].payload.length != length {
+                                    return Err(error(
+                                        "DESCRIPTOR",
+                                        "selected object length differs from its owner",
+                                    ));
+                                }
+                            }
+                            Err(index) => {
+                                let payload = self.arena.lookup(&id, length)?;
+                                payload.validate()?;
+                                let reader = match &payload.backing {
+                                    Backing::Memory(_) => None,
+                                    Backing::File { identity, .. } => {
+                                        Some(context.local_source_reader(
+                                            Arc::clone(identity),
+                                            Arc::clone(&self.arena.0.metrics),
+                                        )?)
+                                    }
+                                };
+                                let (mut replacement, credit) =
+                                    reserved_vec(&self.memory, entries.value().len() + 1)?;
+                                // Move entries only after all new allocation/read admission
+                                // has succeeded. Dropping a failed producer aborts payload IO.
+                                let (old, old_credit) =
+                                    state.take().expect("checked writer state").into_parts();
+                                replacement.extend(old);
+                                drop(old_credit);
+                                replacement.insert(index, Entry { payload, reader });
+                                *state = Some(Budgeted::new(replacement, credit));
                             }
                         }
-                        Err(index) => {
-                            let payload = self.arena.lookup(&id, length)?;
-                            payload.validate()?;
-                            let reader = match &payload.backing {
-                                Backing::Memory(_) => None,
-                                Backing::File { identity, .. } => {
-                                    Some(context.local_source_reader(
-                                        Arc::clone(identity),
-                                        Arc::clone(&self.arena.0.metrics),
-                                    )?)
-                                }
-                            };
-                            let (mut replacement, credit) =
-                                reserved_vec(&self.memory, entries.value().len() + 1)?;
-                            // Move entries only after all new allocation/read admission
-                            // has succeeded. Dropping a failed producer aborts payload IO.
-                            let (old, old_credit) =
-                                state.take().expect("checked writer state").into_parts();
-                            replacement.extend(old);
-                            drop(old_credit);
-                            replacement.insert(index, Entry { payload, reader });
-                            *state = Some(Budgeted::new(replacement, credit));
-                        }
+                        Ok(())
                     }
-                    Ok(())
                 }
-            }
-        })
+            },
+        )
     }
 
     pub(crate) fn complete_input(&self) {
@@ -299,93 +298,14 @@ fn native_error(cause: impl std::fmt::Display) -> vortex::error::VortexError {
     vortex_err!("{cause}")
 }
 
-/// Visit only logical nonnull descriptor cells. A null parent and unreachable
-/// list elements cannot cause an otherwise unselected payload to be exported.
-pub(crate) fn visit(
-    array: &ArrayRef,
-    ctx: &mut ExecutionCtx,
-    cancellation: &CancellationToken,
-    callback: &mut impl FnMut(&[u8]) -> Result<()>,
-) -> Result<()> {
-    cancellation.check()?;
-    if !crate::native_binary_type::contains(array.dtype())
-        .map_err(|cause| error("SCHEMA", cause))?
-    {
-        return Ok(());
-    }
-    let map = |cause| error("DESCRIPTOR", cause);
-    match array.dtype() {
-        DType::Extension(_) => {
-            let extension = array.clone().execute::<ExtensionArray>(ctx).map_err(map)?;
-            let storage = extension
-                .storage_array()
-                .clone()
-                .execute::<VarBinViewArray>(ctx)
-                .map_err(map)?;
-            for index in 0..storage.len() {
-                cancellation.check()?;
-                if storage.is_valid(index, ctx).map_err(map)? {
-                    callback(&storage.bytes_at(index))?;
-                }
-            }
-        }
-        DType::Struct(_, _) => {
-            let structure = array.clone().execute::<StructArray>(ctx).map_err(map)?;
-            for child in structure.iter_unmasked_fields() {
-                if !crate::native_binary_type::contains(child.dtype())
-                    .map_err(|cause| error("SCHEMA", cause))?
-                {
-                    continue;
-                }
-                if array.dtype().is_nullable() {
-                    for index in 0..array.len() {
-                        cancellation.check()?;
-                        if structure.is_valid(index, ctx).map_err(map)? {
-                            visit(
-                                &child.slice(index..index + 1).map_err(map)?,
-                                ctx,
-                                cancellation,
-                                callback,
-                            )?;
-                        }
-                    }
-                } else {
-                    visit(child, ctx, cancellation, callback)?;
-                }
-            }
-        }
-        DType::List(_, _) => {
-            let list = array.clone().execute::<ListViewArray>(ctx).map_err(map)?;
-            for index in 0..array.len() {
-                cancellation.check()?;
-                if list.is_valid(index, ctx).map_err(map)? {
-                    visit(
-                        &list.list_elements_at(index, ctx).map_err(map)?,
-                        ctx,
-                        cancellation,
-                        callback,
-                    )?;
-                }
-            }
-        }
-        DType::FixedSizeList(_, _, _) => {
-            let list = array
-                .clone()
-                .execute::<FixedSizeListArray>(ctx)
-                .map_err(map)?;
-            for index in 0..array.len() {
-                cancellation.check()?;
-                if list.is_valid(index, ctx).map_err(map)? {
-                    visit(
-                        &list.fixed_size_list_elements_at(index).map_err(map)?,
-                        ctx,
-                        cancellation,
-                        callback,
-                    )?;
-                }
-            }
-        }
-        _ => return Err(error("DESCRIPTOR", "unsupported object column container")),
-    }
-    Ok(())
-}
+#[path = "binary_object_walk.rs"]
+mod walk;
+pub(crate) use walk::visit;
+
+#[cfg(test)]
+#[path = "binary_object_walk_reference.rs"]
+mod reference;
+
+#[cfg(test)]
+#[path = "binary_object_walk_tests.rs"]
+mod walk_tests;

@@ -87,9 +87,9 @@ pub(crate) fn prepare(
 ) -> Result<Budgeted<Vec<Arc<Payload>>>> {
     let root = file.footer().layout();
     let Some(layout) = root.as_any().downcast_ref::<Layout<Objects>>() else {
-        if crate::native_binary_type::contains(file.dtype())
-            .map_err(|cause| error("SCHEMA", cause))?
-        {
+        if crate::native_binary_type::contains(file.dtype(), context.into(), |cause| {
+            error("SCHEMA", cause)
+        })? {
             return Err(error(
                 "MISSING",
                 "binary-object columns require a complete native object layout",

@@ -30,39 +30,45 @@ impl Transfer {
             let mut objects = Budgeted::new(objects, credit);
             let mut ctx = context.native_session().create_execution_ctx();
             for array in arrays {
-                super::writer::visit(array, &mut ctx, cancellation, &mut |raw| {
-                    if let Descriptor::Managed { id, length } = descriptor::parse(raw)? {
-                        if receiving
-                            .lookup(&id, length)
-                            .is_ok_and(|object| object.validate().is_ok())
-                        {
-                            return Ok(());
-                        }
-                        match objects
-                            .value()
-                            .binary_search_by_key(&id, |object: &Arc<Payload>| {
-                                object.id.expect("managed transfer")
-                            }) {
-                            Ok(index) => {
-                                if objects.value()[index].length != length {
-                                    return Err(error(
-                                        "DESCRIPTOR",
-                                        "transferred object length differs from its owner",
-                                    ));
+                super::writer::visit(
+                    array,
+                    &mut ctx,
+                    context.memory(),
+                    cancellation,
+                    &mut |raw| {
+                        if let Descriptor::Managed { id, length } = descriptor::parse(raw)? {
+                            if receiving
+                                .lookup(&id, length)
+                                .is_ok_and(|object| object.validate().is_ok())
+                            {
+                                return Ok(());
+                            }
+                            match objects
+                                .value()
+                                .binary_search_by_key(&id, |object: &Arc<Payload>| {
+                                    object.id.expect("managed transfer")
+                                }) {
+                                Ok(index) => {
+                                    if objects.value()[index].length != length {
+                                        return Err(error(
+                                            "DESCRIPTOR",
+                                            "transferred object length differs from its owner",
+                                        ));
+                                    }
+                                }
+                                Err(index) => {
+                                    let payload = copy(&source.lookup(&id, length)?, context)?;
+                                    let (mut replacement, credit) =
+                                        reserved_vec(context.memory(), objects.value().len() + 1)?;
+                                    replacement.extend(objects.value().iter().cloned());
+                                    replacement.insert(index, payload);
+                                    objects = Budgeted::new(replacement, credit);
                                 }
                             }
-                            Err(index) => {
-                                let payload = copy(&source.lookup(&id, length)?, context)?;
-                                let (mut replacement, credit) =
-                                    reserved_vec(context.memory(), objects.value().len() + 1)?;
-                                replacement.extend(objects.value().iter().cloned());
-                                replacement.insert(index, payload);
-                                objects = Budgeted::new(replacement, credit);
-                            }
                         }
-                    }
-                    Ok(())
-                })?;
+                        Ok(())
+                    },
+                )?;
             }
             Ok(Self(objects))
         })

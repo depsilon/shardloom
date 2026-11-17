@@ -474,9 +474,17 @@ workflow, performance and acceptance work recorded in the historical notes.
   pass, with one existing opt-in benchmark ignored. Strict native workspace lint
   and all three focused write-only configuration tests pass. The write-only
   build also exposed two tests missing their local-execution feature conditions.
-  Public depth admission still waits for binary-object traversal, Arrow schema
-  and final-owner handling, provider export and compute, native memory prepayment
-  and complete deep-workflow acceptance.
+  Native binary-object discovery now shares the borrowed schema cursor.
+  Descriptor traversal uses credited continuations with the operation's source,
+  memory and cancellation owners. Two frozen functions confirm lazy field and
+  callback order, including selected list ranges and null ancestors. All four
+  focused tests pass, including 8,192-level mixed values on a 128-KiB stack and
+  denied capacity replacement after partial traversal. The 413 selected
+  native regressions, strict native workspace lint and binary-object feature
+  checks pass. Six opt-in tests remain ignored in the selected native sweep.
+  Public depth admission still waits for nested keys, Arrow schema and final
+  owners, provider export and compute, native memory prepayment and complete
+  deep-workflow acceptance.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

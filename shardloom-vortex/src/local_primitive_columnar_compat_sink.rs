@@ -199,7 +199,8 @@ pub(super) fn prepare_plan(
         return Ok(None);
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(&plan.dtype).map_err(vortex_error)? {
+    if crate::native_binary_type::contains(&plan.dtype, plan.session.memory().into(), vortex_error)?
+    {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "this output format cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",

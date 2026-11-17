@@ -16,6 +16,8 @@ pub(crate) use walk::reserve_frame;
 mod classification;
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) use classification::contains_type;
+#[cfg(feature = "native-binary-objects")]
+pub(crate) use classification::{contains_mapped, host::contains_on_host};
 
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "native_dtype_json.rs"]
