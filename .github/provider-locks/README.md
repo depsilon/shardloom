@@ -1,11 +1,26 @@
 # Standalone patched-provider validation locks
 
-These fifteen lockfiles freeze the current excluded provider test configurations.
+These sixteen lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 17 checked-verifier source patch
+
+FlatBuffers remains at 25.12.19. Eleven existing provider locks change only its
+registry source to the reviewed local continuation patch; every other package,
+version, checksum and dependency edge is unchanged. Their recipes explicitly
+select the same path patch. The four configurations without FlatBuffers retain
+their existing graphs and commands.
+
+The new `flatbuffers` configuration joins the buffer group. It runs all-feature
+tests and strict lint plus a separate no-default-feature build. Its twelve
+package identities and registry checksums already occur in the root lock.
+All-feature standalone testing activates the existing optional serde edge;
+root runtime features are unchanged. This is source/graph registration, not
+complete deep-runtime or all-provider acceptance.
 
 ## November 8 provider migration
 

@@ -507,6 +507,45 @@ order and small-stack eager-chain tests. Final resource admission must prepay
 continuations, created owners and unwind overlap before any guard is raised.
 No new unsafe code or public transport capability is authorized by this step.
 
+### Physical verifier continuation amendment, November 17, 2026
+
+The pinned FlatBuffers 25.12.19 verifier owns checked scalar/offset access,
+table/vtable validation, UTF-8 and terminator checks, cumulative apparent-byte
+and table counts, depth accounting and error traces. Its
+[table verifier](https://github.com/google/flatbuffers/blob/v25.12.19/rust/flatbuffers/src/verifier.rs)
+holds a mutable verifier borrow throughout recursive child checks. No existing
+public API can preserve that parent across an iterative child visit. Resetting
+counters, skipping physical checks or duplicating a raw-byte verifier is not
+an accepted replacement.
+
+Vendor the same checksum-pinned Apache-2.0 crate, with no version or dependency
+addition, to expose a narrow safe continuation. Suspending a table consumes its
+handle and retains the checked descriptor, immutable buffer/options references,
+depth and cumulative counter minima. Resuming consumes this private, non-Clone
+token, checks the same buffer/options identity, exact pending depth and monotonic
+counters, then restores the handle without re-reading or recounting bytes/tables.
+The existing `finish` decrements depth exactly once. Resume misuse is a programmer
+error; an input error aborts verification as before. No verifier reset or unsafe
+code is introduced. Export the existing checked vector-range and error-trace
+helpers without changing their algorithms or default limits.
+
+Native generated schema verification may delegate to an explicit continuation
+walker using these checked primitives. Preserve original field order, absent
+field and union-tag behavior, offset arithmetic, string/primitive checks, expanded
+alias work, all configured depth/table/apparent-byte limits and the complete
+error trace. Complete each child before touching the next field or sibling.
+Continuation storage must be prepaid by native admission before any public
+depth increase; this amendment keeps existing public limits.
+
+Require exhaustive generated-table coverage, shallow comparisons to independent
+original recursive verifiers, malformed/truncated/mutated buffers and configured
+budget boundaries, alias amplification, small-stack deep verification with
+explicit test options, and exact dependency/license/source records. Check both
+standard and no-default-feature FlatBuffers builds, affected native/compatibility
+providers and the supported Rust version. Physical verification alone does not
+certify logical values, array decoding, formatting or the complete runtime
+lifecycle.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

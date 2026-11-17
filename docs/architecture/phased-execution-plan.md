@@ -295,9 +295,12 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   order verified. The iterative FlatBuffer writer preserves existing bytes and
   metadata callback order and passes the same deep write test. Eager logical
   reads preserve lazy caches, callback/error order and pending extension contexts;
-  8,192-level internal success/failure parsing passes on a small stack. All 5,810
+  8,192-level internal success/failure parsing passes on a small stack. Ordered
+  physical verification now preserves the original malformed-input errors and
+  exact depth/table/byte thresholds; explicit test-only deep options pass on the
+  same small stack while public defaults remain unchanged. All 5,814
   array-provider tests pass (one existing ignored test), and provider/native workspace
-  strict lint passes. Formatting, physical verification, array/value transport and complete
+  strict lint passes. Formatting, array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
@@ -307,6 +310,7 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [x] Make native schema equality, hashing and extension nullability stack-safe.
   - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
   - [x] Replace eager logical schema reading while preserving lazy views and errors.
+  - [x] Make physical schema verification iterative with unchanged checks and limits.
   - [ ] Complete native provider serialization, value traversal and cleanup.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.

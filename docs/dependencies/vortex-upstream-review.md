@@ -1,5 +1,32 @@
 # Vortex Upstream Dependency Review
 
+## November 17, 2026 checked FlatBuffers continuation intake
+
+The existing Apache-2.0 FlatBuffers 25.12.19 runtime is now a checksum-pinned
+local source patch. Its archive SHA-256 remains
+`35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3`.
+All nineteen original archive member identities and the separate upstream
+LICENSE at source commit `7e163021e59cca4f8e1e35a7c828b5c6b7915953` are recorded
+in its provenance. Standalone lockfiles replace the omitted archive lock.
+The [patch notes](../../vendor/flatbuffers/README.shardloom.md) describe the
+safe verifier continuation, checked helper exports and scoped upstream lint
+exceptions. There is no new version, binary format, execution engine or unsafe
+code in the extension.
+
+The [RFC 0044 amendment](../rfcs/0044-resident-runtime-resource-ownership.md#physical-verifier-continuation-amendment-november-17-2026)
+requires ordered validation, unchanged configured limits and exact error traces.
+Native DType verification uses that surface; ordinary generated verifiers retain
+their existing algorithm. Eleven standalone provider graphs select the same
+local FlatBuffers source without other resolution changes. Its separate
+standard/all-feature and no-default-feature checks join the existing four CI
+groups. No root runtime feature changes, deeper public admission or complete
+runtime acceptance follow from this source intake.
+
+The current notice bundle moves FlatBuffers from the registry list to the
+vendored list: 435 registry packages, 16 path patches, 837 legal-file records
+and 249 distinct texts. Original legal text is unchanged. Dated acceptance
+counts below remain historical.
+
 ## November 9, 2026 optional Variant providers
 
 The [Variant payload unit](../architecture/native-variant-lifecycle-2026-11-09.md)
@@ -389,6 +416,8 @@ and apparent message size before provider construction. Generated Vortex schema
 accessors remain supplied by `vortex::flatbuffers`; none are copied into this
 repository. The default build gains no FlatBuffers dependency. This is format
 validation, with no external execution engine or new serialization format.
+The November 17 source intake above supersedes this earlier registry-source
+description while preserving the version, feature boundary and format contract.
 
 ## October 11, 2026 bounded file-statistics intake
 

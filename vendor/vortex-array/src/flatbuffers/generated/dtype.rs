@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: preserve the DType continuation dispatch when regenerating.
 //
 // Regenerate with `cargo run -p xtask -- generate-flatbuffers`.
 
@@ -2010,32 +2011,14 @@ impl<'a> DType<'a> {
 
 }
 
+// Modified by ShardLoom on 2026-11-17: preserve checked field order and budgets
+// through native continuations. Keep this hook when regenerating bindings.
 impl ::flatbuffers::Verifiable for DType<'_> {
   #[inline]
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_union::<Type, _>("type_type", Self::VT_TYPE_TYPE, "type_", Self::VT_TYPE_, false, |key, v, pos| {
-        match key {
-          Type::Null => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Null>>("Type::Null", pos),
-          Type::Bool => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Bool>>("Type::Bool", pos),
-          Type::Primitive => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Primitive>>("Type::Primitive", pos),
-          Type::Decimal => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Decimal>>("Type::Decimal", pos),
-          Type::Utf8 => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Utf8>>("Type::Utf8", pos),
-          Type::Binary => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Binary>>("Type::Binary", pos),
-          Type::Struct_ => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Struct_>>("Type::Struct_", pos),
-          Type::List => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<List>>("Type::List", pos),
-          Type::Extension => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Extension>>("Type::Extension", pos),
-          Type::FixedSizeList => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FixedSizeList>>("Type::FixedSizeList", pos),
-          Type::Variant => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Variant>>("Type::Variant", pos),
-          Type::Union => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Union>>("Type::Union", pos),
-          Type::Map => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Map>>("Type::Map", pos),
-          _ => Ok(()),
-        }
-     })?
-     .finish();
-    Ok(())
+    super::dtype_verify::verify(v, pos)
   }
 }
 pub struct DTypeArgs {

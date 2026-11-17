@@ -2415,22 +2415,6 @@
       ]
     },
     {
-      "name": "flatbuffers",
-      "version": "25.12.19",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/google/flatbuffers",
-      "crate_checksum_sha256": "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://raw.githubusercontent.com/google/flatbuffers/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "flate2",
       "version": "1.1.10",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -10258,6 +10242,74 @@
       ]
     },
     {
+      "name": "flatbuffers",
+      "version": "25.12.19",
+      "path": "vendor/flatbuffers",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "flatbuffers",
+        "version": "25.12.19",
+        "license": "Apache-2.0",
+        "registry_archive_sha256": "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3",
+        "registry_archive_file_count": 19,
+        "registry_archive_uncompressed_bytes": 113101,
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "1db0f51ece68daeee7ee9e460509639772a51fab1c17f400adf406b744449724",
+          "Cargo.lock": "b241105a992122aa7024ebeafc02caa5b722efb3f715006d1035505f81dcdc8d",
+          "Cargo.toml": "5762bfca21fc318614451fe4db63447253ed05b98e292405c91bfa92b83fc0b3",
+          "Cargo.toml.orig": "4ee36c27a6a8dd8a4d06d3d501cdbfc8008cba3eed40bcf6fdf54a019506817e",
+          "README.md": "fc17fa8996b39ec0e7542e064509be74ffc51ffccef63ea906ebad9da239d964",
+          "build.rs": "e957a322f7c679e29de9c3b5ad5a96c0fad4052e72b9bd693461e9ad4f23e8b3",
+          "src/array.rs": "543888ecdf0feea536b777c209715ffb32948a9356a915db6b94543f0b0c3b76",
+          "src/builder.rs": "278401b696217e0f0776fc963dcdbfb0e83b8c339e3e72d2e1c45a6dbbf2a347",
+          "src/endian_scalar.rs": "df2449abbaafa829f78f42eea826d89942639f5be2bab6f80c8a3ad261114571",
+          "src/follow.rs": "deaf5e8e1f0b384919a7bf92bb442fd81a5a1e21529883f0bc24a5dd7727a1c1",
+          "src/get_root.rs": "c3004412c507b4337946a3b464f94c6b0f64b614d9c2fb81c438257e933febd3",
+          "src/lib.rs": "638b08b85049b1b80ea4812131b5a802e8819df735c827e8d1e3752e0ca025df",
+          "src/primitives.rs": "df5f8ffc6d7b91715657df12f4f8bbbf27d989a17a8df3a7153a7e6ff2aa5ce0",
+          "src/push.rs": "3fb19641405aa45b2e7c48a82930020498ccc0cd5be975e3c312fa3b6a001885",
+          "src/table.rs": "ce7158cc47dcd1a4812b08ff8975bf38cafbb1b82d4130346dd7943ef7e3cbaf",
+          "src/vector.rs": "c3e650b0712eccba9c839de4221e89143369fa91a1ded850bea19fef97a0c527",
+          "src/verifier.rs": "1cd74f8f395f8f00cdaa5fc3a62d0ddada3a566d67dc5ecc2455fe4ecb3f7107",
+          "src/vtable.rs": "3d6186b8f0d4102ae904d56da4ba5f872db722a37c2f9412134a037ce91bb97d",
+          "src/vtable_writer.rs": "b195b7a6094a917b3ad8525da0730ad845293946eb0e1f5aec6418fa1cd63048"
+        },
+        "modified_files_sha256": {
+          "src/lib.rs": "bd6ed76aaa577e36b66644b80e0017c12d68c428deefbf6f5ce643d4d3bf96ba",
+          "src/verifier.rs": "9b5d297562aff64155d250019d89372ba70284e056edaef227e3da9e13ef2973"
+        },
+        "added_files_sha256": {
+          "src/verifier_continuation_tests.rs": "32728f1dced25453e9356d49af50ac11fb64fea47b5dbf39e7c0c775f21df1d7"
+        },
+        "vcs_info": {
+          "git": {
+            "sha1": "7e163021e59cca4f8e1e35a7c828b5c6b7915953"
+          },
+          "path_in_vcs": "rust/flatbuffers"
+        },
+        "source_of_truth": "https://static.crates.io/crates/flatbuffers/flatbuffers-25.12.19.crate",
+        "license_url": "https://github.com/google/flatbuffers/blob/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "25dc55729ec18e530fca98e1cf0ddba882227d826d454f3c1f148827b9a638e9"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/google/flatbuffers/blob/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE"
+        }
+      ]
+    },
+    {
       "name": "orc-rust",
       "version": "0.9.0",
       "path": "vendor/orc-rust",
@@ -14916,6 +14968,8 @@
           "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
           "src/extension/datetime/time.rs": "d09ce31b25ea291bc4c57bd7ffe777decb9d41d72359659e8c84f846c6571994",
           "src/extension/datetime/timestamp.rs": "c70b6cc2214e98e88749933ca287c6ec7f951a479934ea207b7c57037faa1159",
+          "src/flatbuffers.rs": "cf750088fd2985fde1c863b664588089eeb9755eb51f3b6c6448d47af323a993",
+          "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
           "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
           "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
@@ -14936,7 +14990,7 @@
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "e53708d8bcb9f7b7f9910b7853d70d9779d07a731f58d458c7f0c8e9e890203b",
+          "README.shardloom.md": "7badfae9b58ade00a444ae3c518206d5fb1231092d97356c08dcdcbad510b421",
           "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
           "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
           "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -14958,6 +15012,9 @@
           "src/dtype/structural.rs": "25f1b0c5bd753ca81df7000401e75869a8aeaf4cf451fbd03b22c7548c66e1f9",
           "src/dtype/structural_extension_tests.rs": "7091025c3a543b1ec30a952cd81d9231c154b74a9fac236c1537cf25c79ff0a3",
           "src/dtype/structural_tests.rs": "17e050ce6a7ba2cda95c45fa16d9c209ee71d712d863f732ecc7239886be5955",
+          "src/flatbuffers/dtype_verify.rs": "35ae4145a47e8384890f8f3c525656b1b11361005ea8c37479a9c819e8edaa80",
+          "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
+          "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
           "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
           "src/scalar/release.rs": "7cec148f9e6bfd81ddb6c448d18a6bcf1db2abd599a2261aa1f3362cb0263b3f",
           "src/scalar/release_tests.rs": "2b20da3e716641e206f2a15ba9eaaf4f319f379cc9206eaa4047efe40505cfb1",
@@ -14965,7 +15022,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "55fdcf14d9baec63a16bca26f08e64fa718d01adeb4746b8b0c6f96c8a829a22"
+          "sha256": "7badfae9b58ade00a444ae3c518206d5fb1231092d97356c08dcdcbad510b421"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

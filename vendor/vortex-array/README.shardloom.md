@@ -1,5 +1,23 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 ordered physical schema verification
+
+Generated DType verification delegates to an explicit parent-continuation loop
+through the same-version FlatBuffers checked verifier. Leaf payload verification
+is unchanged. Compound fields preserve their original order, optional/unknown
+tag behavior, string and offset checks, expanded alias work and complete error
+traces. Depth, table and apparent-byte thresholds match the original recursive
+verifier exactly. The default 64-table depth limit remains unchanged.
+
+Tests compare all generated variants, truncated buffers, every fixture byte
+under five substitutions, missing terminators, independent budget boundaries
+and repeated child offsets against original recursive verification. With explicit
+test-only options, 8,192-level validation and deepest corruption run on a
+128-KiB stack. The test reference preserves the original Apache-2.0 generated
+implementations; its distinct DType marker's alignment-error spelling is the
+only normalized diagnostic. This does not admit deeper native user workflows.
+See the [physical-verifier amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#physical-verifier-continuation-amendment-november-17-2026).
+
 ## November 17 iterative logical schema reader
 
 Eager list, fixed-list, extension storage and map-key parsing now uses an ordered
@@ -12,7 +30,7 @@ stack. A shallow recursive reference retains the Apache-2.0 source and copyright
 its eager map-key call is made explicit so it cannot invoke the new parser.
 
 These internal tests use only offsets returned by the native writer. Public
-reads still use the unchanged physical verifier and depth guard. This is not
+reads still use the unchanged default physical depth guard. This is not
 deep file or runtime acceptance; see the
 [logical-read amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-logical-read-amendment-november-17-2026).
 
@@ -24,7 +42,7 @@ inspection and extension metadata callback order. Shallow eager/lazy fixtures
 match the prior recursive writer byte-for-byte, including populated builders and
 partial buffers after metadata errors. Small-stack subprocesses write 8,192-level
 list, fixed-list, map, struct, union, extension and mixed schemas. The unchanged
-generic verifier still rejects those deep buffers; these writer tests do not
+default-limit verifier still rejects those deep buffers; these writer tests do not
 establish a public deep round trip or increase admission. See the
 [writer amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-flatbuffer-write-amendment-november-17-2026).
 The test-only recursive reference retains the pinned writer's Apache-2.0 source

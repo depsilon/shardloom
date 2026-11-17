@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: ordered checked DType verification.
 
 //! FlatBuffers read/write traits, plus bindings generated from this crate's `flatbuffers`
 //! schemas, checked in under `generated/`. Schemas owned by other crates generate into those
 //! crates instead. Regenerate with `cargo run -p xtask -- generate-flatbuffers`.
 
+mod dtype_verify;
 mod traits;
 
 pub use traits::*;
