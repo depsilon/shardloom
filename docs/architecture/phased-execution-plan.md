@@ -257,6 +257,10 @@ This checklist is the current work sequence. The read-only local workboard reads
 these same rows and the completed ledger; there is no separate board status to
 maintain. Hosted closeout continues alongside the next implementation when it
 has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
+After active deep traversal, shared native capability incorporation precedes
+all unfinished item 20 work. Item 20 obligations absorbed into that plan are
+handled there; every unabsorbed remainder follows it, including capability,
+workflow, performance and acceptance work recorded in the historical notes.
 
 - [x] **Direct join aggregate — hosted integration**
   Status: Complete — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
@@ -363,6 +367,15 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   comparisons, six upstream golden fixtures, standalone lock identity and license
   checks pass. Native memory prepayment, value traversal and complete deep-workflow
   acceptance remain open; default decode and public depth limits are unchanged.
+  Terminal native JSON now uses an admitted flat view arena and ordered write
+  continuations. Five focused tests preserve original output, scalar/copy counts,
+  failed-write prefixes and cancellation boundaries; 8,192-level Struct,
+  FixedSizeList and mixed views pass construction, interrupted writing and
+  cleanup on 128-KiB stacks. Wide siblings, memory refusal and final-owner
+  release also pass. The complete native workspace passes all 7,363 tests
+  (42 existing opt-in tests ignored), strict lint and formatting with the codec
+  and terminal-JSON changes together. This is a source checkpoint; typed input,
+  native memory prepayment and complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
@@ -378,7 +391,8 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
 
 - [ ] **Shared native capability incorporation**
   Status: Next — follows the in-progress deep-traversal lifecycle; takes priority
-  over every remaining queued item under the November 17 maintainer request.
+  over every remaining queued item under the November 17 maintainer request,
+  including every unfinished item 20 obligation not absorbed into this plan.
   The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
   extends item 20 and PulseWeave investigation F through existing admitted-operation,
   source, resource, operator and result owners. Item 23's completed adaptive
@@ -483,7 +497,10 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
 
 The November 17 [shared incorporation decision](native-shared-capability-incorporation-2026-11-17.md)
 places that item first after active deep traversal, ahead of the rest of the
-queue. Remaining items keep their relative order. This extends item 20/F and
+queue, including the whole unfinished item 20 remainder. Absorbed item 20/F
+obligations execute within the incorporation plan; all unabsorbed item 20
+capability, workflow, performance and acceptance work follows it. Remaining
+items keep their relative order. This extends item 20/F and
 the existing source-to-delivery owners, preserves completed item 23, and makes
 the later Chrysalis/Resonance designs consume the shared contracts. Historical
 sequence notes below do not override the Current execution checklist.
@@ -1865,7 +1882,10 @@ visible and independent; this implementation does not automatically close them.
     This is requested post-1.0 implementation, not a retroactive release blocker.
     The November 17 [shared incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
     extends these owners and investigation F; the Current execution checklist
-    owns its priority. Completed item 23 remains accepted in its existing scope.
+    owns its priority. All unfinished item 20 work not absorbed into that plan
+    follows it; historical sequencing in this section does not advance any
+    remainder ahead of the new plan. Completed item 23 remains accepted in its
+    existing scope.
   - Intake review: existing parity, ordinary CTEs/parameters and harness guards
     are reused; new breadth and strict semantics are accepted; connectors retain
     their owners; one Polars comparison per selected case is now authorized for
@@ -1876,7 +1896,9 @@ visible and independent; this implementation does not automatically close them.
     separate and Vortex-native input/output explicit.
   - **Two unfinished tracks remain inside item 20:** capability/workflow completion
     and the performance checklist immediately below. Capability PRs do not close
-    the performance track. The latest October 29 maintainer ordering is to finish
+    the performance track. Both unfinished tracks follow the November 17
+    incorporation plan except for obligations absorbed into that plan itself.
+    Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.
     Those candidates and the follow-through are merged in #1626/#1627. The

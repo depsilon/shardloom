@@ -11,6 +11,12 @@ in-progress resource-admitted deep traversal. The
 order. This work extends item 20 and its PulseWeave investigation F under the
 existing native runtime; it introduces no new phase or CG identifier.
 
+The maintainer's ordering clarification applies to the entire unfinished
+remainder of item 20. Obligations absorbed into this incorporation plan execute
+within it. All unabsorbed item 20 capability, workflow, performance and acceptance
+work follows the new plan, with its remaining relative order preserved. Older
+item 20 sequence notes do not authorize work ahead of this priority.
+
 The objective is to keep an optimization available when the input format,
 public interface, surrounding operators or output destination changes, wherever
 its semantic, source-domain and ownership requirements still hold. Carry source

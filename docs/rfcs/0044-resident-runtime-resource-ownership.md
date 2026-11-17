@@ -988,6 +988,43 @@ retains its existing leaf hook and requires direct acceptance coverage; rejectin
 VTable hooks remain rejecting when a custom plugin owns deserialization. This
 intake does not change enabled features, dependency versions or public limits.
 
+### Native terminal JSON continuation amendment, November 17, 2026
+
+Keep terminal nested JSON delivery on the existing native Struct/List/FixedSizeList
+views and scalar writers. Replace the recursively owned view tree with a flat
+postorder arena: struct nodes store ordered child indices and list nodes store
+one child index. Child views precede their parent views in storage and release;
+native array ownership continues through the intrinsic provider cleanup. The
+column's admitted schema owner outlives every view and container.
+
+Build one child at a time through owned continuations. Preserve UUID and
+structured-extension dispatch, native execution order, struct name capture
+before its children, validity capture after its children, and list-coordinate
+construction before its element view. Keep active provider arrays until their
+child finishes, and drain unfinished continuations innermost first on error or
+panic. Do not execute or materialize later siblings early.
+
+The node arena, per-struct child indices, and build/write continuation capacity
+use the existing native reserved vector with pre-allocation replacement-overlap
+credit. Native payload/metadata owners remain separate. This admission covers
+the new containers; it does not claim arbitrary provider canonicalization
+allocations or process RSS.
+
+Writing retains borrowed Struct/List cursors and per-parent scalar/UTF-8 counts.
+Preserve exact field order and escaping, delimiter writes, null short-circuits,
+coordinate/scalar callbacks, count-overflow order, and cancellation at node
+entry. Memory denial can stop before a composite begins; with admitted memory,
+writer failures must leave the same byte prefix as the old implementation.
+No owned scalar/JSON row tree or precomputed output string is introduced.
+
+Acceptance compares bytes, counts and failing-writer prefixes against the
+frozen original writer, including nullable and empty composites, escaped names,
+rich scalar/extension values and cancellation. Require complete 8,192-level
+Struct, FixedSizeList and mixed output on 128-KiB subprocess stacks, plus
+construction/write denial, cleanup and reusable-pool refunds. Private mechanism
+checks do not bypass or lift the public depth guard; complete deep lifecycle
+admission remains required.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
