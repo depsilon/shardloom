@@ -2,8 +2,9 @@
 
 # Native spatial values and bounded planar operations
 
-Status: implementation in progress under the existing item-19 rich-data
-contract. The accepted dense integer join change is in PR #1695. The next
+Status: implementation and focused acceptance in progress under the existing
+item-19 rich-data contract. Dense integer joins are merged in PR #1695; direct
+join aggregation passed its scoped acceptance and is in ready PR #1696. The next
 full-sort proposal has no saved proof of actual disordered full-sort cost, so
 it does not justify another optimization experiment at this point. Continue
 the required spatial feature roadmap; do not treat this as a performance claim.
@@ -22,6 +23,13 @@ validity, selected providers and Arrow import/export hooks. Wrap those concepts
 inside `shardloom-vortex`, following the existing tensor/vector extension owners;
 do not introduce another storage system, geometry-object execution substrate or
 external query engine. Any exact residual kernel remains ShardLoom-native.
+
+Provider classification: `implement_shardloom_kernel`, using the existing
+Vortex 0.93 extension, array, selection and file providers. The independently
+implemented predicates reuse ShardLoom's existing exact binary64 accumulator;
+no geometry dependency or implementation code is imported. The
+[public contract](../reference/spatial-values.md) lists the 15 functions and
+their admitted representations, metadata, arithmetic and topology semantics.
 
 Preserve geometry-level nulls separately from empty geometries. Child-coordinate
 nullability, nonfinite values, polygon closure, unsupported dimensions, metadata
@@ -44,6 +52,14 @@ tests, default/native checks and installed public-interface tests. Functional
 support does not require another Full43, full11k or competitor timing pass.
 Keep evidence concise and retain original failures; no optional archive pipeline
 is part of this delivery. Item 19, item 20 and CG-1 through CG-23 remain open.
+
+Focused native checks currently pass 12 tests; the added extreme-orientation
+control awaits its next run. Six public native tests pass all 15 functions
+through five interfaces, fresh-process Vortex reopen, independent Arrow/Parquet
+reads, masking, native spill, cancellation and last-owner release. Five Python
+schema tests pass. They found and corrected Python's accidental acceptance of
+JSON `null` metadata and its unhelpful errors for nonstring CRS/edge declarations.
+Complete workspace, feature, catalog and installed-package gates remain pending.
 
 The representation follows the [GeoArrow 0.2 format](https://geoarrow.org/format)
 and [extension metadata](https://geoarrow.org/extension-types). The existing

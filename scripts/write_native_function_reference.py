@@ -46,7 +46,7 @@ def snapshot(root: Path, native_library: Path | None = None) -> dict:
                 "functions": module.scalar_function_catalog()}
     names = set()
     for entry in data["functions"]:
-        if not 0 < entry["min_args"] <= entry["max_args"] <= 128:
+        if not 0 <= entry["min_args"] <= entry["max_args"] <= 128:
             raise ValueError("invalid scalar arity")
         if entry["external_engine_invoked"] is not False or entry["execution_provider"] != "shared_shardloom_native":
             raise ValueError("invalid scalar execution boundary")

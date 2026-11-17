@@ -1,4 +1,4 @@
-//! Explicit GeoArrow carriage; execution stays on native coordinate arrays.
+//! Explicit `GeoArrow` carriage; execution stays on native coordinate arrays.
 
 use super::{Kind, Metadata};
 use arrow_array::ArrayRef as ArrowArray;

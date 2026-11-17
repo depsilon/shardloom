@@ -19,10 +19,11 @@ def normalize_metadata(value=None) -> str:
         raise ValueError("spatial crs requires an object or nonempty string")
     if "crs_type" in value:
         kind, crs = value["crs_type"], value.get("crs")
-        if not ((kind == "projjson" and isinstance(crs, dict)) or
+        if not isinstance(kind, str) or not ((kind == "projjson" and isinstance(crs, dict)) or
                 (kind in {"wkt2:2019", "authority_code", "srid"} and isinstance(crs, str) and crs)):
             raise ValueError("unsupported spatial crs_type or mismatched crs representation")
-    if "edges" in value and value["edges"] not in {"spherical", "vincenty", "thomas", "andoyer", "karney"}:
+    if "edges" in value and (not isinstance(value["edges"], str) or
+            value["edges"] not in {"spherical", "vincenty", "thomas", "andoyer", "karney"}):
         raise ValueError("unsupported spatial edges; omit edges for planar coordinates")
     raw = json.dumps(dict(value), ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
     if len(raw.encode("utf-8")) > MAX_METADATA_BYTES:
@@ -42,7 +43,10 @@ def decode_metadata(raw: str) -> str:
         return result
     def nonfinite(_):
         raise ValueError("spatial metadata numbers must be finite")
-    return normalize_metadata(json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite))
+    value = json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite)
+    if not isinstance(value, dict):
+        raise ValueError("spatial metadata requires a JSON object")
+    return normalize_metadata(value)
 
 
 def storage_type(kind, nullable):

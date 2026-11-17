@@ -60,8 +60,12 @@ Declare fixed-rank tensors with row-specific shapes using
 
 ## Generated application reference
 
+[Spatial values and planar expressions](spatial-values.md) document native
+Point, LineString and Polygon columns, coordinate metadata and the shared
+`ST_*` function family in current source builds.
+
 <!-- BEGIN GENERATED APPLICATION REFERENCE -->
-Source identity: `9c29b6bf6f5884e551a6d58fe223f152df2a95be701a51c60098088d8166ed6c` (SHA-256 of the listed source inputs).
+Source identity: `b0205b521b79d76c68ccf1c6668c62b8d5b09d6b23ab112e0eaa0ac7ba959b73` (SHA-256 of the listed source inputs).
 This reference describes the listed source inputs; published package availability is tracked in the [selected-channel package readiness matrix](../release/package-channel-readiness-matrix.md).
 
 ### Python application exports
@@ -290,6 +294,21 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.functions.variant_get`](../../python/src/shardloom/functions.py) | function | Extract a native Variant path, preserving present Variant null values. |
 | [`shardloom.functions.try_variant_get`](../../python/src/shardloom/functions.py) | function | Extract an explicitly typed Variant value; absent or uncastable values are NULL. |
 | [`shardloom.functions.is_variant_null`](../../python/src/shardloom/functions.py) | function | Test for an embedded Variant null; SQL NULL produces false. |
+| [`shardloom.functions.st_point`](../../python/src/shardloom/functions.py) | function | Declare a native 2D Point constructor; coordinate conversion is exact. |
+| [`shardloom.functions.st_emptypoint`](../../python/src/shardloom/functions.py) | function | Declare a nonnull empty Point, distinct from SQL NULL. |
+| [`shardloom.functions.st_x`](../../python/src/shardloom/functions.py) | function | Read Point x; empty or null Points produce NULL. |
+| [`shardloom.functions.st_y`](../../python/src/shardloom/functions.py) | function | Read Point y; empty or null Points produce NULL. |
+| [`shardloom.functions.st_isempty`](../../python/src/shardloom/functions.py) | function | Test geometric emptiness while propagating SQL NULL. |
+| [`shardloom.functions.st_npoints`](../../python/src/shardloom/functions.py) | function | Count stored vertices, including polygon closing vertices. |
+| [`shardloom.functions.st_xmin`](../../python/src/shardloom/functions.py) | function | Read the minimum planar x coordinate; empty geometries produce NULL. |
+| [`shardloom.functions.st_ymin`](../../python/src/shardloom/functions.py) | function | Read the minimum planar y coordinate; empty geometries produce NULL. |
+| [`shardloom.functions.st_xmax`](../../python/src/shardloom/functions.py) | function | Read the maximum planar x coordinate; empty geometries produce NULL. |
+| [`shardloom.functions.st_ymax`](../../python/src/shardloom/functions.py) | function | Read the maximum planar y coordinate; empty geometries produce NULL. |
+| [`shardloom.functions.st_distance`](../../python/src/shardloom/functions.py) | function | Declare exact-rounding planar Point distance in coordinate units. |
+| [`shardloom.functions.st_dwithin`](../../python/src/shardloom/functions.py) | function | Compare exact squared Point distance to a finite nonnegative radius. |
+| [`shardloom.functions.st_length`](../../python/src/shardloom/functions.py) | function | Declare planar LineString length in coordinate units. |
+| [`shardloom.functions.st_contains`](../../python/src/shardloom/functions.py) | function | Test Polygon interior against a Point; boundary points are false. |
+| [`shardloom.functions.st_covers`](../../python/src/shardloom/functions.py) | function | Test a Polygon against a Point, including exterior and hole boundaries. |
 | [`shardloom.functions.sum_distinct`](../../python/src/shardloom/functions.py) | function | Declare native SUM over distinct non-null values. |
 | [`shardloom.functions.avg_distinct`](../../python/src/shardloom/functions.py) | function | Declare native AVG over distinct non-null values. |
 | [`shardloom.functions.trim`](../../python/src/shardloom/functions.py) | function | Declare native whitespace trimming. |
@@ -328,6 +347,9 @@ Method contracts are available on the linked classes; normal use starts with `co
 | [`shardloom.types.list_`](../../python/src/shardloom/types.py) | function | Declare list_ metadata for the native binder. |
 | [`shardloom.types.fixed_size_list`](../../python/src/shardloom/types.py) | function | Declare fixed_size_list metadata for the native binder. |
 | [`shardloom.types.embedding`](../../python/src/shardloom/types.py) | function | Declare dense Float16/Float32/Float64 values with versioned embedding identity. |
+| [`shardloom.types.point`](../../python/src/shardloom/types.py) | function | Declare a 2D GeoArrow Point with explicit optional CRS/edge metadata. |
+| [`shardloom.types.linestring`](../../python/src/shardloom/types.py) | function | Declare native lists of separated 2D Float64 x/y coordinates. |
+| [`shardloom.types.polygon`](../../python/src/shardloom/types.py) | function | Declare native lists of closed rings, with the exterior ring first. |
 | [`shardloom.types.sparse_vector`](../../python/src/shardloom/types.py) | function | Declare size, indices and supplied floating values without densification. |
 | [`shardloom.types.quantized_vector`](../../python/src/shardloom/types.py) | function | Declare supplied affine codes, positive scales and matching zero points. |
 | [`shardloom.types.fixed_shape_tensor`](../../python/src/shardloom/types.py) | function | Declare flat physical-order tensor values with a checked fixed shape. |

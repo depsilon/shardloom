@@ -42,7 +42,7 @@ pub(in crate::local_primitives) enum Kernel {
 
 impl Kernel {
     pub(super) fn evaluate(
-        &self,
+        self,
         args: &[ArrayRef],
         rows: usize,
         dtype: &DType,
@@ -65,7 +65,7 @@ impl Kernel {
         } else {
             None
         };
-        let radius = (self == &Self::DWithin)
+        let radius = (self == Self::DWithin)
             .then(|| keys(&args[2], context))
             .transpose()?;
         let allocator = crate::owned_buffers::with_credit(
@@ -92,39 +92,14 @@ impl Kernel {
                     return Ok(Value::Null);
                 }
                 Ok(match self {
-                    Self::X | Self::Y => left.point()?.map_or(Value::Null, |(x, y)| {
-                        Value::Float(if self == &Self::X { x } else { y })
-                    }),
-                    Self::IsEmpty => Value::Bool(left.is_empty()?.expect("nonnull geometry")),
-                    Self::NPoints => {
-                        let mut count = 0_u64;
-                        left.visit(context, |_, _| {
-                            count = count
-                                .checked_add(1)
-                                .ok_or_else(|| failed("spatial vertex count overflow"))?;
-                            Ok(())
-                        })?;
-                        Value::UInt(count)
-                    }
-                    Self::XMin | Self::YMin | Self::XMax | Self::YMax => {
-                        let mut bound: Option<f64> = None;
-                        left.visit(context, |x, y| {
-                            let value = if matches!(self, Self::XMin | Self::XMax) {
-                                x
-                            } else {
-                                y
-                            };
-                            bound = Some(bound.map_or(value, |prior| {
-                                if matches!(self, Self::XMin | Self::YMin) {
-                                    prior.min(value)
-                                } else {
-                                    prior.max(value)
-                                }
-                            }));
-                            Ok(())
-                        })?;
-                        bound.map_or(Value::Null, Value::Float)
-                    }
+                    Self::X
+                    | Self::Y
+                    | Self::IsEmpty
+                    | Self::NPoints
+                    | Self::XMin
+                    | Self::YMin
+                    | Self::XMax
+                    | Self::YMax => self.inspect(&left, context)?,
                     Self::Distance => match left
                         .point()?
                         .zip(right.as_ref().expect("second point").point()?)
@@ -134,7 +109,7 @@ impl Kernel {
                     },
                     Self::DWithin => {
                         let Some(radius) =
-                            number(radius.as_ref().expect("radius").raw_cell(index)?)?
+                            number(&radius.as_ref().expect("radius").raw_cell(index)?)?
                         else {
                             return Ok(Value::Null);
                         };
@@ -153,45 +128,13 @@ impl Kernel {
                             .unwrap_or(false);
                         Value::Bool(within)
                     }
-                    Self::Length => {
-                        let Row::Line(vertices) = &left else {
-                            return Err(failed("ST_LENGTH requires LineString"));
-                        };
-                        let mut sum = Accumulator::new();
-                        let mut infinite = false;
-                        for index in 1..vertices.len() {
-                            check(index, context)?;
-                            let length = distance(vertices.at(index - 1)?, vertices.at(index)?)?;
-                            if length.is_infinite() {
-                                infinite = true;
-                            } else {
-                                sum.product(length, 1.0, false, false)?;
-                            }
-                        }
-                        Value::Float(if infinite {
-                            f64::INFINITY
-                        } else {
-                            sum.finish().rounded()
-                        })
-                    }
-                    Self::Contains | Self::Covers => {
-                        let Row::Polygon(rings) = &left else {
-                            return Err(failed("spatial containment requires Polygon"));
-                        };
-                        // Validate topology before bounds or empty-point rejection.
-                        predicates::validate_polygon(rings, context)?;
-                        let location =
-                            if let Some(point) = right.as_ref().expect("point operand").point()? {
-                                predicates::polygon_location(rings, point, context)?
-                            } else {
-                                predicates::Location::Outside
-                            };
-                        Value::Bool(
-                            location == predicates::Location::Inside
-                                || (self == &Self::Covers
-                                    && location == predicates::Location::Boundary),
-                        )
-                    }
+                    Self::Length => length(&left, context)?,
+                    Self::Contains | Self::Covers => containment(
+                        &left,
+                        right.as_ref().expect("point operand"),
+                        self == Self::Covers,
+                        context,
+                    )?,
                     Self::Point | Self::EmptyPoint => {
                         unreachable!("constructor handled before views")
                     }
@@ -199,17 +142,100 @@ impl Kernel {
             },
         )
     }
+
+    fn inspect(self, row: &Row, context: &NativeExecutionContext<'_>) -> Result<Value<'static>> {
+        Ok(match self {
+            Self::X | Self::Y => row.point()?.map_or(Value::Null, |(x, y)| {
+                Value::Float(if self == Self::X { x } else { y })
+            }),
+            Self::IsEmpty => Value::Bool(row.is_empty()?.expect("nonnull geometry")),
+            Self::NPoints => {
+                let mut count = 0_u64;
+                row.visit(context, |_, _| {
+                    count = count
+                        .checked_add(1)
+                        .ok_or_else(|| failed("spatial vertex count overflow"))?;
+                    Ok(())
+                })?;
+                Value::UInt(count)
+            }
+            Self::XMin | Self::YMin | Self::XMax | Self::YMax => {
+                let mut bound: Option<f64> = None;
+                row.visit(context, |x, y| {
+                    let value = if matches!(self, Self::XMin | Self::XMax) {
+                        x
+                    } else {
+                        y
+                    };
+                    bound = Some(bound.map_or(value, |prior| {
+                        if matches!(self, Self::XMin | Self::YMin) {
+                            prior.min(value)
+                        } else {
+                            prior.max(value)
+                        }
+                    }));
+                    Ok(())
+                })?;
+                bound.map_or(Value::Null, Value::Float)
+            }
+            _ => unreachable!("coordinate inspection kernel"),
+        })
+    }
 }
 
-fn number(value: Cell) -> Result<Option<f64>> {
+fn containment(
+    polygon: &Row,
+    point: &Row,
+    include_boundary: bool,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Value<'static>> {
+    let Row::Polygon(rings) = polygon else {
+        return Err(failed("spatial containment requires Polygon"));
+    };
+    // Validate topology before bounds or empty-point rejection.
+    predicates::validate_polygon(rings, context)?;
+    let location = if let Some(point) = point.point()? {
+        predicates::polygon_location(rings, point, context)?
+    } else {
+        predicates::Location::Outside
+    };
+    Ok(Value::Bool(
+        location == predicates::Location::Inside
+            || (include_boundary && location == predicates::Location::Boundary),
+    ))
+}
+
+fn length(row: &Row, context: &NativeExecutionContext<'_>) -> Result<Value<'static>> {
+    let Row::Line(vertices) = row else {
+        return Err(failed("ST_LENGTH requires LineString"));
+    };
+    let mut sum = Accumulator::new();
+    let mut infinite = false;
+    for index in 1..vertices.len() {
+        check(index, context)?;
+        let length = distance(vertices.at(index - 1)?, vertices.at(index)?)?;
+        if length.is_infinite() {
+            infinite = true;
+        } else {
+            sum.product(length, 1.0, false, false)?;
+        }
+    }
+    Ok(Value::Float(if infinite {
+        f64::INFINITY
+    } else {
+        sum.finish().rounded()
+    }))
+}
+
+fn number(value: &Cell) -> Result<Option<f64>> {
     let result = match value {
         Cell::Null => return Ok(None),
-        Cell::Float(bits) => f64::from_bits(bits),
+        Cell::Float(bits) => f64::from_bits(*bits),
         Cell::NegativeInteger(value) => {
             #[allow(clippy::cast_precision_loss)]
-            let float = value as f64;
+            let float = *value as f64;
             #[allow(clippy::cast_possible_truncation)]
-            if float as i128 != i128::from(value) {
+            if float as i128 != i128::from(*value) {
                 return Err(failed(
                     "spatial integer coordinate is not exactly representable as Float64",
                 ));
@@ -218,9 +244,9 @@ fn number(value: Cell) -> Result<Option<f64>> {
         }
         Cell::NonnegativeInteger(value) => {
             #[allow(clippy::cast_precision_loss)]
-            let float = value as f64;
+            let float = *value as f64;
             #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-            if float as u128 != u128::from(value) {
+            if float as u128 != u128::from(*value) {
                 return Err(failed(
                     "spatial integer coordinate is not exactly representable as Float64",
                 ));
@@ -251,8 +277,8 @@ fn construct(
             if x.is_null(row)? || y.is_null(row)? {
                 return Ok(None);
             }
-            let x = number(x.raw_cell(row)?)?.expect("nonnull x");
-            let y = number(y.raw_cell(row)?)?.expect("nonnull y");
+            let x = number(&x.raw_cell(row)?)?.expect("nonnull x");
+            let y = number(&y.raw_cell(row)?)?.expect("nonnull y");
             point(x, y, true)?;
             Ok(Some((x, y)))
         } else {

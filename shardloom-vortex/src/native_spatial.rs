@@ -1,4 +1,4 @@
-//! GeoArrow identities over native coordinate structs and list offsets.
+//! `GeoArrow` identities over native coordinate structs and list offsets.
 //!
 //! These are payload declarations, not an alternate geometry object model.
 
@@ -162,7 +162,7 @@ pub(crate) fn register_dtype(session: &VortexSession, kind: Kind) {
         Kind::Point => session.dtypes().register(Point { allocator }),
         Kind::LineString => session.dtypes().register(LineString { allocator }),
         Kind::Polygon => session.dtypes().register(Polygon { allocator }),
-    };
+    }
 }
 
 pub(crate) fn register(session: &VortexSession) {

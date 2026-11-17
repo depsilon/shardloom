@@ -1,4 +1,4 @@
-//! Canonical GeoArrow metadata with bounded parser and retained ownership.
+//! Canonical `GeoArrow` metadata with bounded parser and retained ownership.
 
 use super::{Kind, MAX_METADATA_BYTES};
 use serde::{

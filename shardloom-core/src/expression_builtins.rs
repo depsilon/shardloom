@@ -1155,11 +1155,7 @@ mod tests {
     fn definitions_have_unique_names_bounded_arities_and_stable_aliases() {
         let mut names = std::collections::BTreeSet::new();
         for definition in SCALARS {
-            assert!(
-                definition.min_args > 0
-                    && definition.min_args <= definition.max_args
-                    && definition.max_args <= 128
-            );
+            assert!(definition.min_args <= definition.max_args && definition.max_args <= 128);
             for name in std::iter::once(&definition.name).chain(definition.aliases) {
                 assert!(
                     names.insert(name.to_ascii_lowercase()),
@@ -1172,6 +1168,8 @@ mod tests {
             }
         }
         assert!(scalar("external_evaluator").is_none());
+        let empty_point = scalar("st_emptypoint").unwrap();
+        assert_eq!((empty_point.min_args, empty_point.max_args), (0, 0));
     }
 
     #[test]

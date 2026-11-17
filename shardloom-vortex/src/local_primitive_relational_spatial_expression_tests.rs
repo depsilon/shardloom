@@ -494,3 +494,239 @@ fn native_spatial_constructor_length_and_interpretation_refusals() {
     }
     assert_eq!(session.snapshot().memory.reserved_bytes, 0);
 }
+
+#[test]
+fn native_spatial_selected_payloads_preserve_empty_and_ignore_hidden_invalid_values() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let source = points(
+        &[
+            (f64::NAN, f64::NAN),
+            (f64::INFINITY, 0.0),
+            (f64::INFINITY, 1.0),
+            (-0.0, 2.0),
+        ],
+        Validity::from_iter([true, true, false, true]),
+        true,
+    );
+    let selected = session
+        .with_native_execution_context(&CancellationToken::default(), |context| {
+            let indices = PrimitiveArray::from_iter([0_u64, 2, 3]).into_array();
+            crate::local_primitives::native_payload::take(
+                &source,
+                &indices,
+                source.dtype(),
+                context,
+            )
+        })
+        .unwrap();
+    let input = batch(&[("g", selected)], 3);
+    assert_eq!(
+        booleans(&evaluate(&session, &call("st_isempty", vec![col("g")]), &input).unwrap()),
+        vec![Some(true), None, Some(false)]
+    );
+    let result = evaluate(&session, &call("st_x", vec![col("g")]), &input).unwrap();
+    assert_eq!(numbers(&result)[0..2], [None, None]);
+    assert_eq!(numbers(&result)[2].unwrap().to_bits(), (-0.0_f64).to_bits());
+    assert!(
+        session
+            .with_native_execution_context(&CancellationToken::default(), |context| {
+                let indices = PrimitiveArray::from_iter([1_u64]).into_array();
+                crate::local_primitives::native_payload::take(
+                    &source,
+                    &indices,
+                    source.dtype(),
+                    context,
+                )
+            })
+            .is_err()
+    );
+    drop((input, result));
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn native_spatial_constructor_null_mask_precedes_conversion_and_radius_is_checked() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let input = batch(
+        &[
+            ("x", PrimitiveArray::from_iter([u64::MAX, 3]).into_array()),
+            (
+                "y",
+                PrimitiveArray::from_option_iter([None, Some(4_i64)]).into_array(),
+            ),
+        ],
+        2,
+    );
+    let make = call("st_point", vec![col("x"), col("y")]);
+    assert_eq!(
+        numbers(&evaluate(&session, &call("st_y", vec![make.clone()]), &input).unwrap()),
+        vec![None, Some(4.0)]
+    );
+    assert_eq!(
+        booleans(
+            &evaluate(
+                &session,
+                &call(
+                    "st_dwithin",
+                    vec![make.clone(), make.clone(), lit(ScalarValue::Float64(0.0))]
+                ),
+                &input
+            )
+            .unwrap()
+        ),
+        vec![None, Some(true)]
+    );
+    assert!(
+        evaluate(
+            &session,
+            &call(
+                "st_dwithin",
+                vec![make.clone(), make, lit(ScalarValue::Float64(-1.0))]
+            ),
+            &input
+        )
+        .is_err()
+    );
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn native_spatial_vertex_counts_and_y_bounds_cover_empty_lines_and_polygons() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let line = geometry(
+        Geometry::LineString,
+        list(
+            coordinates(&[(2.0, -3.0), (4.0, 5.0)], Validity::NonNullable, true),
+            &[(0, 2), (0, 0)],
+            Validity::NonNullable,
+        ),
+        "{}",
+    );
+    let input = batch(&[("g", line)], 2);
+    let result = evaluate(&session, &call("st_npoints", vec![col("g")]), &input).unwrap();
+    let mut execution = vortex::session::VortexSession::default().create_execution_ctx();
+    assert_eq!(
+        (0..2)
+            .map(|i| result
+                .execute_scalar(i, &mut execution)
+                .unwrap()
+                .as_primitive()
+                .as_::<u64>())
+            .collect::<Vec<_>>(),
+        vec![Some(2), Some(0)]
+    );
+    assert_eq!(
+        numbers(&evaluate(&session, &call("st_ymin", vec![col("g")]), &input).unwrap()),
+        vec![Some(-3.0), None]
+    );
+    assert_eq!(
+        numbers(&evaluate(&session, &call("st_ymax", vec![col("g")]), &input).unwrap()),
+        vec![Some(5.0), None]
+    );
+    let empty = batch(&[("g", polygon(&[], 1))], 1);
+    assert_eq!(
+        booleans(&evaluate(&session, &call("st_isempty", vec![col("g")]), &empty).unwrap()),
+        vec![Some(true)]
+    );
+    drop((result, execution));
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}
+
+#[test]
+fn native_spatial_cancellation_denial_and_final_buffer_release_refund_all_credits() {
+    let geometry = points(&vec![(3.0, 4.0); 2048], Validity::NonNullable, false);
+    let input = batch(&[("g", geometry.clone())], 2048);
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let memory = session.memory().clone();
+    let cancellation = CancellationToken::default();
+    cancellation.cancel();
+    let error = session
+        .with_native_execution_context(&cancellation, |context| {
+            crate::local_primitives::native_spatial_input::Column::new(&geometry, context)
+                .map(|_| ())
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("cancelled"), "{error}");
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let denied = ResidentVortexSession::new(4096, 1).unwrap();
+    assert!(evaluate(&denied, &call("st_x", vec![col("g")]), &input).is_err());
+    assert_eq!(denied.snapshot().memory.reserved_bytes, 0);
+    let result = evaluate(&session, &call("st_x", vec![col("g")]), &input).unwrap();
+    let mut execution = vortex::session::VortexSession::default().create_execution_ctx();
+    let primitive = result
+        .clone()
+        .execute::<PrimitiveArray>(&mut execution)
+        .unwrap();
+    let retained = primitive.to_buffer::<f64>();
+    drop((result, primitive, session, execution));
+    assert!(memory.snapshot().reserved_bytes > 0);
+    assert!(
+        retained
+            .iter()
+            .all(|value| value.to_bits() == 3.0_f64.to_bits())
+    );
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn native_spatial_polygon_orientation_survives_underflow_and_overflow() {
+    let session = ResidentVortexSession::new(8 << 20, 1).unwrap();
+    let tiny = f64::from_bits(1);
+    for (ring, queries) in [
+        (
+            vec![(0.0, 0.0), (4.0 * tiny, 0.0), (0.0, 4.0 * tiny), (0.0, 0.0)],
+            [
+                (tiny, tiny),
+                (2.0 * tiny, 2.0 * tiny),
+                (4.0 * tiny, 4.0 * tiny),
+            ],
+        ),
+        (
+            vec![
+                (-f64::MAX, -f64::MAX),
+                (f64::MAX, -f64::MAX),
+                (0.0, f64::MAX),
+                (-f64::MAX, -f64::MAX),
+            ],
+            [(0.0, 0.0), (0.0, -f64::MAX), (f64::MAX, f64::MAX)],
+        ),
+    ] {
+        for reverse in [false, true] {
+            let mut ring = ring.clone();
+            if reverse {
+                ring.reverse();
+            }
+            let input = batch(
+                &[
+                    ("g", polygon(&[ring], 3)),
+                    ("p", points(&queries, Validity::NonNullable, false)),
+                ],
+                3,
+            );
+            assert_eq!(
+                booleans(
+                    &evaluate(
+                        &session,
+                        &call("st_contains", vec![col("g"), col("p")]),
+                        &input
+                    )
+                    .unwrap()
+                ),
+                vec![Some(true), Some(false), Some(false)]
+            );
+            assert_eq!(
+                booleans(
+                    &evaluate(
+                        &session,
+                        &call("st_covers", vec![col("g"), col("p")]),
+                        &input
+                    )
+                    .unwrap()
+                ),
+                vec![Some(true), Some(true), Some(false)]
+            );
+        }
+    }
+    assert_eq!(session.snapshot().memory.reserved_bytes, 0);
+}

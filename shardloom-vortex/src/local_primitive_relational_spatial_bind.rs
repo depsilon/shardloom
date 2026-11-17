@@ -1,4 +1,4 @@
-//! Shared spatial function admission for SQL, typed plans and DataFrame calls.
+//! Shared spatial function admission for SQL, typed plans and `DataFrame` calls.
 
 use super::{
     Binder, DType, Expression, Function, Input, Kind, Nullability, PType, Result, ScalarDefinition,
