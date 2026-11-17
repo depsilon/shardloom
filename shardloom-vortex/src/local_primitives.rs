@@ -247,6 +247,9 @@ mod native_relational_window_frame;
 #[path = "local_primitives/native_sort_block.rs"]
 mod native_sort_block;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_spatial_input.rs"]
+mod native_spatial_input;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_statistical_moments.rs"]
 mod native_statistical_moments;
 #[cfg(all(feature = "vortex-local-primitives", unix))]

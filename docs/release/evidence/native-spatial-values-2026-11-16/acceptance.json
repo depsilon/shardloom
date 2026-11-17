@@ -1,0 +1,813 @@
+{
+  "benchmark_executions": 0,
+  "checks": {
+    "spatial-all-features-r1": {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--all-features"
+      ],
+      "log": {
+        "bytes": 5930,
+        "path": "logs/spatial-all-features-r1.log",
+        "sha256": "aaa73b2bdfb0b0e0e6388a0e81e5408d5f968c245ad83fcbd6cf44e9f21ea955"
+      },
+      "receipt": {
+        "bytes": 1037513,
+        "path": "spatial-all-features-r1.json",
+        "sha256": "cf7396dde5e05f960df85d1fdcef5fbd3a7a4b7d1891b6276855bb9e8641ab23"
+      },
+      "status": "passed"
+    },
+    "spatial-api-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/write_public_api_reference.py",
+        "--check"
+      ],
+      "log": {
+        "bytes": 100,
+        "path": "logs/spatial-api-reference-r1.log",
+        "sha256": "d059991ee6a95914fa02e158d44c0c6f79a2bf349c60d6c69dc6548b963a19c0"
+      },
+      "receipt": {
+        "bytes": 1037518,
+        "path": "spatial-api-reference-r1.json",
+        "sha256": "04833cd620b8817db3d0f1e4e9ebf29faed956c155cfeb9450317619bd439123"
+      },
+      "status": "passed"
+    },
+    "spatial-default-lint-r2": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": {
+        "bytes": 976,
+        "path": "logs/spatial-default-lint-r2.log",
+        "sha256": "fb1186d8e4fac7c862dbcf13b932ef35349c1ce523c6adb4a1120785ed06c952"
+      },
+      "receipt": {
+        "bytes": 1037527,
+        "path": "spatial-default-lint-r2.json",
+        "sha256": "cde9f067ed3fb5e5ba4732e409738267a51756c75aadce4aa6b3dd598621fc7b"
+      },
+      "status": "passed"
+    },
+    "spatial-default-tests-r2": {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--no-fail-fast"
+      ],
+      "log": {
+        "bytes": 490264,
+        "path": "logs/spatial-default-tests-r2.log",
+        "sha256": "2ac1cc4cdad01d71bb355eb5ad085a55ca6829bb3be39fecb8794404ab0a077d"
+      },
+      "receipt": {
+        "bytes": 1037513,
+        "path": "spatial-default-tests-r2.json",
+        "sha256": "4feaff55df962954a5405eae462a2b6e0e4a4c1bd185a20b67a5956dc26adec4"
+      },
+      "rust_tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3344,
+        "targets": 108
+      },
+      "status": "passed"
+    },
+    "spatial-feature-footprint-r1": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/runtime-r1/shardloom",
+        "feature-footprint",
+        "--format",
+        "json"
+      ],
+      "log": {
+        "bytes": 4381,
+        "path": "logs/spatial-feature-footprint-r1.log",
+        "sha256": "af72a954cd656e8ad6d48113a78e781b17660dd9de3b62a141d8beb8244907e0"
+      },
+      "receipt": {
+        "bytes": 1036574,
+        "path": "spatial-feature-footprint-r1.json",
+        "sha256": "077997379d24fe7ed0aa6f5513c206bce03f2162369ac5052d3cc74886c97fca"
+      },
+      "status": "passed"
+    },
+    "spatial-fmt-r4": {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log": {
+        "bytes": 0,
+        "path": "logs/spatial-fmt-r4.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "receipt": {
+        "bytes": 1037450,
+        "path": "spatial-fmt-r4.json",
+        "sha256": "e6ecc9186019476d947f28a8821d7b18f7abf17f554203185bb5d3adf21dd92b"
+      },
+      "status": "passed"
+    },
+    "spatial-installed-wheel-r1": {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/wheel-tools-r1/venv/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/installed-wheel-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/runtime-r1/lib_native.dylib",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/runtime-r1/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/wheelhouse"
+      ],
+      "log": {
+        "bytes": 10470,
+        "path": "logs/spatial-installed-wheel-r1.log",
+        "sha256": "84ae20375846600a532de30dae0a3b6a2eca73ea36acc02c31da74702a42e3d5"
+      },
+      "receipt": {
+        "bytes": 1037155,
+        "path": "spatial-installed-wheel-r1.json",
+        "sha256": "cb21f4c3b6c8008a0218a724e53dbe439c26bb1262cb142286416d66c271a2c4"
+      },
+      "status": "passed"
+    },
+    "spatial-msrv-minimal-r1": {
+      "command": [
+        "rustup",
+        "run",
+        "1.96.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "log": {
+        "bytes": 2528,
+        "path": "logs/spatial-msrv-minimal-r1.log",
+        "sha256": "5fd20692c81b09d3a84d56cc4e304db3e8b131ec386d61c4ca1c0bbecac7e0b8"
+      },
+      "receipt": {
+        "bytes": 1037536,
+        "path": "spatial-msrv-minimal-r1.json",
+        "sha256": "e8259b655fe42e54d7b99cec5319a2bf95af1182a771facd6c3511d9a1a2eb06"
+      },
+      "status": "passed"
+    },
+    "spatial-msrv-native-r1": {
+      "command": [
+        "rustup",
+        "run",
+        "1.96.0",
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "log": {
+        "bytes": 12685,
+        "path": "logs/spatial-msrv-native-r1.log",
+        "sha256": "0ca54d52f867c902dee45e2757526a99f73aa63660c7a195619e2eedc75bc6c4"
+      },
+      "receipt": {
+        "bytes": 1037577,
+        "path": "spatial-msrv-native-r1.json",
+        "sha256": "3b4f009f3219c2a1110322326b49023abbcf4bbf15d413f6e7752c5d5658bde7"
+      },
+      "status": "passed"
+    },
+    "spatial-native-lint-r5": {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log": {
+        "bytes": 976,
+        "path": "logs/spatial-native-lint-r5.log",
+        "sha256": "7c63e8013086e430250328a6c6c60d94d5237e6390740d84e816d8bc38d52950"
+      },
+      "receipt": {
+        "bytes": 1037573,
+        "path": "spatial-native-lint-r5.json",
+        "sha256": "74192abfa657415b4df68ef18f0668776b5bd4173b0e3498223c1fbed896b7d3"
+      },
+      "status": "passed"
+    },
+    "spatial-native-tests-r4": {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--no-fail-fast"
+      ],
+      "log": {
+        "bytes": 1360511,
+        "path": "logs/spatial-native-tests-r4.log",
+        "sha256": "95f0a6736aa324ebb26a6da71aef57465d6dad7ac0c564993d7ed45e84b5475a"
+      },
+      "receipt": {
+        "bytes": 1037562,
+        "path": "spatial-native-tests-r4.json",
+        "sha256": "ddf6efadbd39449181aed54e4f75187a4870dfc4fdb904309cece917c58244dc"
+      },
+      "rust_tests": {
+        "failed": 0,
+        "ignored": 42,
+        "passed": 7346,
+        "targets": 123
+      },
+      "status": "passed"
+    },
+    "spatial-no-default-r1": {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--no-default-features"
+      ],
+      "log": {
+        "bytes": 975,
+        "path": "logs/spatial-no-default-r1.log",
+        "sha256": "fa8f500078ccce9f214ed5851335365a9720fd405b086b7175260ef7a44d6289"
+      },
+      "receipt": {
+        "bytes": 1037518,
+        "path": "spatial-no-default-r1.json",
+        "sha256": "3907983183417e5d67eac4f37bd7e6fa7e37212f5366c7015ea3281848cc0138"
+      },
+      "status": "passed"
+    },
+    "spatial-python-core-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/run_python_test_shard.py",
+        "--shard",
+        "core",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/python-core-r1"
+      ],
+      "log": {
+        "bytes": 10497,
+        "path": "logs/spatial-python-core-r1.log",
+        "sha256": "97617791741cd6f795633b1b0cc9d69b0b389fd47c1bc509263d4fca1dc1f3a3"
+      },
+      "receipt": {
+        "bytes": 1037628,
+        "path": "spatial-python-core-r1.json",
+        "sha256": "56afa54e71e63319e5bebeda1db76a8adbd520e239e52121763d46b9bed467be"
+      },
+      "status": "passed"
+    },
+    "spatial-release-build-r1": {
+      "command": [
+        "cargo",
+        "build",
+        "--offline",
+        "--locked",
+        "--release",
+        "--features",
+        "release-user-surfaces",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-python"
+      ],
+      "log": {
+        "bytes": 13224,
+        "path": "logs/spatial-release-build-r1.log",
+        "sha256": "ec0285e3435fadcfba325b51ebd3bc2640f965129cd1343e1fcd080c09a63d86"
+      },
+      "receipt": {
+        "bytes": 1036622,
+        "path": "spatial-release-build-r1.json",
+        "sha256": "1e9e33218ac682166399716d58b2e06491a818a035c69d2a6b4ca3a4246c6b75"
+      },
+      "status": "passed"
+    },
+    "spatial-runtime-retention-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16/retain_runtime.py"
+      ],
+      "log": {
+        "bytes": 94,
+        "path": "logs/spatial-runtime-retention-r1.log",
+        "sha256": "c803c164364285cdba1f6332ffcdaadbf2a66fc45dbab6381f995134a70b82fc"
+      },
+      "receipt": {
+        "bytes": 1036578,
+        "path": "spatial-runtime-retention-r1.json",
+        "sha256": "04a333ddadb89e38ca8bf65fa21512e99e45f3cf0f2c07098a380d2c4d999734"
+      },
+      "status": "passed"
+    },
+    "spatial-scalar-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/write_native_function_reference.py",
+        "--check"
+      ],
+      "log": {
+        "bytes": 36,
+        "path": "logs/spatial-scalar-reference-r1.log",
+        "sha256": "08a9fb73feb5df59046e1b4cde50dcc33ebb3a8ea0650df5022c25c538c44001"
+      },
+      "receipt": {
+        "bytes": 1037522,
+        "path": "spatial-scalar-reference-r1.json",
+        "sha256": "73d1e1909b96d29c39f19e4ca925a774ae4e849d8419b50823efc5d3aceeaf7d"
+      },
+      "status": "passed"
+    },
+    "spatial-user-surface-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/check_user_surface_reference.py"
+      ],
+      "log": {
+        "bytes": 617,
+        "path": "logs/spatial-user-surface-reference-r1.log",
+        "sha256": "2e6644a91cf839bbab3a38f28a3de2ba1d12094807ebaa166a89e87099ce0707"
+      },
+      "receipt": {
+        "bytes": 1037506,
+        "path": "spatial-user-surface-reference-r1.json",
+        "sha256": "499c532327c785e964ee7fafdd50bb4508ead73a7936ec04ec5fbe3591fd8910"
+      },
+      "status": "passed"
+    }
+  },
+  "documentation_checks": {
+    "spatial-final-api-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/write_public_api_reference.py",
+        "--check"
+      ],
+      "log": {
+        "bytes": 100,
+        "path": "logs/spatial-final-api-reference-r1.log",
+        "sha256": "d059991ee6a95914fa02e158d44c0c6f79a2bf349c60d6c69dc6548b963a19c0"
+      },
+      "receipt": {
+        "bytes": 1036880,
+        "path": "spatial-final-api-reference-r1.json",
+        "sha256": "b54c7a9375d5bc2023199e5b0e143588b5f938128ec9a491865b553f8c6fbf5e"
+      },
+      "status": "passed"
+    },
+    "spatial-final-scalar-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/write_native_function_reference.py",
+        "--check"
+      ],
+      "log": {
+        "bytes": 36,
+        "path": "logs/spatial-final-scalar-reference-r1.log",
+        "sha256": "08a9fb73feb5df59046e1b4cde50dcc33ebb3a8ea0650df5022c25c538c44001"
+      },
+      "receipt": {
+        "bytes": 1036883,
+        "path": "spatial-final-scalar-reference-r1.json",
+        "sha256": "b946dbe605c716f48bab5bbe1de495dc2c49634ae68fc71a703bd0c85bf67d9a"
+      },
+      "status": "passed"
+    },
+    "spatial-final-user-surface-reference-r1": {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/check_user_surface_reference.py"
+      ],
+      "log": {
+        "bytes": 617,
+        "path": "logs/spatial-final-user-surface-reference-r1.log",
+        "sha256": "2e6644a91cf839bbab3a38f28a3de2ba1d12094807ebaa166a89e87099ce0707"
+      },
+      "receipt": {
+        "bytes": 1036867,
+        "path": "spatial-final-user-surface-reference-r1.json",
+        "sha256": "bdd3072b0ab150780eb54a7d060e46ad8ac17adf04b4d682b8d4e693ef758aab"
+      },
+      "status": "passed"
+    }
+  },
+  "documentation_delta": {
+    "docs/architecture/native-rich-data-lifecycle-2026-10-24.md": {
+      "documented": {
+        "bytes": 24711,
+        "sha256": "cc8431ab3490c599ee900eb6424a39433a0954a4c94979fb7e47676656d03ada"
+      },
+      "tested": {
+        "bytes": 24221,
+        "sha256": "12fee92354b455762d2242aa98221c2761eb37cc2b1ba858bce5863f4e4ebcdd"
+      }
+    },
+    "docs/architecture/native-spatial-values-2026-11-16.md": {
+      "documented": {
+        "bytes": 6094,
+        "sha256": "8898157f0e56e5732960f277f1f8b785b93d64c807287a634533146a07fdcaf7"
+      },
+      "tested": {
+        "bytes": 4426,
+        "sha256": "b039583d0d463fc14a0775430f4e3e4c5fb4501f6c8e2c424c164b4f0c0d7c4d"
+      }
+    },
+    "docs/architecture/phased-execution-completed-ledger.md": {
+      "documented": {
+        "bytes": 4068632,
+        "sha256": "0a224e00005259ffd3edde9d492029de03d7c38fc8b47f71d5f81b596005d94c"
+      },
+      "tested": {
+        "bytes": 4067526,
+        "sha256": "c9bc6d3c063a89bdc5ffa47525511246455716c8699d1ee2eef67f0bd3eda67e"
+      }
+    },
+    "docs/architecture/phased-execution-plan.md": {
+      "documented": {
+        "bytes": 266726,
+        "sha256": "06c7136206c1c9653ced4a1755840395ec39c2c83f36880c4e848c87f4d158eb"
+      },
+      "tested": {
+        "bytes": 266198,
+        "sha256": "b0117fb4c9206f5e893b3867c936beff8f10baecbe4403b4aa235132fdb364b9"
+      }
+    },
+    "docs/reference/spatial-values.md": {
+      "documented": {
+        "bytes": 5816,
+        "sha256": "fd477d48b256da7fea0ac806f3523b89d15a9696647c9b169ba9e5149f2e5a97"
+      },
+      "tested": {
+        "bytes": 5782,
+        "sha256": "ab8d0795b58595df74fc466ebf2059653dc1fb617bcc00b991a070e63563744e"
+      }
+    }
+  },
+  "documentation_links": {
+    "bytes": 977,
+    "path": "spatial-final-doc-links-r1.json",
+    "sha256": "eaab7f69f24dcd7f3d5ddf9604845c787e40f62322b650cda1bc479d545a10f7"
+  },
+  "hosted_integration": "pending",
+  "ignored_case_reference": {
+    "bytes": 1358259,
+    "path": "/Users/dylan/LocalData/shardloom/join-aggregate-2026-11-16/logs/join-aggregate-native-tests-r3.log",
+    "sha256": "1694de5e1a122e6143bf6256b52acf384bd68c3a043ead5029166a9fb5fbfe88"
+  },
+  "installed_load_verified": true,
+  "installed_package": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "status": "passed",
+    "tests": 462
+  },
+  "installed_report": {
+    "bytes": 10470,
+    "path": "installed-wheel-r1/report.json",
+    "sha256": "84ae20375846600a532de30dae0a3b6a2eca73ea36acc02c31da74702a42e3d5"
+  },
+  "limitations": [
+    "Current-host functional acceptance only; hosted integration is separate.",
+    "Point distance/radius, LineString length and simple Polygon/Point containment use the documented planar contract.",
+    "Interleaved coordinates, Z/M dimensions, multi-geometries, WKB/WKT parsing, reprojection, geographic kernels and geometry keys are not admitted.",
+    "GeoArrow field metadata preservation does not establish GeoParquet table metadata support.",
+    "Persisted spatial summaries and indexes remain separate.",
+    "Deep traversal, combined rich-data/analytical acceptance, item 19, item 20 and CG-1 through CG-23 remain open.",
+    "Raw receipts/logs and runtime/wheel remain local. No optional archive or portable replay packet was created."
+  ],
+  "msrv_toolchain_confirmation": {
+    "command": [
+      "rustup",
+      "run",
+      "1.96.0",
+      "rustc",
+      "-vV"
+    ],
+    "compiler_overrides_present": false,
+    "rustc_version": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: aarch64-apple-darwin\nrelease: 1.96.0\nLLVM version: 22.1.2\n"
+  },
+  "native_ignored_cases": [
+    "local_primitives::bounded_numeric_reduction_experiment::tests::bounded_numeric_measured_scalar_consumers",
+    "local_primitives::columnar_compat_sink::tests::benchmark::columnar_compatibility_release_lifecycle",
+    "local_primitives::compact_string_state::benchmark::paired::compact_string_state_actual_retained_paired_release",
+    "local_primitives::encoded_numeric_reduction::tests::encoded_numeric_reduction_measured_native_scalar_consumers",
+    "local_primitives::native_sink::tests::overlap_screen::complete_native_sink_overlap_screen",
+    "local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen",
+    "local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen",
+    "local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen",
+    "local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen",
+    "local_primitives::prepared_relational::tests::direct_count_tests::native_direct_count_attribution",
+    "local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen",
+    "local_primitives::prepared_relational::tests::grouped_cost_tests::native_grouped_cost_attribution",
+    "local_primitives::prepared_relational::tests::join_diagnostic_tests::native_resident_join_attribution",
+    "local_primitives::prepared_relational::tests::prepared_sample_cost_tests::native_prepared_sampling_cost_screen",
+    "local_primitives::prepared_relational::tests::probe_attribution_tests::native_row_index_complete_request_attribution",
+    "local_primitives::prepared_relational::tests::selection_cost_tests::native_selection_complete_cost_screen",
+    "local_primitives::prepared_relational::tests::window_spill_tests::shared_tests::attribution_tests::native_compatible_window_complete_request_attribution",
+    "local_primitives::prepared_relational::transform::fsst_admission_tests::existing_inputs::fsst_admission_existing_inputs",
+    "local_primitives::prepared_relational::transform::fsst_admission_tests::existing_inputs::fsst_admission_source_dispatch",
+    "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
+    "local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic",
+    "local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture",
+    "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
+    "native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen",
+    "native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample",
+    "native_provider_memory::zstd_tests::compression_cost_tests::native_zstd_complete_compression_cost_screen",
+    "non_unix_cli_reports_refusal_without_admitted_resource_fields",
+    "non_unix_primitives_refuse_before_existing_or_missing_source_access",
+    "non_unix_writer_refusal_preserves_existing_destination_and_creates_nothing",
+    "resident_memory_source::encoded_transfer::tests::varbin_metadata_cost_tests::native_varbin_metadata_complete_lifecycle_cost_screen",
+    "resident_session::composition_bench::native_composition_producer_memory_attribution",
+    "resident_session::composition_bench::native_memory_file_composition_baseline",
+    "resident_session::composition_bench::native_owned_array_composition_candidate",
+    "resident_session::concurrent_serving_tests::load_harness::serving_fixed_arrival_load_receipt",
+    "resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs",
+    "resident_session::source_reuse_bench::concurrent_source_reuse_attribution",
+    "resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs",
+    "vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers",
+    "vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen",
+    "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen",
+    "vortex_ingest::dictionary_preservation::source_dictionary_bench::zstd_size_screen::clickbench_zstd_size_admission_screen",
+    "vortex_ingest::text_codec_portfolio::text_codec_portfolio_release_reuse_1_10_100"
+  ],
+  "native_ignored_cases_match_predecessor": true,
+  "original_failed_or_stopped_observations": [
+    {
+      "artifact": {
+        "bytes": 511,
+        "path": "acceptance-recording-stop-r1.json",
+        "sha256": "f2e6532d69d2e56796bc2337ea45fa153d990013f32d847b6a37ec1d95c53409"
+      },
+      "incorrect_assumption": "CLI member suffix shardloom/bin/shardloom",
+      "observation": "Expected suffix matched no wheel entry; report generation stopped before writing.",
+      "observed_status": "stopped_before_acceptance_write",
+      "operation": "additional wheel-byte identity verification",
+      "runtime_or_test_failure": false
+    },
+    {
+      "artifact": {
+        "bytes": 1034597,
+        "path": "native-check-r1.json",
+        "sha256": "62b55deae4345ca4a8207fb3b4f8f976a841d90619ef3d1255e602bc5b2f2001"
+      },
+      "log": {
+        "bytes": 12965,
+        "path": "logs/native-check-r1.log",
+        "sha256": "499d550eb8ff654db95dc59ab487255f79c60c35ddf8e7306e10bcac432e0398"
+      },
+      "observed_status": "failed",
+      "returncode": 101
+    },
+    {
+      "artifact": {
+        "bytes": 792,
+        "path": "native-tests-admission-stop-r1.json",
+        "sha256": "b24941025bd8bbb6c22b53a1aae334314d67060259cc1a12d4949ff7f206a962"
+      },
+      "observed_error": "insufficient free disk: 13017309184 bytes available; 134217728 for the candidate plus 12884901888 headroom required",
+      "observed_status": "stopped_before_native_test_execution"
+    },
+    {
+      "artifact": {
+        "bytes": 1037292,
+        "path": "spatial-native-lint-r1.json",
+        "sha256": "21458fc06393f0bfb08b438b0613d405f1cef932668e84212e96742f84f02587"
+      },
+      "log": {
+        "bytes": 17406,
+        "path": "logs/spatial-native-lint-r1.log",
+        "sha256": "9823053686accf16de298ccda7fa428c0b83a1a62d3732d92c1a0a857c267208"
+      },
+      "observed_status": "failed",
+      "returncode": 101
+    },
+    {
+      "artifact": {
+        "bytes": 1037577,
+        "path": "spatial-native-lint-r2.json",
+        "sha256": "8fcca548ecfd44c2b5d3bff34655db43ee1534cfc9eba2526867141a76bc2f22"
+      },
+      "log": {
+        "bytes": 1953,
+        "path": "logs/spatial-native-lint-r2.log",
+        "sha256": "982e6c8605df2bb98f46a444eea9c7ba8d9245d18c8c339d1cd9216805e2a242"
+      },
+      "observed_status": "failed",
+      "returncode": 101
+    },
+    {
+      "artifact": {
+        "bytes": 1037577,
+        "path": "spatial-native-lint-r3.json",
+        "sha256": "da169d2a7c8877c02a5d7552a7668cc8192eae5726656c4bd79915badfa1b787"
+      },
+      "log": {
+        "bytes": 1010,
+        "path": "logs/spatial-native-lint-r3.log",
+        "sha256": "177068a9b319169b886da7e2b7f14d847d8ff74ab8a35d67af08e6df7b6b80b1"
+      },
+      "observed_status": "failed",
+      "returncode": 101
+    },
+    {
+      "artifact": {
+        "bytes": 1037784,
+        "path": "spatial-native-tests-r2.json",
+        "sha256": "e596126304a5a5b17a70c42a0879ea44d016ca28138f0e6fdf0a6c787dc0a2d3"
+      },
+      "log": {
+        "bytes": 1197,
+        "path": "logs/spatial-native-tests-r2.log",
+        "sha256": "b5c102ae96c111c0e8cbed41aa82c249805ad883d78ed009227cdde07bbed64f"
+      },
+      "observed_status": "failed",
+      "returncode": -15,
+      "supervisor_error": "RuntimeError: free storage below 12 GiB"
+    },
+    {
+      "artifact": {
+        "bytes": 1037746,
+        "path": "spatial-native-tests-r3.json",
+        "sha256": "4d1ef0c552da0e32c862ea5f235816a951f9b2d7199de4fdcaf9fb60f0acbe3f"
+      },
+      "log": {
+        "bytes": 1335,
+        "path": "logs/spatial-native-tests-r3.log",
+        "sha256": "3381d3f228dd4054daae878a94b0d5d7d380f3cfc3b0e04de50eaf54966bbac1"
+      },
+      "observed_status": "failed",
+      "returncode": -15,
+      "supervisor_error": "RuntimeError: free storage below 12 GiB"
+    },
+    {
+      "artifact": {
+        "bytes": 380,
+        "path": "stale-worktree-retirement-launch-stop-r1.json",
+        "sha256": "7053e790bc445662c0a6b8f2f15cd09082ecfa297566fa189383e2c96c925ef9"
+      },
+      "observed_status": "stopped_before_inventory_and_retirement",
+      "returncode": 1
+    },
+    {
+      "disposition": "Reject JSON null metadata and nonstring CRS/edge declarations; correct the null-cell and wrapped-protocol-error test expectations. Original observation remains unchanged.",
+      "errors": 4,
+      "failures": 1,
+      "log": {
+        "bytes": 10311,
+        "path": "logs/spatial-python-schema-r1.log",
+        "sha256": "b56d732331a1a8ea8183a02199f80299daa9a4225ef7f39b2099f2f8adbdec26"
+      },
+      "observed_status": "failed",
+      "tests": 5
+    }
+  ],
+  "performance_claim": false,
+  "publication_attempted": false,
+  "python_core": {
+    "error_count": 0,
+    "failure_count": 0,
+    "skipped_count": 83,
+    "status": "passed",
+    "test_count": 1329
+  },
+  "retained_local_directory": "/Users/dylan/LocalData/shardloom/native-spatial-2026-11-16",
+  "retention_receipts": [
+    {
+      "bytes": 17129,
+      "path": "storage-retirement-r1.json",
+      "sha256": "aa0e928870e1b70478109b6070a43693e268809e99b7b7c52ff7687710627117"
+    },
+    {
+      "bytes": 13689,
+      "path": "release-cache-retirement-r1.json",
+      "sha256": "c253ffdc2c40bb06066a58e4471cc3703621194149c2f0c4c217dba05c120f31"
+    },
+    {
+      "bytes": 1813,
+      "path": "stale-worktree-retirement-r1.json",
+      "sha256": "a55e6d7a6b5e56b1875d7e171b2a114048a53d500672aaccf2a2943ec052f701"
+    },
+    {
+      "bytes": 37336,
+      "path": "completed-install-retirement-r1.json",
+      "sha256": "a810b404759b0e64fa0ebd8be04b137300bb43c1dcf1b9294dcf5e2c0bf5b101"
+    }
+  ],
+  "runtime_and_wheel": {
+    "cli": {
+      "bytes": 80235520,
+      "path": "runtime-r1/shardloom",
+      "sha256": "44d69268d04b6ce60382cc6debc16743f951a5cf562f478dd8ee63315437ae35"
+    },
+    "native_library": {
+      "bytes": 80910976,
+      "path": "runtime-r1/lib_native.dylib",
+      "sha256": "52146e427a8aca10ebf339da228954a2734928aba87df7dc49d6c573a09b36ae"
+    },
+    "wheel": {
+      "bytes": 55787856,
+      "path": "installed-wheel-r1/dist/shardloom-1.1.0-cp310-abi3-macosx_27_0_arm64.whl",
+      "sha256": "5400a92cb99022db2796a71ea108cb53c2567b666a8d06e21cebd9a6584681f4"
+    }
+  },
+  "runtime_identity": {
+    "bytes": 7090,
+    "path": "runtime-r1-identity.json",
+    "sha256": "23346abd04f09957f8c3c6d01c9ba55596681d3b7c01ce32ed0ac8563989740c"
+  },
+  "schema_version": "shardloom.spatial_acceptance.v1",
+  "scope": {
+    "dimensions": 2,
+    "geometry_types": [
+      "Point",
+      "LineString",
+      "Polygon"
+    ],
+    "native_spatial_tests": 13,
+    "persistence": [
+      "Vortex",
+      "Arrow IPC",
+      "Parquet with GeoArrow field metadata"
+    ],
+    "public_interfaces": [
+      "SQL",
+      "DataFrame",
+      "typed plan",
+      "embedded workflow",
+      "CLI"
+    ],
+    "schema_tests": 5,
+    "shared_functions": 15,
+    "spatial_public_tests": 6
+  },
+  "source_commit": "db151f11ed7be9334822a3cd9a81cf7873e90490",
+  "source_file_count": 5851,
+  "source_fingerprint_sha256": "1fc8379a55b0ebbcadba9f2df04df1b9050176ac95f59461a723282db7ab7a09",
+  "source_scope_policy": "All 13 source/reference gates, the clean release build and installed proof retain identical guard source inventories, which exclude checked-in evidence directories. Only the five named documentation files differ within that inventory afterward; runtime and test source are unchanged. This acceptance record is an additional evidence artifact. Original receipts are immutable.",
+  "source_tree": "c01eb18d1eb775984a427abd27637b6ebe17ce1a",
+  "status": "local_acceptance_passed",
+  "uninstall_verified": true,
+  "whole_item_19_complete": false,
+  "whole_item_20_complete": false
+}

@@ -17,6 +17,7 @@ pub enum ScalarTypeRule {
     VectorSlice,
     VectorReduction,
     VectorNormalize,
+    Spatial,
     VariantGet,
     VariantIsNull,
     Utf8,
@@ -77,6 +78,9 @@ impl ScalarTypeRule {
             }
             Self::VectorNormalize => {
                 "F16/F32/F64 dense vector -> same list kind/width with nonnull Float64 components and nullable parent; bounded-error normalization without embedding metadata"
+            }
+            Self::Spatial => {
+                "2D GeoArrow Point/LineString/Polygon on native coordinates; explicit planar/CRS admission, null/empty distinction and exact predicate decisions"
             }
             Self::VariantGet => {
                 "Variant and literal path -> nullable Variant; TRY_VARIANT_GET additionally requires a literal admitted target type and returns NULL on failed conversion"
@@ -221,6 +225,36 @@ definitions!(
 
 definitions!(
     pub SCALARS,
+    ("st_point", [], 2, 2, Spatial, Propagate, "spatial", false,
+        "Construct a 2D Point from exactly representable numeric x/y coordinates; two NaNs encode empty and other nonfinite coordinates fail."),
+    ("st_emptypoint", [], 0, 0, Spatial, Propagate, "spatial", false,
+        "Construct a nonnull empty 2D Point with unknown CRS and planar interpretation."),
+    ("st_x", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Read a Point x coordinate; null or empty Points return NULL."),
+    ("st_y", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Read a Point y coordinate; null or empty Points return NULL."),
+    ("st_isempty", [], 1, 1, Spatial, Propagate, "spatial", false,
+        "Distinguish an empty geometry from SQL NULL."),
+    ("st_npoints", [], 1, 1, Spatial, Propagate, "spatial", false,
+        "Count stored 2D vertices, including polygon ring closing vertices; empty geometries have zero vertices."),
+    ("st_xmin", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Return the minimum planar x coordinate; null or empty geometries return NULL."),
+    ("st_ymin", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Return the minimum planar y coordinate; null or empty geometries return NULL."),
+    ("st_xmax", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Return the maximum planar x coordinate; null or empty geometries return NULL."),
+    ("st_ymax", [], 1, 1, Spatial, AlwaysNullable, "spatial", false,
+        "Return the maximum planar y coordinate; null or empty geometries return NULL."),
+    ("st_distance", [], 2, 2, Spatial, AlwaysNullable, "spatial", false,
+        "Round exact Cartesian Point-to-Point distance once; matching coordinate metadata required, null/empty return NULL."),
+    ("st_dwithin", [], 3, 3, Spatial, Propagate, "spatial", false,
+        "Compare exact squared Point distance to a finite nonnegative radius; empty is false and SQL NULL propagates."),
+    ("st_length", [], 1, 1, Spatial, Propagate, "spatial", false,
+        "Sum rounded Cartesian LineString segment distances with an exact accumulator; empty is zero."),
+    ("st_contains", [], 2, 2, Spatial, Propagate, "spatial", false,
+        "Test a planar Polygon against a Point after simple-ring/disjoint-hole validation; boundaries and empty geometries are false."),
+    ("st_covers", [], 2, 2, Spatial, Propagate, "spatial", false,
+        "Test a planar Polygon against a Point including its boundary; simple-ring/disjoint-hole validation and matching metadata are required."),
     (
         "variant_get",
         [],
@@ -1121,11 +1155,7 @@ mod tests {
     fn definitions_have_unique_names_bounded_arities_and_stable_aliases() {
         let mut names = std::collections::BTreeSet::new();
         for definition in SCALARS {
-            assert!(
-                definition.min_args > 0
-                    && definition.min_args <= definition.max_args
-                    && definition.max_args <= 128
-            );
+            assert!(definition.min_args <= definition.max_args && definition.max_args <= 128);
             for name in std::iter::once(&definition.name).chain(definition.aliases) {
                 assert!(
                     names.insert(name.to_ascii_lowercase()),
@@ -1138,6 +1168,8 @@ mod tests {
             }
         }
         assert!(scalar("external_evaluator").is_none());
+        let empty_point = scalar("st_emptypoint").unwrap();
+        assert_eq!((empty_point.min_args, empty_point.max_args), (0, 0));
     }
 
     #[test]

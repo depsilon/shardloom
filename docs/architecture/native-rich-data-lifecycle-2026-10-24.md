@@ -2,6 +2,13 @@
 
 # Vectors, tensors and binary objects through ordinary data workflows
 
+The [November 16 spatial delivery](native-spatial-values-2026-11-16.md) now passes
+local acceptance for 2D Point, LineString and Polygon preservation and 15 shared
+planar expressions. All 462 installed-package tests pass without skips, including
+the six spatial lifecycle/interface cases. Hosted integration remains separate.
+Resource-admitted deep traversal and the combined rich-data/analytical workload
+remain open; this finite delivery does not close item 19 or the competitive gates.
+
 Status: accepted October 24 maintainer addition, following
 [full-ingest ownership and preparation](native-ingest-ownership-preparation-2026-10-24.md),
 then the [connected programming model](native-connected-programming-model-2026-10-24.md),

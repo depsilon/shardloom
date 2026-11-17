@@ -29,6 +29,7 @@ pub(in crate::local_primitives) enum TemporalArgument {
 
 pub(in crate::local_primitives) enum Function {
     Vector(Box<super::vector::Kernel>),
+    Spatial(super::spatial::Kernel),
     Variant(Box<super::variant::Kernel>),
     IsNan,
     IsInfinite,
@@ -85,6 +86,7 @@ impl Function {
     pub(super) fn same_semantics(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Vector(left), Self::Vector(right)) => left == right,
+            (Self::Spatial(left), Self::Spatial(right)) => left == right,
             (Self::Variant(left), Self::Variant(right)) => left == right,
             (
                 Self::Decimal {

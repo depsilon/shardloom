@@ -7,6 +7,7 @@ pub(crate) fn register(session: &vortex::session::VortexSession) {
     crate::native_tensor::register(session);
     crate::native_variable_tensor::register(session);
     crate::native_vector::register(session);
+    crate::native_spatial::register(session);
     #[cfg(feature = "native-binary-objects")]
     crate::native_binary_type::register(session);
 }
@@ -35,4 +36,5 @@ pub(crate) fn structured_payload_storage(
         .or_else(|| crate::native_tensor::storage(dtype))
         .or_else(|| crate::native_variable_tensor::storage(dtype))
         .or_else(|| crate::native_vector::storage(dtype))
+        .or_else(|| crate::native_spatial::storage(dtype))
 }

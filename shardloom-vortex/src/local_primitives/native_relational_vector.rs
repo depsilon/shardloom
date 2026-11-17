@@ -18,7 +18,7 @@ use vortex::array::{
 #[path = "native_vector_input.rs"]
 mod input;
 #[path = "native_vector_math.rs"]
-mod math;
+pub(in crate::local_primitives) mod math;
 #[path = "native_vector_output.rs"]
 mod output;
 

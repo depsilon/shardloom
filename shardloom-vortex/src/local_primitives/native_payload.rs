@@ -535,7 +535,25 @@ fn copy_rows<const RETAIN: bool>(
             storage.as_ref().map(ExtensionArrayExt::storage_array),
             rows,
             extension.storage_dtype(),
-            copy,
+            if let Some(metadata) = crate::native_spatial::metadata(dtype) {
+                if copy.policy == CopyPolicy::ValidateValues {
+                    super::native_spatial_input::validate_selection(
+                        storage.as_ref().map(ExtensionArrayExt::storage_array),
+                        rows,
+                        metadata.kind(),
+                        context,
+                        allocator,
+                    )?;
+                }
+                // Geometry validation admits only finite coordinates or the
+                // empty Point sentinel. Preserve those bits in native storage.
+                CopyState {
+                    policy: CopyPolicy::PreserveUnobserved,
+                    ..copy
+                }
+            } else {
+                copy
+            },
             context,
             allocator,
         )?;

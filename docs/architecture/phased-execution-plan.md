@@ -279,8 +279,12 @@ requests pass, with engine time 94.178862655 → 91.576505630 seconds. Direct wo
 activates in 40 requests; its subset changes 5.718050585 → 5.596205335 seconds,
 while both original large star requests regress. Most of the overall difference
 is on inactive paths; no causal or large speedup is established. All source,
-installed-package and complete-result checks pass. Finish hosted integration,
-then resume the saved item-19 spatial and rich-data acceptance work. Duplicate
+installed-package and complete-result checks pass. Finish hosted integration.
+The resumed [native spatial unit](native-spatial-values-2026-11-16.md) now passes
+complete source and installed-package acceptance: 15 expressions over native
+2D Point, LineString and Polygon values, with all 462 installed tests passing
+without skips. Complete its hosted integration, then resource-admitted deep
+traversal and combined rich-data/analytical acceptance. Duplicate
 multiplicity reduction remains a separately proved extension; it is not an
 extra prerequisite before the accepted roadmap sequence.
 
@@ -510,6 +514,9 @@ authorize additional experiments. Reuse compatible saved evidence.
     arrays, conservative bounds and exact surviving-candidate kernels, then
     evaluate optional persisted spatial summaries. Required spatial support does
     not depend on a successful FSST, codec or CPU-fusion optimization.
+    The [finite 2D spatial delivery](native-spatial-values-2026-11-16.md) passes
+    local runtime, resource/lifecycle and installed-package acceptance.
+    Persisted summaries and spatial indexes are separate, unadmitted work.
   - [ ] Assess codec/consumer choices with the accepted consumer and batch
     contracts. Investigate distinct bounded CPU expression fusion last, only
     after attributing work left by the accepted upstream reductions and preserving

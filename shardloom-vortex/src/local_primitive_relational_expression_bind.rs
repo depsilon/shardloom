@@ -26,6 +26,8 @@ mod temporal_functions;
 #[path = "local_primitive_relational_decimal_bind.rs"]
 mod decimal_functions;
 
+#[path = "local_primitive_relational_spatial_bind.rs"]
+mod spatial_functions;
 #[path = "local_primitive_relational_vector_bind.rs"]
 mod vector_functions;
 
@@ -40,6 +42,9 @@ mod variant_tests;
 #[path = "local_primitive_relational_literal_ownership_tests.rs"]
 mod literal_ownership_tests;
 
+#[cfg(test)]
+#[path = "local_primitive_relational_spatial_expression_tests.rs"]
+mod spatial_tests;
 #[cfg(test)]
 #[path = "local_primitive_relational_vector_expression_tests.rs"]
 mod vector_tests;
@@ -314,6 +319,9 @@ impl Binder<'_> {
         }
         if vector_functions::handles(definition.type_rule) {
             return vector_functions::bind(self, definition, args, fields, depth);
+        }
+        if definition.type_rule == ScalarTypeRule::Spatial {
+            return spatial_functions::bind(self, definition, args, fields, depth);
         }
         if matches!(
             definition.type_rule,
@@ -914,6 +922,7 @@ fn typed_function_dtype(
                 "temporal functions require metadata-bound calendar admission",
             ));
         }
+        T::Spatial => return Err(failed("spatial functions require native array binding")),
         T::VectorDimension
         | T::TensorShape
         | T::VectorValues

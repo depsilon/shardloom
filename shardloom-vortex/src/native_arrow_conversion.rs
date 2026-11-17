@@ -46,6 +46,9 @@ pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
     if crate::native_vector::storage(dtype).is_some() {
         return crate::native_vector::arrow::field(name, dtype).ok();
     }
+    if crate::native_spatial::storage(dtype).is_some() {
+        return crate::native_spatial::arrow::field(name, dtype).ok();
+    }
     crate::native_temporal::arrow::field(&Field::new(name, data_type(dtype)?, dtype.is_nullable()))
         .ok()
 }

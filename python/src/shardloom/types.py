@@ -41,6 +41,9 @@ __all__ = (
     "list_",
     "fixed_size_list",
     "embedding",
+    "point",
+    "linestring",
+    "polygon",
     "sparse_vector",
     "quantized_vector",
     "fixed_shape_tensor",
@@ -52,6 +55,21 @@ __all__ = (
 
 def _type(specification: object) -> ResultType:
     return normalize_schema({"value": specification})[0][1]
+
+
+def point(*, metadata: Mapping | None = None, nullable: bool = True) -> ResultType:
+    """Declare a 2D GeoArrow Point with explicit optional CRS/edge metadata."""
+    return _type({"type": "point", "nullable": nullable, "metadata": metadata})
+
+
+def linestring(*, metadata: Mapping | None = None, nullable: bool = True) -> ResultType:
+    """Declare native lists of separated 2D Float64 x/y coordinates."""
+    return _type({"type": "linestring", "nullable": nullable, "metadata": metadata})
+
+
+def polygon(*, metadata: Mapping | None = None, nullable: bool = True) -> ResultType:
+    """Declare native lists of closed rings, with the exterior ring first."""
+    return _type({"type": "polygon", "nullable": nullable, "metadata": metadata})
 
 
 @dataclass(frozen=True, slots=True)

@@ -222,10 +222,13 @@ pub(crate) fn validate_values_with_float_policy(
     }
 }
 
-/// Variant carriage does not observe typed floating components numerically.
-/// Cross-field validation still checks its encoded/shredded values.
+/// Variant carriage does not numerically observe floating components. Spatial
+/// cross-field validation admits only finite coordinates or the two-NaN empty
+/// Point sentinel; ordinary floating fields keep the caller's policy.
 pub(crate) fn field_float_policy(field: &Field, policy: FloatPolicy) -> FloatPolicy {
-    if crate::native_variant::arrow::is_variant(field) {
+    if crate::native_variant::arrow::is_variant(field)
+        || crate::native_spatial::arrow::kind(field) == Some(crate::native_spatial::Kind::Point)
+    {
         FloatPolicy::Extended
     } else {
         policy

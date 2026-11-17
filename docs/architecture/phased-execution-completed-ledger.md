@@ -17,6 +17,22 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 
+- [x] `Native 2D spatial values and planar expressions — local acceptance`
+  — the [contract](native-spatial-values-2026-11-16.md) admits Point, LineString
+  and Polygon values through native payload, spill, result and persistence
+  owners, with 15 expressions shared by SQL, DataFrame, typed plans, workflows
+  and CLI. Complete default/native suites pass 3,344/7,346 tests; the native
+  suite retains the predecessor's 42 ignored cases. Formatting, strict lint,
+  feature/Rust 1.96 checks and generated references pass. All 462 isolated
+  installed-package tests pass without skips, including all six spatial tests
+  and independent complete Arrow/Parquet reads. The
+  [compact acceptance](../release/evidence/native-spatial-values-2026-11-16/acceptance.json)
+  binds clean source, retained runtime/wheel and original failed/stopped checks.
+  Hosted integration is separate. Deep traversal, combined rich-data/analytical
+  acceptance, broader spatial representations and all independent CG gates
+  remain open. No benchmark campaign, performance claim or package publication
+  is part of this unit.
+
 - [x] `One native execution pipeline — local implementation and complete observation`
   — the [contract](native-pipeline-consolidation-2026-11-12.md) and
   [report](../benchmarks/native-pipeline-consolidation-2026-11-12.md) close the

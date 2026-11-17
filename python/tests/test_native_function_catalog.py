@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
+import math
 from pathlib import Path
 import unittest
 
@@ -19,6 +20,32 @@ STAMP = "CAST('2024-02-29T13:14:15.123456Z' AS TIMESTAMP)"
 EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP)"
 ZONED_EPOCH = "CAST('1970-01-01T00:00:00Z' AS TIMESTAMP(us,'UTC'))"
 SPAN = "CAST('2s' AS DURATION(s))"
+SPATIAL_CASES = {
+    "st_point": (["3.0", "4.0"], {"x": 3.0, "y": 4.0}),
+    "st_emptypoint": ([], {"x": float("nan"), "y": float("nan")}),
+    "st_x": (["spatial_point"], 3.0), "st_y": (["spatial_point"], 4.0),
+    "st_isempty": (["spatial_point"], False), "st_npoints": (["spatial_poly"], 5),
+    "st_xmin": (["spatial_poly"], 0.0), "st_ymin": (["spatial_poly"], 0.0),
+    "st_xmax": (["spatial_poly"], 10.0), "st_ymax": (["spatial_poly"], 10.0),
+    "st_distance": (["spatial_point", "spatial_other"], 5.0),
+    "st_dwithin": (["spatial_point", "spatial_other", "5.0"], True),
+    "st_length": (["spatial_line"], 5.0),
+    "st_contains": (["spatial_poly", "spatial_point"], True),
+    "st_covers": (["spatial_poly", "spatial_point"], True),
+}
+
+
+def comparable(value):
+    # Empty Points permit any NaN payload; all other values compare unchanged.
+    if isinstance(value, float) and math.isnan(value):
+        return ("empty-point-coordinate",)
+    if isinstance(value, dict):
+        return {name: comparable(child) for name, child in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(comparable(child) for child in value)
+    return value
+
+
 VECTOR_CASES = {
     "vector_dimension": (["ARRAY[3.0,4.0]"], 2),
     "tensor_shape": (["tensor", "'physical'"], [2, 3]),
@@ -46,6 +73,7 @@ TEMPORAL_CASES = {
     "timestamp_remove_timezone": ([ZONED_EPOCH], datetime(1970, 1, 1)),
 }
 CASES = {
+    **SPATIAL_CASES,
     **VECTOR_CASES,
     **TEMPORAL_CASES,
     "variant_get": (["NULL", "'$'"], None),
@@ -110,10 +138,17 @@ class NativeFunctionCatalogTests(unittest.TestCase):
 
     def tensor_source(self, context, *, null=False):
         from shardloom import types as t
+        point = lambda x, y: {"x": float(x), "y": float(y)}
         return context.from_rows([{"tensor": None if null else [1, 2, 3, 4, 5, 6],
-                                   "vector": None if null else [3.0, 4.0]}],
+                                   "vector": None if null else [3.0, 4.0],
+                                   "spatial_point": None if null else point(3, 4),
+                                   "spatial_other": None if null else point(0, 0),
+                                   "spatial_line": None if null else [point(0, 0), point(3, 4)],
+                                   "spatial_poly": None if null else [[point(0, 0), point(10, 0),
+                                       point(10, 10), point(0, 10), point(0, 0)]]}],
             schema={"tensor": t.fixed_shape_tensor(t.int16(), [2, 3], permutation=[1, 0]),
-                    "vector": t.list_(t.float64())})
+                    "vector": t.list_(t.float64()), "spatial_point": t.point(), "spatial_other": t.point(),
+                    "spatial_line": t.linestring(), "spatial_poly": t.polygon()})
 
     def test_catalog_is_complete_unique_inert_and_matches_all_sql_aliases(self):
         context, f = self.context(), self.f
@@ -135,7 +170,7 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         self.assertIsNone(context.client._native_backend)
         query = context.sql("SELECT " + ",".join(expressions) + " FROM input",
                             relations={"input": self.tensor_source(context)})
-        self.assertEqual(query.collect().to_rows(), (expected,))
+        self.assertEqual(comparable(query.collect().to_rows()), comparable((expected,)))
         catalog[0]["name"] = "changed"
         self.assertNotEqual(f.catalog()[0]["name"], "changed")
 
@@ -155,8 +190,8 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         def literal(text):
             if text.startswith("ARRAY["):
                 return f.array(json.loads(text[5:]))
-            if text == "tensor":
-                return f.col("tensor")
+            if text in {"tensor", "spatial_point", "spatial_other", "spatial_line", "spatial_poly"}:
+                return f.col(text)
             dates = {DAY: date(2024, 2, 29), "CAST('2024-02-27' AS DATE)": date(2024, 2, 27),
                 EPOCH: datetime(1970, 1, 1),
                 STAMP: datetime(2024, 2, 29, 13, 14, 15, 123456),
@@ -176,7 +211,7 @@ class NativeFunctionCatalogTests(unittest.TestCase):
         projected, expected = [], {}
         for name, (arguments, value) in CASES.items():
             values = [literal(argument) for argument in arguments]
-            if name in VECTOR_CASES:
+            if name in VECTOR_CASES or name in SPATIAL_CASES:
                 projected.append(getattr(f, name)(*values).alias(name))
                 expected[name] = value
                 continue
@@ -201,7 +236,8 @@ class NativeFunctionCatalogTests(unittest.TestCase):
                 values[0] = f.lit(values[0])
             projected.append(constructor(*values).alias(name))
             expected[name] = value
-        self.assertEqual(self.tensor_source(context).select(*projected).collect().to_rows(), (expected,))
+        self.assertEqual(comparable(self.tensor_source(context).select(*projected).collect().to_rows()),
+                         comparable((expected,)))
 
         rows = context.from_rows([{"text": "%_猫"}, {"text": "x猫"}, {"text": None}],
                                  schema={"text": "utf8"})
@@ -250,8 +286,15 @@ class NativeFunctionCatalogTests(unittest.TestCase):
             if not entry["null_rule"].startswith("null input"):
                 continue
             arguments = list(CASES[entry["name"]][0])
+            if not arguments:
+                self.assertEqual((entry["min_args"], entry["max_args"]), (0, 0))
+                continue  # A constructor with no inputs has no null-input case.
             if entry["name"] in VECTOR_CASES:
                 arguments[0] = "tensor" if entry["name"] == "tensor_shape" else "vector"
+            elif entry["name"] in SPATIAL_CASES and entry["name"] != "st_point":
+                arguments[0] = ("spatial_line" if entry["name"] == "st_length" else
+                                "spatial_poly" if entry["name"] in {"st_contains", "st_covers", "st_npoints"}
+                                else "spatial_point")
             elif entry["name"] in TEMPORAL_CASES:
                 # New temporal functions require an explicit logical domain even
                 # for nulls; metadata and literal policies still bind normally.

@@ -506,7 +506,15 @@ def _batch_schema(fields):
 
     def dtype(value):
         name = value["type"]
-        if name == "decimal128":
+        if name in {"point", "linestring", "polygon"}:
+            from . import _spatial
+            storage = dtype(value["storage"])
+            metadata = _spatial.decode_metadata(value["metadata"])
+            _spatial.validate_storage(name, storage)
+            if storage.nullable != value["nullable"]:
+                raise ValueError("spatial storage nullability differs from geometry")
+            parameters = (storage, metadata)
+        elif name == "decimal128":
             parameters = (value["precision"], value["scale"])
         elif name in {"list", "fixed_size_list", "embedding", "fixed_shape_tensor"}:
             parameters = (dtype(value["item"]),)

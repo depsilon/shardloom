@@ -1467,7 +1467,7 @@
     "schema_version": "shardloom.application_reference.v1",
     "availability": "source_reference",
     "generator": "scripts/write_public_api_reference.py",
-    "source_identity": "9c29b6bf6f5884e551a6d58fe223f152df2a95be701a51c60098088d8166ed6c",
+    "source_identity": "b0205b521b79d76c68ccf1c6668c62b8d5b09d6b23ab112e0eaa0ac7ba959b73",
     "source_inputs": {
       "Cargo.lock": "0e35b35f1de9bcf0c068515ef4825ebf796632fd44294fc86809bda9c3c762f8",
       "Cargo.toml": "9c95e2ed4f2156b2e5b4a1ff0b7bc711a82eb534a4d808bdb70e90f1381044a7",
@@ -1476,7 +1476,7 @@
       "python/src/shardloom/_batch_function.py": "7664382a8750f196c2ee30f414e92b0c66cd15733e1561d9d1d2c5e0c2ee5cd3",
       "python/src/shardloom/_batches.py": "21777bdff8bc866a4931592d204687e00a11ee1379ab2d4869132582eb20551a",
       "python/src/shardloom/_exports.py": "c0998197db5310d3e629372b81a0f3976131d389d190616945857b83efc6d0bd",
-      "python/src/shardloom/_result_schema.py": "dec1a6573bfa655a860807e4e9130985b0bedc6f8e4a6edfc209d5367c7d8ba8",
+      "python/src/shardloom/_result_schema.py": "aa26d4dd761b850934c408e8f8bafef4b58be7c686f280605cfb0ae1706c156a",
       "python/src/shardloom/_version.py": "597d4c348df09fd4bb9deb24b6592ebe5c93f992aec32b348c39eda9ea57ed17",
       "python/src/shardloom/_window.py": "812f97e1daaba678a9bab26261eb43dd5db17771a3e83d6479aa174f1cd6b316",
       "python/src/shardloom/adbc.py": "8ab2cc51e5f632561493e0b47bd693552dd45d19fa07ae5676571a23a95d0dba",
@@ -1485,14 +1485,14 @@
       "python/src/shardloom/dbapi.py": "05aa93af721970a99faa5a5a8ddbde8c21ed0d1e03717156ab142dc0747f4d31",
       "python/src/shardloom/errors.py": "1fbf552d61d5a1ac7789fbb904029217cfe161927933f7aebd5aa72d15480955",
       "python/src/shardloom/execution_resources.py": "598166a29154711859fd6204789c0a805319150037c6d05766df590f52607549",
-      "python/src/shardloom/functions.py": "f4f1939acae02b59d790276dacc628e6a8f1d2128e37f42a6291eba2fcc47c78",
+      "python/src/shardloom/functions.py": "567d95f04a5adb916bf85bd2e9db371b5c378c662178a75add493b37a1965529",
       "python/src/shardloom/models.py": "925f23abf0ef7c47ac531e71ad69e87cd152a60c5b5af85b8aa97b792917d825",
       "python/src/shardloom/notebook.py": "b6c29d9b6c49ae76333be3fffc214ed05721a158bd4356bafdc020fb951207ab",
       "python/src/shardloom/query.py": "bad6d96ea2d2b48dc12d5edc6b5252ca3d42c4580462fb035c7c2a6a27527d69",
       "python/src/shardloom/quickstart.py": "5fa6e3d5b5fc8b136407d12a3698365c5d08fccb56474e50891950b4e34cc2b7",
       "python/src/shardloom/runtime_defaults.py": "eed9c30cbd7e76493105bf4ed8274bffa36dff43e3b286cd9d1867992839f45a",
       "python/src/shardloom/session.py": "599d83763d7e6c677e4372cb3c6e1432c518750f2b924549a145f994b400d454",
-      "python/src/shardloom/types.py": "2dcf5b80c08ddb359cf4bf556cf980480a3b7e64bfa9c27e9c951f3994f0e063",
+      "python/src/shardloom/types.py": "6535c0b526cfa85c40165afd5077381ccd8a7f911e8b5564c5b3bb279f22a9b0",
       "shardloom-cli/src/command_registry.rs": "a763d96ac5496c5f445977d4c330c113add3accc7a6df3f96ec6e857f3b78f7b",
       "shardloom-vortex/Cargo.toml": "4fb1a989fe5e789815e4ac41d7820ee68698855f447244f4868e55646cd1cc4d"
     },
@@ -4909,6 +4909,141 @@
         "summary": "Test for an embedded Variant null; SQL NULL produces false."
       },
       {
+        "name": "st_point",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(x, y) -> 'ColumnExpression'",
+        "summary": "Declare a native 2D Point constructor; coordinate conversion is exact."
+      },
+      {
+        "name": "st_emptypoint",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "() -> 'ColumnExpression'",
+        "summary": "Declare a nonnull empty Point, distinct from SQL NULL."
+      },
+      {
+        "name": "st_x",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read Point x; empty or null Points produce NULL."
+      },
+      {
+        "name": "st_y",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read Point y; empty or null Points produce NULL."
+      },
+      {
+        "name": "st_isempty",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'PredicateExpression'",
+        "summary": "Test geometric emptiness while propagating SQL NULL."
+      },
+      {
+        "name": "st_npoints",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Count stored vertices, including polygon closing vertices."
+      },
+      {
+        "name": "st_xmin",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read the minimum planar x coordinate; empty geometries produce NULL."
+      },
+      {
+        "name": "st_ymin",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read the minimum planar y coordinate; empty geometries produce NULL."
+      },
+      {
+        "name": "st_xmax",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read the maximum planar x coordinate; empty geometries produce NULL."
+      },
+      {
+        "name": "st_ymax",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Read the maximum planar y coordinate; empty geometries produce NULL."
+      },
+      {
+        "name": "st_distance",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right) -> 'ColumnExpression'",
+        "summary": "Declare exact-rounding planar Point distance in coordinate units."
+      },
+      {
+        "name": "st_dwithin",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(left, right, radius) -> 'PredicateExpression'",
+        "summary": "Compare exact squared Point distance to a finite nonnegative radius."
+      },
+      {
+        "name": "st_length",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(value) -> 'ColumnExpression'",
+        "summary": "Declare planar LineString length in coordinate units."
+      },
+      {
+        "name": "st_contains",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(polygon, point) -> 'PredicateExpression'",
+        "summary": "Test Polygon interior against a Point; boundary points are false."
+      },
+      {
+        "name": "st_covers",
+        "namespace": "shardloom.functions",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/functions.py",
+        "signature": "(polygon, point) -> 'PredicateExpression'",
+        "summary": "Test a Polygon against a Point, including exterior and hole boundaries."
+      },
+      {
         "name": "sum_distinct",
         "namespace": "shardloom.functions",
         "audience": "application",
@@ -5249,6 +5384,33 @@
         "source": "python/src/shardloom/types.py",
         "signature": "(item: 'object', size: 'int', *, metadata: 'Mapping[str, object] | None' = None, nullable: 'bool' = True) -> 'ResultType'",
         "summary": "Declare dense Float16/Float32/Float64 values with versioned embedding identity."
+      },
+      {
+        "name": "point",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, metadata: 'Mapping | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare a 2D GeoArrow Point with explicit optional CRS/edge metadata."
+      },
+      {
+        "name": "linestring",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, metadata: 'Mapping | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare native lists of separated 2D Float64 x/y coordinates."
+      },
+      {
+        "name": "polygon",
+        "namespace": "shardloom.types",
+        "audience": "application",
+        "kind": "function",
+        "source": "python/src/shardloom/types.py",
+        "signature": "(*, metadata: 'Mapping | None' = None, nullable: 'bool' = True) -> 'ResultType'",
+        "summary": "Declare native lists of closed rings, with the exterior ring first."
       },
       {
         "name": "sparse_vector",

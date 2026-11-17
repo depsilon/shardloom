@@ -2,6 +2,9 @@
 
 # Vectors, embeddings, tensors and binary objects
 
+For native Point, LineString and Polygon columns and their planar functions,
+see [spatial values](spatial-values.md).
+
 This capability is in current source builds after 1.1.0. It is not included in
 the published 1.1.0 wheels. Use a matching native Python source build.
 Files containing embeddings require a reader that registers

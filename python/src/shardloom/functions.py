@@ -41,12 +41,102 @@ __all__ = (
     "vector_dimension", "tensor_shape", "vector_values", "vector_element", "vector_slice",
     "vector_dot", "vector_l2_distance", "vector_cosine_similarity", "vector_norm", "vector_normalize",
     "variant_get", "try_variant_get", "is_variant_null",
+    "st_point", "st_emptypoint", "st_x", "st_y", "st_isempty", "st_npoints",
+    "st_xmin", "st_ymin", "st_xmax", "st_ymax", "st_distance", "st_dwithin",
+    "st_length", "st_contains", "st_covers",
     "sum_distinct", "avg_distinct", "trim", "typed_scalar_udf", "unhex", "upper", "url_domain", "var", "var_pop", "var_samp", "variance",
 )
 
 
 def _column(value):
     return value if isinstance(value, ColumnExpression) else col(value)
+
+
+def _spatial_number(value):
+    if value is None or type(value) in {int, float}:
+        return lit(value)
+    return _column(value)
+
+
+def _spatial_predicate(name, *args):
+    expression = _call(name, *args)
+    return PredicateExpression(expression.sql, expression.source_bindings,
+        resource_limits=expression.resource_limits)
+
+
+def st_point(x, y) -> ColumnExpression:
+    """Declare a native 2D Point constructor; coordinate conversion is exact."""
+    return _call("ST_POINT", _spatial_number(x), _spatial_number(y))
+
+
+def st_emptypoint() -> ColumnExpression:
+    """Declare a nonnull empty Point, distinct from SQL NULL."""
+    return _call("ST_EMPTYPOINT")
+
+
+def st_x(value) -> ColumnExpression:
+    """Read Point x; empty or null Points produce NULL."""
+    return _call("ST_X", _column(value))
+
+
+def st_y(value) -> ColumnExpression:
+    """Read Point y; empty or null Points produce NULL."""
+    return _call("ST_Y", _column(value))
+
+
+def st_isempty(value) -> PredicateExpression:
+    """Test geometric emptiness while propagating SQL NULL."""
+    return _spatial_predicate("ST_ISEMPTY", _column(value))
+
+
+def st_npoints(value) -> ColumnExpression:
+    """Count stored vertices, including polygon closing vertices."""
+    return _call("ST_NPOINTS", _column(value))
+
+
+def st_xmin(value) -> ColumnExpression:
+    """Read the minimum planar x coordinate; empty geometries produce NULL."""
+    return _call("ST_XMIN", _column(value))
+
+
+def st_ymin(value) -> ColumnExpression:
+    """Read the minimum planar y coordinate; empty geometries produce NULL."""
+    return _call("ST_YMIN", _column(value))
+
+
+def st_xmax(value) -> ColumnExpression:
+    """Read the maximum planar x coordinate; empty geometries produce NULL."""
+    return _call("ST_XMAX", _column(value))
+
+
+def st_ymax(value) -> ColumnExpression:
+    """Read the maximum planar y coordinate; empty geometries produce NULL."""
+    return _call("ST_YMAX", _column(value))
+
+
+def st_distance(left, right) -> ColumnExpression:
+    """Declare exact-rounding planar Point distance in coordinate units."""
+    return _call("ST_DISTANCE", _column(left), _column(right))
+
+
+def st_dwithin(left, right, radius) -> PredicateExpression:
+    """Compare exact squared Point distance to a finite nonnegative radius."""
+    return _spatial_predicate("ST_DWITHIN", _column(left), _column(right), _spatial_number(radius))
+
+
+def st_length(value) -> ColumnExpression:
+    """Declare planar LineString length in coordinate units."""
+    return _call("ST_LENGTH", _column(value))
+
+
+def st_contains(polygon, point) -> PredicateExpression:
+    """Test Polygon interior against a Point; boundary points are false."""
+    return _spatial_predicate("ST_CONTAINS", _column(polygon), _column(point))
+
+
+def st_covers(polygon, point) -> PredicateExpression:
+    """Test a Polygon against a Point, including exterior and hole boundaries."""
+    return _spatial_predicate("ST_COVERS", _column(polygon), _column(point))
 
 
 def _vector_operand(value):
