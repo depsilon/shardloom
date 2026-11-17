@@ -1,8 +1,6 @@
 //! Restricted pinned-DType parsing before native input construction.
 
-use serde::de::{DeserializeSeed, Error as _, MapAccess, SeqAccess, Visitor};
-use serde::{Deserialize as _, Deserializer as _};
-use serde_json::{Map, Value, value::RawValue};
+use serde_json::{Map, Value};
 use shardloom_core::Result;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::{
@@ -14,6 +12,10 @@ use vortex::array::{
 };
 
 use super::{native_typed_input::failed, vortex_error};
+
+#[path = "native_input_json.rs"]
+mod json;
+pub(super) use json::{ParsedJson, parse as parse_json};
 
 pub(super) const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
 
@@ -33,8 +35,8 @@ pub(super) fn reserve_json(memory: &LiveMemoryPool, bytes: usize) -> Result<Memo
 
 pub(crate) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, MemoryLease)> {
     let _workspace = reserve_json(memory, raw.len())?;
-    let value = parse_json(raw)?;
-    let dtype = dtype(&value, 0, &mut 0)?;
+    let value = parse_json(raw, memory)?;
+    let dtype = dtype(value.value(), 0, &mut 0)?;
     let credit = crate::native_payload_schema::reserve_metadata(&dtype, memory)?;
     Ok((dtype, credit))
 }
@@ -51,9 +53,14 @@ pub(crate) fn application_fields(fields: &[(String, String)]) -> Result<DType> {
             .filter(|bytes| *bytes <= MAX_JSON_BYTES)
             .ok_or_else(|| failed("application schema exceeds 8 MiB"))
     })?;
+    let memory = application_memory()?;
     let types = fields
         .iter()
-        .map(|(_, raw)| dtype(&parse_json(raw)?, 0, &mut 0))
+        .map(|(_, raw)| {
+            let _workspace = reserve_json(&memory, raw.len())?;
+            let value = parse_json(raw, &memory)?;
+            dtype(value.value(), 0, &mut 0)
+        })
         .collect::<Result<Vec<_>>>()?;
     let schema = DType::Struct(
         StructFields::new(
@@ -90,54 +97,18 @@ pub(crate) fn validate_application_dtype(dtype: &DType) -> Result<()> {
             Ok(())
         }
     }
-    let limit = (MAX_JSON_BYTES as u64)
-        .checked_mul(512)
-        .and_then(|bytes| bytes.checked_add(4096))
-        .ok_or_else(|| failed("application schema workspace overflow"))?;
-    let validation = LiveMemoryPool::new(limit)?;
+    let validation = application_memory()?;
     let _workspace = crate::native_payload_schema::reserve_schema(dtype, &validation)?;
     crate::native_payload_schema::json::write(dtype, &validation, WireSize(0))
         .map_err(|error| error.into_error(|error| failed(&error.to_string())))
 }
 
-/// Payload intake holds `reserve_json` credit. Inert application declarations
-/// have separately bounded caller-owned metadata until operation binding.
-pub(super) fn parse_json(raw: &str) -> Result<Value> {
-    let mut parser = serde_json::Deserializer::from_str(raw);
-    let value = JsonSeed(0)
-        .deserialize(&mut parser)
-        .map_err(|error| failed(&error.to_string()))?;
-    parser.end().map_err(|error| failed(&error.to_string()))?;
-    Ok(value)
-}
-
-struct JsonSeed(usize);
-
-impl<'de> DeserializeSeed<'de> for JsonSeed {
-    type Value = Value;
-
-    fn deserialize<D: serde::Deserializer<'de>>(
-        self,
-        parser: D,
-    ) -> std::result::Result<Value, D::Error> {
-        if self.0 > 96 {
-            return Err(D::Error::custom(
-                "typed input JSON nesting exceeds 96 levels",
-            ));
-        }
-        // RawValue validates JSON syntax while retaining the exact numeric
-        // lexeme. Parsing a generic JSON Number first can round integer
-        // overflow and, without float_roundtrip, change finite float bits.
-        let raw = <&RawValue>::deserialize(parser)?;
-        let raw = raw.get();
-        match raw.as_bytes().first() {
-            Some(b'{' | b'[') => serde_json::Deserializer::from_str(raw)
-                .deserialize_any(self)
-                .map_err(D::Error::custom),
-            Some(b'-' | b'0'..=b'9') => number(raw).map_err(D::Error::custom),
-            _ => serde_json::from_str(raw).map_err(D::Error::custom),
-        }
-    }
+fn application_memory() -> Result<LiveMemoryPool> {
+    let limit = (MAX_JSON_BYTES as u64)
+        .checked_mul(512)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(|| failed("application schema workspace overflow"))?;
+    LiveMemoryPool::new(limit)
 }
 
 fn number(raw: &str) -> Result<Value> {
@@ -157,33 +128,6 @@ fn number(raw: &str) -> Result<Value> {
         raw.parse::<u64>().map(Value::from)
     }
     .map_err(|_| failed("typed input integer JSON exceeds its exact 64-bit domain"))
-}
-
-impl<'de> Visitor<'de> for JsonSeed {
-    type Value = Value;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("finite JSON without duplicate object fields")
-    }
-
-    fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> std::result::Result<Value, A::Error> {
-        let mut result = Vec::new();
-        while let Some(value) = sequence.next_element_seed(JsonSeed(self.0 + 1))? {
-            result.push(value);
-        }
-        Ok(Value::Array(result))
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Value, A::Error> {
-        let mut result = Map::new();
-        while let Some(key) = map.next_key::<String>()? {
-            if result.contains_key(&key) {
-                return Err(A::Error::custom("duplicate typed input JSON field"));
-            }
-            result.insert(key, map.next_value_seed(JsonSeed(self.0 + 1))?);
-        }
-        Ok(Value::Object(result))
-    }
 }
 
 fn fields<'a>(value: &'a Value, keys: &[&str]) -> Result<&'a Map<String, Value>> {

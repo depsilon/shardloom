@@ -12,7 +12,7 @@ use vortex::array::{
 
 use super::{
     native_capacity::ReservedVec,
-    native_input_schema::{parse_dtype, parse_json, reserve_json},
+    native_input_schema::{ParsedJson, parse_dtype, parse_json, reserve_json},
     native_input_values::{Layout, add, leaf, multiply},
     result_batch::{self, Value},
     vortex_error,
@@ -40,13 +40,14 @@ pub(crate) fn build(
     let mut parsed = ReservedVec::new(memory)?;
     parsed.reserve(values.len())?;
     for value in values {
-        parsed
-            .values
-            .push(value.map_or(Ok(Json::Null), parse_json)?);
+        parsed.values.push(match value {
+            Some(value) => parse_json(value, memory)?,
+            None => ParsedJson::null(memory)?,
+        });
     }
     let mut layout = Layout::new(&dtype, memory)?;
     for value in &parsed.values {
-        layout.observe(&dtype, Some(value))?;
+        layout.observe(&dtype, Some(value.value()))?;
     }
     let logical_bytes = layout.bytes(&dtype)?;
     if logical_bytes > max_bytes {
@@ -56,7 +57,9 @@ pub(crate) fn build(
     drop(layout);
     let mut cells = ReservedVec::new(memory)?;
     cells.reserve(parsed.values.len())?;
-    cells.values.extend(parsed.values.iter().map(Some));
+    cells
+        .values
+        .extend(parsed.values.iter().map(|value| Some(value.value())));
     let array = construct::construct(&dtype, &cells.values, memory, &allocator)?;
     if array.dtype() != &dtype
         || array.len() != values.len()

@@ -380,10 +380,16 @@ workflow, performance and acceptance work recorded in the historical notes.
   8,192-level Struct/List/FixedSizeList/mixed construction, partial failure,
   allocation-panic cleanup and memory refusal pass on 128-KiB stacks. All 13
   existing typed-source and 17 variable-tensor tests pass, as do strict native
-  workspace lint and formatting. These are source checkpoints; typed JSON
-  parsing/ownership, native memory prepayment and complete deep-workflow
-  acceptance remain open. The full native workspace total above predates the
-  typed counter/construction changes.
+  workspace lint and formatting. Typed JSON parsing now uses ordered
+  continuations and a parsed-value owner with prepaid iterative cleanup. Four
+  focused tests preserve original numbers, full values, duplicate/error order,
+  depth boundaries and exact diagnostics; 8,192-level success/failure/unwind,
+  partial-container refusal and width-independent cleanup pass on small stacks.
+  All 221 typed-boundary tests pass, including real spill and writer/reopen
+  cases, together with strict native workspace lint and formatting. These are
+  source checkpoints; JSON-to-native schema conversion, native memory
+  prepayment and complete deep-workflow acceptance remain open. The full native
+  workspace total above predates the typed input changes.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

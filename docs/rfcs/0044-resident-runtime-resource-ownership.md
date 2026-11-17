@@ -1066,6 +1066,50 @@ scalar/nested/nullable/wide/extension cases, checked default expansion, private
 failure, budget refusal, retained ownership and reusable-pool refund. Public
 depth24 rejection remains until the entire deep lifecycle is accepted.
 
+### Typed JSON parsing and ownership amendment, November 17, 2026
+
+Continue typed intake with the locked serde_json provider and its borrowed
+`RawValue` syntax validation. Its ignored-value parser already uses an explicit
+stack. Replace ShardLoom's recursive typed visitor with ordered continuations
+over those validated tokens. Keep exact integer lexemes, finite float parsing,
+negative zero, duplicate decoded-key rejection before its value, syntax-before-
+semantics within each raw subtree, and semantic errors before root trailing-data
+checks. Decode one key or value at a time; never evaluate later siblings early.
+The existing 8-MiB and depth-96 JSON bounds remain unchanged.
+
+Keep the private `serde_json::Value` intake representation consumed by native
+schema/value construction. A private parsed owner retains prepaid cleanup
+storage sized by maximum observed container depth, not by sibling count or raw
+byte length. Drop takes the root and drains owned array/map iterators one child
+at a time. It performs no new allocation or execution-budget request. Grow that
+storage before entering each container. An overall building owner retains all
+partial containers and completed values; error and unwind cleanup drains these
+innermost first using the same already admitted storage. Containers and parser
+continuations use the existing replacement-overlap admission; the existing JSON
+workspace continues to cover serde-owned maps, values, strings and syntax
+scratch. A scalar root requires no continuation allocation. Inert application
+declarations use an explicit temporary pool bounded by their existing JSON
+size contract; execution binding still owns persistent schema admission.
+
+Preserve the locked provider's existing error text and byte-based line/column
+positions. Its custom-error conversion restores a trailing location, so outer
+containers preserve the innermost reported position. An unpositioned semantic
+error is positioned only after the immediate container's original end-sequence
+or end-map cursor behavior. Root scalar errors remain unpositioned, key-decoding
+errors are relative to their container, and leaf-decoding errors retain their
+own token position. No recursive diagnostic replay is permitted. These rules
+also bound diagnostic context for internal deep tests without a new truncation
+policy or a change to current diagnostics.
+
+Require byte-exact original-parser comparisons for complete shallow values,
+floating-point bits, numeric overflow, duplicate escaped keys, Unicode errors,
+depth boundaries, trailing input and competing failures. Private explicit deep
+bounds must pass 8,192-level mixed parsing and normal/error/unwind cleanup on
+128-KiB subprocess stacks, wide-sibling and memory-refusal checks, and complete
+pool refunds. Test the real typed-source and extension boundaries. Schema
+conversion, native payload operations and final lifecycle admission remain
+separate obligations; this amendment does not raise public depth limits.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

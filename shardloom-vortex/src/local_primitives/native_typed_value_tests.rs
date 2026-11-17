@@ -28,9 +28,8 @@ use vortex::{
 };
 
 use super as native_typed_input;
-use super::super::{
-    native_capacity, native_input_schema, native_json, native_payload, result_batch, vortex_error,
-};
+use super::super::native_input_schema_reference as native_input_schema;
+use super::super::{native_capacity, native_json, native_payload, result_batch, vortex_error};
 
 // These two files are byte-exact originals from e111f6387. The original input
 // builder resolves its Layout import through the original module below.
