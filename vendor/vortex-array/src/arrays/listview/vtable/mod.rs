@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -184,67 +185,90 @@ impl VTable for ListView {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = ListViewMetadata::decode(metadata)?;
-        let offset_ptype = metadata.get_offset_ptype()?;
-        let size_ptype = metadata.get_size_ptype()?;
-        vortex_ensure!(
-            buffers.is_empty(),
-            "`ListViewArray::build` expects no buffers"
-        );
-
-        let DType::List(element_dtype, _) = dtype else {
-            vortex_bail!("Expected List dtype, got {:?}", dtype);
-        };
-
-        let validity = if children.len() == 3 {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 4 {
-            let validity = children.get(3, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!(
-                "`ListViewArray::build` expects 3 or 4 children, got {}",
-                children.len()
-            );
-        };
-
-        // Get elements with the correct length from metadata.
-        let elements = children.get(
-            0,
-            element_dtype.as_ref(),
-            usize::try_from(metadata.elements_len)?,
-        )?;
-
-        // Get offsets with proper type from metadata.
-        let offsets = children.get(
-            1,
-            &DType::Primitive(offset_ptype, Nullability::NonNullable),
-            len,
-        )?;
-
-        // Get sizes with proper type from metadata.
-        let sizes = children.get(
-            2,
-            &DType::Primitive(size_ptype, Nullability::NonNullable),
-            len,
-        )?;
-
-        ListViewData::validate(
-            &elements,
-            &offsets,
-            &sizes,
-            &validity,
-            &mut session.create_execution_ctx(),
-        )?;
-        let data = ListViewData::try_new()?;
-        let slots = ListViewData::make_slots(&elements, &offsets, &sizes, &validity, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = ListViewMetadata::decode(metadata)?;
+            let offset_ptype = metadata.get_offset_ptype()?;
+            let size_ptype = metadata.get_size_ptype()?;
+            vortex_ensure!(
+                buffers.is_empty(),
+                "`ListViewArray::build` expects no buffers"
+            );
+
+            let DType::List(element_dtype, _) = dtype else {
+                vortex_bail!("Expected List dtype, got {:?}", dtype);
+            };
+
+            let validity = if children.len() == 3 {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 4 {
+                let validity = children.get_async(3, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!(
+                    "`ListViewArray::build` expects 3 or 4 children, got {}",
+                    children.len()
+                );
+            };
+
+            // Get elements with the correct length from metadata.
+            let elements = children
+                .get_async(
+                    0,
+                    element_dtype.as_ref(),
+                    usize::try_from(metadata.elements_len)?,
+                )
+                .await?;
+
+            // Get offsets with proper type from metadata.
+            let offsets = children
+                .get_async(
+                    1,
+                    &DType::Primitive(offset_ptype, Nullability::NonNullable),
+                    len,
+                )
+                .await?;
+
+            // Get sizes with proper type from metadata.
+            let sizes = children
+                .get_async(
+                    2,
+                    &DType::Primitive(size_ptype, Nullability::NonNullable),
+                    len,
+                )
+                .await?;
+
+            ListViewData::validate(
+                &elements,
+                &offsets,
+                &sizes,
+                &validity,
+                &mut session.create_execution_ctx(),
+            )?;
+            let data = ListViewData::try_new()?;
+            let slots = ListViewData::make_slots(&elements, &offsets, &sizes, &validity, len);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

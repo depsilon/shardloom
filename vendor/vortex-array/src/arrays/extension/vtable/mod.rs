@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
@@ -155,26 +156,45 @@ impl VTable for Extension {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "ExtensionArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        let DType::Extension(ext_dtype) = dtype else {
-            vortex_bail!("Not an extension DType");
-        };
-        if children.len() != 1 {
-            vortex_bail!("Expected 1 child, got {}", children.len());
-        }
-        let storage = children.get(0, ext_dtype.storage_dtype(), len)?;
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            EmptyArrayData,
-            ExtensionSlots { storage }.into_slots(),
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "ExtensionArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            let DType::Extension(ext_dtype) = dtype else {
+                vortex_bail!("Not an extension DType");
+            };
+            if children.len() != 1 {
+                vortex_bail!("Expected 1 child, got {}", children.len());
+            }
+            let storage = children
+                .get_async(0, ext_dtype.storage_dtype(), len)
+                .await?;
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                EmptyArrayData,
+                ExtensionSlots { storage }.into_slots(),
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

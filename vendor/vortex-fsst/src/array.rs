@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 // Modified by ShardLoom on 2026-10-24: retain allocation-free constant validity
 // through admitted FSST canonicalization; other validity children still execute.
 
@@ -237,84 +238,108 @@ impl VTable for FSST {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = FSSTMetadata::decode(metadata)?;
-        let symbols = Buffer::<Symbol>::from_byte_buffer(buffers[0].clone().try_to_host_sync()?);
-        let symbol_lengths = Buffer::<u8>::from_byte_buffer(buffers[1].clone().try_to_host_sync()?);
+        let children = vortex_array::serde::SynchronousArrayChildren::new(children);
+        vortex_array::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
+        ))
+    }
 
-        let mut ctx = session.create_execution_ctx();
-        if buffers.len() == 2 {
-            return Self::deserialize_legacy(
-                self,
-                dtype,
-                len,
-                &metadata,
-                &symbols,
-                &symbol_lengths,
-                children,
-                &mut ctx,
-            );
-        }
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> vortex_array::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = FSSTMetadata::decode(metadata)?;
+            let symbols =
+                Buffer::<Symbol>::from_byte_buffer(buffers[0].clone().try_to_host_sync()?);
+            let symbol_lengths =
+                Buffer::<u8>::from_byte_buffer(buffers[1].clone().try_to_host_sync()?);
 
-        if buffers.len() == 3 {
-            let uncompressed_lengths = children.get(
-                0,
-                &DType::Primitive(
-                    metadata.get_uncompressed_lengths_ptype()?,
-                    Nullability::NonNullable,
-                ),
-                len,
-            )?;
-
-            let codes_bytes = buffers[2].clone();
-            let codes_offsets = children.get(
-                1,
-                &DType::Primitive(
-                    PType::try_from(metadata.codes_offsets_ptype)?,
-                    Nullability::NonNullable,
-                ),
-                // VarBin offsets are len + 1
-                len + 1,
-            )?;
-
-            let codes_validity = if children.len() == 2 {
-                Validity::from(dtype.nullability())
-            } else if children.len() == 3 {
-                let validity = children.get(2, &Validity::DTYPE, len)?;
-                Validity::Array(validity)
-            } else {
-                vortex_bail!("Expected 2 or 3 children, got {}", children.len());
-            };
-
-            FSSTData::validate_parts(
-                symbols.as_slice(),
-                symbol_lengths.as_slice(),
-                &codes_offsets,
-                dtype.nullability(),
-                &uncompressed_lengths,
-                dtype,
-                len,
-            )?;
-            FSSTData::validate_codes_bounds(&codes_bytes, &codes_offsets, &mut ctx)?;
-            let slots = FSSTSlots {
-                uncompressed_lengths,
-                codes_offsets,
-                codes_validity: validity_to_child(&codes_validity, len),
+            let mut ctx = session.create_execution_ctx();
+            if buffers.len() == 2 {
+                return Self::deserialize_legacy(
+                    self,
+                    dtype,
+                    len,
+                    &metadata,
+                    &symbols,
+                    &symbol_lengths,
+                    children,
+                    &mut ctx,
+                )
+                .await;
             }
-            .into_slots();
-            let data = FSSTData::try_new(symbols, symbol_lengths, codes_bytes, len)?;
-            return Ok(ArrayParts::new(
-                self.clone(),
-                dtype.clone(),
-                len,
-                data,
-                slots,
-            ));
-        }
 
-        vortex_bail!(
-            "InvalidArgument: Expected 2 or 3 buffers, got {}",
-            buffers.len()
-        );
+            if buffers.len() == 3 {
+                let uncompressed_lengths = children
+                    .get_async(
+                        0,
+                        &DType::Primitive(
+                            metadata.get_uncompressed_lengths_ptype()?,
+                            Nullability::NonNullable,
+                        ),
+                        len,
+                    )
+                    .await?;
+
+                let codes_bytes = buffers[2].clone();
+                let codes_offsets = children
+                    .get_async(
+                        1,
+                        &DType::Primitive(
+                            PType::try_from(metadata.codes_offsets_ptype)?,
+                            Nullability::NonNullable,
+                        ),
+                        // VarBin offsets are len + 1
+                        len + 1,
+                    )
+                    .await?;
+
+                let codes_validity = if children.len() == 2 {
+                    Validity::from(dtype.nullability())
+                } else if children.len() == 3 {
+                    let validity = children.get_async(2, &Validity::DTYPE, len).await?;
+                    Validity::Array(validity)
+                } else {
+                    vortex_bail!("Expected 2 or 3 children, got {}", children.len());
+                };
+
+                FSSTData::validate_parts(
+                    symbols.as_slice(),
+                    symbol_lengths.as_slice(),
+                    &codes_offsets,
+                    dtype.nullability(),
+                    &uncompressed_lengths,
+                    dtype,
+                    len,
+                )?;
+                FSSTData::validate_codes_bounds(&codes_bytes, &codes_offsets, &mut ctx)?;
+                let slots = FSSTSlots {
+                    uncompressed_lengths,
+                    codes_offsets,
+                    codes_validity: validity_to_child(&codes_validity, len),
+                }
+                .into_slots();
+                let data = FSSTData::try_new(symbols, symbol_lengths, codes_bytes, len)?;
+                return Ok(ArrayParts::new(
+                    self.clone(),
+                    dtype.clone(),
+                    len,
+                    data,
+                    slots,
+                ));
+            }
+
+            vortex_bail!(
+                "InvalidArgument: Expected 2 or 3 buffers, got {}",
+                buffers.len()
+            );
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {
@@ -666,7 +691,7 @@ impl FSST {
     /// `VarBinArray` child. We decompose the VarBinArray into its bytes (stored in
     /// FSSTData) and offsets/validity (stored in slots).
     #[allow(clippy::too_many_arguments)]
-    fn deserialize_legacy(
+    async fn deserialize_legacy(
         &self,
         dtype: &DType,
         len: usize,
@@ -679,7 +704,9 @@ impl FSST {
         if children.len() != 2 {
             vortex_bail!("Expected 2 children, got {}", children.len());
         }
-        let codes = children.get(0, &DType::Binary(dtype.nullability()), len)?;
+        let codes = children
+            .get_async(0, &DType::Binary(dtype.nullability()), len)
+            .await?;
         let codes: VarBinArray = codes
             .as_opt::<VarBin>()
             .ok_or_else(|| {
@@ -689,14 +716,16 @@ impl FSST {
                 )
             })?
             .into_owned();
-        let uncompressed_lengths = children.get(
-            1,
-            &DType::Primitive(
-                metadata.get_uncompressed_lengths_ptype()?,
-                Nullability::NonNullable,
-            ),
-            len,
-        )?;
+        let uncompressed_lengths = children
+            .get_async(
+                1,
+                &DType::Primitive(
+                    metadata.get_uncompressed_lengths_ptype()?,
+                    Nullability::NonNullable,
+                ),
+                len,
+            )
+            .await?;
 
         FSSTData::validate_parts_from_codes(
             symbols.as_slice(),

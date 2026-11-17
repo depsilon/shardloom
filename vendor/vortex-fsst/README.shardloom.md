@@ -1,5 +1,14 @@
 # Vortex FSST native provider patch
 
+The November 17 logical array decode amendment adds an ordered continuation
+hook. The existing synchronous entrypoint and new hook share the original body;
+modern and legacy children are requested in the same order, including validity,
+length/offset validation and execution-context use. The legacy helper suspends
+in place and is never replayed. No encoding, metadata or decoder-allocation
+policy changes. All 127 provider tests pass (one existing ignored test), with
+strict lint. This hook is not native deep-workflow or continuation-memory
+admission; see the [array-provider contract](../vortex-array/README.shardloom.md#november-17-ordered-logical-array-decoding).
+
 This is the Apache-2.0 `vortex-fsst` 0.93.0 published source. Its canonical
 decoder calls the existing Vortex view-construction loops through their admitted
 table helper. Temporary buffer collections and final handle-table conversion

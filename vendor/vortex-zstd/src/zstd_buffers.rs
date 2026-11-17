@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -566,63 +567,80 @@ impl VTable for ZstdBuffers {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = ZstdBuffersMetadata::decode(metadata)?;
-        let compressed_buffers: Vec<BufferHandle> = buffers.to_vec();
+        let children = vortex_array::serde::SynchronousArrayChildren::new(children);
+        vortex_array::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
+        ))
+    }
 
-        // Children belong to inner encodings, and serialization doesn't
-        // preserve their dtypes and values. Check dtypes are recovered from
-        // metadata.
-        vortex_ensure_eq!(metadata.child_dtypes.len(), children.len());
-        vortex_ensure_eq!(metadata.child_lens.len(), children.len());
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> vortex_array::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = ZstdBuffersMetadata::decode(metadata)?;
+            let compressed_buffers: Vec<BufferHandle> = buffers.to_vec();
 
-        let mut slots = (0..children.len())
-            .map(|i| {
+            // Children belong to inner encodings, and serialization doesn't
+            // preserve their dtypes and values. Check dtypes are recovered from
+            // metadata.
+            vortex_ensure_eq!(metadata.child_dtypes.len(), children.len());
+            vortex_ensure_eq!(metadata.child_lens.len(), children.len());
+
+            let mut slots = Vec::new();
+            for i in 0..children.len() {
                 let child_dtype = DType::from_proto(&metadata.child_dtypes[i], session)?;
                 let child_len = usize::try_from(metadata.child_lens[i])?;
-                children.get(i, &child_dtype, child_len).map(Some)
-            })
-            .collect::<VortexResult<Vec<_>>>()?;
-
-        let mut data = ZstdBuffersData {
-            inner_encoding_id: array_id_from_string(&metadata.inner_encoding_id),
-            inner_metadata: metadata.inner_metadata.clone(),
-            compressed_buffers,
-            uncompressed_sizes: metadata.uncompressed_sizes.clone(),
-            buffer_alignments: metadata.buffer_alignments.clone(),
-            inner_child_count: children.len(),
-            validity_slot: None,
-        };
-        data.validate()?;
-
-        match metadata.inner_child_count {
-            Some(inner_child_count) => {
-                data.inner_child_count = usize::try_from(inner_child_count)?;
-                data.validity_slot = metadata.validity_child.map(usize::try_from).transpose()?;
+                slots.push(Some(children.get_async(i, &child_dtype, child_len).await?));
             }
-            // Arrays written before the validity was lifted out of the wrapped array only hold
-            // its children, so rebuild it once here to find its validity.
-            None if dtype.is_nullable() => {
-                let legacy = Array::try_from_parts(ArrayParts::new(
-                    self.clone(),
-                    dtype.clone(),
-                    len,
-                    data.clone(),
-                    slots.clone().into(),
-                ))?;
-                let validity =
-                    ZstdBuffers::decompress_and_build_inner(&legacy, session)?.validity()?;
-                data.validity_slot = lift_validity(&validity, len, &mut slots);
-            }
-            None => {}
-        }
 
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots.into(),
-        ))
+            let mut data = ZstdBuffersData {
+                inner_encoding_id: array_id_from_string(&metadata.inner_encoding_id),
+                inner_metadata: metadata.inner_metadata.clone(),
+                compressed_buffers,
+                uncompressed_sizes: metadata.uncompressed_sizes.clone(),
+                buffer_alignments: metadata.buffer_alignments.clone(),
+                inner_child_count: children.len(),
+                validity_slot: None,
+            };
+            data.validate()?;
+
+            match metadata.inner_child_count {
+                Some(inner_child_count) => {
+                    data.inner_child_count = usize::try_from(inner_child_count)?;
+                    data.validity_slot =
+                        metadata.validity_child.map(usize::try_from).transpose()?;
+                }
+                // Arrays written before the validity was lifted out of the wrapped array only hold
+                // its children, so rebuild it once here to find its validity.
+                None if dtype.is_nullable() => {
+                    let legacy = Array::try_from_parts(ArrayParts::new(
+                        self.clone(),
+                        dtype.clone(),
+                        len,
+                        data.clone(),
+                        slots.clone().into(),
+                    ))?;
+                    let validity =
+                        ZstdBuffers::decompress_and_build_inner(&legacy, session)?.validity()?;
+                    data.validity_slot = lift_validity(&validity, len, &mut slots);
+                }
+                None => {}
+            }
+
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots.into(),
+            ))
+        })
     }
 
     // with_slots handles child replacement via the slots mechanism

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -166,46 +167,67 @@ impl VTable for List {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = ListMetadata::decode(metadata)?;
-        let offset_ptype = metadata.get_offset_ptype()?;
-        let validity = if children.len() == 2 {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 3 {
-            let validity = children.get(2, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!("Expected 2 or 3 children, got {}", children.len());
-        };
-
-        let DType::List(element_dtype, _) = &dtype else {
-            vortex_bail!("Expected List dtype, got {:?}", dtype);
-        };
-        let elements = children.get(
-            0,
-            element_dtype.as_ref(),
-            usize::try_from(metadata.elements_len)?,
-        )?;
-
-        let offsets = children.get(
-            1,
-            &DType::Primitive(offset_ptype, Nullability::NonNullable),
-            len + 1,
-        )?;
-
-        let data = ListData::try_build(
-            elements.clone(),
-            offsets.clone(),
-            validity.clone(),
-            &mut session.create_execution_ctx(),
-        )?;
-        let slots = ListData::make_slots(&elements, &offsets, &validity, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = ListMetadata::decode(metadata)?;
+            let offset_ptype = metadata.get_offset_ptype()?;
+            let validity = if children.len() == 2 {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 3 {
+                let validity = children.get_async(2, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!("Expected 2 or 3 children, got {}", children.len());
+            };
+
+            let DType::List(element_dtype, _) = &dtype else {
+                vortex_bail!("Expected List dtype, got {:?}", dtype);
+            };
+            let elements = children
+                .get_async(
+                    0,
+                    element_dtype.as_ref(),
+                    usize::try_from(metadata.elements_len)?,
+                )
+                .await?;
+
+            let offsets = children
+                .get_async(
+                    1,
+                    &DType::Primitive(offset_ptype, Nullability::NonNullable),
+                    len + 1,
+                )
+                .await?;
+
+            let data = ListData::try_build(
+                elements.clone(),
+                offsets.clone(),
+                validity.clone(),
+                &mut session.create_execution_ctx(),
+            )?;
+            let slots = ListData::make_slots(&elements, &offsets, &validity, len);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

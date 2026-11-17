@@ -1,5 +1,14 @@
 # ShardLoom Zstd allocation and selection contracts
 
+The November 17 logical array decode amendment adds ordered continuation hooks
+to both array representations. The existing synchronous entrypoints share the
+same bodies; validity and metadata-derived child dtypes/lengths remain in their
+original order. `ZstdBuffers` uses an ordered loop instead of a collecting
+closure so each request can suspend without replay. The draft edition remains
+disabled in ordinary native writing. All 96 provider tests and strict lint pass.
+The hooks do not grant continuation memory or complete deep-workflow support;
+see the [array-provider contract](../vortex-array/README.shardloom.md#november-17-ordered-logical-array-decoding).
+
 This is the reviewed Apache-2.0 `vortex-zstd` 0.93.0 published source, with the
 existing ShardLoom resource and text-construction changes ported to its context
 and serialization APIs. `upstream-provenance.json` records the authoritative

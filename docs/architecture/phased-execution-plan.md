@@ -346,9 +346,17 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   models verify malformed and interrupted inputs without read replay.
   Explicitly bounded 8,192-level schema/value decoding, refusal and cleanup pass
   on 128-KiB stacks. All 5,876 provider tests and strict provider/native lint pass
-  at this checkpoint. Native array decoding, resource prepayment and complete
-  deep-workflow acceptance remain open; default decode and public depth limits
-  are unchanged.
+  at this checkpoint. Logical array loading now has an explicit continuation
+  path that preserves conditional/repeated child requests, caught errors,
+  metadata/validation/statistics order and foreign descendants. Migrated core,
+  FSST, Zstd and DateTimeParts decoders share their original bodies with the
+  unchanged synchronous entrypoints. Six focused tests and 8,192-level real
+  nested-array/opaque-chain checks pass on 128-KiB stacks, including error,
+  panic and retained-owner cleanup. All 5,882 array, 127 FSST, 96 Zstd and 138
+  DateTimeParts provider tests pass, with two existing ignored tests in total,
+  plus strict lint. Native memory prepayment, additional codec certification,
+  value traversal and complete deep-workflow acceptance remain open; default
+  decode and public depth limits are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

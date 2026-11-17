@@ -1,5 +1,12 @@
 # ShardLoom full-domain timestamp correction
 
+The November 17 logical array decode amendment adds an ordered continuation
+hook. Its synchronous entrypoint shares the original body; metadata validation
+and day/second/subsecond child requests keep their exact order. All 138 provider
+tests and strict lint pass. This hook does not grant continuation memory or
+complete deep-workflow support; see the
+[array-provider contract](../vortex-array/README.shardloom.md#november-17-ordered-logical-array-decoding).
+
 This directory contains the Apache-2.0 `vortex-datetime-parts` 0.93.0 published
 source. `upstream-provenance.json` records the registry archive and every
 original member hash. The archive is authoritative; its VCS metadata records

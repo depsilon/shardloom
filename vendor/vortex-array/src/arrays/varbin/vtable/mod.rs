@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::hash::Hasher;
 
@@ -177,43 +178,62 @@ impl VTable for VarBin {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = VarBinMetadata::decode(metadata)?;
-        let offsets_ptype = metadata.get_offsets_ptype()?;
-        let validity = if children.len() == 1 {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 2 {
-            let validity = children.get(1, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!("Expected 1 or 2 children, got {}", children.len());
-        };
-
-        let offsets = children.get(
-            0,
-            &DType::Primitive(offsets_ptype, Nullability::NonNullable),
-            len + 1,
-        )?;
-
-        if buffers.len() != 1 {
-            vortex_bail!("Expected 1 buffer, got {}", buffers.len());
-        }
-        let bytes = buffers[0].clone().try_to_host_sync()?;
-
-        let data = VarBinData::try_build(
-            offsets.clone(),
-            bytes,
-            dtype.clone(),
-            validity.clone(),
-            &mut session.create_execution_ctx(),
-        )?;
-        let slots = VarBinData::make_slots(offsets, &validity, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = VarBinMetadata::decode(metadata)?;
+            let offsets_ptype = metadata.get_offsets_ptype()?;
+            let validity = if children.len() == 1 {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 2 {
+                let validity = children.get_async(1, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!("Expected 1 or 2 children, got {}", children.len());
+            };
+
+            let offsets = children
+                .get_async(
+                    0,
+                    &DType::Primitive(offsets_ptype, Nullability::NonNullable),
+                    len + 1,
+                )
+                .await?;
+
+            if buffers.len() != 1 {
+                vortex_bail!("Expected 1 buffer, got {}", buffers.len());
+            }
+            let bytes = buffers[0].clone().try_to_host_sync()?;
+
+            let data = VarBinData::try_build(
+                offsets.clone(),
+                bytes,
+                dtype.clone(),
+                validity.clone(),
+                &mut session.create_execution_ctx(),
+            )?;
+            let slots = VarBinData::make_slots(offsets, &validity, len);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

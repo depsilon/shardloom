@@ -926,6 +926,59 @@ prepay model, continuation, error-context and cleanup overlap before public deep
 admission. Public depth 24 and all existing guards remain unchanged until the
 remaining native array/value/workflow acceptance passes.
 
+### Logical array decode-continuation amendment, November 17, 2026
+
+Classify this as `use_vortex_native_provider`: retain the pinned Vortex 0.93.0
+`SerializedArray`, `ArrayPlugin`, `VTable`, `ArrayParts` and `ArrayChildren`
+boundaries. Their existing synchronous child callback is recursive. Vortex's
+iterative execution-slot scheduler does not suspend deserialization locals;
+restarting a decoder through that scheduler would replay metadata, validation
+and plugin callbacks. Do not predecode all children: Chunked reads and executes
+offsets before requesting chunks, and other encodings conditionally request
+validity, logical types and lengths from their metadata.
+
+Add an opt-in provider decoder driven by a flat stack of suspended futures. A
+future here is a Rust-owned continuation, polled synchronously on the calling
+thread; it introduces no executor, task, thread, I/O request or external engine.
+Each encoding's async deserialize hook executes its original body once, awaiting
+only the next requested child. A per-frame mailbox yields exactly one child to
+the outer driver. Only the innermost frame is polled; it returns the completed
+child result to its parent before that parent resumes. Preserve errors that a
+plugin catches, repeated requests for the same child, and the order of all
+metadata, validation, execution and statistics work. Do not cache or deduplicate
+requests. Reject external suspension or concurrent/unconsumed child requests
+explicitly rather than spinning, replaying or silently running recursively.
+
+Keep the existing synchronous APIs and default decoding behavior. New default
+hooks may run an unchanged leaf decoder once. On the explicit continuation path,
+a synchronous child request fails with a deterministic unsupported diagnostic;
+it must not recurse. Migrated encodings share one async body: their synchronous
+entrypoint supplies an immediate-child adapter and requires immediate completion.
+Unmodified external codecs remain compatible with the old entrypoint and cannot
+claim deep support merely by inheriting the default hook. Native deep admission
+must select this explicit continuation path and certify any non-migrated leaf
+provider before the public guard changes.
+
+Each suspended frame owns its serialized node, shallow dtype header, buffers and
+partial decoder locals. Borrowed payloads stay tied to those owners without
+unsafe lifetime extension. On normal/error completion, retain existing generic
+array validation, length/dtype/encoding assertions, statistics overrides and
+optimized markers in their original order. Unknown-encoding preservation keeps
+all descendants foreign, even if a descendant has a registered encoding; collect
+that parent's buffers only after its children, and do not run normal plugin or
+statistics hooks on that path. Drop pending frames innermost first on panic or
+cancellation, with no callback replay or recursive ownership chain.
+
+Require original-body source comparisons, shallow round trips and malformed
+input parity, complete callback traces for conditional/repeated/caught-error
+requests, validation/statistics failures, unsupported synchronous/external waits,
+foreign descendants, panic cleanup and retained owners. Verify 8,192-level real
+nested array loading on 128-KiB stacks with complete values and metadata. The
+native owner must prepay future/frame/mailbox storage, model output, temporary
+buffers, error and cleanup overlap before deep admission; a future is not a
+memory grant. Keep existing physical verification and public depth limits until
+native value traversal and whole-workflow acceptance are complete.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

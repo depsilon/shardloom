@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -153,39 +154,62 @@ impl VTable for DateTimeParts {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = DateTimePartsMetadata::decode(metadata)?;
-        if children.len() != 3 {
-            vortex_bail!(
-                "Expected 3 children for datetime-parts encoding, found {}",
-                children.len()
-            )
-        }
-
-        let days = children.get(
-            0,
-            &DType::Primitive(metadata.get_days_ptype()?, dtype.nullability()),
-            len,
-        )?;
-        let seconds = children.get(
-            1,
-            &DType::Primitive(metadata.get_seconds_ptype()?, Nullability::NonNullable),
-            len,
-        )?;
-        let subseconds = children.get(
-            2,
-            &DType::Primitive(metadata.get_subseconds_ptype()?, Nullability::NonNullable),
-            len,
-        )?;
-
-        let slots = smallvec![Some(days), Some(seconds), Some(subseconds)];
-        let data = DateTimePartsData {};
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = vortex_array::serde::SynchronousArrayChildren::new(children);
+        vortex_array::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> vortex_array::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = DateTimePartsMetadata::decode(metadata)?;
+            if children.len() != 3 {
+                vortex_bail!(
+                    "Expected 3 children for datetime-parts encoding, found {}",
+                    children.len()
+                )
+            }
+
+            let days = children
+                .get_async(
+                    0,
+                    &DType::Primitive(metadata.get_days_ptype()?, dtype.nullability()),
+                    len,
+                )
+                .await?;
+            let seconds = children
+                .get_async(
+                    1,
+                    &DType::Primitive(metadata.get_seconds_ptype()?, Nullability::NonNullable),
+                    len,
+                )
+                .await?;
+            let subseconds = children
+                .get_async(
+                    2,
+                    &DType::Primitive(metadata.get_subseconds_ptype()?, Nullability::NonNullable),
+                    len,
+                )
+                .await?;
+
+            let slots = smallvec![Some(days), Some(seconds), Some(subseconds)];
+            let data = DateTimePartsData {};
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

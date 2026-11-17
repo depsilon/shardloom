@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: optional ordered decode continuations.
 
 use std::fmt;
 use std::fmt::Debug;
@@ -19,6 +20,7 @@ use crate::array::VTable;
 use crate::buffer::BufferHandle;
 use crate::dtype::DType;
 use crate::serde::ArrayChildren;
+use crate::serde::DeserializeFuture;
 
 /// Reference-counted array plugin.
 pub type ArrayPluginRef = Arc<dyn ArrayPlugin>;
@@ -150,6 +152,20 @@ pub trait ArrayPlugin: 'static + Send + Sync {
         session: &VortexSession,
     ) -> VortexResult<ArrayRef>;
 
+    /// Suspend this decoder at each sequential child request.
+    ///
+    /// This future is polled synchronously by the array decoder. Only
+    /// [`ArrayChildren::get_async`] may suspend it. The default invokes the
+    /// existing decoder once; it supports leaves but does not make recursive
+    /// synchronous child requests safe for the explicit continuation path.
+    fn deserialize_async<'a>(
+        &'a self,
+        parts: ArrayDeserialization<'a>,
+        session: &'a VortexSession,
+    ) -> DeserializeFuture<'a, ArrayRef> {
+        Box::pin(async move { self.deserialize(parts, session) })
+    }
+
     /// Can this plugin emit an array with the given encoding.
     ///
     /// By default, this is just the [ID][Self::id] of the plugin, but
@@ -212,5 +228,32 @@ impl<V: VTable> ArrayPlugin for V {
             session,
         )?)?
         .into_array())
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        parts: ArrayDeserialization<'a>,
+        session: &'a VortexSession,
+    ) -> DeserializeFuture<'a, ArrayRef> {
+        Box::pin(async move {
+            vortex_ensure_eq!(
+                self.id(),
+                parts.serialized_id,
+                "array plugin does not recognize the serialized ID",
+            );
+            Ok(Array::<V>::try_from_parts(
+                V::deserialize_async(
+                    self,
+                    parts.dtype,
+                    parts.len,
+                    parts.metadata,
+                    parts.buffers,
+                    parts.children,
+                    session,
+                )
+                .await?,
+            )?
+            .into_array())
+        })
     }
 }

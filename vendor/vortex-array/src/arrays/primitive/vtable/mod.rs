@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -142,43 +143,62 @@ impl VTable for Primitive {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "PrimitiveArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        let buffer = fixed_width::single_buffer(buffers)?;
-
-        let validity = fixed_width::deserialize_validity(dtype.nullability(), len, children)?;
-
-        let ptype = PType::try_from(dtype)?;
-
-        vortex_ensure!(
-            buffer.is_aligned_to(Alignment::new(ptype.byte_width())),
-            "Misaligned buffer cannot be used to build PrimitiveArray of {ptype}"
-        );
-
-        if buffer.len() != ptype.byte_width() * len {
-            vortex_bail!(
-                "Buffer length {} does not match expected length {} for {}, {}",
-                buffer.len(),
-                ptype.byte_width() * len,
-                ptype.byte_width(),
-                len,
-            );
-        }
-
-        // SAFETY: the buffer length and alignment are checked above.
-        let slots = PrimitiveData::make_slots(&validity, len);
-        let data = unsafe { PrimitiveData::new_unchecked_from_handle(buffer, ptype, validity) };
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "PrimitiveArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            let buffer = fixed_width::single_buffer(buffers)?;
+
+            let validity =
+                fixed_width::deserialize_validity_async(dtype.nullability(), len, children).await?;
+
+            let ptype = PType::try_from(dtype)?;
+
+            vortex_ensure!(
+                buffer.is_aligned_to(Alignment::new(ptype.byte_width())),
+                "Misaligned buffer cannot be used to build PrimitiveArray of {ptype}"
+            );
+
+            if buffer.len() != ptype.byte_width() * len {
+                vortex_bail!(
+                    "Buffer length {} does not match expected length {} for {}, {}",
+                    buffer.len(),
+                    ptype.byte_width() * len,
+                    ptype.byte_width(),
+                    len,
+                );
+            }
+
+            // SAFETY: the buffer length and alignment are checked above.
+            let slots = PrimitiveData::make_slots(&validity, len);
+            let data = unsafe { PrimitiveData::new_unchecked_from_handle(buffer, ptype, validity) };
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

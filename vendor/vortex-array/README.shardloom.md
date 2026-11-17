@@ -1,5 +1,37 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 ordered logical array decoding
+
+`SerializedArray::decode_iterative` drives a flat stack of decoder continuations.
+Each plugin runs once and requests children sequentially with `get_async`, so
+conditional validity, computed child lengths, repeated requests and caught
+child errors retain their original order. No child is predecoded or cached.
+The built-in child consumers share their original decoder bodies between this
+hook and the existing synchronous entrypoint. Decimal's ordinary and private
+storage-preserving paths retain their separate validation policies.
+
+These Rust futures are synchronously driven local continuations; there is no
+executor, background task or I/O scheduler. The explicit path rejects a
+synchronous child request, external wait or unconsumed request. Unchanged leaf
+decoders remain usable, but inheriting the default hook does not certify a
+recursive external codec. Foreign descendants stay foreign, with the original
+buffer/statistics boundary. Unwinding drops the innermost pending callback first.
+
+Source comparisons verify 21 migrated provider bodies and five helper bodies
+against the preceding source, with explicit ordered loop/match replacements.
+Six driver tests cover conditional/repeated/caught-error callbacks, refusal,
+malformed buffers, foreign descendants, statistics and panic cleanup. Actual
+8,192-level nested Struct/FixedSizeList loading and opaque encoding chains pass
+on 128-KiB stacks, including deep failure, panic and retained-owner cleanup.
+All 5,882 array-provider tests pass (one existing ignored test), with strict lint.
+
+The default decoder and physical verification limits remain unchanged. The
+explicit continuation mechanism does not prepay future/frame/mailbox, output,
+temporary-buffer or cleanup storage. Native resource admission, additional
+codec certification and complete deep workflows remain required before public
+depth guards change. See the
+[logical decode amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#logical-array-decode-continuation-amendment-november-17-2026).
+
 ## November 17 iterative protobuf model decoding
 
 Schema and scalar-value root merges now use owned, ordered continuations through

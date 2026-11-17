@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 mod kernel;
 mod operations;
@@ -147,35 +148,53 @@ impl VTable for Variant {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        vortex_ensure!(
-            buffers.is_empty(),
-            "VariantArray expects 0 buffers, got {}",
-            buffers.len()
-        );
-        let proto = VariantMetadataProto::decode(metadata)?;
-        let shredded_dtype = proto
-            .shredded_dtype
-            .as_ref()
-            .map(|dtype| DType::from_proto(dtype, session))
-            .transpose()?;
-        vortex_ensure!(matches!(dtype, DType::Variant(_)), "Expected Variant DType");
-        let expected_children = 1 + usize::from(shredded_dtype.is_some());
-        vortex_ensure_eq!(children.len(), expected_children);
-        let core_storage = children.get(0, dtype, len)?;
-        let shredded = shredded_dtype
-            .map(|dtype| children.get(1, &dtype, len))
-            .transpose()?;
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            EmptyArrayData,
-            VariantSlots {
-                core_storage,
-                shredded,
-            }
-            .into_slots(),
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            vortex_ensure!(
+                buffers.is_empty(),
+                "VariantArray expects 0 buffers, got {}",
+                buffers.len()
+            );
+            let proto = VariantMetadataProto::decode(metadata)?;
+            let shredded_dtype = proto
+                .shredded_dtype
+                .as_ref()
+                .map(|dtype| DType::from_proto(dtype, session))
+                .transpose()?;
+            vortex_ensure!(matches!(dtype, DType::Variant(_)), "Expected Variant DType");
+            let expected_children = 1 + usize::from(shredded_dtype.is_some());
+            vortex_ensure_eq!(children.len(), expected_children);
+            let core_storage = children.get_async(0, dtype, len).await?;
+            let shredded = match shredded_dtype {
+                Some(dtype) => Some(children.get_async(1, &dtype, len).await?),
+                None => None,
+            };
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                EmptyArrayData,
+                VariantSlots {
+                    core_storage,
+                    shredded,
+                }
+                .into_slots(),
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

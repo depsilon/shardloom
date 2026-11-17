@@ -1,7 +1,7 @@
 {
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "c6f47c3e32f6b3b14e2f73ccb932652a9c1584d663975f6a44f4eb89e08821c1",
+    "README.shardloom.md": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384",
     "src/compression_resources.rs": "b5253fa5c635d91414533ff8a7a01f4a76e3a18f701945d28402e5334f3443e8",
     "src/compression_resources_tests.rs": "1c3fcbeaa911bfa115e85f24aaeb694e7ba9b5fa606225a44ccfd58a8a7b1dba",
     "src/decoder_workspace.rs": "a40160fffc924e3759a4c08d2bfbe7d4248caa7e420bef17804a73e099145f3c",
@@ -16,15 +16,16 @@
   "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "c6f47c3e32f6b3b14e2f73ccb932652a9c1584d663975f6a44f4eb89e08821c1"
+    "sha256": "9a846a5bcef430ea61c3a644e3a39de47e32d8704f5ed8a708c229a48018e384"
   },
   "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
     "Cargo.toml": "e7fe0bfa3bbb7a30550719c722bcf04a50093e0b4af3a2a71c34f7cecccd8146",
-    "src/array.rs": "3d027286a9775e534bdd64dc9e6aae747d3a18ffc30a801b7475f408bc28c9ae",
+    "src/array.rs": "9b61ca494417abf6c882729308748712ea66145660a0b32c52892847269ca041",
     "src/compute/cast.rs": "48cf6fd95ad460eacc6eba474619c32f9963bd2dfbc24867e2b620c4ea9d378e",
     "src/lib.rs": "3d9219ecd7e556e38093c72b8f1e6d92aa2b7690e491c38583f887d04f5f84c7",
-    "src/test.rs": "bf2833947acf51414e9a9300637a5763a2ce97b3444f1138950ae7592fc4dad3"
+    "src/test.rs": "bf2833947acf51414e9a9300637a5763a2ce97b3444f1138950ae7592fc4dad3",
+    "src/zstd_buffers.rs": "05de36b84e113fdbcdc78e0cdba1b0e0353bd2d9722cbeceaaf372e4a52380a7"
   },
   "original_files_sha256": {
     ".cargo_vcs_info.json": "01eb1adf7cbb0ff46fe2baf107271fc66e3016bd08fd00ddc62473cfacbadc8d",

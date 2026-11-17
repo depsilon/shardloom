@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-// Modified by ShardLoom on 2026-11-17: iterative native serialization owner/writer.
+// Modified by ShardLoom on 2026-11-17: iterative native serialization and optional decoding.
 
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -44,6 +44,10 @@ use crate::stats::StatsSet;
 #[path = "serde/serialization.rs"]
 mod serialization;
 pub use serialization::ArrayNodeFlatBuffer;
+
+#[path = "serde/deserialization.rs"]
+mod deserialization;
+pub use deserialization::{DeserializeFuture, SynchronousArrayChildren, finish_deserialize};
 
 /// Options for serializing an array.
 #[derive(Default, Debug)]
@@ -169,6 +173,20 @@ pub trait ArrayChildren {
     /// Returns the nth child of the array with the given dtype and length.
     fn get(&self, index: usize, dtype: &DType, len: usize) -> VortexResult<ArrayRef>;
 
+    /// Request one child through a suspended deserialization continuation.
+    ///
+    /// Await requests sequentially. A decoder must not wait on external work or
+    /// poll multiple child requests concurrently. The default supports existing
+    /// immediate children; serialized continuation children yield to their driver.
+    fn get_async<'a>(
+        &'a self,
+        index: usize,
+        dtype: &'a DType,
+        len: usize,
+    ) -> DeserializeFuture<'a, ArrayRef> {
+        Box::pin(async move { self.get(index, dtype, len) })
+    }
+
     /// The number of children.
     fn len(&self) -> usize;
 
@@ -221,6 +239,23 @@ impl Debug for SerializedArray {
 }
 
 impl SerializedArray {
+    /// Decode with a flat stack of provider-owned continuations.
+    ///
+    /// Plugins must request children with [`ArrayChildren::get_async`]. An
+    /// unchanged leaf decoder is supported, but a synchronous child request or
+    /// an unrelated asynchronous wait fails explicitly. This method grants no
+    /// memory or deeper physical-verification limits; the caller must admit
+    /// continuation storage, output and cleanup before using a deep input.
+    pub fn decode_iterative(
+        &self,
+        dtype: &DType,
+        len: usize,
+        ctx: &ReadContext,
+        session: &VortexSession,
+    ) -> VortexResult<ArrayRef> {
+        deserialization::decode(self, dtype, len, ctx, session)
+    }
+
     /// Decode an [`SerializedArray`] into an [`ArrayRef`].
     pub fn decode(
         &self,

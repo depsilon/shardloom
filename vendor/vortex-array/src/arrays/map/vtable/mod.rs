@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -112,36 +113,55 @@ impl VTable for Map {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "MapArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        vortex_ensure!(buffers.is_empty(), "MapArray expects no buffers");
-
-        let DType::Map(map_dtype, nullability) = dtype else {
-            vortex_bail!("Expected map dtype, got {dtype}");
-        };
-        vortex_ensure_eq!(children.len(), MapSlots::COUNT);
-
-        let expected_entries_dtype =
-            DType::List(std::sync::Arc::new(map_dtype.entries_dtype()), *nullability);
-        let entries = children.get(MapSlots::ENTRIES, &expected_entries_dtype, len)?;
-        vortex_ensure!(
-            entries.is::<ListView>(),
-            "MapArray entries must use vortex.listview encoding, got {}",
-            entries.encoding_id()
-        );
-
-        let slots = MapData::make_slots(entries);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            MapData,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "MapArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            vortex_ensure!(buffers.is_empty(), "MapArray expects no buffers");
+
+            let DType::Map(map_dtype, nullability) = dtype else {
+                vortex_bail!("Expected map dtype, got {dtype}");
+            };
+            vortex_ensure_eq!(children.len(), MapSlots::COUNT);
+
+            let expected_entries_dtype =
+                DType::List(std::sync::Arc::new(map_dtype.entries_dtype()), *nullability);
+            let entries = children
+                .get_async(MapSlots::ENTRIES, &expected_entries_dtype, len)
+                .await?;
+            vortex_ensure!(
+                entries.is::<ListView>(),
+                "MapArray entries must use vortex.listview encoding, got {}",
+                entries.encoding_id()
+            );
+
+            let slots = MapData::make_slots(entries);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                MapData,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

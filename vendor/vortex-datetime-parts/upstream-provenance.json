@@ -41,6 +41,7 @@
   "migration_status": "retained_local_contract_port",
   "modified_files_sha256": {
     "Cargo.toml": "f7753c93d9c6ed768bd5ad828f765ce6522f106d246ccfe22b2776de22ae8822",
+    "src/array.rs": "1d365cec06dc6f07d714f5777ad5d1a12ce7cfad00bc10b415035bc0165d0060",
     "src/canonical.rs": "30c518cd57b33301e96e484b50ceabc46d9967cb5eb76bbc535e0105d9e0b98c",
     "src/compress.rs": "1f5c33e7001e52812000e441994e959e421e57a79203481bc63222cba2155bc4",
     "src/compute/compare.rs": "9c5f19e9d06ee964ee05f92712c7065cb75783adac876e1715dfaf11b1899c16",
@@ -51,13 +52,13 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "b14abafa950d4d511b4366f23408c12f25559c984771cec61c7d639c7c2d1ac8",
+    "README.shardloom.md": "edb3ee5d7543836f70f3cc6c84090cc021bce71ea8ca095a7fc30d10a2f3d755",
     "goldenfiles/datetimeparts.metadata": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
     "src/test_support.rs": "5d0d36070bde3ec709f0691baf5ae09a8a272559ffe32287aefe0faac9170f30"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "b14abafa950d4d511b4366f23408c12f25559c984771cec61c7d639c7c2d1ac8"
+    "sha256": "edb3ee5d7543836f70f3cc6c84090cc021bce71ea8ca095a7fc30d10a2f3d755"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

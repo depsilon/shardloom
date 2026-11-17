@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 // Modified by ShardLoom: opt-in physical-width preserving decimal reads.
 
 //! Serde for `vortex.decimal` nodes, including legacy nodes.
@@ -86,15 +87,32 @@ impl DecimalPlugin {
         &self,
         parts: ArrayDeserialization<'_>,
     ) -> VortexResult<ArrayRef> {
-        vortex_ensure_eq!(parts.serialized_id, self.id());
-        let stored = StoredDecimal::deserialize(
-            parts.dtype,
-            parts.len,
-            parts.metadata,
-            parts.buffers,
-            parts.children,
-        )?;
-        Ok(Array::<Decimal>::try_from_parts(stored.into_array_parts()?)?.into_array())
+        let children = crate::serde::SynchronousArrayChildren::new(parts.children);
+        crate::serde::finish_deserialize(self.deserialize_preserving_storage_async(
+            ArrayDeserialization {
+                children: &children,
+                ..parts
+            },
+        ))
+    }
+
+    /// Preserve checked storage while suspending only sequential child requests.
+    pub fn deserialize_preserving_storage_async<'a>(
+        &'a self,
+        parts: ArrayDeserialization<'a>,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayRef> {
+        Box::pin(async move {
+            vortex_ensure_eq!(parts.serialized_id, self.id());
+            let stored = StoredDecimal::deserialize(
+                parts.dtype,
+                parts.len,
+                parts.metadata,
+                parts.buffers,
+                parts.children,
+            )
+            .await?;
+            Ok(Array::<Decimal>::try_from_parts(stored.into_array_parts()?)?.into_array())
+        })
     }
 }
 
@@ -138,39 +156,59 @@ impl ArrayPlugin for DecimalPlugin {
         parts: ArrayDeserialization<'_>,
         session: &VortexSession,
     ) -> VortexResult<ArrayRef> {
-        vortex_ensure_eq!(
-            parts.serialized_id,
-            self.id(),
-            "DecimalPlugin reads only its own serialized ID",
-        );
+        let children = crate::serde::SynchronousArrayChildren::new(parts.children);
+        crate::serde::finish_deserialize(self.deserialize_async(
+            ArrayDeserialization {
+                children: &children,
+                ..parts
+            },
+            session,
+        ))
+    }
 
-        let stored = StoredDecimal::deserialize(
-            parts.dtype,
-            parts.len,
-            parts.metadata,
-            parts.buffers,
-            parts.children,
-        )?;
+    fn deserialize_async<'a>(
+        &'a self,
+        parts: ArrayDeserialization<'a>,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayRef> {
+        Box::pin(async move {
+            vortex_ensure_eq!(
+                parts.serialized_id,
+                self.id(),
+                "DecimalPlugin reads only its own serialized ID",
+            );
 
-        if !stored.is_legacy() {
-            return Ok(Array::<Decimal>::try_from_parts(stored.into_array_parts()?)?.into_array());
-        }
+            let stored = StoredDecimal::deserialize(
+                parts.dtype,
+                parts.len,
+                parts.metadata,
+                parts.buffers,
+                parts.children,
+            )
+            .await?;
 
-        // This is a legacy node, whose width a `Decimal` leaf no longer allows, so the valid values
-        // pick the canonical array or a `Widen`.
-        let parts = DecimalDataParts {
-            decimal_dtype: stored.decimal_dtype,
-            values: stored.values,
-            values_type: stored.values_type,
-            validity: stored.validity,
-        };
+            if !stored.is_legacy() {
+                return Ok(
+                    Array::<Decimal>::try_from_parts(stored.into_array_parts()?)?.into_array(),
+                );
+            }
 
-        // Stored statistics are attached only after this returns, so no range is known yet.
-        WidenArray::from_stored_decimal(
-            parts,
-            Precision::Absent,
-            &mut session.create_execution_ctx(),
-        )
+            // This is a legacy node, whose width a `Decimal` leaf no longer allows, so the valid values
+            // pick the canonical array or a `Widen`.
+            let parts = DecimalDataParts {
+                decimal_dtype: stored.decimal_dtype,
+                values: stored.values,
+                values_type: stored.values_type,
+                validity: stored.validity,
+            };
+
+            // Stored statistics are attached only after this returns, so no range is known yet.
+            WidenArray::from_stored_decimal(
+                parts,
+                Precision::Absent,
+                &mut session.create_execution_ctx(),
+            )
+        })
     }
 
     fn is_supported_encoding(&self, id: &ArrayId) -> bool {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
@@ -148,49 +149,66 @@ impl VTable for Struct {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "StructArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        let DType::Struct(struct_dtype, nullability) = dtype else {
-            vortex_bail!("Expected struct dtype, found {:?}", dtype)
-        };
-
-        let (validity, non_data_children) = if children.len() == struct_dtype.nfields() {
-            (Validity::from(*nullability), 0_usize)
-        } else if children.len() == struct_dtype.nfields() + 1 {
-            let validity = children.get(0, &Validity::DTYPE, len)?;
-            (Validity::Array(validity), 1_usize)
-        } else {
-            vortex_bail!(
-                "Expected {} or {} children, found {}",
-                struct_dtype.nfields(),
-                struct_dtype.nfields() + 1,
-                children.len()
-            );
-        };
-
-        let mut slots = struct_slots_with_capacity(&validity, len, struct_dtype.nfields());
-        for i in 0..struct_dtype.nfields() {
-            let child_dtype = struct_dtype
-                .field_by_index(i)
-                .vortex_expect("no out of bounds");
-            slots.push(Some(children.get(
-                non_data_children + i,
-                &child_dtype,
-                len,
-            )?));
-        }
-
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            EmptyArrayData,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "StructArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            let DType::Struct(struct_dtype, nullability) = dtype else {
+                vortex_bail!("Expected struct dtype, found {:?}", dtype)
+            };
+
+            let (validity, non_data_children) = if children.len() == struct_dtype.nfields() {
+                (Validity::from(*nullability), 0_usize)
+            } else if children.len() == struct_dtype.nfields() + 1 {
+                let validity = children.get_async(0, &Validity::DTYPE, len).await?;
+                (Validity::Array(validity), 1_usize)
+            } else {
+                vortex_bail!(
+                    "Expected {} or {} children, found {}",
+                    struct_dtype.nfields(),
+                    struct_dtype.nfields() + 1,
+                    children.len()
+                );
+            };
+
+            let mut slots = struct_slots_with_capacity(&validity, len, struct_dtype.nfields());
+            for i in 0..struct_dtype.nfields() {
+                let child_dtype = struct_dtype
+                    .field_by_index(i)
+                    .vortex_expect("no out of bounds");
+                slots.push(Some(
+                    children
+                        .get_async(non_data_children + i, &child_dtype, len)
+                        .await?,
+                ));
+            }
+
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                EmptyArrayData,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(array: ArrayView<'_, Self>, idx: usize) -> String {
