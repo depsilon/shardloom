@@ -376,8 +376,54 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.
 
+- [ ] **Shared native capability incorporation**
+  Status: Next — follows the in-progress deep-traversal lifecycle; takes priority
+  over every remaining queued item under the November 17 maintainer request.
+  The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
+  extends item 20 and PulseWeave investigation F through existing admitted-operation,
+  source, resource, operator and result owners. Item 23's completed adaptive
+  execution is reused; Chrysalis and Resonance consume this foundation later.
+  - Intake review: accept shared lifecycle/control and composition gaps; reuse
+    existing adaptive execution, keys/windows and output replay/fanout; keep
+    advisory capabilities report-only and removed investigations removed.
+  - V1 scope classification: `v1_candidate_pending_feasibility` for new performance
+    mechanisms, explicitly prioritized; existing supported-path correctness and
+    resource obligations remain required. No new phase or CG identifier.
+  - ShardLoom technique review: connect PulseWeave, Capillary Units, FlowInventory,
+    ScarcityLedger, EndoPulse and ProofBound to actual owner controls; preserve
+    metadata-first execution, dynamic admission, timing boundaries and evidence
+    tiers. Coordinate with existing adaptive sizing inside caller ceilings.
+  Execution checklist:
+  - [ ] Map every named capability to current owners, callers, operative controls,
+    observation types, legal domains and remaining integration gaps.
+  - [ ] Select a material evidenced target and freeze affected opportunities and controls.
+  - [ ] Extend the shared Capillary lifecycle through completed results, downstream
+    retention, refusal, cancellation, drain and final-owner release.
+  - [ ] Connect finite PulseWeave feedback to actual settings with owner-proved application.
+  - [ ] Preserve compatible source/population facts, prepared keys/expressions and
+    native representations across existing and composed callers.
+  - [ ] Prove complete source-to-delivery ownership and reconcile all seven intake
+    families with executed, justified-decline or explicit unobserved dispositions.
+  - [ ] Record the shared-contract dependencies for later Chrysalis and Resonance work.
+  - [ ] Complete scoped correctness/resource/performance, public-interface, source,
+    installed-package and hosted acceptance; move completed evidence to the ledger.
+  - Next outcome and scope: one complete relevant owner chain selected from
+    measured exposure, extending existing native context, source/conversion,
+    worker/operator, typed-observation and result/sink modules. Keep the public
+    CLI/Python/typed-relation/DataFrame/embedded interfaces on those shared owners.
+  - Acceptance and verification: real application at eligible physical opportunities,
+    specific declines, truthful missing observations, unchanged semantics and
+    ownership through delivery; exact owner tests, complete workflow controls,
+    required Rust/native/package gates and a frozen scoped comparison as defined
+    in the contract. Do not substitute capability labels for execution evidence.
+  - Boundaries: ordinary execution needs no durable preparation; requested output
+    semantics and Vortex-native I/O remain. No removed campaign, Full43/full10k,
+    package publication, external engine or competitive claim is authorized here.
+    Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
+    `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
+
 - [ ] **Combined rich-data and analytical acceptance**
-  Status: Queued — follows deep-traversal lifecycle acceptance.
+  Status: Queued — follows shared native capability incorporation acceptance.
   Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
   and remaining [analytical program](native-broad-query-program-2026-10-26.md).
   Execution checklist:
@@ -434,6 +480,13 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [ ] Complete the separately governed package/channel readiness checks.
 
 ### Current decision notes
+
+The November 17 [shared incorporation decision](native-shared-capability-incorporation-2026-11-17.md)
+places that item first after active deep traversal, ahead of the rest of the
+queue. Remaining items keep their relative order. This extends item 20/F and
+the existing source-to-delivery owners, preserves completed item 23, and makes
+the later Chrysalis/Resonance designs consume the shared contracts. Historical
+sequence notes below do not override the Current execution checklist.
 
 The resident-join/copy change is merged in PR #1694 and the
 [dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
@@ -785,6 +838,9 @@ authorize additional experiments. Reuse compatible saved evidence.
       reuse, then exact scoring into bounded ranking with separate vector cases.
     - [ ] F: attribute one pipeline imbalance and compare finite PulseWeave
       feedback choices with sampling-overhead and small-query controls.
+      Incorporated into the November 17
+      [shared capability contract](native-shared-capability-incorporation-2026-11-17.md);
+      this is the same investigation, not a parallel queue or an applied-control claim.
     - [ ] G: verify managed-object insertion/capture costs and compare credited
       amortized metadata growth with deduplication, publication and cleanup proof.
     - Historical H/I/J exposure audit is preserved. J's full-sort experiment
@@ -1807,6 +1863,9 @@ visible and independent; this implementation does not automatically close them.
     hosted acceptance is complete in #1611 at `4d25a06e`. New
     analytical capabilities and the broader item-20 completion remain unfinished.
     This is requested post-1.0 implementation, not a retroactive release blocker.
+    The November 17 [shared incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
+    extends these owners and investigation F; the Current execution checklist
+    owns its priority. Completed item 23 remains accepted in its existing scope.
   - Intake review: existing parity, ordinary CTEs/parameters and harness guards
     are reused; new breadth and strict semantics are accepted; connectors retain
     their owners; one Polars comparison per selected case is now authorized for

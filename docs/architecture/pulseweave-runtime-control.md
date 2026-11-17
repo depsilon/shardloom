@@ -3,6 +3,13 @@
 Status: first prepared/local runtime implementation slice landed under `GAR-RUNTIME-IMPL-5R`;
 remaining broader scopes stay blocked by their owning runtime items.
 
+The November 17 [shared capability incorporation plan](native-shared-capability-incorporation-2026-11-17.md)
+extends item 20/investigation F through current admitted-operation and lifecycle
+owners. It reuses [completed item 23 adaptation](native-adaptive-acceptance-2026-11-02.md)
+and requires operative controls plus evidence from the executing owner. It is
+queued work, not proof that every PulseWeave policy or preparation descriptor
+already changes physical execution. The phase plan owns its priority.
+
 ## Summary
 
 PulseWeave is the implementation name for a certificate-gated runtime control layer that

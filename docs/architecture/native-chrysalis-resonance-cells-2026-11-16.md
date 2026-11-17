@@ -15,7 +15,13 @@ mechanisms; the maintainer explicitly requests their bounded design and
 implementation investigations. Retention still requires their prospective
 correctness, resource and complete-workflow gates. No speedup is presumed.
 
-This leaves the active direct join-to-aggregate work independent. RFC 0044 and
+The November 17 [shared capability incorporation](native-shared-capability-incorporation-2026-11-17.md)
+provides the preceding foundation. Both designs must reuse its source/population
+identity, demand/completion, resource ownership, legal-work and owner-evidence
+contracts. Their implementation remains in the existing Chrysalis-then-Resonance
+items after combined acceptance; the foundation does not pull them into its own
+delivery or claim that they already exist. The earlier direct join-to-aggregate
+decision remains independent. RFC 0044 and
 RFCs 0013/0014/0017 govern execution, ownership and recovery; RFCs 0031/0033
 govern I/O and user workflows. CG-1 through CG-23 remain independent.
 
