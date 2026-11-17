@@ -15,7 +15,12 @@ import ci_provider_tests as providers
 # 782c636c59a6686090bebcb07fe27b4641644e13 (native_vortex_tests lane).
 FROZEN_CRATES = ("vortex-array", "vortex-fsst", "vortex-runend", "vortex-layout",
                  "vortex-file", "vortex-io", "vortex-buffer", "vortex-zstd")
-NEW_PROVIDERS = ("vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "vortex-arrow", "flatbuffers", "prost")
+NEW_PROVIDERS = (
+    "vortex-datetime-parts", "orc-rust", "arrow-avro", "arrow-ipc", "arrow-data",
+    "arrow-array", "parquet", "vortex-arrow", "flatbuffers", "prost", "vortex-alp",
+    "vortex-bytebool", "vortex-decimal-byte-parts", "vortex-fastlanes", "vortex-onpair",
+    "vortex-parquet-variant", "vortex-pco", "vortex-sparse", "vortex-zigzag",
+)
 RETIRED_PROVIDERS = {"vortex-runend"}  # 0.93 moves its implementation/tests into vortex-array.
 CURRENT_PROVIDERS = (set(FROZEN_CRATES) | set(NEW_PROVIDERS)) - RETIRED_PROVIDERS
 
@@ -83,14 +88,15 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
 class ProviderCommandTests(unittest.TestCase):
     def test_all_providers_are_assigned_once_to_four_groups(self) -> None:
         assigned = [crate for group in providers.GROUPS.values() for crate in group]
-        self.assertEqual(len(assigned), 17)
+        self.assertEqual(len(assigned), 26)
         self.assertEqual(set(assigned), CURRENT_PROVIDERS)
         self.assertEqual(len(set(assigned)), len(assigned))
         self.assertEqual(set(providers.CONFIGURATIONS), CURRENT_PROVIDERS)
         self.assertEqual(set(providers.GROUPS), {"arrays", "io", "buffer", "formats"})
 
     def test_new_datetime_parts_provider_is_configured_without_rewriting_frozen_history(self) -> None:
-        self.assertEqual(providers.GROUPS["arrays"][-1:], ("vortex-datetime-parts",))
+        self.assertEqual(providers.GROUPS["arrays"][:4], (
+            "vortex-array", "vortex-fsst", "vortex-zstd", "vortex-datetime-parts"))
         self.assertEqual(providers.CONFIGURATIONS["vortex-datetime-parts"], {
             "features": "vortex-array/table-display", "patches": ["vortex-array", "flatbuffers", "prost"]})
         test_command, clippy_command = providers.commands("vortex-datetime-parts")
@@ -228,6 +234,42 @@ class ProviderCommandTests(unittest.TestCase):
         for crate in patched:
             self.assertEqual(providers.CONFIGURATIONS[crate]["patches"][-1], "prost")
         self.assertNotIn("prost", providers.CONFIGURATIONS["orc-rust"]["patches"])
+
+    def test_nine_codec_providers_use_their_exact_reviewed_feature_and_patch_recipes(self) -> None:
+        expected = {
+            "vortex-alp": ["vortex-array", "vortex-fastlanes", "flatbuffers", "prost"],
+            "vortex-bytebool": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-decimal-byte-parts": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-fastlanes": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-onpair": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-parquet-variant": ["vortex-array", "vortex-file", "vortex-layout",
+                                        "vortex-io", "vortex-datetime-parts", "flatbuffers", "prost"],
+            "vortex-pco": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-sparse": ["vortex-array", "flatbuffers", "prost"],
+            "vortex-zigzag": ["vortex-array", "flatbuffers", "prost"],
+        }
+        for crate, patches in expected.items():
+            with self.subTest(crate=crate):
+                features = {
+                    "vortex-decimal-byte-parts": "vortex-array/_test-harness,vortex-array/table-display",
+                    "vortex-fastlanes": "_test-harness,vortex-array/table-display",
+                }.get(crate, "vortex-array/table-display")
+                self.assertEqual(providers.CONFIGURATIONS[crate], {
+                    "features": features,
+                    "patches": patches,
+                    "clippy_tests": True,
+                })
+                patch_args = [arg for patch in patches for arg in (
+                    "--config", f'patch.crates-io.{patch}.path="vendor/{patch}"')]
+                manifest = ["--locked", "--manifest-path", f"vendor/{crate}/Cargo.toml"]
+                self.assertEqual(providers.commands(crate), [
+                    ["cargo", "test", *manifest, *patch_args,
+                     "--features", features, "--lib", "--",
+                     "--test-threads=2"],
+                    ["cargo", "clippy", *manifest, *patch_args,
+                     "--features", features, "--lib", "--tests",
+                     "--", "-D", "warnings"],
+                ])
 
 
 class RunGroupTests(unittest.TestCase):

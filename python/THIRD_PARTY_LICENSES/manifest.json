@@ -7665,22 +7665,6 @@
       ]
     },
     {
-      "name": "vortex-alp",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "514c43807defff4b9d05d96715a59a732b9a48c4521c5f217a6319da77aee6da",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-array-macros",
       "version": "0.93.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -7713,22 +7697,6 @@
       ]
     },
     {
-      "name": "vortex-bytebool",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "04524205b60eabdf3a382fa532d1179fe3b293b0a0ccca76b49b14e2017c8af0",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-compressor",
       "version": "0.93.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -7751,22 +7719,6 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/vortex-data/vortex",
       "crate_checksum_sha256": "182974f9c04b7f62198e58e61b4af388a4aedd615a02df4e9fb9d74589f141f1",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-decimal-byte-parts",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "45bebe548292f75c35fff25ac4798ab8e0f4c42a9bb39b6a14cad78c66b1018d",
       "files": [
         {
           "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
@@ -7815,22 +7767,6 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/vortex-data/vortex",
       "crate_checksum_sha256": "f7ade694566a688b9e2183b4c27142416520674d4bd9bf114e771f02edd3bd57",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-fastlanes",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "4264e80184b57ce5cb6ce596ef5f3466aad31cac903ab19cc8311dfdb286e29e",
       "files": [
         {
           "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
@@ -7905,54 +7841,6 @@
       ]
     },
     {
-      "name": "vortex-onpair",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "b8c9586ed842315cc51d617f583525a130f44c76154568b2e685e779e6984078",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-parquet-variant",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "6aac64cb0b59a696f8fd578675a9bd19a6866c4abe2744536856e516cb5f0677",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-pco",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "ac3d0b7f18be1c07624f7eab1b3833409b1fe0da816d1472c038b371cf974c89",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-scan",
       "version": "0.93.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -8001,22 +7889,6 @@
       ]
     },
     {
-      "name": "vortex-sparse",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "f7aa08ad1cd8f809ad9b14a750814394ba945c540a464b1727b44c66038361fd",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
       "name": "vortex-utils",
       "version": "0.93.0",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -8039,22 +7911,6 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/vortex-data/vortex",
       "crate_checksum_sha256": "ddd60760fe49a66076d3c3c794fa9d7dd4c7e5c8d446f2681be3db9eb0bd5ab2",
-      "files": [
-        {
-          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
-          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "bytes": 11358,
-          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
-        }
-      ]
-    },
-    {
-      "name": "vortex-zigzag",
-      "version": "0.93.0",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/vortex-data/vortex",
-      "crate_checksum_sha256": "3b77cf988874b09f4e8d5305a8441ba949214bbc7f92ec2a32ec8a19b51c7d18",
       "files": [
         {
           "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
@@ -14075,6 +13931,121 @@
       ]
     },
     {
+      "name": "vortex-alp",
+      "version": "0.93.0",
+      "path": "vendor/vortex-alp",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-alp",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "514c43807defff4b9d05d96715a59a732b9a48c4521c5f217a6319da77aee6da",
+        "registry_archive_file_count": 34,
+        "registry_archive_uncompressed_bytes": 264416,
+        "source_of_truth": "https://static.crates.io/crates/vortex-alp/vortex-alp-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/alp"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "5f3f7efe79029311b0c8a97e5ce4a7a144bef482ae0dade4f48607c92312491d",
+          "Cargo.lock": "55e196030d5427ab06439cb0dc54403f7804586b3ecd9668c403e9dab29ea2b6",
+          "Cargo.toml": "2d0a91def74dff43c57ebc58983119d269b47714dff3226aa8e9476a886564f8",
+          "Cargo.toml.orig": "477166f19f3fe01a99787e0c3f1c2982032d4e245bb24942a79022fce02944cb",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/alp/array.rs": "e4ae4933d95503f78d1207b7431db05e8d4b30898d6f106fe20a82c33efc3c17",
+          "src/alp/compress.rs": "95f57ce99457ed12c06cdb8e974ede22eb64b231527fa6d00ee36a5878802572",
+          "src/alp/compute/between.rs": "e77140295949897ccdd3693c8f024b714c83ef5c0a9f4e18f4c96fad6b979cf1",
+          "src/alp/compute/cast.rs": "9cec6fae084677e2fb1a29f99d2508e8c9b15dec32d018d328bf60729adec1d9",
+          "src/alp/compute/compare.rs": "4d3d23846b9b0ac9c2c0c0a0279afdca35a16f83f3e633dc2cae4456e6271eb2",
+          "src/alp/compute/filter.rs": "78137eb337f2accf934ae9fc0ed3968b8af526b752502813d6c5a041dbf88421",
+          "src/alp/compute/mask.rs": "1b9f115deda323ef62688f0c89b5507556cbf2cb697a15827fa98aea00a4e2f2",
+          "src/alp/compute/mod.rs": "bed1aa6f3fe46a84b11c3bf7681579ad8e83a44583be2466b287028291092459",
+          "src/alp/compute/nan_count.rs": "4a556a39f67a530befeacbbfdf4ae4060dce61cfedc1b5e5370cbb92bbb51a55",
+          "src/alp/compute/predicate.rs": "61cba70867b010cbb6e478a3ab6f7d85f1f0dce9cc011bdf3351da0c1d75bfb8",
+          "src/alp/compute/slice.rs": "01c9188d9373f9bd9c1c32409a1155e95596f937aff5821477c3fe2a2a624aca",
+          "src/alp/compute/take.rs": "5deb68efe0333070da6910375b16899a209a7f5d82adcd12bf2169815275fd74",
+          "src/alp/decompress.rs": "a80b3d7eca15985058cd0444c78bd4b86556fa1480005a98ab8a7dc8e79a9619",
+          "src/alp/mod.rs": "fb1e651d657f684a6913d3566d15637e37e07587809384d39d3c27a733ee7957",
+          "src/alp/ops.rs": "733613d6c4470aefd17c5f089220b17c14e853b6592a3d4df1d15afcc61ee4ba",
+          "src/alp/plugin.rs": "3f53af9272ddc38c313e7a992b2f95611acba7edde71a39589be3feb1381ab9e",
+          "src/alp/rules.rs": "a024356cba52efaa6dcd10ffa06d58b54e9f174b51701cb6eeaa456128f2d08f",
+          "src/alp_rd/array.rs": "4c8c6ef435abcaf6bc5143e3e850ee9f080459a084e70d97e16b8bbdd7054521",
+          "src/alp_rd/compute/cast.rs": "112510a36a997e358e1b334c6b14cee60755c15dc02d00a2b4ac0fec8da0f124",
+          "src/alp_rd/compute/filter.rs": "97bbe66081191d9f363ab7fd1dad8e657d6aa0b452d151f410b71c8b9ece9be2",
+          "src/alp_rd/compute/mask.rs": "71b9f2eb8de720fc53a4a42e5de322b979140264e545ea84912b2c024f8f81d8",
+          "src/alp_rd/compute/mod.rs": "7dcb11ab32e472f4ce3e3ad4c31c6ec4cb913bfef037cbc9ba5b7e9d84fa17f7",
+          "src/alp_rd/compute/take.rs": "c736bb21ba3717d61c0fc0c8de3460479619d7f91d4e5148b7416ece6f04d965",
+          "src/alp_rd/kernel.rs": "c14fbe9a4238bad04945398759a6308ed2d070f96007fa331a201f3c31ce59c7",
+          "src/alp_rd/mod.rs": "d7c8bb65d6a03f83509acc76d58dd98454febd2c7960281d06a36d2aad4eb214",
+          "src/alp_rd/ops.rs": "cb7cd46b890133d8143aa2211a067a097cb104519a236c69aeb17af9fdb3b87e",
+          "src/alp_rd/rules.rs": "92225363e8b1404cb3785a636a1d140acb6f6c7d6c9a6ea309fe44a6ddeb41c1",
+          "src/alp_rd/slice.rs": "2fa16e3acb485879014008f3e304e50347309cb08f3fa7b81713e147c5827e6e",
+          "src/lib.rs": "129f7e7d9ec899febd57f7a04454abf29cf3b0753e98e2b651452577900cdacd"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "c6577498a33446e9380c8bb4595a305423d66ff89511d69d6925cc763435beec",
+          "src/alp/array.rs": "9134d3f330bb3778f19f4fe73ebc60c9a7cf19802d1521ae6e472a5d993c6a02",
+          "src/alp/plugin.rs": "3dc6cd32f7f1a52f7e032e125ab5b5ddf804ae8f4ad7156ccec00267e9434989",
+          "src/alp_rd/array.rs": "c09948abd35b9d708199f39c13034c762ddb4194eb13ae747d1cfbbc4d5b3626"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "450ee50682b393c3571532900f0b37c443002489473aca11bcc698ae29c855fa",
+          "goldenfiles/alp.metadata": "8f748289678e3e550be397f6b8103e65c482a01c4de3f204c930aedc93d69ebb",
+          "goldenfiles/alprd.metadata": "55a47036372b7f74547e76029daf21d9a307caad7d7f4e6f11726a5db4d79494"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "450ee50682b393c3571532900f0b37c443002489473aca11bcc698ae29c855fa"
+        },
+        "supplemental_test_files": {
+          "goldenfiles/alp.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/alp/goldenfiles/alp.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "93929866209c01a6cae3319a29dbf1682474a1d6",
+            "sha256": "8f748289678e3e550be397f6b8103e65c482a01c4de3f204c930aedc93d69ebb",
+            "bytes": 38,
+            "test_source": "src/alp/mod.rs",
+            "test_function": "test_alp_metadata",
+            "test_function_sha256": "e6a53d3c3b3f46d6caa6eb272071c5ad523212c32759e33c7f08fefdd46ddda1",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          },
+          "goldenfiles/alprd.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/alp/goldenfiles/alprd.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "069b2721616bbdfd701d64b0ad8e40c512151f20",
+            "sha256": "55a47036372b7f74547e76029daf21d9a307caad7d7f4e6f11726a5db4d79494",
+            "bytes": 36,
+            "test_source": "src/alp_rd/array.rs",
+            "test_function": "test_alprd_metadata",
+            "test_function_sha256": "62f9a143a3ba15fa1b799af71ad8fe511b6fcc9db3ba8e336b409365ce329ea4",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          }
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
       "name": "vortex-array",
       "version": "0.93.0",
       "path": "vendor/vortex-array",
@@ -15425,6 +15396,68 @@
       ]
     },
     {
+      "name": "vortex-bytebool",
+      "version": "0.93.0",
+      "path": "vendor/vortex-bytebool",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-bytebool",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "04524205b60eabdf3a382fa532d1179fe3b293b0a0ccca76b49b14e2017c8af0",
+        "registry_archive_file_count": 11,
+        "registry_archive_uncompressed_bytes": 88782,
+        "source_of_truth": "https://static.crates.io/crates/vortex-bytebool/vortex-bytebool-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/bytebool"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "1cf018151716aca7a3e9c3c7df088aa470a9b72658cd31310964c277f7130639",
+          "Cargo.lock": "55e4eaa26a995bc6693e69cf2748d738853501c8367fd8af51620d138b9367b7",
+          "Cargo.toml": "80e26d5cabbe5fabcde92f48f922ce3818fd372df61bfec510f68ef9892fbda6",
+          "Cargo.toml.orig": "8371ac8999c0eaff03bf251880f35078e1b80988e81b00b04b3648c813f7dec1",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/array.rs": "0b1154c90ff3dba3188d2b773ef4d109e440fca50e4a6bea84f3b962820b64a5",
+          "src/compute.rs": "85b1fbae0c4c0ec226c2edf7f53a0fb42766ec01486a73ba9eed04d0e372ad82",
+          "src/kernel.rs": "3901215fb4383538c52a0c9ec40b1b7477fa5955634132e4e1aa91c4517aeb46",
+          "src/lib.rs": "78763e8da136fb07078d6103abc6e53ec2841257e39ebe86ee3d923a794497fa",
+          "src/rules.rs": "4dd0456c69c165caa7920d3c5ff465b72f233ea043f71024a351d6b20092f9a4",
+          "src/slice.rs": "b0c4f2fb2ebffe42838899f6edcb12c337b580fa706576e861aadd78cab9ddcf"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "984df5311d9c1fb947569f590d159eb5db3d3f14fd0123d145d93f068661f162",
+          "src/array.rs": "c1216d8d6a9e043b6bdf999297af921c376934f5156aeed5a31888a18b4290f2"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "4f288e2993e3be466d0fc4f74bb5747fcc5a68beef026efacafd1dca80e945ec"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "4f288e2993e3be466d0fc4f74bb5747fcc5a68beef026efacafd1dca80e945ec"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
       "name": "vortex-datetime-parts",
       "version": "0.93.0",
       "path": "vendor/vortex-datetime-parts",
@@ -15525,6 +15558,266 @@
           }
         },
         "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-decimal-byte-parts",
+      "version": "0.93.0",
+      "path": "vendor/vortex-decimal-byte-parts",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-decimal-byte-parts",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "45bebe548292f75c35fff25ac4798ab8e0f4c42a9bb39b6a14cad78c66b1018d",
+        "registry_archive_file_count": 27,
+        "registry_archive_uncompressed_bytes": 202724,
+        "source_of_truth": "https://static.crates.io/crates/vortex-decimal-byte-parts/vortex-decimal-byte-parts-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/decimal-byte-parts"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "c17f9c93b6a15bad3abfff1b37bbf5ad1501dee0b5ce385bb88ed5d3d98ca506",
+          "Cargo.lock": "7ece2bd8b7a87ce71516a1bfad473c41ba82959750dc22f368914723d8add0ba",
+          "Cargo.toml": "68149d053bb0295dbc29fe51562de4d2d9825e10d8f76c8e42993115e21e0a7c",
+          "Cargo.toml.orig": "76cd37c993890c91c26a43e73a0617bc3e6b0b9db902af88a38e11b9bf1bc93e",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/decimal_byte_parts/array.rs": "972a0404c1bd0e2b8bca9af41c150d6d23b131f0264d61b64be6ea39e25aaf9f",
+          "src/decimal_byte_parts/assemble.rs": "b02316ef2f7a17f568c43be083e620e8ffa2ae2c15e00f27d3ff5099cdfb9fd7",
+          "src/decimal_byte_parts/compute/between.rs": "0adaef0c4f750b612fd607adb6c346f74ef3f330db6e239d77b2ccf7352dda68",
+          "src/decimal_byte_parts/compute/cast.rs": "8e3b3f85ebbc0540e261acec8b1c7a842147ba51e2e6aed8146c805f1f8f6295",
+          "src/decimal_byte_parts/compute/compare.rs": "cdd433e093bcc9bd2fc5a28a79b47530646bd951b130a6355bc3258f40823865",
+          "src/decimal_byte_parts/compute/filter.rs": "4c2fdbe35ad7b8ac4911623c179958bd2ef19f16109e4ef2ebd78fe984293c07",
+          "src/decimal_byte_parts/compute/is_constant.rs": "80fe71b0475c9ae49124d0f2c04922f0299328934ffefe23c6ef0cc00bb22720",
+          "src/decimal_byte_parts/compute/kernel.rs": "814482e873c310ec440b91028ffa32076236d4c19987cd55d98814f693869582",
+          "src/decimal_byte_parts/compute/mask.rs": "9131f2b646d4e9fdbb71411a91c7730dcc4698dfe6f494037c16e0000c9f5ffb",
+          "src/decimal_byte_parts/compute/mod.rs": "6b812f9f28be8c59a05a632d61bb6cad521618a4654a66d4a557c0b4f426383d",
+          "src/decimal_byte_parts/compute/slice.rs": "6f9627488d4bbd7e47b7524d542c971b1e8339c0ea36296aeba7101aef0b9ccd",
+          "src/decimal_byte_parts/compute/take.rs": "0cfafeaa6e0b40f6beb898d98aa3e09460f80c4d929e34c9750caee17d4f7077",
+          "src/decimal_byte_parts/mod.rs": "c6fcb40d43a944d08605f56534ec12bf43912cdd11497b29fbe8d29eed911e36",
+          "src/decimal_byte_parts/plugin/mod.rs": "2adc71704589ecffb1f32cab8fd55c60b10eea7bbf4b7e3f45dbabe177102ab7",
+          "src/decimal_byte_parts/plugin/tests.rs": "e2f0649746923ca61f2f6ba58d32902203fd7da5e750edebe2077e5bdea20a86",
+          "src/decimal_byte_parts/plugin/v1.rs": "9600306d654a562fc15cf3f3a518796b174447dfb11c9bed3c94eb71d7d7bb7d",
+          "src/decimal_byte_parts/plugin/v2.rs": "4429d4f75c773de224f95eff916530121e0dfea6981ec646543e182ab5091144",
+          "src/decimal_byte_parts/prop_tests.rs": "de50b102ab0475b020e67432ac03a3af04fc012413b6aac52b851c53c75304c3",
+          "src/decimal_byte_parts/rules.rs": "b8edb658fc9721f098191d4d683746297cd8260d00d0c298b6ea2649972a4b4d",
+          "src/decimal_byte_parts/split.rs": "bc99d695095f1219996811db0465bb9a32725bea1ca411c559ca92c2a4d3d562",
+          "src/decimal_byte_parts/testing.rs": "18557454d8e1ca6c0d0f8efc0e19e698455daae6b017b2bb321a2af5a21a224a",
+          "src/lib.rs": "edbd126be5bec3896a8658e675ea049c7a4b244a914414a847abb20c94fb6e74"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "a5719322ee44bef0a77677777e8b5dc39196a804995119abba24270693e9f2b6",
+          "src/decimal_byte_parts/plugin/mod.rs": "abc59f4aa80ca18a1296f7a3ca31cbbd5490e49fad116e3c0224bda596485c6b",
+          "src/decimal_byte_parts/plugin/v1.rs": "a6db685ee192e25865c9bfbe6af2126b94b06595ab35a3177524080786b4f601",
+          "src/decimal_byte_parts/plugin/v2.rs": "432cb57a2ecc02eaa489713db42f023f1c5ac4f6f21ca8c8de8347893e2b21a6"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "8c5effd1a0d08209bd027bd0dc69c94a282488ee4db2902060ae7ff42769b83e"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "8c5effd1a0d08209bd027bd0dc69c94a282488ee4db2902060ae7ff42769b83e"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-fastlanes",
+      "version": "0.93.0",
+      "path": "vendor/vortex-fastlanes",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-fastlanes",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "4264e80184b57ce5cb6ce596ef5f3466aad31cac903ab19cc8311dfdb286e29e",
+        "registry_archive_file_count": 81,
+        "registry_archive_uncompressed_bytes": 699685,
+        "source_of_truth": "https://static.crates.io/crates/vortex-fastlanes/vortex-fastlanes-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/fastlanes"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "c15a3712254943e579351b819804ddbe55a247b56f6481f0d0dbd6d3f4370b2a",
+          "Cargo.lock": "4591381bba3905878d362173533df9b1c4500c99ec6af5f3bcc620e6da4e09e8",
+          "Cargo.toml": "084f122b2dbe1a7d8f2db81cd35f9410f212dfcac503e01d4e8927308db6f91b",
+          "Cargo.toml.orig": "0c66fc04647154b6976b6d70ecb2a4904e9bc2415aeea85544094d7580e31751",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/bitpacking/array/bitpack_compress/blocked.rs": "fdceaca6c969d0839c37575899156fa5097effeff537609dd8b167cc8e9635a5",
+          "src/bitpacking/array/bitpack_compress/global.rs": "c2f21fbf643275b2597dda8242af919b258b1f616aef163691ab2f0380a63bf9",
+          "src/bitpacking/array/bitpack_compress/mod.rs": "6e9d8328a2976cfda408ecfcf4f6a41fefc20f38f549b2eb139b974ff1a5a365",
+          "src/bitpacking/array/bitpack_decompress/blocked.rs": "5ba8848bca016341e08595a65e8328d220fc543c935b0a19ccc38ec92ad774e5",
+          "src/bitpacking/array/bitpack_decompress/global.rs": "b1cfca1db62b140a3c2863552f72fb417550bb993f70d95d87d42af1a9d7432f",
+          "src/bitpacking/array/bitpack_decompress/mod.rs": "7ca73d86a77ee9d71d534fa6c78cccec96c1647bd566cd8577701c6cfabd201e",
+          "src/bitpacking/array/mod.rs": "61642c2d44cf5a700158813ab5bcfa5063f8a82aacf4d258e312286ff7d59471",
+          "src/bitpacking/array/tests.rs": "92af6cccaa9cb56c72bb4b8513af86004eb0eda17bb5af088464353e46e88a56",
+          "src/bitpacking/array/unpack_iter.rs": "7d8fe055a6c60ba54d5111403a802349afab2802e672dfd78c32e54e0137de9b",
+          "src/bitpacking/compute/between.rs": "ebf2e9f6cad385a22b6ba79161497d05034b0cd89bf94cb33f3da4f1cdfbea68",
+          "src/bitpacking/compute/cast.rs": "7b3cc482164ca0e76deb6fb285ffa506936a026b75ee3943959a5f2fbb79cafd",
+          "src/bitpacking/compute/compare.rs": "e317601bc2f5b8669907f49c320eae5f7d2120460131a55b54fe476f58377f75",
+          "src/bitpacking/compute/compare_fused.rs": "5371f7ae2d548546d3b2eff00c12102cab1cfa9eee5e791d30980af34569297e",
+          "src/bitpacking/compute/filter.rs": "81f74a4c9c102ecfa59aa984201a4f0c71220526c1802d2dff4cb5a7077ff942",
+          "src/bitpacking/compute/is_constant.rs": "d6078aaeca2d7a0b4334a46a46316419e92cf4ebbaf74ba67111dbc44a74a1a5",
+          "src/bitpacking/compute/mod.rs": "4bc3db93a33b93f89c0ff9c92d639dc183ea2a68fb1752f75c7ad20fc9ef3b96",
+          "src/bitpacking/compute/packed_range.rs": "69dbd0ce9990831ee6b76c39f46821b1d3acc9fea56370b7417c0dc55d4ede71",
+          "src/bitpacking/compute/slice.rs": "048f994be3c2d4fa0a2e7617569def8b6e8e26b9651a94898f8fd77dd9ea1c30",
+          "src/bitpacking/compute/stream_predicate.rs": "f4bc4d5710410c614b4bfa57464e8b1dc3ceea793f59787b00501b378235c453",
+          "src/bitpacking/compute/take.rs": "2affee481850ec6d4bf500652e7ba76f1b5e76ced53ee69eaadd2fea05b58de6",
+          "src/bitpacking/mod.rs": "f907e429beebc1309ace725aac937f8728a62c19ff0ad8da9e69df8a3aab6bb3",
+          "src/bitpacking/plugin/mod.rs": "903b5dcb9d6fc07493ea02fcf4985c1cc17d293381148b670a7bf670acbf51c8",
+          "src/bitpacking/plugin/tests.rs": "b7f37dc210723f56716e548edce8257ae5a1f2791233e12e9d295cb9e9bcfadf",
+          "src/bitpacking/plugin/v1.rs": "3598d7e2d119635005131d97399b94c6c208dffc712a394a9c942804af64aa7e",
+          "src/bitpacking/plugin/v2.rs": "fdfa6423c18ffbf812da4af4733d1a89dac06768b751e0d19d1a84c93a410540",
+          "src/bitpacking/vtable/kernels.rs": "f442997307971097ed1e794b040256fed5a3d9a6e9e91a41eddeafc098fe9178",
+          "src/bitpacking/vtable/mod.rs": "53bee6a90c5c371fd28df596c8dd24dc4744a906226ff66386f29acdbb686244",
+          "src/bitpacking/vtable/operations.rs": "7d4941982280e0e0737bcff888981f8b309870762d495e698f5c0411c57551c8",
+          "src/bitpacking/vtable/rules.rs": "a03b44083afb16d9a58f61dea0a8756baeac203cd20c43dd2f4e78bcf5698c56",
+          "src/bitpacking/vtable/validity.rs": "f9af5681fc2951a9f96011f9614eb1c64dc4483bfd26bdc3ae0eef78c048faa7",
+          "src/delta/array/delta_compress.rs": "1e9492101f8e25c751a6085d705e43410de26c80f849c303f9f7d89a66d95456",
+          "src/delta/array/delta_decompress.rs": "97b226bd1c82893f98aea51087a18b3dd16f5b9e7bd45b16b0dae5e5aae2582f",
+          "src/delta/array/mod.rs": "c196b6c62462bc5d051332ddc616539bdaf4b202f9d1f40cdec6f3e94be87177",
+          "src/delta/compute/cast.rs": "2bec86232d1fb497b2b77621cb5d5c87844b3184ccf6e590510365730c7746d3",
+          "src/delta/compute/mod.rs": "2ea73e491a3f768c2560443262fffa7f9e885bfdc47e063a59b38477be172022",
+          "src/delta/mod.rs": "ef7a542138e0b204be71f15ed79ab183031fa038674d756da0aff01f57993842",
+          "src/delta/tests.rs": "da4b58487b932c989e7f58e1ce35951f41b5144469d175d1eaacc1adeecfe431",
+          "src/delta/vtable/mod.rs": "6a410b873c8531a1a9cb4f552967f7f9a6c2cf002e87b7ace0ee249ea5e5a6a6",
+          "src/delta/vtable/operations.rs": "b04bf7dd680233143b9b828a41efd9a63e51a4ba38459a0bb685d470f8a6b60d",
+          "src/delta/vtable/rules.rs": "2193f1d24f1ab4269ffc4decfcfbdd63a52e096b16b2ccfdf06df080a718dc62",
+          "src/delta/vtable/slice.rs": "e4d08c38115d39c4bf0e80162bb74af407575c983c2e538abd772f7e990c7c4c",
+          "src/delta/vtable/validity.rs": "8d0e2881415e197f3fbd7feb224095abc49baa6b86d72aa9a315b8a3ad4c3115",
+          "src/for_/array/for_compress.rs": "da55c510c729143c6669d0017f426590fa9042aa01629b99e54b150a4ff4f5fb",
+          "src/for_/array/for_decompress.rs": "3423df90e0081051b98b8c9e4615496b34822e754ea7015a4b00cf63c5b03299",
+          "src/for_/array/mod.rs": "ebdf31387c3fc6836020a0da42eb8f61a08f08b5e82794f7b09dcc071ea7a19f",
+          "src/for_/compute/cast.rs": "213deb4fc7e8c766345b9f2e9a3e9b58d270682354281033dd5ff45170bd1ab5",
+          "src/for_/compute/compare.rs": "5a65d45db3c4181af32db21e9dd953fce8985b4ce61fa4fde15d270e91fde1e1",
+          "src/for_/compute/is_constant.rs": "c96bb106eae7b716f23f9565878c47beea0e2c41e215a468ff2828c21040fcc5",
+          "src/for_/compute/is_sorted.rs": "5e5860df622f8ff20820ccbf6e4d1ac739667fa9d9034f31f554ad2466ed49cd",
+          "src/for_/compute/mod.rs": "3659a404b1de0f3696629ae602a5bd74deb7e5bec0594ab2466e6e9bc07dcca9",
+          "src/for_/mod.rs": "7de241758f4c57527a61128bab86348c8998b1e791e9fd833554b3e8d103f306",
+          "src/for_/plugin/mod.rs": "2339191a6ffc4a24f3eb4bf4ec313c4caf10a984ab932f92dc27ed7fe4ff3f80",
+          "src/for_/plugin/tests.rs": "99100fe71cff9caacc97bc34e121fea5d19a346e01176d4fb8b72f12c1d74b2f",
+          "src/for_/plugin/v1.rs": "0c6b1944d15490c12b85c4c8d353480961773b1e25c89a9b46e978db87254488",
+          "src/for_/plugin/v2.rs": "a6ba354325a40712115c1289248389cc045bb8c9ccb63cb3e94fedcaf64d7861",
+          "src/for_/tests.rs": "d21c3e7627173461f17d615c27a7ac7a2390d7e40467a0c62f90173a8579f7b6",
+          "src/for_/vtable/kernels.rs": "ec85cdc087e4444a6d9878099028d3fb0c1ce9a3df62118a271c5c935078d5af",
+          "src/for_/vtable/mod.rs": "be72800ff23ff3b0b122b34b914f5e9ea46636f5697a4ca5188ac2bb48359f19",
+          "src/for_/vtable/operations.rs": "70d376bdc6da8fd68c68f6b211f5b590cbc0cac89713ad600f504affb0f5d580",
+          "src/for_/vtable/rules.rs": "29294a7847fd20f07bc83e01e1dc459aaed08e9711e654ee1245ccbd96092c5b",
+          "src/for_/vtable/slice.rs": "02f273f179f8eb3833ec42275284829ba0341e781e58d5b372f2e57a5342644a",
+          "src/for_/vtable/validity.rs": "8141fee8a93a880e334d0a352c9c808afef63f2952224006ef0bc4f38e17cfca",
+          "src/lib.rs": "9ef14063e8d24d9d541c7523edaca302038fa508ae7ba97518153648c2178d72",
+          "src/rle/array/mod.rs": "0858d16e2572764ac49d2596231d22958d7720f998a4dde5b91c865c613d9374",
+          "src/rle/array/rle_compress.rs": "b8db94886951790939e84758d0ad736b77ef41de42e5af1ba2d60b08755594f1",
+          "src/rle/array/rle_decompress.rs": "95ea899c8d6fd2f43cd4b2028b71680f1cba20f35d577814885cf36fe9c02f7f",
+          "src/rle/compute/cast.rs": "9864c7dffe58b7736e72e2d3d6ad2fed1092be1be3060b80cc8923f4057075e6",
+          "src/rle/compute/mod.rs": "2ea73e491a3f768c2560443262fffa7f9e885bfdc47e063a59b38477be172022",
+          "src/rle/kernel.rs": "1cff021e801420557cff4ab91aa9fdeaf79ae1e778b7ec06315e219cc238976e",
+          "src/rle/mod.rs": "2454c6563d72eb768d7c7d6efc5781ff16b0d0f5a7fbccfadd25a3bd93d95822",
+          "src/rle/probe.rs": "a6ef54e89c82dc8f2de325e07ac02e36a2b9e89122376717f103e695a033bfc3",
+          "src/rle/probe/tests.rs": "3d9335da3c1bd7051dade70db66140be515baf06e3dfbdeddbb7dc36c2feeaf7",
+          "src/rle/vtable/mod.rs": "3756b563e5778ae32d1fe81ef9b539126a1c10b2adb467fd082b6cb87da65613",
+          "src/rle/vtable/operations.rs": "6cb45bf0de6daf0112cee5281c4596318cb78694d195534c9ac4ade84e35de91",
+          "src/rle/vtable/rules.rs": "26052d89435f7e076eeb22be2cb9e2eb2498d4334203a043a4cde319624c9493",
+          "src/rle/vtable/validity.rs": "67f213cd3bac4e0db265e15f7cfd19f51238ca38dd072e128f098c2752f797d6"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "b2d3310266602d87414132d978177878475a050f36590b40ac580ee6526a33ad",
+          "src/bitpacking/plugin/mod.rs": "c76cdca6956361cb8e5605a36c8cebbe62dd615dee02dbce9df15a8ab78dc534",
+          "src/bitpacking/plugin/v1.rs": "3b8a5f1b0142b7841f714118de6739343afc52e311cb4999ce517798d4ece2ff",
+          "src/bitpacking/plugin/v2.rs": "5222bb628acea985b1a711ec23936365920612ee6e802ac5c51220892d48511f",
+          "src/delta/vtable/mod.rs": "2b67aa72e99b783dacf607d5661e87eca767eda4973708b861224f9b9d6b0277",
+          "src/for_/plugin/mod.rs": "a9203a2291dcbc1429bea462e1b7485fd495d25419ef6394d6da3cbc7292f9b9",
+          "src/for_/plugin/v1.rs": "ad5d418423ec221d639033ef7b5aa743fa8938d274cda6a8e18bf4881f435240",
+          "src/for_/plugin/v2.rs": "3bc9109c78ad15b9680c4090a1be35649260b19f19845b446055c5b6f0826f4c",
+          "src/rle/vtable/mod.rs": "3d7f358140707db23be3ab41667ca3e0d615dc19b58b746c9740e8f00ad7fb87"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "9c8fdd26bcd7fdeb20dc680e673ecdddeb5aaa12f7f1e7a720e9fa298621b2ab",
+          "goldenfiles/delta.metadata": "b223f69b312a74eca21d3b60a277182f3fae642f7ba16934c1f872466252b5cc",
+          "goldenfiles/for.metadata": "f2d484d0f5cb73cbe62b9abcca426d96c9dea32a2c0e0c9bc5a4cb2e4630ea27",
+          "goldenfiles/rle.metadata": "a6bfa2f0876e3021b8ceab72c0ec36cc4cabf08e896f727eed77412df660f219"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "9c8fdd26bcd7fdeb20dc680e673ecdddeb5aaa12f7f1e7a720e9fa298621b2ab"
+        },
+        "supplemental_test_files": {
+          "goldenfiles/delta.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/fastlanes/goldenfiles/delta.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "be82cf2c4ca107de54a64af577d13e9619ce5b39",
+            "sha256": "b223f69b312a74eca21d3b60a277182f3fae642f7ba16934c1f872466252b5cc",
+            "bytes": 17,
+            "test_source": "src/delta/vtable/mod.rs",
+            "test_function": "test_delta_metadata",
+            "test_function_sha256": "8fc268e72a50873d94241dd69a05b63be6297adeb6857cecf12c11002f330808",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          },
+          "goldenfiles/for.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/fastlanes/goldenfiles/for.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "0e9da711b3e27533f9faf9e96bd0a878d34ccbca",
+            "sha256": "f2d484d0f5cb73cbe62b9abcca426d96c9dea32a2c0e0c9bc5a4cb2e4630ea27",
+            "bytes": 11,
+            "test_source": "src/for_/vtable/mod.rs",
+            "test_function": "test_for_metadata",
+            "test_function_sha256": "197f58da1899a67a7f5b4ab332125dab69d5d693cc558db40805fc2350d600f6",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          },
+          "goldenfiles/rle.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/fastlanes/goldenfiles/rle.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "385e32e18488bb288d2bb14cab3525a9e4ab874f",
+            "sha256": "a6bfa2f0876e3021b8ceab72c0ec36cc4cabf08e896f727eed77412df660f219",
+            "bytes": 56,
+            "test_source": "src/rle/vtable/mod.rs",
+            "test_function": "test_rle_metadata",
+            "test_function_sha256": "e4e1daf0f69daaffb1a790caa6a735ccfac49f7c3b299207a76a757c4fdbcfff",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          }
+        }
       },
       "files": [
         {
@@ -16149,6 +16442,367 @@
           }
         },
         "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7"
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-onpair",
+      "version": "0.93.0",
+      "path": "vendor/vortex-onpair",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-onpair",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "b8c9586ed842315cc51d617f583525a130f44c76154568b2e685e779e6984078",
+        "registry_archive_file_count": 21,
+        "registry_archive_uncompressed_bytes": 148770,
+        "source_of_truth": "https://static.crates.io/crates/vortex-onpair/vortex-onpair-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/onpair"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "7f89aa72771e88ce5987e1c5993e8d96470dcc51de04bdc4d467699810ad9d81",
+          "Cargo.lock": "f9513f9f86103cbfab9d7c892a1a03e34d820d5f816969c4f0a77abd65244341",
+          "Cargo.toml": "16ac8e8626df8030fbb4192fa22266e0e127d09bfa495f2a698b7a4124b10498",
+          "Cargo.toml.orig": "0f593107082df9fb0b165b70f5a722e2a3374bbbfb5db1dec43336e7dec967fb",
+          "README.md": "990ee81eab6c617f0ce84b18c97bf9d298bcef27c53da80d75c6c65cc7c5b15f",
+          "src/array.rs": "3de46ee7e888d4a3a80fb5b36bc7a02150725b4f47d5c4d2425b5e8f85ed00d4",
+          "src/canonical.rs": "47b76b2b67cdb6cd6dc3561a334d1f9f7765a6a3851818f6477f0b46dbd69dec",
+          "src/compress.rs": "756e310135f7b983c4758bb632a73ca9c6953fada749f130baeaab506d05e24d",
+          "src/compute/byte_length.rs": "650093d42090fe20e2908a1b520ad41d0a8a430d5f937db4a150c665ace44af5",
+          "src/compute/cast.rs": "f7905346dd12738eace8846e0c86598acd5553bfb9acc49141d27a9162d538ac",
+          "src/compute/compare.rs": "b194167da1f2e6d2008f6a64f164ad21d51eb3d0db44cc3937a62f9bf3c6ff21",
+          "src/compute/filter.rs": "7455b0e288f5df37e9139ac7b23aa79eef68e3a7bf01eccae970b7d4d389be05",
+          "src/compute/mod.rs": "5e380ddee787593a73f3e290a40d3f722d5652a3f30c38184f7123c556b5c106",
+          "src/compute/slice.rs": "911a8e2ec73f0c7f8184e0d180107374fbfa751833bab1e4151a121526b2431c",
+          "src/compute/take.rs": "465a48237fb1943a6030fc3f265a99c41369d58785be7b042ee4f102b4b061a1",
+          "src/decode.rs": "f3e8f3c3523ba9d5d174dccf15fd0b5889b132dd4ba492a60b1652f37f851c75",
+          "src/kernel.rs": "a0eb542a7239d8a3bac9fccac26c565bbd20ab4d9b1e4f92a2ff4afa1f55f463",
+          "src/lib.rs": "6a42d92d0a233db014def812800524e6ada1c05ac48048f3a54de55e3e3d8d15",
+          "src/ops.rs": "baffd6ef41a5e2e3bd9cdec82b0663e424803eef1ff81e0b41327ea3d286bfca",
+          "src/rules.rs": "e374a2b03e1da9129a941f04018e32273125aafaa811ce1cbaca498777201523",
+          "src/tests.rs": "c50d6fe120d178e11cb554dbca4068dd6cca9b55f33d166709d4d74cf1d67fc2"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "31fefc0268f76695095074a975b6251b5b350aab21a4e8d602979dbd0071d835",
+          "src/array.rs": "e1d828feefaceae16240c19e0745a32bc0c93b4a39a1ff1afd47fadfa12c5c0b",
+          "src/lib.rs": "932ba3752a24b13b2d61ad26cc015ebce19473db9b8c7bd5c10f81cc77d567e9"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "bfaa28d71689632f029b32d4574d2ed81587bf7804067de61440d8b0678f00f2",
+          "goldenfiles/onpair.metadata": "589810da7b9d079b6862a6b2d9df790ca24e7b2ec137156af82e9f5d022ba390",
+          "src/continuation_tests.rs": "611dfda019bfb517a8701e636f27c6d33e35a20cebc140d3d2e489b02dbafd4a"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "bfaa28d71689632f029b32d4574d2ed81587bf7804067de61440d8b0678f00f2"
+        },
+        "supplemental_test_files": {
+          "goldenfiles/onpair.metadata": {
+            "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/onpair/goldenfiles/onpair.metadata",
+            "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "git_blob_sha1": "80b7fcdef71359a8d66032f9cc606a233cb5802b",
+            "sha256": "589810da7b9d079b6862a6b2d9df790ca24e7b2ec137156af82e9f5d022ba390",
+            "bytes": 15,
+            "test_source": "src/tests.rs",
+            "test_function": "test_onpair_metadata_golden",
+            "test_function_sha256": "8704091f7ebf8950cc93581b19600bc53f5bd5446acfe3fa299e213cb1cbb561",
+            "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+            "test_function_matches_published_archive": true
+          }
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-parquet-variant",
+      "version": "0.93.0",
+      "path": "vendor/vortex-parquet-variant",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-parquet-variant",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "6aac64cb0b59a696f8fd578675a9bd19a6866c4abe2744536856e516cb5f0677",
+        "registry_archive_file_count": 15,
+        "registry_archive_uncompressed_bytes": 293940,
+        "source_of_truth": "https://static.crates.io/crates/vortex-parquet-variant/vortex-parquet-variant-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/parquet-variant"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "4dba7d5217d4c72b83bfe7dbf2f1a09de25a6a8ee931796b2bccf8eddff74a07",
+          "Cargo.lock": "b7813d04ecc625b059c0d1cca3cd678993b4fe61e5255b313af892e332bbf7fc",
+          "Cargo.toml": "5075b41c9735ee92c41c52d806617edaf8ad5c16390b270aa3c4e5d1cf02bd51",
+          "Cargo.toml.orig": "05430120ddb6a57da29aca1384b3cd98802afef286a387c9b5dc15a1989c46b9",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/array.rs": "fbb5b80812d21086781ccaddf9e8bf523928ac3680b841322df41bf6232d4cdf",
+          "src/arrow.rs": "58570415dd0ad59ed2b308acd12980ec15cea3220a9f5c5118f49ef87c196cf0",
+          "src/compute/allnondistinct.rs": "089df83dcad601b9c104da57ba33726bb2a37a116d267a02d72612f5e7235342",
+          "src/compute/mod.rs": "e37930f0492e3f7c955aef1429b1f8fe4f33810be7168cd8932091efdf55dc0c",
+          "src/json_to_variant_tests.rs": "dadb38ce8ee0ee2626a1a301973ddeba5208f4e0be5700ad8d7a47ccadca7377",
+          "src/kernel.rs": "fac1b373955206d6d118b27cadd840a9546ad05b00db61031ec0acab9566dffe",
+          "src/lib.rs": "51507036e69041b476890f14ed5c1db684626b0fda056936cb05c1e5f7c803ff",
+          "src/operations.rs": "0fddf27c5792601eb1d29e93637dcf02be95cbee04483128ed9f3db95b3c7db5",
+          "src/validity.rs": "14f1d679a07990099467b44188e352cc24276d03fd00fa2a548b51296f2eabcd",
+          "src/vtable.rs": "1d74f18216b47e4203151b7f83e97f588db8266f305988c9482f20ee201b4655"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "78dcc622c05eb0c046e7a0428a596900a237b7cb084dcc59ad8368d3f558edf6",
+          "src/vtable.rs": "4ea456f4e69c82db583d93b74f77346fb727df584d683a94d35519085e958a1b"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "29a8c98e5e29d6b58286c1212f0ab5bac4e99b22ea9516fdba082e14dd15421d"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "29a8c98e5e29d6b58286c1212f0ab5bac4e99b22ea9516fdba082e14dd15421d"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-pco",
+      "version": "0.93.0",
+      "path": "vendor/vortex-pco",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-pco",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "ac3d0b7f18be1c07624f7eab1b3833409b1fe0da816d1472c038b371cf974c89",
+        "registry_archive_file_count": 14,
+        "registry_archive_uncompressed_bytes": 130763,
+        "source_of_truth": "https://static.crates.io/crates/vortex-pco/vortex-pco-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/pco"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "8c073b8e6cc63d89772c0eca88c249635932d249dec75ca0c5dce12342eb12b7",
+          "Cargo.lock": "014beb6d90f8fb7febdf68cadadf697a077c999197b404fc9b0601fdf7eed9d7",
+          "Cargo.toml": "572995a7aa12292b1bd316a2154068c04d3c5bbb773b6221be8418164f372d2d",
+          "Cargo.toml.orig": "7fbbc1ab4f014102dab3b045d95e598464d6b6872b7f5b9cd67e618c7d2fbd20",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/array.rs": "f3f0187ed58ae7d4f66297a38daa5151b410bafe1a3d3ca38ff188b9bcda2627",
+          "src/compute/cast.rs": "ccb24bc139bebf7ecc967437db29423f8874293a1ba29f91c6f612f88b2b9bec",
+          "src/compute/mod.rs": "987b07bbe90892ff9a0d5bbcf63ebe54d3208edb086eec7e5bcbc13c2e83b14b",
+          "src/lib.rs": "e25c528d77312721405a16a77a40a5bffd78f315c1e61c0700a9e97e3876beec",
+          "src/probe.rs": "e59123954183b69ca9d6278d150f3fb59ea6a76bb572befe754898d678369c26",
+          "src/probe/tests.rs": "29928b038926d484891d2ec84179ce712dc664d30e16484631dade5cb1ed66a1",
+          "src/rules.rs": "3d5aaa9f8928b1a74b17e9002dc30496de80590ad59c35c28f31e13fe5eb739c",
+          "src/slice.rs": "066431182d35d75eba6c0c974625bb2ac9e84f593b58ede412b2892a05dbc409",
+          "src/tests.rs": "f8286435c1272220cb0a8874f558f36842b4925a15bac6a9ad12cdbcd722d6b9"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "4656558226ecfb45e335bec7534e6d3f15e647d99921f8ba25f0fb0cacaa9816",
+          "src/array.rs": "6c74ece9a5ace260244729e8dcf29b702434ff62a16d8d9582976725d7687a2e"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "ba867282251bb5dfada834a4712b54387c07fca4be38f533932be95862c2e698"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "ba867282251bb5dfada834a4712b54387c07fca4be38f533932be95862c2e698"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-sparse",
+      "version": "0.93.0",
+      "path": "vendor/vortex-sparse",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-sparse",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "f7aa08ad1cd8f809ad9b14a750814394ba945c540a464b1727b44c66038361fd",
+        "registry_archive_file_count": 26,
+        "registry_archive_uncompressed_bytes": 266939,
+        "source_of_truth": "https://static.crates.io/crates/vortex-sparse/vortex-sparse-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/sparse"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "57ac4f8fa4c5d6d667b69cc8b9baeda6f4e3d6507d11a5b6fbbf9571b066b999",
+          "Cargo.lock": "212ab576aa3f0dd37f6d6b175ea55c2788e36c09a79b7402c3b9c3da279cc3ed",
+          "Cargo.toml": "9237492d3d7a44d69c7bbacfcc40d8729b8b3db5a7a2ca157ed5a215ea3d3607",
+          "Cargo.toml.orig": "58c2c78f51517b287dd835bba745ffe36538d413a5eb2b4521c9cc3c8ef59841",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/canonical.rs": "ffeca602b94a179d06edf0a065ff2e30afc03c5e13d16356e7520d91c58bbeb6",
+          "src/canonical/lists/mod.rs": "6217e84c2ee99a74de8da5e662dc1b2c20c396f7f3f4cff816c0f917a233ef8a",
+          "src/canonical/lists/tests.rs": "c9009a88505736444e63359f93806e30cfeaa2e1af756e24c9b09dc6f22eb2a5",
+          "src/compute/between.rs": "2ab66dc061dadd2195a8319e5205f7599942ba068f9b3fb443b4b50ff6984193",
+          "src/compute/cast.rs": "bc7f9eb2bda67cc95782e80884d8089cdcfb7cc800c463a07fcb761218c476ac",
+          "src/compute/compare.rs": "9f964107186d92e4d21c406ac5e926d3a8042d03c7a05fd4333fce7ad33bb49d",
+          "src/compute/fill_null.rs": "646bf9316e215570b9d1c96adf26c82e22f1f7ebc90e9ba015a33d2d26081e24",
+          "src/compute/filter.rs": "d659facc12e33c4af63f4737ae02279dc5b0650054963e6b457b2731d69d5439",
+          "src/compute/is_constant.rs": "4570236395bdf4e6681d54c2079bf4fb9fd3416c290b4373e8ccc59e8b4184ca",
+          "src/compute/like.rs": "d9d768ec5e0a4fd6dd2cd0b0b8177cba9b6429eb5a6d08505cae7b737474f8ce",
+          "src/compute/min_max.rs": "c329e08fc833784baec7b96217646a732c6b38a8452eb8ed24d53671f4799657",
+          "src/compute/mod.rs": "e357452ba71c0ecba3ca3b9b6494313bdb4d8af2171647dbc3a5ef3fce257089",
+          "src/compute/nan_count.rs": "4f3a9750b4def8865104fb7ffc412013b29e1b07351ca1778568dfeedd987231",
+          "src/compute/null_count.rs": "09ebdcf53a7f9cbcfbc80621296b4434225a67994e12e30a1c6f7b278fb6aa84",
+          "src/compute/sum.rs": "83432d5aa00eb85c9fea15ed42cf6d680d445fb20fa292c3989cac399f744af8",
+          "src/compute/take.rs": "37f91f34185e4ba8c161999669feb1976623566afe712b6bf6dd12dcd90cb18d",
+          "src/kernel.rs": "c963b72c7b2ca6fc0f95fe4dbef690766217842c52c7b114a2f52bd8d7ccbd2f",
+          "src/lib.rs": "974d91543f3b57313286d2d6446b6b955d1bba5ef5a2c3de64cedaf459a76a50",
+          "src/ops.rs": "02281ac5cab9c1adc7f24e29808d7150cb0c25635d09ec96ea7a41a324238339",
+          "src/rules.rs": "3b2c3273675d1154182b3f9df1cc968a35308946ad9d2dd0eee9ab2f1060cadf",
+          "src/slice.rs": "5920dade5d171d7d33d999ca5316c4fdf4546ab08dd8d049ffd4f7b787ec6692"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "8a5a0de4a77882fa44c127ef7bf819c69c051774921f554c3987e83a64e298fe",
+          "src/lib.rs": "1535f096593526c2c2ed5369339d64ea15afa14c50d3bc34fc5a00a9b5696c76"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "6c3e30a0ef787ee54dad7014451913f6c2537e0270c8d7b6971b8ee4abb4f97e"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "6c3e30a0ef787ee54dad7014451913f6c2537e0270c8d7b6971b8ee4abb4f97e"
+        }
+      },
+      "files": [
+        {
+          "text": "texts/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "crate_path": "LICENSE",
+          "upstream_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE"
+        }
+      ]
+    },
+    {
+      "name": "vortex-zigzag",
+      "version": "0.93.0",
+      "path": "vendor/vortex-zigzag",
+      "license": "Apache-2.0",
+      "provenance": {
+        "provider": "vortex-zigzag",
+        "version": "0.93.0",
+        "license": "Apache-2.0",
+        "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+        "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "registry_archive_sha256": "3b77cf988874b09f4e8d5305a8441ba949214bbc7f92ec2a32ec8a19b51c7d18",
+        "registry_archive_file_count": 13,
+        "registry_archive_uncompressed_bytes": 82404,
+        "source_of_truth": "https://static.crates.io/crates/vortex-zigzag/vortex-zigzag-0.93.0.crate",
+        "vcs_info": {
+          "git": {
+            "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+            "dirty": true
+          },
+          "path_in_vcs": "encodings/zigzag"
+        },
+        "original_files_sha256": {
+          ".cargo_vcs_info.json": "a0afa2f30ae6277db0299235696cbbc318c675e7188af7691fa44ecb6670bbea",
+          "Cargo.lock": "9db311a3915bceabd0e92d13fd07397b8777df62af0c3f3cf68842692288fc51",
+          "Cargo.toml": "cca18d9da17930651da06ddf289c2bfd41802431ef1587ce17f36e5026721bee",
+          "Cargo.toml.orig": "0b61d01dc05380d376a0a5027eeb07e33d487587ea1b35d66e6df91f2312c5da",
+          "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+          "src/array.rs": "e22b403fe36d95f1692ea3140499d77052cc72d9d120786e71b9843126b707d6",
+          "src/compress.rs": "cfd969bbfccd5892e788992d7fa18791278fbc3ded2669240247ca97def28b31",
+          "src/compute/cast.rs": "7f1626ab285b4a265b9952f402d170e437c17d88cdedd18a863ae9508868ce35",
+          "src/compute/mod.rs": "260e63974bea1bdbcebed794cd60010c032dcf1cb16675ef995edf5b8b364dcf",
+          "src/kernel.rs": "80f2ef020b6e172ab11e810d14306ad6fe13c667c53b89559f8d8c8d3f90693f",
+          "src/lib.rs": "a70a6dacdbc6d8ca1422e2283e9b167403a51179a57f1f3cbf003e662b6ef4df",
+          "src/rules.rs": "8b787cdcee5332fbce0094db19371ae7999616f73d27a06f5b33ac55731ad8d5",
+          "src/slice.rs": "40da618334439879f0a976a4e808e29fba83833f0a56c5648251a96070913f02"
+        },
+        "modified_files_sha256": {
+          "Cargo.toml": "07f7c2fbf5ed2bac229b8eb86db17539ccbcc7b7c8e9e276240e0b7b5b6f8626",
+          "src/array.rs": "0a8e0e749c172248d948864881b87003b2ce58715a241516b29f33dd9a0967c0"
+        },
+        "added_files_sha256": {
+          "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "README.shardloom.md": "637303b76b5ff54027762da69eab9356beafb054308e3704dd9a90cf78e9e61b"
+        },
+        "omitted_files": {
+          "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+        },
+        "local_changes_documentation": {
+          "path": "README.shardloom.md",
+          "sha256": "637303b76b5ff54027762da69eab9356beafb054308e3704dd9a90cf78e9e61b"
+        }
       },
       "files": [
         {

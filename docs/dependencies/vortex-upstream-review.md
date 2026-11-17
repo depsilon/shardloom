@@ -1,5 +1,36 @@
 # Vortex Upstream Dependency Review
 
+## November 17, 2026 registered codec continuation intake
+
+The existing Apache-2.0 Vortex 0.93.0 ALP, ByteBool, DecimalByteParts,
+FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag packages become local
+source patches under the [RFC 0044 logical-array contract](../rfcs/0044-resident-runtime-resource-ownership.md#logical-array-decode-continuation-amendment-november-17-2026).
+All nine archive checksums match the existing lockfile, and all 242 regular
+archive members were compared with their cached sources. Each provenance file
+retains the original member hashes, source commit
+`c1439e69bf833fc702a60335ed674a1674ca358d` and published dirty marker. The archives
+omit their workspace license; each patch supplies the already reviewed license
+from that same commit. Publication is disabled, and reviewed standalone locks
+replace the omitted archive locks.
+
+The patches retain the original decoder bodies, metadata validation, child
+callback order and legacy wire normalization through the optional continuation
+API. Existing rejecting VTable hooks remain unchanged. Sequence remains an
+unmodified primitive leaf provider. This intake changes no dependency version,
+wire format, runtime feature or execution-engine boundary. All 1,713 codec
+provider tests and strict lint pass; nineteen native complete-value, graph,
+callback and error fixtures plus the standalone OnPair continuation test pass.
+The six missing upstream golden fixtures are retained with exact source/blob
+provenance. The standalone recipes explicitly enable DecimalByteParts/FastLanes
+test helpers and select the existing DateTimeParts patch for ParquetVariant's
+file tests. Initial configuration failures remain preserved. Full deep-lifecycle
+resource acceptance remains required; these checks grant no deeper public support.
+
+The previously added checked Prost 0.14.4 patch remains Apache-2.0 at source
+commit `13646cde7eab75c81b3047767aa0a86e7dbecf12`, with all sixteen original
+archive members recorded in its provenance. Its default recursion policy and
+the separate ORC Prost 0.13.5 graph are unchanged.
+
 ## November 17, 2026 checked FlatBuffers continuation intake
 
 The existing Apache-2.0 FlatBuffers 25.12.19 runtime is now a checksum-pinned

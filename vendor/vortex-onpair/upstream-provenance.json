@@ -1,0 +1,74 @@
+{
+  "provider": "vortex-onpair",
+  "version": "0.93.0",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "registry_archive_sha256": "b8c9586ed842315cc51d617f583525a130f44c76154568b2e685e779e6984078",
+  "registry_archive_file_count": 21,
+  "registry_archive_uncompressed_bytes": 148770,
+  "source_of_truth": "https://static.crates.io/crates/vortex-onpair/vortex-onpair-0.93.0.crate",
+  "vcs_info": {
+    "git": {
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/onpair"
+  },
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "7f89aa72771e88ce5987e1c5993e8d96470dcc51de04bdc4d467699810ad9d81",
+    "Cargo.lock": "f9513f9f86103cbfab9d7c892a1a03e34d820d5f816969c4f0a77abd65244341",
+    "Cargo.toml": "16ac8e8626df8030fbb4192fa22266e0e127d09bfa495f2a698b7a4124b10498",
+    "Cargo.toml.orig": "0f593107082df9fb0b165b70f5a722e2a3374bbbfb5db1dec43336e7dec967fb",
+    "README.md": "990ee81eab6c617f0ce84b18c97bf9d298bcef27c53da80d75c6c65cc7c5b15f",
+    "src/array.rs": "3de46ee7e888d4a3a80fb5b36bc7a02150725b4f47d5c4d2425b5e8f85ed00d4",
+    "src/canonical.rs": "47b76b2b67cdb6cd6dc3561a334d1f9f7765a6a3851818f6477f0b46dbd69dec",
+    "src/compress.rs": "756e310135f7b983c4758bb632a73ca9c6953fada749f130baeaab506d05e24d",
+    "src/compute/byte_length.rs": "650093d42090fe20e2908a1b520ad41d0a8a430d5f937db4a150c665ace44af5",
+    "src/compute/cast.rs": "f7905346dd12738eace8846e0c86598acd5553bfb9acc49141d27a9162d538ac",
+    "src/compute/compare.rs": "b194167da1f2e6d2008f6a64f164ad21d51eb3d0db44cc3937a62f9bf3c6ff21",
+    "src/compute/filter.rs": "7455b0e288f5df37e9139ac7b23aa79eef68e3a7bf01eccae970b7d4d389be05",
+    "src/compute/mod.rs": "5e380ddee787593a73f3e290a40d3f722d5652a3f30c38184f7123c556b5c106",
+    "src/compute/slice.rs": "911a8e2ec73f0c7f8184e0d180107374fbfa751833bab1e4151a121526b2431c",
+    "src/compute/take.rs": "465a48237fb1943a6030fc3f265a99c41369d58785be7b042ee4f102b4b061a1",
+    "src/decode.rs": "f3e8f3c3523ba9d5d174dccf15fd0b5889b132dd4ba492a60b1652f37f851c75",
+    "src/kernel.rs": "a0eb542a7239d8a3bac9fccac26c565bbd20ab4d9b1e4f92a2ff4afa1f55f463",
+    "src/lib.rs": "6a42d92d0a233db014def812800524e6ada1c05ac48048f3a54de55e3e3d8d15",
+    "src/ops.rs": "baffd6ef41a5e2e3bd9cdec82b0663e424803eef1ff81e0b41327ea3d286bfca",
+    "src/rules.rs": "e374a2b03e1da9129a941f04018e32273125aafaa811ce1cbaca498777201523",
+    "src/tests.rs": "c50d6fe120d178e11cb554dbca4068dd6cca9b55f33d166709d4d74cf1d67fc2"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "31fefc0268f76695095074a975b6251b5b350aab21a4e8d602979dbd0071d835",
+    "src/array.rs": "e1d828feefaceae16240c19e0745a32bc0c93b4a39a1ff1afd47fadfa12c5c0b",
+    "src/lib.rs": "932ba3752a24b13b2d61ad26cc015ebce19473db9b8c7bd5c10f81cc77d567e9"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "bfaa28d71689632f029b32d4574d2ed81587bf7804067de61440d8b0678f00f2",
+    "goldenfiles/onpair.metadata": "589810da7b9d079b6862a6b2d9df790ca24e7b2ec137156af82e9f5d022ba390",
+    "src/continuation_tests.rs": "611dfda019bfb517a8701e636f27c6d33e35a20cebc140d3d2e489b02dbafd4a"
+  },
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "bfaa28d71689632f029b32d4574d2ed81587bf7804067de61440d8b0678f00f2"
+  },
+  "supplemental_test_files": {
+    "goldenfiles/onpair.metadata": {
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/onpair/goldenfiles/onpair.metadata",
+      "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "git_blob_sha1": "80b7fcdef71359a8d66032f9cc606a233cb5802b",
+      "sha256": "589810da7b9d079b6862a6b2d9df790ca24e7b2ec137156af82e9f5d022ba390",
+      "bytes": 15,
+      "test_source": "src/tests.rs",
+      "test_function": "test_onpair_metadata_golden",
+      "test_function_sha256": "8704091f7ebf8950cc93581b19600bc53f5bd5446acfe3fa299e213cb1cbb561",
+      "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+      "test_function_matches_published_archive": true
+    }
+  }
+}

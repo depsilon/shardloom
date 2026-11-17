@@ -1,11 +1,25 @@
 # Standalone patched-provider validation locks
 
-These seventeen lockfiles freeze the current excluded provider test configurations.
+These twenty-six lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 17 registered codec continuations
+
+Nine existing Vortex 0.93.0 codecs gain standalone configurations: ALP, ByteBool,
+DecimalByteParts, FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag. Their
+graphs are seeded from the current root lock and resolved with the exact CI
+recipe. Every selected package/version already occurs in the previously
+reviewed root or provider locks. The recipes select the array, FlatBuffers and
+Prost continuation patches; ALP also selects FastLanes. ParquetVariant's existing
+file tests select the retained file, layout, I/O and DateTimeParts patches.
+DecimalByteParts and FastLanes explicitly enable their required test helpers.
+The original
+seventeen configurations are unchanged, and all four CI groups remain intact.
+These test configurations enable no new runtime feature or dependency version.
 
 ## November 17 checked-verifier source patch
 

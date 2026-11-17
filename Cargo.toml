@@ -8,7 +8,7 @@ members = [
   "shardloom-python",
   "shardloom-contract-tests",
 ]
-exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/flatbuffers", "vendor/orc-rust", "vendor/parquet", "vendor/prost", "vendor/vortex-array", "vendor/vortex-arrow", "vendor/vortex-buffer", "vendor/vortex-datetime-parts", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-zstd"]
+exclude = ["vendor/arrow-array", "vendor/arrow-avro", "vendor/arrow-data", "vendor/arrow-ipc", "vendor/flatbuffers", "vendor/orc-rust", "vendor/parquet", "vendor/prost", "vendor/vortex-alp", "vendor/vortex-array", "vendor/vortex-arrow", "vendor/vortex-buffer", "vendor/vortex-bytebool", "vendor/vortex-datetime-parts", "vendor/vortex-decimal-byte-parts", "vendor/vortex-fastlanes", "vendor/vortex-file", "vendor/vortex-fsst", "vendor/vortex-io", "vendor/vortex-layout", "vendor/vortex-onpair", "vendor/vortex-parquet-variant", "vendor/vortex-pco", "vendor/vortex-sparse", "vendor/vortex-zigzag", "vendor/vortex-zstd"]
 resolver = "2"
 
 [patch.crates-io]
@@ -20,14 +20,23 @@ flatbuffers = { path = "vendor/flatbuffers" }
 prost = { path = "vendor/prost" }
 orc-rust = { path = "vendor/orc-rust" }
 parquet = { path = "vendor/parquet" }
+vortex-alp = { path = "vendor/vortex-alp" }
 vortex-array = { path = "vendor/vortex-array" }
 vortex-arrow = { path = "vendor/vortex-arrow" }
 vortex-buffer = { path = "vendor/vortex-buffer" }
+vortex-bytebool = { path = "vendor/vortex-bytebool" }
 vortex-datetime-parts = { path = "vendor/vortex-datetime-parts" }
+vortex-decimal-byte-parts = { path = "vendor/vortex-decimal-byte-parts" }
+vortex-fastlanes = { path = "vendor/vortex-fastlanes" }
 vortex-file = { path = "vendor/vortex-file" }
 vortex-fsst = { path = "vendor/vortex-fsst" }
 vortex-io = { path = "vendor/vortex-io" }
 vortex-layout = { path = "vendor/vortex-layout" }
+vortex-onpair = { path = "vendor/vortex-onpair" }
+vortex-parquet-variant = { path = "vendor/vortex-parquet-variant" }
+vortex-pco = { path = "vendor/vortex-pco" }
+vortex-sparse = { path = "vendor/vortex-sparse" }
+vortex-zigzag = { path = "vendor/vortex-zigzag" }
 vortex-zstd = { path = "vendor/vortex-zstd" }
 
 [workspace.package]

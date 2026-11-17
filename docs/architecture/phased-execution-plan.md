@@ -354,9 +354,15 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   nested-array/opaque-chain checks pass on 128-KiB stacks, including error,
   panic and retained-owner cleanup. All 5,882 array, 127 FSST, 96 Zstd and 138
   DateTimeParts provider tests pass, with two existing ignored tests in total,
-  plus strict lint. Native memory prepayment, additional codec certification,
-  value traversal and complete deep-workflow acceptance remain open; default
-  decode and public depth limits are unchanged.
+  plus strict lint. The remaining nine registered codec source patches now pass
+  all 1,713 standalone tests and strict lint. Nineteen native fixtures cover
+  complete values, physical graphs, legacy versions, conditional child failures
+  and malformed metadata; a standalone OnPair continuation test covers its five
+  children and nullable values. Sequence's unchanged no-child decoder is included.
+  Native workspace strict lint passes. Same-version intake, original-body
+  comparisons, six upstream golden fixtures, standalone lock identity and license
+  checks pass. Native memory prepayment, value traversal and complete deep-workflow
+  acceptance remain open; default decode and public depth limits are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

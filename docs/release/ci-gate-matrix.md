@@ -46,7 +46,7 @@ boundary; a step or comment cannot satisfy it. See GitHub's
   opt-level 2, debug level 1, assertions and overflow checks enabled, and LTO disabled. The exact
   test inventory is split into four duration-balanced partitions, each run serially per runner;
   aggregation validates ownership and failure propagation.
-- Ten patched-provider test/lint configurations run in four groups (`arrays`, `io`,
+- Twenty-six patched-provider configurations run in four groups (`arrays`, `io`,
   `buffer`, `formats`) using committed locks and a shared Cargo target directory.
 - CLI debug and release artifacts are produced in separate jobs and verified by release evidence.
 - Linux builds one abi3 wheel plus a separate observation product. Python 3.10 and 3.13 proof jobs
@@ -119,7 +119,7 @@ and workflow markers verbatim for contract checking.
 
 - Commands: `python scripts/ci_provider_tests.py --group ${{ matrix.group }} --output target/provider-evidence/${{ matrix.group }}`
 - Artifacts: `provider-evidence-${{ matrix.group }}`; `target/provider-evidence/${{ matrix.group }}`
-- Release blockers: `all seventeen patched-provider configurations`
+- Release blockers: `all twenty-six patched-provider configurations`
 - Workflow markers: `group: [arrays, io, buffer, formats]`; `CARGO_TARGET_DIR: ${{ github.workspace }}/target/providers`; `.github/provider-locks/*.lock`
 
 ### native_test_coverage — native-tests

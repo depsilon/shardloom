@@ -1,0 +1,62 @@
+{
+  "provider": "vortex-sparse",
+  "version": "0.93.0",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "registry_archive_sha256": "f7aa08ad1cd8f809ad9b14a750814394ba945c540a464b1727b44c66038361fd",
+  "registry_archive_file_count": 26,
+  "registry_archive_uncompressed_bytes": 266939,
+  "source_of_truth": "https://static.crates.io/crates/vortex-sparse/vortex-sparse-0.93.0.crate",
+  "vcs_info": {
+    "git": {
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/sparse"
+  },
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "57ac4f8fa4c5d6d667b69cc8b9baeda6f4e3d6507d11a5b6fbbf9571b066b999",
+    "Cargo.lock": "212ab576aa3f0dd37f6d6b175ea55c2788e36c09a79b7402c3b9c3da279cc3ed",
+    "Cargo.toml": "9237492d3d7a44d69c7bbacfcc40d8729b8b3db5a7a2ca157ed5a215ea3d3607",
+    "Cargo.toml.orig": "58c2c78f51517b287dd835bba745ffe36538d413a5eb2b4521c9cc3c8ef59841",
+    "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+    "src/canonical.rs": "ffeca602b94a179d06edf0a065ff2e30afc03c5e13d16356e7520d91c58bbeb6",
+    "src/canonical/lists/mod.rs": "6217e84c2ee99a74de8da5e662dc1b2c20c396f7f3f4cff816c0f917a233ef8a",
+    "src/canonical/lists/tests.rs": "c9009a88505736444e63359f93806e30cfeaa2e1af756e24c9b09dc6f22eb2a5",
+    "src/compute/between.rs": "2ab66dc061dadd2195a8319e5205f7599942ba068f9b3fb443b4b50ff6984193",
+    "src/compute/cast.rs": "bc7f9eb2bda67cc95782e80884d8089cdcfb7cc800c463a07fcb761218c476ac",
+    "src/compute/compare.rs": "9f964107186d92e4d21c406ac5e926d3a8042d03c7a05fd4333fce7ad33bb49d",
+    "src/compute/fill_null.rs": "646bf9316e215570b9d1c96adf26c82e22f1f7ebc90e9ba015a33d2d26081e24",
+    "src/compute/filter.rs": "d659facc12e33c4af63f4737ae02279dc5b0650054963e6b457b2731d69d5439",
+    "src/compute/is_constant.rs": "4570236395bdf4e6681d54c2079bf4fb9fd3416c290b4373e8ccc59e8b4184ca",
+    "src/compute/like.rs": "d9d768ec5e0a4fd6dd2cd0b0b8177cba9b6429eb5a6d08505cae7b737474f8ce",
+    "src/compute/min_max.rs": "c329e08fc833784baec7b96217646a732c6b38a8452eb8ed24d53671f4799657",
+    "src/compute/mod.rs": "e357452ba71c0ecba3ca3b9b6494313bdb4d8af2171647dbc3a5ef3fce257089",
+    "src/compute/nan_count.rs": "4f3a9750b4def8865104fb7ffc412013b29e1b07351ca1778568dfeedd987231",
+    "src/compute/null_count.rs": "09ebdcf53a7f9cbcfbc80621296b4434225a67994e12e30a1c6f7b278fb6aa84",
+    "src/compute/sum.rs": "83432d5aa00eb85c9fea15ed42cf6d680d445fb20fa292c3989cac399f744af8",
+    "src/compute/take.rs": "37f91f34185e4ba8c161999669feb1976623566afe712b6bf6dd12dcd90cb18d",
+    "src/kernel.rs": "c963b72c7b2ca6fc0f95fe4dbef690766217842c52c7b114a2f52bd8d7ccbd2f",
+    "src/lib.rs": "974d91543f3b57313286d2d6446b6b955d1bba5ef5a2c3de64cedaf459a76a50",
+    "src/ops.rs": "02281ac5cab9c1adc7f24e29808d7150cb0c25635d09ec96ea7a41a324238339",
+    "src/rules.rs": "3b2c3273675d1154182b3f9df1cc968a35308946ad9d2dd0eee9ab2f1060cadf",
+    "src/slice.rs": "5920dade5d171d7d33d999ca5316c4fdf4546ab08dd8d049ffd4f7b787ec6692"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "8a5a0de4a77882fa44c127ef7bf819c69c051774921f554c3987e83a64e298fe",
+    "src/lib.rs": "1535f096593526c2c2ed5369339d64ea15afa14c50d3bc34fc5a00a9b5696c76"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "6c3e30a0ef787ee54dad7014451913f6c2537e0270c8d7b6971b8ee4abb4f97e"
+  },
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "6c3e30a0ef787ee54dad7014451913f6c2537e0270c8d7b6971b8ee4abb4f97e"
+  }
+}

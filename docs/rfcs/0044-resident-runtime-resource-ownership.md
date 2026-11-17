@@ -979,6 +979,15 @@ buffers, error and cleanup overlap before deep admission; a future is not a
 memory grant. Keep existing physical verification and public depth limits until
 native value traversal and whole-workflow acceptance are complete.
 
+The remaining registered compression and Variant codecs use the same optional
+continuation contract. The existing 0.93.0 ALP, ByteBool, DecimalByteParts,
+FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag packages become reviewed
+same-version source patches. Preserve legacy version dispatch and conditional
+patch, validity and offset requests. Sequence's primitive no-child decoder
+retains its existing leaf hook and requires direct acceptance coverage; rejecting
+VTable hooks remain rejecting when a custom plugin owns deserialization. This
+intake does not change enabled features, dependency versions or public limits.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
