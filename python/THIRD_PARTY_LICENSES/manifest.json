@@ -14909,8 +14909,8 @@
           "src/dtype/map.rs": "73b7ce0ea7c8a9c87e460615adedf420c595cba59a3b41aee18a741f6b9b0454",
           "src/dtype/mod.rs": "ac69c365146376a56518e24df1dc8e51af21391c167142505dfcdc2ceddc02ba",
           "src/dtype/ptype.rs": "99384aa1e554f792c00516f1bbd256c3330683e82929c949f3c073bf92624dba",
-          "src/dtype/serde/flatbuffers.rs": "d143b9dcf842fdbfecd1007c39bd554d440102b384cb5a8f848ad5060026f338",
-          "src/dtype/struct_.rs": "431f60a870c5478070cca5b2168e8fca7065179a26ec87c1a7da72c62f2fa16e",
+          "src/dtype/serde/flatbuffers.rs": "567ed641a56faf51c2307037269de7a5370467d11b62bd4c9e48a0ca455f0e7d",
+          "src/dtype/struct_.rs": "fad818eb2c70c404ea48b11fd0eaa70326b17862a05071aa18ed95277c343441",
           "src/dtype/union.rs": "7a4a76312eac54ff0202e8171b66414c146f181c2dfdb72443d6b8293da8e22f",
           "src/executor.rs": "a2f124ce31b33c6ca9f8c3737006cb48f50f15373b88e9fb27bdcbf66af36d47",
           "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
@@ -14948,6 +14948,9 @@
           "src/dtype/children.rs": "a7a7d80c5e9f2417649a68ee5a4d18a72d0eea66c2f6a636326c4f9e665ebe4b",
           "src/dtype/release.rs": "fa1cb6e6b16b20138c663ef7d863125ba9f0e2a9aa37bf8d8e5c54293d35d33d",
           "src/dtype/release_tests.rs": "3b65219d4cfa6a3604cf7b40cc63c38ba48ab1dacd5f842382a7a1578cf02821",
+          "src/dtype/serde/flatbuffers_read.rs": "e0dcdb90bc3f16345cd0cc95c86153701eefea047655c7aed56734e357729112",
+          "src/dtype/serde/flatbuffers_read_reference.rs": "5eec13ea81a6763d08c16a56c646b1fc5a764d85cd5fccd905bde737f622c225",
+          "src/dtype/serde/flatbuffers_read_tests.rs": "19eb03ace3e9eeeda01b2d07d53787ed750640389ea90786f6dd4a647f362013",
           "src/dtype/serde/flatbuffers_write.rs": "818e2abae31c85efc35bea399a0d1bd744ef413be8dabb18ffad91e43a63da99",
           "src/dtype/serde/flatbuffers_write_reference.rs": "b38a0ebdc751ad7c5b22057a3869c783e5c34e6226271a490c51e898b2ae8e0b",
           "src/dtype/serde/flatbuffers_write_tests.rs": "a44e88bc7c91db8880f9fac749efb2ae936b9b781b7a09d159dac4f0c11bca27",
@@ -14962,7 +14965,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "e53708d8bcb9f7b7f9910b7853d70d9779d07a731f58d458c7f0c8e9e890203b"
+          "sha256": "55fdcf14d9baec63a16bca26f08e64fa718d01adeb4746b8b0c6f96c8a829a22"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

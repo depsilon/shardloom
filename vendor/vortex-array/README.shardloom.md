@@ -1,5 +1,21 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative logical schema reader
+
+Eager list, fixed-list, extension storage and map-key parsing now uses an ordered
+continuation stack over already verified bytes. Struct/union children and map
+values stay lazy; map keys retain their view and initialized cache. Tests compare
+the prior reader's values, raw lazy representation, error messages and extension
+contexts. Metadata callbacks keep their inner-to-outer order, failed lazy parses
+stay retryable, and internal 8,192-level success/failure cases pass on a 128-KiB
+stack. A shallow recursive reference retains the Apache-2.0 source and copyright;
+its eager map-key call is made explicit so it cannot invoke the new parser.
+
+These internal tests use only offsets returned by the native writer. Public
+reads still use the unchanged physical verifier and depth guard. This is not
+deep file or runtime acceptance; see the
+[logical-read amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-logical-read-amendment-november-17-2026).
+
 ## November 17 iterative schema writer
 
 The native FlatBuffer dtype writer uses borrowed parent continuations instead

@@ -136,6 +136,20 @@ impl Hash for FieldDTypeInner {
 }
 
 impl FieldDType {
+    /// Preserve the lazy-view representation after an eager map-key parse.
+    /// The new cache has no other owner and contains the result of this view.
+    pub(super) fn from_view_initialized(view: ViewedDType, dtype: DType) -> Self {
+        Self {
+            inner: FieldDTypeInner::View(
+                view,
+                Arc::new(CachedDType {
+                    value: OnceLock::from(dtype),
+                    initialize: Mutex::new(()),
+                }),
+            ),
+        }
+    }
+
     /// Match the existing ordinary equality orientation without cloning or
     /// inspecting any sibling. Mixed fields compare the owned dtype first.
     pub(super) fn equality_values<'a>(&'a self, other: &'a Self) -> (&'a DType, &'a DType) {

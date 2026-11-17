@@ -272,8 +272,10 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [x] Complete hosted review, CI, merge and exact-main verification.
 
 - [ ] **Native spatial values — hosted integration**
-  Status: Review — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
-  is ready; local acceptance is complete and hosted review/checks are running.
+  Status: Merged — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
+  merged as `6688dd9b9` after 57 required PR checks passed and review was clear;
+  Cloudflare Workers retains the existing maintainer exception. Exact-main
+  verification is running.
   The [spatial unit](native-spatial-values-2026-11-16.md) supports 15 expressions
   over native 2D Point, LineString and Polygon values. All 462 installed tests
   pass without skips.
@@ -291,9 +293,11 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   ordering. Equality, hashing and extension nullability also pass 8,192-level
   small-stack checks, with recursive-reference hash compatibility and lazy parse
   order verified. The iterative FlatBuffer writer preserves existing bytes and
-  metadata callback order and passes the same deep write test. All 5,805
-  array-provider tests pass (one existing ignored test), and native workspace
-  strict lint passes. Formatting, physical verification/readers and complete
+  metadata callback order and passes the same deep write test. Eager logical
+  reads preserve lazy caches, callback/error order and pending extension contexts;
+  8,192-level internal success/failure parsing passes on a small stack. All 5,810
+  array-provider tests pass (one existing ignored test), and provider/native workspace
+  strict lint passes. Formatting, physical verification, array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
@@ -302,6 +306,7 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [x] Add intrinsic schema, array-slot and scalar cleanup with retained-owner proof.
   - [x] Make native schema equality, hashing and extension nullability stack-safe.
   - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
+  - [x] Replace eager logical schema reading while preserving lazy views and errors.
   - [ ] Complete native provider serialization, value traversal and cleanup.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.

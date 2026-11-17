@@ -487,6 +487,26 @@ those guards until their independent implementation and adversarial validation
 are complete. No new unsafe code, schema version or external execution provider
 is introduced by this writer amendment.
 
+### Native schema logical-read amendment, November 17, 2026
+
+Replace eager list, fixed-list, extension-storage and map-key recursion with
+ordered continuations over an already physically verified FlatBuffer. Struct
+and union fields and map values retain their existing lazy views. A map key
+retains its view and initialized cache rather than changing to an owned field.
+Check both map child offsets before parsing its key; require extension IDs
+before storage, and resolve metadata and the registry only after storage
+succeeds. Preserve the extension context added by each failed storage ancestor,
+including errors from nested map keys and lazy container construction.
+
+The logical parser does not verify bytes and must never substitute for physical
+verification. Its internal deep tests may use only known offsets returned by
+the native writer; the public entry still uses the unchanged checked root and
+its existing depth limit. Require shallow recursive-reference equivalence,
+lazy cache/parse order, malformed logical declarations, extension callback
+order and small-stack eager-chain tests. Final resource admission must prepay
+continuations, created owners and unwind overlap before any guard is raised.
+No new unsafe code or public transport capability is authorized by this step.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
