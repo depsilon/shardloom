@@ -465,9 +465,18 @@ workflow, performance and acceptance work recorded in the historical notes.
   Retained offsets, denied growth, cancellation and panic cleanup pass.
   All 542 selected regressions pass with one existing release benchmark
   ignored. Both focused tests and strict native workspace lint pass on the
-  final sources. Public depth admission still waits for binary-object
-  classification, Arrow intake and schema handling, provider export and compute,
-  native memory prepayment and complete deep-workflow acceptance.
+  final sources. Arrow Variant intake now follows dictionary keys iteratively,
+  validates shredded lists at their original offsets and holds each object's
+  raw validation credit through its final field check. Three original functions
+  verify selected rows, null handling, first errors and callback order. Borrowed
+  8,192-level structs, lists and mixed trees pass on 128-KiB stacks, including
+  denied growth and cancellation/panic cleanup. All 556 selected regressions
+  pass, with one existing opt-in benchmark ignored. Strict native workspace lint
+  and all three focused write-only configuration tests pass. The write-only
+  build also exposed two tests missing their local-execution feature conditions.
+  Public depth admission still waits for binary-object traversal, Arrow schema
+  and final-owner handling, provider export and compute, native memory prepayment
+  and complete deep-workflow acceptance.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

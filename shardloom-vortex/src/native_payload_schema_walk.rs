@@ -31,7 +31,7 @@ impl<'a> Pending<'a> {
     ) -> Result<Option<(&'a DType, usize)>> {
         let mut children = dtype.try_child_dtypes();
         if children.len() > 1 {
-            self.reserve_one()?;
+            reserve_frame(&mut self.frames, Some(&mut self.credit))?;
         }
         let first = children
             .next()
@@ -58,33 +58,39 @@ impl<'a> Pending<'a> {
         }
         Ok(Some((child, depth)))
     }
+}
 
-    fn reserve_one(&mut self) -> Result<()> {
-        if self.frames.len() < self.frames.capacity() {
-            return Ok(());
-        }
-        let capacity = self
-            .frames
-            .capacity()
-            .max(4)
-            .checked_mul(2)
-            .ok_or_else(|| failed("schema traversal capacity overflow"))?;
-        let bytes = capacity
-            .checked_mul(std::mem::size_of::<Frame<'_>>())
-            .and_then(|bytes| u64::try_from(bytes).ok())
-            .ok_or_else(|| failed("schema traversal capacity overflow"))?;
-        self.credit.resize(
-            self.credit
+/// Admit replacement overlap before growing traversal storage. Native callers
+/// supply their live credit. Arrow also supports bounded inspection without a pool.
+pub(crate) fn reserve_frame<T>(
+    frames: &mut Vec<T>,
+    mut credit: Option<&mut MemoryLease>,
+) -> Result<()> {
+    if frames.len() < frames.capacity() {
+        return Ok(());
+    }
+    let capacity = frames
+        .capacity()
+        .max(4)
+        .checked_mul(2)
+        .ok_or_else(|| failed("schema traversal capacity overflow"))?;
+    let bytes = capacity
+        .checked_mul(std::mem::size_of::<T>())
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| failed("schema traversal capacity overflow"))?;
+    if let Some(owner) = credit.as_deref_mut() {
+        owner.resize(
+            owner
                 .bytes()
                 .checked_add(bytes)
                 .ok_or_else(|| failed("schema traversal capacity overflow"))?,
         )?;
-        self.frames
-            .try_reserve_exact(capacity - self.frames.len())
-            .map_err(|_| failed("schema traversal allocation failed"))?;
-        if self.frames.capacity() > capacity {
-            return Err(failed("schema traversal exceeded admitted capacity"));
-        }
-        self.credit.resize(bytes)
     }
+    frames
+        .try_reserve_exact(capacity - frames.len())
+        .map_err(|_| failed("schema traversal allocation failed"))?;
+    if frames.capacity() > capacity {
+        return Err(failed("schema traversal exceeded admitted capacity"));
+    }
+    credit.map_or(Ok(()), |owner| owner.resize(bytes))
 }

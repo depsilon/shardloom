@@ -1352,6 +1352,29 @@ growth, cancellation and final release on small stacks. Keep the public depth
 limits through the separate Arrow schema, provider export and full lifecycle
 acceptance gates.
 
+### Borrowed Arrow Variant intake, November 17, 2026
+
+At the Arrow import boundary, resolve dictionary keys in row order. Each
+selected key leads to one row in the next dictionary, so descent needs only
+the borrowed current array and row. Check cancellation, null keys, integer
+conversion and value bounds before descending.
+
+Validate shredded values with ordered borrowed parent frames. An object
+frame retains the validated residual and its raw validation credit through
+all child checks. Check field membership and residual overlap after its
+child returns. A list frame borrows the original Arrow child array and
+visits its offset range for the selected row. This avoids creating the
+recursive struct slices that Arrow's list value accessor would produce.
+Both 32-bit and 64-bit offsets use the list's own visible offset buffer.
+
+Share fallible frame-capacity growth with the native schema cursor. Reserve
+old and new capacity together when the caller supplies a pool. The existing
+inspection path without a pool retains the bounded shredded depth and its
+fallible temporary allocations. Compare complete shallow results, errors,
+callback order and selected rows with the original validator. Prove borrowed
+deep traversal, denial and error cleanup independently of the lifetime of
+the caller's Arrow arrays.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex

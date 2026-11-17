@@ -8,6 +8,9 @@ use vortex::array::dtype::{DType, DecimalDType};
 #[path = "native_payload_schema_walk.rs"]
 mod walk;
 
+#[cfg(feature = "universal-format-io")]
+pub(crate) use walk::reserve_frame;
+
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "native_payload_schema_classification.rs"]
 mod classification;
