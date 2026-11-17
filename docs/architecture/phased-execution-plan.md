@@ -306,7 +306,12 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   original output, lazy/callback order and failed-sink boundaries on the same
   deep-stack checks. Defaults/zero construction, zero inspection and approximate
   size estimates also pass, preserving nullable widths, lazy short circuits,
-  validation callback order and failed partial cleanup. All 5,847 array-provider tests pass
+  validation callback order and failed partial cleanup. Native array writing now
+  preserves byte output, provider wire substitutions, callback order, shared
+  buffers and partial failures through flat owners and continuations. Physical
+  ArrayNode verification preserves malformed-data errors and configured limits;
+  8,192-level writing, failure cleanup and explicit-option verification pass on
+  small stacks. All 5,856 array-provider tests pass
   (one existing ignored test), and strict provider lint passes. Earlier native
   workspace lint passed; whole-unit workspace acceptance remains required.
   Array/value transport and complete

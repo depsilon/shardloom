@@ -1,5 +1,30 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative array writing and physical verification
+
+The native serialization owner stores preorder nodes and subtree boundaries in
+a flat vector. Each serializer runs once in its original depth-first order;
+provider-selected wire IDs, replacement buffers and replacement children remain
+authoritative. The writer preserves exact FlatBuffer bytes, source statistics,
+buffer sharing, alignment/padding and unfinished output on context refusal.
+The existing total `u16` buffer limit is checked after all serializers finish.
+
+ArrayNode physical verification uses the same checked continuation API as DType
+verification. Optional fields, child order, expanded alias work, complete error
+traces and configured depth/table/apparent-byte thresholds match the original
+generated verifier. Public verifier defaults are unchanged. No new unchecked
+access, dependency or wire format is introduced.
+
+Mechanically verified original-source references cover the serializer/tree and
+both generated array verifiers. Tests cover substitutions, shared native buffer
+identity, callback failures, buffer-count limits, every fixture-byte mutation,
+truncation and independent budget boundaries. Writing, failure cleanup and
+physical verification pass 8,192-level checks on 128-KiB stacks. All 5,856
+provider tests and strict provider lint pass, with one existing ignored test.
+Statistics/scalar transport, plugin-directed logical decoding and complete
+resource/lifecycle acceptance remain required before public depth admission
+changes. See the [array serialization and verification amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-array-serialization-and-physical-verification-amendment-november-17-2026).
+
 ## November 17 iterative scalar initialization and inspection
 
 Default/zero construction, zero checks and approximate byte estimates use

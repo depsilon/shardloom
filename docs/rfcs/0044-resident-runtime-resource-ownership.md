@@ -713,6 +713,39 @@ and 8,192-level small-stack construction/inspection/cleanup. No new unsafe code,
 dependency or execution fallback is allowed. Public depth admission still waits
 for complete transport, traversal/allocation prepayment and lifecycle acceptance.
 
+### Native array serialization and physical verification amendment, November 17, 2026
+
+Keep the pinned native `ArraySerializationTree` as the serialization owner,
+using a private flat preorder node vector and subtree-end positions instead of
+recursively owned child trees. Each node retains its source array, selected wire
+ID, metadata and native buffer handles. Visit each serializer once in original
+depth-first child order, including providers that substitute wire IDs, buffers
+or children. Complete serialization before the existing total-buffer check;
+preserve the `u16` buffer-count limit and native buffer emission order.
+
+Write the unchanged ArrayNode FlatBuffer through ordered parent continuations.
+Intern each encoding and write its metadata before its children, then write
+child offsets, buffer indices and source statistics in the original order.
+Keep exact bytes, partial-builder results on errors, allowed-ID checks and
+alignment/padding behavior. Temporary tree cleanup must not recurse through
+children; source, metadata and buffer owners remain alive through their use.
+This changes neither the physical file schema nor the execution provider.
+
+Replace only ArrayNode's recursive physical verification with checked parent
+continuations through the same pinned FlatBuffers suspension API. Encoding and
+metadata fields precede ordered child offsets; buffer indices and statistics
+follow them. Preserve optional-field handling, alignment/range checks, expanded
+alias work, exact error traces and all configured depth/table/byte thresholds.
+Default verifier limits remain unchanged; no unchecked buffer access is added.
+
+Require independent original-source shallow serialization/verifier references,
+wire-substitution and callback/error-order controls, native buffer identity,
+padding/offset cases, malformed/truncated/mutated data, alias and threshold
+controls, and 8,192-level small-stack write/verify/cleanup tests with explicit
+test-only verifier options. Statistics/scalar transport and plugin-directed
+logical array decoding retain their separate obligations. Admit all node,
+continuation and builder overlap before changing public deep-data admission.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

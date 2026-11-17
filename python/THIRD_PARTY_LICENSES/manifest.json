@@ -14968,7 +14968,8 @@
           "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
           "src/extension/datetime/time.rs": "d09ce31b25ea291bc4c57bd7ffe777decb9d41d72359659e8c84f846c6571994",
           "src/extension/datetime/timestamp.rs": "c70b6cc2214e98e88749933ca287c6ec7f951a479934ea207b7c57037faa1159",
-          "src/flatbuffers.rs": "cf750088fd2985fde1c863b664588089eeb9755eb51f3b6c6448d47af323a993",
+          "src/flatbuffers.rs": "4f8d94370ec73f5cf0c6d30b8db259c1249e5942cf73b7151604bad2120f05cf",
+          "src/flatbuffers/generated/array.rs": "3938c217a56177cd4d508ebc8fc28dcb3cdd2e6f906f55e680c2ac0bf3458fbf",
           "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
           "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
@@ -14992,11 +14993,12 @@
           "src/scalar_fn/unstable/row/batch/tests.rs": "2f2b41754663111ae53d09670da1f8e7b1385fe33ffcac45d3f06a93019884ac",
           "src/scalar_fn/unstable/row/types/element/utf8.rs": "46decce5f23be4c1a34f6d31d638df87d7d3290269a2cbc25c77f164a493c517",
           "src/scalar_fn/unstable/row/visitor/plan.rs": "f5f17cebd500fd4dc02af9c4624064a0d0dfb09c37d45f94ec9bf9f408e33539",
+          "src/serde.rs": "4ba38ee3312cc516dc1fec37cde52bbfb7d4420b9c45f61ae7d6f51a3e347971",
           "src/stats/stats_set.rs": "87861b6f4b7f04d3dff750a23c58b8fb145ee1a5dacdaaf1c4841f40c49a7c1d"
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "e659f8efac656371b2d42cae060c0dc794086f5da982e34177fe79680f5fc2b9",
+          "README.shardloom.md": "dd890bf5a4d3b9bcc3282b25f6459d548eb62af8f7a795cf9905c2ad1b029859",
           "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
           "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
           "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -15021,6 +15023,9 @@
           "src/dtype/structural.rs": "25f1b0c5bd753ca81df7000401e75869a8aeaf4cf451fbd03b22c7548c66e1f9",
           "src/dtype/structural_extension_tests.rs": "7091025c3a543b1ec30a952cd81d9231c154b74a9fac236c1537cf25c79ff0a3",
           "src/dtype/structural_tests.rs": "17e050ce6a7ba2cda95c45fa16d9c209ee71d712d863f732ecc7239886be5955",
+          "src/flatbuffers/array_verify.rs": "0bf1fb43a0d7f68ce00c7a400a30eeaecc2edb676aa7bca2a98c45bec92ac1cb",
+          "src/flatbuffers/array_verify_reference.rs": "8579c3bb7002bb1781fe2102a1537bfbdfeea911894450840c25afc42dcb038d",
+          "src/flatbuffers/array_verify_tests.rs": "198e1130494c26e8c1d88baead00c6a3d0982dedfa69e91dbeff33b1b11837c4",
           "src/flatbuffers/dtype_verify.rs": "35ae4145a47e8384890f8f3c525656b1b11361005ea8c37479a9c819e8edaa80",
           "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
           "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
@@ -15047,7 +15052,10 @@
           "src/scalar/validate_reference.rs": "9802c9c765a27bfa350d4014ed79a2828eceb74977d27504ef06ffd3dbf4847c",
           "src/scalar/validate_walk.rs": "9747a32386685a944cedb5dc460248027f348290b75794a805f153af28a8753b",
           "src/scalar/validate_walk_tests.rs": "d41ab406e63e51c6ebc21a0edccc2ac6ea714fcdccf5934b7a301f7f470d71a2",
-          "src/scalar_fn/fns/binary/compare/observation.rs": "67bc03d9f55d2692cb1dfac472975c08486b01f26c42834bf96ccbe0b1a78e8d"
+          "src/scalar_fn/fns/binary/compare/observation.rs": "67bc03d9f55d2692cb1dfac472975c08486b01f26c42834bf96ccbe0b1a78e8d",
+          "src/serde/serialization.rs": "62359e3779d096d32481bd0699fa122a47360b8da26e8fe423440333872e4b1b",
+          "src/serde/serialization_reference.rs": "3324aa72720d87fb68bcb4df186e242f480978c5c61153db8a74ecf5377b2bd7",
+          "src/serde/serialization_tests.rs": "68780b1e043152374b3f60cfd05b880532ece86c082bc8b93a37226b2157f719"
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: iterative native serialization owner/writer.
 
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -9,7 +10,6 @@ use std::sync::Arc;
 
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::Follow;
-use flatbuffers::WIPOffset;
 use flatbuffers::root;
 use vortex_buffer::Alignment;
 use vortex_buffer::ByteBuffer;
@@ -35,12 +35,15 @@ use crate::dtype::TryFromBytes;
 use crate::expr::stats::Precision;
 use crate::expr::stats::Stat;
 use crate::flatbuffers::FlatBuffer;
-use crate::flatbuffers::WriteFlatBuffer;
 use crate::flatbuffers::array as fba;
 use crate::flatbuffers::array::Compression;
 use crate::optimizer::mark_decoded_optimized;
 use crate::session::ArraySessionExt;
 use crate::stats::StatsSet;
+
+#[path = "serde/serialization.rs"]
+mod serialization;
+pub use serialization::ArrayNodeFlatBuffer;
 
 /// Options for serializing an array.
 #[derive(Default, Debug)]
@@ -157,144 +160,6 @@ impl ArrayRef {
         ));
 
         Ok(buffers)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct ArraySerializationTree {
-    source: ArrayRef,
-    serialized_id: ArrayId,
-    metadata: Vec<u8>,
-    buffers: Vec<ByteBuffer>,
-    children: Vec<ArraySerializationTree>,
-}
-
-impl ArraySerializationTree {
-    fn try_new(session: &VortexSession, source: &ArrayRef) -> VortexResult<Self> {
-        let Some(serialization) = session.array_serialize(source)? else {
-            vortex_bail!(
-                "Array {} does not support serialization",
-                source.encoding_id()
-            );
-        };
-        let children = serialization
-            .children
-            .iter()
-            .map(|child| Self::try_new(session, child))
-            .collect::<VortexResult<Vec<_>>>()?;
-
-        Ok(Self {
-            source: source.clone(),
-            serialized_id: serialization.serialized_id,
-            metadata: serialization.metadata,
-            buffers: serialization.buffers,
-            children,
-        })
-    }
-
-    fn nbuffers_recursive(&self) -> usize {
-        self.buffers.len()
-            + self
-                .children
-                .iter()
-                .map(Self::nbuffers_recursive)
-                .sum::<usize>()
-    }
-
-    fn buffers(&self) -> Vec<ByteBuffer> {
-        let mut buffers = Vec::with_capacity(self.nbuffers_recursive());
-        self.append_buffers(&mut buffers);
-        buffers
-    }
-
-    fn append_buffers(&self, buffers: &mut Vec<ByteBuffer>) {
-        buffers.extend(self.buffers.iter().cloned());
-        for child in &self.children {
-            child.append_buffers(buffers);
-        }
-    }
-}
-
-/// A utility struct for creating an [`fba::ArrayNode`] flatbuffer.
-pub struct ArrayNodeFlatBuffer<'a> {
-    ctx: &'a ArrayContext,
-    array: ArraySerializationTree,
-}
-
-impl<'a> ArrayNodeFlatBuffer<'a> {
-    pub fn try_new(
-        ctx: &'a ArrayContext,
-        session: &'a VortexSession,
-        array: &ArrayRef,
-    ) -> VortexResult<Self> {
-        let array = ArraySerializationTree::try_new(session, array)?;
-        let n_buffers_recursive = array.nbuffers_recursive();
-        if n_buffers_recursive > u16::MAX as usize {
-            vortex_bail!(
-                "Array and all descendent arrays can have at most u16::MAX buffers: {}",
-                n_buffers_recursive
-            );
-        };
-        Ok(Self { ctx, array })
-    }
-
-    pub fn try_write_flatbuffer<'fb>(
-        &self,
-        fbb: &mut FlatBufferBuilder<'fb>,
-    ) -> VortexResult<WIPOffset<fba::ArrayNode<'fb>>> {
-        self.try_write_node(fbb, &self.array, 0)
-    }
-
-    fn try_write_node<'fb>(
-        &self,
-        fbb: &mut FlatBufferBuilder<'fb>,
-        array: &ArraySerializationTree,
-        buffer_idx: u16,
-    ) -> VortexResult<WIPOffset<fba::ArrayNode<'fb>>> {
-        let encoding_idx = self.ctx.intern(&array.serialized_id).ok_or_else(|| {
-            vortex_err!(
-                "Serialized array ID {} not permitted by ctx",
-                array.serialized_id
-            )
-        })?;
-
-        let metadata = Some(fbb.create_vector(array.metadata.as_slice()));
-
-        // Assign buffer indices for all child arrays.
-        let nbuffers = u16::try_from(array.buffers.len())
-            .map_err(|_| vortex_err!("Array can have at most u16::MAX buffers"))?;
-        let mut child_buffer_idx = buffer_idx + nbuffers;
-
-        let children = array
-            .children
-            .iter()
-            .map(|child| {
-                // Update the number of buffers required.
-                let msg = self.try_write_node(fbb, child, child_buffer_idx)?;
-
-                child_buffer_idx = u16::try_from(child.nbuffers_recursive())
-                    .ok()
-                    .and_then(|nbuffers| nbuffers.checked_add(child_buffer_idx))
-                    .ok_or_else(|| vortex_err!("Too many buffers (u16) for Array"))?;
-
-                Ok(msg)
-            })
-            .collect::<VortexResult<Vec<_>>>()?;
-        let children = Some(fbb.create_vector(&children));
-
-        let buffers = Some(fbb.create_vector_from_iter((0..nbuffers).map(|i| i + buffer_idx)));
-        let stats = Some(array.source.statistics().write_flatbuffer(fbb)?);
-
-        Ok(fba::ArrayNode::create(
-            fbb,
-            &fba::ArrayNodeArgs {
-                encoding: encoding_idx,
-                metadata,
-                children,
-                buffers,
-                stats,
-            },
-        ))
     }
 }
 
