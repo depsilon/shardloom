@@ -651,6 +651,37 @@ controls, lazy failure ordering, unchanged extension callbacks and 8,192-level
 small-stack comparisons. Traversal scratch must be admitted with the complete
 lifecycle before the public nesting guard changes.
 
+### Native scalar Display amendment, November 17, 2026
+
+Use one borrowed continuation engine for ordinary typed Scalar and raw
+ScalarValue Display, including standalone list, struct, map, union and Variant
+views. Preserve existing text, raw versus typed spelling, null distinctions,
+legacy child F16 construction, lazy field order and validation/formatting callback
+order. List child construction happens before its separator; struct fields and
+map entries finish their temporary formatted text before the separator reaches
+the caller. Keep debug-build unchecked-constructor validation where the original
+view performed it, without adding that validation to release builds.
+
+Nested field/entry joins may share one infallible String while retaining the
+outermost field/entry write boundary. A formatting error inside that String must
+still panic, as the original format operation did; an error in the caller's
+formatter must still propagate at the same output boundary. Avoid cloning whole
+child values or building one complete subtree string per ancestor.
+
+The pinned ForeignExtDType's native display is exactly its raw ScalarValue and
+has no unpacking side effects; route that known provider through the same raw
+continuation. Other extension NativeValue formatters retain their native vtable
+boundary and callback semantics. Arbitrary custom extension formatter recursion
+is not made stack-safe by this amendment. Native extension admission must keep
+its existing typed storage contracts.
+
+Require an independent shallow recursive reference, typed/raw/standalone view
+parity, null and legacy F16 controls, formatting flags, extension callback and
+lazy failure order, failed-sink partial-output comparisons, and deep small-stack
+Display and cleanup. Ordinary Display is not truncated. The existing public
+depth guard and traversal/join/diagnostic prepayment obligations remain until
+complete lifecycle acceptance.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

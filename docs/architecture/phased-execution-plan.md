@@ -271,17 +271,17 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [x] Complete source, installed-package and complete-result acceptance.
   - [x] Complete hosted review, CI, merge and exact-main verification.
 
-- [ ] **Native spatial values — hosted integration**
-  Status: Merged — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
+- [x] **Native spatial values — hosted integration**
+  Status: Complete — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
   merged as `6688dd9b9` after 57 required PR checks passed and review was clear;
-  Cloudflare Workers retains the existing maintainer exception. Exact-main
-  verification is running.
+  Cloudflare Workers retains the existing maintainer exception. Exact-main CI
+  and all 54 required checks pass.
   The [spatial unit](native-spatial-values-2026-11-16.md) supports 15 expressions
   over native 2D Point, LineString and Polygon values. All 462 installed tests
   pass without skips.
   Execution checklist:
   - [x] Complete source, runtime, installed-package and documentation acceptance.
-  - [ ] Complete ready-PR review, CI, merge and exact-main verification.
+  - [x] Complete ready-PR review, CI, merge and exact-main verification.
 
 - [ ] **Resource-admitted deep traversal**
   Status: In progress — schema cursor and native cleanup implemented; complete lifecycle remains open.
@@ -302,10 +302,12 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   original bytes with iterative continuations; schema and scalar Debug have
   explicit bounded expansion. Scalar clone/equality/hash/ordering and validation
   pass the same deep-stack checks, with original shallow hash feeds, validation
-  errors and callback order preserved. All 5,836 array-provider tests pass
+  errors and callback order preserved. Typed/raw scalar Display now preserves
+  original output, lazy/callback order and failed-sink boundaries on the same
+  deep-stack checks. All 5,840 array-provider tests pass
   (one existing ignored test), and strict provider lint passes. Earlier native
   workspace lint passed; whole-unit workspace acceptance remains required.
-  Scalar Display, array/value transport and complete
+  Scalar defaults/size inspection, array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

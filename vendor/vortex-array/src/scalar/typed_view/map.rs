@@ -7,7 +7,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 
-use itertools::Itertools;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -17,6 +16,7 @@ use crate::dtype::DType;
 use crate::dtype::MapDType;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// A scalar value representing an ordered sequence of map key/value entries.
 ///
@@ -30,17 +30,7 @@ pub struct MapScalar<'a> {
 
 impl Display for MapScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.is_null() {
-            return write!(f, "null");
-        }
-
-        write!(
-            f,
-            "{{{}}}",
-            self.entries()
-                .map(|(key, value)| format!("{key}: {value}"))
-                .format(", ")
-        )
+        formatting::display_map(self.map_dtype(), self.entries, f)
     }
 }
 

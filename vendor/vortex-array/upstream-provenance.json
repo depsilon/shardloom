@@ -943,11 +943,16 @@
     "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
     "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
     "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
+    "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
     "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
-    "src/scalar/mod.rs": "bac85fb0a68726b3ee798c374ece4f6fb4229b2a864faad6d58cbe5b5f59e09a",
+    "src/scalar/mod.rs": "4e7296fb61af7ff31be4e8eb4e20857aa7efece46785996bd1c7dcaf54803ee5",
     "src/scalar/scalar_impl.rs": "856cbf4069095bf944c86587c69b8005ae63a13f1cf735e427d3fb06bc3fc27c",
-    "src/scalar/scalar_value.rs": "d2107f5be700799ea8a80acbea1dfee0fd33c69cebfa91724e57e5b10853cb9f",
-    "src/scalar/typed_view/union.rs": "cc5ff2115beb13d709e1cfc88df7b10425ef5eef5e064b6ad1990853c84772d9",
+    "src/scalar/scalar_value.rs": "71511e49cb979f55944432ae1042d8a1db89d14eb5942fc4f226beff276948c3",
+    "src/scalar/typed_view/list.rs": "a45a406fa5bad5f74ebb39565f390691bf6743a1749f9f1101a7f6cdde3c7653",
+    "src/scalar/typed_view/map.rs": "21afd6ee29a97dda66cf34c4c0a57dca8ebe95df1ea64512054ff3e38490a0f4",
+    "src/scalar/typed_view/struct_.rs": "98924d55f2f0f9da89a923fcbd131bb1b5e7ae439a5acd6094704e9f51ca6d9e",
+    "src/scalar/typed_view/union.rs": "defbd295d4287c3cbb9a846fd948f8b77176163ca1627e0f4d8b39740f5c2d7b",
+    "src/scalar/typed_view/variant.rs": "3e99893ec18c6ca60ae172fc828cdbc792d72f8039019fc1770af94bca2b5732",
     "src/scalar/validate.rs": "d8eedb89db16748ff65d0ccd5929331fa68638f9d23e06ff1aff210469407b41",
     "src/scalar_fn/fns/binary/compare/mod.rs": "2b0b41a6389ab522701f32b039b18c48722004f08e4ec2f3984af8e4b18e2cac",
     "src/scalar_fn/fns/get_item.rs": "a3f7142452fbb766f3e1724e959b77efec155d695042567f1268fa1382b81d3a",
@@ -962,7 +967,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "2bf5a771cdb1ee24ff073dc54d329fa1d3732204f416de3fcdf0858ae31d9f43",
+    "README.shardloom.md": "3dd2594d7733eb65c72112dcaf41dd183cda55341d2640f25f9e8d8bbe2a7fde",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -993,6 +998,9 @@
     "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
     "src/scalar/diagnostic.rs": "9bc1c222c539077bdbaa79ce27a10446f26d2c6a95608f1abe3bf01dfd5ffdb9",
     "src/scalar/diagnostic_tests.rs": "223ae9b78291f4575e7c8b07c987a882931ea4b6863ba57a2da6ca1c8ece5d94",
+    "src/scalar/formatting.rs": "e0d6bbb8348f554f06a00a87fb985128be194ce27dbe5aacf872f3612f0e01f1",
+    "src/scalar/formatting_reference.rs": "aeebd2b571fb8501b8c56a65dfb04c12d0e3c0841173d18b90e13c7d3fa5e10d",
+    "src/scalar/formatting_tests.rs": "d4fbd6d148e35d9af8e8c945853b7de1cc8f39776dbf620684e325698e12ec67",
     "src/scalar/ordering.rs": "6ccabd278b4a3b4faa2bbaa04b385b316eee87dba5b5518e3764281b9b94cdb9",
     "src/scalar/ordering_reference.rs": "c5209cead887306e1267dc7d42bee3b60b9d0288dbd580c60ff7cd92e23817fd",
     "src/scalar/ordering_tests.rs": "8315a4cc885dfe55964f0ddfbb7df50bf754ae42c1db45047833abfe2d098dab",
@@ -1007,7 +1015,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "2bf5a771cdb1ee24ff073dc54d329fa1d3732204f416de3fcdf0858ae31d9f43"
+    "sha256": "3dd2594d7733eb65c72112dcaf41dd183cda55341d2640f25f9e8d8bbe2a7fde"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

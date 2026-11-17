@@ -1,5 +1,24 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative scalar formatting
+
+Ordinary typed and raw scalar Display share borrowed ordered continuations,
+including standalone list, struct, map, union and Variant views. Original text,
+partial failed-sink output, legacy F16 child construction, lazy access and
+validation/unpack/format callback order are preserved. Struct fields and map
+entries still finish before their separators reach the caller; nested joins
+share one String. Errors inside that String retain their original panic outcome.
+
+The pinned foreign extension's raw display shares the loop. Other native
+extension formatters keep their callback boundary; arbitrary custom callback
+recursion is outside this guarantee. Independently adapted recursive references
+cover shallow output, flags, callback failures and every byte-sized sink limit.
+All compound shapes and a foreign/Variant/struct chain pass 8,192-level Display
+and cleanup on a 128-KiB stack. All 5,840 provider tests and strict provider lint
+pass, with one existing ignored test. Ordinary Display is not truncated; the
+existing depth admission remains until full lifecycle/resource acceptance.
+See the [scalar Display amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-display-amendment-november-17-2026).
+
 ## November 17 iterative scalar ordering
 
 Scalar ordering traverses nested tuples and selected union values with borrowed

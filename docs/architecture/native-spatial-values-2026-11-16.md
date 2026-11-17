@@ -87,6 +87,12 @@ linking, before executing the suite. Verified retirement of completed artifacts
 provided headroom; the final full run passed with the same storage floor,
 deadlines and test selection. No package publication is part of this delivery.
 
+PR [#1697](https://github.com/depsilon/shardloom/pull/1697) merged as
+`6688dd9b996b443da276e01b4290e1c18c127438` after all 57 required PR checks
+passed and review was clear. [Exact-main CI](https://github.com/depsilon/shardloom/actions/runs/44020827064)
+and all 54 required main checks subsequently passed. Cloudflare Workers retains
+the existing maintainer exception at both boundaries.
+
 The representation follows the [GeoArrow 0.2 format](https://geoarrow.org/format)
 and [extension metadata](https://geoarrow.org/extension-types). The existing
 [columnar geometry design reference](https://spiraldb.com/deep-dives/geometry)

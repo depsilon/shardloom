@@ -17,6 +17,7 @@ use crate::dtype::Nullability;
 use crate::dtype::UnionVariants;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// The present value stored by a union scalar.
 ///
@@ -81,14 +82,7 @@ pub struct UnionScalar<'a> {
 
 impl Display for UnionScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let Some(value) = self.child() else {
-            return write!(f, "null");
-        };
-        let name = self
-            .variant_name()
-            .vortex_expect("non-null union scalar must select a variant");
-
-        write!(f, "{name}({value})")
+        formatting::display_union(self.variants(), self.value, f)
     }
 }
 

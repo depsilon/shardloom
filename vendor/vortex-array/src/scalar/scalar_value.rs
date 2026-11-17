@@ -156,6 +156,12 @@ impl ScalarValue {
 
 impl Display for ScalarValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        super::formatting::display_raw(self, f)
+    }
+}
+
+impl ScalarValue {
+    pub(super) fn fmt_leaf(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ScalarValue::Bool(b) => write!(f, "{b}"),
             ScalarValue::Primitive(p) => write!(f, "{p}"),
@@ -185,28 +191,7 @@ impl Display for ScalarValue {
                     write!(f, "{}", to_hex(b))
                 }
             }
-            ScalarValue::Tuple(elements) => {
-                write!(f, "[")?;
-                for (i, element) in elements.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    match element {
-                        None => write!(f, "null")?,
-                        Some(e) => write!(f, "{}", e)?,
-                    }
-                }
-                write!(f, "]")
-            }
-            ScalarValue::Union(value) => {
-                write!(f, "union@{}(", value.type_id())?;
-                match value.child_value() {
-                    Some(value) => write!(f, "{value}"),
-                    None => write!(f, "null"),
-                }?;
-                write!(f, ")")
-            }
-            ScalarValue::Variant(value) => write!(f, "{value}"),
+            _ => unreachable!("compound scalar formatting uses continuations"),
         }
     }
 }
