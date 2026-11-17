@@ -236,13 +236,12 @@ pub(crate) fn storage(dtype: &DType) -> Option<&DType> {
     Some(extension.storage_dtype())
 }
 
-pub(crate) fn contains(dtype: &DType) -> bool {
-    match dtype {
-        DType::Extension(_) => storage(dtype).is_some(),
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains(child),
-        DType::Struct(fields, _) => fields.fields().any(|child| contains(&child)),
-        _ => false,
-    }
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn contains(
+    dtype: &DType,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> shardloom_core::Result<bool> {
+    crate::native_payload_schema::contains_type(dtype, scope, |dtype| storage(dtype).is_some())
 }
 
 pub(crate) fn register(session: &vortex::session::VortexSession) {

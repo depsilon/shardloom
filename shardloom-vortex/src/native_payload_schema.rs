@@ -9,6 +9,12 @@ use vortex::array::dtype::{DType, DecimalDType};
 mod walk;
 
 #[cfg(feature = "vortex-local-primitives")]
+#[path = "native_payload_schema_classification.rs"]
+mod classification;
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) use classification::contains_type;
+
+#[cfg(feature = "vortex-local-primitives")]
 #[path = "native_dtype_json.rs"]
 pub(crate) mod json;
 

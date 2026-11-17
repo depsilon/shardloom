@@ -449,7 +449,15 @@ workflow, performance and acceptance work recorded in the historical notes.
   partial credit and error order; 8,192-level small-stack controls prove costs,
   denied growth, cancellation and panic cleanup. All 44 Variant tests, 245
   payload regressions and strict native workspace lint pass on the same sources.
-  Public depth limits remain unchanged. Remaining native schema classification,
+  Six native payload-presence classifiers now share the admitted borrowed schema
+  cursor. Frozen original predicates and exact transformations at all 16 callers
+  preserve family decisions, ordering and rejection messages. Shallow eager/lazy
+  parity, early-match lazy-field suppression, 8,192-level small-stack traversal,
+  denied growth, shared-subtree work bounds and cancellation/unwind cleanup pass.
+  The focused three tests, 538 nearby regressions and strict native workspace
+  lint pass; one existing release benchmark remains ignored. The initial
+  invalid nonnullable-Null fixture failure is retained. Public depth limits
+  remain unchanged. Binary-object classification owner boundaries,
   Variant/Arrow conversions, recursive provider compute,
   native memory prepayment and complete deep-workflow acceptance remain open.
   Execution checklist:

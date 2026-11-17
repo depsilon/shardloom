@@ -103,7 +103,7 @@ fn bind_inputs(
             .ok_or_else(|| failed("pivot source column is absent"))?;
         let dtype = super::schema::source_field(dtype, name)?;
         native_payload::metadata_bytes(&dtype, scope)?;
-        if crate::native_variant::contains(&dtype) {
+        if crate::native_variant::contains(&dtype, scope)? {
             return Err(failed(
                 "pivot requires comparable values; Variant values are payload-only",
             ));

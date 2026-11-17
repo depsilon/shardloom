@@ -1302,6 +1302,31 @@ physical wrapper, raw object/list and typed-shell fixtures must prove credited
 growth, cancellation/error/unwind cleanup and final owner release on small
 stacks. They do not replace full deep workflow or Arrow conversion proof.
 
+### Native payload classification amendment, November 17, 2026
+
+Use the existing borrowed `DTypeChildren` provider and admitted schema cursor
+for the six recursive Variant, vector, fixed/variable tensor, embedding and
+Float16 presence checks. Only lists, fixed lists and struct fields are searched,
+in their current order; extensions, maps and unions retain their existing leaf
+classification. Stop at the first matching node and do not inspect later lazy
+fields. This is semantic inspection of the same native schema, not conversion
+or a new representation.
+
+Pass the caller's existing schema scope through each classification boundary.
+The existing schema budget charges visited work and continuation capacity,
+including replacement overlap; cancellation and fallible lazy-field errors
+must propagate, and all temporary credits must refund on success, denial,
+error or unwind. Each presence check keeps its own existing position in key
+and output admission so that family rejection precedence does not change.
+The lower-level binary-object classifier has additional file/layout owner
+boundaries and remains a separate admission obligation.
+
+Compare the six frozen original predicates on complete shallow schemas,
+including unrelated extensions and unsupported container domains. Deep ordered
+chains, branching/wide schemas, shared-subtree amplification, early matches,
+denied growth and cancellation must be checked on small stacks. Keep every
+public payload-depth guard until full lifecycle acceptance.
+
 ### Native buffer-credit continuation amendment, November 17, 2026
 
 Remove recursive ShardLoom credit wrappers while retaining the same Vortex

@@ -224,7 +224,7 @@ fn validate_duplicate_keys(
         for name in keys {
             let field = source_field(dtype, name)?;
             super::super::native_payload::metadata_bytes(&field, scope)?;
-            if crate::native_variant::contains(&field) {
+            if crate::native_variant::contains(&field, scope)? {
                 return Err(failed(
                     "Variant values are payload-only; duplicate keys require ordinary columns",
                 ));

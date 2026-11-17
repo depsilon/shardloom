@@ -216,7 +216,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && crate::native_embedding::contains(&plan.dtype)
+    ) && crate::native_embedding::contains(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
@@ -225,8 +225,8 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && (crate::native_tensor::contains(&plan.dtype)
-        || crate::native_variable_tensor::contains(&plan.dtype))
+    ) && (crate::native_tensor::contains(&plan.dtype, plan.session.memory().into())?
+        || crate::native_variable_tensor::contains(&plan.dtype, plan.session.memory().into())?)
     {
         return Err(error(
             "this output format cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
@@ -235,7 +235,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && contains_float16(&plan.dtype)
+    ) && contains_float16(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format has no admitted exact Float16 mapping; use Vortex, Arrow IPC or Parquet",
@@ -244,7 +244,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && crate::native_vector::contains(&plan.dtype)
+    ) && crate::native_vector::contains(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format cannot preserve vector interpretation; use Vortex, Arrow IPC or Parquet",
@@ -295,13 +295,10 @@ pub(super) fn prepare_plan(
     }))
 }
 
-fn contains_float16(dtype: &DType) -> bool {
-    match dtype {
-        DType::Primitive(vortex::array::dtype::PType::F16, _) => true,
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains_float16(child),
-        DType::Struct(fields, _) => fields.fields().any(|child| contains_float16(&child)),
-        _ => false,
-    }
+fn contains_float16(dtype: &DType, scope: crate::native_payload_schema::Scope<'_>) -> Result<bool> {
+    crate::native_payload_schema::contains_type(dtype, scope, |dtype| {
+        matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F16, _))
+    })
 }
 
 fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {

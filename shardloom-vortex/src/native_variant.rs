@@ -5,6 +5,7 @@
 
 use parquet_variant::{Variant, VariantMetadata};
 use shardloom_core::{Result, ShardLoomError};
+#[cfg(feature = "vortex-local-primitives")]
 use vortex::array::dtype::DType;
 
 #[cfg(feature = "universal-format-io")]
@@ -17,14 +18,14 @@ mod expression_report;
 #[cfg(feature = "vortex-local-primitives")]
 pub(crate) use expression_report::ExpressionWork;
 
-/// Call after the shared schema walk has bounded recursion and metadata.
-pub(crate) fn contains(dtype: &DType) -> bool {
-    match dtype {
-        DType::Variant(_) => true,
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains(child),
-        DType::Struct(fields, _) => fields.fields().any(|child| contains(&child)),
-        _ => false,
-    }
+#[cfg(feature = "vortex-local-primitives")]
+pub(crate) fn contains(
+    dtype: &DType,
+    scope: crate::native_payload_schema::Scope<'_>,
+) -> Result<bool> {
+    crate::native_payload_schema::contains_type(dtype, scope, |dtype| {
+        matches!(dtype, DType::Variant(_))
+    })
 }
 
 pub(crate) fn failed(message: impl std::fmt::Display) -> ShardLoomError {

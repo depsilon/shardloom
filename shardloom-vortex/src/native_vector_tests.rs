@@ -203,7 +203,13 @@ fn native_vector_storage_retains_every_primitive_width_and_nullability() {
                         shardloom_exec::live_memory::LiveMemoryPool::new(32 << 20).unwrap();
                     assert!(crate::native_payload_schema::metadata_bytes(&dtype, &memory).is_ok());
                     assert!(!crate::native_payload_schema::admitted_scalar(&dtype));
-                    assert!(contains(&DType::List(dtype.clone().into(), true.into())));
+                    assert!(
+                        contains(
+                            &DType::List(dtype.clone().into(), true.into()),
+                            (&memory).into()
+                        )
+                        .unwrap()
+                    );
                     #[cfg(feature = "universal-format-io")]
                     assert_eq!(
                         arrow::dtype(&arrow::field("v", &dtype).unwrap()).unwrap(),
