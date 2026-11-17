@@ -13,7 +13,7 @@ use vortex::{
     encodings::parquet_variant::ParquetVariantArrayExt,
 };
 
-pub(super) fn validate(
+pub(in crate::local_primitives::native_payload) fn validate(
     source: &impl ParquetVariantArrayExt,
     rows: &[Option<usize>],
     context: &NativeExecutionContext<'_>,

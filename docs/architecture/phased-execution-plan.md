@@ -396,9 +396,18 @@ workflow, performance and acceptance work recorded in the historical notes.
   runs (42 existing opt-in tests ignored), with strict lint and formatting.
   Preserve the original workspace deadline failure: its sole unfinished
   calendar cleanup test and remaining integration/example targets passed in
-  separate bounded runs. Public depth limits are unchanged. Native payload
-  operations, provider memory prepayment and complete deep-workflow acceptance
-  remain open.
+  separate bounded runs. Native payload copying and scratch estimation now use
+  admitted ordered continuations. Nine frozen original function bodies verify
+  shallow schema/wire output, encodings, scalar counts, retained bytes and
+  errors across copy policies, wrappers and shredded Variant inputs. Private
+  8,192-level default construction and prepared-identity validation pass on
+  128-KiB stacks, including deep/late errors, denied growth, allocation panic,
+  cancellation and escaped-owner refunds. All 243 payload-related tests and
+  strict native workspace lint pass at this checkpoint. Preserve the original
+  unprepared-source stack failure: provider optimizer traversal remains
+  recursive and must be replaced before retained deep selection is admitted.
+  Public depth limits are unchanged. Variant validation, provider compute and
+  memory prepayment, and complete deep-workflow acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

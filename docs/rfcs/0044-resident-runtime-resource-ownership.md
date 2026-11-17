@@ -1144,6 +1144,54 @@ mixed conversion, complete field inspection, late failure, capacity refusal,
 detached children and cleanup on 128-KiB subprocess stacks. Keep the public
 depth-24 schema and depth-96 JSON limits until whole-lifecycle admission passes.
 
+### Native payload continuation amendment, November 17, 2026
+
+Retain Vortex's native arrays, selection providers and constructors while
+replacing the payload copier's recursive control with ordered continuations.
+Upstream take does not replace ShardLoom's parent masking, typed validation,
+numeric observation, scalar counts or credited output contract. Ordinary
+payloads and Variant wrappers must share one driver so a shredded child cannot
+reenter a recursive copier. Do not introduce a decoded row tree, Arrow execution
+or external-engine delegation.
+
+Keep root coordinates borrowed. Temporary child coordinates live in a flat,
+admitted arena; parent frames retain their indices, selected native arrays,
+execution contexts, fixed-list expansion, child containers, offsets and masks
+until the original completion boundary. Admit frame and arena replacement
+overlap before allocation. On failure or unwind, drain suspended parents
+innermost first, keeping coordinate capacity credit through contained cleanup.
+Cleanup must not allocate or request another grant.
+
+Preserve extension validation before storage copying, struct parent validity
+before field-major children, and list coordinates and fixed-size expansion
+before selection. Finish the flattened child before creating parent validity
+and offsets. Keep lazy sibling inspection, cancellation checks, copy policies,
+scalar counts and leaf operations in their original order. Variant handling
+preserves mapped dictionary/slice/mask coordinates, contiguous chunk runs,
+core-before-shredded validation, synthetic metadata/value/typed_value field
+order, all-null/default shortcuts and the existing depth-64 wrapper diagnostic.
+Chunk and Parquet metadata owners must remain live through output construction.
+
+The payload scratch estimator uses admitted borrowed continuations in the
+caller's live pool. Preserve postorder checked arithmetic, extension no-overhead
+returns, lazy struct fields and the depth-64 overflow diagnostic, including
+zero-width fixed-list cases. A private explicit limit may exercise deep
+mechanisms; it is not public admission.
+
+Require frozen original-function comparisons of complete shallow schema/wire
+output, encodings, scalar counts, errors and retained credit for both copy
+policies and retention modes. Cover all selected wrapper forms, wide siblings,
+null/repeated/default coordinates, counter overflow and non-finite bit patterns.
+Private 8,192-level tests must inspect complete default output and identity
+validation of independently prepared native inputs, deepest/late errors,
+allocation panic, cancellation, denied growth
+and escaped-owner refunds on 128-KiB stacks. Present retained deep selections
+still require separate Vortex optimizer/take/filter/scalar/cast/canonical proofs;
+default and prepared-identity fixtures cannot establish them. Variant value validation and
+nested allocator-owner cleanup retain their separate obligations. Do not lift
+public depth limits or claim full lifecycle or performance acceptance from
+this amendment alone.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

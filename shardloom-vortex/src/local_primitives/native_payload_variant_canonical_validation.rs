@@ -22,7 +22,7 @@ use vortex::{
     },
 };
 
-pub(super) fn validate(
+pub(in crate::local_primitives::native_payload) fn validate(
     core: &ArrayRef,
     typed: &ArrayRef,
     rows: &[Option<usize>],
