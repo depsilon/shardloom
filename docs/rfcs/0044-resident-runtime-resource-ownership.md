@@ -464,6 +464,29 @@ order, NULL refusal and unchanged nested-child nullability.
 Formatting, physical verification and serialization remain separate obligations.
 No new unsafe code is needed for these structural operations.
 
+### Native schema FlatBuffer write amendment, November 17, 2026
+
+Replace recursive DType writing with borrowed parent continuations inside the
+existing array provider. Keep the same generated FlatBuffer tables, enum tags,
+metadata callbacks and builder. Write struct/union name strings and their vector
+before visiting children, preserve key-before-value and declared sibling order,
+write union tags after child offsets, and create an extension ID before its
+storage child and metadata only after that child succeeds. Preserve lazy-field
+panic boundaries and metadata errors. Do not preparse the complete schema or
+reorder table/string creation: existing shallow buffers must remain byte-identical
+when written into identical builder states.
+
+Parent frames borrow schema metadata and retain only pending child offsets. Lists
+and extensions need no per-node child vector. Struct/union vectors use their
+declared child count and are released after their table is emitted. Source
+ownership and the existing writer admission must cover the frames, offsets,
+builder growth and overlap before deeper inputs are admitted. A small-stack
+write test establishes writer stack safety only; the existing recursive physical
+verifier and reader remain explicit blockers to a deep round-trip claim. Keep
+those guards until their independent implementation and adversarial validation
+are complete. No new unsafe code, schema version or external execution provider
+is introduced by this writer amendment.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

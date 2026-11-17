@@ -1,5 +1,19 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative schema writer
+
+The native FlatBuffer dtype writer uses borrowed parent continuations instead
+of recursive child calls. It preserves generated table/string order, lazy field
+inspection and extension metadata callback order. Shallow eager/lazy fixtures
+match the prior recursive writer byte-for-byte, including populated builders and
+partial buffers after metadata errors. Small-stack subprocesses write 8,192-level
+list, fixed-list, map, struct, union, extension and mixed schemas. The unchanged
+generic verifier still rejects those deep buffers; these writer tests do not
+establish a public deep round trip or increase admission. See the
+[writer amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-flatbuffer-write-amendment-november-17-2026).
+The test-only recursive reference retains the pinned writer's Apache-2.0 source
+and copyright notice, with only its function entry and recursive calls adapted.
+
 ## November 17 schema structural operations
 
 Ordinary and nullability-insensitive DType equality and hashing now traverse

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-11-09: admit lazy struct metadata containers
 // through the session host allocator before creating names or field caches.
+// Modified on 2026-11-17: write native schemas through ordered borrowed continuations.
 
 use std::sync::Arc;
 
@@ -9,7 +10,6 @@ use flatbuffers::FlatBufferBuilder;
 use flatbuffers::Follow;
 use flatbuffers::WIPOffset;
 use flatbuffers::root;
-use itertools::Itertools;
 use vortex_error::VortexError;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -361,6 +361,9 @@ impl TryFrom<ViewedDType> for DType {
 
 impl FlatBufferRoot for DType {}
 
+#[path = "flatbuffers_write.rs"]
+mod write;
+
 impl WriteFlatBuffer for DType {
     type Target<'a> = fb::DType<'a>;
 
@@ -368,188 +371,7 @@ impl WriteFlatBuffer for DType {
         &self,
         fbb: &mut FlatBufferBuilder<'fb>,
     ) -> VortexResult<WIPOffset<Self::Target<'fb>>> {
-        let dtype_union = match self {
-            Self::Null => fb::Null::create(fbb, &fb::NullArgs {}).as_union_value(),
-            Self::Bool(n) => fb::Bool::create(
-                fbb,
-                &fb::BoolArgs {
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::Primitive(ptype, n) => fb::Primitive::create(
-                fbb,
-                &fb::PrimitiveArgs {
-                    ptype: (*ptype).into(),
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::Decimal(dt, n) => fb::Decimal::create(
-                fbb,
-                &fb::DecimalArgs {
-                    precision: dt.precision(),
-                    scale: dt.scale(),
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::Utf8(n) => fb::Utf8::create(
-                fbb,
-                &fb::Utf8Args {
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::Binary(n) => fb::Binary::create(
-                fbb,
-                &fb::BinaryArgs {
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::List(edt, n) => {
-                let element_type = Some(edt.as_ref().write_flatbuffer(fbb)?);
-                fb::List::create(
-                    fbb,
-                    &fb::ListArgs {
-                        element_type,
-                        nullable: (*n).into(),
-                    },
-                )
-                .as_union_value()
-            }
-            Self::FixedSizeList(edt, size, n) => {
-                let element_type = Some(edt.as_ref().write_flatbuffer(fbb)?);
-                fb::FixedSizeList::create(
-                    fbb,
-                    &fb::FixedSizeListArgs {
-                        element_type,
-                        size: *size,
-                        nullable: (*n).into(),
-                    },
-                )
-                .as_union_value()
-            }
-            Self::Map(map, n) => {
-                let key_type = Some(map.key_dtype().write_flatbuffer(fbb)?);
-                let value_type = Some(map.value_dtype().write_flatbuffer(fbb)?);
-                fb::Map::create(
-                    fbb,
-                    &fb::MapArgs {
-                        key_type,
-                        value_type,
-                        keys_sorted: map.keys_sorted(),
-                        nullable: (*n).into(),
-                    },
-                )
-                .as_union_value()
-            }
-            Self::Struct(st, n) => {
-                let names = st
-                    .names()
-                    .iter()
-                    .map(|n| fbb.create_string(n.as_ref()))
-                    .collect_vec();
-                let names = Some(fbb.create_vector(&names));
-
-                let dtypes = st
-                    .fields()
-                    .map(|dtype| dtype.write_flatbuffer(fbb))
-                    .collect::<VortexResult<Vec<_>>>()?;
-                let dtypes = Some(fbb.create_vector(&dtypes));
-
-                fb::Struct_::create(
-                    fbb,
-                    &fb::Struct_Args {
-                        names,
-                        dtypes,
-                        nullable: (*n).into(),
-                    },
-                )
-                .as_union_value()
-            }
-            Self::Union(uv, n) => {
-                let names = uv
-                    .names()
-                    .iter()
-                    .map(|name| fbb.create_string(name.as_ref()))
-                    .collect_vec();
-                let names = Some(fbb.create_vector(&names));
-
-                let dtypes = uv
-                    .variants()
-                    .map(|dtype| dtype.write_flatbuffer(fbb))
-                    .collect::<VortexResult<Vec<_>>>()?;
-                let dtypes = Some(fbb.create_vector(&dtypes));
-
-                // The FlatBuffers schema retains its original signed byte wire type for backwards
-                // compatibility. Reinterpreting the bits preserves the full u8 tag range.
-                let type_ids = uv
-                    .type_ids()
-                    .iter()
-                    .copied()
-                    .map(u8::cast_signed)
-                    .collect_vec();
-                let type_ids = Some(fbb.create_vector(&type_ids));
-
-                fb::Union::create(
-                    fbb,
-                    &fb::UnionArgs {
-                        names,
-                        dtypes,
-                        type_ids,
-                        nullable: (*n).into(),
-                    },
-                )
-                .as_union_value()
-            }
-            Self::Variant(n) => fb::Variant::create(
-                fbb,
-                &fb::VariantArgs {
-                    nullable: (*n).into(),
-                },
-            )
-            .as_union_value(),
-            Self::Extension(ext) => {
-                let id = Some(fbb.create_string(ext.id().as_ref()));
-                let storage_dtype = Some(ext.storage_dtype().write_flatbuffer(fbb)?);
-                let metadata = Some(fbb.create_vector(&ext.serialize_metadata()?));
-                fb::Extension::create(
-                    fbb,
-                    &fb::ExtensionArgs {
-                        id,
-                        storage_dtype,
-                        metadata,
-                    },
-                )
-                .as_union_value()
-            }
-        };
-
-        let dtype_type = match self {
-            Self::Null => fb::Type::Null,
-            Self::Bool(_) => fb::Type::Bool,
-            Self::Primitive(..) => fb::Type::Primitive,
-            Self::Decimal(..) => fb::Type::Decimal,
-            Self::Utf8(_) => fb::Type::Utf8,
-            Self::Binary(_) => fb::Type::Binary,
-            Self::List(..) => fb::Type::List,
-            Self::FixedSizeList(..) => fb::Type::FixedSizeList,
-            Self::Map(..) => fb::Type::Map,
-            Self::Struct(..) => fb::Type::Struct_,
-            Self::Union(..) => fb::Type::Union,
-            Self::Variant(_) => fb::Type::Variant,
-            Self::Extension { .. } => fb::Type::Extension,
-        };
-
-        Ok(fb::DType::create(
-            fbb,
-            &fb::DTypeArgs {
-                type_type: dtype_type,
-                type_: Some(dtype_union),
-            },
-        ))
+        write::write_dtype(self, fbb)
     }
 }
 

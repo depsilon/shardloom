@@ -258,9 +258,10 @@ these same rows and the completed ledger; there is no separate board status to
 maintain. Hosted closeout continues alongside the next implementation when it
 has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
 
-- [ ] **Direct join aggregate — hosted integration**
-  Status: Review — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
-  merged as `8969fc817` after all 58 PR checks passed; exact-main checks remain.
+- [x] **Direct join aggregate — hosted integration**
+  Status: Complete — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
+  merged as `8969fc817` after all 58 PR checks passed. Exact-main CI and all
+  54 required checks pass; Cloudflare Workers retains the existing maintainer exception.
   The [unique inner-dimension stage](native-join-aggregate-2026-11-16.md) is
   [locally retained](../benchmarks/native-join-aggregate-2026-11-16.md). All 630
   requests pass; complete engine time is 94.178862655 → 91.576505630 seconds.
@@ -268,7 +269,7 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   original large star requests regress. No causal or large speedup is established.
   Execution checklist:
   - [x] Complete source, installed-package and complete-result acceptance.
-  - [ ] Complete hosted review, CI, merge and exact-main verification.
+  - [x] Complete hosted review, CI, merge and exact-main verification.
 
 - [ ] **Native spatial values — hosted integration**
   Status: Review — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
@@ -289,8 +290,10 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   8,192-level small-stack tests, including detached/concurrent owners and panic
   ordering. Equality, hashing and extension nullability also pass 8,192-level
   small-stack checks, with recursive-reference hash compatibility and lazy parse
-  order verified. All 5,802 array-provider tests pass (one existing ignored test),
-  and native workspace strict lint passes. Formatting, serialization and complete
+  order verified. The iterative FlatBuffer writer preserves existing bytes and
+  metadata callback order and passes the same deep write test. All 5,805
+  array-provider tests pass (one existing ignored test), and native workspace
+  strict lint passes. Formatting, physical verification/readers and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
@@ -298,6 +301,7 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [x] Share fallible provider child traversal with result-schema admission.
   - [x] Add intrinsic schema, array-slot and scalar cleanup with retained-owner proof.
   - [x] Make native schema equality, hashing and extension nullability stack-safe.
+  - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
   - [ ] Complete native provider serialization, value traversal and cleanup.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.
