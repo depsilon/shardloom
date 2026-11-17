@@ -25,6 +25,7 @@ mod proto;
 mod release;
 mod scalar_impl;
 mod scalar_value;
+mod structural;
 mod truncation;
 mod typed_view;
 mod validate;

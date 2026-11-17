@@ -22,7 +22,7 @@ use crate::scalar::UnionValue;
 ///
 /// This enum represents the possible non-null values that can be stored in a scalar. When the
 /// scalar is null, the value is represented as `None` in the `Option<ScalarValue>` field.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Eq)]
 pub enum ScalarValue {
     /// A boolean value.
     Bool(bool),

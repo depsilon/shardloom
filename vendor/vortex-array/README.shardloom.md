@@ -1,5 +1,22 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative scalar structural operations
+
+ScalarValue clone, equality and hashing traverse tuple, union and Variant
+children with explicit ordered continuations. Copies preserve the existing
+shared native buffer and dtype owners. Equality keeps length/tag checks and
+Variant dtype-before-value checks; hashing preserves each original discriminant,
+length, dtype and leaf write on the same compiler. Standalone Scalar and
+UnionValue wrappers use the same iterative child operations.
+
+Independent shallow derived references cover all numeric/decimal widths, nulls,
+non-consecutive union tags, Variant nullability and wide tuples. Existing raw
+PValue cross-domain upcast panics are preserved and compared as outcomes.
+Small-stack 8,192-level clone/equality/hash/release checks prove retained buffer
+identity and last-owner lifetime. Validation, formatting, serialization and
+resource prepayment remain separate obligations under the
+[scalar structural amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-structural-operation-amendment-november-17-2026).
+
 ## November 17 iterative schema formatting
 
 Native schema Display now uses borrowed ordered continuations. Its text remains

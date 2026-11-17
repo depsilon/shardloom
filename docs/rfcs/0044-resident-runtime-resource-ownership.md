@@ -579,6 +579,32 @@ deep and wide schemas and small-stack diagnostic/Display checks. Do not
 truncate Display or use the bounded Debug form in identity calculations.
 Public data depth limits remain until the rest of the lifecycle is admitted.
 
+### Native scalar structural-operation amendment, November 17, 2026
+
+Continue the same native-value lifecycle through `ScalarValue` cloning, equality
+and hashing. Tuple elements, selected union children and row-specific Variant
+scalars use ordered borrowed continuations. Clone only the existing native
+containers; retain the ordinary shared buffer and dtype owners. Build Variant
+copies directly from their already validated fields without revalidation or
+an intermediate row representation. Partially built native values use their
+intrinsic iterative cleanup on failure.
+
+Preserve tuple length checks and element order, union tag-before-child checks,
+and the Variant scalar's nullability-insensitive dtype comparison before its
+optional value. Hashing must preserve the prior enum and Option discriminants,
+tuple length prefixes, union tags, dtype feed and every leaf hash write on the
+same compiler. Scalar's existing outer dtype/optional-value contract and the
+standalone `UnionValue` wrapper remain unchanged. No new unsafe code or provider
+dependency is needed. Native admission must cover continuation growth and
+cloned container overlap before deeper values become public.
+
+Require independent shallow derived-reference comparisons and per-write hash
+checks, all primitive and null states, selected union tags, Variant dtype
+differences, wide tuples, shared-buffer ownership and 8,192-level small-stack
+clone/equality/hash/release tests. Validation, ordering, formatting, transport
+and whole-runtime resource admission remain separate obligations; these checks
+alone do not lift the public depth guard.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
