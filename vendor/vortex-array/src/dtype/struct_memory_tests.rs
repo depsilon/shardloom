@@ -12,6 +12,7 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_err;
 use vortex_session::VortexSession;
 
+use super::FieldDTypeInner;
 use super::StructFields;
 use crate::dtype::DType;
 use crate::dtype::Nullability;
@@ -231,7 +232,7 @@ fn concurrent_lazy_first_touch_constructs_one_admitted_child() -> VortexResult<(
     let workers: Vec<_> = (0..8)
         .map(|_| {
             let fields = fields.clone();
-            let start = start.clone();
+            let start = Arc::clone(&start);
             thread::spawn(move || {
                 start.wait();
                 fields.try_field_by_index(0).unwrap().unwrap()
@@ -252,6 +253,65 @@ fn concurrent_lazy_first_touch_constructs_one_admitted_child() -> VortexResult<(
     assert_eq!(admission.0.lock().reservations, 2);
     drop((root, fields, session, children));
     assert_eq!(admission.0.lock().live, 0);
+    Ok(())
+}
+
+#[test]
+fn dropping_uninspected_schema_releases_only_its_single_reservation() -> VortexResult<()> {
+    let admission = Admission::default();
+    admission.0.lock().limit = 32 << 20;
+    let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+    let root = DType::from_flatbuffer(fixture()?, &session)?;
+    let fields = root.as_struct_fields_opt().unwrap();
+    let FieldDTypeInner::View(_, cache) = &fields.0.dtypes[0].inner else {
+        unreachable!("flatbuffer struct field must remain a lazy view")
+    };
+    assert!(cache.value.get().is_none());
+
+    let live = admission.0.lock().live;
+    assert!(live > 0);
+    assert_eq!(admission.0.lock().reservations, 1);
+    admission.0.lock().limit = live;
+    drop(root);
+    drop(session);
+
+    assert_eq!(admission.0.lock().live, 0);
+    assert_eq!(admission.0.lock().reservations, 1);
+    Ok(())
+}
+
+#[test]
+fn detached_initialized_field_keeps_child_storage_until_its_final_drop() -> VortexResult<()> {
+    let admission = Admission::default();
+    admission.0.lock().limit = 32 << 20;
+    let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+    let root = DType::from_flatbuffer(fixture()?, &session)?;
+    let fields = root.as_struct_fields_opt().unwrap();
+    let root_live = admission.0.lock().live;
+    assert_eq!(admission.0.lock().reservations, 1);
+
+    // First touch initializes the cached child; discard the returned DType so the cache is the
+    // only child owner retained by the detached FieldDType below.
+    drop(fields.try_field_by_index(0)?.unwrap());
+    let detached = fields.0.dtypes[0].clone();
+    let FieldDTypeInner::View(_, cache) = &detached.inner else {
+        unreachable!("flatbuffer struct field must remain a lazy view")
+    };
+    assert!(cache.value.get().is_some());
+
+    let all_live = admission.0.lock().live;
+    assert!(all_live > root_live);
+    assert_eq!(admission.0.lock().reservations, 2);
+    drop(root);
+    drop(session);
+
+    let child_live = all_live - root_live;
+    assert_eq!(admission.0.lock().live, child_live);
+    assert!(child_live > 0);
+    assert_eq!(admission.0.lock().reservations, 2);
+    drop(detached);
+    assert_eq!(admission.0.lock().live, 0);
+    assert_eq!(admission.0.lock().reservations, 2);
     Ok(())
 }
 

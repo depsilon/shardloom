@@ -105,14 +105,14 @@ fn vector(quantized: bool, invalid: bool) -> ArrayRef {
             ]),
         )
     };
-    let DType::Extension(dtype) = crate::native_vector::dtype(
+    let DType::Extension(dtype) = &crate::native_vector::dtype(
         Metadata::parse(kind, metadata).unwrap(),
         storage.dtype().clone(),
     )
     .unwrap() else {
         panic!("extension")
     };
-    ExtensionArray::new(dtype, storage).into_array()
+    ExtensionArray::new(dtype.clone(), storage).into_array()
 }
 
 fn variant(invalid: bool, masked: bool) -> ArrayRef {
@@ -181,14 +181,14 @@ fn fixtures() -> Vec<ArrayRef> {
     #[cfg(feature = "native-binary-objects")]
     let arrays = {
         let mut arrays = arrays;
-        let DType::Extension(dtype) = crate::native_binary_type::dtype(true).unwrap() else {
+        let DType::Extension(dtype) = &crate::native_binary_type::dtype(true).unwrap() else {
             panic!("extension")
         };
         // Movement preserves opaque descriptor bytes. Resolving a managed
         // object is a different, explicit boundary and must not occur here.
         arrays.push(
             ExtensionArray::new(
-                dtype,
+                dtype.clone(),
                 VarBinViewArray::from_iter_nullable_bin([
                     Some(b"opaque descriptor one".as_slice()),
                     None,

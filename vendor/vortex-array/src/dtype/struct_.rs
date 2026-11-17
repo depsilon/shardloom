@@ -136,6 +136,16 @@ impl Hash for FieldDTypeInner {
 }
 
 impl FieldDType {
+    /// Take an already initialized child for final-owner cleanup. Never parse a view.
+    pub(super) fn into_initialized(self) -> Option<DType> {
+        match self.inner {
+            FieldDTypeInner::Owned(dtype) => Some(dtype),
+            FieldDTypeInner::View(_, cached) => {
+                Arc::into_inner(cached).and_then(|cached| cached.value.into_inner())
+            }
+        }
+    }
+
     /// Borrow the concrete dtype through the fallible lazy cache.
     pub(crate) fn value_ref(&self) -> VortexResult<&DType> {
         self.inner.value_ref()
@@ -269,7 +279,7 @@ impl StructFields {
 #[derive(Default)]
 struct StructFieldsInner {
     names: FieldNames,
-    dtypes: Arc<[FieldDType]>,
+    dtypes: Vec<FieldDType>,
     // Derived from names, maps from field name to first index.
     indices: OnceLock<HashMap<FieldName, usize>>,
     // Declared last: containers, cached children and lookup storage are released
@@ -279,7 +289,7 @@ struct StructFieldsInner {
 }
 
 impl StructFieldsInner {
-    fn from_fields(names: FieldNames, dtypes: Arc<[FieldDType]>) -> Self {
+    fn from_fields(names: FieldNames, dtypes: Vec<FieldDType>) -> Self {
         Self {
             names,
             dtypes,
@@ -315,6 +325,12 @@ impl Hash for StructFieldsInner {
 }
 
 impl StructFields {
+    pub(super) fn into_owned_fields(
+        self,
+    ) -> Option<(Vec<FieldDType>, Option<HostMemoryReservation>)> {
+        Arc::into_inner(self.0).map(|inner| (inner.dtypes, inner._metadata))
+    }
+
     /// Check if these struct fields are equal, ignoring field dtype nullability recursively.
     pub fn eq_ignore_nullability(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
@@ -346,7 +362,7 @@ impl StructFields {
     pub fn empty() -> Self {
         Self(Arc::new(StructFieldsInner {
             names: FieldNames::default(),
-            dtypes: Arc::from([]),
+            dtypes: Vec::new(),
             indices: OnceLock::new(),
             _metadata: None,
         }))
@@ -381,10 +397,7 @@ impl StructFields {
                 dtypes.len()
             );
         }
-        Self(Arc::new(StructFieldsInner::from_fields(
-            names,
-            dtypes.into(),
-        )))
+        Self(Arc::new(StructFieldsInner::from_fields(names, dtypes)))
     }
 
     pub(crate) fn from_reserved_fields(
@@ -392,7 +405,7 @@ impl StructFields {
         dtypes: Vec<FieldDType>,
         metadata: HostMemoryReservation,
     ) -> Self {
-        let mut fields = StructFieldsInner::from_fields(names, dtypes.into());
+        let mut fields = StructFieldsInner::from_fields(names, dtypes);
         fields._metadata = Some(metadata);
         Self(Arc::new(fields))
     }

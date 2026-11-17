@@ -29,6 +29,7 @@ mod map;
 mod native_dtype;
 mod nullability;
 mod ptype;
+mod release;
 pub mod serde;
 pub mod session;
 mod struct_;
@@ -138,6 +139,12 @@ pub enum DType {
     ///
     /// See [`ExtDTypeRef`] for more information.
     Extension(ExtDTypeRef),
+}
+
+impl Drop for DType {
+    fn drop(&mut self) {
+        release::release(self);
+    }
 }
 
 impl PartialEq for DType {

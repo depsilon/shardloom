@@ -44,6 +44,12 @@ pub enum ScalarValue {
     Variant(Box<Scalar>),
 }
 
+impl Drop for ScalarValue {
+    fn drop(&mut self) {
+        super::release::release(self);
+    }
+}
+
 impl ScalarValue {
     /// Returns the zero / identity value for the given [`DType`].
     pub(super) fn zero_value(dtype: &DType) -> Self {

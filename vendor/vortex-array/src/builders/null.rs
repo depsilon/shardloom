@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: use a static null dtype reference.
 
 use std::any::Any;
 
@@ -14,6 +15,8 @@ use crate::builders::ArrayBuilder;
 use crate::canonical::Canonical;
 use crate::dtype::DType;
 use crate::scalar::Scalar;
+
+static NULL_DTYPE: DType = DType::Null;
 
 /// The builder for building a [`NullArray`].
 pub struct NullBuilder {
@@ -42,7 +45,7 @@ impl ArrayBuilder for NullBuilder {
     }
 
     fn dtype(&self) -> &DType {
-        &DType::Null
+        &NULL_DTYPE
     }
 
     fn len(&self) -> usize {

@@ -46,17 +46,18 @@
     "src/compute/compare.rs": "9c5f19e9d06ee964ee05f92712c7065cb75783adac876e1715dfaf11b1899c16",
     "src/compute/rules.rs": "fd745ebfcdfdfd8e85944f5b509f59c01377614c9663dacee374043843a9bd61",
     "src/lib.rs": "7596d02e7b48bcaa8a2116d8afdcb2b71749723dc794839984fbdbe92024e284",
+    "src/ops.rs": "f0d1f3e9729e289a18940d55ad0032325335aa8d84e3f379dd345b376479a061",
     "src/timestamp.rs": "8c2b442377e7370c2c1c68dbc2a1044edfc3486a0626d9f1e328f71b0f109c7e"
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "2855d53514369e330d72dbfd76f7ab55a300b712c56944e5bd36ae0c908ac056",
+    "README.shardloom.md": "b14abafa950d4d511b4366f23408c12f25559c984771cec61c7d639c7c2d1ac8",
     "goldenfiles/datetimeparts.metadata": "9881d91556463b5d85bd82beb6f32670fb5fb5fb60ad5cbec7e13f36811cf07d",
     "src/test_support.rs": "5d0d36070bde3ec709f0691baf5ae09a8a272559ffe32287aefe0faac9170f30"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "2855d53514369e330d72dbfd76f7ab55a300b712c56944e5bd36ae0c908ac056"
+    "sha256": "b14abafa950d4d511b4366f23408c12f25559c984771cec61c7d639c7c2d1ac8"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

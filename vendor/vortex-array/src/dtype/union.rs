@@ -108,7 +108,7 @@ struct UnionVariantsInner {
     names: FieldNames,
 
     /// The types of each of the variants.
-    dtypes: Arc<[FieldDType]>,
+    dtypes: Vec<FieldDType>,
 
     /// One tag per variant, in variant order. The common case where children are referenced by
     /// consecutive offsets is `[0, 1, ..., N-1]`.
@@ -118,7 +118,7 @@ struct UnionVariantsInner {
 }
 
 impl UnionVariantsInner {
-    fn from_fields(names: FieldNames, dtypes: Arc<[FieldDType]>, type_ids: Arc<[u8]>) -> Self {
+    fn from_fields(names: FieldNames, dtypes: Vec<FieldDType>, type_ids: Arc<[u8]>) -> Self {
         Self {
             names,
             dtypes,
@@ -144,6 +144,10 @@ impl Hash for UnionVariantsInner {
 }
 
 impl UnionVariants {
+    pub(super) fn into_owned_fields(self) -> Option<Vec<FieldDType>> {
+        Arc::into_inner(self.0).map(|inner| inner.dtypes)
+    }
+
     /// Check if these union variants are equal, ignoring variant dtype nullability recursively.
     pub fn eq_ignore_nullability(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
@@ -214,7 +218,7 @@ impl UnionVariants {
     pub fn try_new(names: FieldNames, dtypes: Vec<DType>, type_ids: Vec<u8>) -> VortexResult<Self> {
         Self::validate_shape(&names, dtypes.len(), &type_ids)?;
 
-        let dtypes: Arc<[FieldDType]> = dtypes.into_iter().map(FieldDType::from).collect();
+        let dtypes: Vec<FieldDType> = dtypes.into_iter().map(FieldDType::from).collect();
         let type_ids: Arc<[u8]> = Arc::from(type_ids);
 
         Ok(Self(Arc::new(UnionVariantsInner::from_fields(
@@ -265,7 +269,7 @@ impl UnionVariants {
 
         Ok(Self(Arc::new(UnionVariantsInner::from_fields(
             names,
-            dtypes.into(),
+            dtypes,
             Arc::from(type_ids),
         ))))
     }

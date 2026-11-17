@@ -14191,12 +14191,11 @@ fn column_to_vortex_array(
         } else {
             scalar_primitive_to_vortex_array(column_index, rows, value)?
         };
-        let vortex::array::dtype::DType::Extension(extension) =
-            crate::native_temporal::vortex_dtype(&dtype, storage.dtype().nullability())?
-        else {
+        let native = crate::native_temporal::vortex_dtype(&dtype, storage.dtype().nullability())?;
+        let vortex::array::dtype::DType::Extension(extension) = &native else {
             return Err(unexpected_vortex_ingest_family(column, family));
         };
-        return ExtensionArray::try_new(extension, storage)
+        return ExtensionArray::try_new(extension.clone(), storage)
             .map(vortex::array::IntoArray::into_array)
             .map_err(vortex_error);
     }

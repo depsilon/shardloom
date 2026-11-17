@@ -35,3 +35,8 @@ lengths, logical equality and recursive canonical equality without rendering
 array payloads. This retains the original comparison coverage while avoiding
 value-dump diagnostics in hosted security analysis. The helper and its mismatch
 controls are compiled only for tests; runtime execution is unchanged.
+
+The November 17 dtype cleanup adaptation borrows a cloned extension dtype and
+clones its shared extension handle when an owned null scalar is required. This
+preserves temporal values while allowing the array provider's intrinsic dtype
+destructor; it changes neither the encoding nor serialized metadata.

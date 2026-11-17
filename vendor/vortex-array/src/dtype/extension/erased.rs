@@ -37,6 +37,10 @@ use crate::scalar::ScalarValue;
 pub struct ExtDTypeRef(pub(super) Arc<dyn DynExtDType>);
 
 impl ExtDTypeRef {
+    pub(crate) fn into_storage_dtype(self) -> Option<DType> {
+        self.0.into_storage_dtype()
+    }
+
     /// Returns the [`ExtId`] identifying this extension type.
     pub fn id(&self) -> ExtId {
         self.0.id()

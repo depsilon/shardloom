@@ -8,6 +8,7 @@ use vortex_buffer::ByteBuffer;
 use vortex_error::VortexExpect;
 use vortex_error::vortex_panic;
 
+use crate::dtype::DType;
 use crate::scalar::BinaryScalar;
 use crate::scalar::BoolScalar;
 use crate::scalar::DecimalScalar;
@@ -294,25 +295,25 @@ impl ScalarValue {
     }
 
     /// Returns the UTF-8 string value, panicking if the value is not a [`Utf8`](ScalarValue::Utf8).
-    pub fn into_utf8(self) -> BufferString {
-        match self {
-            ScalarValue::Utf8(s) => s,
+    pub fn into_utf8(mut self) -> BufferString {
+        match &mut self {
+            ScalarValue::Utf8(s) => std::mem::replace(s, BufferString::empty()),
             _ => vortex_panic!("ScalarValue is not a Utf8"),
         }
     }
 
     /// Returns the binary value, panicking if the value is not a [`Binary`](ScalarValue::Binary).
-    pub fn into_binary(self) -> ByteBuffer {
-        match self {
-            ScalarValue::Binary(b) => b,
+    pub fn into_binary(mut self) -> ByteBuffer {
+        match &mut self {
+            ScalarValue::Binary(b) => std::mem::replace(b, ByteBuffer::empty()),
             _ => vortex_panic!("ScalarValue is not a Binary"),
         }
     }
 
     /// Returns the tuple elements, panicking if the value is not a [`Tuple`](ScalarValue::Tuple).
-    pub fn into_list(self) -> Vec<Option<ScalarValue>> {
-        match self {
-            ScalarValue::Tuple(elements) => elements,
+    pub fn into_list(mut self) -> Vec<Option<ScalarValue>> {
+        match &mut self {
+            ScalarValue::Tuple(elements) => std::mem::take(elements),
             _ => vortex_panic!("ScalarValue is not a Tuple"),
         }
     }
@@ -326,9 +327,9 @@ impl ScalarValue {
     }
 
     /// Returns the union value, panicking if the value is not a [`Union`](ScalarValue::Union).
-    pub fn into_union(self) -> UnionValue {
-        match self {
-            ScalarValue::Union(value) => value,
+    pub fn into_union(mut self) -> UnionValue {
+        match &mut self {
+            ScalarValue::Union(value) => std::mem::replace(value, UnionValue::new(0, None)),
             _ => vortex_panic!("ScalarValue is not a Union"),
         }
     }
@@ -344,9 +345,15 @@ impl ScalarValue {
 
     /// Returns the row-specific scalar wrapped by a variant, panicking if the value is not a
     /// variant.
-    pub fn into_variant(self) -> Scalar {
-        match self {
-            ScalarValue::Variant(value) => *value,
+    pub fn into_variant(mut self) -> Scalar {
+        match &mut self {
+            ScalarValue::Variant(value) => std::mem::replace(
+                &mut **value,
+                Scalar {
+                    value: None,
+                    dtype: DType::Null,
+                },
+            ),
             _ => vortex_panic!("ScalarValue is not a Variant"),
         }
     }

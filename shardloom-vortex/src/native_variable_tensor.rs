@@ -300,7 +300,7 @@ pub(crate) fn rank(storage: &DType) -> VortexResult<u32> {
         matches!(&data, DType::List(child, _) if crate::native_tensor::element_admitted(child)),
         "variable tensor data requires a Boolean/integer/Float16/Float32/Float64 list"
     );
-    let DType::FixedSizeList(child, rank, _) = shape else {
+    let DType::FixedSizeList(child, rank, _) = &shape else {
         return Err(vortex_err!(
             "variable tensor shape requires a fixed-size Int32 list"
         ));
@@ -309,7 +309,7 @@ pub(crate) fn rank(storage: &DType) -> VortexResult<u32> {
         matches!(child.as_ref(), DType::Primitive(PType::I32, _)),
         "variable tensor shape dimensions require Int32 storage"
     );
-    Ok(rank)
+    Ok(*rank)
 }
 
 pub(crate) fn storage(dtype: &DType) -> Option<&DType> {

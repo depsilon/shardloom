@@ -58,6 +58,11 @@ impl UnionValue {
     pub fn child_value(&self) -> Option<&ScalarValue> {
         self.value.as_deref()
     }
+
+    /// Transfer the nested value for intrinsic cleanup, leaving this union inert.
+    pub(in crate::scalar) fn take_child(&mut self) -> Option<ScalarValue> {
+        self.value.take().map(|child| *child)
+    }
 }
 
 /// A typed view into a [`DType::Union`] scalar.

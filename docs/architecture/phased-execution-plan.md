@@ -281,16 +281,20 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   - [ ] Complete ready-PR review, CI, merge and exact-main verification.
 
 - [ ] **Resource-admitted deep traversal**
-  Status: In progress — schema cursor implemented; complete lifecycle remains open.
+  Status: In progress — schema cursor and native cleanup implemented; complete lifecycle remains open.
   This closes the remaining depth obligation in the
   [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md). The depth-24
   boundary remains until provider serialization, value traversal and final-owner
-  cleanup are covered together. The focused schema suite passes all 16 tests,
-  and 243 provider type tests pass with the shared borrowed child cursor.
+  cleanup are covered together. Schema, array and scalar cleanup now pass
+  8,192-level small-stack tests, including detached/concurrent owners and panic
+  ordering. All 5,795 array-provider tests pass (one existing ignored test), and
+  native workspace strict lint passes. Structural operations, serialization and
+  complete deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
   - [x] Share fallible provider child traversal with result-schema admission.
+  - [x] Add intrinsic schema, array-slot and scalar cleanup with retained-owner proof.
   - [ ] Complete native provider serialization, value traversal and cleanup.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.

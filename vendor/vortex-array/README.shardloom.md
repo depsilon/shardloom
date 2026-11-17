@@ -199,6 +199,40 @@ without creating an invalid value through an unchecked constructor.
 
 ## External memory reservations
 
+The November 17 deep-traversal foundation adds intrinsic iterative `DType`
+cleanup. It consumes existing list, field, map, union and extension owners with
+`Arc::into_inner`, retains metadata reservations through descendant release,
+and never parses an uninitialized lazy field while dropping it. Struct and
+union containers own their field vectors inside the existing shared allocation.
+A narrowly scoped ownership extractor is governed by the
+[RFC 0044 cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-final-owner-cleanup-amendment-november-17-2026).
+The enum variants and serialized identity remain the same. Rust consuming
+matches and references formerly promoted from temporary dtypes now borrow or
+use immutable statics; this is a source-compatibility change for provider users
+that move fields out of the public enum. The provider is an internal pinned patch.
+The native public depth limits remain unchanged. Structural operations,
+serialization and resource prepayment remain separate acceptance work.
+
+Array handles now release their declared child slots through an ordered final-owner
+loop while keeping the 16-byte erased Arc layout. A sealed extractor recovers the
+existing typed allocation and uses `Arc::into_inner` for concurrent last owners.
+Retained owners survive metadata, encoding data and every pending child, including
+unwinding. The private single-use Arc transfers and existing typed downcast are
+specified by the [array cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-array-final-owner-cleanup-amendment-november-17-2026).
+Opaque custom encoding internals are not covered by slot traversal alone.
+
+Intrinsic `ScalarValue` cleanup consumes tuple, union and Variant children using
+safe Rust transfers. Variant dtype ownership survives its value subtree; ordinary
+Scalar destruction likewise releases the value before its dtype while preserving
+the prior Debug field order. Consuming accessors transfer existing vector/buffer
+storage without deep clones or new placeholder allocations. Provider users that
+previously moved owning fields out of ScalarValue must use these accessors or
+borrowed patterns. The [scalar cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-value-final-owner-cleanup-amendment-november-17-2026)
+records this source-compatibility change. Focused small-stack subprocesses cover
+8,192 nested levels, detached/raw owners, concurrent arrays, partial construction,
+statistics and panic ordering. These cleanup checks do not establish deeper
+validation, cloning, comparison, formatting, transport or resource admission.
+
 The November 9 wide-schema follow-up makes named lazy field lookup fallible.
 `GetItem` type binding and `Select` exclusion/simplification propagate lazy parse
 and admission errors. A refused first touch leaves the cache retryable and

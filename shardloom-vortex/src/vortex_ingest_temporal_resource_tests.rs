@@ -178,11 +178,11 @@ impl Drop for NativeIterator {
 #[cfg(feature = "native-binary-objects")]
 #[test]
 fn binary_object_legacy_ingest_rejects_unowned_descriptors_before_input_or_output_work() {
-    let DType::Extension(dtype) = crate::native_binary_type::dtype(false).unwrap() else {
+    let DType::Extension(dtype) = &crate::native_binary_type::dtype(false).unwrap() else {
         panic!("binary object must be an extension");
     };
     let array = ExtensionArray::new(
-        dtype,
+        dtype.clone(),
         VarBinViewArray::from_iter_bin([&b"unowned descriptor"[..]]).into_array(),
     )
     .into_array();

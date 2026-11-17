@@ -260,6 +260,173 @@ neither serialized values nor metadata accounting.
 
 ## Verification
 
+### Native schema final-owner cleanup amendment, November 17, 2026
+
+Item 19's resource-admitted deep traversal needs stack-safe cleanup of the
+existing Vortex 0.93 `DType`, including independently retained children,
+partially built values and concurrent last owners. A root-only keepalive cannot
+establish that contract. Use an intrinsic dtype destructor within the existing
+excluded `vendor/vortex-array` patch. No public depth boundary changes until
+serialization, values, physical verification and complete native lifecycles also
+pass. Array ownership is a separate remaining obligation.
+
+Keep the existing public dtype variants and serialized identity. Extract each
+node's owning field into a private work item, replacing the original node with
+`DType::Null`. Consume shared allocations with `Arc::into_inner`; a failed
+`try_unwrap(...).ok()` is insufficient because simultaneous last-owner release
+can drop a nested value outside the work loop. Traverse siblings through owned
+iterators and preserve declaration order. Store struct/union field vectors
+directly inside their already shared container, so last-owner extraction does
+not require unwrapping an unsized `Arc<[FieldDType]>`. Lazy caches are released
+without parsing absent values. Keep each provider metadata reservation alive
+until its pending fields are released. Extension storage can be extracted by
+safe `Arc<Self>` dispatch on the existing sealed, concrete extension owner.
+
+This amendment permits one narrowly scoped unsafe ownership extraction helper
+inside the excluded dtype provider. Its complete safety contract is:
+
+- Accept only an exclusive reference to an initialized, unpinned `DType`.
+- Replace that value with `Null` using safe `mem::replace` before any extraction.
+  Put the removed enum in a local `ManuallyDrop`; never publish, store, clone,
+  format, inspect again, or manually destroy that wrapper after extraction.
+- Match every enum variant exhaustively. Each compound variant has exactly one
+  owning field; transfer that field once with `ptr::read` from its valid,
+  naturally aligned reference. The remaining fields are `Copy`. Every leaf
+  variant contains only `Copy` fields. Adding a variant requires a fresh review
+  of this exhaustive match and its ownership tests.
+- The extraction block performs no allocation, callback, formatting, fallible
+  operation or other potentially panicking operation between removing the enum
+  and returning its fully owned work item. No pointer escapes the helper.
+- The resulting work item has ordinary Rust ownership and is released exactly
+  once. The original location remains `Null`, so its automatic field destruction
+  cannot release a transferred child again. All subsequent traversal and Arc
+  extraction use safe Rust.
+
+The helper avoids placeholder allocations, a global or thread-local drop queue,
+type-layout reinterpretation, raw Arc reconstruction and a parallel type model.
+Workspace crates retain `unsafe_code = "forbid"`. This exception does not permit
+unchecked file reads, a custom allocator, FFI, arbitrary extension metadata
+destructors, or changes to public format/error admission. It follows the standard
+library contracts for [ownership reads](https://doc.rust-lang.org/std/ptr/fn.read.html),
+[local manual-drop storage](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html)
+and [concurrent Arc extraction](https://doc.rust-lang.org/std/sync/struct.Arc.html#method.into_inner).
+The implementation uses APIs available before the supported Rust 1.96 minimum.
+
+Cleanup may use a heap continuation vector. It must request no new execution
+reservation during destruction. Before deeper values become public, native
+schema admission must prepay its growth/overlap allowance and retain that credit
+through final cleanup, including independently retained children. Raw provider
+objects without a ShardLoom owner remain outside the resource-accounting claim.
+This design is not a process-RSS or system-allocation-failure guarantee.
+
+Acceptance requires small-stack subprocess tests for deep list, fixed-list,
+struct, map, union and extension chains, detached children, weak references,
+simultaneous final owners, expanded shared subtrees, partial construction and
+unwinding. Count final drops and validate that lazy caches are not parsed during
+release and provider credits survive their descendants. Run focused provider
+and adapter tests, strict lint, workspace/feature/MSRV gates, and an interpreter
+or sanitizer check where supported. Record unavailable tooling explicitly.
+Owned pattern matches and promoted dtype references must be migrated without
+changing values or public method results. No support or speed claim follows from
+the ownership prototype alone.
+
+### Native array final-owner cleanup amendment, November 17, 2026
+
+The same deep-traversal obligation includes every independently retained native
+array. The Vortex-first decision is `use_vortex_native_provider`: extend the
+pinned provider's existing `ArrayRef`, typed `ArrayInner<ArrayData<V>>` and child
+slots, without a parallel array representation or execution engine. This covers
+declared slots; nested scalar values, statistics and serialization trees retain
+their own lifecycle obligations. Existing public depth limits remain in place.
+
+Keep the 16-byte erased Arc handle and its direct metadata reads. Its private
+field becomes `ManuallyDrop<Arc<ArrayInner<dyn DynArrayData>>>`. Two private paths
+may transfer that Arc: destruction and a consuming conversion. Each takes the
+initialized field exactly once. The consuming conversion first puts the entire
+handle into a local `ManuallyDrop`. After taking a field, neither wrapper may be
+observed, cloned, formatted, returned or manually destroyed. Public safe APIs
+only receive live handles; automatic field destruction remains inert on unwind.
+This follows the standard library's
+[manual-drop layout and take contract](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html#method.take).
+
+The sealed dynamic data trait selects the final-owner extractor monomorphized
+for its actual `ArrayData<V>`. Invoke that extractor on the **same** Arc whose
+data selected it, with no intervening mutation or caller-supplied type, encoding
+ID or registry lookup. That relation is the complete safety precondition of the
+private function pointer. Its implementation may call the existing unchecked
+typed Arc downcast because the concrete type is exactly `ArrayData<V>`. There is
+no new raw Arc reconstruction, unsized allocation manipulation or allocator.
+All new unsafe operations stay inside this excluded provider: the two single-use
+field takes, this same-allocation extractor call, and its existing typed downcast.
+Workspace crates retain `unsafe_code = "forbid"`.
+
+Use `Arc::into_inner` for final ownership so simultaneous last owners cannot
+bypass the iterative path through a failed `try_unwrap(...).ok()`. At final
+extraction, create a frame holding the slot iterator and retained lifetime owner
+before dropping metadata and encoding data. Move all remaining owned fields into
+one temporary tuple for destruction: if a field's destructor panics, its tuple
+siblings finish before the frame unwinds. Both data and slot descendants must
+be released before the lifetime owner; no data-versus-slot order is promised.
+Consume present children in slot order with owned continuation frames. Use a
+tail path when neither pending children nor a retained owner needs a frame.
+On unwind, drain frames from innermost to outermost so ancestor credits outlive
+their pending descendants. Cleanup performs no execution or canonicalization.
+
+No new execution grant is requested during destruction. Before deeper shapes
+are publicly admitted, traversal growth and overlap must be prepaid and retained
+through final cleanup, including detached children. Raw provider objects without
+ShardLoom ownership do not establish whole-process accounting. Arbitrary user
+destructors, cyclic external ownership, and nested values hidden inside opaque
+custom encoding data are outside the slot traversal guarantee. A second panic
+while unwinding retains Rust's ordinary abort behavior.
+
+Acceptance requires deep canonical struct, list, fixed-list and extension arrays
+plus opaque slot chains on small stacks in subprocesses with explicit completion
+markers. Cover typed/erased/parts conversions, raw typed ownership, weak references,
+simultaneous final owners, detached children, shared DAGs, failed construction,
+unwinding, exact payload/owner drop counts and descendant-before-owner ordering.
+Preserve handle-layout checks and run provider/native/default/feature/MSRV gates.
+Record unavailable interpreter or sanitizer tooling without implying such proof.
+No deeper support or performance claim follows from cleanup tests alone.
+
+### Native scalar-value final-owner cleanup amendment, November 17, 2026
+
+Constant arrays, statistics and independently retained scalar values must share
+the same cleanup guarantee. Extend the pinned provider's `ScalarValue` and
+`Scalar`; keep every public variant and serialized representation. This is safe
+Rust ownership handling and requires no further unsafe exception.
+
+An intrinsic `ScalarValue` destructor takes tuple vectors with `mem::take`, union
+children with `Option::take`, and the whole Scalar inside a Variant's existing
+Box with `mem::replace`. The replacement is an allocation-free Null/None Scalar,
+so no new Box is needed. Ordinary enum field destruction later releases this
+inert box. Leaf payloads retain ordinary buffer destruction. Consume existing
+children one at a time through owned iterators; never clone or eagerly expand
+descendants during cleanup. Keep a Variant's extracted dtype in its continuation
+frame until its child value finishes. Release continuations innermost first on
+unwind, with child values declared before their metadata owners. Scalar's private
+value field likewise precedes its dtype so normal destruction retains schema
+credit through nested value release. This changes no public layout promise,
+named construction, or explicit protobuf conversion order.
+
+Preserve consuming accessors without deep copies: return tuple storage using
+`mem::take`, replace text/binary buffers with their existing empty values, replace
+a returned union with an empty union, and replace a returned Variant's boxed
+Scalar with Null/None. Wrong-variant diagnostics stay the same. These replacements
+need no new heap allocation. Compile all provider and native consumers to find
+owned patterns affected by adding Drop; borrow read-only matches rather than
+silently cloning nested values.
+
+Before lifting any depth limit, retain the proved cleanup scratch allowance for
+independently retained scalar values, array metadata and statistics, including
+traversal overlap. Cleanup requests no new execution grant. Acceptance includes
+deep tuples, unions, variants and mixtures on small-stack subprocesses, nulls,
+wide siblings, partial construction, unwinding, exactly-once buffer destruction,
+raw consuming-accessor results, ConstantArray/statistics ownership and dtype
+credit surviving nested buffers on normal and one-panic paths. Test construction
+must not imply proof of still-recursive validation, clone, comparison, formatting
+or serialization. Those operations remain separate deep-lifecycle obligations.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

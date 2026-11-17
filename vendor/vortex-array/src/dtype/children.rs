@@ -131,10 +131,10 @@ mod tests {
                 assert!(std::ptr::eq(first, second));
             }
         }
-        let child = Arc::new(number.clone());
+        let child = Arc::new(number);
         for dtype in [
-            DType::List(child.clone(), Nullability::Nullable),
-            DType::FixedSizeList(child.clone(), 3, Nullability::NonNullable),
+            DType::List(Arc::clone(&child), Nullability::Nullable),
+            DType::FixedSizeList(Arc::clone(&child), 3, Nullability::NonNullable),
         ] {
             let references = Arc::strong_count(&child);
             assert!(std::ptr::eq(

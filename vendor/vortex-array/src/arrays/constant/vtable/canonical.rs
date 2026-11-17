@@ -1204,11 +1204,11 @@ mod tests {
     /// The elements of [`date_list`] as an array.
     fn date_elements() -> ArrayRef {
         let date = Scalar::extension::<Date>(TimeUnit::Days, Scalar::from(Some(42i32)));
-        let DType::Extension(ext_dtype) = date.dtype().clone() else {
+        let DType::Extension(ext_dtype) = date.dtype() else {
             vortex_panic!("a date is an extension value");
         };
         ExtensionArray::new(
-            ext_dtype,
+            ext_dtype.clone(),
             PrimitiveArray::from_option_iter([Some(42i32), None]).into_array(),
         )
         .into_array()

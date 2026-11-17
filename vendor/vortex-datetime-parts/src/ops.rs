@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: borrow the extension dtype during probing.
 
 use vortex_array::ArrayView;
 use vortex_array::ExecutionCtx;
@@ -27,7 +28,8 @@ impl OperationsVTable<DateTimeParts> for DateTimeParts {
         ctx: &mut ExecutionCtx,
     ) -> VortexResult<Scalar> {
         let array = state.array();
-        let DType::Extension(ext) = array.dtype().clone() else {
+        let dtype = array.dtype().clone();
+        let DType::Extension(ext) = &dtype else {
             vortex_panic!(
                 "DateTimePartsArray must have extension dtype, found {}",
                 array.dtype()
@@ -39,7 +41,7 @@ impl OperationsVTable<DateTimeParts> for DateTimeParts {
         };
 
         if !state.is_valid(index, ctx)? {
-            return Ok(Scalar::null(DType::Extension(ext)));
+            return Ok(Scalar::null(DType::Extension(ext.clone())));
         }
 
         let days = part_at(state, DateTimePartsSlots::DAYS, "days", index, ctx)?;

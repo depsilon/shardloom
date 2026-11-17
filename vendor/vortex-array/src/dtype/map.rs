@@ -78,6 +78,10 @@ impl Hash for MapDTypeInner {
 }
 
 impl MapDType {
+    pub(super) fn into_owned_fields(self) -> Option<[FieldDType; 2]> {
+        Arc::into_inner(self.0).map(|inner| [inner.key, inner.value])
+    }
+
     pub(crate) fn eq_ignore_nullability(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
             || (self.key_dtype().eq_ignore_nullability(&other.key_dtype())

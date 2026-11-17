@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: return references to immutable static primitive dtypes.
 
 //! Physical type definitions and behavior.
 
@@ -951,22 +952,36 @@ impl TryFrom<&DType> for PType {
 
 impl From<PType> for &DType {
     fn from(item: PType) -> Self {
-        // We expand this match statement so that we can return a static reference.
+        // Static entries preserve the reference-returning conversion without temporaries.
         match item {
-            PType::I8 => &DType::Primitive(PType::I8, NonNullable),
-            PType::I16 => &DType::Primitive(PType::I16, NonNullable),
-            PType::I32 => &DType::Primitive(PType::I32, NonNullable),
-            PType::I64 => &DType::Primitive(PType::I64, NonNullable),
-            PType::U8 => &DType::Primitive(PType::U8, NonNullable),
-            PType::U16 => &DType::Primitive(PType::U16, NonNullable),
-            PType::U32 => &DType::Primitive(PType::U32, NonNullable),
-            PType::U64 => &DType::Primitive(PType::U64, NonNullable),
-            PType::F16 => &DType::Primitive(PType::F16, NonNullable),
-            PType::F32 => &DType::Primitive(PType::F32, NonNullable),
-            PType::F64 => &DType::Primitive(PType::F64, NonNullable),
+            PType::I8 => &PRIMITIVE_DTYPES[0],
+            PType::I16 => &PRIMITIVE_DTYPES[1],
+            PType::I32 => &PRIMITIVE_DTYPES[2],
+            PType::I64 => &PRIMITIVE_DTYPES[3],
+            PType::U8 => &PRIMITIVE_DTYPES[4],
+            PType::U16 => &PRIMITIVE_DTYPES[5],
+            PType::U32 => &PRIMITIVE_DTYPES[6],
+            PType::U64 => &PRIMITIVE_DTYPES[7],
+            PType::F16 => &PRIMITIVE_DTYPES[8],
+            PType::F32 => &PRIMITIVE_DTYPES[9],
+            PType::F64 => &PRIMITIVE_DTYPES[10],
         }
     }
 }
+
+static PRIMITIVE_DTYPES: [DType; 11] = [
+    DType::Primitive(PType::I8, NonNullable),
+    DType::Primitive(PType::I16, NonNullable),
+    DType::Primitive(PType::I32, NonNullable),
+    DType::Primitive(PType::I64, NonNullable),
+    DType::Primitive(PType::U8, NonNullable),
+    DType::Primitive(PType::U16, NonNullable),
+    DType::Primitive(PType::U32, NonNullable),
+    DType::Primitive(PType::U64, NonNullable),
+    DType::Primitive(PType::F16, NonNullable),
+    DType::Primitive(PType::F32, NonNullable),
+    DType::Primitive(PType::F64, NonNullable),
+];
 
 impl From<PType> for DType {
     fn from(item: PType) -> Self {

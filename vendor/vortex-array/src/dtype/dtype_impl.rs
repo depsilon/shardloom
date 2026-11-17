@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: preserve owned accessor behavior with Arc-backed child clones.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -367,8 +368,8 @@ impl DType {
 
     /// Owned version of [Self::as_list_element_opt].
     pub fn into_list_element_opt(self) -> Option<Arc<DType>> {
-        if let List(edt, _) = self {
-            Some(edt)
+        if let List(edt, _) = &self {
+            Some(Arc::clone(edt))
         } else {
             None
         }
@@ -388,8 +389,8 @@ impl DType {
 
     /// Owned version of [Self::as_fixed_size_list_element_opt].
     pub fn into_fixed_size_list_element_opt(self) -> Option<Arc<DType>> {
-        if let FixedSizeList(edt, ..) = self {
-            Some(edt)
+        if let FixedSizeList(edt, ..) = &self {
+            Some(Arc::clone(edt))
         } else {
             None
         }
@@ -406,8 +407,8 @@ impl DType {
 
     /// Owned version of [Self::as_map_opt].
     pub fn into_map_opt(self) -> Option<MapDType> {
-        if let Map(map, _) = self {
-            Some(map)
+        if let Map(map, _) = &self {
+            Some(map.clone())
         } else {
             None
         }
@@ -427,10 +428,10 @@ impl DType {
 
     /// Owned version of [Self::as_any_size_list_element_opt].
     pub fn into_any_size_list_element_opt(self) -> Option<Arc<DType>> {
-        if let FixedSizeList(edt, ..) = self {
-            Some(edt)
-        } else if let List(edt, ..) = self {
-            Some(edt)
+        if let FixedSizeList(edt, ..) = &self {
+            Some(Arc::clone(edt))
+        } else if let List(edt, ..) = &self {
+            Some(Arc::clone(edt))
         } else {
             None
         }
@@ -450,8 +451,8 @@ impl DType {
 
     /// Owned version of [Self::as_struct_fields].
     pub fn into_struct_fields(self) -> StructFields {
-        if let Struct(f, _) = self {
-            return f;
+        if let Struct(f, _) = &self {
+            return f.clone();
         }
         vortex_panic!("DType is not a Struct")
     }
@@ -467,8 +468,8 @@ impl DType {
 
     /// Owned version of [Self::as_struct_fields_opt].
     pub fn into_struct_fields_opt(self) -> Option<StructFields> {
-        if let Struct(f, _) = self {
-            Some(f)
+        if let Struct(f, _) = &self {
+            Some(f.clone())
         } else {
             None
         }
@@ -488,8 +489,8 @@ impl DType {
 
     /// Owned version of [`Self::as_union_variants_opt`].
     pub fn into_union_variants_opt(self) -> Option<UnionVariants> {
-        if let Union(uv, _) = self {
-            Some(uv)
+        if let Union(uv, _) = &self {
+            Some(uv.clone())
         } else {
             None
         }

@@ -121,6 +121,7 @@ impl<V: ExtVTable> ExtDType<V> {
 /// (e.g. `id`, `storage_dtype`). Methods that exist only for erased dispatch have no
 /// inherent counterpart (e.g. `as_any`, `metadata_any`, `metadata_eq`).
 pub(super) trait DynExtDType: 'static + Send + Sync + super::sealed::Sealed {
+    fn into_storage_dtype(self: Arc<Self>) -> Option<DType>;
     fn as_any(&self) -> &dyn Any;
     fn id(&self) -> ExtId;
     fn storage_dtype(&self) -> &DType;
@@ -141,6 +142,10 @@ pub(super) trait DynExtDType: 'static + Send + Sync + super::sealed::Sealed {
 /// Rust's method resolution picks inherent methods over trait methods, so `self.id()` etc.
 /// call the inherent impl, not this trait impl (no infinite recursion).
 impl<V: ExtVTable> DynExtDType for ExtDType<V> {
+    fn into_storage_dtype(self: Arc<Self>) -> Option<DType> {
+        Arc::into_inner(self).map(|owned| owned.storage_dtype)
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

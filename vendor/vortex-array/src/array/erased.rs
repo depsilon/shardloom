@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
-// ShardLoom modification: attach admitted metadata ownership only to unique arrays.
+// ShardLoom modification: retain metadata ownership and release child slots iteratively.
 
 use std::any::Any;
 use std::any::type_name;
@@ -8,6 +8,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem::ManuallyDrop;
 use std::ops::Range;
 use std::ptr;
 use std::sync::Arc;
@@ -80,12 +81,26 @@ impl Iterator for DepthFirstArrayIterator {
 /// Metadata (`len`, `dtype`, `encoding_id`) lives in `ArrayInner::meta` and is
 /// accessed as a normal struct field read — no vtable dispatch, no extra allocation.
 #[derive(Clone)]
-pub struct ArrayRef(Arc<ArrayInner<dyn DynArrayData>>);
+pub struct ArrayRef(ManuallyDrop<Arc<ArrayInner<dyn DynArrayData>>>);
 
 impl ArrayRef {
     /// Create from an `Arc<ArrayInner<dyn DynArrayData>>`.
     pub(crate) fn from_inner<D: DynArrayData>(inner: Arc<ArrayInner<D>>) -> Self {
-        Self(inner)
+        Self::from_erased_inner(inner)
+    }
+
+    pub(super) fn from_erased_inner(inner: Arc<ArrayInner<dyn DynArrayData>>) -> Self {
+        Self(ManuallyDrop::new(inner))
+    }
+
+    /// Transfer the live Arc without running this handle's release loop.
+    pub(super) fn into_inner(self) -> Arc<ArrayInner<dyn DynArrayData>> {
+        let mut this = ManuallyDrop::new(self);
+        // SAFETY: every live handle owns one initialized Arc. The whole handle
+        // is now local with Drop disabled, and this is its only field take.
+        // Neither wrapper is observed, cloned, returned or manually dropped
+        // after the transfer. Automatic destruction of both wrappers is inert.
+        unsafe { ManuallyDrop::take(&mut this.0) }
     }
 
     /// Returns a reference to the `dyn DynArrayData` inside the inner.
@@ -169,7 +184,7 @@ impl ArrayRef {
         // Recover the original concrete Arc. The fat pointer's data pointer is the
         // same allocation that was originally `Arc<ArrayInner<ArrayData<V>>>` before
         // unsized coercion to `Arc<ArrayInner<dyn DynArrayData>>`.
-        let raw = Arc::into_raw(self.0);
+        let raw = Arc::into_raw(self.into_inner());
         // # Safety all arrays are constructed in this way and type aliased.
         unsafe { Arc::from_raw(raw.cast::<ArrayInner<ArrayData<V>>>()) }
     }
@@ -177,6 +192,16 @@ impl ArrayRef {
     /// Returns true if the two ArrayRefs point to the same allocation.
     pub fn ptr_eq(this: &ArrayRef, other: &ArrayRef) -> bool {
         Arc::ptr_eq(&this.0, &other.0)
+    }
+}
+
+impl Drop for ArrayRef {
+    fn drop(&mut self) {
+        // SAFETY: Drop receives the exclusive live handle and takes its Arc
+        // exactly once. The field is never accessed again, including on unwind;
+        // ManuallyDrop's automatic field destruction cannot release it twice.
+        let inner = unsafe { ManuallyDrop::take(&mut self.0) };
+        super::release::release(inner);
     }
 }
 

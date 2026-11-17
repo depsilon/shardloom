@@ -77,7 +77,7 @@ impl Scalar {
     #[inline]
     pub fn try_new(dtype: DType, value: Option<ScalarValue>) -> VortexResult<Self> {
         if Self::is_compatible(&dtype, value.as_ref()) {
-            return Ok(Self { dtype, value });
+            return Ok(Self { value, dtype });
         }
 
         Self::try_new_fallback(dtype, value)
@@ -100,7 +100,7 @@ impl Scalar {
             (_, value) => return Err(Self::incompatible_error(&dtype, value.as_ref())),
         };
 
-        Ok(Self { dtype, value })
+        Ok(Self { value, dtype })
     }
 
     /// Creates a new [`Scalar`] with the given [`DType`] and potentially null [`ScalarValue`]
@@ -119,7 +119,7 @@ impl Scalar {
                 .vortex_expect("Scalar::new_unchecked called with incompatible dtype and value");
         }
 
-        Self { dtype, value }
+        Self { value, dtype }
     }
 
     /// Returns a default value for the given [`DType`].

@@ -5,6 +5,11 @@ source. `upstream-provenance.json` records the authoritative archive, original
 member hashes, license and dirty upstream revision. The workspace lockfile owns
 dependency resolution; the archive's crate-local lockfile is recorded but omitted.
 
+The November 17 scalar cleanup compatibility change borrows a bounded-statistic
+test value before copying its bytes. This preserves the assertion while the
+pinned array provider's ScalarValue gains intrinsic nested cleanup. Production
+layout execution and metadata are unchanged by that test adaptation.
+
 The November 14 regional-aggregate experiment adds a read-only
 `ZonedLayout::aggregate_functions` getter in `src/layouts/zoned/mod.rs`. It shares
 the already retained typed declarations so ShardLoom can distinguish exact
