@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: expose fallible borrowed dtype children.
 
 //! A type system for Vortex.
 //!
@@ -16,6 +17,7 @@
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
 mod bigint;
+mod children;
 mod decimal;
 mod dtype_impl;
 pub mod extension;
@@ -180,6 +182,7 @@ impl PartialEq for DType {
 }
 
 pub use bigint::*;
+pub use children::DTypeChildren;
 pub use decimal::*;
 pub use dtype_impl::NativeDType;
 pub use f16::*;

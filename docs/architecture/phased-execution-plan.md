@@ -251,53 +251,125 @@ the ledger.
 
 Current autonomous execution order:
 
-**November 16 material-potential priority.** The resident-join/copy change is
-merged in PR #1694; all 54 exact-main jobs now pass and scoped cleanup is complete. The
+### Current execution
+
+This checklist is the current work sequence. The read-only local workboard reads
+these same rows and the completed ledger; there is no separate board status to
+maintain. Hosted closeout continues alongside the next implementation when it
+has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
+
+- [ ] **Direct join aggregate — hosted integration**
+  Status: Review — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
+  merged as `8969fc817` after all 58 PR checks passed; exact-main checks remain.
+  The [unique inner-dimension stage](native-join-aggregate-2026-11-16.md) is
+  [locally retained](../benchmarks/native-join-aggregate-2026-11-16.md). All 630
+  requests pass; complete engine time is 94.178862655 → 91.576505630 seconds.
+  Its 40 activated requests change 5.718050585 → 5.596205335 seconds; both
+  original large star requests regress. No causal or large speedup is established.
+  Execution checklist:
+  - [x] Complete source, installed-package and complete-result acceptance.
+  - [ ] Complete hosted review, CI, merge and exact-main verification.
+
+- [ ] **Native spatial values — hosted integration**
+  Status: Review — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
+  is ready; local acceptance is complete and hosted review/checks are running.
+  The [spatial unit](native-spatial-values-2026-11-16.md) supports 15 expressions
+  over native 2D Point, LineString and Polygon values. All 462 installed tests
+  pass without skips.
+  Execution checklist:
+  - [x] Complete source, runtime, installed-package and documentation acceptance.
+  - [ ] Complete ready-PR review, CI, merge and exact-main verification.
+
+- [ ] **Resource-admitted deep traversal**
+  Status: In progress — schema cursor implemented; complete lifecycle remains open.
+  This closes the remaining depth obligation in the
+  [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md). The depth-24
+  boundary remains until provider serialization, value traversal and final-owner
+  cleanup are covered together. The focused schema suite passes all 16 tests,
+  and 243 provider type tests pass with the shared borrowed child cursor.
+  Execution checklist:
+  - [x] Inventory schema, value, transport and provider ownership boundaries.
+  - [x] Add a memory-admitted iterative schema cursor and focused regressions.
+  - [x] Share fallible provider child traversal with result-schema admission.
+  - [ ] Complete native provider serialization, value traversal and cleanup.
+  - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
+  - [ ] Complete source, installed-package and hosted acceptance.
+
+- [ ] **Combined rich-data and analytical acceptance**
+  Status: Queued — follows deep-traversal lifecycle acceptance.
+  Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
+  and remaining [analytical program](native-broad-query-program-2026-10-26.md).
+  Execution checklist:
+  - [ ] Reconcile remaining item-19 and item-20 obligations with accepted evidence.
+  - [ ] Verify complete mixed values, resource pressure and ownership across public interfaces.
+  - [ ] Record scoped acceptance and remaining independent competitive gates.
+
+- [ ] **Chrysalis Cells and Map**
+  Status: Queued — follows combined rich-data and analytical acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  starts with exact partial native coverage for one immutable local Parquet source.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
+
+- [ ] **Resonance Cells and Leases**
+  Status: Queued — follows Chrysalis acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  then covers bounded shared live preparation for explicitly composed consumers.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
+
+- [ ] **Portable serverless execution**
+  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
+  Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
+  Execution checklist:
+  - [ ] Complete portable worker, artifact and policy foundations.
+  - [ ] Prove one explicitly selected host and selective-access stages.
+
+- [ ] **Foundry integration**
+  Status: Queued — follows portable serverless and precedes AI workflows.
+  Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
+  Foundry hosts the job; ShardLoom computes through its native public interfaces.
+  Execution checklist:
+  - [ ] Prove the pinned installed native package and actual transform/output readback.
+  - [ ] Complete scalable multi-file adapter and failure-safe native writer acceptance.
+  - [ ] Complete the selected incremental and managed-Iceberg workflows.
+
+- [ ] **AI data workflows**
+  Status: Queued — follows Foundry and selected serverless acceptance.
+  Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
+  typed model-ready batches, source generations, ownership and retrieval semantics.
+  Execution checklist:
+  - [ ] Complete typed batches, loaders and persisted fitted feature state.
+  - [ ] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
+  - [ ] Verify mixed workflow fidelity, resources and feature-specific acceptance.
+
+- [ ] **Version 1.3.0 source milestone**
+  Status: Queued — follows AI data workflow acceptance.
+  This source milestone does not authorize package publication.
+  Execution checklist:
+  - [ ] Reconcile accepted scope, version sources and release evidence.
+  - [ ] Complete the separately governed package/channel readiness checks.
+
+### Current decision notes
+
+The resident-join/copy change is merged in PR #1694 and the
 [dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
-is merged in PR #1695: all 630 scoped requests pass, with engine
-time 102.926667930 → 94.178862655 seconds. Exact-main validation is finishing. Keep required
-correctness and CI checks, retain observations, and follow the maintainer's
-latest instruction to reduce optional packaging/report ceremony and move on.
-Select new performance work only when saved evidence supports credible
-material upside. Prioritize reducing join input/intermediate-result volume,
-repeated scans/builds, expensive sorting and spill work. Identify actual
-exposure, cost and removable work before implementation; do not add another
-accessor/bookkeeping or speculative tuning experiment with only sliver
-potential. Implausible proposals may leave the active pool. The maintainer's
-clarification does not require dropping useful existing work or a candidate
-solely because its eventual positive gain is smaller than expected. No fixed
-numeric material threshold is implied, and frozen decisions remain unchanged.
-This prospective performance priority precedes the previously next spatial
-unit; the required feature roadmap remains intact. The investigation lists
-below are candidate contracts, not instructions to implement every hypothesis.
+in PR #1695; all 54 exact-main checks pass for each. Scoped resident-join cleanup
+is complete. Dense joins pass all 630 requests, with engine time
+102.926667930 → 94.178862655 seconds.
 
-The subsequent November 16 maintainer feedback prioritizes
-[direct aggregate consumption of exact join matches](native-join-aggregate-2026-11-16.md)
-within item 20. That unique inner-dimension stage is now
-[locally retained](../benchmarks/native-join-aggregate-2026-11-16.md): all 630
-requests pass, with engine time 94.178862655 → 91.576505630 seconds. Direct work
-activates in 40 requests; its subset changes 5.718050585 → 5.596205335 seconds,
-while both original large star requests regress. Most of the overall difference
-is on inactive paths; no causal or large speedup is established. All source,
-installed-package and complete-result checks pass. Finish hosted integration.
-The resumed [native spatial unit](native-spatial-values-2026-11-16.md) now passes
-complete source and installed-package acceptance: 15 expressions over native
-2D Point, LineString and Polygon values, with all 462 installed tests passing
-without skips. Complete its hosted integration, then resource-admitted deep
-traversal and combined rich-data/analytical acceptance. Duplicate
-multiplicity reduction remains a separately proved extension; it is not an
-extra prerequisite before the accepted roadmap sequence.
-
-The subsequent November 16 maintainer request inserts
-[Chrysalis Cells/Map, then Resonance Cells/Leases](native-chrysalis-resonance-cells-2026-11-16.md)
-**after rich-data and analytical acceptance and before portable serverless and
-item-21 Foundry integration**. First investigate exact partial native coverage
-for one immutable local Parquet source; then bounded shared live preparation
-for explicitly composed consumers. Each needs a targeted RFC, existing-provider
-review, bounded implementation and complete-workflow acceptance. These are
-item-20/shared-source extensions, not new phase IDs or existing capabilities.
-Their accepted contracts feed the subsequent remote/selective-preparation and
-AI work without duplicating those owners.
+Keep required correctness and CI checks and original observations while reducing
+optional packaging/report ceremony. New performance work needs credible material
+removable work in saved evidence. Prioritize input/intermediate volume, repeated
+scans/builds, sorting and spill only when actual exposure and cost justify it.
+Do not add speculative accessor/bookkeeping tuning. There is no fixed numeric
+material threshold, no requirement to drop useful retained work merely because
+its measured gain is small, and no change to frozen decisions. Duplicate
+multiplicity reduction remains separately proved scope, not a prerequisite
+before the required feature sequence. Chrysalis and Resonance remain item-20
+shared-source extensions, not new phase IDs or claims of existing capability.
 
 The latest November 16 [queue disposition](native-optimization-pruning-2026-11-16.md)
 removes the remaining blanket Vortex demand/encoding campaign, earlier join

@@ -59,6 +59,60 @@ fn repeated_shared_subtrees_are_denied_by_the_resource_budget() {
 }
 
 #[test]
+fn schema_continuations_are_admitted_separately_and_refunded_before_retention() {
+    let leaf = DType::Primitive(PType::I64, Nullability::Nullable);
+    let mut dtype = leaf.clone();
+    for _ in 0..20 {
+        dtype = DType::Struct(
+            StructFields::from_iter([("nested", dtype), ("sibling", leaf.clone())]),
+            Nullability::Nullable,
+        );
+    }
+    let ample = LiveMemoryPool::new(1 << 20).unwrap();
+    let retained_bytes = metadata_bytes(&dtype, &ample).unwrap();
+    assert_eq!(ample.snapshot().reserved_bytes, 0);
+
+    // Retained schema storage alone is insufficient while continuation capacity
+    // overlaps the traversal. Refusal must preserve unrelated live ownership.
+    let memory = LiveMemoryPool::new(retained_bytes + 4096).unwrap();
+    let existing = memory.reserve(4096).unwrap();
+    assert!(reserve_metadata(&dtype, &memory).is_err());
+    assert!(memory.snapshot().denied_reservations > 0);
+    assert_eq!(memory.snapshot().reserved_bytes, existing.bytes());
+    drop(existing);
+    let retained = reserve_metadata(&dtype, &memory).unwrap();
+    assert_eq!(retained.bytes(), retained_bytes);
+    assert_eq!(memory.snapshot().reserved_bytes, retained.bytes());
+    drop(retained);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
+fn schema_continuations_preserve_sibling_error_order() {
+    let mut too_deep = DType::Primitive(PType::I64, Nullability::Nullable);
+    for _ in 0..25 {
+        too_deep = DType::List(too_deep.into(), Nullability::Nullable);
+    }
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let unsupported_first = DType::Struct(
+        StructFields::from_iter([("first", DType::Null), ("second", too_deep.clone())]),
+        Nullability::Nullable,
+    );
+    assert!(matches!(
+        reserve_metadata(&unsupported_first, &memory),
+        Err(ShardLoomError::NotImplemented(_))
+    ));
+    let depth_first = DType::Struct(
+        StructFields::from_iter([("first", too_deep), ("second", DType::Null)]),
+        Nullability::Nullable,
+    );
+    let error = reserve_metadata(&depth_first, &memory).unwrap_err();
+    assert!(error.to_string().contains("depth 24"));
+    assert_eq!(memory.snapshot().denied_reservations, 0);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[test]
 fn schema_names_can_exceed_the_former_metadata_budget_without_exceeding_node_bounds() {
     let dtype = DType::Struct(
         StructFields::from_iter([(
@@ -114,6 +168,70 @@ fn wide_result_serialization_admits_scratch_separately_from_wire_size() {
     let cancellation = CancellationToken::default();
     cancellation.cancel();
     assert!(reserve_serialization(&dtype, (&memory, &cancellation)).is_err());
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn result_schema_walk_accounts_all_native_children_and_refunds_scratch() {
+    use vortex::array::dtype::{MapDType, UnionVariants};
+    use vortex::array::extension::datetime::{TimeUnit, Timestamp};
+
+    let leaf = DType::Primitive(PType::I64, Nullability::NonNullable);
+    let map = DType::Map(
+        MapDType::try_new(leaf.clone(), leaf.clone(), false).unwrap(),
+        Nullability::Nullable,
+    );
+    let union = DType::Union(
+        UnionVariants::new(["map", "leaf"].into(), vec![map, leaf.clone()]).unwrap(),
+        Nullability::Nullable,
+    );
+    let dtype = DType::Struct(
+        StructFields::from_iter([
+            ("union", union),
+            (
+                "list",
+                DType::List(leaf.clone().into(), Nullability::Nullable),
+            ),
+            (
+                "fixed",
+                DType::FixedSizeList(leaf.into(), 2, Nullability::Nullable),
+            ),
+            (
+                "time",
+                DType::Extension(
+                    Timestamp::new(TimeUnit::Nanoseconds, Nullability::Nullable).erased(),
+                ),
+            ),
+        ]),
+        Nullability::Nullable,
+    );
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let credit = reserve_serialization(&dtype, &memory).unwrap();
+    // Struct + union/map/three leaves + list/leaf + fixed/leaf + extension/storage.
+    assert_eq!(credit.bytes(), 12 * 1024);
+    assert_eq!(memory.snapshot().reserved_bytes, credit.bytes());
+    drop(credit);
+    assert_eq!(memory.snapshot().reserved_bytes, 0);
+    let constrained = LiveMemoryPool::new(12 * 1024).unwrap();
+    assert!(reserve_serialization(&dtype, &constrained).is_err());
+    assert_eq!(constrained.snapshot().reserved_bytes, 0);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn iterative_result_schema_walk_keeps_its_distinct_depth_boundary() {
+    let mut dtype = DType::Null;
+    for _ in 0..64 {
+        dtype = DType::List(dtype.into(), Nullability::Nullable);
+    }
+    let memory = LiveMemoryPool::new(1 << 20).unwrap();
+    let credit = reserve_serialization(&dtype, &memory).unwrap();
+    assert_eq!(credit.bytes(), 65 * 1024);
+    drop(credit);
+    dtype = DType::List(dtype.into(), Nullability::Nullable);
+    let error = reserve_serialization(&dtype, &memory).unwrap_err();
+    assert!(error.to_string().contains("64 nested levels"));
     assert_eq!(memory.snapshot().reserved_bytes, 0);
 }
 

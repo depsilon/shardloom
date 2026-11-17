@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: fallible borrowed union dtype inspection.
 
 use std::fmt;
 use std::hash::Hash;
@@ -335,6 +336,12 @@ impl UnionVariants {
             .dtypes
             .iter()
             .map(|dt| dt.value().vortex_expect("variant DType must be valid"))
+    }
+
+    /// Borrow variant dtypes in order through the fallible lazy cache.
+    /// Skipped variants are not parsed and returned dtypes borrow this owner.
+    pub fn try_variant_dtypes(&self) -> impl ExactSizeIterator<Item = VortexResult<&DType>> + '_ {
+        self.0.dtypes.iter().map(FieldDType::value_ref)
     }
 
     /// Convert a data-level type tag to a child offset. Returns `None` if the tag is not in

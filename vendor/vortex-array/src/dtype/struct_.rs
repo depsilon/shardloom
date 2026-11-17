@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-11-09: fallible field inspection and serialized
 // lazy initialization preserve allocation failures without duplicate parsing.
+// Modified on 2026-11-17: share borrowed lazy inspection with native dtype children.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -135,6 +136,11 @@ impl Hash for FieldDTypeInner {
 }
 
 impl FieldDType {
+    /// Borrow the concrete dtype through the fallible lazy cache.
+    pub(crate) fn value_ref(&self) -> VortexResult<&DType> {
+        self.inner.value_ref()
+    }
+
     /// Returns the concrete DType, parsing it from the underlying buffer if necessary.
     #[inline]
     pub fn value(&self) -> VortexResult<DType> {

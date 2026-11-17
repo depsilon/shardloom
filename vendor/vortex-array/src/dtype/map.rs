@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: fallible borrowed map dtype inspection.
 
 use std::fmt;
 use std::hash::Hash;
@@ -126,12 +127,22 @@ impl MapDType {
             .vortex_expect("map key dtype must be valid")
     }
 
+    /// Borrow the key dtype without panicking on a lazy parse or allocation failure.
+    pub fn try_key_dtype(&self) -> VortexResult<&DType> {
+        self.0.key.value_ref()
+    }
+
     /// Returns the dtype of the map values.
     pub fn value_dtype(&self) -> DType {
         self.0
             .value
             .value()
             .vortex_expect("map value dtype must be valid")
+    }
+
+    /// Borrow the value dtype without panicking on a lazy parse or allocation failure.
+    pub fn try_value_dtype(&self) -> VortexResult<&DType> {
+        self.0.value.value_ref()
     }
 
     /// Returns whether producers assert that keys are sorted within every map value.

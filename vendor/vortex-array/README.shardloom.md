@@ -1,5 +1,15 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 borrowed schema children
+
+`DType::try_child_dtypes` borrows immediate children in native declaration order
+through the existing fallible lazy field cache. It makes no dtype clones or
+iterator allocations, and skipped fields are not parsed. Map and union accessors
+now expose that same fallible borrowed inspection. ShardLoom can use one admitted
+continuation cursor for schema and result-schema inspection without eager sibling
+construction or recursive inspection calls. The iterator does not change provider
+serialization, dtype destruction, or any admitted nesting boundary.
+
 ## November 14 encoded comparison observations
 
 The comparison adaptor optionally records successful ALP, FastLanes BitPacked

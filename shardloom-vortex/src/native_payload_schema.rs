@@ -5,6 +5,9 @@ use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 use vortex::array::dtype::{DType, DecimalDType};
 
+#[path = "native_payload_schema_walk.rs"]
+mod walk;
+
 pub(crate) use crate::native_temporal::temporal_storage;
 
 /// Borrow the existing owner for schema inspection. This creates no new pool or
@@ -176,40 +179,19 @@ pub(crate) fn reserve_serialization<'a>(
     dtype: &DType,
     scope: impl Into<Scope<'a>>,
 ) -> Result<MemoryLease> {
-    fn visit(dtype: &DType, depth: usize, budget: &mut Budget<'_>) -> Result<()> {
+    let mut budget = Budget::new(scope.into())?;
+    let mut pending = walk::Pending::new(budget.credit.pool())?;
+    let mut next = Some((dtype, 0));
+    while let Some((dtype, depth)) = next.take() {
         if depth > 64 {
             return Err(failed("result schema exceeds 64 nested levels"));
         }
         budget.add(1024)?;
-        match dtype {
-            DType::Struct(fields, _) => {
-                for child in fields.try_field_dtypes() {
-                    visit(
-                        child.map_err(|error| provider_error(&error))?,
-                        depth + 1,
-                        budget,
-                    )?;
-                }
-            }
-            DType::Union(fields, _) => {
-                for child in fields.variants() {
-                    visit(&child, depth + 1, budget)?;
-                }
-            }
-            DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-                visit(child, depth + 1, budget)?;
-            }
-            DType::Map(map, _) => {
-                visit(&map.key_dtype(), depth + 1, budget)?;
-                visit(&map.value_dtype(), depth + 1, budget)?;
-            }
-            DType::Extension(extension) => visit(extension.storage_dtype(), depth + 1, budget)?,
-            _ => {}
+        next = pending.enter(dtype, depth + 1)?;
+        if next.is_none() {
+            next = pending.next()?;
         }
-        Ok(())
     }
-    let mut budget = Budget::new(scope.into())?;
-    visit(dtype, 0, &mut budget)?;
     Ok(budget.credit)
 }
 
@@ -339,6 +321,24 @@ fn visit_dtype(
     budget: &mut Budget<'_>,
     allow_null: bool,
 ) -> Result<()> {
+    let mut pending = walk::Pending::new(budget.credit.pool())?;
+    let mut next = Some((dtype, depth));
+    while let Some((dtype, depth)) = next.take() {
+        next = visit_dtype_node(dtype, depth, budget, allow_null, &mut pending)?;
+        if next.is_none() {
+            next = pending.next()?;
+        }
+    }
+    Ok(())
+}
+
+fn visit_dtype_node<'a>(
+    dtype: &'a DType,
+    depth: usize,
+    budget: &mut Budget<'_>,
+    allow_null: bool,
+    pending: &mut walk::Pending<'a>,
+) -> Result<Option<(&'a DType, usize)>> {
     budget.node(depth)?;
     if crate::native_uuid::is_uuid(dtype) && crate::native_uuid::storage(dtype).is_none() {
         return Err(failed(
@@ -352,12 +352,12 @@ fn visit_dtype(
         DType::Decimal(decimal, _) if admitted_decimal(*decimal) => {}
         DType::Extension(extension) if crate::native_uuid::storage(dtype).is_some() => {
             budget.add(128)?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         #[cfg(feature = "native-binary-objects")]
         DType::Extension(extension) if crate::native_binary_type::storage(dtype).is_some() => {
             budget.add(128)?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::Extension(extension) if crate::native_embedding::storage(dtype).is_some() => {
             let metadata = extension
@@ -368,7 +368,7 @@ fn visit_dtype(
                     .checked_mul(8)
                     .ok_or_else(|| failed("embedding metadata size overflow"))?,
             )?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::Extension(extension) if crate::native_tensor::storage(dtype).is_some() => {
             let metadata = extension
@@ -379,7 +379,7 @@ fn visit_dtype(
                     .checked_mul(128)
                     .ok_or_else(|| failed("tensor metadata size overflow"))?,
             )?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::Extension(extension) if crate::native_variable_tensor::storage(dtype).is_some() => {
             let metadata = extension
@@ -390,7 +390,7 @@ fn visit_dtype(
                     .checked_mul(128)
                     .ok_or_else(|| failed("tensor metadata size overflow"))?,
             )?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::Extension(extension) if crate::native_vector::metadata(dtype).is_some() => {
             let metadata = crate::native_vector::metadata(dtype).expect("admitted vector metadata");
@@ -399,7 +399,7 @@ fn visit_dtype(
                     .checked_mul(128)
                     .ok_or_else(|| failed("vector metadata size overflow"))?,
             )?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::Extension(extension) if temporal_storage(dtype).is_some() => {
             if let Some(metadata) =
@@ -417,25 +417,18 @@ fn visit_dtype(
                     .checked_mul(128)
                     .ok_or_else(|| failed("spatial metadata size overflow"))?,
             )?;
-            visit_dtype(extension.storage_dtype(), depth + 1, budget, allow_null)?;
+            return Ok(Some((extension.storage_dtype(), depth + 1)));
         }
         DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-            visit_dtype(child, depth + 1, budget, allow_null)?;
+            return Ok(Some((child, depth + 1)));
         }
         DType::Struct(fields, _) => {
             budget.names(fields.nfields(), |index| fields.names()[index].as_ref())?;
-            for child in fields.try_field_dtypes() {
-                visit_dtype(
-                    child.map_err(|error| provider_error(&error))?,
-                    depth + 1,
-                    budget,
-                    allow_null,
-                )?;
-            }
+            return pending.enter(dtype, depth + 1);
         }
         _ => return Err(unsupported()),
     }
-    Ok(())
+    Ok(None)
 }
 
 #[cfg(feature = "universal-format-io")]
