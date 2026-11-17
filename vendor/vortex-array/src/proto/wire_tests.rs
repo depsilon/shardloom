@@ -13,8 +13,7 @@ use super::dtype::{self as dt, d_type::DtypeType as Type};
 use super::scalar::{self as sv, scalar_value::Kind};
 use super::structural_tests::{self as fixtures, reference};
 
-#[path = "wire_reference_fixtures.rs"]
-mod original;
+use super::wire_reference_fixtures as original;
 
 fn wire_pair<A: Message + Clone, B: Message + Clone>(actual: &A, expected: &B) {
     let bytes = expected.encode_to_vec();

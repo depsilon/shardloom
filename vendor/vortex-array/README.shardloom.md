@@ -1,5 +1,25 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative protobuf model decoding
+
+Schema and scalar-value root merges now use owned, ordered continuations through
+the pinned Prost checked-delimiter API. Primitive field codecs remain generated.
+Same-variant and optional children retain partial updates; replacement oneofs
+and repeated children commit only on success. Existing boxes remain in place.
+An ownership guard restores the same partial state when an input buffer panics,
+without replaying any read. Generated containers and oneofs use the same roots.
+The wire schema and default depth limit remain unchanged.
+
+Original generated models and independently constructed raw fixtures verify
+complete values, exact error variants/contexts, remaining input, optional
+presence, sibling completion and failed replacement behavior. Every compound
+shape passes 8,192-level schema/value round trips on 128-KiB stacks, with exact
+depth refusal, invalid deep fields, retained preexisting owners, interrupted
+buffers and unknown groups inside generated leaf messages. These provider
+checks do not grant native model/continuation/error/cleanup memory or complete
+deep user-workflow support. Public depth guards remain unchanged. See the
+[decode amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-decode-continuation-amendment-november-17-2026).
+
 ## November 17 iterative protobuf wire writing
 
 The existing protobuf roots now measure and write with borrowed continuations.
@@ -8,8 +28,9 @@ the original tag order, optional empty payloads, oneof defaults, packed tags and
 floating-point bits. Length measurement retains only active ancestors; empty
 messages and leaf oneofs need no heap plan. Generated containers and oneofs use
 the same root implementations. No wire schema, unsafe operation or dependency
-changes. Default decoding still calls the original generated oneof merger and
-Prost unknown-field helper with the original context and depth limit.
+changes at the writing checkpoint. Default decoding then retained the original
+generated merger; the later section above replaces its recursive model walk
+while preserving its context, limits and failure semantics.
 
 Independent raw fixtures instantiate the original generated types without using
 the replacement writer to construct the reference. Exact bytes, lengths,
@@ -18,8 +39,9 @@ input consumption, groups and partial merge behavior match. Complete fixture
 grammar inspection verifies 8,192-level schema/value writing and standalone
 generated containers on 128-KiB stacks, including a Variant with both a deep
 schema and a deep value. All 5,872 provider tests pass (one existing ignored
-test), with strict provider and native workspace lint. Explicit bounded deep
-decoding and native resource/lifecycle admission remain required. The public
+test), with strict provider and native workspace lint at that checkpoint. The
+later decoding section above retains native resource/lifecycle admission as an
+open obligation. The public
 depth guards are unchanged. See the
 [wire-writing amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-wire-writing-amendment-november-17-2026).
 

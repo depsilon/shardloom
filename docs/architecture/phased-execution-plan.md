@@ -340,8 +340,15 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   bounds remain enforced in either configuration. Strict checks, both no-standard-
   library builds and native workspace lint pass. Nine provider graphs select the
   same-version patch without other lock changes; the older ORC graph is unchanged.
-  Explicit bounded protobuf model decoding and complete deep-workflow runtime/resource acceptance
-  remain open; default decode and public depth limits are unchanged.
+  Protobuf model decoding now uses ordered owned continuations with original
+  optional/same-variant partial updates, repeated/replacement commit rules,
+  box reuse, exact error context and input consumption. Original generated
+  models verify malformed and interrupted inputs without read replay.
+  Explicitly bounded 8,192-level schema/value decoding, refusal and cleanup pass
+  on 128-KiB stacks. All 5,876 provider tests and strict provider/native lint pass
+  at this checkpoint. Native array decoding, resource prepayment and complete
+  deep-workflow acceptance remain open; default decode and public depth limits
+  are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

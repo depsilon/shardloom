@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 ShardLoom contributors
 
-//! Stack-safe protobuf writing. The generated oneof decoder and its limits remain unchanged.
+//! Stack-safe protobuf writing. Ordered merge continuations live in `decode`.
 
 use std::slice;
 
@@ -443,15 +443,7 @@ impl Message for dt::DType {
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        match tag {
-            1..=13 => {
-                Type::merge(&mut self.dtype_type, tag, wire_type, buf, ctx).map_err(|mut error| {
-                    error.push("DType", "dtype_type");
-                    error
-                })
-            }
-            _ => encoding::skip_field(wire_type, tag, buf, ctx),
-        }
+        super::decode::dtype_field(self, tag, wire_type, buf, ctx)
     }
 
     fn clear(&mut self) {
@@ -475,13 +467,7 @@ impl Message for sv::ScalarValue {
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        match tag {
-            1..=12 => Kind::merge(&mut self.kind, tag, wire_type, buf, ctx).map_err(|mut error| {
-                error.push("ScalarValue", "kind");
-                error
-            }),
-            _ => encoding::skip_field(wire_type, tag, buf, ctx),
-        }
+        super::decode::value_field(self, tag, wire_type, buf, ctx)
     }
 
     fn clear(&mut self) {
