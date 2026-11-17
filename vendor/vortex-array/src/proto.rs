@@ -4,6 +4,8 @@
 //! Bindings generated from this crate's `proto` schemas, checked in under `generated/`.
 //! Regenerate with `cargo run -p xtask -- generate-proto`.
 
+mod owned_release;
+
 /// Data types.
 #[allow(clippy::all)]
 #[allow(clippy::absolute_paths)]

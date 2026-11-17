@@ -318,7 +318,11 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   Deep writing, denial, cancellation and refund checks pass. The native
   workspace passes all 7,356 tests (42 existing opt-in tests ignored), strict
   lint and formatting at this checkpoint; final whole-unit acceptance remains
-  required. Array/value transport and complete
+  required. Native protobuf schema conversion and temporary protobuf ownership
+  now pass the same deep conversion/failure/cleanup checks; shallow bytes,
+  malformed-object errors, lazy evaluation and extension callbacks match the
+  original converters. All 5,860 provider tests and strict provider/native lint
+  pass. Scalar-value conversion, wire transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

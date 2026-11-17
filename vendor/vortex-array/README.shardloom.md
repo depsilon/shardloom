@@ -1,5 +1,24 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 protobuf schema conversion and temporary ownership
+
+Native DType conversion into and out of the existing protobuf model uses
+ordered continuations. Names, lazy fields, map children, union tags and
+extension metadata retain their original evaluation and failure order. Safe
+intrinsic cleanup of protobuf DType and ScalarValue owners also protects
+detached children and unfinished conversions, without changing generated types
+or adding unsafe operations.
+
+Mechanically verified original-source references cover shallow objects, bytes,
+errors and constructor panics. All compound schema shapes pass 8,192-level
+conversion, failed partial construction and cleanup on 128-KiB stacks; raw
+protobuf tuple, union and Variant cleanup passes the same checks. All 5,860
+provider tests pass (one existing ignored test), as do strict provider and
+native workspace lint. Scalar-value conversion, generated structural traits,
+wire encoding/decoding and full resource admission remain separate obligations.
+Prost's default decode limit and public depth guards are unchanged. See the
+[protobuf object amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-protobuf-object-ownership-and-conversion-amendment-november-17-2026).
+
 ## November 17 iterative array writing and physical verification
 
 The native serialization owner stores preorder nodes and subtree boundaries in

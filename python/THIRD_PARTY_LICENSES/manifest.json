@@ -14962,6 +14962,7 @@
           "src/dtype/mod.rs": "5938b4356852b6e1df597709752f8b2f2de7e32ef8bbed64862257316ee5fe73",
           "src/dtype/ptype.rs": "99384aa1e554f792c00516f1bbd256c3330683e82929c949f3c073bf92624dba",
           "src/dtype/serde/flatbuffers.rs": "567ed641a56faf51c2307037269de7a5370467d11b62bd4c9e48a0ca455f0e7d",
+          "src/dtype/serde/proto.rs": "c05269720836abbc977cf0503a0d4fac2121a23015a4300482a4e099142fa1dc",
           "src/dtype/struct_.rs": "f2a73ec0d02dafdebcc6c7379d4ef6732eb5a980bd22cab84c3887a503a4634c",
           "src/dtype/union.rs": "2b2d70e3ce28cd4e64572189bc9ab5402e09afaa21facf707b8167547f652dd3",
           "src/executor.rs": "a2f124ce31b33c6ca9f8c3737006cb48f50f15373b88e9fb27bdcbf66af36d47",
@@ -14973,6 +14974,7 @@
           "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
           "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
+          "src/proto.rs": "71c3903ab0793a25a4ef4df9c1118fdf218e333ca1356ce72d2973b526fd3767",
           "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
           "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
           "src/scalar/mod.rs": "8f8c57a4eec2b4f093b899b2d15e2008d1d5b0edf6f56bf21a7eb559eb820470",
@@ -15019,6 +15021,10 @@
           "src/dtype/serde/flatbuffers_write.rs": "818e2abae31c85efc35bea399a0d1bd744ef413be8dabb18ffad91e43a63da99",
           "src/dtype/serde/flatbuffers_write_reference.rs": "b38a0ebdc751ad7c5b22057a3869c783e5c34e6226271a490c51e898b2ae8e0b",
           "src/dtype/serde/flatbuffers_write_tests.rs": "a44e88bc7c91db8880f9fac749efb2ae936b9b781b7a09d159dac4f0c11bca27",
+          "src/dtype/serde/proto_read.rs": "26ee332bae46d8df627c941acb6960f99acf34aca3ba0747fa1cd1f55b8b1cc1",
+          "src/dtype/serde/proto_reference.rs": "b861a4f707aba28d96b3e4ddff9dddd16f7534669ad956a46c80c5866d301486",
+          "src/dtype/serde/proto_tests.rs": "b2f82db4367793ecf9f58e108d90a0c7d7c8c86acd52ddcb4a950560bf6c2d7b",
+          "src/dtype/serde/proto_write.rs": "17e5d6810f0f9b49332644677ff0905ad08aa6dfc26de3be12e163d1e69783fe",
           "src/dtype/struct_memory_tests.rs": "8f20bc1ce5af7bb66188d5509e515a424e43c3317afd1629e5fb3aff2ea86f96",
           "src/dtype/structural.rs": "25f1b0c5bd753ca81df7000401e75869a8aeaf4cf451fbd03b22c7548c66e1f9",
           "src/dtype/structural_extension_tests.rs": "7091025c3a543b1ec30a952cd81d9231c154b74a9fac236c1537cf25c79ff0a3",
@@ -15030,6 +15036,7 @@
           "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
           "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
           "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
+          "src/proto/owned_release.rs": "65cee75a047402fa4b08cfa43cd715e79bec60808600b4dc7e1f4e7c8b2f2f59",
           "src/scalar/diagnostic.rs": "9bc1c222c539077bdbaa79ce27a10446f26d2c6a95608f1abe3bf01dfd5ffdb9",
           "src/scalar/diagnostic_tests.rs": "223ae9b78291f4575e7c8b07c987a882931ea4b6863ba57a2da6ca1c8ece5d94",
           "src/scalar/formatting.rs": "e0d6bbb8348f554f06a00a87fb985128be194ce27dbe5aacf872f3612f0e01f1",
@@ -15059,7 +15066,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "e659f8efac656371b2d42cae060c0dc794086f5da982e34177fe79680f5fc2b9"
+          "sha256": "21cb36fba5b32854cf5e090b35735c82e732076048815157b552a39b414ede54"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

@@ -771,6 +771,35 @@ all shapes and escaping, failed-sink/callback ordering, exact wire-size checks,
 denial/cancellation/refund controls and 8,192-level internal writing/cleanup on
 a small stack. Public depth admission still waits for complete lifecycle proof.
 
+### Native protobuf object ownership and conversion amendment, November 17, 2026
+
+Keep the pinned provider's protobuf schema and generated models. Add intrinsic
+cleanup for the existing `pb::DType` and `pb::ScalarValue` owners in a handwritten
+sibling module: take their optional oneof fields with safe Rust and traverse
+owned child boxes/vectors through continuations. Every recursive model cycle
+crosses one of these two owners. Independently retained children, partial
+construction and unwind must be safe without a new execution grant in Drop.
+No generated layout change, unsafe operation or new dependency is needed.
+
+Replace native DType protobuf object conversion with ordered borrowed cursors
+and owned partial-result continuations. Preserve names before children, lazy
+field order, both map dtypes resolved before key encoding, key conversion before
+value conversion, union tags after children and extension metadata after storage.
+On reads, check a missing map value only after converting its key. Preserve
+existing malformed-field errors and constructor panic behavior; unwind partial
+native owners from the innermost continuation. Use the same native scalar model
+for the following value-conversion work, preserving its existing leaf policies.
+
+Require mechanically checked original-source shallow references, complete type
+shapes, exact shallow protobuf bytes, malformed objects, lazy and extension
+callback order, and 8,192-level small-stack conversion and temporary-owner
+cleanup checks. Object conversion does not establish deep wire transport:
+generated Clone/Debug/equality and Prost encoding/decoding keep separate
+obligations. Prost's default decoding limit and public depth guards remain
+unchanged. Before public deep admission, prepay protobuf model, continuation,
+error and cleanup overlap through the existing native operation owner; raw
+provider object APIs alone do not establish resource admission.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
