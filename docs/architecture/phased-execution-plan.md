@@ -300,12 +300,12 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   exact depth/table/byte thresholds; explicit test-only deep options pass on the
   same small stack while public defaults remain unchanged. Schema Display keeps
   original bytes with iterative continuations; schema and scalar Debug have
-  explicit bounded expansion. Scalar clone/equality/hash and ordered validation
+  explicit bounded expansion. Scalar clone/equality/hash/ordering and validation
   pass the same deep-stack checks, with original shallow hash feeds, validation
-  errors and callback order preserved. All 5,832 array-provider tests pass
+  errors and callback order preserved. All 5,836 array-provider tests pass
   (one existing ignored test), and strict provider lint passes. Earlier native
   workspace lint passed; whole-unit workspace acceptance remains required.
-  Scalar ordering/Display, array/value transport and complete
+  Scalar Display, array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

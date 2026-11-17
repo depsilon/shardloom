@@ -22,6 +22,7 @@ mod convert;
 mod diagnostic;
 mod display;
 mod downcast;
+mod ordering;
 mod proto;
 mod release;
 mod scalar_impl;

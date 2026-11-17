@@ -632,6 +632,25 @@ valid and invalid constructors on small stacks, bounded deep diagnostics and
 cleanup after failure. Prepayment for continuation growth and bounded diagnostic
 overlap remains mandatory before public depth admission changes.
 
+### Native scalar ordering amendment, November 17, 2026
+
+Replace recursive native Scalar ordering with borrowed ordered continuations.
+Preserve dtype equality ignoring nullability before inspecting values, nulls
+before present values, existing primitive/decimal comparisons, lexicographic
+list and map ordering, exact struct shape checks and field order, and union
+comparison only when both values select the same tag. Present Variant values
+remain unordered. Extension storage is unwrapped only for tuple interpretation,
+as in the original implementation; this amendment adds no ordering capability.
+
+Map entry interpretation borrows the existing key/value dtypes instead of
+constructing an intermediate entry schema. Resolve both map fields before
+comparing entries, preserve lazy struct/union selection and stop at the first
+unequal or unordered child. The same native dtype and value owners outlive all
+borrowed frames. Require original shallow-reference parity, null and length
+controls, lazy failure ordering, unchanged extension callbacks and 8,192-level
+small-stack comparisons. Traversal scratch must be admitted with the complete
+lifecycle before the public nesting guard changes.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

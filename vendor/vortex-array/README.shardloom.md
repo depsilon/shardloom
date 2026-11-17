@@ -1,5 +1,22 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative scalar ordering
+
+Scalar ordering traverses nested tuples and selected union values with borrowed
+continuations. It preserves dtype checks, null ordering, lexicographic list/map
+semantics, struct shape checks, lazy child order and first-difference exits.
+Map entries borrow their existing key/value dtypes; both are resolved before
+entry comparison. Same-tag unions retain their existing child order, present
+Variants remain unordered, and extension storage is unwrapped only for tuple
+interpretation. No ordering capability is added.
+
+A mechanically verified copy of the original recursive helpers provides the
+shallow reference, including all numeric widths, NaNs, nulls, wide tuples,
+malformed shapes and lazy failures. Small-stack checks compare 8,192-level
+values through Scalar and the list/struct/extension views. Ordinary Display,
+transport and resource admission remain separate obligations under the
+[ordering amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-ordering-amendment-november-17-2026).
+
 ## November 17 ordered scalar validation and diagnostics
 
 Native scalar compatibility and detailed validation use borrowed continuations
