@@ -374,8 +374,16 @@ workflow, performance and acceptance work recorded in the historical notes.
   cleanup on 128-KiB stacks. Wide siblings, memory refusal and final-owner
   release also pass. The complete native workspace passes all 7,363 tests
   (42 existing opt-in tests ignored), strict lint and formatting with the codec
-  and terminal-JSON changes together. This is a source checkpoint; typed input,
-  native memory prepayment and complete deep-workflow acceptance remain open.
+  and terminal-JSON changes together. Typed native counter layout and array
+  construction now use admitted ordered continuations. Four focused tests
+  preserve original values, logical/copy sizes, errors and default expansion;
+  8,192-level Struct/List/FixedSizeList/mixed construction, partial failure,
+  allocation-panic cleanup and memory refusal pass on 128-KiB stacks. All 13
+  existing typed-source and 17 variable-tensor tests pass, as do strict native
+  workspace lint and formatting. These are source checkpoints; typed JSON
+  parsing/ownership, native memory prepayment and complete deep-workflow
+  acceptance remain open. The full native workspace total above predates the
+  typed counter/construction changes.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

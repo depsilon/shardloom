@@ -1025,6 +1025,47 @@ construction/write denial, cleanup and reusable-pool refunds. Private mechanism
 checks do not bypass or lift the public depth guard; complete deep lifecycle
 admission remains required.
 
+### Typed native value continuation amendment, November 17, 2026
+
+Keep typed intake on the existing native Struct/List/FixedSizeList/Extension
+constructors and leaf, validity and offset builders. Replace the ShardLoom-owned
+recursive counter layout and construction traversal; no Arrow execution
+representation or external engine is introduced. JSON parsing, dtype conversion
+and JSON-tree cleanup remain separate obligations, with their public limits
+unchanged until complete lifecycle admission.
+
+The counter layout has an inline root and a flat preorder vector of descendant
+counters. Each counter stores rows, variable bytes, copied bytes and its exclusive
+subtree end; that end also identifies the next sibling. A primitive root needs
+no arena allocation. Borrowed cursors resolve one child at a time. Preserve
+structured-storage unwrapping, extension validation, null defaults, row updates,
+shape checks and arithmetic/error order. Defaults initialize storage without
+becoming copies of caller payload. Observation must not inspect later fields or
+list items early. Postorder sizing keeps per-parent validity and partial sums;
+List offset arithmetic precedes the child and validity addition follows it.
+Copied bytes sum the nonnegative flat counters with the same overflow diagnostic.
+
+Construction retains parent cell references and completed native children while
+visiting one child at a time. A flat active-cell arena holds reserved reference
+buffers by index; root cells remain borrowed. Extension descent reuses its input
+owner without cloning cells. A Struct stores each completed array before releasing
+that field's temporary references and preparing the next child. Lists retain
+flattened elements and offsets through child, validity and parent construction.
+Preserve constructor order, nullable-parent initialization, empty lists and fixed
+width defaults. Pending frames and temporary owners drain innermost first on
+failure or panic, without recursive frame ownership.
+
+New arenas and continuations use the existing reserved vector, including
+pre-allocation replacement-overlap admission. Existing dtype credit stays with
+native result buffers/owners; parsed-JSON workspace spans construction. These
+container charges do not establish arbitrary provider allocation or process-RSS
+coverage. Preserve original output, logical/copy byte counts and validation errors
+against byte-exact original counter/construction references. Require shallow
+scalar/nested/nullable/wide/extension cases, checked default expansion, private
+8,192-level Struct/List/FixedSizeList/mixed small-stack construction and partial
+failure, budget refusal, retained ownership and reusable-pool refund. Public
+depth24 rejection remains until the entire deep lifecycle is accepted.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
