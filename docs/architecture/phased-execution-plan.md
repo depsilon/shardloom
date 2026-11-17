@@ -324,9 +324,13 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   original converters. Scalar-value conversion now preserves all leaf policies,
   one-layer extension unwrapping, lazy field order and repeated validation
   callbacks through the same deep conversion and failure-cleanup checks.
-  All 5,864 provider tests and strict provider/native lint pass. Generated
-  protobuf structural traits, wire transport and complete deep-workflow
-  runtime/resource acceptance remain open.
+  Protobuf root clone/equality now use ordered continuations; independently
+  retained generated containers share them. Original generated references verify
+  shallow bytes, malformed objects, floating-point equality and diagnostic flags.
+  The 32-owner-edge diagnostic boundary and 8,192-level trait/cleanup checks pass
+  on 128-KiB stacks. All 5,868 provider tests and strict provider/native lint pass.
+  Protobuf wire transport and complete deep-workflow runtime/resource acceptance
+  remain open; default decode and public depth limits are unchanged.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

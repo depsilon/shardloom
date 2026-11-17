@@ -14975,7 +14975,9 @@
           "src/flatbuffers/generated/dtype.rs": "06c26ef149ac640c435a0e348a4c50cac9c51e5763570ce47aeffcd57628584e",
           "src/lib.rs": "298d509cb2044bc30f9fb694fea761cd7c53da373e7efd73737828f34e2bb330",
           "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
-          "src/proto.rs": "71c3903ab0793a25a4ef4df9c1118fdf218e333ca1356ce72d2973b526fd3767",
+          "src/proto.rs": "de7d795d22f2c33edd978d4be8d1a8411f06fb5f8c3fec814dd3cb266dcaec32",
+          "src/proto/generated/vortex.dtype.rs": "f151864fc8c2248d6efd79123545b488a5a8d52cd8a110f11f36a8dbfa2b5e38",
+          "src/proto/generated/vortex.scalar.rs": "c55bd6c018e8044e3b184816533a2629cbe69e9c01983850eb4f48297ccbbc39",
           "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
           "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
           "src/scalar/mod.rs": "8f8c57a4eec2b4f093b899b2d15e2008d1d5b0edf6f56bf21a7eb559eb820470",
@@ -15002,7 +15004,7 @@
         },
         "added_files_sha256": {
           "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-          "README.shardloom.md": "dd890bf5a4d3b9bcc3282b25f6459d548eb62af8f7a795cf9905c2ad1b029859",
+          "README.shardloom.md": "7f5e2b8f0433d4581e316cc5773ed7b90d7e0fc4d6396b2fb13118e598921bc4",
           "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
           "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
           "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -15038,7 +15040,12 @@
           "src/flatbuffers/dtype_verify_reference.rs": "789e50eb4d6b09434fb573ff4d76f2f52fccfe285635c7165e9d6795028a3b94",
           "src/flatbuffers/dtype_verify_tests.rs": "fbc26e4612bf75ed3e97cfa8f82a9fe74fee0b464aa664b193f828511808bd4d",
           "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
+          "src/proto/generated/README.shardloom.md": "f6ef4f21479db576553f5c3d38f19396e7226eba2b8cf7b06c6befe1d774cb6b",
           "src/proto/owned_release.rs": "65cee75a047402fa4b08cfa43cd715e79bec60808600b4dc7e1f4e7c8b2f2f59",
+          "src/proto/reference/vortex.dtype.rs": "5173b11734a782f4f88816de73629280dc99384436ce081f98a051d3d068a54b",
+          "src/proto/reference/vortex.scalar.rs": "5037a75d1a1beb73e0373576f478e505b86eb328b7b19472919f433869afd235",
+          "src/proto/structural.rs": "65fa696d63cda9a5dd36eb1f6c1b0053df950388d54ae88555184a932c707e51",
+          "src/proto/structural_tests.rs": "17e62995145b6b7879b70a43a53e1517692614c107e32870e74589cf94c851d7",
           "src/scalar/diagnostic.rs": "9bc1c222c539077bdbaa79ce27a10446f26d2c6a95608f1abe3bf01dfd5ffdb9",
           "src/scalar/diagnostic_tests.rs": "223ae9b78291f4575e7c8b07c987a882931ea4b6863ba57a2da6ca1c8ece5d94",
           "src/scalar/formatting.rs": "e0d6bbb8348f554f06a00a87fb985128be194ce27dbe5aacf872f3612f0e01f1",
@@ -15072,7 +15079,7 @@
         },
         "local_changes_documentation": {
           "path": "README.shardloom.md",
-          "sha256": "b8cc4aea2713061df24ef00533683d1c9c9d2413d27fb6a525e2e798df6fc778"
+          "sha256": "7f5e2b8f0433d4581e316cc5773ed7b90d7e0fc4d6396b2fb13118e598921bc4"
         },
         "omitted_files": {
           "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

@@ -11,7 +11,9 @@ pub struct Scalar {
     #[prost(message, optional, boxed, tag = "2")]
     pub value: ::core::option::Option<::prost::alloc::boxed::Box<ScalarValue>>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+// ShardLoom: intrinsic structural traits live in ../structural.rs.
+#[derive(::prost::Message)]
+#[prost(skip_debug)]
 pub struct ScalarValue {
     #[prost(
         oneof = "scalar_value::Kind",

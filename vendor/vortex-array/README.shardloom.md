@@ -1,5 +1,27 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 intrinsic protobuf structural traits
+
+The existing protobuf DType and ScalarValue owners now clone and compare through
+ordered continuations. Generated containers and oneofs use these same roots;
+field types and wire schemas stay unchanged. Comparisons preserve missing-field
+positions, NaN inequality and signed-zero equality without serialization.
+Debug uses a fixed-size raw-owner probe: original fields and flags are preserved
+through 32 owner edges, and deeper roots use non-exhaustive output. No new unsafe
+operation or dependency is added. The two generated root derive overrides and
+regeneration procedure are documented in `src/proto/generated/README.shardloom.md`.
+
+Byte-identical original generated models from commit `59ffad352` independently
+verify shallow clone bytes, complete equality cross-products, malformed objects
+and Debug flags. Every compound schema/value shape and mixed paths pass
+8,192-level clone, equality, standalone-container and unwind cleanup checks on
+128-KiB stacks; the exact diagnostic boundary also passes on those stacks.
+All 5,868 provider tests pass (one existing ignored test), with strict provider
+and native workspace lint. Prost writing and decoding, native scratch admission
+and the full deep workflow remain required. Default decode and public depth
+limits are unchanged. See the
+[structural trait amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-structural-traits-amendment-november-17-2026).
+
 ## November 17 protobuf schema/value conversion and temporary ownership
 
 Native DType conversion into and out of the existing protobuf model uses
@@ -22,8 +44,8 @@ All value shapes pass 8,192-level conversion and cleanup on 128-KiB stacks,
 including an invalid innermost value and failure after a completed deep sibling.
 Nested extension values retain the original explicit refusal. All 5,864 provider
 tests pass (one existing ignored test), as do strict provider and native workspace
-lint. Generated structural traits, wire encoding/decoding and full resource
-admission remain separate obligations.
+lint at that conversion checkpoint. Structural traits are covered by the later
+section above; wire encoding/decoding and full resource admission remain required.
 Prost's default decode limit and public depth guards are unchanged. See the
 [protobuf object amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-protobuf-object-ownership-and-conversion-amendment-november-17-2026).
 

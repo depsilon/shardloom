@@ -812,6 +812,41 @@ unchanged. Before public deep admission, prepay protobuf model, continuation,
 error and cleanup overlap through the existing native operation owner; raw
 provider object APIs alone do not establish resource admission.
 
+### Protobuf structural traits amendment, November 17, 2026
+
+Continue inside the pinned Vortex protobuf provider, retaining its model, wire
+schema, oneof variants and field types. Replace only the root `DType` and
+`ScalarValue` Clone/PartialEq implementations with private ordered owner
+continuations. Every recursive generated model cycle crosses those roots.
+Clone scalar/header payloads and attach completed children in slot order;
+independently retained generated containers use the same root implementations.
+Equality compares the original primitive fields, including floating-point NaN
+and signed-zero semantics, and traverses borrowed children without serializing
+or cloning either operand. No new unsafe operation or dependency is admitted.
+
+Give those roots bounded Debug implementations, using Prost's supported
+`skip_debug` attribute while retaining its Message derive. A fixed-size borrowed
+probe follows only model owners, without allocating or formatting. Keep the
+original field spelling, nested generated formatters and formatting flags for
+trees with at most 32 owner edges; deeper roots print the same struct name with
+non-exhaustive fields. This bound is diagnostic only. Ordinary serialization
+and supported input depths do not change.
+
+Keep immutable, test-only copies of the pre-change generated model files as the
+independent shallow reference, mechanically checked against their source commit.
+Compare complete shapes, missing children, malformed objects, exact Debug flags,
+clone wire bytes and the equality cross-product, including NaNs and both zeros.
+Require 8,192-level clone/equality/diagnostic/cleanup checks on small stacks and
+standalone generated-container checks. The upstream generator is absent from
+this vendored checkout; after regeneration reapply the two root derive changes
+and `skip_debug` attributes described beside the generated files, then rerun the
+reference, provider and native gates. Record hashes in the provider provenance.
+
+Prost encoding/decoding remains a separate obligation, with its default limits
+unchanged. Native admission must prepay clone output, continuation growth and
+cleanup overlap before deeper public input is accepted. These raw provider
+traits are not an allocation grant or an end-to-end deep-data support claim.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

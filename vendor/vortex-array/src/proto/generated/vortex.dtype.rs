@@ -99,7 +99,9 @@ pub struct Map {
     #[prost(bool, tag = "4")]
     pub nullable: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+// ShardLoom: intrinsic structural traits live in ../structural.rs.
+#[derive(::prost::Message)]
+#[prost(skip_debug)]
 pub struct DType {
     #[prost(
         oneof = "d_type::DtypeType",

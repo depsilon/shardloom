@@ -3,8 +3,14 @@
 
 //! Bindings generated from this crate's `proto` schemas, checked in under `generated/`.
 //! Regenerate with `cargo run -p xtask -- generate-proto`.
+//! This vendored subset has no xtask. After upstream regeneration, reapply the
+//! two root trait overrides documented in `proto/generated/README.shardloom.md`.
 
 mod owned_release;
+mod structural;
+
+#[cfg(test)]
+mod structural_tests;
 
 /// Data types.
 #[allow(clippy::all)]
