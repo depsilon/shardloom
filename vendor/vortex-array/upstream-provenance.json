@@ -925,16 +925,16 @@
     "src/builders/null.rs": "8c44c587d8089d6ed4a0e3dd558743cacb07e152576a26bb27ae180706bb7b0c",
     "src/builders/varbinview.rs": "47e231823766797f114a53cfd031708a96c5a6d7a1aa56b764c315c899b56ec9",
     "src/canonical.rs": "c5230dfd3e0ccc9b8ef7213241180d7f9e34032d6d307f6efdfb4fd1e293a539",
-    "src/dtype/dtype_impl.rs": "a297ed2c0798fef5c9469289845b36c2ffe2f0b69335b4cb12c66b98821fa15a",
-    "src/dtype/extension/erased.rs": "86d41e5019e4a45cf0b60c5c8a688dea5476fbcf4bc601933e2cd233eae09d8b",
-    "src/dtype/extension/typed.rs": "9af44bc7bc81d969597f991c05282cea65071b6e39d6c8b7338f52eb8b152f64",
+    "src/dtype/dtype_impl.rs": "e839c245aba7731220e3e7a515bddfdf4708a4ed6dacb360361afc0e3de9d329",
+    "src/dtype/extension/erased.rs": "30f904d78e4aef8948aecfc17d6b5004b6917966ec9b0c9d459700c329b52f2a",
+    "src/dtype/extension/typed.rs": "bb3359f5c06821d88ed6c6a6fd65eff1f2f0d31fdbc3d0fabc638462da879fa8",
     "src/dtype/field.rs": "a0e60f2e31c0c243c18f345c90115339a8486786a4e3e865c91dc5b10d627dec",
-    "src/dtype/map.rs": "e02382069f68e36ba06ba472ae56bac469b1c978719dda364cbf26d862c643dd",
-    "src/dtype/mod.rs": "36b4ae6a42edffbac6bfe53a46e768da52dd0591020ec70c689dc160b51e558f",
+    "src/dtype/map.rs": "73b7ce0ea7c8a9c87e460615adedf420c595cba59a3b41aee18a741f6b9b0454",
+    "src/dtype/mod.rs": "ac69c365146376a56518e24df1dc8e51af21391c167142505dfcdc2ceddc02ba",
     "src/dtype/ptype.rs": "99384aa1e554f792c00516f1bbd256c3330683e82929c949f3c073bf92624dba",
     "src/dtype/serde/flatbuffers.rs": "620208761276369369f884411f6c7faa90c239c982e450b62e9a16c963138d90",
-    "src/dtype/struct_.rs": "885b9194f0e5c23094b6f79a34f232651f13691dd6cfb4ed5f68e87d8283b5e4",
-    "src/dtype/union.rs": "b3e3d69267aa07ac9bac1bbac7c854d7f50271d1ba6f94952c533c051b0350d2",
+    "src/dtype/struct_.rs": "431f60a870c5478070cca5b2168e8fca7065179a26ec87c1a7da72c62f2fa16e",
+    "src/dtype/union.rs": "7a4a76312eac54ff0202e8171b66414c146f181c2dfdb72443d6b8293da8e22f",
     "src/executor.rs": "a2f124ce31b33c6ca9f8c3737006cb48f50f15373b88e9fb27bdcbf66af36d47",
     "src/extension/datetime/date.rs": "5726f1c8711b6b7588f41b453408861d884557ff5bce23417d61a1905c22a4c9",
     "src/extension/datetime/time.rs": "d09ce31b25ea291bc4c57bd7ffe777decb9d41d72359659e8c84f846c6571994",
@@ -959,7 +959,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "4a2177baf0a87cd8e5b7d6aadbcbc209400a7b5991289d0927676c09d3d0669a",
+    "README.shardloom.md": "e9cab8e080ae55183903267cd743acc2d1c9275458b30bb83be5228575556f47",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -972,6 +972,9 @@
     "src/dtype/release.rs": "fa1cb6e6b16b20138c663ef7d863125ba9f0e2a9aa37bf8d8e5c54293d35d33d",
     "src/dtype/release_tests.rs": "3b65219d4cfa6a3604cf7b40cc63c38ba48ab1dacd5f842382a7a1578cf02821",
     "src/dtype/struct_memory_tests.rs": "8f20bc1ce5af7bb66188d5509e515a424e43c3317afd1629e5fb3aff2ea86f96",
+    "src/dtype/structural.rs": "25f1b0c5bd753ca81df7000401e75869a8aeaf4cf451fbd03b22c7548c66e1f9",
+    "src/dtype/structural_extension_tests.rs": "7091025c3a543b1ec30a952cd81d9231c154b74a9fac236c1537cf25c79ff0a3",
+    "src/dtype/structural_tests.rs": "17e050ce6a7ba2cda95c45fa16d9c209ee71d712d863f732ecc7239886be5955",
     "src/host_memory.rs": "7dcd19ac88fcc2433c153136b6a6e449dd9459675d4b8c5110153bb0c77c151b",
     "src/scalar/release.rs": "7cec148f9e6bfd81ddb6c448d18a6bcf1db2abd599a2261aa1f3362cb0263b3f",
     "src/scalar/release_tests.rs": "2b20da3e716641e206f2a15ba9eaaf4f319f379cc9206eaa4047efe40505cfb1",
@@ -979,7 +982,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "4a2177baf0a87cd8e5b7d6aadbcbc209400a7b5991289d0927676c09d3d0669a"
+    "sha256": "e9cab8e080ae55183903267cd743acc2d1c9275458b30bb83be5228575556f47"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

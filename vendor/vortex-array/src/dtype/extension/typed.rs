@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: final-owner extraction and iterative nullability rebuilding.
 
 //! Typed and inner representations of extension dtypes.
 //!
@@ -12,7 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-use vortex_error::VortexResult;
+use vortex_error::{VortexExpect, VortexResult};
 
 use crate::dtype::DType;
 use crate::dtype::Nullability;
@@ -91,12 +92,10 @@ impl<V: ExtVTable> ExtDType<V> {
     /// This does not validate the dtype again, because [`ExtVTable::validate_dtype`] must not
     /// depend on the top-level nullability of the storage dtype.
     pub fn with_nullability(&self, nullability: Nullability) -> ExtDTypeRef {
-        Self {
-            vtable: self.vtable.clone(),
-            metadata: self.metadata.clone(),
-            storage_dtype: self.storage_dtype.with_nullability(nullability),
-        }
-        .erased()
+        // Clone outer metadata before visiting storage, just like the original
+        // typed constructor. The private draft cannot escape with Null storage.
+        let draft = NullabilityDraft::new(self);
+        draft.finish(storage_with_nullability(&self.storage_dtype, nullability))
     }
 
     /// Serializes the metadata into a byte vector.
@@ -122,6 +121,8 @@ impl<V: ExtVTable> ExtDType<V> {
 /// inherent counterpart (e.g. `as_any`, `metadata_any`, `metadata_eq`).
 pub(super) trait DynExtDType: 'static + Send + Sync + super::sealed::Sealed {
     fn into_storage_dtype(self: Arc<Self>) -> Option<DType>;
+    fn nullability_draft(&self) -> NullabilityDraft;
+    fn finish_nullability_draft(self: Arc<Self>, storage_dtype: DType) -> ExtDTypeRef;
     fn as_any(&self) -> &dyn Any;
     fn id(&self) -> ExtId;
     fn storage_dtype(&self) -> &DType;
@@ -144,6 +145,19 @@ pub(super) trait DynExtDType: 'static + Send + Sync + super::sealed::Sealed {
 impl<V: ExtVTable> DynExtDType for ExtDType<V> {
     fn into_storage_dtype(self: Arc<Self>) -> Option<DType> {
         Arc::into_inner(self).map(|owned| owned.storage_dtype)
+    }
+
+    fn nullability_draft(&self) -> NullabilityDraft {
+        NullabilityDraft::new(self)
+    }
+
+    fn finish_nullability_draft(mut self: Arc<Self>, storage_dtype: DType) -> ExtDTypeRef {
+        // Only NullabilityDraft calls this sealed method. It creates the Arc,
+        // never clones/exposes it or a Weak, and consumes itself exactly once.
+        Arc::get_mut(&mut self)
+            .vortex_expect("private nullability draft must be uniquely owned")
+            .storage_dtype = storage_dtype;
+        ExtDTypeRef(self)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -208,4 +222,50 @@ impl<V: ExtVTable> DynExtDType for ExtDType<V> {
             ),
         }
     }
+}
+
+/// Private partially rebuilt extension. Its placeholder is never observable
+/// through an extension API, metadata callback, validator or formatter.
+pub(super) struct NullabilityDraft(Arc<dyn DynExtDType>);
+
+impl NullabilityDraft {
+    fn new<V: ExtVTable>(dtype: &ExtDType<V>) -> Self {
+        Self(Arc::new(ExtDType {
+            vtable: dtype.vtable.clone(),
+            metadata: dtype.metadata.clone(),
+            storage_dtype: DType::Null,
+        }))
+    }
+
+    fn finish(self, storage_dtype: DType) -> ExtDTypeRef {
+        self.0.finish_nullability_draft(storage_dtype)
+    }
+}
+
+struct PendingNullability(Vec<NullabilityDraft>);
+
+impl Drop for PendingNullability {
+    fn drop(&mut self) {
+        while let Some(draft) = self.0.pop() {
+            drop(draft);
+        }
+    }
+}
+
+fn storage_with_nullability(mut storage: &DType, nullability: Nullability) -> DType {
+    if let DType::Extension(extension) = storage
+        && extension.nullability() == nullability
+    {
+        return storage.clone();
+    }
+    let mut pending = PendingNullability(Vec::new());
+    while let DType::Extension(extension) = storage {
+        pending.0.push(extension.0.nullability_draft());
+        storage = extension.storage_dtype();
+    }
+    let mut converted = storage.with_nullability(nullability);
+    while let Some(draft) = pending.0.pop() {
+        converted = DType::Extension(draft.finish(converted));
+    }
+    converted
 }

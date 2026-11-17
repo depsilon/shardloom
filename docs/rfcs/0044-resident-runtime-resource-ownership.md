@@ -427,6 +427,43 @@ credit surviving nested buffers on normal and one-panic paths. Test construction
 must not imply proof of still-recursive validation, clone, comparison, formatting
 or serialization. Those operations remain separate deep-lifecycle obligations.
 
+### Native schema structural-operation amendment, November 17, 2026
+
+Continue the deep lifecycle inside the existing pinned Vortex dtype provider.
+Ordinary and nullability-insensitive equality and hashing use borrowed iterative
+continuations; they do not build a second schema, clone child dtypes, serialize
+extension metadata, or eagerly inspect later lazy fields. Preserve existing Arc
+identity shortcuts, per-field parse order (including owned/view comparison
+orientation), metadata-vtable dispatch and short-circuit order. Map sortedness
+and union type tags remain trailing comparisons after their children.
+
+Preserve the ordinary derived-hash field order and the existing
+nullability-insensitive hash feed, including their different child-vector length
+prefixes. Test against a shallow independent recursive representation on the
+same compiler, as well as equality/hash consistency; do not assert portable
+numeric hashes. Rust's [Hash contract](https://doc.rust-lang.org/std/hash/trait.Hash.html)
+does not promise feed stability across compilers or architectures. Single-child
+equality chains need no heap continuation; branching traversal retains only the
+unvisited sibling ranges and trailing work. Hashing retains pending suffixes.
+The provider's infallible trait boundary still requires ShardLoom admission to
+prepay the proved scratch/overlap allowance before any depth increase. This
+amendment does not establish that allowance or lift the current depth boundary.
+
+Require small-stack deep equality/hash tests for each compound shape, independent
+trees, shared subtrees, deepest-leaf mismatches, nullable equivalence and lazy
+parse failures/short circuits. Nullability lookup follows only an unbroken
+extension storage chain. Conversion clones extension vtables and metadata in
+the original outer-to-inner order, then installs the converted storage inside
+private uniquely owned drafts from inner to outer. These drafts temporarily
+contain Null storage, cannot escape, never invoke validation or formatting, and
+use safe `Arc::get_mut` to finish the same allocation. Preserve the erased
+no-change identity shortcut and typed conversion's distinct result ownership.
+Drain unfinished drafts innermost first on unwind. Test metadata clone/drop
+order, NULL refusal and unchanged nested-child nullability.
+
+Formatting, physical verification and serialization remain separate obligations.
+No new unsafe code is needed for these structural operations.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

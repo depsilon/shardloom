@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: borrowed metadata dispatch and final-owner extraction.
 
 //! Type-erased extension dtype ([`ExtDTypeRef`]).
 
@@ -37,6 +38,15 @@ use crate::scalar::ScalarValue;
 pub struct ExtDTypeRef(pub(super) Arc<dyn DynExtDType>);
 
 impl ExtDTypeRef {
+    pub(in crate::dtype) fn metadata_eq(&self, other: &Self) -> bool {
+        self.id() == other.id() && self.0.metadata_eq(other.0.metadata_any())
+    }
+
+    pub(in crate::dtype) fn hash_metadata<H: Hasher>(&self, state: &mut H) {
+        self.id().hash(state);
+        self.0.metadata_hash(state);
+    }
+
     pub(crate) fn into_storage_dtype(self) -> Option<DType> {
         self.0.into_storage_dtype()
     }

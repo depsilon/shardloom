@@ -144,6 +144,14 @@ impl Hash for UnionVariantsInner {
 }
 
 impl UnionVariants {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub(super) fn raw_dtypes(&self) -> &[FieldDType] {
+        &self.0.dtypes
+    }
+
     pub(super) fn into_owned_fields(self) -> Option<Vec<FieldDType>> {
         Arc::into_inner(self.0).map(|inner| inner.dtypes)
     }
@@ -157,16 +165,6 @@ impl UnionVariants {
                     .zip_eq(other.variants())
                     .all(|(lhs, rhs)| lhs.eq_ignore_nullability(&rhs))
                 && self.0.type_ids == other.0.type_ids)
-    }
-
-    /// Hash these union variants using the same equivalence relation as
-    /// [`Self::eq_ignore_nullability`].
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.0.names.hash(state);
-        for variant in self.variants() {
-            variant.hash_ignore_nullability(state);
-        }
-        self.0.type_ids.hash(state);
     }
 }
 

@@ -287,14 +287,17 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   boundary remains until provider serialization, value traversal and final-owner
   cleanup are covered together. Schema, array and scalar cleanup now pass
   8,192-level small-stack tests, including detached/concurrent owners and panic
-  ordering. All 5,795 array-provider tests pass (one existing ignored test), and
-  native workspace strict lint passes. Structural operations, serialization and
-  complete deep-workflow runtime/resource acceptance remain open.
+  ordering. Equality, hashing and extension nullability also pass 8,192-level
+  small-stack checks, with recursive-reference hash compatibility and lazy parse
+  order verified. All 5,802 array-provider tests pass (one existing ignored test),
+  and native workspace strict lint passes. Formatting, serialization and complete
+  deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
   - [x] Share fallible provider child traversal with result-schema admission.
   - [x] Add intrinsic schema, array-slot and scalar cleanup with retained-owner proof.
+  - [x] Make native schema equality, hashing and extension nullability stack-safe.
   - [ ] Complete native provider serialization, value traversal and cleanup.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.

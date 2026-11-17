@@ -78,23 +78,16 @@ impl Hash for MapDTypeInner {
 }
 
 impl MapDType {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub(super) fn raw_fields(&self) -> (&FieldDType, &FieldDType) {
+        (&self.0.key, &self.0.value)
+    }
+
     pub(super) fn into_owned_fields(self) -> Option<[FieldDType; 2]> {
         Arc::into_inner(self.0).map(|inner| [inner.key, inner.value])
-    }
-
-    pub(crate) fn eq_ignore_nullability(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.0, &other.0)
-            || (self.key_dtype().eq_ignore_nullability(&other.key_dtype())
-                && self
-                    .value_dtype()
-                    .eq_ignore_nullability(&other.value_dtype())
-                && self.keys_sorted() == other.keys_sorted())
-    }
-
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.key_dtype().hash_ignore_nullability(state);
-        self.value_dtype().hash_ignore_nullability(state);
-        self.keys_sorted().hash(state);
     }
 
     /// Creates a map dtype from its key and value dtypes.

@@ -136,6 +136,22 @@ impl Hash for FieldDTypeInner {
 }
 
 impl FieldDType {
+    /// Match the existing ordinary equality orientation without cloning or
+    /// inspecting any sibling. Mixed fields compare the owned dtype first.
+    pub(super) fn equality_values<'a>(&'a self, other: &'a Self) -> (&'a DType, &'a DType) {
+        let message = "Failed to parse FieldDType into DType";
+        match (&self.inner, &other.inner) {
+            (FieldDTypeInner::View(..), FieldDTypeInner::Owned(owned)) => {
+                let viewed = self.value_ref().vortex_expect(message);
+                (owned, viewed)
+            }
+            _ => (
+                self.value_ref().vortex_expect(message),
+                other.value_ref().vortex_expect(message),
+            ),
+        }
+    }
+
     /// Take an already initialized child for final-owner cleanup. Never parse a view.
     pub(super) fn into_initialized(self) -> Option<DType> {
         match self.inner {
@@ -237,6 +253,14 @@ impl Display for StructFields {
 }
 
 impl StructFields {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub(super) fn raw_dtypes(&self) -> &[FieldDType] {
+        &self.0.dtypes
+    }
+
     fn fmt_indented(&self, f: &mut Formatter<'_>, depth: usize) -> std::fmt::Result {
         let indent = "  ".repeat(depth);
         let inner_indent = "  ".repeat(depth + 1);
@@ -339,15 +363,6 @@ impl StructFields {
                     .fields()
                     .zip_eq(other.fields())
                     .all(|(lhs, rhs)| lhs.eq_ignore_nullability(&rhs)))
-    }
-
-    /// Hash these struct fields using the same equivalence relation as
-    /// [`Self::eq_ignore_nullability`].
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.0.names.hash(state);
-        for field in self.fields() {
-            field.hash_ignore_nullability(state);
-        }
     }
 }
 

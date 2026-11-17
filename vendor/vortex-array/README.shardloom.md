@@ -1,5 +1,22 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 schema structural operations
+
+Ordinary and nullability-insensitive DType equality and hashing now traverse
+borrowed children iteratively. They preserve Arc shortcuts, lazy parse order,
+trailing map/union checks, extension metadata dispatch and the existing hash feed
+on the same compiler. Independent shallow recursive references check equality
+and each hash write; small-stack subprocesses cover 8,192-level independent trees,
+deepest-leaf mismatches, shared subtrees and nullable equivalence.
+
+Nullability lookup follows extension storage iteratively. Conversion preserves
+outer-to-inner metadata cloning and rebuilds private, uniquely owned extension
+drafts in the opposite order without revalidation or new unsafe code. Failure
+drains unfinished drafts innermost first. Erased no-change conversion retains its
+Arc identity; typed conversion still constructs a distinct owner. Native depth
+admission, formatting, serialization and traversal prepayment remain separate
+work under the [structural-operation amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-structural-operation-amendment-november-17-2026).
+
 ## November 17 borrowed schema children
 
 `DType::try_child_dtypes` borrows immediate children in native declaration order
@@ -210,7 +227,8 @@ The enum variants and serialized identity remain the same. Rust consuming
 matches and references formerly promoted from temporary dtypes now borrow or
 use immutable statics; this is a source-compatibility change for provider users
 that move fields out of the public enum. The provider is an internal pinned patch.
-The native public depth limits remain unchanged. Structural operations,
+The native public depth limits remain unchanged. The structural-operation
+section above records subsequent equality/hash/nullability work; formatting,
 serialization and resource prepayment remain separate acceptance work.
 
 Array handles now release their declared child slots through an ordered final-owner

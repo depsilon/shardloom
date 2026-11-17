@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-11-16: preserve owned accessor behavior with Arc-backed child clones.
+// Modified on 2026-11-17: iterate structural comparisons, hashing and nullability lookup.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
@@ -58,7 +58,11 @@ impl DType {
     /// Check if the `DType` is [`Nullability::Nullable`].
     #[inline]
     pub fn is_nullable(&self) -> bool {
-        match self {
+        let mut dtype = self;
+        while let Extension(extension) = dtype {
+            dtype = extension.storage_dtype();
+        }
+        match dtype {
             Null => true,
             Bool(null)
             | Primitive(_, null)
@@ -71,7 +75,7 @@ impl DType {
             | Struct(_, null)
             | Union(_, null)
             | Variant(null) => matches!(null, Nullability::Nullable),
-            Extension(ext_dtype) => ext_dtype.storage_dtype().is_nullable(),
+            Extension(_) => unreachable!("extension chain was traversed above"),
         }
     }
 
@@ -117,48 +121,12 @@ impl DType {
 
     /// Check if `self` and `other` are equal, ignoring nullability.
     pub fn eq_ignore_nullability(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Null, Null) => true,
-            (Bool(_), Bool(_)) => true,
-            (Primitive(lhs_ptype, _), Primitive(rhs_ptype, _)) => lhs_ptype == rhs_ptype,
-            (Decimal(lhs, _), Decimal(rhs, _)) => lhs == rhs,
-            (Utf8(_), Utf8(_)) => true,
-            (Binary(_), Binary(_)) => true,
-            (List(lhs_dtype, _), List(rhs_dtype, _)) => lhs_dtype.eq_ignore_nullability(rhs_dtype),
-            (FixedSizeList(lhs_dtype, lhs_size, _), FixedSizeList(rhs_dtype, rhs_size, _)) => {
-                lhs_size == rhs_size && lhs_dtype.eq_ignore_nullability(rhs_dtype)
-            }
-            (Map(lhs, _), Map(rhs, _)) => lhs.eq_ignore_nullability(rhs),
-            (Struct(lhs_dtype, _), Struct(rhs_dtype, _)) => {
-                lhs_dtype.eq_ignore_nullability(rhs_dtype)
-            }
-            (Union(lhs, _), Union(rhs, _)) => lhs.eq_ignore_nullability(rhs),
-            (Variant(_), Variant(_)) => true,
-            (Extension(lhs_extdtype), Extension(rhs_extdtype)) => {
-                lhs_extdtype.eq_ignore_nullability(rhs_extdtype)
-            }
-            _ => false,
-        }
+        super::structural::equal(self, other, true)
     }
 
     /// Hash this dtype using the same equivalence relation as [`Self::eq_ignore_nullability`].
     pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
-
-        match self {
-            Null | Bool(_) | Utf8(_) | Binary(_) | Variant(_) => {}
-            Primitive(ptype, _) => ptype.hash(state),
-            Decimal(decimal, _) => decimal.hash(state),
-            List(element, _) => element.hash_ignore_nullability(state),
-            FixedSizeList(element, size, _) => {
-                element.hash_ignore_nullability(state);
-                size.hash(state);
-            }
-            Map(map, _) => map.hash_ignore_nullability(state),
-            Struct(fields, _) => fields.hash_ignore_nullability(state),
-            Union(variants, _) => variants.hash_ignore_nullability(state),
-            Extension(ext) => ext.hash_ignore_nullability(state),
-        }
+        super::structural::hash(self, state, true);
     }
 
     /// Returns `true` if `self` is a subset type of `other, otherwise `false`.
