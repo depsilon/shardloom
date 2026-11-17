@@ -1162,6 +1162,16 @@ overlap before allocation. On failure or unwind, drain suspended parents
 innermost first, keeping coordinate capacity credit through contained cleanup.
 Cleanup must not allocate or request another grant.
 
+Use the shared native credited stack with four fixed inline frames before
+heap growth. This preserves the existing shallow output-compaction headroom;
+the initial eight-frame heap allocation otherwise exceeds its fixed allowance.
+Deeper capacity still reserves replacement overlap through `ReservedVec`.
+The inline prefix is bounded stack storage, not an uncredited growing buffer.
+Reverse occupied storage before ordinary element cleanup so suspended parents
+release innermost first even if a provider destructor panics. Verify initial
+and replacement refusal, exact last-owner refunds and one-panic cleanup, plus
+the unchanged output-pressure regression and deep payload/key controls.
+
 Preserve extension validation before storage copying, struct parent validity
 before field-major children, and list coordinates and fixed-size expansion
 before selection. Finish the flattened child before creating parent validity
@@ -1401,6 +1411,29 @@ Compare eager and lazy discovery, complete descriptor callback sequences,
 error precedence, null ancestors, list offsets and fixed lists against the
 original functions. Include deep traversal, refusal, cancellation, callback
 failure and last-owner checks before expanding the public depth domain.
+
+### Native nested key traversal, November 17, 2026
+
+Keep Vortex struct fields, list coordinates and scalar key owners as the
+providers for nested relational keys. Bind them in declaration order with
+credited continuations. A pending frame holds the complete source and
+canonical parent through each child preparation. Store each completed node
+before its parent in one credited arena and link siblings by index. A node's
+owned native value and metadata release before its parent. Abandoned builders
+release the completed nodes first and open frames innermost first. Final
+release uses the arena's existing storage and requires no traversal allocation.
+
+Comparison, validation, hashing and exact text identity borrow this owner.
+Use a bounded inline set of pending sibling cursors and prepay any larger
+capacity with the key preparation pool. Preserve null and type checks, the
+first non-equal comparison, list length after an equal prefix, full validation,
+hash tags and exact framing. Keep native row and leaf checks in their original
+order and propagate cancellation, denied capacity and writer errors through
+the existing fallible operator interfaces.
+
+Check these operations and final-owner release on deep native keys, alongside
+frozen shallow parity and existing relational operator controls. Keep the
+public depth check through the provider and complete lifecycle gates.
 
 ### Native buffer-credit continuation amendment, November 17, 2026
 

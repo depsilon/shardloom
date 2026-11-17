@@ -482,9 +482,22 @@ workflow, performance and acceptance work recorded in the historical notes.
   denied capacity replacement after partial traversal. The 413 selected
   native regressions, strict native workspace lint and binary-object feature
   checks pass. Six opt-in tests remain ignored in the selected native sweep.
-  Public depth admission still waits for nested keys, Arrow schema and final
-  owners, provider export and compute, native memory prepayment and complete
-  deep-workflow acceptance.
+  Nested relational keys now bind into a credited child-before-parent arena;
+  comparison, validation, hashing and exact identity use borrowed continuations.
+  Seven frozen original methods and eleven unchanged key methods preserve
+  values, ordering, hash bytes, first errors and writer/cancellation behavior.
+  Deep 8,192-level native keys pass on 128-KiB stacks, including partial binding,
+  denied growth, writer failure, panic cleanup and exact credit refunds.
+  The shared continuation stack keeps four frames inline before credited heap
+  growth. This repairs the original 4-MiB output-compaction pressure regression
+  without increasing the grant or changing copier leaf/enter/resume behavior.
+  All sixteen focused key, copy, stack and output controls pass on the final
+  sources, together with strict native workspace lint and the complete selected
+  regression sweep: 1,490 passed, zero failed and eleven existing opt-in checks
+  ignored. The earlier incomplete sweep, reproduced capacity denial and test-only
+  lint failure remain preserved. Public depth admission still waits for Arrow
+  schema and final owners, provider export and compute, native memory prepayment
+  and complete deep-workflow acceptance.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.

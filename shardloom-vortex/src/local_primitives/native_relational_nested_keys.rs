@@ -1,121 +1,92 @@
-//! Recursive logical keys over native children, never decoded list/struct rows.
+//! Nested relational keys over the original native scalar and container owners.
 
-use super::{KeyColumn, Preparation, failed, vortex_error};
-use crate::local_primitives::{native_capacity::ReservedVec, native_list};
-use shardloom_core::{FloatPolicy, Result};
-use shardloom_exec::{
-    compute_pool::CancellationToken,
-    live_memory::{LiveMemoryPool, MemoryLease},
+use super::{KeyColumn, failed};
+use crate::local_primitives::{
+    native_capacity::{ReservedStack, ReservedVec},
+    native_list,
 };
-use std::{cmp::Ordering, hash::Hasher as _};
-use vortex::{
-    array::{
-        ArrayRef, ExecutionCtx,
-        arrays::{StructArray, struct_::StructArrayExt as _},
-        dtype::DType,
-    },
-    mask::Mask,
-};
+use shardloom_core::Result;
+use shardloom_exec::{compute_pool::CancellationToken, live_memory::MemoryLease};
+use vortex::{array::dtype::DType, mask::Mask};
+
+#[path = "native_relational_nested_key_binding.rs"]
+mod binding;
+#[path = "native_relational_nested_key_comparison.rs"]
+mod comparison;
+#[path = "native_relational_nested_key_walk.rs"]
+mod walk;
+
+#[cfg(test)]
+#[path = "native_relational_nested_key_reference.rs"]
+mod reference;
+#[cfg(test)]
+#[path = "native_relational_nested_key_traversal_tests.rs"]
+mod tests;
+
+pub(super) fn is_container(dtype: &DType) -> bool {
+    matches!(
+        dtype,
+        DType::Struct(..) | DType::List(..) | DType::FixedSizeList(..)
+    )
+}
+
+pub(in crate::local_primitives) struct Column {
+    // Postorder storage releases complete children before their parent. Links
+    // are positions in this vector, so even the final owner drops iteratively.
+    nodes: ReservedVec<Node>,
+    root: usize,
+    cancellation: CancellationToken,
+    owner: MemoryLease,
+    _schema: Option<MemoryLease>,
+}
+
+struct Node {
+    value: Value,
+    next_sibling: Option<usize>,
+}
+
+enum Value {
+    Leaf(KeyColumn),
+    Container(Container),
+}
+
+struct Container {
+    children: Children,
+    dtype: DType,
+    rows: usize,
+}
 
 enum Children {
     Struct {
         valid: Mask,
-        fields: ReservedVec<KeyColumn>,
+        first: Option<usize>,
+        count: usize,
     },
     List {
         coordinates: native_list::Coordinates,
-        elements: Box<KeyColumn>,
+        elements: usize,
     },
 }
 
-pub(in crate::local_primitives) struct Column {
-    children: Children,
-    dtype: DType,
-    rows: usize,
-    cancellation: CancellationToken,
-    _metadata: MemoryLease,
-    _schema: Option<MemoryLease>,
-}
-
 impl Column {
-    pub(super) fn new(
-        array: &ArrayRef,
-        context: &mut ExecutionCtx,
-        memory: &LiveMemoryPool,
-        cancellation: &CancellationToken,
-        schema: Option<MemoryLease>,
-        purpose: Preparation,
-        float_policy: FloatPolicy,
-    ) -> Result<Self> {
-        cancellation.check()?;
-        // Includes this boxed owner and the list's boxed child. The root schema
-        // credit covers recursive logical metadata; vectors reserve separately.
-        let metadata = memory
-            .reserve((std::mem::size_of::<Self>() + std::mem::size_of::<KeyColumn>()) as u64)?;
-        let children = match array.dtype() {
-            DType::Struct(..) => {
-                let values = array
-                    .clone()
-                    .execute::<StructArray>(context)
-                    .map_err(vortex_error)?;
-                if values.len() != array.len() || values.dtype() != array.dtype() {
-                    return Err(failed("struct key execution changed dtype or row count"));
-                }
-                let valid = values
-                    .validity()
-                    .map_err(vortex_error)?
-                    .execute_mask(values.len(), context)
-                    .map_err(vortex_error)?;
-                let mut fields = ReservedVec::new(memory)?;
-                fields.reserve(values.struct_fields().nfields())?;
-                for field in values.iter_unmasked_fields() {
-                    cancellation.check()?;
-                    fields.values.push(KeyColumn::new_inner(
-                        field,
-                        context,
-                        memory,
-                        cancellation,
-                        None,
-                        purpose,
-                        float_policy,
-                    )?);
-                }
-                Children::Struct { valid, fields }
-            }
-            DType::List(..) | DType::FixedSizeList(..) => {
-                let (elements, coordinates) =
-                    native_list::Column::new(array.clone(), context)?.into_indexed(context)?;
-                Children::List {
-                    elements: Box::new(KeyColumn::new_inner(
-                        &elements,
-                        context,
-                        memory,
-                        cancellation,
-                        None,
-                        purpose,
-                        float_policy,
-                    )?),
-                    coordinates,
-                }
-            }
-            _ => return Err(failed("nested key has a non-nested dtype")),
+    fn root(&self) -> &Container {
+        let Value::Container(root) = &self.nodes.values[self.root].value else {
+            unreachable!("nested key construction finishes with a container");
         };
-        cancellation.check()?;
-        Ok(Self {
-            children,
-            dtype: array.dtype().clone(),
-            rows: array.len(),
-            cancellation: cancellation.clone(),
-            _metadata: metadata,
-            _schema: schema,
-        })
+        root
     }
 
     pub(super) fn len(&self) -> usize {
-        self.rows
+        self.root().rows
     }
 
     pub(super) fn is_null(&self, row: usize) -> Result<bool> {
+        self.root().is_null(row)
+    }
+}
+
+impl Container {
+    fn is_null(&self, row: usize) -> Result<bool> {
         if row >= self.rows {
             return Err(failed("nested key row exceeds native input"));
         }
@@ -124,195 +95,6 @@ impl Column {
             Children::List { coordinates, .. } => coordinates.at(row)?.is_none(),
         })
     }
-
-    pub(super) fn compare_at(
-        &self,
-        row: usize,
-        other: &Self,
-        other_row: usize,
-    ) -> Result<Ordering> {
-        self.cancellation.check()?;
-        other.cancellation.check()?;
-        if !self.dtype.eq_ignore_nullability(&other.dtype) {
-            return Err(failed(
-                "nested keys require identical logical structure and leaf types",
-            ));
-        }
-        match (self.is_null(row)?, other.is_null(other_row)?) {
-            (true, true) => return Ok(Ordering::Equal),
-            (true, false) => return Ok(Ordering::Less),
-            (false, true) => return Ok(Ordering::Greater),
-            (false, false) => {}
-        }
-        match (&self.children, &other.children) {
-            (Children::Struct { fields: left, .. }, Children::Struct { fields: right, .. }) => {
-                for (left, right) in left.values.iter().zip(&right.values) {
-                    self.cancellation.check()?;
-                    let order = left.compare_at(row, right, other_row)?;
-                    if order != Ordering::Equal {
-                        return Ok(order);
-                    }
-                }
-                Ok(Ordering::Equal)
-            }
-            (
-                Children::List {
-                    coordinates: left,
-                    elements: left_elements,
-                },
-                Children::List {
-                    coordinates: right,
-                    elements: right_elements,
-                },
-            ) => {
-                let (left_start, left_count) = left
-                    .at(row)?
-                    .ok_or_else(|| failed("nested key validity changed"))?;
-                let (right_start, right_count) = right
-                    .at(other_row)?
-                    .ok_or_else(|| failed("nested key validity changed"))?;
-                for index in 0..left_count.min(right_count) {
-                    if index.is_multiple_of(1024) {
-                        self.cancellation.check()?;
-                        other.cancellation.check()?;
-                    }
-                    let order = left_elements.compare_at(
-                        left_start + index,
-                        right_elements,
-                        right_start + index,
-                    )?;
-                    if order != Ordering::Equal {
-                        return Ok(order);
-                    }
-                }
-                Ok(left_count.cmp(&right_count))
-            }
-            _ => Err(failed("nested key structure changed after binding")),
-        }
-    }
-
-    pub(super) fn hash_into(&self, row: usize, hash: &mut rustc_hash::FxHasher) -> Result<bool> {
-        self.cancellation.check()?;
-        if self.is_null(row)? {
-            hash.write_u8(0);
-            return Ok(false);
-        }
-        match &self.children {
-            Children::Struct { fields, .. } => {
-                hash.write_u8(10);
-                hash.write_usize(fields.values.len());
-                let DType::Struct(dtype, _) = &self.dtype else {
-                    return Err(failed("struct key dtype changed"));
-                };
-                for (name, field) in dtype.names().iter().zip(&fields.values) {
-                    self.cancellation.check()?;
-                    let name: &str = name.as_ref();
-                    hash.write_usize(name.len());
-                    hash.write(name.as_bytes());
-                    field.hash_into(row, hash)?;
-                }
-            }
-            Children::List {
-                coordinates,
-                elements,
-            } => {
-                hash.write_u8(if matches!(self.dtype, DType::List(..)) {
-                    11
-                } else {
-                    12
-                });
-                let (start, count) = coordinates
-                    .at(row)?
-                    .ok_or_else(|| failed("list key validity changed"))?;
-                hash.write_usize(count);
-                for index in 0..count {
-                    if index.is_multiple_of(1024) {
-                        self.cancellation.check()?;
-                    }
-                    elements.hash_into(start + index, hash)?;
-                }
-            }
-        }
-        Ok(true)
-    }
-
-    pub(super) fn validate_at(&self, row: usize) -> Result<()> {
-        self.cancellation.check()?;
-        if self.is_null(row)? {
-            return Ok(());
-        }
-        match &self.children {
-            Children::Struct { fields, .. } => {
-                for field in &fields.values {
-                    self.cancellation.check()?;
-                    field.validate_at(row)?;
-                }
-            }
-            Children::List {
-                coordinates,
-                elements,
-            } => {
-                let (start, count) = coordinates
-                    .at(row)?
-                    .ok_or_else(|| failed("list key validity changed"))?;
-                for index in 0..count {
-                    if index.is_multiple_of(1024) {
-                        self.cancellation.check()?;
-                    }
-                    elements.validate_at(start + index)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub(super) fn write_exact_key(
-        &self,
-        row: usize,
-        output: &mut impl std::fmt::Write,
-    ) -> Result<()> {
-        self.cancellation.check()?;
-        if self.is_null(row)? {
-            return output.write_str("n;").map_err(vortex_error);
-        }
-        match &self.children {
-            Children::Struct { fields, .. } => {
-                write!(output, "S{}:", fields.values.len()).map_err(vortex_error)?;
-                let DType::Struct(dtype, _) = &self.dtype else {
-                    return Err(failed("struct key dtype changed"));
-                };
-                for (name, field) in dtype.names().iter().zip(&fields.values) {
-                    self.cancellation.check()?;
-                    let name: &str = name.as_ref();
-                    write!(output, "{}:{name}", name.len()).map_err(vortex_error)?;
-                    field.write_exact_key(row, output, &self.cancellation)?;
-                }
-            }
-            Children::List {
-                coordinates,
-                elements,
-            } => {
-                let (start, count) = coordinates
-                    .at(row)?
-                    .ok_or_else(|| failed("list key validity changed"))?;
-                write!(
-                    output,
-                    "{}{count}:",
-                    if matches!(self.dtype, DType::List(..)) {
-                        'L'
-                    } else {
-                        'F'
-                    }
-                )
-                .map_err(vortex_error)?;
-                for index in 0..count {
-                    if index.is_multiple_of(1024) {
-                        self.cancellation.check()?;
-                    }
-                    elements.write_exact_key(start + index, output, &self.cancellation)?;
-                }
-            }
-        }
-        Ok(())
-    }
 }
+
+type Frames<T> = ReservedStack<T, 4>;

@@ -4,6 +4,7 @@ use super::{
     CopyPolicy, CopyState, ReservedVec, Value, check, failed, native_list, result_batch, storage,
     tensor, validity, variant, vector, vortex_error,
 };
+use crate::local_primitives::native_capacity::ReservedStack;
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
 use shardloom_exec::live_memory::MemoryLease;
@@ -125,15 +126,7 @@ pub(super) enum Start<'a> {
     Child(Visit<'a>, Frame<'a>),
 }
 
-struct Pending<'a>(ReservedVec<Frame<'a>>);
-
-impl Drop for Pending<'_> {
-    fn drop(&mut self) {
-        while let Some(frame) = self.0.values.pop() {
-            drop(frame);
-        }
-    }
-}
+type Pending<'a> = ReservedStack<Frame<'a>, 4>;
 
 pub(super) fn copy_rows<const RETAIN: bool>(
     source: Option<&ArrayRef>,
@@ -147,7 +140,7 @@ pub(super) fn copy_rows<const RETAIN: bool>(
         root: rows,
         temporary: ReservedVec::new(context.memory())?,
     };
-    let mut pending = Pending(ReservedVec::new(context.memory())?);
+    let mut pending = Pending::new(context.memory())?;
     let mut visit = Visit {
         source: source.cloned(),
         dtype: dtype.clone(),
@@ -164,12 +157,12 @@ pub(super) fn copy_rows<const RETAIN: bool>(
         loop {
             match step {
                 Start::Child(next, frame) => {
-                    pending.0.push(frame)?;
+                    pending.push(frame)?;
                     visit = next;
                     break;
                 }
                 Start::Complete(complete) => {
-                    let Some(frame) = pending.0.values.pop() else {
+                    let Some(frame) = pending.pop() else {
                         return Ok(complete);
                     };
                     step = resume::<RETAIN>(frame, complete, &mut inputs, context)?;
