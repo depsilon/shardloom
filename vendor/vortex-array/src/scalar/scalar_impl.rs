@@ -233,47 +233,7 @@ impl Scalar {
     /// its first variant delegates to that child's [`Scalar::is_zero`], so an inner null child
     /// returns `None` and a non-null zero child returns `Some(true)`.
     pub fn is_zero(&self) -> Option<bool> {
-        let value = self.value()?;
-
-        let is_zero = match self.dtype() {
-            DType::Null => {
-                vortex_panic!("non-null value somehow had `DType::Null`")
-            }
-            DType::Bool(_) => !value.as_bool(),
-            DType::Primitive(..) => value.as_primitive().is_zero(),
-            DType::Decimal(..) => value.as_decimal().is_zero(),
-            DType::Utf8(_) => value.as_utf8().is_empty(),
-            DType::Binary(_) => value.as_binary().is_empty(),
-            DType::List(..) => value.as_list().is_empty(),
-            DType::Map(..) => self.as_map().is_empty(),
-            // A fixed-size list is zero only if it has the expected number of elements and every
-            // element is itself a non-null zero value.1
-            DType::FixedSizeList(_, list_size, _) => {
-                let list = self.as_list();
-                list.len() == *list_size as usize
-                    && (0..list.len())
-                        .all(|i| list.element(i).is_some_and(|e| e.is_zero() == Some(true)))
-            }
-            // A struct is zero only if every one of its fields is itself a non-null zero value.
-            DType::Struct(..) => self
-                .as_struct()
-                .fields_iter()
-                .is_some_and(|mut fields| fields.all(|f| f.is_zero() == Some(true))),
-            // Only the first variant of unions can be zero. Its child determines whether the
-            // zero-ness is true, false, or undefined.
-            DType::Union(..) => {
-                let union = self.as_union();
-                if union.child_index() != Some(0) {
-                    false
-                } else {
-                    union.child().and_then(|child| child.is_zero())?
-                }
-            }
-            DType::Variant(_) => self.as_variant().is_zero()?,
-            DType::Extension(_) => self.as_extension().to_storage_scalar().is_zero()?,
-        };
-
-        Some(is_zero)
+        super::inspection::is_zero((self.dtype(), self.value()))
     }
 
     /// Reinterprets the bytes of this scalar as a different primitive type.
@@ -307,48 +267,7 @@ impl Scalar {
     /// Note that the protobuf serialization of scalars will likely have a different (but roughly
     /// similar) length.
     pub fn approx_nbytes(&self) -> usize {
-        use crate::dtype::NativeDecimalType;
-        use crate::dtype::i256;
-
-        match self.dtype() {
-            DType::Null => 0,
-            DType::Bool(_) => 1,
-            DType::Primitive(ptype, _) => ptype.byte_width(),
-            DType::Decimal(dt, _) => {
-                if dt.precision() <= i128::MAX_PRECISION {
-                    size_of::<i128>()
-                } else {
-                    size_of::<i256>()
-                }
-            }
-            DType::Utf8(_) => self
-                .value()
-                .map_or_else(|| 0, |value| value.as_utf8().len()),
-            DType::Binary(_) => self
-                .value()
-                .map_or_else(|| 0, |value| value.as_binary().len()),
-            DType::List(..) | DType::FixedSizeList(..) => self
-                .as_list()
-                .elements()
-                .map(|fields| fields.into_iter().map(|f| f.approx_nbytes()).sum::<usize>())
-                .unwrap_or_default(),
-            DType::Map(..) => self
-                .as_map()
-                .entries()
-                .map(|(key, value)| key.approx_nbytes() + value.approx_nbytes())
-                .sum(),
-            DType::Struct(..) => self
-                .as_struct()
-                .fields_iter()
-                .map(|fields| fields.into_iter().map(|f| f.approx_nbytes()).sum::<usize>())
-                .unwrap_or_default(),
-            DType::Union(..) => self
-                .as_union()
-                .child()
-                .map_or(0, |value| 1 + value.approx_nbytes()),
-            DType::Variant(_) => self.as_variant().value().map_or(0, Scalar::approx_nbytes),
-            DType::Extension(_) => self.as_extension().to_storage_scalar().approx_nbytes(),
-        }
+        super::inspection::approx_nbytes((self.dtype(), self.value()))
     }
 }
 

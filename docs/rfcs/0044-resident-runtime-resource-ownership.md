@@ -682,6 +682,37 @@ Display and cleanup. Ordinary Display is not truncated. The existing public
 depth guard and traversal/join/diagnostic prepayment obligations remain until
 complete lifecycle acceptance.
 
+### Native scalar initialization and inspection amendment, November 17, 2026
+
+Use private ordered continuations for default/zero value construction, zero
+inspection and approximate scalar byte counts in the existing native provider.
+Preserve nullable defaults, non-null zeros, first-union-variant selection,
+extension-storage behavior, and the final public constructor's validation.
+Empty lists/maps remain identities without inspecting their child dtypes; a
+zero-length fixed list must likewise avoid visiting its element type. Construct
+fixed-list elements and struct fields in declaration order, stop at the first
+missing default/zero, and release partial values through native scalar cleanup.
+
+Zero inspection keeps list/map emptiness distinct from fixed-list/struct
+conjunction. A null or undefined child makes a conjunction false; a first union
+child propagates its own result, a later union variant is false, and a present
+Variant containing null is true. Preserve short circuits and the original lazy
+child and debug-build unchecked-constructor validation order without copying
+whole child values. Extension storage remains an ordinary native child.
+
+Approximate bytes retain the original nullable fixed-width estimates, decimal
+widths, union tag byte, and per-container addition order and overflow behavior.
+List element validation is eager before the first child estimate; struct
+validation is per field; both map children are resolved/validated before its key
+estimate. Retain those boundaries with borrowed children and local accumulators.
+This estimate remains an estimate of uncompressed data, not an allocation grant.
+
+Require shallow original-source references, complete leaf widths and nulls,
+empty/wide controls, lazy failures and extension callback ordering, early exits,
+and 8,192-level small-stack construction/inspection/cleanup. No new unsafe code,
+dependency or execution fallback is allowed. Public depth admission still waits
+for complete transport, traversal/allocation prepayment and lifecycle acceptance.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

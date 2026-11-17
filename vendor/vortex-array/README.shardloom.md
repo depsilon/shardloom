@@ -1,5 +1,27 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 iterative scalar initialization and inspection
+
+Default/zero construction, zero checks and approximate byte estimates use
+ordered native continuations. Initializers preserve nullable defaults, non-null
+zeros, first-union selection and final constructor validation; partially built
+siblings unwind from the innermost frame. Zero checks preserve conjunction,
+union and Variant-null semantics and their original short circuits.
+
+Byte estimates retain null fixed-width sizes, decimal widths, union tag bytes
+and per-container addition order. Borrowed child inspection preserves eager
+list validation, per-field struct validation and map key/value validation before
+estimating the key. Unchecked-constructor validation remains debug-only, as
+before. The estimate is not an allocation grant.
+
+Mechanically verified original-source references cover all four operations.
+Tests compare complete leaf widths, nulls, empty/wide/malformed shapes, lazy
+failures and callback order. Construction, failed partial cleanup and inspection
+pass 8,192-level checks on 128-KiB stacks. All 5,847 provider tests and strict
+provider lint pass, with one existing ignored test. Provider transport and
+complete resource/lifecycle acceptance remain required before depth admission
+changes. See the [initialization and inspection amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-initialization-and-inspection-amendment-november-17-2026).
+
 ## November 17 iterative scalar formatting
 
 Ordinary typed and raw scalar Display share borrowed ordered continuations,

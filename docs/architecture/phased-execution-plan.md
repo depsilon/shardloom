@@ -304,10 +304,12 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   pass the same deep-stack checks, with original shallow hash feeds, validation
   errors and callback order preserved. Typed/raw scalar Display now preserves
   original output, lazy/callback order and failed-sink boundaries on the same
-  deep-stack checks. All 5,840 array-provider tests pass
+  deep-stack checks. Defaults/zero construction, zero inspection and approximate
+  size estimates also pass, preserving nullable widths, lazy short circuits,
+  validation callback order and failed partial cleanup. All 5,847 array-provider tests pass
   (one existing ignored test), and strict provider lint passes. Earlier native
   workspace lint passed; whole-unit workspace acceptance remains required.
-  Scalar defaults/size inspection, array/value transport and complete
+  Array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

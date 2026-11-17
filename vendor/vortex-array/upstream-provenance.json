@@ -945,9 +945,9 @@
     "src/memory.rs": "a3f8c4c46b3d138f81a47656d9f02bcba77f8969473ea4e0cab7122aaa0a7d09",
     "src/scalar/display.rs": "61014a6df0b128c2c21a3c9b40169dce2e3e175f1e99c50147302fde3cc67a56",
     "src/scalar/downcast.rs": "801eb2221ba665af6d0e050c40d216c64d65dad8f3f3a6805fa214fdc3b3f2a2",
-    "src/scalar/mod.rs": "4e7296fb61af7ff31be4e8eb4e20857aa7efece46785996bd1c7dcaf54803ee5",
-    "src/scalar/scalar_impl.rs": "856cbf4069095bf944c86587c69b8005ae63a13f1cf735e427d3fb06bc3fc27c",
-    "src/scalar/scalar_value.rs": "71511e49cb979f55944432ae1042d8a1db89d14eb5942fc4f226beff276948c3",
+    "src/scalar/mod.rs": "8f8c57a4eec2b4f093b899b2d15e2008d1d5b0edf6f56bf21a7eb559eb820470",
+    "src/scalar/scalar_impl.rs": "ee0f07a9bdfd2b50cb5c8737d17a32131ac245ed401b30e1fc02795392309790",
+    "src/scalar/scalar_value.rs": "c70acf6505c82aee55b1bcf28b833d4972a9bc848a118d640da330d7366616e2",
     "src/scalar/typed_view/list.rs": "a45a406fa5bad5f74ebb39565f390691bf6743a1749f9f1101a7f6cdde3c7653",
     "src/scalar/typed_view/map.rs": "21afd6ee29a97dda66cf34c4c0a57dca8ebe95df1ea64512054ff3e38490a0f4",
     "src/scalar/typed_view/struct_.rs": "98924d55f2f0f9da89a923fcbd131bb1b5e7ae439a5acd6094704e9f51ca6d9e",
@@ -967,7 +967,7 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "3dd2594d7733eb65c72112dcaf41dd183cda55341d2640f25f9e8d8bbe2a7fde",
+    "README.shardloom.md": "e659f8efac656371b2d42cae060c0dc794086f5da982e34177fe79680f5fc2b9",
     "clippy.toml": "6b50f4fda7cae6f6c4d7e17d13a237462c5ccfc7aa24a262819c6cb833604613",
     "goldenfiles/dict.metadata": "93901363fb3105004026aea24615b753477a5443a0ba982f2a6d7be61cdcf8a9",
     "goldenfiles/runend.metadata": "29221925e78ff9b104a1778cc5b59ef3a12436147c9977782a7ce257a38ffb2f",
@@ -1001,6 +1001,13 @@
     "src/scalar/formatting.rs": "e0d6bbb8348f554f06a00a87fb985128be194ce27dbe5aacf872f3612f0e01f1",
     "src/scalar/formatting_reference.rs": "aeebd2b571fb8501b8c56a65dfb04c12d0e3c0841173d18b90e13c7d3fa5e10d",
     "src/scalar/formatting_tests.rs": "d4fbd6d148e35d9af8e8c945853b7de1cc8f39776dbf620684e325698e12ec67",
+    "src/scalar/initialization.rs": "77a8031665bc8228edc8bab654a46598b86b2a8f8e03863fffb94623c8f7ea3c",
+    "src/scalar/initialization_reference.rs": "fc2393a0d8f0aab42119e2d37246dcca20ee5c01608c0b36af7f9d1b14130dd7",
+    "src/scalar/initialization_tests.rs": "05fac25f5e8a27a4d08e6557ff6cc9b0be773a24e1d65304af70e092ab400d90",
+    "src/scalar/inspection.rs": "dda800df14f11b4ac4cbe59659c159c6267c6980c10e5f5baae9ccc4ceb80651",
+    "src/scalar/inspection_reference.rs": "8e5c81b2a9c8a5aade2eb70438ce68423327bfb4520e8cae6f237eaa5edf1e1f",
+    "src/scalar/inspection_tests.rs": "5c587a89ea4b3b27d97141651344e0ad8fe8ee0d4daafb446866bd46245ec578",
+    "src/scalar/operation_test_support.rs": "555d3d961b0f7ceb8781d3a0599816d093a6d8d0d6e9f08fee281175bdd6d0ea",
     "src/scalar/ordering.rs": "6ccabd278b4a3b4faa2bbaa04b385b316eee87dba5b5518e3764281b9b94cdb9",
     "src/scalar/ordering_reference.rs": "c5209cead887306e1267dc7d42bee3b60b9d0288dbd580c60ff7cd92e23817fd",
     "src/scalar/ordering_tests.rs": "8315a4cc885dfe55964f0ddfbb7df50bf754ae42c1db45047833abfe2d098dab",
@@ -1015,7 +1022,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "3dd2594d7733eb65c72112dcaf41dd183cda55341d2640f25f9e8d8bbe2a7fde"
+    "sha256": "e659f8efac656371b2d42cae060c0dc794086f5da982e34177fe79680f5fc2b9"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

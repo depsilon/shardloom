@@ -23,6 +23,8 @@ mod diagnostic;
 mod display;
 mod downcast;
 mod formatting;
+mod initialization;
+mod inspection;
 mod ordering;
 mod proto;
 mod release;
@@ -67,3 +69,6 @@ impl std::fmt::Debug for Scalar {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod operation_test_support;
