@@ -4,8 +4,10 @@
 
 Status: the bounded dictionary/COUNT/matcher propagation unit is verified for
 integration under the maintainer's useful-behavior retention instruction;
-broader work remains active under item 20/RFC 0044 and the existing
-[coverage priority](native-optimization-coverage-2026-11-13.md). The November 15
+the November 16 [pruning decision](native-optimization-pruning-2026-11-16.md)
+removes its broader physical-reader, encoding, scan/build, sorting and spill
+performance expansion. The former [coverage priority](native-optimization-coverage-2026-11-13.md)
+is a historical record. The November 15
 maintainer review requests improving propagation while retaining the current
 work. Shared implementation and positive activation counts do not establish
 that every eligible occurrence reaches an optimized owner.
@@ -46,7 +48,7 @@ gather observations and 403 complete production requests per runtime. The
 complete engine total decreases 60.778284678 → 60.597904154 seconds, with all
 186 individual regressions retained. This small, roughly 0.3% result satisfies
 its frozen rule without establishing material improvement or repeatability;
-hosted integration remains pending.
+PR #1694 is merged, all 54 exact-main jobs pass and scoped cleanup is complete.
 
 The maintainer separately requests one Polars pass on the exact 11,579 saved
 fresh requests. The [November 16 observation](../benchmarks/polars-propagation-once-2026-11-16.md)
@@ -166,7 +168,11 @@ cost investigation; this change does not infer the cause of old timing changes.
 
 ## Audited remaining ownership boundaries
 
-| Owner | Verified connection and work evidence | Remaining opportunity |
+These are architectural observations, not an active implementation queue. The
+November 16 decision removes the speculative performance extensions below while
+retaining current correctness/resource tests and necessary feature acceptance.
+
+| Owner | Verified connection and work evidence | Historical unimplemented boundary; removed from active optimization queue |
 | --- | --- | --- |
 | Ordered aggregate | `local_primitive_prepared_relational.rs` selects the spill branch before resident `consume_reordered_count`; `native_relational_aggregate_spill.rs` builds ordered records and uses the existing ordered finalizer. Reports input, distinct and quantile records. | Reduce records before ordered aggregation where its own semantics and reservations permit. Resident COUNT state is not automatically available. |
 | Ordered join | The spill branch precedes resident join construction. `native_relational_join_spill.rs` probes `lookup::Search` over ordered right records; candidate rows, probes, match records and lookup blocks are reported. | Impossible-probe and duplicate-range work elimination appropriate to the ordered representation. Resident `RowIndex` membership and skew counters do not describe this route. |

@@ -2,9 +2,14 @@
 
 # Optimization coverage across the native engine
 
-Status: active audit and implementation under the November 13 maintainer request
-for complete optimization coverage. This extends item 20 and the existing
-RFC 0044 owners. It is not a completed coverage or performance claim.
+Status: historical audit and implementation record. The November 16
+[pruning decision](native-optimization-pruning-2026-11-16.md) retires the blanket
+complete-coverage obligation and removes the remaining Vortex demand/encoding,
+earlier join pruning, scan/build reuse, sorting and spill hypotheses from the
+active queue. Existing retained behavior and correctness/resource obligations
+remain. Sections below preserve the original November 13 contract and evidence;
+their unclosed opportunities no longer authorize work by themselves. This is
+not a completed coverage or performance claim. Item 20/RFC 0044 remain canonical.
 
 ## Contract
 

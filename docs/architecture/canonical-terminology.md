@@ -139,6 +139,19 @@ or separate storage product to rename an existing upstream format.
 Introduce named subsystems by function in architecture material: **Work scheduling — PulseWeave**.
 Navigation, first-run examples, and ordinary benchmark names use descriptive product language.
 
+### Proposed regional data and shared-work components
+
+The [November 16 architecture proposal](native-chrysalis-resonance-cells-2026-11-16.md)
+defines the following vocabulary. These are proposed components, not implemented
+capabilities. The phase plan owns their queue position and acceptance status.
+
+| Term | Proposed responsibility |
+| --- | --- |
+| Chrysalis Cell | One immutable source generation's bounded row region and field set, with exact logical coordinates, interpretation policy and owned physical representations. |
+| Chrysalis Map | Exact coverage and routing across source-backed regions and completed native representations, with atomic publication of validated transitions. |
+| Resonance Cell | One bounded native input region and compatible pure live preparation shared by admitted consumers, each retaining independent selections, mutable state and results. |
+| Resonance Lease | One consumer's lifetime and charged resource rights over shared live work, including cancellation and bounded retention. |
+
 ### Lifecycle verbs
 
 | Verb | Meaning |

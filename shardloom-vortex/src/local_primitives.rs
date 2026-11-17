@@ -201,6 +201,9 @@ pub(crate) mod native_relational_join_cost;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_keys.rs"]
 mod native_relational_keys;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_matches.rs"]
+mod native_relational_matches;
 #[cfg(all(test, debug_assertions, feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_observation.rs"]
 pub(crate) mod native_relational_observation;
@@ -216,6 +219,9 @@ mod native_relational_record_output;
 #[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[path = "local_primitives/native_relational_records.rs"]
 mod native_relational_records;
+#[cfg(all(feature = "vortex-local-primitives", unix))]
+#[path = "local_primitives/native_relational_rows.rs"]
+mod native_relational_rows;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_relational_set.rs"]
 mod native_relational_set;

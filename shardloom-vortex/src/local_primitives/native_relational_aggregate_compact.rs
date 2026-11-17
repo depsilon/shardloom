@@ -14,7 +14,10 @@ use crate::{
     resident_session::NativeExecutionContext,
 };
 use shardloom_core::Result;
-use vortex::{array::ArrayRef, mask::Mask};
+use vortex::{
+    array::{ArrayRef, dtype::DType},
+    mask::Mask,
+};
 
 #[cfg(test)]
 #[path = "native_relational_aggregate_compact_state_tests.rs"]
@@ -80,13 +83,13 @@ impl Table {
         Ok(())
     }
 
-    pub(super) fn specialize(
+    pub(super) fn specialize_dtype(
         spec: &Spec,
-        array: &ArrayRef,
+        dtype: &DType,
         groups: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<Self>> {
-        let Some(typed) = typed::Table::new(spec, array, groups, context)? else {
+        let Some(typed) = typed::Table::new_dtype(spec, dtype, groups, context)? else {
             return Ok(None);
         };
         Ok(Some(Self {
@@ -100,15 +103,15 @@ impl Table {
         }))
     }
 
-    pub(super) fn accepts(
+    pub(super) fn accepts_dtype(
         &self,
         spec: &Spec,
-        array: &ArrayRef,
+        dtype: &DType,
         context: &NativeExecutionContext<'_>,
     ) -> bool {
         self.typed
             .as_ref()
-            .is_none_or(|table| table.accepts(spec, array, context))
+            .is_none_or(|table| table.accepts(spec, dtype, context))
     }
 
     pub(super) fn restore(
@@ -292,8 +295,23 @@ impl Table {
         validity: Option<&Mask>,
         context: &NativeExecutionContext<'_>,
     ) -> Result<()> {
+        self.consume_selection(index, measure, ordinals, values, validity, None, context)
+    }
+
+    #[allow(clippy::too_many_arguments)] // Same state update, with an optional original-row selection.
+    pub(super) fn consume_selection(
+        &mut self,
+        index: usize,
+        measure: &Measure,
+        ordinals: &GroupOrdinals,
+        values: Option<&KeyColumn>,
+        validity: Option<&Mask>,
+        rows: Option<&[usize]>,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<()> {
         if let Some(table) = &mut self.typed {
-            return table.consume(index, measure, ordinals, values, validity, context);
+            return table
+                .consume_selection(index, measure, ordinals, values, validity, rows, context);
         }
         match self.slots.values[index] {
             Slot::Count(index) => {
@@ -304,7 +322,7 @@ impl Table {
                     if measure.column.is_some() {
                         if !validity
                             .ok_or_else(|| failed("COUNT validity absent"))?
-                            .value(row)
+                            .value(rows.map_or(row, |rows| rows[row]))
                         {
                             continue;
                         }
@@ -321,17 +339,17 @@ impl Table {
             }
             Slot::Numeric(index) => {
                 if let Some(KeyColumn::Numeric(owner)) = values {
-                    if owner.len() != ordinals.len() {
+                    if rows.map_or(owner.len(), <[usize]>::len) != ordinals.len() {
                         return Err(failed("numeric group ordinals changed row count"));
                     }
-                    if owner.len() != 0 {
+                    if ordinals.len() != 0 {
                         #[cfg(all(test, debug_assertions))]
                         super::super::native_relational_observation::record(|counts| {
                             counts.aggregate_numeric_bound_batches += 1;
-                            counts.aggregate_numeric_bound_rows += owner.len() as u64;
+                            counts.aggregate_numeric_bound_rows += ordinals.len() as u64;
                         });
                     }
-                    owner.visit_numeric(|row, value, integer| {
+                    let update = |row: usize, value, integer| {
                         if row.is_multiple_of(1024) {
                             context.check_cancelled()?;
                         }
@@ -348,7 +366,12 @@ impl Table {
                             )?;
                         }
                         Ok(())
-                    })?;
+                    };
+                    if let Some(rows) = rows {
+                        owner.visit_selected_numeric(rows, update)?;
+                    } else {
+                        owner.visit_numeric(update)?;
+                    }
                 } else {
                     for (row, group) in ordinals.iter() {
                         if row.is_multiple_of(1024) {

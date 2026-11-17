@@ -185,12 +185,25 @@ fn parquet_join_count_and_mixed_measures_construct_only_consumed_columns() {
                 vec![expected],
                 "kind={kind:?}, mixed={mixed}"
             );
+            let direct = kind == JoinKind::Inner && !mixed;
+            let work = result
+                .execution
+                .native_io_certificate
+                .join_work
+                .direct_aggregate;
+            assert_eq!(work.aggregate_rows, if direct { rows } else { 0 });
+            if direct {
+                // Owned-source demand already removed unused fields. The one
+                // declared match column is validated without a joined copy.
+                assert_eq!((work.match_rows, work.validated_cells), (rows, rows));
+            }
             #[cfg(debug_assertions)]
             {
                 let counts = observation.finish();
-                assert_eq!(counts.join_output_rows, rows);
+                let copied_rows = if direct { 0 } else { rows };
+                assert_eq!(counts.join_output_rows, copied_rows);
                 assert_eq!(
-                    counts.join_output_cells, rows,
+                    counts.join_output_cells, copied_rows,
                     "kind={kind:?}, mixed={mixed}"
                 );
             }

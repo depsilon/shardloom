@@ -364,7 +364,7 @@ fn filter_array(
     Ok(selected)
 }
 
-fn project_array(
+pub(super) fn project_array(
     fields: &[(String, super::DType)],
     expressions: &[native_relational_expression::Expression],
     array: &ArrayRef,

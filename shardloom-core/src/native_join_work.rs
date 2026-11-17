@@ -55,12 +55,31 @@ pub struct NativeCyclicExistenceWork {
     pub payload_cells_validated: u64,
 }
 
+/// Exact join matches consumed by an aggregate without joined payload arrays.
+/// Counters include only completed execution; matched rows sum over join stages.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct NativeJoinAggregateWork {
+    pub chains_considered: u64,
+    pub chains_declined_duplicates: u64,
+    pub chains_declined_representation: u64,
+    pub source_batches_direct: u64,
+    pub source_batches_declined: u64,
+    pub match_batches: u64,
+    /// Exact selected rows whose intermediate payload construction was avoided.
+    pub match_rows: u64,
+    /// Declared output cells validated at their original join-stage boundary.
+    pub validated_cells: u64,
+    /// Final matches delivered in order to the existing aggregate state.
+    pub aggregate_rows: u64,
+}
+
 /// Actual completed-query native join owner work, aggregated without a trace.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct NativeJoinWork {
     pub runtime_filter: NativeRuntimeFilterWork,
     pub skew: NativeSkewWork,
     pub cyclic: NativeCyclicExistenceWork,
+    pub direct_aggregate: NativeJoinAggregateWork,
 }
 
 macro_rules! merge_counters {
@@ -145,6 +164,28 @@ impl NativeCyclicExistenceWork {
     }
 }
 
+impl NativeJoinAggregateWork {
+    /// Atomically add observations from another completed match consumer.
+    ///
+    /// # Errors
+    /// Returns a stable error on overflow without changing this value.
+    pub fn merge(&mut self, other: Self) -> crate::Result<()> {
+        merge_counters!(
+            self,
+            other,
+            chains_considered,
+            chains_declined_duplicates,
+            chains_declined_representation,
+            source_batches_direct,
+            source_batches_declined,
+            match_batches,
+            match_rows,
+            validated_cells,
+            aggregate_rows,
+        )
+    }
+}
+
 impl NativeJoinWork {
     /// Atomically add all observations from another completed query.
     ///
@@ -155,6 +196,7 @@ impl NativeJoinWork {
         merged.runtime_filter.merge(other.runtime_filter)?;
         merged.skew.merge(other.skew)?;
         merged.cyclic.merge(other.cyclic)?;
+        merged.direct_aggregate.merge(other.direct_aggregate)?;
         *self = merged;
         Ok(())
     }
@@ -196,8 +238,8 @@ mod tests {
                 build_keys: 5,
                 ..Default::default()
             },
-            cyclic: NativeCyclicExistenceWork {
-                payload_cells_validated: u64::MAX,
+            direct_aggregate: NativeJoinAggregateWork {
+                aggregate_rows: u64::MAX,
                 ..Default::default()
             },
             ..NativeJoinWork::default()
@@ -208,8 +250,8 @@ mod tests {
                 build_keys: 9,
                 ..Default::default()
             },
-            cyclic: NativeCyclicExistenceWork {
-                payload_cells_validated: 1,
+            direct_aggregate: NativeJoinAggregateWork {
+                aggregate_rows: 1,
                 ..Default::default()
             },
             ..NativeJoinWork::default()

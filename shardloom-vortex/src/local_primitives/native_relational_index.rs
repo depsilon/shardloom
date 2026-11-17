@@ -314,6 +314,12 @@ impl RowIndex {
         self.entries.values.len()
     }
 
+    /// NULL keys were never inserted. A completed unique lookup may therefore
+    /// have fewer indexed rows than its retained table without any duplicates.
+    pub(super) fn has_duplicates(&self) -> bool {
+        !self.links.values.is_empty()
+    }
+
     /// Borrow the stable entry identity and its first retained row. A sealed
     /// join may derive an optional lookup without replacing duplicate storage.
     pub(super) fn representative_rows(&self) -> impl ExactSizeIterator<Item = (usize, usize)> {

@@ -434,11 +434,24 @@ fn prepared_join_payload_mask_preserves_selected_and_build_validation_scopes() {
                     let result = result.unwrap();
                     assert_eq!(json_rows(&result), [json!({"rows": rows})]);
                     assert!(result.execution.native_io_certificate.is_certified());
+                    let direct = kind == JoinKind::Inner;
+                    let work = result
+                        .execution
+                        .native_io_certificate
+                        .join_work
+                        .direct_aggregate;
+                    assert_eq!(work.aggregate_rows, if direct { rows } else { 0 });
+                    if direct {
+                        assert_eq!((work.match_rows, work.validated_cells), (rows, rows * 6));
+                    }
                     #[cfg(debug_assertions)]
                     {
                         let counts = observation.finish();
-                        assert_eq!(counts.join_output_cells, rows);
-                        assert_eq!(counts.join_payload_validation_only_cells, rows * 5);
+                        assert_eq!(counts.join_output_cells, if direct { 0 } else { rows });
+                        assert_eq!(
+                            counts.join_payload_validation_only_cells,
+                            if direct { 0 } else { rows * 5 }
+                        );
                     }
                     drop(result);
                 }
@@ -489,14 +502,20 @@ fn parquet_join_demand_keeps_caller_owned_arrow_outputs_as_a_barrier() {
         .collect_jsonl(&CancellationToken::default())
         .unwrap();
     assert_eq!(json_rows(&result), vec![json!({"rows":16})]);
+    let work = result
+        .execution
+        .native_io_certificate
+        .join_work
+        .direct_aggregate;
+    assert_eq!(
+        (work.aggregate_rows, work.match_rows, work.validated_cells),
+        (16, 16, 96)
+    );
     #[cfg(debug_assertions)]
     {
         let counts = observation.finish();
-        assert_eq!(
-            (counts.join_output_rows, counts.join_output_cells),
-            (16, 16)
-        );
-        assert_eq!(counts.join_payload_validation_only_cells, 80);
+        assert_eq!((counts.join_output_rows, counts.join_output_cells), (0, 0));
+        assert_eq!(counts.join_payload_validation_only_cells, 0);
     }
     assert_eq!(
         result

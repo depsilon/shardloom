@@ -131,7 +131,7 @@ fn eligible(key: &KeyColumn) -> bool {
         // A dictionary code domain is not a raw value identity. Its existing
         // single-column directory remains authoritative; composite dictionaries
         // retain exact ordinary lookup, including late invalid-code failures.
-        KeyColumn::Variable(values) => values.codes.is_none(),
+        KeyColumn::Variable(values) => values.codes.is_none() && values.values.views().is_some(),
         _ => false,
     }
 }
@@ -158,7 +158,11 @@ fn identity(key: &KeyColumn, row: usize) -> Result<Option<u128>> {
                 // This marker cannot alias empty or embedded-NUL text/binary.
                 return Ok(Some(1_u128 << 31));
             }
-            let view = &values.values.views()[row];
+            let view = &values
+                .values
+                .views()
+                .ok_or_else(|| failed("inline key cache requires native views"))?
+                .views()[row];
             if !view.is_inlined() {
                 return Ok(None);
             }

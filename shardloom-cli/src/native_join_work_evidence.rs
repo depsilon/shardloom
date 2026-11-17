@@ -5,7 +5,7 @@ use shardloom_core::native_join_work::NativeJoinWork;
 pub(super) fn append(fields: &mut Vec<(String, String)>, prefix: &str, work: &NativeJoinWork) {
     let report = serde_json::json!({
         "schema_version": "shardloom.native_join_work.v1",
-        "scope": "completed_native_join_work;runtime_filters_after_key_validation;rejected_rows_avoid_index_lookups_not_source_io;skew_counts_actual_contiguous_range_use;cyclic_counts_actual_witness_search",
+        "scope": "completed_native_join_work;runtime_filters_after_key_validation;rejected_rows_avoid_index_lookups_not_source_io;skew_counts_actual_contiguous_range_use;cyclic_counts_actual_witness_search;direct_aggregate_counts_exact_matches_consumed_without_joined_payloads",
         "runtime_filter": {
             "strategy": "three_bit_bloom_membership",
             "build_provenance": "completed_native_exact_key_index",
@@ -44,6 +44,18 @@ pub(super) fn append(fields: &mut Vec<(String, String)>, prefix: &str, work: &Na
             "last_payload_rows_validated": work.cyclic.last_payload_rows_validated,
             "payload_cells_validated": work.cyclic.payload_cells_validated,
         },
+        "direct_aggregate": {
+            "strategy": "exact_unique_inner_matches_in_original_update_order",
+            "chains_considered": work.direct_aggregate.chains_considered,
+            "chains_declined_duplicates": work.direct_aggregate.chains_declined_duplicates,
+            "chains_declined_representation": work.direct_aggregate.chains_declined_representation,
+            "source_batches_direct": work.direct_aggregate.source_batches_direct,
+            "source_batches_declined": work.direct_aggregate.source_batches_declined,
+            "match_batches": work.direct_aggregate.match_batches,
+            "match_rows": work.direct_aggregate.match_rows,
+            "validated_cells": work.direct_aggregate.validated_cells,
+            "aggregate_rows": work.direct_aggregate.aggregate_rows,
+        },
     });
     fields.push((format!("{prefix}_join_work_json"), report.to_string()));
 }
@@ -52,10 +64,11 @@ pub(super) fn append(fields: &mut Vec<(String, String)>, prefix: &str, work: &Na
 mod tests {
     use super::*;
     use shardloom_core::native_join_work::{
-        NativeCyclicExistenceWork, NativeRuntimeFilterWork, NativeSkewWork,
+        NativeCyclicExistenceWork, NativeJoinAggregateWork, NativeRuntimeFilterWork, NativeSkewWork,
     };
 
     #[test]
+    #[allow(clippy::too_many_lines)] // One exhaustive public report with distinct values for every counter.
     fn join_work_json_preserves_all_child_counters_and_zero_values() {
         let work = NativeJoinWork {
             runtime_filter: NativeRuntimeFilterWork {
@@ -92,6 +105,17 @@ mod tests {
                 last_payload_rows_validated: 27,
                 payload_cells_validated: 28,
             },
+            direct_aggregate: NativeJoinAggregateWork {
+                chains_considered: 29,
+                chains_declined_duplicates: 30,
+                chains_declined_representation: 31,
+                source_batches_direct: 32,
+                source_batches_declined: 0,
+                match_batches: 34,
+                match_rows: 35,
+                validated_cells: 36,
+                aggregate_rows: 37,
+            },
         };
         let mut fields = Vec::new();
 
@@ -104,7 +128,7 @@ mod tests {
             value,
             serde_json::json!({
                 "schema_version": "shardloom.native_join_work.v1",
-                "scope": "completed_native_join_work;runtime_filters_after_key_validation;rejected_rows_avoid_index_lookups_not_source_io;skew_counts_actual_contiguous_range_use;cyclic_counts_actual_witness_search",
+                "scope": "completed_native_join_work;runtime_filters_after_key_validation;rejected_rows_avoid_index_lookups_not_source_io;skew_counts_actual_contiguous_range_use;cyclic_counts_actual_witness_search;direct_aggregate_counts_exact_matches_consumed_without_joined_payloads",
                 "runtime_filter": {
                     "strategy": "three_bit_bloom_membership",
                     "build_provenance": "completed_native_exact_key_index",
@@ -142,6 +166,18 @@ mod tests {
                     "middle_payload_rows_validated": 26,
                     "last_payload_rows_validated": 27,
                     "payload_cells_validated": 28,
+                },
+                "direct_aggregate": {
+                    "strategy": "exact_unique_inner_matches_in_original_update_order",
+                    "chains_considered": 29,
+                    "chains_declined_duplicates": 30,
+                    "chains_declined_representation": 31,
+                    "source_batches_direct": 32,
+                    "source_batches_declined": 0,
+                    "match_batches": 34,
+                    "match_rows": 35,
+                    "validated_cells": 36,
+                    "aggregate_rows": 37,
                 },
             })
         );
