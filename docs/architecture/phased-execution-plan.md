@@ -312,9 +312,13 @@ has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
   ArrayNode verification preserves malformed-data errors and configured limits;
   8,192-level writing, failure cleanup and explicit-option verification pass on
   small stacks. All 5,856 array-provider tests pass
-  (one existing ignored test), and strict provider lint passes. Earlier native
-  workspace lint passed; whole-unit workspace acceptance remains required.
-  Array/value transport and complete
+  (one existing ignored test), and strict provider lint passes. The two native
+  schema JSON writers now share admitted borrowed continuations, preserving
+  exact bytes, write-failure boundaries, callback order and 8-MiB limits.
+  Deep writing, denial, cancellation and refund checks pass. The native
+  workspace passes all 7,356 tests (42 existing opt-in tests ignored), strict
+  lint and formatting at this checkpoint; final whole-unit acceptance remains
+  required. Array/value transport and complete
   deep-workflow runtime/resource acceptance remain open.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.

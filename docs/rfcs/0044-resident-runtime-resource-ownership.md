@@ -746,6 +746,31 @@ test-only verifier options. Statistics/scalar transport and plugin-directed
 logical array decoding retain their separate obligations. Admit all node,
 continuation and builder overlap before changing public deep-data admission.
 
+### Native schema JSON boundary amendment, November 17, 2026
+
+The two direct native DType JSON writers (result-schema delivery and inert
+application-schema wire-size validation) may use one private iterative adapter
+for the existing `vortex.dtype.serde.v1` representation. Keep generic upstream
+Serde behavior unchanged. Use Serde JSON for leaf values, names, IDs, tags and
+metadata; emit compound syntax with the same compact writer boundaries and
+ordered borrowed continuations. Do not create a nested `serde_json::Value` or
+clone a complete schema merely to serialize it.
+
+Keep names before dtypes, eager direct-field resolution before serializing a
+struct/union's dtype sequence, map key before value, union tags after children,
+and extension metadata callbacks after storage serialization but before its
+metadata field key. Preserve complete bytes, callback failures, partial failed
+sink output and existing caller diagnostic mapping. Existing fallible schema
+preflight and 8-MiB output/wire-size limits remain in both callers.
+
+Charge continuation capacity and reallocation overlap against the same caller
+memory pool before allocating; release the frames before their credit, and
+check cancellation as traversal advances. Do not infer a whole-process grant
+for arbitrary extension callbacks. Require original generic-Serde parity for
+all shapes and escaping, failed-sink/callback ordering, exact wire-size checks,
+denial/cancellation/refund controls and 8,192-level internal writing/cleanup on
+a small stack. Public depth admission still waits for complete lifecycle proof.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

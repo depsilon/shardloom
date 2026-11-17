@@ -96,7 +96,8 @@ pub(crate) fn validate_application_dtype(dtype: &DType) -> Result<()> {
         .ok_or_else(|| failed("application schema workspace overflow"))?;
     let validation = LiveMemoryPool::new(limit)?;
     let _workspace = crate::native_payload_schema::reserve_schema(dtype, &validation)?;
-    serde_json::to_writer(WireSize(0), dtype).map_err(|error| failed(&error.to_string()))
+    crate::native_payload_schema::json::write(dtype, &validation, WireSize(0))
+        .map_err(|error| error.into_error(|error| failed(&error.to_string())))
 }
 
 /// Payload intake holds `reserve_json` credit. Inert application declarations

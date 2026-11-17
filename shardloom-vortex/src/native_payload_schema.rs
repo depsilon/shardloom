@@ -8,6 +8,10 @@ use vortex::array::dtype::{DType, DecimalDType};
 #[path = "native_payload_schema_walk.rs"]
 mod walk;
 
+#[cfg(feature = "vortex-local-primitives")]
+#[path = "native_dtype_json.rs"]
+pub(crate) mod json;
+
 pub(crate) use crate::native_temporal::temporal_storage;
 
 /// Borrow the existing owner for schema inspection. This creates no new pool or
