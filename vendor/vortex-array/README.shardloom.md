@@ -1,5 +1,28 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 ordered scalar validation and diagnostics
+
+Native scalar compatibility and detailed validation use borrowed continuations
+for lists, fixed-size lists, structs, maps, unions, variants and extensions.
+Inline leaf checks, null rules, the first failing child, lazy field selection,
+map key/value pre-resolution and storage-before-extension callbacks retain
+their previous behavior. Top-level legacy F16-bit construction is unchanged.
+The fast compatibility walk does not build diagnostic strings.
+
+ScalarValue Debug preserves original field names and formatting flags through
+32 value-child edges. Deeper values use an explicit non-exhaustive variant.
+Malformed-value diagnostics use the same presentation limit; deep validation
+errors keep the nearest 32 ancestor contexts and report omitted outer contexts.
+Ordinary Display remains unchanged. The probe neither validates nor formats
+hidden extension metadata.
+
+The original recursive validator is retained, with its Apache-2.0 copyright,
+as a mechanically verified shallow reference. Tests cover exact errors,
+callback order, lazy failures and 8,192-level valid/invalid construction and
+cleanup on 128-KiB stacks. These checks do not lift native depth admission;
+ordering, ordinary Display, transport and resource prepayment remain required.
+See the [validation amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-validation-and-diagnostic-amendment-november-17-2026).
+
 ## November 17 iterative scalar structural operations
 
 ScalarValue clone, equality and hashing traverse tuple, union and Variant
@@ -13,7 +36,8 @@ Independent shallow derived references cover all numeric/decimal widths, nulls,
 non-consecutive union tags, Variant nullability and wide tuples. Existing raw
 PValue cross-domain upcast panics are preserved and compared as outcomes.
 Small-stack 8,192-level clone/equality/hash/release checks prove retained buffer
-identity and last-owner lifetime. Validation, formatting, serialization and
+identity and last-owner lifetime. The validation section above records the next
+completed provider operation; ordering, ordinary Display, serialization and
 resource prepayment remain separate obligations under the
 [scalar structural amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-structural-operation-amendment-november-17-2026).
 

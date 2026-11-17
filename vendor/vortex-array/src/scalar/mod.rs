@@ -19,6 +19,7 @@ pub mod arbitrary;
 mod cast;
 mod constructor;
 mod convert;
+mod diagnostic;
 mod display;
 mod downcast;
 mod proto;
@@ -29,6 +30,7 @@ mod structural;
 mod truncation;
 mod typed_view;
 mod validate;
+mod validate_walk;
 
 pub use scalar_value::*;
 pub use truncation::*;

@@ -36,16 +36,34 @@ enum Reference {
     Variant(Box<ReferenceScalar>),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct ReferenceUnion {
     type_id: u8,
     value: Option<Box<Reference>>,
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Eq)]
 struct ReferenceScalar {
     value: Option<Reference>,
     dtype: DType,
+}
+
+impl fmt::Debug for ReferenceUnion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UnionValue")
+            .field("type_id", &self.type_id)
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
+impl fmt::Debug for ReferenceScalar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Scalar")
+            .field("dtype", &self.dtype)
+            .field("value", &self.value)
+            .finish()
+    }
 }
 
 impl PartialEq for ReferenceScalar {
@@ -176,6 +194,13 @@ fn structural_operations_match_independent_shallow_derives_and_hash_feed() {
     let values = fixtures();
     let originals: Vec<_> = values.iter().map(reference).collect();
     for (index, (value, original)) in values.iter().zip(&originals).enumerate() {
+        assert_eq!(format!("{value:?}"), format!("{original:?}"));
+        assert_eq!(format!("{value:#?}"), format!("{original:#?}"));
+        assert_eq!(format!("{value:x?}"), format!("{original:x?}"));
+        assert_eq!(format!("{value:X?}"), format!("{original:X?}"));
+        assert_eq!(format!("{value:#x?}"), format!("{original:#x?}"));
+        assert_eq!(format!("{value:+#032x?}"), format!("{original:+#032x?}"));
+        assert_eq!(format!("{value:>40.3?}"), format!("{original:>40.3?}"));
         assert_eq!(
             reference(&value.clone()),
             original.clone(),

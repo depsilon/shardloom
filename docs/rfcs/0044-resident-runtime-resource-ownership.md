@@ -605,6 +605,33 @@ clone/equality/hash/release tests. Validation, ordering, formatting, transport
 and whole-runtime resource admission remain separate obligations; these checks
 alone do not lift the public depth guard.
 
+### Native scalar validation and diagnostic amendment, November 17, 2026
+
+Replace recursive native scalar compatibility and detailed validation with the
+same ordered borrowed traversal. Retain the inline null/primitive fast checks;
+the compatibility walk must not construct diagnostic strings. Preserve lazy
+field order, map key/value pre-resolution, union tag selection, Variant null
+rules and storage-before-extension callbacks. Detailed validation keeps the
+same first failing leaf and existing messages for ordinary shallow inputs.
+The constructor's top-level legacy F16-bit conversion remains unchanged.
+
+Failure presentation must not reintroduce stack recursion or multiply an
+arbitrarily deep schema across every ancestor message. ScalarValue Debug retains
+its original derived field spelling and flags through 32 value-child edges,
+then uses a non-exhaustive variant such as `Tuple(..)`. It inspects values without
+validating, cloning or formatting extension metadata. Detailed validation uses
+the same bound before displaying a mismatched raw value. Preserve all existing
+ancestor contexts when there are at most 32; for deeper failures retain the 32
+nearest contexts and explicitly report the number of omitted outer contexts.
+This is a diagnostic presentation bound, not a data admission limit. Ordinary
+Display and persisted values are not truncated by this policy.
+
+Require shallow success/error/callback parity against the original recursive
+validator, lazy-error ordering, independent null/length/tag/type controls, deep
+valid and invalid constructors on small stacks, bounded deep diagnostics and
+cleanup after failure. Prepayment for continuation growth and bounded diagnostic
+overlap remains mandatory before public depth admission changes.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)
