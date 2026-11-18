@@ -92,6 +92,20 @@ decode-to-consumer overlap remain candidates, with no default winner or new
 benchmark authorization. Reuse pinned Vortex array/scan/sink providers at their
 existing boundaries; this correction adds no provider or dependency.
 
+The conversion handoff was checked specifically against
+[`source_handoff_and_slice_lifetime_share_the_prefetch_pool`](../../shardloom-vortex/src/vortex_ingest_owned_tests.rs)
+and the [owned conversion overlap control](../../shardloom-vortex/src/vortex_ingest_owned_handoff_tests.rs).
+On the admitted native-memory route, the task lease and the array's allocation
+owners are separate: releasing the former at handoff does not release the
+latter. A retained slice keeps its backing credit after the iterator is gone,
+and both inline and prefetched conversion use that contract. The legacy
+pre-writer lease therefore does not establish a missing native allocation
+owner or justify double-charging the same buffers. This is source review of
+existing acceptance, not a newly executed test or a unit 2 completion claim.
+The [prior ingest window decision](native-ingest-batch-window-scheduling-2026-10-25.md)
+also supplies no retained scheduling candidate to repeat unchanged; runtime
+target selection still needs a demonstrated gap or new material exposure.
+
 The [local validation record](../release/evidence/shared-native-capability-reporting-2026-11-17/validation.json)
 links exact changed-owner tests, default workspace
 gates, enabled-native lint and CLI preparation acceptance. Full hosted/platform
