@@ -28,8 +28,11 @@ execution evidence through the existing owners from intake to final delivery.
 The supplied review cites main at `6688dd9b9` after PR #1697. Its integration
 points were checked against the active deep-traversal worktree at `b83306a32`;
 this records the planning baseline, not a new remote-main or runtime acceptance
-claim. Proposed incorporation below remains unimplemented until owner evidence
-establishes otherwise. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
+claim. The [unit 1 owner map](native-shared-capability-owner-map-2026-11-17.md) now
+reconciles the named capabilities and seven boundary families. Its accompanying
+v2 reporting correction separates policy plans and task-role checks from actual
+scheduler application; unmeasured work stays unavailable. Units 2–5 remain open,
+including runtime target selection. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
 remains complete in its declared scope and must be reused, not reopened.
 
 Classification: `v1_candidate_pending_feasibility` for new performance

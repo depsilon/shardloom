@@ -290,7 +290,10 @@ workflow, performance and acceptance work recorded in the historical notes.
 
 - [ ] **Deep-traversal groundwork — PR checkpoint**
   Status: PR checkpoint — implementation scope is closed at the maintainer's
-  November 17 request. Local source/provider checks pass; hosted checks remain required;
+  November 17 request. [PR #1698](https://github.com/depsilon/shardloom/pull/1698)
+  is open and unmerged. Local source/provider checks pass; hosted checks have
+  reported provider-recipe/test compatibility, generated-document and dependency
+  advisory failures that remain required closeout work;
   keep full deep-traversal acceptance open. Public nesting limits remain unchanged.
   The [checkpoint and deferred scope](native-deep-traversal-checkpoint-2026-11-17.md)
   distinguish tested internal robustness from the still-unproven complete user workflow.
@@ -301,7 +304,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Leave remaining deep traversal after Foundry integration.
 
 - [ ] **Shared native capability incorporation**
-  Status: Next — follows the deep-traversal PR checkpoint; takes priority
+  Status: In progress — follows the deep-traversal PR checkpoint; takes priority
   over every remaining queued item under the November 17 maintainer request,
   including every unfinished item 20 obligation not absorbed into this plan.
   The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
@@ -319,8 +322,11 @@ workflow, performance and acceptance work recorded in the historical notes.
     metadata-first execution, dynamic admission, timing boundaries and evidence
     tiers. Coordinate with existing adaptive sizing inside caller ceilings.
   Execution checklist:
-  - [ ] Map every named capability to current owners, callers, operative controls,
-    observation types, legal domains and remaining integration gaps.
+  - [x] Map every named capability to current owners, callers, operative controls,
+    observation types, legal domains and remaining integration gaps in the
+    [source-backed owner map](native-shared-capability-owner-map-2026-11-17.md).
+  - [x] Correct pure planning/application claims and preserve role checks;
+    v2 evidence keeps unobserved lifecycle and memory quantities unavailable.
   - [ ] Select a material evidenced target and freeze affected opportunities and controls.
   - [ ] Extend the shared Capillary lifecycle through completed results, downstream
     retention, refusal, cancellation, drain and final-owner release.

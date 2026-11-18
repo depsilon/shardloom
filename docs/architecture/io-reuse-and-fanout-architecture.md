@@ -274,15 +274,20 @@ inputs can record `not_requested_below_threshold` with no task manifest and
 claim-evidence, or complex operation rows activate typed task roles: `source_split_discovery`,
 `read_chunk`, `columnarize_encode`, `vortex_segment_write`, `reopen_verify`, and `sink_evidence`.
 Each activated report links source split refs, read byte ranges, row ranges, projection/filter
-posture, Vortex segment refs, writer sink refs, memory budget, peak memory, memory/sink pressure,
+posture, Vortex segment refs, writer sink refs, memory budget, optional peak memory, memory/sink pressure,
 retry/idempotency status, materialization/decode posture, execution and Native I/O certificates,
 correctness refs, no-fallback fields, and prefixed PulseWeave
-FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields. PulseWeave applies only when ProofBound
-certifies the admitted capillary task graph; missing Native I/O evidence leaves the graph in
-report-only blocked status. The first runtime promotion also emits `prewrite_*` evidence showing
-whether the admitted task graph gated the local SourceState split/read, array build, write, reopen,
-and sink-evidence steps before the Vortex artifact is written. This is not a standalone capillary
-lane and does not claim object-store, distributed, production, or performance readiness.
+FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields. The November 17
+[owner audit](native-shared-capability-owner-map-2026-11-17.md) establishes that
+this task graph is a manifest, not an executing scheduler. The v2 report emits
+`planned_capillary_task_manifest`, `scheduler_applied=false`, zero executed
+windows and `unavailable` peak memory; missing Native I/O evidence still leaves
+the graph blocked. `prewrite_*` evidence identifies admitted manifests and
+validated task roles before the local split/read, array build, write, reopen and
+sink-evidence stages. Missing roles still fail explicitly. Those checks do not
+apply a WIP or byte setting. Existing writer options, conversion prefetch and
+adaptive sizing remain separately owned controls. No object-store, distributed,
+production or performance readiness is claimed.
 
 ```text
 vortex_capillary_preparation_schema_version
