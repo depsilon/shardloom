@@ -23,6 +23,14 @@ Schema, JSON and Row from registry archives to verified local source. This
 checkpoint preserves the public nesting guards and does not admit a complete
 deep-data workflow.
 
+Hosted checkpoint follow-up: the Layout and File recipes now select the
+existing same-version `vortex-datetime-parts` patch alongside the patched DType
+owner. Their locks change only that package's registry source/checksum to the
+local source; package versions and edges stay unchanged. Arrow IPC's malformed
+fixed-list regression constructs its schema within the panic boundary so
+retained lifetime owners need not implement `UnwindSafe`. No runtime code,
+feature, test gate or advisory policy is changed by these CI corrections.
+
 ## November 17 full Variant validation
 
 `parquet-variant` remains at 59.3.2 and gains a standalone configuration for its

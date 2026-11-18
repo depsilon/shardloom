@@ -103,10 +103,32 @@ def normalize_frozen_command(command: list[str]) -> list[str]:
             position += 2
         command = [*command[:position], "--config",
                    'patch.crates-io.prost.path="vendor/prost"', *command[position:]]
+    if crate in {"vortex-layout", "vortex-file"}:
+        position = command.index('patch.crates-io.prost.path="vendor/prost"') - 1
+        command = [*command[:position], "--config",
+                   'patch.crates-io.vortex-datetime-parts.path="vendor/vortex-datetime-parts"',
+                   *command[position:]]
     return normalize_ownership_command(command)
 
 
 class ProviderCommandTests(unittest.TestCase):
+    def test_dtype_owner_consumers_keep_the_matching_datetime_patch(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        covered = set()
+        for crate in CURRENT_PROVIDERS - {"vortex-datetime-parts"}:
+            packages = tomllib.loads((root / ".github/provider-locks" / f"{crate}.lock").read_text())["package"]
+            datetime = next((p for p in packages if p["name"] == "vortex-datetime-parts"), None)
+            if datetime is None:
+                continue
+            with self.subTest(crate=crate):
+                covered.add(crate)
+                self.assertIn("vortex-array", providers.provider_patches(crate))
+                self.assertIn("vortex-datetime-parts", providers.provider_patches(crate))
+                self.assertEqual(datetime["version"], "0.93.0")
+                self.assertNotIn("source", datetime)
+                self.assertNotIn("checksum", datetime)
+        self.assertEqual(covered, {"vortex-layout", "vortex-file", "vortex-parquet-variant"})
+
     def test_same_version_arrow_graph_uses_the_reviewed_ownership_sources(self) -> None:
         owned = {"arrow-schema", "arrow-array", "arrow-data", "arrow-json", "arrow-row"}
         root = Path(__file__).resolve().parents[1]

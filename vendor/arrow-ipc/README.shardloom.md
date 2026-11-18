@@ -36,6 +36,11 @@ construction overlap, buffer control records and logical-null validation masks;
 checked lengths reject fixed-list multiplication overflow and inconsistent
 struct child lengths before upstream construction.
 
+The fixed-list overflow regression constructs its schema inside the panic
+boundary. Arrow's retained lifetime owners may hold arbitrary guard types and
+do not promise `UnwindSafe`; the test does not require that unrelated promise
+or add an unchecked unwind-safety assertion.
+
 `OwnedFileDecoder` retains the admitted schema, projection and dictionary maps.
 Dictionary replacement commits only after successful decode; deltas admit
 concatenation output and scratch, including repeated dense-union/list children

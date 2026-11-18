@@ -1,0 +1,340 @@
+{
+  "status": "local_ci_corrections_passed_hosted_acceptance_pending",
+  "scope": "provider recipe compatibility, panic regression test and generated reference correction; no deeper public admission or new runtime behavior",
+  "base_commit": "d699e18a6b76829348c32e2ca53e4ebdf603fb0e",
+  "source_tree": "d2071659e3390d6d91be133b02357548e37cea0c",
+  "guard": {
+    "receipt_sha256": "2a0e6d5e9c1248a59f075a6e686a40bb02d1e11901a3829e56412a280965deb0",
+    "sources_unchanged": true,
+    "process_group_drained": true
+  },
+  "changed_sources_sha256": {
+    ".github/provider-locks/README.md": "58852c1d8291d71ca8c2537009c85d7228b534e8064806ea47e42197f2de28ff",
+    ".github/provider-locks/vortex-file.lock": "cd4fe51ea096c84ccc4007ed7637cf4d6bdf4ca55d27f71116bac5fd6efe8941",
+    ".github/provider-locks/vortex-layout.lock": "4c6ba27cf11dbfb33c00493b6b6bddf87974e03f7fc297bc49a74d66017da3d8",
+    "docs/reference/shardloom-user-surface-index.json": "84c51519e7b85d942de4a2f5752b7e7f6260a324daa34899adeae25f1eaa6815",
+    "docs/reference/shardloom-user-surface-index.md": "9f44539eda04d3fd8b53683e94eb5db5ee72699493016599b952aaa1a9275faa",
+    "python/THIRD_PARTY_LICENSES/manifest.json": "e198427823707297606416b06fd8eba7a9169cda677178c42b708339e34fc63f",
+    "scripts/ci_provider_tests.py": "e0151302d1c746568e05289e325a9cbfbde23e4167fcfa9827c092f2b6674c8a",
+    "scripts/test_ci_provider_tests.py": "324ce96bc6207e9eb3d6299f7acbd47162a06b279cc59a93a181612dadb9ed66",
+    "vendor/arrow-ipc/README.shardloom.md": "14ae1194ac5bcf5ff11e1ddfc987c931d46926c4b113b82583c7a90c35365a2a",
+    "vendor/arrow-ipc/src/reader/controlled_array_tests.rs": "deeba10bfbdd803d7c8095d07d0ba437bef9c7071b3f0a67a91180b3ea87ba1c",
+    "vendor/arrow-ipc/upstream-provenance.json": "4162e0e46c83bed5153d0956a266043f8a2d98e73298cebc6caf8635c2e29fbf"
+  },
+  "provider_checks": [
+    {
+      "crate": "vortex-layout",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "vendor/vortex-layout/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--config",
+        "patch.crates-io.vortex-io.path=\"vendor/vortex-io\"",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.vortex-datetime-parts.path=\"vendor/vortex-datetime-parts\"",
+        "--config",
+        "patch.crates-io.prost.path=\"vendor/prost\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "tokio,vortex-io/tokio,vortex-array/_test-harness",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "lock_sha256": "4c6ba27cf11dbfb33c00493b6b6bddf87974e03f7fc297bc49a74d66017da3d8",
+      "log_sha256": "a2e48bbc1fbbaa8840f33d192930844172d5d46e8ad67852b41ab730a8f5c93f",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/vortex-array",
+      "test_counts": {
+        "passed": 779,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "crate": "vortex-layout",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "vendor/vortex-layout/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--config",
+        "patch.crates-io.vortex-io.path=\"vendor/vortex-io\"",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.vortex-datetime-parts.path=\"vendor/vortex-datetime-parts\"",
+        "--config",
+        "patch.crates-io.prost.path=\"vendor/prost\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "tokio,vortex-io/tokio,vortex-array/_test-harness",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "lock_sha256": "4c6ba27cf11dbfb33c00493b6b6bddf87974e03f7fc297bc49a74d66017da3d8",
+      "log_sha256": "2ad02ed6a424a99482133b3f8d80e791d5f3ac39f2414baeb53fd6ae2fd6d124",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/vortex-array"
+    },
+    {
+      "crate": "vortex-file",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "vendor/vortex-file/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--config",
+        "patch.crates-io.vortex-io.path=\"vendor/vortex-io\"",
+        "--config",
+        "patch.crates-io.vortex-layout.path=\"vendor/vortex-layout\"",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.vortex-datetime-parts.path=\"vendor/vortex-datetime-parts\"",
+        "--config",
+        "patch.crates-io.prost.path=\"vendor/prost\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "tokio,vortex-array/table-display",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "lock_sha256": "cd4fe51ea096c84ccc4007ed7637cf4d6bdf4ca55d27f71116bac5fd6efe8941",
+      "log_sha256": "93b890a4cf9cdf447f4cd6c88b56d33b3ec65bc6b66df754834f7daec98bfb22",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/vortex-array",
+      "test_counts": {
+        "passed": 205,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "crate": "vortex-file",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "vendor/vortex-file/Cargo.toml",
+        "--config",
+        "patch.crates-io.vortex-array.path=\"vendor/vortex-array\"",
+        "--config",
+        "patch.crates-io.vortex-io.path=\"vendor/vortex-io\"",
+        "--config",
+        "patch.crates-io.vortex-layout.path=\"vendor/vortex-layout\"",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.vortex-datetime-parts.path=\"vendor/vortex-datetime-parts\"",
+        "--config",
+        "patch.crates-io.prost.path=\"vendor/prost\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "tokio,vortex-array/table-display",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "lock_sha256": "cd4fe51ea096c84ccc4007ed7637cf4d6bdf4ca55d27f71116bac5fd6efe8941",
+      "log_sha256": "e4949b5ceb411389537ea93e18ac093f957bd390c1742e52a39bba6340174c2e",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/vortex-array"
+    },
+    {
+      "crate": "arrow-ipc",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-ipc/Cargo.toml",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "lz4,zstd",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "lock_sha256": "b2da0f14e28e78ca4dee7826ec2252f53afd885b79332128f0dd5206887238cd",
+      "log_sha256": "03cd889d7bcbf8340342e930dd345c25dfe3bb2ab08776f9b4a95686e8088813",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/arrow-ipc",
+      "test_counts": {
+        "passed": 155,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "crate": "arrow-ipc",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-ipc/Cargo.toml",
+        "--config",
+        "patch.crates-io.flatbuffers.path=\"vendor/flatbuffers\"",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "lz4,zstd",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "lock_sha256": "b2da0f14e28e78ca4dee7826ec2252f53afd885b79332128f0dd5206887238cd",
+      "log_sha256": "7caf847a1cd9031991cb83e8695ab4e58b61eef36ecfb031c35e33f6868df470",
+      "returncode": 0,
+      "clippy_conf_dir": "vendor/arrow-ipc"
+    }
+  ],
+  "additional_checks": [
+    {
+      "command": "python3 -B -m unittest discover -s scripts -p test_ci_provider_tests.py",
+      "passed_tests": 23,
+      "returncode": 0,
+      "log_sha256": "d0ffb3676ae199c33ccf2ce6a6d46282527993829b6553f10e1564ba77b1a50d"
+    },
+    {
+      "command": "python3 -B -m unittest discover -s scripts -p test_python_license_bundle.py",
+      "passed_tests": 8,
+      "returncode": 0
+    },
+    {
+      "command": "python3 -B -m unittest discover -s python/tests -p test_public_api_reference.py",
+      "passed_tests": 15,
+      "returncode": 0
+    },
+    {
+      "command": "python3 -B scripts/write_public_api_reference.py --check",
+      "returncode": 0
+    },
+    {
+      "command": "python3 -B scripts/check_python_license_bundle.py",
+      "returncode": 0
+    },
+    {
+      "command": "rustfmt --edition 2024 --check vendor/arrow-ipc/src/reader/controlled_array_tests.rs",
+      "returncode": 0
+    },
+    {
+      "command": "git diff --check",
+      "returncode": 0
+    }
+  ],
+  "dependency_and_license_review": {
+    "status": "passed",
+    "locks": [
+      {
+        "path": ".github/provider-locks/vortex-file.lock",
+        "sha256": "cd4fe51ea096c84ccc4007ed7637cf4d6bdf4ca55d27f71116bac5fd6efe8941",
+        "changes": [
+          {
+            "source": "registry+https://github.com/rust-lang/crates.io-index",
+            "checksum": "adc55b1fed12f5945ae09746bb14343c8beb76f573e831e2e5b499345d2ef9d6"
+          }
+        ],
+        "unchanged_package_versions_dependencies_and_other_fields": true
+      },
+      {
+        "path": ".github/provider-locks/vortex-layout.lock",
+        "sha256": "4c6ba27cf11dbfb33c00493b6b6bddf87974e03f7fc297bc49a74d66017da3d8",
+        "changes": [
+          {
+            "source": "registry+https://github.com/rust-lang/crates.io-index",
+            "checksum": "adc55b1fed12f5945ae09746bb14343c8beb76f573e831e2e5b499345d2ef9d6"
+          }
+        ],
+        "unchanged_package_versions_dependencies_and_other_fields": true
+      }
+    ],
+    "licenses": {
+      "status": "passed",
+      "registry_packages": 421,
+      "vendored_packages": 30,
+      "license_file_records": 840,
+      "unique_text_files": 249
+    }
+  },
+  "hosted_original_run": {
+    "url": "https://github.com/depsilon/shardloom/actions/runs/44220946806",
+    "native_test_partitions": "passed; aggregate native gate failed on the provider dependency",
+    "core_python_failure": "stale generated Cargo source hashes; regenerated and verified locally",
+    "provider_failures": "missing matching datetime patch in standalone I/O recipes; IPC test captured a schema without UnwindSafe; verified locally",
+    "unresolved_dependency_gates": [
+      {
+        "package": "chrono",
+        "reason": "unmaintained; no patched version listed",
+        "url": "https://rustsec.org/advisories/RUSTSEC-2026-0543.html"
+      },
+      {
+        "package": "chrono-tz",
+        "reason": "unmaintained; no patched version listed",
+        "url": "https://rustsec.org/advisories/RUSTSEC-2026-0555.html"
+      },
+      {
+        "package": "picomatch",
+        "reason": "website audit ReDoS advisory; no patched version listed",
+        "url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf"
+      }
+    ],
+    "cloudflare_build": "failed; GitHub check contains only a dashboard link and no diagnostic log; cause not established",
+    "policy": "No advisory waiver, audit weakening or automatic dependency downgrade. Existing paste waiver unchanged.",
+    "remaining_acceptance": "New-head hosted checks and package/platform results remain required."
+  },
+  "broad_validation": "Root runtime source unchanged by this follow-up. Prior required workspace formatting, strict lint and test acceptance remains in checkpoint-validation.json; these standalone providers were retested with their exact frozen CI recipes."
+}

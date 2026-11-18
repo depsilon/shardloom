@@ -3005,8 +3005,6 @@ dependencies = [
 [[package]]
 name = "vortex-datetime-parts"
 version = "0.93.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc55b1fed12f5945ae09746bb14343c8beb76f573e831e2e5b499345d2ef9d6"
 dependencies = [
  "num-traits",
  "prost",

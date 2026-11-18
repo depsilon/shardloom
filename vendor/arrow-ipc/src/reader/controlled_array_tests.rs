@@ -196,12 +196,14 @@ fn malformed(
 
 #[test]
 fn malformed_fixed_list_extent_returns_error_without_panicking() {
-    let schema = Arc::new(Schema::new(vec![Field::new(
-        "list",
-        DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Null, true)), 3),
-        true,
-    )]));
     let outcome = std::panic::catch_unwind(|| {
+        // Construct the schema inside the boundary: its retained ownership may
+        // contain arbitrary lifetime guards, which need not be UnwindSafe.
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "list",
+            DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Null, true)), 3),
+            true,
+        )]));
         malformed(
             schema,
             i64::MAX,
