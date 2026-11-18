@@ -187,6 +187,18 @@ class NativeApplicationBatchTests(unittest.TestCase):
                 receipt = getattr(report, "write_" + format)(target)
                 self.assertEqual(receipt.output_commit_status, "committed")
                 self.assertEqual(getattr(ctx, "read_" + format)(target).collect().to_rows(), expected)
+                if format == "parquet":
+                    import pyarrow.parquet as parquet
+                    independent = parquet.read_table(target)
+                elif format == "arrow_ipc":
+                    with self.pa.ipc.open_file(target) as reader:
+                        independent = reader.read_all()
+                else:
+                    continue
+                self.assertEqual(independent.to_pylist(), list(expected))
+                self.assertEqual(independent.schema, self.pa.schema([
+                    self.pa.field("region", self.pa.int64()), self.pa.field("total", self.pa.float64()),
+                    self.pa.field("rows", self.pa.uint64(), nullable=False)]))
 
     def test_python_exception_identity_traceback_no_retry_and_failed_write_cleanup(self):
         ctx, calls = self.context(), []

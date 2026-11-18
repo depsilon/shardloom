@@ -4,6 +4,15 @@
 
 ## Decision and ownership
 
+The [November 18 combined acceptance](native-shared-combined-acceptance-2026-11-18.md)
+adds complete local SQL/DataFrame workflows for per-fund statistics,
+entity/currency as-of valuation, daylight-saving daily reports and parameterized
+multi-CTE composition, plus independent output readback for custom batch
+transformation. All 466 installed-package tests pass without skips. Safe remote
+dataset refresh remains deferred to its existing I/O/Foundry owner; deeper
+traversal and hosted/competitive acceptance retain their separate gates. This
+scoped result adds no new full-corpus performance observation or item-20 closure.
+
 The October 26 maintainer request expands existing queue item 20, everyday
 analytical completion, into a shared query-family program. Its objective is:
 across supported operators, types, distributions, layouts and public interfaces,

@@ -4,9 +4,13 @@
 
 This is unit 1 of the [shared incorporation plan](native-shared-capability-incorporation-2026-11-17.md),
 grounded in the tree based on `d699e18a6` and the accompanying reporting correction.
-It records source applicability, not a new performance result or complete
-incorporation. The [phase plan](phased-execution-plan.md#current-execution) owns
-the queue; units 2–5 remain open. Deep traversal remains after Foundry.
+It records source applicability, not a new performance result. The November 18
+[combined acceptance](native-shared-combined-acceptance-2026-11-18.md) subsequently
+reconciles 107 executed native tests across all seven families and completes the
+bounded local lifecycle/public/package scope. No new finite-feedback candidate
+is admitted; actual feedback and unexplored reuse remain deferred or unobserved.
+Hosted acceptance stays open. The [phase plan](phased-execution-plan.md#current-execution)
+owns the queue; deep traversal remains after Foundry.
 
 The governing distinction is **proposed → admitted → executed → completed**.
 A descriptor, input certificate or proposed window cannot establish a later
@@ -45,8 +49,9 @@ without fragile line numbers.
 These rows reconcile intake through delivery without claiming the Cartesian
 product of interfaces, formats and operators has been tested. CLI SQL, Python
 SQL, typed relations, DataFrame and embedded workflows reuse their existing
-native owners where admitted. The acceptance below identifies current proof
-locations; unchanged historical tests are not counted as newly executed tests.
+native owners where admitted. The table below identifies the original proof
+locations. The later [executed matrix](native-shared-combined-acceptance-2026-11-18.md#seven-family-reconciliation)
+binds the exact passing tests without claiming every adjacent opportunity.
 
 | Boundary | Source-backed incorporation and operative constraint | Existing proof / remaining work |
 | --- | --- | --- |
@@ -82,15 +87,15 @@ allocator or layout/write controls. Consumers that pin the affected v1 schemas
 must accept v2 and handle `unavailable` rather than parsing it as zero. The live
 CLI assertion and Python validation controls change with the producer.
 
-## Next acceptance boundary
+## Acceptance boundary
 
-Unit 1 closes the owner inventory and the false planning/application claims.
-It does not select or claim the runtime work of units 2–5. Select that next owner
-from saved material exposure, then freeze its actual legal controls and affected
-population. Potential conversion/writer imbalance, composed COUNT and
-decode-to-consumer overlap remain candidates, with no default winner or new
-benchmark authorization. Reuse pinned Vortex array/scan/sink providers at their
-existing boundaries; this correction adds no provider or dependency.
+Unit 1 closed the owner inventory and false planning/application claims. The
+later lifecycle correction and actual worker-to-delivery controls close the
+demonstrated correctness/resource gaps. Bounded numeric and UTF8 observations
+select no new scheduling control. This is a completed feasibility screen, not
+implemented finite feedback or a revival of prior conversion/COUNT experiments.
+Pinned Vortex array/scan/sink providers remain at their existing boundaries;
+no provider or dependency is added.
 
 The conversion handoff was checked specifically against
 [`source_handoff_and_slice_lifetime_share_the_prefetch_pool`](../../shardloom-vortex/src/vortex_ingest_owned_tests.rs)
@@ -100,11 +105,12 @@ owners are separate: releasing the former at handoff does not release the
 latter. A retained slice keeps its backing credit after the iterator is gone,
 and both inline and prefetched conversion use that contract. The legacy
 pre-writer lease therefore does not establish a missing native allocation
-owner or justify double-charging the same buffers. This is source review of
-existing acceptance, not a newly executed test or a unit 2 completion claim.
+owner or justify double-charging the same buffers. That original review did not
+count as a new execution. The later full native suite executes these controls
+and binds them in the seven-family matrix.
 The [prior ingest window decision](native-ingest-batch-window-scheduling-2026-10-25.md)
-also supplies no retained scheduling candidate to repeat unchanged; runtime
-target selection still needs a demonstrated gap or new material exposure.
+also supplies no retained scheduling candidate to repeat unchanged. Future
+performance proposals still require new material exposure and a legal control.
 
 The [local validation record](../release/evidence/shared-native-capability-reporting-2026-11-17/validation.json)
 links exact changed-owner tests, default workspace

@@ -31,8 +31,12 @@ this records the planning baseline, not a new remote-main or runtime acceptance
 claim. The [unit 1 owner map](native-shared-capability-owner-map-2026-11-17.md) now
 reconciles the named capabilities and seven boundary families. Its accompanying
 v2 reporting correction separates policy plans and task-role checks from actual
-scheduler application; unmeasured work stays unavailable. Units 2–5 remain open,
-including runtime target selection. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
+scheduler application; unmeasured work stays unavailable. The November 18
+[local combined acceptance](native-shared-combined-acceptance-2026-11-18.md)
+completes the demonstrated lifecycle, seven-family reconciliation and public/package
+scope. The bounded performance screens admit no finite-feedback candidate;
+actual new feedback remains deferred pending material owner evidence. Hosted
+acceptance stays open. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
 remains complete in its declared scope and must be reused, not reopened.
 
 Classification: `v1_candidate_pending_feasibility` for new performance
@@ -216,10 +220,11 @@ and compressed raw logs preserve all 200 distinct affected native tests, all
 3,346 default workspace tests across 108 targets, formatting, default workspace
 strict lint and enabled-native CLI/Vortex strict lint. They also retain the
 original three-regression failure and the corrected call-site compilation
-failure. Full enabled-native, installed-package and hosted acceptance remain
-with the enclosing incorporation item. This closes neither unit 2's complete
-selected workflow nor units 3–5;
-finite feedback and performance target selection remain open. No new scheduler,
+failure. At that checkpoint, full enabled-native, installed-package and hosted
+acceptance remained with the enclosing incorporation item. The later
+[combined acceptance](native-shared-combined-acceptance-2026-11-18.md) completes
+local workflow and source/package checks, records the no-candidate feedback
+decision and leaves hosted acceptance open. No new scheduler,
 provider, arithmetic, source order or output representation is introduced.
 
 ### Bounded worker-wait attribution
@@ -254,8 +259,10 @@ Thirteen focused pool controls, five native pair controls, 3,351 default tests
 across 108 targets, strict default/native lint and formatting pass. The exact
 debug native inventory contains 4,449 tests and 40 intentionally ignored tests;
 the release profile correctly omits four debug-only diagnostics. All five
-original failed check attempts remain in the packet. Full enclosing-unit native,
-installed-package and hosted acceptance remain open, as do units 2–5.
+original failed check attempts remain in the packet. Those observations remain
+unchanged. The subsequent [string delivery and combined acceptance](native-shared-combined-acceptance-2026-11-18.md)
+completes the enclosing local checks and reconciles all seven families. No new
+finite control is admitted; hosted acceptance remains open.
 
 ### Chrysalis and Resonance consume the foundation
 

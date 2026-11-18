@@ -73,6 +73,7 @@
     "local_primitives::string_count_partitions::owner_scheduling::benchmark::owner_scheduling_actual_retained_paired_release",
     "local_primitives::string_count_partitions::tests::tagged_directory_real_input_work_diagnostic",
     "local_primitives::tests::regenerate_checked_in_local_primitive_struct_fixture",
+    "local_primitives::string_wait_attribution_tests::native_string_worker_wait_attribution",
     "local_primitives::weighted_count_spill_query::tests::owner_bench::complete_spill_key_owner_workflows",
     "native_provider_memory::builder_tests::cost::native_builder_lifecycle_cost_screen",
     "native_provider_memory::builder_tests::decoder_cost::native_decoder_lifecycle_cost_sample",

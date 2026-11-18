@@ -3,14 +3,14 @@
 use super::{Fixture, MEMORY_BYTES, payload, policy};
 use crate::{
     local_primitives::{
-        aggregate_chunk_jobs::observation::{Record, Session},
+        aggregate_chunk_jobs::observation::Session,
         prepared_aggregate::prepare_aggregate_in_session,
     },
     resident_session::ResidentVortexSession,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use shardloom_exec::compute_pool::{CancellationToken, ComputePoolSnapshot};
+use shardloom_exec::compute_pool::CancellationToken;
 use std::{fmt::Write as _, io::Read as _};
 
 fn source_hash(fixture: &Fixture) -> String {
@@ -31,69 +31,6 @@ fn source_hash(fixture: &Fixture) -> String {
             write!(text, "{byte:02x}").unwrap();
             text
         })
-}
-
-fn pool_json(pool: ComputePoolSnapshot) -> Value {
-    json!({
-        "workers_created": pool.workers_created,
-        "active_workers": pool.active_workers,
-        "peak_active_workers": pool.peak_active_workers,
-        "queued_jobs": pool.queued_jobs,
-        "peak_queued_jobs": pool.peak_queued_jobs,
-        "queued_bytes": pool.queued_bytes,
-        "peak_queued_bytes": pool.peak_queued_bytes,
-        "completed_jobs": pool.completed_jobs,
-        "worker_busy_nanos": pool.worker_busy_nanos,
-        "enqueue_wait_nanos": pool.enqueue_wait_nanos,
-        "waiting_producers": pool.waiting_producers,
-        "queue_closed": pool.queue_closed,
-        "waits": pool.waits.map(|waits| json!({
-            "completed_empty_queue_waits": waits.completed_empty_queue_waits,
-            "empty_queue_wait_nanos": waits.empty_queue_wait_nanos,
-            "completed_capacity_waits": waits.completed_capacity_waits,
-            "capacity_wait_nanos": waits.capacity_wait_nanos,
-            "waiting_workers": waits.waiting_workers,
-        })),
-    })
-}
-
-fn owner_json(record: &Record, parallelism: usize, observe_waits: bool) -> Value {
-    assert_eq!(record.submitted, record.joined);
-    assert_eq!(record.pending_before_drop, 0);
-    assert_eq!(record.outstanding_after_drain, 0);
-    assert!(!record.cancelled_before_drop);
-    assert!(record.peak_outstanding <= record.window_limit);
-    if parallelism == 1 {
-        assert!(record.pool.is_none());
-    }
-    if let Some(pool) = record.pool {
-        assert!(pool.queue_closed);
-        assert_eq!(pool.active_workers, 0);
-        assert_eq!(pool.queued_jobs, 0);
-        assert_eq!(pool.queued_bytes, 0);
-        assert_eq!(pool.waiting_producers, 0);
-        assert_eq!(pool.completed_jobs, record.submitted);
-        assert!(pool.workers_created < parallelism);
-        assert_eq!(pool.waits.is_some(), observe_waits);
-        if let Some(waits) = pool.waits {
-            assert_eq!(waits.waiting_workers, 0);
-        }
-    }
-    json!({
-        "payload_type": record.payload_type,
-        "submitted": record.submitted,
-        "joined": record.joined,
-        "window_limit": record.window_limit,
-        "peak_outstanding": record.peak_outstanding,
-        "pending_before_drop": record.pending_before_drop,
-        "outstanding_after_drain": record.outstanding_after_drain,
-        "cancelled_before_drop": record.cancelled_before_drop,
-        "stage_retired_before_drop": record.stage_retired_before_drop,
-        "worker_busy_nanos": record.worker_busy_nanos,
-        "inline_busy_nanos": u64::try_from(record.inline_busy_nanos).unwrap(),
-        "join_wait_nanos": u64::try_from(record.join_wait_nanos).unwrap(),
-        "closed_pool": record.pool.map(pool_json),
-    })
 }
 
 fn run(fixture: &Fixture, parallelism: usize, observe_waits: bool) -> Value {
@@ -176,7 +113,7 @@ fn run(fixture: &Fixture, parallelism: usize, observe_waits: bool) -> Value {
     output["owners"] = json!(
         owners
             .iter()
-            .map(|record| owner_json(record, parallelism, observe_waits))
+            .map(|record| record.completed_json(parallelism, observe_waits))
             .collect::<Vec<_>>()
     );
     output["final_reserved_bytes"] = json!(memory.snapshot().reserved_bytes);

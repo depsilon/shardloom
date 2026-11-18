@@ -1,4 +1,4 @@
-"""Complete mixed Float16 values across relational and public lifecycle boundaries."""
+"""Complete mixed document/portfolio values across native lifecycle boundaries."""
 
 from __future__ import annotations
 
@@ -155,34 +155,37 @@ class NativeFloat16LifecycleBindingTests(unittest.TestCase):
             self.assertEqual(_digest(_rows(retained_table)), _digest(expected[:257]))
             self.assertEqual(list(workspace.iterdir()), [])
 
-            output = root / "selected.vortex"
-            dataframe.write_vortex(output, spill=spill, check=True)
+            outputs = [root / "dataframe.vortex", root / "sql.vortex"]
+            for query, output in zip((dataframe, sql), outputs):
+                query.write_vortex(output, spill=spill, check=True)
             self.assertEqual(list(workspace.iterdir()), [])
             context.close()
             del left, right, dataframe, sql
             self.assertEqual(_digest(_rows(retained.to_arrow())), _digest(expected[:257]))
             completed = subprocess.run([sys.executable, "-B", str(Path(__file__).resolve()),
-                "--reopen", str(output), _schema_bytes(expected_schema)], env=os.environ.copy(),
+                "--reopen", *map(str, outputs), _schema_bytes(expected_schema)], env=os.environ.copy(),
                 text=True, capture_output=True, timeout=120, check=False)
             self.assertEqual(completed.returncode, 0, completed.stderr)
-            report = json.loads(completed.stdout)[0]
-            for key in ("digest", "arrow_digest", "parquet_native_digest"):
-                self.assertEqual(report[key], _digest(expected))
-            self.assertEqual(report["rows"], len(expected))
-            self.assertTrue(all(report["schema_matches"].values()), report)
             present_digest = _digest([row for row in expected if row["id"] in independent_ids])
-            self.assertEqual(report["parquet_independent_present_digest"], present_digest)
-            self.assertEqual(report["parquet_default_present_digest"], present_digest)
-            if report["parquet_independent_full_digest"] is not None:
-                self.assertEqual(report["parquet_independent_full_digest"], _digest(expected))
-            else:
-                self.assertIn("Expected all lists to be of size=", report["parquet_reader_limitation"])
+            reports = json.loads(completed.stdout)
+            self.assertEqual(len(reports), len(outputs))
+            for report in reports:
+                for key in ("digest", "arrow_digest", "parquet_native_digest"):
+                    self.assertEqual(report[key], _digest(expected))
+                self.assertEqual(report["rows"], len(expected))
+                self.assertTrue(all(report["schema_matches"].values()), report)
+                self.assertEqual(report["parquet_independent_present_digest"], present_digest)
+                self.assertEqual(report["parquet_default_present_digest"], present_digest)
+                if report["parquet_independent_full_digest"] is not None:
+                    self.assertEqual(report["parquet_independent_full_digest"], _digest(expected))
+                else:
+                    self.assertIn("Expected all lists to be of size=", report["parquet_reader_limitation"])
 
     def test_mixed_float16_write_through_all_five_front_doors_and_reopen(self):
         import shardloom as sl
 
         context = self.context()
-        source_table = _fixture(9).slice(1, 7)
+        source_table = _fixture(39).slice(1, 33)
         source_frame = context.from_arrow_table(source_table)
         with tempfile.TemporaryDirectory(prefix="shardloom-float16-interfaces-") as directory:
             root = Path(directory)

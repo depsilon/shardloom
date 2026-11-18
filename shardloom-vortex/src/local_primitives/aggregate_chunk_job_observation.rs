@@ -1,5 +1,6 @@
 //! Test-only bounded end-of-owner capture; no per-row trace or scheduling choice.
 
+use serde_json::{Value, json};
 use shardloom_exec::compute_pool::ComputePoolSnapshot;
 use std::cell::RefCell;
 
@@ -27,6 +28,75 @@ pub(in super::super) struct Record {
     pub inline_busy_nanos: u128,
     pub join_wait_nanos: u128,
     pub pool: Option<ComputePoolSnapshot>,
+}
+
+impl Record {
+    pub(in super::super) fn completed_json(
+        &self,
+        parallelism: usize,
+        observe_waits: bool,
+    ) -> Value {
+        assert_eq!(self.submitted, self.joined);
+        assert_eq!(self.pending_before_drop, 0);
+        assert_eq!(self.outstanding_after_drain, 0);
+        assert!(!self.cancelled_before_drop);
+        assert!(self.peak_outstanding <= self.window_limit);
+        if parallelism == 1 {
+            assert!(self.pool.is_none());
+        }
+        if let Some(pool) = self.pool {
+            assert!(pool.queue_closed);
+            assert_eq!(pool.active_workers, 0);
+            assert_eq!(pool.queued_jobs, 0);
+            assert_eq!(pool.queued_bytes, 0);
+            assert_eq!(pool.waiting_producers, 0);
+            assert_eq!(pool.completed_jobs, self.submitted);
+            assert!(pool.workers_created < parallelism);
+            assert_eq!(pool.waits.is_some(), observe_waits);
+            if let Some(waits) = pool.waits {
+                assert_eq!(waits.waiting_workers, 0);
+            }
+        }
+        json!({
+            "payload_type": self.payload_type,
+            "submitted": self.submitted,
+            "joined": self.joined,
+            "window_limit": self.window_limit,
+            "peak_outstanding": self.peak_outstanding,
+            "pending_before_drop": self.pending_before_drop,
+            "outstanding_after_drain": self.outstanding_after_drain,
+            "cancelled_before_drop": self.cancelled_before_drop,
+            "stage_retired_before_drop": self.stage_retired_before_drop,
+            "worker_busy_nanos": self.worker_busy_nanos,
+            "inline_busy_nanos": u64::try_from(self.inline_busy_nanos).unwrap(),
+            "join_wait_nanos": u64::try_from(self.join_wait_nanos).unwrap(),
+            "closed_pool": self.pool.map(pool_json),
+        })
+    }
+}
+
+fn pool_json(pool: ComputePoolSnapshot) -> Value {
+    json!({
+        "workers_created": pool.workers_created,
+        "active_workers": pool.active_workers,
+        "peak_active_workers": pool.peak_active_workers,
+        "queued_jobs": pool.queued_jobs,
+        "peak_queued_jobs": pool.peak_queued_jobs,
+        "queued_bytes": pool.queued_bytes,
+        "peak_queued_bytes": pool.peak_queued_bytes,
+        "completed_jobs": pool.completed_jobs,
+        "worker_busy_nanos": pool.worker_busy_nanos,
+        "enqueue_wait_nanos": pool.enqueue_wait_nanos,
+        "waiting_producers": pool.waiting_producers,
+        "queue_closed": pool.queue_closed,
+        "waits": pool.waits.map(|waits| json!({
+            "completed_empty_queue_waits": waits.completed_empty_queue_waits,
+            "empty_queue_wait_nanos": waits.empty_queue_wait_nanos,
+            "completed_capacity_waits": waits.completed_capacity_waits,
+            "capacity_wait_nanos": waits.capacity_wait_nanos,
+            "waiting_workers": waits.waiting_workers,
+        })),
+    })
 }
 
 pub(in super::super) struct Session {

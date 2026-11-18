@@ -323,6 +323,14 @@ mod scalar_distinct_workers;
 #[cfg(feature = "vortex-local-primitives")]
 #[path = "local_primitives/source_order_candidate_filter.rs"]
 mod source_order_candidate_filter;
+#[cfg(all(
+    test,
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    unix
+))]
+#[path = "local_primitive_string_wait_attribution_tests.rs"]
+mod string_wait_attribution_tests;
 #[cfg(all(test, feature = "vortex-local-primitives"))]
 #[path = "local_primitives/triple_count_tests.rs"]
 mod triple_count_tests;
