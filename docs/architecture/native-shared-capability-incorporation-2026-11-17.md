@@ -183,6 +183,42 @@ conversion-to-writer flow are candidates, not predetermined winners. Freeze the
 affected physical opportunities and nearby controls before implementation or
 measurement. A conspicuous missing connection alone does not establish value.
 
+### Completed-result cancellation correction
+
+The first required lifecycle correction is the completed-result merge boundary
+in `AggregateChunkJobs`, shared by count, distinct and dictionary preparation
+owners. Three regression tests fail on the preceding implementation: a
+completed result can enter its merge after cancellation, a cancellation during
+merge can still return success, and a caught merge panic can leave sibling work
+uncancelled. These are supported-path correctness obligations, not a proposed
+performance mechanism or evidence for a wider scheduling window.
+
+The correction checks cancellation before and after both borrowed and owned
+merges, cancels siblings on error or unwind, and preserves the original merge or
+recorded provider failure. Payload reservations and window permits remain held
+through consumption and cleanup. Fourteen focused lifecycle tests pass, including
+refusal/retry, ordered completion, worker failure, retained credit, normal
+retirement and the new cancellation cases. The follow-up caller review found
+that count workers had no enclosing-operation token, while dictionary and
+distinct preparation directly shared that token with a stage that cancels on
+drop. All eight production job owners now derive a stage-local token that
+observes the enclosing operation without cancelling the parent on stage failure,
+retirement or drop. The native pair-partition test cancels inside an active
+worker, checks complete reservation refund, then executes the same prepared
+request with a fresh token and compares the full result. Existing dictionary
+and winner-distinct cancellation/recovery tests pass through the same change.
+
+The [source-bound acceptance record](../release/evidence/shared-native-capability-lifecycle-2026-11-17/validation.json)
+and compressed raw logs preserve all 200 distinct affected native tests, all
+3,346 default workspace tests across 108 targets, formatting, default workspace
+strict lint and enabled-native CLI/Vortex strict lint. They also retain the
+original three-regression failure and the corrected call-site compilation
+failure. Full enabled-native, installed-package and hosted acceptance remain
+with the enclosing incorporation item. This closes neither unit 2's complete
+selected workflow nor units 3–5;
+finite feedback and performance target selection remain open. No new scheduler,
+provider, arithmetic, source order or output representation is introduced.
+
 ### Chrysalis and Resonance consume the foundation
 
 The [existing design](native-chrysalis-resonance-cells-2026-11-16.md) remains

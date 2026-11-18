@@ -189,6 +189,61 @@ fn policy(parallelism: usize) -> VortexLocalPrimitiveExecutionPolicy {
     policy
 }
 
+#[test]
+fn native_pair_partition_worker_observes_operation_cancel_and_fresh_execution_recovers() {
+    use super::aggregate_chunk_jobs::WORKER_START_TEST_HOOK;
+    use shardloom_exec::compute_pool::CancellationToken;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    struct ClearHook;
+    impl Drop for ClearHook {
+        fn drop(&mut self) {
+            WORKER_START_TEST_HOOK.with(|hook| drop(hook.borrow_mut().take()));
+        }
+    }
+    let _clear = ClearHook;
+    let fixture = Fixture::new(true);
+    for parallelism in [1, 3] {
+        let session =
+            ResidentVortexSession::for_external_cpu_pool(MEMORY_BYTES, parallelism).unwrap();
+        let memory = session.memory().clone();
+        let prepared =
+            prepare_aggregate_in_session(&fixture.request(), policy(parallelism), &session)
+                .unwrap();
+        let baseline = memory.snapshot().reserved_bytes;
+        let parent = CancellationToken::default();
+        let operation = parent.clone();
+        let observed = Arc::new(AtomicBool::new(false));
+        let worker_observed = Arc::clone(&observed);
+        WORKER_START_TEST_HOOK.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move |worker| {
+                operation.cancel();
+                worker_observed.store(worker.check_cancelled().is_err(), Ordering::Release);
+            }));
+        });
+        let error = prepared.execute_cancellable(&parent).err().unwrap();
+        assert!(error.to_string().contains("cancel"), "{error}");
+        assert!(observed.load(Ordering::Acquire));
+        assert!(WORKER_START_TEST_HOOK.with(|hook| hook.borrow().is_none()));
+        assert_eq!(session.snapshot().completed_executions, 0);
+        assert_eq!(memory.snapshot().reserved_bytes, baseline);
+        let fresh = CancellationToken::default();
+        let completed = prepared.execute_cancellable(&fresh).unwrap();
+        assert!(!fresh.is_cancelled());
+        let (_, values) = completed
+            .report
+            .result_summary
+            .as_deref()
+            .unwrap()
+            .rsplit_once(" values=")
+            .unwrap();
+        let values: serde_json::Value = serde_json::from_str(values).unwrap();
+        assert_eq!(values["values"], fixture.expected());
+        drop((completed, prepared, session));
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
 fn payload(report: &VortexLocalPrimitiveExecutionReport) -> serde_json::Value {
     serde_json::from_str(
         report

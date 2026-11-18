@@ -12,7 +12,10 @@ use super::{
     utf8_distinct_output,
 };
 use shardloom_core::Result;
-use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::{
     sync::{Arc, atomic::Ordering},
     time::Instant,
@@ -72,6 +75,7 @@ impl CompoundWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         session: &VortexSession,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         let Some(roles) = compound_count_roles::admit(states, dtype, columns) else {
             return Ok(None);
@@ -136,11 +140,12 @@ impl CompoundWorkers {
         }
         worker_chunks.resize(parallelism, 0);
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                cancellation,
             )?,
             partitions: Some(partitions),
             deferred,

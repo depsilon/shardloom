@@ -206,14 +206,12 @@ impl DictionaryPrepareWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::with_cancellation(
+            jobs: AggregateChunkJobs::for_operation(
                 background_workers + 1,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
-                cancellation.map_or_else(CancellationToken::default, |parent| {
-                    CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
-                }),
+                cancellation,
             )?,
             recipe: Arc::new(Recipe {
                 transform: states.group_columns[0].transform,

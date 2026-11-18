@@ -75,6 +75,7 @@ fn execute(
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         &session,
         &memory,
+        None,
     )?
     .expect("one exact physical integer key must admit workers");
     let result = (|| {
@@ -258,6 +259,7 @@ fn physical_integer_key_workers_decline_missing_identity_nullable_and_float_sour
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
                 &session,
                 &memory,
+                None,
             )
             .unwrap()
             .is_none()

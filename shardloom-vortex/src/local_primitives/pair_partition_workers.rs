@@ -11,7 +11,10 @@ use super::{
     numeric_pair_near_unique_directory_admitted, required_simple_aggregate,
 };
 use shardloom_core::{Result, ShardLoomError};
-use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::time::Instant;
 use vortex::array::{
     ArrayRef,
@@ -300,6 +303,7 @@ impl PairWorkers {
         columns: &[String],
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         let Some(roles) = roles(states, dtype, columns) else {
             return Ok(None);
@@ -330,11 +334,12 @@ impl PairWorkers {
             });
         }
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 parallelism.saturating_mul(2).clamp(1, 24),
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                cancellation,
             )?,
             partitions,
             columns: columns.to_vec(),

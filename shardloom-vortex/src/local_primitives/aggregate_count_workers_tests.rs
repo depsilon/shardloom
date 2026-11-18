@@ -59,6 +59,7 @@ fn run(
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -206,7 +207,8 @@ fn coordinator_chunked_logical_projection_and_nullable_admission_remain_exact() 
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
             &VortexSession::default(),
-            &memory
+            &memory,
+            None,
         )
         .unwrap()
         .is_none()
@@ -255,6 +257,7 @@ fn coordinator_partial_denial_releases_all_queued_ownership() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).unwrap(),
         &VortexSession::default(),
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -354,6 +357,7 @@ fn partition_pressure_preserves_native_exact_refinement_and_total_weight() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(workers, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -424,6 +428,7 @@ fn complete_partition_proof_does_not_claim_sketch_updates_or_no_eviction() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();

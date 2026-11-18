@@ -21650,6 +21650,7 @@ fn execute_lowered_vortex_simple_aggregate_scan(
             policy,
             session,
             memory,
+            cancellation,
         )?
     } else {
         None

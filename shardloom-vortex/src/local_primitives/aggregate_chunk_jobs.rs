@@ -26,6 +26,15 @@ pub(super) enum ChunkWorkerContext {
     Inline(CancellationToken),
 }
 
+#[cfg(test)]
+type WorkerStartHook = Box<dyn FnOnce(&ChunkWorkerContext) + Send>;
+
+#[cfg(test)]
+thread_local! {
+    pub(super) static WORKER_START_TEST_HOOK: std::cell::RefCell<Option<WorkerStartHook>> =
+        std::cell::RefCell::new(None);
+}
+
 impl ChunkWorkerContext {
     pub(super) fn check_cancelled(&self) -> Result<()> {
         match self {
@@ -66,6 +75,7 @@ pub(super) struct CompletedChunk<T> {
     ordinal: u64,
     result: Budgeted<T>,
     cancellation: CancellationToken,
+    failure: Arc<Mutex<Option<ShardLoomError>>>,
     // Drop payload and its reservation before opening the next window slot.
     _permit: WindowPermit,
 }
@@ -87,11 +97,20 @@ impl<T> CompletedChunk<T> {
 
     /// Keep all task ownership and its window permit until ordered merging ends.
     pub(super) fn consume<R>(self, merge: impl FnOnce(&T) -> Result<R>) -> Result<R> {
-        let result = merge(self.result.value());
-        if result.is_err() {
-            self.cancellation.cancel();
-        }
-        result
+        let Self {
+            result,
+            cancellation,
+            failure,
+            _permit: permit,
+            ..
+        } = self;
+        let outcome = consume_completed(&cancellation, &failure, || {
+            let outcome = merge(result.value());
+            drop(result);
+            outcome
+        });
+        drop(permit);
+        outcome
     }
 
     /// Move a partial into the ordered merge without releasing its reservation
@@ -101,18 +120,44 @@ impl<T> CompletedChunk<T> {
         let Self {
             result,
             cancellation,
+            failure,
             _permit: permit,
             ..
         } = self;
         let (value, lease) = result.into_parts();
-        let result = merge(value);
-        if result.is_err() {
-            cancellation.cancel();
-        }
+        let result = consume_completed(&cancellation, &failure, || merge(value));
         drop(lease);
         drop(permit);
         result
     }
+}
+
+/// Completion is accepted only after the merge and its cancellation checkpoint.
+/// A panic still unwinds normally, but must signal sibling work before returning
+/// control to a caller that may catch it. Payloads keep their existing leases.
+fn consume_completed<R>(
+    cancellation: &CancellationToken,
+    failure: &Mutex<Option<ShardLoomError>>,
+    merge: impl FnOnce() -> Result<R>,
+) -> Result<R> {
+    struct CancelIncompleteMerge<'a>(Option<&'a CancellationToken>);
+    impl Drop for CancelIncompleteMerge<'_> {
+        fn drop(&mut self) {
+            if let Some(cancellation) = self.0 {
+                cancellation.cancel();
+            }
+        }
+    }
+    let mut guard = CancelIncompleteMerge(Some(cancellation));
+    cancellation
+        .check()
+        .map_err(|error| recorded_failure(failure, error))?;
+    let result = merge()?;
+    cancellation
+        .check()
+        .map_err(|error| recorded_failure(failure, error))?;
+    guard.0 = None;
+    Ok(result)
 }
 
 pub(super) struct AggregateChunkJobs<T> {
@@ -133,18 +178,40 @@ pub(super) struct AggregateChunkJobs<T> {
 }
 
 impl<T: Send + 'static> AggregateChunkJobs<T> {
+    #[cfg(test)]
     pub(super) fn new(
         max_parallelism: usize,
         window_limit: usize,
         queue_byte_limit: u64,
         memory: LiveMemoryPool,
     ) -> Result<Self> {
+        Self::for_operation(
+            max_parallelism,
+            window_limit,
+            queue_byte_limit,
+            memory,
+            None,
+        )
+    }
+
+    /// Observe the enclosing operation while keeping stage failure, retirement
+    /// and drop cancellation local. One stage must not cancel independent work
+    /// or prevent the caller from executing another admitted operation.
+    pub(super) fn for_operation(
+        max_parallelism: usize,
+        window_limit: usize,
+        queue_byte_limit: u64,
+        memory: LiveMemoryPool,
+        parent: Option<&CancellationToken>,
+    ) -> Result<Self> {
         Self::with_cancellation(
             max_parallelism,
             window_limit,
             queue_byte_limit,
             memory,
-            CancellationToken::default(),
+            parent.map_or_else(CancellationToken::default, |parent| {
+                CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
+            }),
         )
     }
 
@@ -295,6 +362,8 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         let count = self.window.outstanding.fetch_add(1, Ordering::AcqRel) + 1;
         self.window.peak.fetch_max(count, Ordering::AcqRel);
         let permit = WindowPermit(Arc::clone(&self.window));
+        #[cfg(test)]
+        let start_hook = WORKER_START_TEST_HOOK.with(|hook| hook.borrow_mut().take());
         let pending = if let Some(pool) = self.pool.as_ref() {
             let failure = Arc::clone(&self.failure);
             let busy = Arc::clone(&self.worker_busy_nanos);
@@ -303,7 +372,12 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
                     move |context: &WorkerContext, lease: &mut MemoryLease| {
                         let started = Instant::now();
                         let result = catch_unwind(AssertUnwindSafe(|| {
-                            job(&ChunkWorkerContext::Pool(context.clone()), lease)
+                            let worker = ChunkWorkerContext::Pool(context.clone());
+                            #[cfg(test)]
+                            if let Some(hook) = start_hook {
+                                hook(&worker);
+                            }
+                            job(&worker, lease)
                         }))
                         .unwrap_or_else(|_| Err(failed("worker task panicked")));
                         if let Err(error) = &result {
@@ -324,10 +398,12 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         } else {
             let started = Instant::now();
             let value = catch_unwind(AssertUnwindSafe(|| {
-                let value = job(
-                    &ChunkWorkerContext::Inline(self.cancellation.clone()),
-                    &mut lease,
-                )?;
+                let worker = ChunkWorkerContext::Inline(self.cancellation.clone());
+                #[cfg(test)]
+                if let Some(hook) = start_hook {
+                    hook(&worker);
+                }
+                let value = job(&worker, &mut lease)?;
                 self.cancellation.check()?;
                 Ok(value)
             }))
@@ -365,6 +441,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
                     ordinal,
                     result,
                     cancellation: self.cancellation.clone(),
+                    failure: Arc::clone(&self.failure),
                     _permit: permit,
                 }))
             }
@@ -376,12 +453,19 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
     }
 
     fn failure_or(&self, error: ShardLoomError) -> ShardLoomError {
-        self.failure
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
-            .unwrap_or(error)
+        recorded_failure(&self.failure, error)
     }
+}
+
+fn recorded_failure(
+    failure: &Mutex<Option<ShardLoomError>>,
+    error: ShardLoomError,
+) -> ShardLoomError {
+    failure
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone()
+        .unwrap_or(error)
 }
 
 fn record_first_failure(failure: &Mutex<Option<ShardLoomError>>, error: &ShardLoomError) {

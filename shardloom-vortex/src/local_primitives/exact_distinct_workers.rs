@@ -13,7 +13,10 @@ use super::{
     partitions::{Evidence, ExactDistinctPartitions, FinalGroupCounts, Receipt},
 };
 use shardloom_core::{Result, StatValue};
-use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::{
     sync::{
         Arc,
@@ -299,6 +302,7 @@ impl ExactDistinctWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         session: &VortexSession,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         let Some(roles) = roles(states, dtype, columns) else {
             return Ok(None);
@@ -337,11 +341,12 @@ impl ExactDistinctWorkers {
             return Err(failed("deferred owner capacity exceeded its reservation"));
         }
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                cancellation,
             )?,
             partitions: Some(partitions),
             deferred,

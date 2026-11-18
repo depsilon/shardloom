@@ -109,6 +109,7 @@ fn exact_distinct_order_admission_matches_native_integer_ties_and_rejects_other_
             policy,
             &session,
             &memory,
+            None,
         )
         .unwrap();
         assert_eq!(workers.is_some(), admitted);
@@ -194,6 +195,7 @@ fn exact_distinct_workers_renamed_reordered_complete_values_and_exact_pressure_s
                 policy,
                 &session,
                 &memory,
+                None,
             )
             .unwrap()
             .unwrap();
@@ -274,6 +276,7 @@ fn exact_distinct_workers_retry_untouched_arrays_once_and_never_retry_corruption
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -368,6 +371,7 @@ fn exact_distinct_workers_native_dictionary_domain_and_cancel_ownership() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -389,6 +393,7 @@ fn exact_distinct_workers_native_dictionary_domain_and_cancel_ownership() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -432,7 +437,8 @@ fn exact_distinct_workers_reject_nullable_parent_children_and_mixed_measures_bef
                 &columns,
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
                 &session,
-                &memory
+                &memory,
+                None,
             )
             .unwrap()
             .is_none()
@@ -455,7 +461,8 @@ fn exact_distinct_workers_reject_nullable_parent_children_and_mixed_measures_bef
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
             &session,
-            &memory
+            &memory,
+            None,
         )
         .unwrap()
         .is_none()
@@ -480,6 +487,7 @@ fn exact_distinct_dispatch_installs_explicit_final_counts_with_owned_result_life
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(2, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -531,6 +539,7 @@ fn exact_distinct_eof_initial_reservation_denial_preserves_all_pairs_for_exact_h
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -576,6 +585,7 @@ fn exact_distinct_empty_input_and_empty_batches_finalize_without_fake_sets() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
