@@ -1477,6 +1477,163 @@ Verify pointer identity, bytes, alignment, empty ownership and exact live
 credits through buffer, typed, Bytes and Arrow aliases. Compare shallow release
 order to the old wrapper semantics and keep public depth limits unchanged.
 
+### Arrow schema final-owner cleanup, November 17, 2026
+
+Item 19 includes Arrow schemas that escape an export stream, independently
+retained nested fields, and boxed dictionary types. Field-only cleanup cannot
+protect a standalone `DataType::Dictionary` chain. Extend the pinned 59.3.2
+`arrow-schema` provider with intrinsic dtype cleanup while retaining every
+public variant and serialized value. The isolated compile probe identified
+the consuming matches and promoted references in the actual release-user-
+surfaces graph. Same-version `arrow-json` and `arrow-row` patches only migrate
+those matches; existing Arrow array, Parquet, ORC and native adapter patches
+do likewise. This is internal dependency compatibility, not a claim that
+arbitrary downstream Rust programs accept a new enum destructor unchanged.
+
+Use a private shared, sized field-container allocation holding the existing
+ordered vector and opaque retained owners. `Fields` and `UnionFields` retain
+their public constructors, slices, iteration and serde sequence representation.
+The last owner can detach the vector with `Arc::into_inner`. A failed
+`try_unwrap(...).ok()` must not release recursive values outside the traversal.
+The original `FieldRef = Arc<Field>` alias and field identity remain intact.
+Standalone fields need no custom destructor: their dtype cleanup already
+handles descendants. Explicitly cloned fields retain existing credit; the
+caller's newly allocated strings, metadata and headers are separate storage.
+
+Retained owners are private and excluded from metadata, serialization,
+debugging, equality, ordering and hashing. They release after their fields and
+metadata. Attach real native schema credit to both field and container owners,
+including empty containers, before the public depth boundary changes. Preserve
+all old owners when adding another credit. This avoids a stream-only lease and
+does not invent serialized accounting metadata.
+
+This amendment permits one additional single-use ownership extraction helper
+inside excluded `arrow-schema`. Accept only an exclusive, initialized, unpinned
+`DataType`; replace it with `Null`, and put the removed enum in a local
+`ManuallyDrop`. Match all variants exhaustively and transfer every owning field
+exactly once from its valid, naturally aligned reference with `ptr::read`.
+Timestamp has an optional owned timezone; dictionaries have two owned boxes;
+run-end types have two owned fields; list/map, struct and union variants own
+their corresponding field containers. All remaining fields are `Copy`.
+Perform no allocation, callback, formatting or fallible operation within the
+extraction. Do not use, expose, store, clone, format or destroy the manual-drop
+wrapper afterwards. The original location stays `Null`; fully owned work items
+subsequently use safe Rust. This is not permission for raw Arc reconstruction,
+layout reinterpretation, FFI, a custom allocator or workspace unsafe code.
+The [ownership-read](https://doc.rust-lang.org/std/ptr/fn.read.html),
+[manual-drop](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html), and
+[Arc extraction](https://doc.rust-lang.org/std/sync/struct.Arc.html#method.into_inner)
+contracts apply, using APIs available at the supported Rust 1.96 minimum.
+
+Consume children in declaration order. A field's name releases before its
+dtype; its metadata and retained owners release after that entire subtree.
+Keep sibling vectors, dictionary boxes and trailing owners in ordered cleanup
+frames through the final child. On one opaque-owner panic, drain innermost
+frames before outer frames. No cleanup operation requests execution credit.
+The actual native operation must prepay continuation growth and replacement
+overlap and keep it alive through the last independent owner. Raw provider
+tests establish stack behavior, not operation-level resource admission.
+
+Replace recursive dictionary cloning with ordered construction continuations;
+field and container Arc clones remain shallow. Structural comparison, hashing,
+formatting, conversion and provider array ownership remain distinct obligations
+and must pass their actual-path tests before deeper public data is admitted.
+Require small-stack deep list/fixed-list/struct/union/map/run-end/dictionary
+cleanup, shared and detached children, concurrent last owners, weak witnesses,
+partial construction and single-panic cleanup. Preserve shallow values, field
+identity, metadata, serialization and retained-owner release order. Record
+provider, native, feature, supported-Rust and packaging proof separately. Keep
+all current public depth guards until the whole item 19 lifecycle passes.
+
+### Arrow schema structural traversal, November 17, 2026
+
+Arrow's constructors compare nested schema values, so intrinsic cleanup alone
+does not make conversion safe. Replace the selected recursive dtype operations
+with borrowed ordered continuations. Preserve the original enum ordering,
+field ordering, nullable checks, metadata comparison and exact hash input. Field
+dictionary bookkeeping remains excluded from ordinary equality/order/hash.
+Type-only equality and containment keep their distinct field-name, metadata,
+nullability and union-tag rules; do not normalize them into one relation.
+
+Keep shared field/container identity shortcuts where the original shared-owner
+traits permit them. Visit repeated unshared subtrees normally. Sibling cursors
+must avoid copying wide field vectors. Dictionary cloning, ordinary comparison,
+hashing, type-only comparison, containment, size inspection and formatting each
+retain their own contract and tests. Formatting must preserve compact and pretty
+text, field/metadata order and formatter flags; a failed writer returns its
+formatting error without further writes. Opaque retained credits never become
+logical or formatted metadata. Size inspection must count the newly owned
+container and credit-vector storage; it cannot count the internals of an opaque
+external owner or claim process RSS.
+
+Freeze the original pinned implementations and derived enum/field traits as a
+shallow test oracle, preserving their source identity. Compare complete results,
+ordering, hash writes, metadata and formatted text across all variants, changed
+field flags, competing differences and shared/unshared forms. Deep positive and
+negative paths, short-circuiting, wide siblings and failed formatting must run
+on small stacks. Native traversal/output/error admission still has to prepay
+all temporary growth and replacement overlap before public limits change.
+No new unsafe operation or external execution provider is needed here.
+
+### Arrow array final-owner cleanup, November 17, 2026
+
+Arrow's public `ArrayRef` remains an `Arc<dyn Array>`, with the same concrete
+arrays, buffers and accessors. Deep final-owner cleanup must also work when a
+caller retains an individual typed child, a schema field or an empty container.
+An external wrapper around the returned batch cannot establish this property.
+
+Inside the pinned array provider, private single-child and child-vector owners
+may detach their handles before destruction. A hidden object-safe release hook
+on `Array` defaults to ordinary release for other implementations. The built-in
+nested implementations consume their correctly typed `Arc<Self>` through
+`Arc::into_inner`, returning an opaque ordered release node. Do not infer an
+allocation's concrete type from `as_any` or cast erased Arc pointers: forwarding
+array implementations make such an inference unsound. No unsafe downcast or
+global/thread-local release queue is admitted.
+
+List, list-view, fixed-size-list, struct, map, union, dictionary and run-end
+owners must expose their actual declaration-order parts to one iterative
+release loop. The node retains vector allocations and trailing buffers until
+their original position in that order. Empty or already-consumed private child
+owners are inert. Shared owners keep their original aliases; concurrent last
+owners use the safe Arc extraction contract. An ordered unwind guard drains
+innermost work before outer tails, including one panicking external buffer
+owner. Clones, public `into_parts` and buffer identity must stay compatible.
+
+ArrayData's owned child graph needs the same independent cleanup contract.
+ArrayData cloning, observation, reconstruction and validation remain separate
+traversal obligations. Provider cleanup alone does not admit public depth:
+real callers must retain credit for returned model storage and prepay temporary
+release growth, including surviving detached owners and error paths. Keep the
+whole deep workflow, resource-refusal and final-refund gates in force.
+
+Arrow descriptor inspection, alignment, slicing and validation also use
+ordered continuations. Cheap validation retains layout-before-children,
+child-type-before-child-validation, and each parent's post-child length/offset
+checks before the next sibling. Full validation first completes that same
+immutable whole-tree cheap check. It then visits null/value checks in preorder;
+the formerly repeated successful cheap checks add no new observation. Preserve
+the exact original nested error wrappers, including their order, and freeze
+the original implementations as a shallow competing-error oracle. Struct
+slicing keeps the accepted parent-offset correction and original shared payload
+buffers. These provider operations do not themselves establish caller credit;
+their continuation, retained model and diagnostic storage must still be admitted
+at the actual native boundary before lifting public depth limits.
+
+Typed Arrow descriptor export uses an optional opaque provider hook on `Array`.
+Built-in nested arrays expose the same owned prefix and ordered children that
+their original `From<T> for ArrayData` implementations used. The shared traversal
+requests one child's descriptor at a time and resumes the parent afterwards.
+Other implementations keep their original `to_data` callback; do not downcast
+through `as_any` to infer either callback semantics or ownership. The source
+child owners remain alive until their parent's descriptor has been built.
+Keep run-end descriptors before values, declared union field order, zero-copy
+buffer handles, the original constructor validation/panics, and innermost-first
+failure cleanup. Reuse the provider's existing unchecked descriptor builder
+only for the same valid typed-array contract, with its safety obligation
+centralized in the continuation finalizer. This does not introduce a new
+unchecked native input boundary or a new execution representation.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

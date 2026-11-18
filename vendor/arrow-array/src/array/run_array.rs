@@ -84,7 +84,7 @@ macro_rules! ree_map {
 pub struct RunArray<R: RunEndIndexType> {
     data_type: DataType,
     run_ends: RunEndBuffer<R::Native>,
-    values: ArrayRef,
+    values: super::release::Child,
 }
 
 impl<R: RunEndIndexType> Clone for RunArray<R> {
@@ -98,6 +98,36 @@ impl<R: RunEndIndexType> Clone for RunArray<R> {
 }
 
 impl<R: RunEndIndexType> RunArray<R> {
+    // Isolate final-owner proof from the separately recursive ArrayData bridge
+    // used by the public constructor. This fixture always has one valid run.
+    #[cfg(test)]
+    pub(super) fn release_test_child(values: ArrayRef) -> Self {
+        assert_eq!(values.len(), 1);
+        let data_type = DataType::RunEndEncoded(
+            Arc::new(Field::new("run_ends", R::DATA_TYPE, false)),
+            Arc::new(Field::new("values", values.data_type().clone(), true)),
+        );
+        Self {
+            data_type,
+            run_ends: RunEndBuffer::new(vec![R::Native::usize_as(1)].into(), 0, 1),
+            values: values.into(),
+        }
+    }
+
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            run_ends,
+            values,
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Buffer(run_ends.into_inner().into_inner()),
+            Part::Child(values.into_inner()),
+        ])
+    }
+
     /// Calculates the logical length of the array encoded by treating the `run_ends`
     /// array as if it were a [`RunEndBuffer`].
     pub fn logical_len(run_ends: &PrimitiveArray<R>) -> usize {
@@ -177,7 +207,7 @@ impl<R: RunEndIndexType> RunArray<R> {
             let run_array = Self {
                 data_type,
                 run_ends,
-                values,
+                values: values.into(),
             };
 
             // Safety: `validate_data` checks below
@@ -197,13 +227,13 @@ impl<R: RunEndIndexType> RunArray<R> {
         Self {
             data_type,
             run_ends,
-            values,
+            values: values.into(),
         }
     }
 
     /// Deconstruct this array into its constituent parts
     pub fn into_parts(self) -> (DataType, RunEndBuffer<R::Native>, ArrayRef) {
-        (self.data_type, self.run_ends, self.values)
+        (self.data_type, self.run_ends, self.values.into_inner())
     }
 
     /// Returns a reference to the [`RunEndBuffer`].
@@ -262,7 +292,7 @@ impl<R: RunEndIndexType> RunArray<R> {
         Self {
             data_type,
             run_ends: self.run_ends.clone(),
-            values,
+            values: values.into(),
         }
     }
 
@@ -392,13 +422,40 @@ impl<R: RunEndIndexType> From<ArrayData> for RunArray<R> {
         Self {
             data_type,
             run_ends,
-            values,
+            values: values.into(),
         }
     }
 }
 
 impl<R: RunEndIndexType> From<RunArray<R>> for ArrayData {
     fn from(array: RunArray<R>) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl<R: RunEndIndexType> RunArray<R> {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let len = array.run_ends.len();
+        let offset = array.run_ends.offset();
+
+        let run_ends = ArrayDataBuilder::new(R::DATA_TYPE)
+            .len(array.run_ends.values().len())
+            .buffers(vec![array.run_ends.into_inner().into_inner()]);
+
+        let run_ends = unsafe { run_ends.build_unchecked() };
+
+        let builder = ArrayDataBuilder::new(array.data_type)
+            .len(len)
+            .offset(offset);
+
+        super::ArrayDataNode::run(builder, run_ends, array.values)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data<R: RunEndIndexType>(array: RunArray<R>) -> ArrayData {
         let len = array.run_ends.len();
         let offset = array.run_ends.offset();
 
@@ -411,14 +468,21 @@ impl<R: RunEndIndexType> From<RunArray<R>> for ArrayData {
         let builder = ArrayDataBuilder::new(array.data_type)
             .len(len)
             .offset(offset)
-            .child_data(vec![run_ends, array.values.to_data()]);
+            .child_data(vec![run_ends, super::data_export::tests::reference_data(array.values.as_ref())]);
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl<T: RunEndIndexType> Array for RunArray<T> {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

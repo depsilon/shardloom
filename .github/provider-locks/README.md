@@ -1,11 +1,27 @@
 # Standalone patched-provider validation locks
 
-These twenty-seven lockfiles freeze the current excluded provider test configurations.
+These thirty lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 17 Arrow ownership checkpoint
+
+Arrow Schema, JSON and Row join the format group at the existing 59.3.2 version.
+The Schema configuration covers all features; JSON and Row cover their complete
+library tests and strict lint. Each existing provider whose standalone graph
+contains the affected 59.3.2 packages selects the same local ownership patches.
+ORC's independent Arrow 58 test graph remains unchanged. Existing package/version
+identities, features, codec tests and fixtures are preserved.
+
+The new JSON and Row graphs retain their published archive lock identities.
+Schema's standalone test dependencies are separately resolved and frozen; they
+do not change the root runtime graph. The root lock changes only the source of
+Schema, JSON and Row from registry archives to verified local source. This
+checkpoint preserves the public nesting guards and does not admit a complete
+deep-data workflow.
 
 ## November 17 full Variant validation
 

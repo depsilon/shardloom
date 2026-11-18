@@ -20,3 +20,10 @@ lists and fixed-size lists. This correction retains the 59.3.2 validation fixes
 and does not change the Arrow version or admit an execution fallback.
 One unchanged upstream error assertion now uses `to_string()` instead of a
 literal-only `format!` so the full test target passes strict current Clippy.
+
+The November 17 checkpoint adds intrinsic child cleanup and ordered cloning,
+iterative descriptor validation, memory inspection, alignment and slicing.
+Frozen shallow references verify the original values, errors and competing-fault
+order; deep tests cover retained descriptors and failure cleanup on small stacks.
+Buffers remain shared. This provider proof does not establish a complete deep
+user workflow or caller admission of every traversal/output allocation.

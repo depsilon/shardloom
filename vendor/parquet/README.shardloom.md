@@ -1,5 +1,10 @@
 # ShardLoom Parquet dependency pin
 
+The November 17 Arrow ownership checkpoint retains static Int64 schema owners
+for the row-number and row-group-index readers. This accommodates the reviewed
+same-version `DataType` destructor without changing their returned data types,
+values or read behavior.
+
 This is the `parquet` 59.3.2 registry source with the following local corrections. Normal and
 development Zstandard dependencies are pinned to `=0.14.3`, and `publish = false` prevents
 publishing this local provider. Source and preserved license files come from the SHA-256 verified

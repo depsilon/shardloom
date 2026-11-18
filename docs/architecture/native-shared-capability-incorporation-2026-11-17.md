@@ -6,7 +6,9 @@
 
 The November 17 maintainer request accepts the supplied incorporation plan as
 the next queue item, taking priority over the remaining backlog after the
-in-progress resource-admitted deep traversal. The
+deep-traversal PR checkpoint. The later November 17 request defers the remaining
+deep-traversal lifecycle until after Foundry integration; it does not block this
+incorporation plan or close item 19. The
 [phase plan](phased-execution-plan.md#current-execution) alone owns execution
 order. This work extends item 20 and its PulseWeave investigation F under the
 existing native runtime; it introduces no new phase or CG identifier.

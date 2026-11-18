@@ -162,7 +162,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/provider-evidence/${{ matrix.group }}",
         ),
         release_blocker_refs=(
-            "all twenty-six patched-provider configurations",
+            "all thirty patched-provider configurations",
         ),
         workflow_markers=(
             "group: [arrays, io, buffer, formats]",

@@ -20,7 +20,9 @@ use crate::{Array, ArrayRef, make_array};
 use arrow_buffer::bit_chunk_iterator::{BitChunkIterator, BitChunks};
 use arrow_buffer::buffer::NullBuffer;
 use arrow_buffer::{BooleanBuffer, Buffer, MutableBuffer, ScalarBuffer};
-use arrow_data::{ArrayData, ArrayDataBuilder};
+use arrow_data::ArrayData;
+#[cfg(test)]
+use arrow_data::ArrayDataBuilder;
 use arrow_schema::{ArrowError, DataType, UnionFields, UnionMode};
 /// Contains the `UnionArray` type.
 ///
@@ -124,10 +126,48 @@ pub struct UnionArray {
     data_type: DataType,
     type_ids: ScalarBuffer<i8>,
     offsets: Option<ScalarBuffer<i32>>,
-    fields: Vec<Option<ArrayRef>>,
+    fields: super::release::UnionChildren,
 }
 
 impl UnionArray {
+    // A valid one-row fixture for ownership tests. Public reconstruction and
+    // its ArrayData traversal are tested separately.
+    #[cfg(test)]
+    pub(super) fn release_test_child(values: ArrayRef) -> Self {
+        assert_eq!(values.len(), 1);
+        let fields = UnionFields::try_new(
+            [0],
+            [arrow_schema::Field::new(
+                "item",
+                values.data_type().clone(),
+                true,
+            )],
+        )
+        .unwrap();
+        Self {
+            data_type: DataType::Union(fields, UnionMode::Dense),
+            type_ids: vec![0_i8].into(),
+            offsets: Some(vec![0_i32].into()),
+            fields: vec![Some(values)].into(),
+        }
+    }
+
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            type_ids,
+            offsets,
+            fields,
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Buffer(type_ids.into_inner()),
+            Part::OptionalBuffer(offsets.map(|v| v.into_inner())),
+            Part::UnionChildren(fields.into_inner().into_iter()),
+        ])
+    }
+
     /// Creates a new `UnionArray`.
     ///
     /// Accepts type ids, child arrays and optionally offsets (for dense unions) to create
@@ -393,13 +433,13 @@ impl UnionArray {
             offsets,
             mut fields,
         } = self;
-        match data_type {
+        match &data_type {
             DataType::Union(union_fields, _) => {
                 let children = union_fields
                     .iter()
                     .map(|(type_id, _)| fields[type_id as usize].take().unwrap())
                     .collect();
-                (union_fields, type_ids, offsets, children)
+                (union_fields.clone(), type_ids, offsets, children)
             }
             _ => unreachable!(),
         }
@@ -716,13 +756,36 @@ impl From<ArrayData> for UnionArray {
             data_type,
             type_ids,
             offsets,
-            fields: boxed_fields,
+            fields: boxed_fields.into(),
         }
     }
 }
 
 impl From<UnionArray> for ArrayData {
     fn from(array: UnionArray) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl UnionArray {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let len = array.len();
+        match &array.data_type {
+            DataType::Union(_, _) => {}
+            _ => unreachable!(),
+        };
+        let buffers = match array.offsets {
+            Some(o) => vec![array.type_ids.into_inner(), o.into_inner()],
+            None => vec![array.type_ids.into_inner()],
+        };
+        super::ArrayDataNode::union(array.data_type, len, buffers, array.fields)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data(array: UnionArray) -> ArrayData {
         let len = array.len();
         let f = match &array.data_type {
             DataType::Union(f, _) => f,
@@ -735,7 +798,7 @@ impl From<UnionArray> for ArrayData {
 
         let child = f
             .iter()
-            .map(|(i, _)| array.fields[i as usize].as_ref().unwrap().to_data())
+            .map(|(i, _)| super::data_export::tests::reference_data(array.fields[i as usize].as_ref().unwrap().as_ref()))
             .collect();
 
         let builder = ArrayDataBuilder::new(array.data_type)
@@ -743,11 +806,18 @@ impl From<UnionArray> for ArrayData {
             .buffers(buffers)
             .child_data(child);
         unsafe { builder.build_unchecked() }
-    }
 }
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl Array for UnionArray {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

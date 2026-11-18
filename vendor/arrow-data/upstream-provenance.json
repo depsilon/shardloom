@@ -2,19 +2,25 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "af8685bf7fbb5197c3c0666b533a5e7655ac464837caa0c5ce0bd8ded4503e01"
+    "README.shardloom.md": "e5110e0566796aba04a510308d42d484bdb5e39ee8806dae642ad24cb008b068",
+    "src/data_children.rs": "7c7760a480fabb3033a8577f12c7ab9d511e09cf5df96b2a39a5d55811e10122",
+    "src/data_children_tests.rs": "abd29bc0d4da74f59ce6547e7349d3d5adb11b30bd93af223915e5d29487cb3c",
+    "src/data_traversal.rs": "ef0302c4234d5f822ba902709a89d66af233198c7c89019911ee067b8886305c",
+    "src/data_traversal_reference.json": "d60a1b9156df24e9e4e4b8d3487e61d9f83fff180195b35050a501ec8fdfbf22",
+    "src/data_traversal_reference.rs": "de74e4b5a5e97b726df4bfc3b180a2e8b78662eadd2d339d2fa9984429b3298a",
+    "src/data_traversal_tests.rs": "78014d378353497d6e6b40dc79592c22a17ad7623a9caaf968a4cd3baab39d6f"
   },
   "license": "Apache-2.0",
   "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
   "license_url": "https://static.crates.io/crates/arrow-data/arrow-data-59.3.2.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "af8685bf7fbb5197c3c0666b533a5e7655ac464837caa0c5ce0bd8ded4503e01"
+    "sha256": "e5110e0566796aba04a510308d42d484bdb5e39ee8806dae642ad24cb008b068"
   },
-  "migration_status": "variable_tensor_boundary_corrections; lifecycle_and_provider_acceptance_required",
+  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
   "modified_files_sha256": {
     "Cargo.toml": "b7ca0587c4793b67fbda007c3ce38ed91362efd07280a36c27443564d7575998",
-    "src/data.rs": "22c5cf8d60371af3ee839717553226cde2c59d855730f87e812ce32c519bf7ff"
+    "src/data.rs": "31ff09551277aada48bc153c4a96b427f6f9db8fab235b20f597d94f90b988af"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/arrow-data/arrow-data-59.3.2.crate#NOTICE.txt",

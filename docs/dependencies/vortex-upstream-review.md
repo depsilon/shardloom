@@ -1,5 +1,28 @@
 # Vortex Upstream Dependency Review
 
+## November 17, 2026 Arrow ownership checkpoint
+
+The existing Apache-2.0 Arrow Schema, JSON and Row 59.3.2 packages become local
+source patches. All three locked archive checksums and all 63 original archive
+members were independently verified. Their provenance records preserve original
+members, changed source, unchanged license/notice text and the exact archive
+URLs; no absent VCS revision is inferred. Publication is disabled.
+
+Schema adds ordered intrinsic ownership and structural traversals. JSON and Row
+adapt consuming matches to the same-version schema destructor and retain
+behavior through narrow current-toolchain lint corrections. Existing
+Arrow Array and Data patches add ordered child cleanup, descriptor traversal and
+typed descriptor export; ORC and Parquet receive narrow schema-owner compatibility
+changes. These remain explicit compatibility providers, without query-engine
+integration or runtime fallback. The root retains every package/version identity.
+
+All thirty provider recipes select their relevant reviewed ownership graph and
+frozen standalone locks. The notice bundle now covers 421 registry packages,
+30 local patches, 840 legal-file records and the same 249 distinct texts.
+The [checkpoint](../architecture/native-deep-traversal-checkpoint-2026-11-17.md)
+keeps public depth guards and complete deep-workflow admission separate from
+these internal provider changes. Remaining deep traversal follows Foundry integration.
+
 ## November 17, 2026 full Variant validation intake
 
 The existing Apache-2.0 `parquet-variant` 59.3.2 byte reader becomes a reviewed

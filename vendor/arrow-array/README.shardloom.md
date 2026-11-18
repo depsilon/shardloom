@@ -35,3 +35,11 @@ unannotated/incomplete cases. Public ShardLoom UUID tests exercise actual C
 stream data and file persistence. This changes schema import only; payload
 buffers and their release callbacks retain the existing provider ownership.
 The existing Apache-2.0/MIT provider and version remain unchanged.
+
+The November 17 checkpoint adds intrinsic release of built-in nested arrays
+through typed final-owner hooks, preserving independently retained children and
+declaration-order cleanup, including unwind. Typed array-to-descriptor export
+uses ordered continuations while preserving payload buffers, offsets, validity,
+metadata and custom-array callback order. Test-only frozen export bodies check
+the original shallow behavior. This adds no public nesting admission; reverse
+construction, full workflow acceptance and caller memory grants remain deferred.

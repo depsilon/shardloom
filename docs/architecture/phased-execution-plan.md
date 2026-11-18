@@ -257,8 +257,9 @@ This checklist is the current work sequence. The read-only local workboard reads
 these same rows and the completed ledger; there is no separate board status to
 maintain. Hosted closeout continues alongside the next implementation when it
 has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
-After active deep traversal, shared native capability incorporation precedes
-all unfinished item 20 work. Item 20 obligations absorbed into that plan are
+After the deep-traversal PR checkpoint, shared native capability incorporation
+precedes all unfinished item 20 work. Remaining deep traversal is deferred until
+after Foundry integration under the November 17 maintainer reprioritization. Item 20 obligations absorbed into that plan are
 handled there; every unabsorbed remainder follows it, including capability,
 workflow, performance and acceptance work recorded in the historical notes.
 
@@ -287,9 +288,113 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Complete source, runtime, installed-package and documentation acceptance.
   - [x] Complete ready-PR review, CI, merge and exact-main verification.
 
+- [ ] **Deep-traversal groundwork — PR checkpoint**
+  Status: PR checkpoint — implementation scope is closed at the maintainer's
+  November 17 request. Local source/provider checks pass; hosted checks remain required;
+  keep full deep-traversal acceptance open. Public nesting limits remain unchanged.
+  The [checkpoint and deferred scope](native-deep-traversal-checkpoint-2026-11-17.md)
+  distinguish tested internal robustness from the still-unproven complete user workflow.
+  Execution checklist:
+  - [x] Complete current source/provider validation and package metadata; retain
+    full hosted native/platform/package checks as separate required evidence.
+  - [ ] Open the ready PR and address review/check failures within this checkpoint.
+  - [x] Leave remaining deep traversal after Foundry integration.
+
+- [ ] **Shared native capability incorporation**
+  Status: Next — follows the deep-traversal PR checkpoint; takes priority
+  over every remaining queued item under the November 17 maintainer request,
+  including every unfinished item 20 obligation not absorbed into this plan.
+  The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
+  extends item 20 and PulseWeave investigation F through existing admitted-operation,
+  source, resource, operator and result owners. Item 23's completed adaptive
+  execution is reused; Chrysalis and Resonance consume this foundation later.
+  - Intake review: accept shared lifecycle/control and composition gaps; reuse
+    existing adaptive execution, keys/windows and output replay/fanout; keep
+    advisory capabilities report-only and removed investigations removed.
+  - V1 scope classification: `v1_candidate_pending_feasibility` for new performance
+    mechanisms, explicitly prioritized; existing supported-path correctness and
+    resource obligations remain required. No new phase or CG identifier.
+  - ShardLoom technique review: connect PulseWeave, Capillary Units, FlowInventory,
+    ScarcityLedger, EndoPulse and ProofBound to actual owner controls; preserve
+    metadata-first execution, dynamic admission, timing boundaries and evidence
+    tiers. Coordinate with existing adaptive sizing inside caller ceilings.
+  Execution checklist:
+  - [ ] Map every named capability to current owners, callers, operative controls,
+    observation types, legal domains and remaining integration gaps.
+  - [ ] Select a material evidenced target and freeze affected opportunities and controls.
+  - [ ] Extend the shared Capillary lifecycle through completed results, downstream
+    retention, refusal, cancellation, drain and final-owner release.
+  - [ ] Connect finite PulseWeave feedback to actual settings with owner-proved application.
+  - [ ] Preserve compatible source/population facts, prepared keys/expressions and
+    native representations across existing and composed callers.
+  - [ ] Prove complete source-to-delivery ownership and reconcile all seven intake
+    families with executed, justified-decline or explicit unobserved dispositions.
+  - [ ] Record the shared-contract dependencies for later Chrysalis and Resonance work.
+  - [ ] Complete scoped correctness/resource/performance, public-interface, source,
+    installed-package and hosted acceptance; move completed evidence to the ledger.
+  - Next outcome and scope: one complete relevant owner chain selected from
+    measured exposure, extending existing native context, source/conversion,
+    worker/operator, typed-observation and result/sink modules. Keep the public
+    CLI/Python/typed-relation/DataFrame/embedded interfaces on those shared owners.
+  - Acceptance and verification: real application at eligible physical opportunities,
+    specific declines, truthful missing observations, unchanged semantics and
+    ownership through delivery; exact owner tests, complete workflow controls,
+    required Rust/native/package gates and a frozen scoped comparison as defined
+    in the contract. Do not substitute capability labels for execution evidence.
+  - Boundaries: ordinary execution needs no durable preparation; requested output
+    semantics and Vortex-native I/O remain. No removed campaign, Full43/full10k,
+    package publication, external engine or competitive claim is authorized here.
+    Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
+    `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
+
+- [ ] **Combined rich-data and analytical acceptance**
+  Status: Queued — follows shared native capability incorporation acceptance.
+  Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
+  and remaining [analytical program](native-broad-query-program-2026-10-26.md).
+  Execution checklist:
+  - [ ] Reconcile existing-depth item-19 and item-20 obligations with accepted evidence;
+    carry the deferred deep-traversal lifecycle after Foundry integration.
+  - [ ] Verify complete mixed values, resource pressure and ownership across public interfaces.
+  - [ ] Record scoped acceptance and remaining independent competitive gates.
+
+- [ ] **Chrysalis Cells and Map**
+  Status: Queued — follows combined rich-data and analytical acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  starts with exact partial native coverage for one immutable local Parquet source.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
+
+- [ ] **Resonance Cells and Leases**
+  Status: Queued — follows Chrysalis acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  then covers bounded shared live preparation for explicitly composed consumers.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
+
+- [ ] **Portable serverless execution**
+  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
+  Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
+  Execution checklist:
+  - [ ] Complete portable worker, artifact and policy foundations.
+  - [ ] Prove one explicitly selected host and selective-access stages.
+
+- [ ] **Foundry integration**
+  Status: Queued — follows portable serverless and precedes deferred deep traversal.
+  Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
+  Foundry hosts the job; ShardLoom computes through its native public interfaces.
+  Execution checklist:
+  - [ ] Prove the pinned installed native package and actual transform/output readback.
+  - [ ] Complete scalable multi-file adapter and failure-safe native writer acceptance.
+  - [ ] Complete the selected incremental and managed-Iceberg workflows.
+
 - [ ] **Resource-admitted deep traversal**
-  Status: In progress — schema cursor and native cleanup implemented; complete lifecycle remains open.
-  This closes the remaining depth obligation in the
+  Status: Deferred — resumes after Foundry integration under the November 17
+  maintainer decision. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
+  preserves completed groundwork; public nesting limits and full-item gates
+  remain unchanged. Establish the concrete user benefit before expanding this work.
+  This will close the remaining depth obligation in the
   [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md). The depth-24
   boundary remains until provider serialization, value traversal and final-owner
   cleanup are covered together. Schema, array and scalar cleanup now pass
@@ -498,6 +603,12 @@ workflow, performance and acceptance work recorded in the historical notes.
   lint failure remain preserved. Public depth admission still waits for Arrow
   schema and final owners, provider export and compute, native memory prepayment
   and complete deep-workflow acceptance.
+  Arrow schema ownership/structural operations, descriptor cleanup/clone,
+  validation/slicing/alignment and typed descriptor export are implemented at
+  this checkpoint. Focused provider suites pass 180 schema, 61 descriptor and
+  788 array tests, with one existing array ignore. Native conversion, actual
+  caller prepayment, provider compute and the complete deep workflow remain
+  unaccepted. These tests do not authorize deeper public input or a performance claim.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
@@ -511,96 +622,8 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.
 
-- [ ] **Shared native capability incorporation**
-  Status: Next — follows the in-progress deep-traversal lifecycle; takes priority
-  over every remaining queued item under the November 17 maintainer request,
-  including every unfinished item 20 obligation not absorbed into this plan.
-  The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
-  extends item 20 and PulseWeave investigation F through existing admitted-operation,
-  source, resource, operator and result owners. Item 23's completed adaptive
-  execution is reused; Chrysalis and Resonance consume this foundation later.
-  - Intake review: accept shared lifecycle/control and composition gaps; reuse
-    existing adaptive execution, keys/windows and output replay/fanout; keep
-    advisory capabilities report-only and removed investigations removed.
-  - V1 scope classification: `v1_candidate_pending_feasibility` for new performance
-    mechanisms, explicitly prioritized; existing supported-path correctness and
-    resource obligations remain required. No new phase or CG identifier.
-  - ShardLoom technique review: connect PulseWeave, Capillary Units, FlowInventory,
-    ScarcityLedger, EndoPulse and ProofBound to actual owner controls; preserve
-    metadata-first execution, dynamic admission, timing boundaries and evidence
-    tiers. Coordinate with existing adaptive sizing inside caller ceilings.
-  Execution checklist:
-  - [ ] Map every named capability to current owners, callers, operative controls,
-    observation types, legal domains and remaining integration gaps.
-  - [ ] Select a material evidenced target and freeze affected opportunities and controls.
-  - [ ] Extend the shared Capillary lifecycle through completed results, downstream
-    retention, refusal, cancellation, drain and final-owner release.
-  - [ ] Connect finite PulseWeave feedback to actual settings with owner-proved application.
-  - [ ] Preserve compatible source/population facts, prepared keys/expressions and
-    native representations across existing and composed callers.
-  - [ ] Prove complete source-to-delivery ownership and reconcile all seven intake
-    families with executed, justified-decline or explicit unobserved dispositions.
-  - [ ] Record the shared-contract dependencies for later Chrysalis and Resonance work.
-  - [ ] Complete scoped correctness/resource/performance, public-interface, source,
-    installed-package and hosted acceptance; move completed evidence to the ledger.
-  - Next outcome and scope: one complete relevant owner chain selected from
-    measured exposure, extending existing native context, source/conversion,
-    worker/operator, typed-observation and result/sink modules. Keep the public
-    CLI/Python/typed-relation/DataFrame/embedded interfaces on those shared owners.
-  - Acceptance and verification: real application at eligible physical opportunities,
-    specific declines, truthful missing observations, unchanged semantics and
-    ownership through delivery; exact owner tests, complete workflow controls,
-    required Rust/native/package gates and a frozen scoped comparison as defined
-    in the contract. Do not substitute capability labels for execution evidence.
-  - Boundaries: ordinary execution needs no durable preparation; requested output
-    semantics and Vortex-native I/O remain. No removed campaign, Full43/full10k,
-    package publication, external engine or competitive claim is authorized here.
-    Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
-    `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
-
-- [ ] **Combined rich-data and analytical acceptance**
-  Status: Queued — follows shared native capability incorporation acceptance.
-  Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
-  and remaining [analytical program](native-broad-query-program-2026-10-26.md).
-  Execution checklist:
-  - [ ] Reconcile remaining item-19 and item-20 obligations with accepted evidence.
-  - [ ] Verify complete mixed values, resource pressure and ownership across public interfaces.
-  - [ ] Record scoped acceptance and remaining independent competitive gates.
-
-- [ ] **Chrysalis Cells and Map**
-  Status: Queued — follows combined rich-data and analytical acceptance.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  starts with exact partial native coverage for one immutable local Parquet source.
-  Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
-  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
-
-- [ ] **Resonance Cells and Leases**
-  Status: Queued — follows Chrysalis acceptance.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  then covers bounded shared live preparation for explicitly composed consumers.
-  Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
-  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
-
-- [ ] **Portable serverless execution**
-  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
-  Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
-  Execution checklist:
-  - [ ] Complete portable worker, artifact and policy foundations.
-  - [ ] Prove one explicitly selected host and selective-access stages.
-
-- [ ] **Foundry integration**
-  Status: Queued — follows portable serverless and precedes AI workflows.
-  Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
-  Foundry hosts the job; ShardLoom computes through its native public interfaces.
-  Execution checklist:
-  - [ ] Prove the pinned installed native package and actual transform/output readback.
-  - [ ] Complete scalable multi-file adapter and failure-safe native writer acceptance.
-  - [ ] Complete the selected incremental and managed-Iceberg workflows.
-
 - [ ] **AI data workflows**
-  Status: Queued — follows Foundry and selected serverless acceptance.
+  Status: Queued — follows Foundry, deferred deep traversal and selected serverless acceptance.
   Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
   typed model-ready batches, source generations, ownership and retrieval semantics.
   Execution checklist:
@@ -618,8 +641,10 @@ workflow, performance and acceptance work recorded in the historical notes.
 ### Current decision notes
 
 The November 17 [shared incorporation decision](native-shared-capability-incorporation-2026-11-17.md)
-places that item first after active deep traversal, ahead of the rest of the
-queue, including the whole unfinished item 20 remainder. Absorbed item 20/F
+places that item first after the deep-traversal PR checkpoint, ahead of the
+unfinished item 20 remainder. The later November 17 reprioritization stops
+expansion of active deep traversal and moves its remaining acceptance after
+Foundry integration; it does not mark item 19 complete. Absorbed item 20/F
 obligations execute within the incorporation plan; all unabsorbed item 20
 capability, workflow, performance and acceptance work follows it. Remaining
 items keep their relative order. This extends item 20/F and

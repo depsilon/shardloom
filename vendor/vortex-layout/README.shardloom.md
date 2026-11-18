@@ -111,3 +111,9 @@ constructing struct reader metadata and resolving a logical struct slot. A
 schema admission failure therefore propagates through the existing fallible
 reader/layout APIs, including files without statistics to pre-resolve fields.
 The child cache retains its existing admission and partial-construction cleanup.
+
+The November 14 regional-aggregate integration also exposes the existing typed
+aggregate declarations through `ZonedLayout::aggregate_functions`. It shares
+the stored declaration owners without reading data or evaluating aggregates.
+The November 17 provenance audit records this already-integrated accessor in
+the modified-source inventory; it does not change its implementation.

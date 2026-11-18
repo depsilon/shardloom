@@ -117,3 +117,7 @@ runtime dependency resolution. Standalone provider tests use the reviewed
 `.github/provider-locks/orc-rust.lock` configuration with default features disabled.
 These are codec-boundary changes; query execution remains owned by ShardLoom.
 The October 31 combined batch has not yet completed validation.
+
+The November 17 Arrow ownership checkpoint also borrows the timestamp timezone
+when matching `DataType`. This preserves the existing UTC check with the
+same-version schema destructor; timestamp values and decoding are unchanged.

@@ -78,6 +78,13 @@ pub use list_view_array::*;
 
 use crate::iterator::ArrayIter;
 
+mod data_export;
+mod release;
+#[doc(hidden)]
+pub use data_export::ArrayDataNode;
+#[doc(hidden)]
+pub use release::ArrayReleaseNode;
+
 /// An array in the [Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html)
 ///
 /// # Safety
@@ -98,6 +105,21 @@ use crate::iterator::ArrayIter;
 ///
 /// [this discussion]: https://github.com/apache/arrow-rs/pull/9234#pullrequestreview-3708950936
 pub unsafe trait Array: std::fmt::Debug + Send + Sync {
+    /// Internal final-owner hook for built-in nested arrays. The default keeps
+    /// ordinary destruction for external implementations. It never downcasts
+    /// an erased allocation based on a forwarding `as_any` implementation.
+    #[doc(hidden)]
+    fn into_release_node(self: Arc<Self>) -> Option<ArrayReleaseNode> {
+        None
+    }
+
+    /// Internal ordered descriptor-conversion hook for built-in nested arrays.
+    /// Other implementations retain their existing `to_data` callback.
+    #[doc(hidden)]
+    fn data_node(&self) -> Option<ArrayDataNode> {
+        None
+    }
+
     /// Returns the array as [`Any`] so that it can be
     /// downcasted to a specific implementation.
     ///

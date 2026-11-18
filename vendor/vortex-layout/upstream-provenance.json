@@ -199,12 +199,13 @@
     "src/segments/cache.rs": "0d0b4c54e09ebce1cd090460dddaf1583f0f5b14793cc686d679a9f654523563",
     "src/segments/sink.rs": "8e48a0baeb58bb76b1ca524a1f07105972624e602f096f3540a5bd833e88a251",
     "src/serde.rs": "0a148d6180d840cc0e862fdee5f213df6e20ad8e317692f32108b3272df0e3ea",
-    "src/strategy.rs": "e20be8616ecd9039a2ead7ba1d52e75f39b35cd818ca38d918eddc0a9e3c1ad3"
+    "src/strategy.rs": "e20be8616ecd9039a2ead7ba1d52e75f39b35cd818ca38d918eddc0a9e3c1ad3",
+    "src/layouts/zoned/mod.rs": "2464172466b4c78bbf8ff48e16b01c3111f8687a2cd21de1908ea8bbddbb6b5e"
   },
   "added_files_sha256": {
     ".gitignore": "9e7e5b8470baad143c828fe1f9e34ad2d856cf515e63ab8654a9eff82c591ce1",
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "1b1ca467ee4d2660189dd5a97d515e0e8b893480321a394d56ec30ab85c42db9",
+    "README.shardloom.md": "93cccea521865953400a4672c15d5bfc7dd74f72410e3d2db6ed51d2f2839eb4",
     "goldenfiles/bloom_filter_sbbf_xxhash3_64.metadata": "2e22fd435060cd5d3cf5e3ef39f79e198b35bd2c4af31974db36601b3a2f4c91",
     "goldenfiles/indexed.metadata": "790bb23fb33aa6cbd6f45a4c0e926fd47ee72bc628d834999e9ff45e1ae47dda",
     "src/layouts/file_stats_tests.rs": "198bc3e6e167343a8621c3d911f53768911a5e19b7b04948ab5a191bd1b294c2",
@@ -212,7 +213,7 @@
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "1b1ca467ee4d2660189dd5a97d515e0e8b893480321a394d56ec30ab85c42db9"
+    "sha256": "93cccea521865953400a4672c15d5bfc7dd74f72410e3d2db6ed51d2f2839eb4"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

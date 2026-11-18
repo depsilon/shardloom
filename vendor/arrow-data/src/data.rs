@@ -204,7 +204,7 @@ pub(crate) fn new_buffers(data_type: &DataType, capacity: usize) -> [MutableBuff
 /// Child ArrayData may also have its own buffers and children
 /// ```
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ArrayData {
     /// The data type
     data_type: DataType,
@@ -241,7 +241,7 @@ pub struct ArrayData {
     ///
     /// If the child element also has an offset then these offsets are
     /// cumulative.
-    child_data: Vec<ArrayData>,
+    child_data: children::Children,
 
     /// The null bitmap.
     ///
@@ -255,6 +255,17 @@ pub struct ArrayData {
 
 /// A thread-safe, shared reference to the Arrow array data.
 pub type ArrayDataRef = Arc<ArrayData>;
+
+#[path = "data_children.rs"]
+mod children;
+#[path = "data_traversal.rs"]
+mod traversal;
+#[cfg(test)]
+#[path = "data_traversal_reference.rs"]
+mod traversal_reference;
+#[cfg(test)]
+#[path = "data_traversal_tests.rs"]
+mod traversal_tests;
 
 fn checked_len_plus_offset(
     data_type: &DataType,
@@ -410,7 +421,14 @@ impl ArrayData {
             child_data,
         } = self;
 
-        (data_type, len, nulls, offset, buffers, child_data)
+        (
+            data_type,
+            len,
+            nulls,
+            offset,
+            buffers,
+            child_data.into_inner(),
+        )
     }
 
     /// Returns a builder to construct a [`ArrayData`] instance of the same [`DataType`]
@@ -498,17 +516,12 @@ impl ArrayData {
     /// If multiple [`ArrayData`]s refer to the same underlying
     /// [`Buffer`]s they will both report the same size.
     pub fn get_buffer_memory_size(&self) -> usize {
-        let mut size = 0;
-        for buffer in &self.buffers {
-            size += buffer.capacity();
-        }
-        if let Some(bitmap) = &self.nulls {
-            size += bitmap.buffer().capacity()
-        }
-        for child in &self.child_data {
-            size += child.get_buffer_memory_size();
-        }
-        size
+        traversal::Walk::new(self)
+            .map(|data| {
+                let buffers = data.buffers.iter().map(Buffer::capacity).sum::<usize>();
+                buffers + data.nulls.as_ref().map_or(0, |n| n.buffer().capacity())
+            })
+            .sum()
     }
 
     /// Returns the total number of the bytes of memory occupied by
@@ -524,6 +537,11 @@ impl ArrayData {
     /// first `20` elements, then [`Self::get_slice_memory_size`] on the
     /// sliced [`ArrayData`] would return `20 * 8 = 160`.
     pub fn get_slice_memory_size(&self) -> Result<usize, ArrowError> {
+        traversal::Walk::new(self)
+            .try_fold(0, |size, data| Ok(size + data.slice_memory_size_shallow()?))
+    }
+
+    fn slice_memory_size_shallow(&self) -> Result<usize, ArrowError> {
         let mut result: usize = 0;
         let layout = layout(&self.data_type);
 
@@ -582,9 +600,6 @@ impl ArrayData {
             result += bit_util::ceil(self.len, 8);
         }
 
-        for child in &self.child_data {
-            result += child.get_slice_memory_size()?;
-        }
         Ok(result)
     }
 
@@ -597,21 +612,18 @@ impl ArrayData {
     ///  [`Self::get_buffer_memory_size`] +
     ///  `size_of_val(child)` for all children
     pub fn get_array_memory_size(&self) -> usize {
-        let mut size = mem::size_of_val(self);
-
-        // Calculate rest of the fields top down which contain actual data
-        for buffer in &self.buffers {
-            size += mem::size_of::<Buffer>();
-            size += buffer.capacity();
-        }
-        if let Some(nulls) = &self.nulls {
-            size += nulls.buffer().capacity();
-        }
-        for child in &self.child_data {
-            size += child.get_array_memory_size();
-        }
-
-        size
+        traversal::Walk::new(self)
+            .map(|data| {
+                let buffers = data
+                    .buffers
+                    .iter()
+                    .map(|buffer| mem::size_of::<Buffer>() + buffer.capacity())
+                    .sum::<usize>();
+                mem::size_of_val(data)
+                    + buffers
+                    + data.nulls.as_ref().map_or(0, |n| n.buffer().capacity())
+            })
+            .sum()
     }
 
     /// Creates a zero-copy slice of itself. This creates a new
@@ -622,39 +634,7 @@ impl ArrayData {
     ///
     /// Panics if `offset + length` overflows or is greater than `self.len()`.
     pub fn slice(&self, offset: usize, length: usize) -> ArrayData {
-        let end = offset
-            .checked_add(length)
-            .expect("offset + length overflow");
-        assert!(end <= self.len());
-
-        if let DataType::Struct(_) = self.data_type() {
-            // Structs have no value buffer of their own. Apply the complete
-            // parent offset to the children, then reset it on this descriptor.
-            // Retaining it as well would slice nested structs twice when an
-            // ArrayData consumer constructs the typed child arrays.
-            let new_offset = self.offset + offset;
-            ArrayData {
-                data_type: self.data_type().clone(),
-                len: length,
-                offset: 0,
-                buffers: self.buffers.clone(),
-                // Slice child data, to propagate offsets down to them
-                child_data: self
-                    .child_data()
-                    .iter()
-                    .map(|data| data.slice(new_offset, length))
-                    .collect(),
-                nulls: self.nulls.as_ref().map(|x| x.slice(offset, length)),
-            }
-        } else {
-            let mut new_data = self.clone();
-
-            new_data.len = length;
-            new_data.offset = offset + self.offset;
-            new_data.nulls = self.nulls.as_ref().map(|x| x.slice(offset, length));
-
-            new_data
-        }
+        children::clone_or_slice(self, Some((offset, length)))
     }
 
     /// Returns the `buffer` as a slice of type `T` starting at self.offset
@@ -848,18 +828,7 @@ impl ArrayData {
     ///
     /// This also aligns buffers of children data
     pub fn align_buffers(&mut self) {
-        let layout = layout(&self.data_type);
-        for (buffer, spec) in self.buffers.iter_mut().zip(&layout.buffers) {
-            if let BufferSpec::FixedWidth { alignment, .. } = spec {
-                if buffer.as_ptr().align_offset(*alignment) != 0 {
-                    *buffer = Buffer::from_slice_ref(buffer.as_ref());
-                }
-            }
-        }
-        // align children data recursively
-        for data in self.child_data.iter_mut() {
-            data.align_buffers()
-        }
+        traversal::align_buffers(self);
     }
 
     /// "cheap" validation of an `ArrayData`. Ensures buffers are
@@ -873,6 +842,10 @@ impl ArrayData {
     /// See [ArrayData::validate_data] to validate fully the offset content
     /// and the validity of utf8 data
     pub fn validate(&self) -> Result<(), ArrowError> {
+        traversal::validate(self)
+    }
+
+    fn validate_layout(&self) -> Result<(), ArrowError> {
         // Need at least this much space in each buffer
         let len_plus_offset = checked_len_plus_offset(&self.data_type, self.len, self.offset)?;
 
@@ -975,8 +948,10 @@ impl ArrayData {
             }
         }
 
-        self.validate_child_data()?;
+        Ok(())
+    }
 
+    fn validate_type(&self) -> Result<(), ArrowError> {
         // Additional Type specific checks
         match &self.data_type {
             DataType::Utf8 | DataType::Binary => {
@@ -1157,160 +1132,6 @@ impl ArrayData {
         Ok(())
     }
 
-    /// Validates the layout of `child_data` ArrayData structures
-    fn validate_child_data(&self) -> Result<(), ArrowError> {
-        match &self.data_type {
-            DataType::List(field) => {
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-                self.validate_offsets::<i32>(values_data.len)?;
-                Ok(())
-            }
-            DataType::LargeList(field) => {
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-                self.validate_offsets::<i64>(values_data.len)?;
-                Ok(())
-            }
-            DataType::Map(field, _) => {
-                let DataType::Struct(entries_fields) = field.data_type() else {
-                    return Err(ArrowError::InvalidArgumentError(format!(
-                        "Map field should be a entries struct data type, got {:?} instead",
-                        field.data_type()
-                    )));
-                };
-                if entries_fields.len() != 2 {
-                    return Err(ArrowError::InvalidArgumentError(format!(
-                        "Map entries data type should be a struct containing 2 fields, got {} fields",
-                        entries_fields.len()
-                    )));
-                }
-
-                // Key field
-                if entries_fields[0].is_nullable() {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "Map key field must not be nullable".to_string(),
-                    ));
-                }
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-                self.validate_offsets::<i32>(values_data.len)?;
-                Ok(())
-            }
-            DataType::ListView(field) => {
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-                self.validate_offsets_and_sizes::<i32>(values_data.len)?;
-                Ok(())
-            }
-            DataType::LargeListView(field) => {
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-                self.validate_offsets_and_sizes::<i64>(values_data.len)?;
-                Ok(())
-            }
-            DataType::FixedSizeList(field, list_size) => {
-                let values_data = self.get_single_valid_child_data(field.data_type())?;
-
-                let list_size: usize = (*list_size).try_into().map_err(|_| {
-                    ArrowError::InvalidArgumentError(format!(
-                        "{} has a negative list_size {}",
-                        self.data_type, list_size
-                    ))
-                })?;
-
-                let expected_values_len = self.len
-                    .checked_mul(list_size)
-                    .expect("integer overflow computing expected number of expected values in FixedListSize");
-
-                if values_data.len < expected_values_len {
-                    return Err(ArrowError::InvalidArgumentError(format!(
-                        "Values length {} is less than the length ({}) multiplied by the value size ({}) for {}",
-                        values_data.len, self.len, list_size, self.data_type
-                    )));
-                }
-
-                Ok(())
-            }
-            DataType::Struct(fields) => {
-                self.validate_num_child_data(fields.len())?;
-                for (i, field) in fields.iter().enumerate() {
-                    let field_data = self.get_valid_child_data(i, field.data_type())?;
-
-                    // Ensure child field has sufficient size
-                    if field_data.len < self.len {
-                        return Err(ArrowError::InvalidArgumentError(format!(
-                            "{} child array #{} for field {} has length smaller than expected for struct array ({} < {})",
-                            self.data_type,
-                            i,
-                            field.name(),
-                            field_data.len,
-                            self.len
-                        )));
-                    }
-                }
-                Ok(())
-            }
-            DataType::RunEndEncoded(run_ends_field, values_field) => {
-                self.validate_num_child_data(2)?;
-                let run_ends_data = self.get_valid_child_data(0, run_ends_field.data_type())?;
-                let values_data = self.get_valid_child_data(1, values_field.data_type())?;
-                if run_ends_data.len != values_data.len {
-                    return Err(ArrowError::InvalidArgumentError(format!(
-                        "The run_ends array length should be the same as values array length. Run_ends array length is {}, values array length is {}",
-                        run_ends_data.len, values_data.len
-                    )));
-                }
-                if run_ends_data.nulls.is_some() {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "Found null values in run_ends array. The run_ends array should not have null values.".to_string(),
-                    ));
-                }
-                Ok(())
-            }
-            DataType::Union(fields, mode) => {
-                self.validate_num_child_data(fields.len())?;
-
-                for (i, (_, field)) in fields.iter().enumerate() {
-                    let field_data = self.get_valid_child_data(i, field.data_type())?;
-
-                    if mode == &UnionMode::Sparse {
-                        let len_plus_offset =
-                            checked_len_plus_offset(&self.data_type, self.len, self.offset)?;
-                        if field_data.len < len_plus_offset {
-                            return Err(ArrowError::InvalidArgumentError(format!(
-                                "Sparse union child array #{} has length smaller than expected for union array ({} < {})",
-                                i, field_data.len, len_plus_offset
-                            )));
-                        }
-                    }
-                }
-                Ok(())
-            }
-            DataType::Dictionary(_key_type, value_type) => {
-                self.get_single_valid_child_data(value_type)?;
-                Ok(())
-            }
-            _ => {
-                // other types do not have child data
-                if !self.child_data.is_empty() {
-                    return Err(ArrowError::InvalidArgumentError(format!(
-                        "Expected no child arrays for type {} but got {}",
-                        self.data_type,
-                        self.child_data.len()
-                    )));
-                }
-                Ok(())
-            }
-        }
-    }
-
-    /// Ensures that this array data has a single child_data with the
-    /// expected type, and calls `validate()` on it. Returns a
-    /// reference to that child_data
-    fn get_single_valid_child_data(
-        &self,
-        expected_type: &DataType,
-    ) -> Result<&ArrayData, ArrowError> {
-        self.validate_num_child_data(1)?;
-        self.get_valid_child_data(0, expected_type)
-    }
-
     /// Returns `Err` if self.child_data does not have exactly `expected_len` elements
     fn validate_num_child_data(&self, expected_len: usize) -> Result<(), ArrowError> {
         if self.child_data.len() != expected_len {
@@ -1325,9 +1146,8 @@ impl ArrayData {
         }
     }
 
-    /// Ensures that `child_data[i]` has the expected type, calls
-    /// `validate()` on it, and returns a reference to that child_data
-    fn get_valid_child_data(
+    /// Checks the child type before entering its validation continuation.
+    fn get_child_data_of_type(
         &self,
         i: usize,
         expected_type: &DataType,
@@ -1348,7 +1168,6 @@ impl ArrayData {
             )));
         }
 
-        values_data.validate()?;
         Ok(values_data)
     }
 
@@ -1380,20 +1199,7 @@ impl ArrayData {
     /// This is equivalent to calling [`Self::validate_data`] on this [`ArrayData`]
     /// and all its children recursively
     pub fn validate_full(&self) -> Result<(), ArrowError> {
-        self.validate_data()?;
-        // validate all children recursively
-        self.child_data
-            .iter()
-            .enumerate()
-            .try_for_each(|(i, child_data)| {
-                child_data.validate_full().map_err(|e| {
-                    ArrowError::InvalidArgumentError(format!(
-                        "{} child #{} invalid: {}",
-                        self.data_type, i, e
-                    ))
-                })
-            })?;
-        Ok(())
+        traversal::validate_full(self)
     }
 
     /// Validates the values stored within this [`ArrayData`] are valid
@@ -2300,7 +2106,7 @@ impl ArrayDataBuilder {
             len,
             offset,
             buffers,
-            child_data,
+            child_data: child_data.into(),
             nulls,
         };
 
@@ -2363,7 +2169,7 @@ impl From<ArrayData> for ArrayDataBuilder {
             len: d.len,
             offset: d.offset,
             buffers: d.buffers,
-            child_data: d.child_data,
+            child_data: d.child_data.into_inner(),
             nulls: d.nulls,
             null_bit_buffer: None,
             null_count: None,
@@ -2609,7 +2415,7 @@ mod tests {
             len: usize::MAX,
             offset: 0,
             buffers: vec![Buffer::from_slice_ref([0_i32])],
-            child_data: vec![],
+            child_data: vec![].into(),
             nulls: None,
         };
         let err = data.typed_offsets::<i32>().unwrap_err();
@@ -2630,7 +2436,7 @@ mod tests {
             len: 0,
             offset: 2,
             buffers: vec![Buffer::from_slice_ref([0_i32])],
-            child_data: vec![],
+            child_data: vec![].into(),
             nulls: None,
         };
         let err = data.typed_buffer::<i32>(0, usize::MAX).unwrap_err();
@@ -2843,7 +2649,7 @@ mod tests {
             len: 0,
             offset: 0,
             buffers: vec![buffer],
-            child_data: vec![],
+            child_data: vec![].into(),
             nulls: None,
         };
         data.validate_full().unwrap();
@@ -2871,7 +2677,7 @@ mod tests {
             len: 0,
             offset: 0,
             buffers: vec![buffer],
-            child_data: vec![],
+            child_data: vec![].into(),
             nulls: None,
         };
 
@@ -2881,7 +2687,7 @@ mod tests {
             len: 0,
             offset: 0,
             buffers: vec![],
-            child_data: vec![child_data],
+            child_data: vec![child_data].into(),
             nulls: None,
         };
         data.validate_full().unwrap();

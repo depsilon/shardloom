@@ -1,0 +1,46 @@
+{
+  "added_files_sha256": {
+    "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "README.shardloom.md": "5028e270a7ec77a924d57309a4504ddf20d11b1343c70f34e350ee3b7034822a"
+  },
+  "license": "Apache-2.0",
+  "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+  "license_url": "https://static.crates.io/crates/arrow-row/arrow-row-59.3.2.crate#LICENSE.txt",
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "5028e270a7ec77a924d57309a4504ddf20d11b1343c70f34e350ee3b7034822a"
+  },
+  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
+  "modified_files_sha256": {
+    "Cargo.toml": "0dd11aab138c3c74550342466eea74a4fb742a81a86c1ab75e5731b2d08af538",
+    "src/lib.rs": "55caef2c499f1a041a3f6da40780e697475a611a45b11113f3e9b4d073e85f92",
+    "src/list.rs": "b021fb8c387eebd8e78d0e87bc99b0fbb169553d6f69ad3cd35cb7126aec82c8"
+  },
+  "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+  "notice_url": "https://static.crates.io/crates/arrow-row/arrow-row-59.3.2.crate#NOTICE.txt",
+  "omitted_files": {
+    "Cargo.lock": {
+      "original_sha256": "4902961ce035110662ae44f638036a479402b0445e1c1618e0502110ce43003c",
+      "reason": "Omitted from committed provider source; workspace and reviewed standalone lockfiles own dependency resolution."
+    }
+  },
+  "original_files_sha256": {
+    "Cargo.lock": "4902961ce035110662ae44f638036a479402b0445e1c1618e0502110ce43003c",
+    "Cargo.toml": "960da1e2e68c853a77e7bca2f3752afe1ad41ff52afe57ded0240cd66208c6ba",
+    "Cargo.toml.orig": "e6bf7acdaa0925adf8e191889c0cb5d52cdd16064f6ad6d9647e35b3e13d7462",
+    "LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "src/fixed.rs": "6be601784d5e9d8bea453bc0147c89d905bb210ca9dd9e0c5236692d6c96a889",
+    "src/lib.rs": "01ddcd62000640adeb8a5725d5e7e6a558e017d3322bcff5404227dd6dc23c0f",
+    "src/list.rs": "7afafaf694289db32800f0eab3a576494bb613e9d23122a95aec45dc8cf0a113",
+    "src/run.rs": "0f8b549614182a8183d8903f6a316de311c2adb3f522d365c6de250916022085",
+    "src/variable.rs": "4dcecbdd873435699e7c69cb86279f6a2b26229340b1f59205a26efeccc4cbdc"
+  },
+  "provider": "arrow-row",
+  "registry_archive_file_count": 10,
+  "registry_archive_sha256": "0d8c68b87a569f92b90c46cb0a09d86bd9609ddc9b1bf1fc5a503c8c6907c14e",
+  "registry_archive_uncompressed_bytes": 369055,
+  "source_of_truth": "https://static.crates.io/crates/arrow-row/arrow-row-59.3.2.crate",
+  "version": "59.3.2"
+}

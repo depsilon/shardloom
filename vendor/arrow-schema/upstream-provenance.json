@@ -1,0 +1,78 @@
+{
+  "added_files_sha256": {
+    "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "README.shardloom.md": "f2c2b8b30d0a0c384e8012f7bc291a5a76ab3b5c9fc2758c2300175b61ed4b2e",
+    "src/datatype_clone.rs": "90b17b2ee90f9d33b4b4d6d30acdbc6338a0efdc54efa2f0c5a2393521d65d6f",
+    "src/datatype_debug.rs": "8f2b5a170105013161bc5a93ef28f038fe38a5f6bee569ee11b4f6678d3ff04c",
+    "src/datatype_format_tests.rs": "667b8b45b3b085f514daee90fe752be6ecb2cf17c55fea14d0450f8ef3f92c2d",
+    "src/datatype_inspection_tests.rs": "cb08037f3719c2cab1fa1b33ee42ad6e88a176aea37f7c22effa38ec093b77e8",
+    "src/datatype_relations.rs": "2f19f8d9c7e91cfad57fe80e19356ae8125fa7489816927e6fee1bbdbfe4b0a0",
+    "src/datatype_release.rs": "5d7bb51cdb67b26b3068f6e38395a33dfb7e92dbc87c7d108ca841879887d255",
+    "src/datatype_release_tests.rs": "b1498feac7327a95af9df9f84f9c055b89f9a4c08b35c5c53f59b47af9b32262",
+    "src/datatype_size.rs": "f3294a5a765e1d8d4b0e67a89f30745eb5f44c38f8c4eade5cc5c40df9e45db7",
+    "src/datatype_structural.rs": "27ed63ca543c8e17ce4bcf55c1ef4778da52dc9202cb924febf67366e3fbc994",
+    "src/datatype_structural_tests.rs": "669ad364b380dbb7b6dfb15b61f5793a34e9273837c0030fb43b2c8f9fb55fd9",
+    "src/retained.rs": "a17500ade4f97cdf65766d4b060d0f32521b6969cbaae10be247542bdea3ad12",
+    "src/structural_reference.rs": "7846c0a4afe904f7e250c8129a27561d14d8af04aa9ae7765ccaf68e946344eb",
+    "src/structural_reference.source.json": "2ca119333011785283f25868b76e840bf9f13eabefaaf92feb780a3f9ffb8b58",
+    "src/traversal_test_utils.rs": "54872944a85880b1e72d48e0f87b5a4e6fb2926d1b42847f3fc9edfba382cd21"
+  },
+  "license": "Apache-2.0",
+  "license_sha256": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+  "license_url": "https://static.crates.io/crates/arrow-schema/arrow-schema-59.3.2.crate#LICENSE.txt",
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "f2c2b8b30d0a0c384e8012f7bc291a5a76ab3b5c9fc2758c2300175b61ed4b2e"
+  },
+  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
+  "modified_files_sha256": {
+    "Cargo.toml": "f5a098d3f818585925f587abb5ddf2e9f11fd59314ac972ba58e0dd8c9b3ea1f",
+    "src/datatype.rs": "09d3d5ce48ac092dde686c566f753c9b494e0464ea199b56248240479f0fb614",
+    "src/datatype_display.rs": "465fbdeebb30a5204c1d6c54352b20665266cb7f76d7b897aff09ff3579ce1d1",
+    "src/ffi.rs": "b153bf8f562c40c1832fbd2220699f49d5d292cbddbb8588e99cfe427ec4748d",
+    "src/field.rs": "3181c17a9a872aa45282a96a6029bb9592de1098c2ee4494d2ea1bd7a429617b",
+    "src/fields.rs": "3a134ae2496bec5eab4e6a8a162b67b767092fb6db95bb5b4d6320221c98d52c",
+    "src/lib.rs": "a9f9d8fbcb713ab9887914dd1d753e8c1fd04a42d297758b512d17a5232be1da"
+  },
+  "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+  "notice_url": "https://static.crates.io/crates/arrow-schema/arrow-schema-59.3.2.crate#NOTICE.txt",
+  "omitted_files": {
+    "Cargo.lock": {
+      "original_sha256": "c52347c9569962919b4dccaf80229c9f045ac0db9edd6095a09c1f44d10ce51c",
+      "reason": "Omitted from committed provider source; workspace and reviewed standalone lockfiles own dependency resolution."
+    }
+  },
+  "original_files_sha256": {
+    "Cargo.lock": "c52347c9569962919b4dccaf80229c9f045ac0db9edd6095a09c1f44d10ce51c",
+    "Cargo.toml": "cddd0db68a2236f199fbf3b55286042f855a39ed6af73c74b1ffa5983e671c29",
+    "Cargo.toml.orig": "63c3421d3ccf54223929b1ede4056cd764079265bbab6e0ccf5aeaf5df09cdec",
+    "LICENSE.txt": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
+    "NOTICE.txt": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
+    "benches/ffi.rs": "14432b5a9f7d29dd85deabca58021244523e916ea456cf993b347a4f4a9c8db3",
+    "src/datatype.rs": "641a04897876b1d2be8f574b4ca245ca4fc62a4ff710e7f224630e5229c3dfb0",
+    "src/datatype_display.rs": "012b1aceecf43a919d15023fe162e21ba38636a5bbfd2d7668da25cdf6cf8ce0",
+    "src/datatype_parse.rs": "14f3bcebbad3741779edd5d39e601d946db94b6009d491695736246138659cc1",
+    "src/error.rs": "7f40c97663555851e7ee5a2c8f318ce23e66c3f25bf11436a0f56013bd46295a",
+    "src/extension/canonical/bool8.rs": "308e0d25bb8b15bb321c625cfdeeda4d9c6f4a8c9ca00c7a1e9d63f8de446e83",
+    "src/extension/canonical/fixed_shape_tensor.rs": "ce74d469543ae6525130f570c7f453ecf8397a743880ffedcda7ccac42230f16",
+    "src/extension/canonical/json.rs": "824275bc53d48f5c0d96b21ac511eb29f616ae8a50268f485a18b9e98b5ed221",
+    "src/extension/canonical/mod.rs": "b34e38e9b4b18db82dc7aa2e127ce932018c3b77e35dcbe8c0a5380afec64422",
+    "src/extension/canonical/opaque.rs": "4370bb4ead6364830a9158a3b93de47febf282c3e6e1e48cbb0acccc49663871",
+    "src/extension/canonical/timestamp_with_offset.rs": "8da77204d275572cf1337db1d569368bbcd05dac05af3b7b6e16989050c84c25",
+    "src/extension/canonical/uuid.rs": "446fab6e4ecdfffc4f531c59775c6e8d6d3b0012e0d524d70cd26908727f7a16",
+    "src/extension/canonical/variable_shape_tensor.rs": "b6897c2999355a6f8592815b8de39b29bc7e21ae6093283778fe28327d6c9aef",
+    "src/extension/mod.rs": "05b6de4f0e2922b914221cf1b22a2aa91cee2d7a6b9cd4b47172ce8c16bcc9a8",
+    "src/ffi.rs": "dcb0d300cbe893bbc405e2d023d36f135a4e2ca299ae854d244079bf903322f0",
+    "src/field.rs": "7aea498fb386d32b1aac87d2b08a9aff591c2f7e259d4c12ed5c8667828afae1",
+    "src/fields.rs": "8e5e921b0f7d9ace79b5dab5660ee8b7f198c99badad39443d9aa018f5c4f63e",
+    "src/lib.rs": "fcf571d02309a9f0f1a60b3e54b9271619835e5525c4247d7b3743cdbee62942",
+    "src/schema.rs": "0ce39e9a147c98fff1adc1c93517904592a3d8e33dc542164227d7596dcd13e9"
+  },
+  "provider": "arrow-schema",
+  "registry_archive_file_count": 24,
+  "registry_archive_sha256": "e87acb0c6bf6237fca7a50d7b51e801c98a18a5fe6f3bb34f7d77b85ca165388",
+  "registry_archive_uncompressed_bytes": 488045,
+  "source_of_truth": "https://static.crates.io/crates/arrow-schema/arrow-schema-59.3.2.crate",
+  "version": "59.3.2"
+}

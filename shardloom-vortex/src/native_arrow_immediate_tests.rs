@@ -203,10 +203,10 @@ fn immediate_parquet_views_leave_contiguous_and_nested_text_on_existing_targets(
     )
     .unwrap()
     .into_array();
-    let DataType::Struct(fields) = data_type(array.dtype()).unwrap() else {
+    let DataType::Struct(ref fields) = data_type(array.dtype()).unwrap() else {
         panic!("struct");
     };
-    let schema = Arc::new(Schema::new(fields));
+    let schema = Arc::new(Schema::new(fields.clone()));
     let (canonical, expanded) = admit(&array, &session, &memory);
     assert!(
         immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
@@ -233,10 +233,10 @@ fn immediate_parquet_views_preserve_binary_nulls_beside_nested_text() {
     )
     .unwrap()
     .into_array();
-    let DataType::Struct(fields) = data_type(array.dtype()).unwrap() else {
+    let DataType::Struct(ref fields) = data_type(array.dtype()).unwrap() else {
         panic!("struct");
     };
-    let schema = Arc::new(Schema::new(fields));
+    let schema = Arc::new(Schema::new(fields.clone()));
     let (canonical, expanded) = admit(&array, &session, &memory);
     let (view_schema, _) = immediate_parquet_target(&canonical, &schema, expanded, 8 << 20)
         .unwrap()

@@ -132,7 +132,8 @@ impl ArrayReader for RowNumberReader {
     }
 
     fn get_data_type(&self) -> &DataType {
-        &DataType::Int64
+        static DATA_TYPE: DataType = DataType::Int64;
+        &DATA_TYPE
     }
 
     fn consume_batch(&mut self) -> Result<ArrayRef> {

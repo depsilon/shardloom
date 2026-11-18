@@ -19,7 +19,8 @@ GROUPS = {
                "vortex-parquet-variant", "vortex-pco", "vortex-sparse", "vortex-zigzag"),
     "io": ("vortex-layout", "vortex-file", "vortex-io", "vortex-arrow"),
     "buffer": ("vortex-buffer", "flatbuffers", "prost"),
-    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "parquet-variant"),
+    "formats": ("orc-rust", "arrow-avro", "arrow-ipc", "arrow-data", "arrow-array", "parquet", "parquet-variant",
+                "arrow-schema", "arrow-json", "arrow-row"),
 }
 CONFIGURATIONS = {
     "vortex-array": {"features": "_test-harness,table-display", "patches": ["flatbuffers", "prost"]},
@@ -78,6 +79,12 @@ CONFIGURATIONS = {
                    "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-data"},
     "arrow-array": {"features": "ffi", "patches": ["arrow-data"],
                     "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-array"},
+    "arrow-schema": {"features": None, "patches": [],
+                     "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-schema"},
+    "arrow-json": {"features": None, "patches": [],
+                   "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-json"},
+    "arrow-row": {"features": None, "patches": [],
+                  "clippy_tests": True, "clippy_conf_dir": "vendor/arrow-row"},
     "parquet": {"features": "default", "patches": ["arrow-array", "arrow-data", "arrow-ipc", "flatbuffers", "parquet-variant"],
                 "integration_tests": True, "clippy_tests": True,
                 "clippy_conf_dir": "vendor/parquet",
@@ -90,10 +97,35 @@ CONFIGURATIONS = {
 }
 
 
+# Same-version ownership graph reviewed from every committed standalone lock.
+# Preserve each provider's existing codecs, feature flags and unrelated patches.
+# ORC's existing Arrow 58 test graph remains registry-owned; these 59.3.2
+# patches apply only to matching package versions.
+ARROW_ARRAY_CONSUMERS = frozenset({
+    "vortex-layout", "vortex-file", "vortex-arrow", "vortex-pco", "vortex-sparse",
+    "vortex-parquet-variant", "orc-rust", "arrow-avro", "arrow-ipc", "parquet",
+    "parquet-variant", "arrow-json", "arrow-row",
+})
+ARROW_OWNERSHIP_CONSUMERS = {
+    "arrow-schema": frozenset(CONFIGURATIONS) - {"flatbuffers", "prost", "arrow-schema"},
+    "arrow-array": ARROW_ARRAY_CONSUMERS,
+    "arrow-data": ARROW_ARRAY_CONSUMERS | {"arrow-array"},
+    "arrow-json": frozenset({"orc-rust", "parquet"}),
+    "arrow-row": frozenset({"orc-rust", "arrow-avro", "parquet", "parquet-variant", "vortex-parquet-variant"}),
+}
+
+
+def provider_patches(crate: str) -> list[str]:
+    return list(dict.fromkeys([
+        *CONFIGURATIONS[crate]["patches"],
+        *(name for name, consumers in ARROW_OWNERSHIP_CONSUMERS.items() if crate in consumers),
+    ]))
+
+
 def configuration_arguments(crate: str) -> list[str]:
     config = CONFIGURATIONS[crate]
     args = ["--manifest-path", f"vendor/{crate}/Cargo.toml"]
-    for patch in config["patches"]:
+    for patch in provider_patches(crate):
         args += ["--config", f'patch.crates-io.{patch}.path="vendor/{patch}"']
     if config.get("no_default_features"):
         args.append("--no-default-features")

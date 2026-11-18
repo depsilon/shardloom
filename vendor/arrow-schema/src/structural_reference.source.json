@@ -1,0 +1,130 @@
+{
+  "archive_sha256": "e87acb0c6bf6237fca7a50d7b51e801c98a18a5fe6f3bb34f7d77b85ca165388",
+  "source_items": [
+    {
+      "source": "src/datatype.rs",
+      "anchor": "pub enum DataType {",
+      "start_line": 94,
+      "end_line": 431,
+      "sha256": "cd9ca6f8978123ba4b267fa9bc6fc82560f903cc3468a550ef6d5152d97e7676"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "pub struct Field {",
+      "start_line": 47,
+      "end_line": 61,
+      "sha256": "d3c79fed9065cf14bd3750721872fd8d32adad90d92ed274a015a1817e48dc6f"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl std::fmt::Debug for Field",
+      "start_line": 63,
+      "end_line": 101,
+      "sha256": "dd0ef377cca516da8fc218a378d6c0acfae48ee01d74a3248f224bb3ef804237"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl PartialEq for Field",
+      "start_line": 108,
+      "end_line": 115,
+      "sha256": "c5aaf933a1bf2caae64cd4d629273df682bc684143f2d7aba1f9e4b39de1616a"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl Eq for Field",
+      "start_line": 117,
+      "end_line": 117,
+      "sha256": "9466b7893d656933cabee2d761c77055655a796015c52ebc00dd68441121ba75"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl PartialOrd for Field",
+      "start_line": 119,
+      "end_line": 123,
+      "sha256": "adbb4ac70b75e0be89d445610a82b1eca76d6fe80372078f095d4b7e75a775de"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl Ord for Field",
+      "start_line": 125,
+      "end_line": 157,
+      "sha256": "12a55472b8b50e0a717bb07fd535ab1735f5456002999f6a85147a8cad4624bb"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "impl Hash for Field",
+      "start_line": 159,
+      "end_line": 173,
+      "sha256": "24d87b1f716acc420f02387ffed897c03a93cf1c06d8a2e888630b3c241f296a"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "pub fn size(&self) -> usize",
+      "start_line": 962,
+      "end_line": 972,
+      "sha256": "639844de9eee6b263d1230a6fcb3a220d1facb68b3375980f09c3487d4644e23"
+    },
+    {
+      "source": "src/field.rs",
+      "anchor": "pub fn contains(&self, other: &Field)",
+      "start_line": 947,
+      "end_line": 957,
+      "sha256": "2d6964442bf0a028f8b3f3e83561c90913709505842d834644ef5c7fe0b7693f"
+    },
+    {
+      "source": "src/fields.rs",
+      "anchor": "pub fn contains(&self, other: &Fields)",
+      "start_line": 92,
+      "end_line": 101,
+      "sha256": "a7fae9a8759b58378316914f47a3f377dfe8cb3c3a8d1ef55452028b68a6fd30"
+    },
+    {
+      "source": "src/datatype.rs",
+      "anchor": "pub fn equals_datatype(&self, other: &DataType)",
+      "start_line": 664,
+      "end_line": 719,
+      "sha256": "9d59ed46a42a78454a8d2d3fcfd4d88214767f8a7d1ac4a90068638ae8a9cbc3"
+    },
+    {
+      "source": "src/datatype.rs",
+      "anchor": "pub fn contains(&self, other: &DataType)",
+      "start_line": 817,
+      "end_line": 839,
+      "sha256": "277435cee93b1d1286f272652216f0fdc468ed7d8fd638e9e5bfe8016b839702"
+    },
+    {
+      "source": "src/datatype.rs",
+      "anchor": "pub fn size(&self) -> usize",
+      "start_line": 763,
+      "end_line": 811,
+      "sha256": "db37dab455b1b9b8ef1e38719a4416038b92e404979da86ce8f52de0d0708cd1"
+    },
+    {
+      "source": "src/datatype.rs",
+      "anchor": "pub fn is_nested(&self) -> bool",
+      "start_line": 610,
+      "end_line": 625,
+      "sha256": "dd89b1db58c4f8203f5581031dbe13a5a05c50b5a6bf7336360a6ccbe1b25cf3"
+    },
+    {
+      "source": "src/datatype_display.rs",
+      "anchor": "impl Display for DataType",
+      "start_line": 22,
+      "end_line": 184,
+      "sha256": "a6782fb7190d064710dea69cf13104a61efb44984d6e1b41f98b4373043a9290"
+    },
+    {
+      "source": "src/datatype_display.rs",
+      "anchor": "impl fmt::Display for FormatMetadata<'_>",
+      "start_line": 189,
+      "end_line": 201,
+      "sha256": "e43ecf37e1289a1c901282427875c5a71efd4f404e843fe89ec1d20a6defc802"
+    }
+  ],
+  "adaptations": [
+    "reference-only Field/Fields/UnionFields plumbing",
+    "Display crate::Field paths refer to reference Field",
+    "serde derives omitted from the reference; production provider serde tests remain enabled"
+  ],
+  "generated_sha256_before_rustfmt": "d5af447bb53fe716d6acb9bcb1b01520b1223f92937c5e5e9dc6d920bcae7a00"
+}
