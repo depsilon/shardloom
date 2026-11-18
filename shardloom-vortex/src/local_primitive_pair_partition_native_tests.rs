@@ -41,10 +41,17 @@ static NEXT_FIXTURE: AtomicUsize = AtomicUsize::new(0);
 struct Fixture {
     directory: PathBuf,
     near_unique: bool,
+    chunks: usize,
+    chunk_rows: usize,
 }
 
 impl Fixture {
     fn new(near_unique: bool) -> Self {
+        Self::with_geometry(near_unique, CHUNKS, CHUNK_ROWS)
+    }
+
+    fn with_geometry(near_unique: bool, chunks: usize, chunk_rows: usize) -> Self {
+        assert!(chunks >= 2 && chunk_rows >= 4 && chunk_rows.is_multiple_of(2));
         let directory = std::env::temp_dir().join(format!(
             "shardloom-pair-partition-native-{}-{}-{}",
             std::process::id(),
@@ -58,6 +65,8 @@ impl Fixture {
         let fixture = Self {
             directory,
             near_unique,
+            chunks,
+            chunk_rows,
         };
         let runtime = SingleThreadRuntime::default();
         let session = VortexSession::default().with_handle(runtime.handle());
@@ -69,31 +78,31 @@ impl Fixture {
             .unwrap();
         let mut writer = session
             .write_options()
-            .with_strategy(SequentialNativeFlatLayout::strategy(CHUNKS))
+            .with_strategy(SequentialNativeFlatLayout::strategy(chunks))
             .with_file_statistics(Vec::new())
             .blocking(&runtime)
             .writer(&mut output, first.dtype().clone());
         writer.push(first).unwrap();
-        for index in 1..CHUNKS {
+        for index in 1..chunks {
             writer.push(fixture.chunk(index)).unwrap();
         }
-        assert_eq!(writer.finish().unwrap().row_count(), SOURCE_ROWS);
+        assert_eq!(writer.finish().unwrap().row_count(), fixture.source_rows());
         drop(output);
         fixture
     }
 
     fn chunk(&self, index: usize) -> ArrayRef {
-        let mut first = Vec::with_capacity(CHUNK_ROWS);
-        let mut second = Vec::with_capacity(CHUNK_ROWS);
-        for row in 0..CHUNK_ROWS {
+        let mut first = Vec::with_capacity(self.chunk_rows);
+        let mut second = Vec::with_capacity(self.chunk_rows);
+        for row in 0..self.chunk_rows {
             let pair = if self.near_unique {
-                if row == CHUNK_ROWS - 1 {
+                if row == self.chunk_rows - 1 {
                     // One complete pair spans every chunk, while each first
                     // chunk's sample remains genuinely near-unique.
                     (-7, -3)
                 } else {
                     (
-                        i64::try_from(index * CHUNK_ROWS + row).unwrap(),
+                        i64::try_from(index * self.chunk_rows + row).unwrap(),
                         i32::try_from(row % 17).unwrap(),
                     )
                 }
@@ -111,17 +120,17 @@ impl Fixture {
                 PrimitiveArray::new(first, Validity::NonNullable).into_array(),
                 PrimitiveArray::new(second, Validity::NonNullable).into_array(),
                 PrimitiveArray::new(
-                    vec![i16::try_from(index + 1).unwrap(); CHUNK_ROWS],
+                    vec![i16::try_from(index + 1).unwrap(); self.chunk_rows],
                     Validity::NonNullable,
                 )
                 .into_array(),
                 PrimitiveArray::new(
-                    vec![10 + i32::try_from(index).unwrap(); CHUNK_ROWS],
+                    vec![10 + i32::try_from(index).unwrap(); self.chunk_rows],
                     Validity::NonNullable,
                 )
                 .into_array(),
             ],
-            CHUNK_ROWS,
+            self.chunk_rows,
             Validity::NonNullable,
         )
         .unwrap()
@@ -130,6 +139,10 @@ impl Fixture {
 
     fn path(&self) -> PathBuf {
         self.directory.join("source.vortex")
+    }
+
+    fn source_rows(&self) -> u64 {
+        u64::try_from(self.chunks.checked_mul(self.chunk_rows).unwrap()).unwrap()
     }
 
     fn request(&self) -> VortexQueryPrimitiveRequest {
@@ -159,22 +172,30 @@ impl Fixture {
     }
 
     fn expected(&self) -> serde_json::Value {
+        // Fixture bounds make every integer and half-integer exactly representable.
+        let chunks = u32::try_from(self.chunks).unwrap();
+        let weights = chunks.checked_mul(chunks + 1).unwrap() / 2;
+        let average = 10.0 + f64::from(chunks - 1) / 2.0;
         if self.near_unique {
-            // The winning pair contributes weight 1..=32 and span 10..=41.
             serde_json::json!([
-                {"entity_key":-7,"origin_key":-3,"frequency":32,"weight_sum":528.0,"span_avg":25.5},
+                {"entity_key":-7,"origin_key":-3,"frequency":chunks,"weight_sum":f64::from(weights),"span_avg":average},
                 {"entity_key":0,"origin_key":0,"frequency":1,"weight_sum":1.0,"span_avg":10.0},
                 {"entity_key":1,"origin_key":1,"frequency":1,"weight_sum":1.0,"span_avg":10.0},
             ])
         } else {
-            // Each key has 16,384 rows per chunk: sum = 16,384 * 528.
+            let rows_per_key = u32::try_from(self.chunk_rows / 2).unwrap();
+            let weight_sum = f64::from(rows_per_key.checked_mul(weights).unwrap());
+            let frequency = self.source_rows() / 2;
             serde_json::json!([
-                {"entity_key":-2,"origin_key":3,"frequency":524_288,"weight_sum":8_650_752.0,"span_avg":25.5},
-                {"entity_key":7,"origin_key":-4,"frequency":524_288,"weight_sum":8_650_752.0,"span_avg":25.5},
+                {"entity_key":-2,"origin_key":3,"frequency":frequency,"weight_sum":weight_sum,"span_avg":average},
+                {"entity_key":7,"origin_key":-4,"frequency":frequency,"weight_sum":weight_sum,"span_avg":average},
             ])
         }
     }
 }
+
+#[path = "local_primitive_pair_wait_attribution_tests.rs"]
+mod wait_attribution;
 
 impl Drop for Fixture {
     fn drop(&mut self) {

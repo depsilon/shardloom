@@ -58,6 +58,7 @@
     "local_primitives::numeric_worker_selection_screen::extended_small_numeric_count_selection_screen",
     "local_primitives::numeric_worker_selection_screen::held_out_small_numeric_count_selection_screen",
     "local_primitives::numeric_worker_selection_screen::paired_small_numeric_count_selection_screen",
+    "local_primitives::pair_partition_native_tests::wait_attribution::native_pair_worker_wait_attribution",
     "local_primitives::prepared_relational::tests::compact_index_cost_tests::native_compact_local_indices_screen",
     "local_primitives::prepared_relational::tests::direct_count_tests::native_direct_count_attribution",
     "local_primitives::prepared_relational::tests::engine_cost_tests::native_engine_optimization_cost_screen",

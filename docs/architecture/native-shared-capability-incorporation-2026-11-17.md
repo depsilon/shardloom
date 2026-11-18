@@ -201,12 +201,15 @@ refusal/retry, ordered completion, worker failure, retained credit, normal
 retirement and the new cancellation cases. The follow-up caller review found
 that count workers had no enclosing-operation token, while dictionary and
 distinct preparation directly shared that token with a stage that cancels on
-drop. All eight production job owners now derive a stage-local token that
+drop. The eight non-spill job owners now derive a stage-local token that
 observes the enclosing operation without cancelling the parent on stage failure,
 retirement or drop. The native pair-partition test cancels inside an active
 worker, checks complete reservation refund, then executes the same prepared
 request with a fresh token and compares the full result. Existing dictionary
 and winner-distinct cancellation/recovery tests pass through the same change.
+The ninth owner, explicit weighted-count spill, retains its already separate
+shared spill/worker cancellation domain; its existing pressure, handoff and
+failure controls are included in the affected worker checks.
 
 The [source-bound acceptance record](../release/evidence/shared-native-capability-lifecycle-2026-11-17/validation.json)
 and compressed raw logs preserve all 200 distinct affected native tests, all
@@ -218,6 +221,41 @@ with the enclosing incorporation item. This closes neither unit 2's complete
 selected workflow nor units 3–5;
 finite feedback and performance target selection remain open. No new scheduler,
 provider, arithmetic, source order or output representation is introduced.
+
+### Bounded worker-wait attribution
+
+`ComputePool` now supports optional observations at its actual empty-worker and
+capacity-blocked producer waits. Ordinary construction leaves these observations
+unavailable. Observation metadata is reserved before worker startup; a closed
+snapshot follows the existing join boundary, while completed result credits
+remain with their final owners. Submission overhead and caller join waiting
+retain their distinct meanings. Elapsed worker waits include spurious wakeups,
+startup and shutdown, and can overlap other work; they are not engine time.
+
+The [frozen diagnostic and original outcomes](../release/evidence/shared-native-worker-observation-2026-11-17/README.md)
+exercise the real prepared numeric-pair aggregate across 18 declarations, once
+with optional waiting measurements disabled and once enabled. All 36 calls pass
+complete-value, schema, source-generation, no-fallback and final-refund checks.
+The six inputs span tiny, middle and million-row geometries, two-key and
+near-unique populations, and caller-inclusive parallelism 1, 2 and 4. Only the
+large near-unique declarations submit partition work; smaller inputs and sample
+declines remain controls. No producer waits on a full queue. The receipt window
+already bounds queued, active and completed-but-unconsumed work, and submission
+reserves against the same memory grant as the queue byte ceiling.
+
+The complete engine totals are 0.109595247 seconds with waiting measurements
+disabled and 0.107007254 seconds enabled. These are single observations with
+common capture overhead, no warmup and uncontrolled cache state; they establish
+neither a speedup nor a stable instrumentation-overhead bound. In particular,
+the saved Q34 UTF8 partition contention belongs to a different physical owner.
+No new queue policy is selected from this numeric-pair observation.
+
+Thirteen focused pool controls, five native pair controls, 3,351 default tests
+across 108 targets, strict default/native lint and formatting pass. The exact
+debug native inventory contains 4,449 tests and 40 intentionally ignored tests;
+the release profile correctly omits four debug-only diagnostics. All five
+original failed check attempts remain in the packet. Full enclosing-unit native,
+installed-package and hosted acceptance remain open, as do units 2–5.
 
 ### Chrysalis and Resonance consume the foundation
 

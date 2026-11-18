@@ -35,6 +35,10 @@ thread_local! {
         std::cell::RefCell::new(None);
 }
 
+#[cfg(test)]
+#[path = "aggregate_chunk_job_observation.rs"]
+pub(super) mod observation;
+
 impl ChunkWorkerContext {
     pub(super) fn check_cancelled(&self) -> Result<()> {
         match self {
@@ -175,6 +179,10 @@ pub(super) struct AggregateChunkJobs<T> {
     inline_busy_nanos: u128,
     worker_busy_nanos: Arc<AtomicU64>,
     join_wait_nanos: u128,
+    #[cfg(test)]
+    observation_active: bool,
+    #[cfg(test)]
+    retired_pool_observation: Option<ComputePoolSnapshot>,
 }
 
 impl<T: Send + 'static> AggregateChunkJobs<T> {
@@ -236,6 +244,16 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
         // between this caller, bounded preparation workers and one native provider driver.
         let pool = (max_parallelism > 1)
             .then(|| {
+                #[cfg(test)]
+                if observation::active() {
+                    return ComputePool::with_wait_observation(
+                        max_parallelism - 1,
+                        window_limit,
+                        queue_byte_limit,
+                        memory.clone(),
+                        observation::observe_waits(),
+                    );
+                }
                 ComputePool::new(
                     max_parallelism - 1,
                     window_limit,
@@ -259,6 +277,10 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
             inline_busy_nanos: 0,
             worker_busy_nanos: Arc::new(AtomicU64::new(0)),
             join_wait_nanos: 0,
+            #[cfg(test)]
+            observation_active: observation::active(),
+            #[cfg(test)]
+            retired_pool_observation: None,
         })
     }
 
@@ -321,7 +343,7 @@ impl<T: Send + 'static> AggregateChunkJobs<T> {
             ));
         }
         self.cancellation.check()?;
-        drop(self.pool.take());
+        self.close_pool();
         self.cancel_on_drop = false;
         Ok(())
     }
@@ -479,6 +501,10 @@ fn record_first_failure(failure: &Mutex<Option<ShardLoomError>>, error: &ShardLo
 
 impl<T> Drop for AggregateChunkJobs<T> {
     fn drop(&mut self) {
+        #[cfg(test)]
+        let cancelled_before_drop = self.cancellation.is_cancelled();
+        #[cfg(test)]
+        let pending_before_drop = self.pending.len();
         if self.cancel_on_drop {
             self.cancellation.cancel();
         }
@@ -487,6 +513,39 @@ impl<T> Drop for AggregateChunkJobs<T> {
                 let _ = task.join();
             }
         }
+        self.close_pool();
+        #[cfg(test)]
+        if self.observation_active {
+            observation::record(observation::Record {
+                payload_type: std::any::type_name::<T>(),
+                submitted: self.next_ordinal,
+                joined: self.joined,
+                window_limit: self.window_limit,
+                peak_outstanding: self.window.peak.load(Ordering::Acquire),
+                pending_before_drop,
+                outstanding_after_drain: self.window.outstanding.load(Ordering::Acquire),
+                cancelled_before_drop,
+                stage_retired_before_drop: !self.cancel_on_drop,
+                worker_busy_nanos: self.worker_busy_nanos.load(Ordering::Relaxed),
+                inline_busy_nanos: self.inline_busy_nanos,
+                join_wait_nanos: self.join_wait_nanos,
+                pool: self.retired_pool_observation,
+            });
+        }
+    }
+}
+
+impl<T> AggregateChunkJobs<T> {
+    fn close_pool(&mut self) {
+        let pool = self.pool.take();
+        #[cfg(test)]
+        if self.observation_active {
+            if let Some(pool) = pool {
+                self.retired_pool_observation = Some(pool.close_and_snapshot());
+            }
+            return;
+        }
+        drop(pool);
     }
 }
 
