@@ -1,4 +1,5 @@
 const README: &str = include_str!("../../packaging/conda/README.md");
+const NATIVE_RECIPE: &str = include_str!("../../packaging/conda/shardloom-native/meta.yaml");
 const CLI_RECIPE: &str = include_str!("../../packaging/conda/shardloom-cli/meta.yaml");
 const PYTHON_RECIPE: &str = include_str!("../../packaging/conda/shardloom-python/meta.yaml");
 const META_RECIPE: &str = include_str!("../../packaging/conda/shardloom/meta.yaml");
@@ -72,6 +73,33 @@ fn conda_metapackage_depends_only_on_cli_and_python_wrapper() {
 
     for line in requirement_like_lines(META_RECIPE) {
         if line.starts_with("- shardloom") || line.starts_with("- python -c") {
+            continue;
+        }
+        assert!(!line.contains("spark"));
+        assert!(!line.contains("datafusion"));
+        assert!(!line.contains("duckdb"));
+        assert!(!line.contains("polars"));
+        assert!(!line.contains("pandas"));
+        assert!(!line.contains("dask"));
+        assert!(!line.contains("velox"));
+    }
+}
+
+#[test]
+fn conda_native_recipe_builds_platform_native_package_without_fallback_dependencies() {
+    assert!(README.contains("shardloom-native"));
+    assert!(NATIVE_RECIPE.contains("name: shardloom-native"));
+    assert!(!NATIVE_RECIPE.contains("noarch:"));
+    assert!(NATIVE_RECIPE.contains("build_native_python.py"));
+    assert!(NATIVE_RECIPE.contains("stage_native_python_package.py"));
+    assert!(NATIVE_RECIPE.contains("cargo auditable build"));
+    assert!(NATIVE_RECIPE.contains("cargo-bundle-licenses"));
+    assert!(NATIVE_RECIPE.contains("- shardloom._native"));
+    assert!(NATIVE_RECIPE.contains("- shardloom.foundry"));
+    assert!(NATIVE_RECIPE.contains("sl.context(transport='native'"));
+
+    for line in requirement_like_lines(NATIVE_RECIPE) {
+        if line.starts_with("- shardloom") || line.starts_with("- python") {
             continue;
         }
         assert!(!line.contains("spark"));

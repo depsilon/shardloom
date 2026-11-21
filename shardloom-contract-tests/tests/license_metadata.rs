@@ -179,6 +179,7 @@ fn conda_recipes_keep_apache_2_license_metadata() {
         root.join("packaging/conda/shardloom/meta.yaml"),
         root.join("packaging/conda/shardloom-cli/meta.yaml"),
         root.join("packaging/conda/shardloom-python/meta.yaml"),
+        root.join("packaging/conda/shardloom-native/meta.yaml"),
     ];
 
     for recipe in recipes {

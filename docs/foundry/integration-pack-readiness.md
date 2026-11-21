@@ -164,3 +164,24 @@ runtime claims: `foundry_output_api_required=true`, `foundry_style_output_api_in
 `direct_s3_write_invoked=false`, `object_store_write_invoked=false`,
 `object_store_commit_invoked=false`, `fallback_attempted=false`, and
 `external_engine_invoked=false`.
+
+## Local Native Package And Transform Adapter Foundations
+
+Local groundwork under [the Foundry integration plan](../architecture/native-foundry-integration-2026-10-25.md)
+adds:
+
+- [`packaging/conda/shardloom-native/meta.yaml`](../../packaging/conda/shardloom-native/meta.yaml):
+  platform-specific (`cp310-abi3`, non-`noarch`) local Conda recipe scaffold bundling
+  `shardloom._native`, the native release CLI, and `shardloom.foundry`.
+- [`python/src/shardloom/foundry.py`](../../python/src/shardloom/foundry.py):
+  optional lazy submodule emitting `shardloom.foundry_native_transform_report.v1` and
+  `shardloom.foundry_incremental_state.v1` over duck-typed `LightweightInput`/`LightweightOutput` and
+  `TableInput`/`TableOutput`/`IcebergInput` interfaces (multi-file logical relation binding,
+  explicit headroom resource mapping, failure-safe scratch staging/publication, exact integer
+  incremental maintenance with retractions, duplicate/gap checks, and credential redaction).
+
+This local groundwork keeps all live platform claims closed (`foundry_runtime_invoked=false`,
+`foundry_compute_invoked=false`, `live_foundry_enrollment_proved=false`, `fallback_attempted=false`,
+`external_engine_invoked=false`, `claim_gate_status=not_claim_grade`). Maturity remains at F5
+local proof; live Foundry enrollment build, target Linux environment compatibility, and real
+Foundry dataset/Iceberg transaction readback remain open until enrollment access is available.

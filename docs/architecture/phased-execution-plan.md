@@ -416,7 +416,14 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Prove one explicitly selected host and selective-access stages.
 
 - [ ] **Foundry integration**
-  Status: Queued — follows portable serverless and precedes deferred deep traversal.
+  Status: Local packaging and transform adapter foundations implemented —
+  [`packaging/conda/shardloom-native/meta.yaml`](../../packaging/conda/shardloom-native/meta.yaml)
+  updates the local Conda scaffolds (`1.1.0`) with a platform-specific native package recipe, and
+  [`python/src/shardloom/foundry.py`](../../python/src/shardloom/foundry.py) provides the lazy
+  native Foundry transform, multi-file logical-relation, resource-headroom, failure-safe output,
+  and exact integer incremental/Iceberg maintenance adapter tested against real `shardloom._native`
+  and `pyarrow`. Live Foundry enrollment build, target Linux environment verification, and real
+  platform transaction readback remain open pending enrollment access.
   Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
   Foundry hosts the job; ShardLoom computes through its native public interfaces.
   Execution checklist:
