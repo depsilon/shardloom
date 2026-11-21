@@ -71,7 +71,7 @@ futures = "0.3.34"
 flatbuffers = "=25.12.19"
 hashbrown = { version = "0.17.1", default-features = false, features = ["inline-more"] }
 jiff = { version = "=0.2.39", default-features = false, features = ["std"] }
-jiff-tzdb = "=0.1.6"
+jiff-tzdb = "=1.0.0"
 memchr = "2.8.3"
 parquet = "=59.3.2"
 parquet-variant = "=59.3.2"
