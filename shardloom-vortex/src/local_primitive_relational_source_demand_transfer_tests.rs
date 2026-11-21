@@ -6,6 +6,102 @@ use serde_json::json;
 #[path = "local_primitive_relational_source_demand_transfer_types_tests.rs"]
 mod types_tests;
 
+#[test]
+fn columnar_coverage_certificate_distinguishes_delivery_retention_and_current_decoding() {
+    use shardloom_core::RepresentationState;
+    let fixture = ParquetFixture::new();
+    let policy = policy();
+    let session = ResidentVortexSession::new(
+        policy.resource_envelope.memory_budget_bytes,
+        policy.max_parallelism,
+    )
+    .unwrap();
+    let pool = session.shared_memory_pool();
+    for (names, decoded, reused) in [
+        (vec!["n"], 16, 0),
+        (vec!["n", "other"], 16, 16),
+        (vec!["n", "other"], 0, 32),
+    ] {
+        let prepared = prepare_relational_with_schema_in_session(policy, &session, |p| {
+            let source = LocalColumnarSource::admit(
+                &fixture.path(),
+                "parquet",
+                &p.shared_memory_pool(),
+                &p.cancellation_token(),
+            )?;
+            p.register_local_source(
+                DatasetUri::new(fixture.path().display().to_string())?,
+                source,
+            )?;
+            Ok(fixture.scan(&names, None))
+        })
+        .unwrap();
+        let result = prepared
+            .collect_jsonl(&CancellationToken::default())
+            .unwrap();
+        assert_eq!(
+            json_rows(&result),
+            (0..16)
+                .map(|n| {
+                    if names.len() == 1 {
+                        json!({"n":n})
+                    } else {
+                        json!({"n":n,"other":n+100})
+                    }
+                })
+                .collect::<Vec<_>>()
+        );
+        let input = result.execution.input.as_ref().unwrap();
+        assert_eq!(input.columnar_rows_decoded, decoded);
+        assert_eq!(input.columnar_native_coverage_field_rows, reused);
+        let certificate = &result.execution.native_io_certificate;
+        assert!(certificate.is_certified());
+        let report = &certificate.source_pushdown_report;
+        assert!(
+            report
+                .guarantee
+                .contains("input_delivery_owners_released_before_next_demand")
+        );
+        assert!(
+            report
+                .guarantee
+                .contains("bounded_optional_native_source_coverage_may_retain_credited_backing")
+        );
+        assert!(
+            !report
+                .guarantee
+                .contains("all_input_buffer_owners_released")
+        );
+        assert!(
+            report
+                .proof_basis
+                .contains(&format!("native_source_coverage_field_rows={reused} "))
+        );
+        assert!(
+            report
+                .proof_basis
+                .contains("retained_native_source_coverage_is_not_new_arrow_intake")
+        );
+        assert!(certificate.side_effects.data_materialized);
+        assert!(!certificate.side_effects.fallback_attempted);
+        assert_eq!(certificate.side_effects.arrow_converted, decoded > 0);
+        let state = if decoded == 0 {
+            RepresentationState::DecodedColumnar
+        } else {
+            RepresentationState::ForeignEncoded
+        };
+        assert_eq!(certificate.materialization_boundaries[0].from_state, state);
+        if decoded == 0 {
+            assert_eq!(input.columnar_data_read_bytes, 0);
+            assert_eq!(input.intake_columnar_buffer_bytes_copied, 0);
+            assert_eq!(input.intake_columnar_buffer_bytes_transferred, 0);
+        }
+    }
+    assert!(pool.snapshot().reserved_bytes > 0);
+    drop(session);
+    assert_eq!(pool.snapshot().reserved_bytes, 0);
+}
+
 fn numeric_fixture(rows: usize, group_rows: usize, dictionary: bool) -> ParquetFixture {
     let batch = RecordBatch::try_new(
         Arc::new(Schema::new(vec![
@@ -134,6 +230,10 @@ fn parquet_query_transfer_counts_actual_buffers_and_preserves_all_rows() {
                 input.intake_columnar_buffer_bytes_transferred
             )));
             drop(result);
+            prepared
+                .session
+                .shared_memory_pool()
+                .reclaim_optional_memory();
             assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
         }
     }
@@ -237,14 +337,17 @@ fn parquet_reader_transfer_child_outlives_reader_source_and_session() {
         .unwrap();
     drop((session, fixture));
     assert!(witness.upgrade().is_some());
-    assert_eq!(memory.snapshot().reserved_bytes, retained_bytes);
+    // The retained native backing also owns its original intake metadata;
+    // delivery metadata is a separate credit and cannot erase that owner.
+    let held_bytes = memory.snapshot().reserved_bytes;
+    assert!(held_bytes >= retained_bytes);
     assert_eq!(
         i64::from_ne_bytes(child.as_slice()[..8].try_into().unwrap()),
         -74
     );
     let clone = child.clone();
     drop(child);
-    assert_eq!(memory.snapshot().reserved_bytes, retained_bytes);
+    assert_eq!(memory.snapshot().reserved_bytes, held_bytes);
     std::thread::spawn(move || drop(clone)).join().unwrap();
     assert!(witness.upgrade().is_none());
     assert_eq!(memory.snapshot().reserved_bytes, 0);
@@ -267,6 +370,7 @@ fn parquet_query_transfer_failure_paths_release_every_owner_and_allow_fresh_retr
                     "cancel" => token.cancel(),
                     "consumer" => return Err(failed("reader transfer consumer sentinel")),
                     "pressure" if calls == 1 => {
+                        context.memory().reclaim_optional_memory();
                         let snapshot = context.memory().snapshot();
                         pressure = Some(
                             context

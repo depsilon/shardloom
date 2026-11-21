@@ -241,6 +241,7 @@ fn worker_values_with_routing_buffers(
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .expect("complete triple-key workers admitted");
@@ -371,6 +372,7 @@ fn triple_workers_keep_transferred_inputs_alive_until_delayed_routing_and_releas
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -477,6 +479,7 @@ fn triple_workers_share_one_native_owner_between_integer_and_minute_roles() {
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
                 &session,
                 &memory,
+                None,
             )
             .unwrap()
             .expect("same-source triple roles remain admitted");
@@ -752,6 +755,7 @@ fn triple_workers_decline_nullable_roles_and_explicit_spill() {
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &session,
                 &memory,
+                None,
             )
             .unwrap()
             .is_none()
@@ -780,6 +784,7 @@ fn triple_workers_decline_nullable_roles_and_explicit_spill() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .is_none()
@@ -817,6 +822,7 @@ fn triple_workers_reject_invalid_prepared_minutes_in_a_losing_group() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .expect("prepared triple admitted");
@@ -899,6 +905,7 @@ fn triple_worker_cancellation_after_committed_updates_releases_every_lease() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -947,6 +954,7 @@ fn triple_worker_buffer_pressure_after_committed_updates_fails_without_serial_re
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
         &session,
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -1000,6 +1008,7 @@ fn triple_worker_state_growth_denial_after_committed_updates_is_fatal_and_releas
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();

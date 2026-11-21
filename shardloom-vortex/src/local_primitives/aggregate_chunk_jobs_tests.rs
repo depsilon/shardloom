@@ -1,6 +1,213 @@
 use super::*;
 use std::sync::{Barrier, mpsc};
 
+struct RetainedPartial {
+    memory: LiveMemoryPool,
+    credit_at_drop: Arc<AtomicU64>,
+}
+
+impl Drop for RetainedPartial {
+    fn drop(&mut self) {
+        self.credit_at_drop
+            .store(self.memory.snapshot().reserved_bytes, Ordering::Release);
+    }
+}
+
+fn completed_partial(
+    jobs: &mut AggregateChunkJobs<RetainedPartial>,
+    memory: &LiveMemoryPool,
+    credit_at_drop: &Arc<AtomicU64>,
+) -> CompletedChunk<RetainedPartial> {
+    let partial = RetainedPartial {
+        memory: memory.clone(),
+        credit_at_drop: Arc::clone(credit_at_drop),
+    };
+    jobs.submit(40, move |_, _| Ok(partial)).unwrap();
+    jobs.join_next().unwrap().unwrap()
+}
+
+#[test]
+fn cancelled_completed_results_refuse_borrowed_and_owned_merge() {
+    for parallelism in [1, 3] {
+        for owned in [false, true] {
+            let memory = LiveMemoryPool::new(128).unwrap();
+            let credit_at_drop = Arc::new(AtomicU64::new(0));
+            let mut jobs = AggregateChunkJobs::new(parallelism, 1, 128, memory.clone()).unwrap();
+            let completed = completed_partial(&mut jobs, &memory, &credit_at_drop);
+            jobs.cancel();
+            let mut called = false;
+            let result = if owned {
+                completed.consume_owned(|_| {
+                    called = true;
+                    Ok(())
+                })
+            } else {
+                completed.consume(|_| {
+                    called = true;
+                    Ok(())
+                })
+            };
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("execution cancelled")
+            );
+            assert!(!called);
+            assert_eq!(credit_at_drop.load(Ordering::Acquire), 40);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+            assert_eq!(jobs.outstanding(), 0);
+        }
+    }
+}
+
+#[test]
+fn cancellation_during_completed_merge_rejects_success_and_preserves_merge_errors() {
+    for parallelism in [1, 3] {
+        for owned in [false, true] {
+            for fail_merge in [false, true] {
+                let memory = LiveMemoryPool::new(128).unwrap();
+                let credit_at_drop = Arc::new(AtomicU64::new(0));
+                let mut jobs =
+                    AggregateChunkJobs::new(parallelism, 1, 128, memory.clone()).unwrap();
+                let completed = completed_partial(&mut jobs, &memory, &credit_at_drop);
+                let merge = || {
+                    assert_eq!(memory.snapshot().reserved_bytes, 40);
+                    assert!(jobs.is_full());
+                    jobs.cancel();
+                    if fail_merge {
+                        Err(failed("original merge failure"))
+                    } else {
+                        Ok(())
+                    }
+                };
+                let result = if owned {
+                    completed.consume_owned(|_| merge())
+                } else {
+                    completed.consume(|_| merge())
+                };
+                let error = result.unwrap_err().to_string();
+                assert!(error.contains(if fail_merge {
+                    "original merge failure"
+                } else {
+                    "execution cancelled"
+                }));
+                assert_eq!(credit_at_drop.load(Ordering::Acquire), 40);
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+                assert_eq!(jobs.outstanding(), 0);
+            }
+        }
+    }
+}
+
+#[test]
+fn panicking_completed_merge_cancels_siblings_and_releases_retained_owners() {
+    for parallelism in [1, 3] {
+        for owned in [false, true] {
+            let memory = LiveMemoryPool::new(128).unwrap();
+            let credit_at_drop = Arc::new(AtomicU64::new(0));
+            let sibling_credit_at_drop = Arc::new(AtomicU64::new(0));
+            let mut jobs = AggregateChunkJobs::new(parallelism, 2, 128, memory.clone()).unwrap();
+            let completed = completed_partial(&mut jobs, &memory, &credit_at_drop);
+            let sibling = RetainedPartial {
+                memory: memory.clone(),
+                credit_at_drop: sibling_credit_at_drop,
+            };
+            jobs.submit(16, move |_, _| Ok(sibling)).unwrap();
+            let panic = catch_unwind(AssertUnwindSafe(|| {
+                if owned {
+                    completed.consume_owned::<()>(|_| panic!("injected merge panic"))
+                } else {
+                    completed.consume::<()>(|_| panic!("injected merge panic"))
+                }
+            }));
+            assert!(panic.is_err());
+            assert!(jobs.check_cancelled().is_err());
+            assert!(credit_at_drop.load(Ordering::Acquire) >= 40);
+            assert_eq!(jobs.outstanding(), 1);
+            drop(jobs);
+            assert_eq!(memory.snapshot().reserved_bytes, 0);
+        }
+    }
+}
+
+#[test]
+fn completed_merge_preserves_an_observed_sibling_failure_before_cancellation() {
+    for owned in [false, true] {
+        let memory = LiveMemoryPool::new(128).unwrap();
+        let credit_at_drop = Arc::new(AtomicU64::new(0));
+        let mut jobs = AggregateChunkJobs::new(3, 2, 128, memory.clone()).unwrap();
+        let completed = completed_partial(&mut jobs, &memory, &credit_at_drop);
+        jobs.submit(16, |_, _| Err(failed("original provider failure")))
+            .unwrap();
+        let provider_error = jobs.join_next().err().unwrap().to_string();
+        assert!(provider_error.contains("original provider failure"));
+        let merge_error = if owned {
+            completed.consume_owned::<()>(|_| panic!("cancelled merge ran"))
+        } else {
+            completed.consume::<()>(|_| panic!("cancelled merge ran"))
+        }
+        .unwrap_err()
+        .to_string();
+        assert_eq!(merge_error, provider_error);
+        assert_eq!(credit_at_drop.load(Ordering::Acquire), 40);
+        assert_eq!(jobs.outstanding(), 0);
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
+#[test]
+fn operation_cancellation_reaches_workers_without_stage_drop_cancelling_the_parent() {
+    for parallelism in [1, 3] {
+        let memory = LiveMemoryPool::new(128).unwrap();
+        let parent = CancellationToken::default();
+        let sibling = CancellationToken::from_shared_flag_with_parent(Arc::default(), &parent);
+        let mut jobs =
+            AggregateChunkJobs::for_operation(parallelism, 1, 128, memory.clone(), Some(&parent))
+                .unwrap();
+        jobs.submit(40, |worker, _| {
+            worker.check_cancelled()?;
+            Ok(7)
+        })
+        .unwrap();
+        jobs.join_next()
+            .unwrap()
+            .unwrap()
+            .consume(|value| {
+                assert_eq!(*value, 7);
+                Ok(())
+            })
+            .unwrap();
+        drop(jobs);
+        assert!(!parent.is_cancelled());
+        assert!(!sibling.is_cancelled());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+        let mut jobs = AggregateChunkJobs::<()>::for_operation(
+            parallelism,
+            1,
+            128,
+            memory.clone(),
+            Some(&parent),
+        )
+        .unwrap();
+        let operation = parent.clone();
+        let submitted = jobs.submit(40, move |worker, _| {
+            operation.cancel();
+            worker.check_cancelled()?;
+            panic!("worker did not observe its enclosing operation");
+        });
+        let error = match submitted {
+            Ok(_) => jobs.join_next().err().unwrap(),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("execution cancelled"));
+        drop(jobs);
+        assert!(sibling.is_cancelled());
+        assert_eq!(memory.snapshot().reserved_bytes, 0);
+    }
+}
+
 #[test]
 fn owned_completion_retains_lease_and_window_through_success_and_error_merge() {
     struct OwnedPartial {

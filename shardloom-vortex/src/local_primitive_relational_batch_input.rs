@@ -183,6 +183,12 @@ pub struct ExecutedVortexBatchInput {
     pub columnar_row_groups_total: u64,
     pub columnar_row_groups_read: u64,
     pub columnar_rows_decoded: u64,
+    /// Exact field/row pairs reused from earlier successful native operations.
+    pub columnar_native_coverage_field_rows: u64,
+    pub columnar_native_coverage_regions: u64,
+    /// Maximum observed optional session map/backing charge, including pending
+    /// regions. Separate from producer delivery ownership and process RSS.
+    pub columnar_native_coverage_retained_bytes: u64,
     /// Sources whose declared end is a bound source-order prefix. The sum of
     /// requested prefix lengths can exceed decoded rows for short sources.
     pub columnar_prefix_sources: u64,
@@ -306,6 +312,9 @@ impl Default for ExecutedVortexBatchInput {
             columnar_row_groups_total: 0,
             columnar_row_groups_read: 0,
             columnar_rows_decoded: 0,
+            columnar_native_coverage_field_rows: 0,
+            columnar_native_coverage_regions: 0,
+            columnar_native_coverage_retained_bytes: 0,
             columnar_prefix_sources: 0,
             columnar_requested_prefix_rows: 0,
             columnar_metadata_read_bytes: 0,
@@ -773,6 +782,17 @@ impl<'p, 'i> Execution<'p, 'i> {
             observed.row_groups_read as u64,
         )?;
         checked_add(&mut report.columnar_rows_decoded, observed.rows_decoded)?;
+        checked_add(
+            &mut report.columnar_native_coverage_field_rows,
+            observed.native_coverage_field_rows,
+        )?;
+        checked_add(
+            &mut report.columnar_native_coverage_regions,
+            observed.native_coverage_regions,
+        )?;
+        report.columnar_native_coverage_retained_bytes = report
+            .columnar_native_coverage_retained_bytes
+            .max(observed.native_coverage_retained_bytes);
         if let Some(rows) = observed.requested_prefix_rows {
             checked_add(&mut report.columnar_prefix_sources, 1)?;
             checked_add(&mut report.columnar_requested_prefix_rows, rows)?;

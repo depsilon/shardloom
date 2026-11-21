@@ -222,6 +222,7 @@ fn utf8_integer_distinct_complete_workers_global_winner_offset_and_actual_eviden
             policy,
             &vortex::session::VortexSession::empty(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -304,6 +305,7 @@ fn admitted(dtype: &DType, aggregate: &VortexSimpleAggregateRequest) -> bool {
         policy,
         &vortex::session::VortexSession::empty(),
         &memory,
+        None,
     )
     .unwrap();
     assert_eq!(workers.is_some(), expected);
@@ -378,6 +380,7 @@ fn utf8_integer_distinct_entry_pressure_never_installs_untracked_exact_groups() 
         policy,
         &vortex::session::VortexSession::empty(),
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -411,6 +414,7 @@ fn utf8_integer_distinct_initial_and_committed_task_capacity_denial_are_distinct
             policy,
             &vortex::session::VortexSession::empty(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -523,6 +527,7 @@ fn utf8_integer_distinct_cancel_submitted_jobs_publishes_no_partial_output() {
             policy,
             &vortex::session::VortexSession::empty(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();

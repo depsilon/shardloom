@@ -1,0 +1,46 @@
+{
+  "controls": {
+    "control_altered_source_bytes": {
+      "rejected": true,
+      "returncode": 1
+    },
+    "control_erased_preserved_failure": {
+      "rejected": true,
+      "returncode": 1
+    },
+    "control_flipped_comparison_decision": {
+      "rejected": true,
+      "returncode": 1
+    },
+    "control_installed_test_skip": {
+      "rejected": true,
+      "returncode": 1
+    }
+  },
+  "new_native_query_executions": 0,
+  "publication_attempted": false,
+  "relocated_standalone_replay": {
+    "checks": 15,
+    "decision": "locally_retained",
+    "direct_engine_nanos": 150509625,
+    "installed_tests": 468,
+    "native_queries": 0,
+    "partial_engine_nanos": 149794248,
+    "preserved_failures": 5,
+    "source_files": 42,
+    "status": "passed"
+  },
+  "repository_bound_replay": {
+    "checks": 15,
+    "decision": "locally_retained",
+    "direct_engine_nanos": 150509625,
+    "installed_tests": 468,
+    "native_queries": 0,
+    "partial_engine_nanos": 149794248,
+    "preserved_failures": 5,
+    "source_files": 42,
+    "status": "passed"
+  },
+  "schema_version": "shardloom.chrysalis_packet_verification.v1",
+  "status": "passed"
+}

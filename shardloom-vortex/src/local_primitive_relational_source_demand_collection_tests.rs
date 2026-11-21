@@ -236,6 +236,10 @@ fn parquet_demand_content_fingerprint_reads_all_bytes_without_decoding_undemande
         assert_eq!(input.columnar_row_groups_read, 1);
         assert!(input.columnar_data_read_bytes < input.columnar_fingerprint_read_bytes);
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }

@@ -1,14 +1,16 @@
 # PulseWeave Runtime Control
 
-Status: first prepared/local runtime implementation slice landed under `GAR-RUNTIME-IMPL-5R`;
-remaining broader scopes stay blocked by their owning runtime items.
+Status: pure policy planning and prerequisite reporting, with actual resource,
+worker and adaptive-sizing controls owned separately by the native runtime.
+The November 17 owner audit corrects earlier planning-as-application claims.
 
 The November 17 [shared capability incorporation plan](native-shared-capability-incorporation-2026-11-17.md)
 extends item 20/investigation F through current admitted-operation and lifecycle
 owners. It reuses [completed item 23 adaptation](native-adaptive-acceptance-2026-11-02.md)
 and requires operative controls plus evidence from the executing owner. It is
-queued work, not proof that every PulseWeave policy or preparation descriptor
-already changes physical execution. The phase plan owns its priority.
+in progress. The [unit 1 owner map](native-shared-capability-owner-map-2026-11-17.md)
+identifies current callers and controls; finite PulseWeave execution remains
+open. The phase plan owns its priority.
 
 ## Summary
 
@@ -39,30 +41,31 @@ must operate inside those caps rather than requiring the user to understand the 
 
 ## Implementation Status
 
-`GAR-RUNTIME-IMPL-5R` adds the first applied slice:
+The earlier `GAR-RUNTIME-IMPL-5R` / `GAR-IOREUSE-1K` entries describe the
+historical introduction of this policy/evidence surface. Current source has one
+production `plan_pulseweave` caller: the capillary preparation report in
+`vortex_ingest`. No current production caller uses `batch_window_size` to run
+work. The pure functions cannot observe execution or certify their own application.
 
-- provider-neutral policy in `shardloom-exec/src/pulseweave.rs`
-- prepared/native batch wiring in `shardloom-vortex/src/traditional_analytics.rs`
-- per-child `pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`, `endopulse_*`, and
-  `proofbound_*` evidence on the real prepared Vortex processing route
-- `prepare_batch_scale_pulseweave_*` aggregate rollups on the existing prepare/batch envelope
-- Python runtime-envelope validation that blocks incomplete or uncertified PulseWeave claims
-- benchmark artifact promotion passthrough for future refreshed evidence
+The v2 contract records a `policy_plan`, proposal admission, estimated task
+counts and prerequisite evidence. It leaves task lifecycle observations
+unavailable and reports `runtime_decision_applied=false`,
+`adjustment_applied=false`, `policy_mutated=false` and `claim_allowed=false`.
+An admitted proposal is `planned`; missing prerequisites are blocked. Supplied
+correctness/output certificates do not prove a scheduling change occurred.
+Historical v1 artifacts remain unchanged and readable; the Python validator
+rejects execution claims on v2 pure plans.
 
-The implementation remains scoped to local prepared/native batch routes over certified Vortex
-artifacts. Live object-store provider runtime, live/hybrid runtime, distributed execution,
-effectful adapters, real query-data spill, production readiness, and performance claims remain
-non-goals here.
+Cold preparation retains the task-role checks for source split discovery, read,
+columnarization, Vortex write, reopen and sink evidence. These checks validate
+the manifest and fail for a missing required role. They do not apply a work
+window. The v2 capillary report contains no executed windows or measured peak
+memory. Existing `AdaptiveWorkSizer`, budgeted worker jobs, conversion prefetch
+and layout/write options retain their independent applied controls and evidence.
 
-`GAR-IOREUSE-1K` extends PulseWeave to the local cold-preparation route, but only through the
-existing `vortex_ingest` SourceState -> VortexPreparedState path. The route now emits typed
-capillary task evidence for source split discovery, read chunks, columnarize/encode, Vortex segment
-write, reopen verification, and sink evidence. PulseWeave sees this task graph as
-`vortex_ingest_cold_preparation` / `vortex_cold_preparation_local_capillary_io` and applies only
-when ProofBound sees complete task, correctness, output, execution-certificate, Native I/O, and
-no-fallback evidence. Missing Native I/O proof leaves the route in report-only blocked status.
-This evidence still must not be read as a benchmark-backed speedup for source read, parse, Vortex
-write, reopen, or evidence-rendering cost.
+The remaining design below specifies future finite coordination at those owners.
+It is not evidence of implemented broad scheduling, live/distributed execution,
+effectful adapters, production readiness or a performance improvement.
 
 ## Invention-Disclosure Names
 
@@ -100,10 +103,12 @@ ShardLoom already has most of the primitives needed for a feasible first impleme
 - Python already exposes a normal context/query-builder surface and lower-level prepared/batch
   helpers without requiring Vortex concepts for the common path.
 
-The gap is that these surfaces are not yet one applied runtime loop. Existing scheduling in the
-prepared/local path still largely uses deterministic chunks sized by `max_parallelism`. Dynamic
-work shaping remains advisory or narrowly scoped, and resource scarcity is not yet a first-class
-decision object attached to execution evidence.
+The gap is finite coordination using truthful observations at these existing
+owners. [Item 23](native-adaptive-acceptance-2026-11-02.md) already applies
+headroom-aware sizing across its eleven accepted owners. Reuse that work;
+`DynamicWorkShapingReport` and the pure PulseWeave policy remain advisory.
+ScarcityLedger's scores do not replace live reservations or measure all provider
+allocations. New controllers must not independently mutate the same setting.
 
 ## Goals
 
@@ -339,7 +344,13 @@ pulseweave_blocker=<stable blocker id>
 
 and continue only through an already admitted non-PulseWeave ShardLoom-native path.
 
-## New Evidence Contract
+## Evidence Contract
+
+Current pure reports use `shardloom.pulseweave.runtime_control.v2`, with v2
+FlowInventory, EndoPulse and ProofBound subreports. ScarcityLedger remains v1
+because its fields are policy costs. Runtime application needs a future
+owner-produced contract; the v2 policy report cannot certify it. Lifecycle
+quantities without observation use `unavailable`, never an inferred zero.
 
 Every PulseWeave-capable row should expose this aggregate surface, using `not_applicable` when the
 route is outside scope:
@@ -347,6 +358,8 @@ route is outside scope:
 ```text
 pulseweave_schema_version
 pulseweave_status
+pulseweave_evidence_kind=policy_plan
+pulseweave_decision_admitted
 pulseweave_application_scope
 pulseweave_runtime_decision_applied
 pulseweave_policy_mutated
@@ -363,6 +376,9 @@ FlowInventory fields:
 ```text
 flow_inventory_schema_version
 flow_inventory_wip_limit
+flow_inventory_planned_task_count
+flow_inventory_estimated_held_for_memory_count
+flow_inventory_estimated_held_for_downstream_count
 flow_inventory_peak_in_flight
 flow_inventory_ready_task_count
 flow_inventory_held_for_memory_count
@@ -397,6 +413,7 @@ endopulse_previous_target_task_bytes
 endopulse_next_target_task_bytes
 endopulse_previous_wip_limit
 endopulse_next_wip_limit
+endopulse_adjustment_proposed
 endopulse_adjustment_applied
 endopulse_hysteresis_state
 endopulse_persistent_state_used=false
@@ -407,6 +424,7 @@ ProofBound fields:
 ```text
 proofbound_schema_version
 proofbound_pre_application_status
+proofbound_prerequisite_evidence_status
 proofbound_post_application_status
 proofbound_required_evidence
 proofbound_missing_evidence

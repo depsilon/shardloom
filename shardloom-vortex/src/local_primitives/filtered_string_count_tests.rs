@@ -125,6 +125,7 @@ fn run_filtered(chunks: &[ArrayRef], memory_bytes: usize) -> serde_json::Value {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).expect("policy"),
         &session,
         &memory,
+        None,
     )
     .expect("admission")
     .expect("workers");
@@ -211,6 +212,7 @@ fn filtered_exact_histogram_budget_pressure_preserves_exact_refinement() {
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(4, 4).expect("policy"),
         &session,
         &memory,
+        None,
     )
     .expect("admission")
     .expect("workers");

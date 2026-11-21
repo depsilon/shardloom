@@ -194,17 +194,12 @@ impl MixedDistinctWorkers {
             return Ok(None);
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::with_cancellation(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 parallelism.min(8),
                 memory.snapshot().limit_bytes,
                 memory.clone(),
-                // Observe the operation while keeping retirement/error cleanup
-                // local to this stage; dropping successful jobs must not cancel
-                // a caller-owned prepared execution token.
-                cancellation.map_or_else(CancellationToken::default, |parent| {
-                    CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
-                }),
+                cancellation,
             )?,
             recipe: Arc::new(Recipe {
                 request: states.request.clone(),

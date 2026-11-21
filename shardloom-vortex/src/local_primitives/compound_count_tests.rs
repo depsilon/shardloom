@@ -397,6 +397,7 @@ fn compound_workers_renamed_reordered_offset_ties_and_weighted_handoff() {
                 policy,
                 &vortex::session::VortexSession::empty(),
                 &memory,
+                None,
             )
             .unwrap()
             .unwrap();
@@ -464,7 +465,8 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &vortex::session::VortexSession::empty(),
-            &memory
+            &memory,
+            None,
         )
         .unwrap()
         .is_none()
@@ -488,6 +490,7 @@ fn compound_rejects_nullable_shapes_and_cancelled_jobs_release_owners() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &vortex::session::VortexSession::empty(),
             &memory,
+            None,
         )
         .unwrap()
         .is_none()
@@ -580,6 +583,7 @@ fn compound_typed_provider_denial_retries_untouched_chunk_once_after_release() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(1, 4).unwrap(),
             &session,
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -665,6 +669,7 @@ fn compound_initial_reservation_race_hands_off_untouched_chunk_exactly_once() {
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &vortex::session::VortexSession::empty(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();

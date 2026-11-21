@@ -16,7 +16,7 @@ use super::{
 };
 use shardloom_exec::compute_pool::CancellationToken;
 use shardloom_vortex::local_primitives::prepared_relational::{
-    ExecutedVortexRelational, PreparedVortexRelational,
+    ExecutedVortexBatchInput, ExecutedVortexRelational, PreparedVortexRelational,
 };
 
 #[path = "public_relational_batches.rs"]
@@ -972,6 +972,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
     let Some(input) = &result.input else {
         return;
     };
+    append_columnar_input_fields(fields, input);
     // These values come from the completed native operation, after explicit end
     // and owner release, rather than a transport snapshot taken during binding.
     let completed = [
@@ -1017,7 +1018,7 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_input_columnar_buffer_bytes_transferred", input.intake_columnar_buffer_bytes_transferred.to_string()),
         ("native_input_columnar_buffer_regions_transferred", input.intake_columnar_buffer_regions_transferred.to_string()),
         ("native_input_columnar_allocation_bytes_transferred", input.intake_columnar_allocation_bytes_transferred.to_string()),
-        ("native_input_columnar_ownership_scope", "actual_intake_decisions;copied_and_transferred_visible_buffer_bytes;transferred_complete_allocation_capacity_reserved_until_last_owner;private_reader_provenance_and_per_buffer_uniqueness_alignment_offset_capacity_proof;public_producers_copy;decoder_internals_and_later_operator_copies_excluded;not_rss_or_whole_query_zero_copy".into()),
+        ("native_input_columnar_ownership_scope", "actual_intake_decisions;copied_and_transferred_visible_buffer_bytes;transferred_complete_allocation_capacity_reserved_until_last_owner;private_reader_provenance_and_per_buffer_uniqueness_alignment_offset_capacity_proof;reused_native_coverage_is_not_fresh_intake;public_producers_copy;decoder_internals_and_later_operator_copies_excluded;not_rss_or_whole_query_zero_copy".into()),
         ("native_input_max_batch_rows", input.max_batch_rows.to_string()),
         ("native_input_max_retained_batches", input.max_retained_input_batches.to_string()),
         ("native_input_max_retained_logical_bytes", input.max_retained_input_logical_bytes.to_string()),
@@ -1052,15 +1053,30 @@ fn append_batch_input(fields: &mut Vec<(String, String)>, result: &ExecutedVorte
         ("native_batch_input_storage", if input.metadata_count_sources == input.sources as u64 {
             "held_source_metadata;no_payload_reader_or_input_batch;independent_native_scalar_output"
         } else if input.replay_sources > 0 {
-            "single_current_producer_batch;released_before_next_demand;declared_replay_retained_as_credited_native_arrays_or_policy_admitted_query_runs;replay_and_operator_state_reported_separately"
+            "single_current_producer_delivery;released_before_next_demand;bounded_optional_native_source_coverage_may_retain_credited_backing;declared_replay_retained_as_credited_native_arrays_or_policy_admitted_query_runs;replay_and_operator_state_reported_separately"
         } else {
-            "single_current_native_batch;released_before_next_demand;operator_state_spill_reported_separately"
+            "single_current_native_delivery;released_before_next_demand;bounded_optional_native_source_coverage_may_retain_credited_backing;operator_state_spill_reported_separately"
         }.into()),
         ("native_input_replay_byte_accounting", "initial_compact_native_array_buffers;excludes_later_operator_and_spill_copy_traffic;not_allocated_capacity_or_rss".into()),
         ("native_input_byte_accounting", "logical_values_offsets_validity_and_names;not_allocated_capacity_or_rss".into()),
-        ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
+        ("resident_source_generation_validation", "declared_schema_checked_each_batch;explicit_source_end;input_delivery_owners_released;bounded_optional_source_coverage_reported_separately;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed".into()),
     ];
     for (key, value) in completed {
+        fields.retain(|(existing, _)| existing != key);
+        fields.push((key.into(), value));
+    }
+}
+
+fn append_columnar_input_fields(
+    fields: &mut Vec<(String, String)>,
+    input: &ExecutedVortexBatchInput,
+) {
+    for (key, value) in [
+        ("native_source_coverage_field_rows", input.columnar_native_coverage_field_rows.to_string()),
+        ("native_source_coverage_regions", input.columnar_native_coverage_regions.to_string()),
+        ("native_source_coverage_retained_bytes", input.columnar_native_coverage_retained_bytes.to_string()),
+        ("native_source_coverage_scope", "optional_session_local_completed_native_columns;exact_held_file_generation_and_original_row_group_coordinates;prior_successful_operation_only;maximum_observed_map_and_backing_capacity_including_pending_regions;not_final_residency_or_rss;no_durable_fragment;first_realization_reads_and_decodes_reported_separately".into()),
+    ] {
         fields.retain(|(existing, _)| existing != key);
         fields.push((key.into(), value));
     }

@@ -9,12 +9,12 @@ use shardloom_core::{Result, ShardLoomError};
 
 use crate::{ByteSize, MemoryBudget, MemoryPressureLevel, OperatorMemoryClass};
 
-const PULSEWEAVE_SCHEMA_VERSION: &str = "shardloom.pulseweave.runtime_control.v1";
-const FLOW_INVENTORY_SCHEMA_VERSION: &str = "shardloom.pulseweave.flow_inventory.v1";
+const PULSEWEAVE_SCHEMA_VERSION: &str = "shardloom.pulseweave.runtime_control.v2";
+const FLOW_INVENTORY_SCHEMA_VERSION: &str = "shardloom.pulseweave.flow_inventory.v2";
 const SCARCITY_LEDGER_SCHEMA_VERSION: &str = "shardloom.pulseweave.scarcity_ledger.v1";
-const ENDOPULSE_SCHEMA_VERSION: &str = "shardloom.pulseweave.endopulse.v1";
-const PROOFBOUND_SCHEMA_VERSION: &str = "shardloom.pulseweave.proofbound.v1";
-const REQUIRED_PROOFBOUND_EVIDENCE: &str = "prepared_local_route,memory_budget,max_parallelism,task_estimates,materialization_decode_boundary,correctness_digest,output_digest,execution_certificate,native_io_certificate,no_fallback";
+const ENDOPULSE_SCHEMA_VERSION: &str = "shardloom.pulseweave.endopulse.v2";
+const PROOFBOUND_SCHEMA_VERSION: &str = "shardloom.pulseweave.proofbound.v2";
+const REQUIRED_PROOFBOUND_EVIDENCE: &str = "prepared_local_route,memory_budget,max_parallelism,task_estimates,materialization_decode_boundary,correctness_digest,output_digest,execution_certificate,native_io_certificate,no_fallback,runtime_application";
 
 /// One local task shape supplied to `PulseWeave` policy planning.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,20 +315,24 @@ impl PulseWeaveInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlowInventoryReport {
     pub schema_version: &'static str,
+    /// Proposed ceiling, not an observed number of running tasks.
     pub wip_limit: usize,
-    pub peak_in_flight: usize,
-    pub ready_task_count: usize,
-    pub held_for_memory_count: usize,
-    pub held_for_downstream_count: usize,
-    pub completed_task_count: usize,
-    pub failed_task_count: usize,
-    pub backpressure_event_count: usize,
-    pub existing_scheduler_preserved: bool,
+    pub planned_task_count: usize,
+    pub estimated_held_for_memory_count: usize,
+    pub estimated_held_for_downstream_count: usize,
+    pub peak_in_flight: Option<usize>,
+    pub ready_task_count: Option<usize>,
+    pub held_for_memory_count: Option<usize>,
+    pub held_for_downstream_count: Option<usize>,
+    pub completed_task_count: Option<usize>,
+    pub failed_task_count: Option<usize>,
+    pub backpressure_event_count: Option<usize>,
+    pub existing_scheduler_preserved: Option<bool>,
 }
 
 impl FlowInventoryReport {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 10] {
+    pub fn fields(&self) -> [(&'static str, String); 13] {
         [
             (
                 "flow_inventory_schema_version",
@@ -336,36 +340,48 @@ impl FlowInventoryReport {
             ),
             ("flow_inventory_wip_limit", self.wip_limit.to_string()),
             (
+                "flow_inventory_planned_task_count",
+                self.planned_task_count.to_string(),
+            ),
+            (
+                "flow_inventory_estimated_held_for_memory_count",
+                self.estimated_held_for_memory_count.to_string(),
+            ),
+            (
+                "flow_inventory_estimated_held_for_downstream_count",
+                self.estimated_held_for_downstream_count.to_string(),
+            ),
+            (
                 "flow_inventory_peak_in_flight",
-                self.peak_in_flight.to_string(),
+                observed_field(self.peak_in_flight),
             ),
             (
                 "flow_inventory_ready_task_count",
-                self.ready_task_count.to_string(),
+                observed_field(self.ready_task_count),
             ),
             (
                 "flow_inventory_held_for_memory_count",
-                self.held_for_memory_count.to_string(),
+                observed_field(self.held_for_memory_count),
             ),
             (
                 "flow_inventory_held_for_downstream_count",
-                self.held_for_downstream_count.to_string(),
+                observed_field(self.held_for_downstream_count),
             ),
             (
                 "flow_inventory_completed_task_count",
-                self.completed_task_count.to_string(),
+                observed_field(self.completed_task_count),
             ),
             (
                 "flow_inventory_failed_task_count",
-                self.failed_task_count.to_string(),
+                observed_field(self.failed_task_count),
             ),
             (
                 "flow_inventory_backpressure_event_count",
-                self.backpressure_event_count.to_string(),
+                observed_field(self.backpressure_event_count),
             ),
             (
                 "flow_inventory_existing_scheduler_preserved",
-                self.existing_scheduler_preserved.to_string(),
+                observed_field(self.existing_scheduler_preserved),
             ),
         ]
     }
@@ -405,7 +421,8 @@ impl ScarcityLedgerAction {
     pub const fn is_blocked(self) -> bool {
         matches!(
             self,
-            Self::BlockedByMissingEstimate
+            Self::FailBeforeOom
+                | Self::BlockedByMissingEstimate
                 | Self::BlockedByUnsupportedSpill
                 | Self::BlockedByPolicy
         )
@@ -484,6 +501,7 @@ pub struct EndoPulseDecision {
     pub next_target_task_bytes: u64,
     pub previous_wip_limit: usize,
     pub next_wip_limit: usize,
+    pub adjustment_proposed: bool,
     pub adjustment_applied: bool,
     pub hysteresis_state: String,
     pub persistent_state_used: bool,
@@ -491,7 +509,7 @@ pub struct EndoPulseDecision {
 
 impl EndoPulseDecision {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 9] {
+    pub fn fields(&self) -> [(&'static str, String); 10] {
         [
             (
                 "endopulse_schema_version",
@@ -512,6 +530,10 @@ impl EndoPulseDecision {
             ),
             ("endopulse_next_wip_limit", self.next_wip_limit.to_string()),
             (
+                "endopulse_adjustment_proposed",
+                self.adjustment_proposed.to_string(),
+            ),
+            (
                 "endopulse_adjustment_applied",
                 self.adjustment_applied.to_string(),
             ),
@@ -529,6 +551,8 @@ impl EndoPulseDecision {
 pub struct ProofBoundAutoGate {
     pub schema_version: &'static str,
     pub pre_application_status: String,
+    /// Validation of supplied prerequisite certificates, not controller execution.
+    pub prerequisite_evidence_status: String,
     pub post_application_status: String,
     pub required_evidence: String,
     pub missing_evidence: String,
@@ -539,7 +563,7 @@ pub struct ProofBoundAutoGate {
 
 impl ProofBoundAutoGate {
     #[must_use]
-    pub fn fields(&self) -> [(&'static str, String); 8] {
+    pub fn fields(&self) -> [(&'static str, String); 9] {
         [
             (
                 "proofbound_schema_version",
@@ -548,6 +572,10 @@ impl ProofBoundAutoGate {
             (
                 "proofbound_pre_application_status",
                 self.pre_application_status.clone(),
+            ),
+            (
+                "proofbound_prerequisite_evidence_status",
+                self.prerequisite_evidence_status.clone(),
             ),
             (
                 "proofbound_post_application_status",
@@ -578,6 +606,7 @@ pub struct PulseWeaveReport {
     pub schema_version: &'static str,
     pub status: String,
     pub application_scope: String,
+    pub decision_admitted: bool,
     pub runtime_decision_applied: bool,
     pub policy_mutated: bool,
     pub decision_digest: String,
@@ -605,6 +634,7 @@ impl PulseWeaveReport {
             schema_version: PULSEWEAVE_SCHEMA_VERSION,
             status: "not_requested".to_string(),
             application_scope: application_scope.into(),
+            decision_admitted: false,
             runtime_decision_applied: false,
             policy_mutated: false,
             decision_digest: "none".to_string(),
@@ -615,14 +645,17 @@ impl PulseWeaveReport {
             flow_inventory: FlowInventoryReport {
                 schema_version: FLOW_INVENTORY_SCHEMA_VERSION,
                 wip_limit: 0,
-                peak_in_flight: 0,
-                ready_task_count: 0,
-                held_for_memory_count: 0,
-                held_for_downstream_count: 0,
-                completed_task_count: 0,
-                failed_task_count: 0,
-                backpressure_event_count: 0,
-                existing_scheduler_preserved: true,
+                planned_task_count: 0,
+                estimated_held_for_memory_count: 0,
+                estimated_held_for_downstream_count: 0,
+                peak_in_flight: None,
+                ready_task_count: None,
+                held_for_memory_count: None,
+                held_for_downstream_count: None,
+                completed_task_count: None,
+                failed_task_count: None,
+                backpressure_event_count: None,
+                existing_scheduler_preserved: None,
             },
             scarcity_ledger: ScarcityLedgerDecision {
                 schema_version: SCARCITY_LEDGER_SCHEMA_VERSION,
@@ -643,6 +676,7 @@ impl PulseWeaveReport {
                 next_target_task_bytes: 0,
                 previous_wip_limit: 0,
                 next_wip_limit: 0,
+                adjustment_proposed: false,
                 adjustment_applied: false,
                 hysteresis_state: "not_requested".to_string(),
                 persistent_state_used: false,
@@ -650,6 +684,7 @@ impl PulseWeaveReport {
             proofbound: ProofBoundAutoGate {
                 schema_version: PROOFBOUND_SCHEMA_VERSION,
                 pre_application_status: "not_requested".to_string(),
+                prerequisite_evidence_status: "not_requested".to_string(),
                 post_application_status: "not_requested".to_string(),
                 required_evidence: "not_requested".to_string(),
                 missing_evidence: reason,
@@ -682,6 +717,14 @@ impl PulseWeaveReport {
                 self.schema_version.to_string(),
             ),
             ("pulseweave_status".to_string(), self.status.clone()),
+            (
+                "pulseweave_evidence_kind".to_string(),
+                "policy_plan".to_string(),
+            ),
+            (
+                "pulseweave_decision_admitted".to_string(),
+                self.decision_admitted.to_string(),
+            ),
             (
                 "pulseweave_application_scope".to_string(),
                 self.application_scope.clone(),
@@ -776,36 +819,33 @@ pub fn plan_flow_inventory(input: &PulseWeaveInput) -> Result<FlowInventoryRepor
         .min(sink_limit)
         .min(task_count.max(1))
         .max(1);
-    let held_for_memory_count = input
+    let estimated_held_for_memory_count = input
         .task_shapes
         .iter()
         .filter(|task| task.estimated_memory_bytes > input.memory_budget_bytes)
         .count()
         .saturating_add(input.memory_reservations_denied);
-    let held_for_downstream_count = if input.result_sink_requested && task_count > wip_limit {
-        task_count - wip_limit
-    } else {
-        0
-    };
-    let failed_task_count = input.memory_reservations_denied;
-    let completed_task_count = task_count.saturating_sub(failed_task_count);
-    let backpressure_event_count =
-        usize::from(held_for_memory_count > 0) + usize::from(held_for_downstream_count > 0);
-    let peak_in_flight = wip_limit.min(task_count);
-    let existing_scheduler_preserved =
-        wip_limit == input.max_parallelism.min(task_count.max(1)) && backpressure_event_count == 0;
-
+    let estimated_held_for_downstream_count =
+        if input.result_sink_requested && task_count > wip_limit {
+            task_count - wip_limit
+        } else {
+            0
+        };
     Ok(FlowInventoryReport {
         schema_version: FLOW_INVENTORY_SCHEMA_VERSION,
         wip_limit,
-        peak_in_flight,
-        ready_task_count: task_count,
-        held_for_memory_count,
-        held_for_downstream_count,
-        completed_task_count,
-        failed_task_count,
-        backpressure_event_count,
-        existing_scheduler_preserved,
+        planned_task_count: task_count,
+        estimated_held_for_memory_count,
+        estimated_held_for_downstream_count,
+        // Task descriptions and reservation counts cannot prove task lifecycle events.
+        peak_in_flight: None,
+        ready_task_count: None,
+        held_for_memory_count: None,
+        held_for_downstream_count: None,
+        completed_task_count: None,
+        failed_task_count: None,
+        backpressure_event_count: None,
+        existing_scheduler_preserved: None,
     })
 }
 
@@ -824,11 +864,11 @@ pub fn compute_scarcity_ledger(
     };
     let queue_price_bps = if flow.wip_limit == 0 {
         10_000
-    } else if flow.held_for_downstream_count == 0 {
+    } else if flow.estimated_held_for_downstream_count == 0 {
         0
     } else {
-        let numerator = u32::try_from(flow.held_for_downstream_count).unwrap_or(u32::MAX);
-        let denominator = u32::try_from(flow.ready_task_count)
+        let numerator = u32::try_from(flow.estimated_held_for_downstream_count).unwrap_or(u32::MAX);
+        let denominator = u32::try_from(flow.planned_task_count)
             .unwrap_or(u32::MAX)
             .max(1);
         u16::try_from(numerator.saturating_mul(10_000) / denominator).unwrap_or(10_000)
@@ -885,18 +925,20 @@ pub fn compute_scarcity_ledger(
         } else if matches!(
             memory_pressure,
             MemoryPressureLevel::High | MemoryPressureLevel::Critical
-        ) || flow.held_for_memory_count > 0
+        ) || flow.estimated_held_for_memory_count > 0
         {
             (
                 ScarcityLedgerAction::HoldForMemory,
                 "memory pressure limits additional in-flight work",
             )
-        } else if flow.held_for_downstream_count > 0 {
+        } else if flow.estimated_held_for_downstream_count > 0 {
             (
                 ScarcityLedgerAction::HoldForDownstream,
                 "downstream result-sink pressure limits in-flight work",
             )
-        } else if input.average_task_estimate_bytes() > input.max_task_bytes {
+        } else if input.average_task_estimate_bytes() > input.max_task_bytes
+            && input.task_shapes.iter().all(|task| task.can_split)
+        {
             (
                 ScarcityLedgerAction::SplitLargeTask,
                 "task estimates exceed the configured maximum task bytes",
@@ -992,7 +1034,7 @@ pub fn plan_endopulse_adjustment(
         signals.push("stable");
     }
 
-    let adjustment_applied =
+    let adjustment_proposed =
         next_target_task_bytes != input.target_task_bytes || next_wip_limit != flow.wip_limit;
     EndoPulseDecision {
         schema_version: ENDOPULSE_SCHEMA_VERSION,
@@ -1001,8 +1043,9 @@ pub fn plan_endopulse_adjustment(
         next_target_task_bytes,
         previous_wip_limit: flow.wip_limit,
         next_wip_limit,
-        adjustment_applied,
-        hysteresis_state: "one_window_local_only".to_string(),
+        adjustment_proposed,
+        adjustment_applied: false,
+        hysteresis_state: "proposal_only_no_completed_window".to_string(),
         persistent_state_used: false,
     }
 }
@@ -1049,7 +1092,7 @@ pub fn evaluate_proofbound_auto_gate(input: &PulseWeaveInput) -> ProofBoundAutoG
         }
         .to_string();
 
-    let post_application_status = if pre_application_status != "admitted" {
+    let prerequisite_evidence_status = if pre_application_status != "admitted" {
         "not_evaluated"
     } else if input
         .correctness_digest
@@ -1083,23 +1126,22 @@ pub fn evaluate_proofbound_auto_gate(input: &PulseWeaveInput) -> ProofBoundAutoG
         "certified"
     };
 
-    let claim_allowed = pre_application_status == "admitted"
-        && post_application_status == "certified"
-        && no_fallback_status == "verified";
+    // Supplied output/correctness certificates establish prerequisites only.
+    // This pure evaluator cannot observe application of a scheduling control.
+    if missing.is_empty() {
+        missing.push("runtime_application");
+    }
 
     ProofBoundAutoGate {
         schema_version: PROOFBOUND_SCHEMA_VERSION,
         pre_application_status: pre_application_status.to_string(),
-        post_application_status: post_application_status.to_string(),
+        prerequisite_evidence_status: prerequisite_evidence_status.to_string(),
+        post_application_status: "not_observed".to_string(),
         required_evidence: REQUIRED_PROOFBOUND_EVIDENCE.to_string(),
-        missing_evidence: if missing.is_empty() {
-            "none".to_string()
-        } else {
-            missing.join(",")
-        },
+        missing_evidence: missing.join(","),
         certificate_status,
         no_fallback_status,
-        claim_allowed,
+        claim_allowed: false,
     }
 }
 
@@ -1113,25 +1155,20 @@ pub fn plan_pulseweave(input: PulseWeaveInput) -> Result<PulseWeaveReport> {
     let endopulse = plan_endopulse_adjustment(&input, &flow_inventory, &scarcity_ledger);
     let proofbound = evaluate_proofbound_auto_gate(&input);
 
-    let application_blocked =
-        !proofbound.claim_allowed || scarcity_ledger.selected_action.is_blocked();
-    let runtime_decision_applied = !application_blocked;
-    let policy_mutated = runtime_decision_applied
-        && (endopulse.adjustment_applied
-            || flow_inventory.wip_limit != input.max_parallelism.min(input.task_count().max(1)));
-    let status = if runtime_decision_applied {
-        "applied"
+    let decision_admitted = proofbound.pre_application_status == "admitted"
+        && proofbound.prerequisite_evidence_status == "certified"
+        && !scarcity_ledger.selected_action.is_blocked();
+    let status = if decision_admitted {
+        "planned"
     } else if proofbound.pre_application_status == "admitted" {
         "blocked"
     } else {
         "report_only_blocked"
     };
-    let blocker_id = if runtime_decision_applied {
-        "none".to_string()
-    } else if proofbound.missing_evidence != "none" {
-        proofbound.missing_evidence.clone()
-    } else {
+    let blocker_id = if scarcity_ledger.selected_action.is_blocked() {
         scarcity_ledger.selected_action.as_str().to_string()
+    } else {
+        proofbound.missing_evidence.clone()
     };
     let decision_digest = pulseweave_digest(&[
         "pulseweave",
@@ -1144,6 +1181,7 @@ pub fn plan_pulseweave(input: PulseWeaveInput) -> Result<PulseWeaveReport> {
         &endopulse.next_target_task_bytes.to_string(),
         &endopulse.next_wip_limit.to_string(),
         &proofbound.pre_application_status,
+        &proofbound.prerequisite_evidence_status,
         &proofbound.post_application_status,
     ]);
 
@@ -1151,16 +1189,12 @@ pub fn plan_pulseweave(input: PulseWeaveInput) -> Result<PulseWeaveReport> {
         schema_version: PULSEWEAVE_SCHEMA_VERSION,
         status: status.to_string(),
         application_scope: input.application_scope,
-        runtime_decision_applied,
-        policy_mutated,
+        decision_admitted,
+        runtime_decision_applied: false,
+        policy_mutated: false,
         decision_digest,
         blocker: blocker_id,
-        claim_gate_status: if runtime_decision_applied {
-            "pulseweave_runtime_certified"
-        } else {
-            "not_pulseweave_claim_grade"
-        }
-        .to_string(),
+        claim_gate_status: "not_pulseweave_claim_grade".to_string(),
         fallback_attempted: input.fallback_attempted,
         external_engine_invoked: input.external_engine_invoked,
         flow_inventory,
@@ -1168,6 +1202,10 @@ pub fn plan_pulseweave(input: PulseWeaveInput) -> Result<PulseWeaveReport> {
         endopulse,
         proofbound,
     })
+}
+
+fn observed_field(value: Option<impl std::fmt::Display>) -> String {
+    value.map_or_else(|| "unavailable".to_string(), |value| value.to_string())
 }
 
 fn validate_non_empty_tasks(input: &PulseWeaveInput) -> Result<()> {
@@ -1307,10 +1345,13 @@ mod tests {
         let flow = plan_flow_inventory(&input).expect("flow");
 
         assert_eq!(flow.wip_limit, 2);
-        assert_eq!(flow.peak_in_flight, 2);
-        assert_eq!(flow.held_for_downstream_count, 1);
-        assert_eq!(flow.failed_task_count, 0);
-        assert!(!flow.existing_scheduler_preserved);
+        assert_eq!(flow.planned_task_count, 3);
+        assert_eq!(flow.estimated_held_for_downstream_count, 1);
+        assert_eq!(flow.peak_in_flight, None);
+        assert_eq!(flow.held_for_downstream_count, None);
+        assert_eq!(flow.failed_task_count, None);
+        assert_eq!(flow.completed_task_count, None);
+        assert_eq!(flow.existing_scheduler_preserved, None);
     }
 
     #[test]
@@ -1334,7 +1375,7 @@ mod tests {
         let flow = plan_flow_inventory(&input).expect("flow");
         let ledger = compute_scarcity_ledger(&input, &flow);
 
-        assert_eq!(flow.held_for_downstream_count, 0);
+        assert_eq!(flow.estimated_held_for_downstream_count, 0);
         assert_eq!(ledger.queue_price_bps, 0);
     }
 
@@ -1347,7 +1388,8 @@ mod tests {
 
         assert_eq!(endopulse.previous_wip_limit, 2);
         assert_eq!(endopulse.next_wip_limit, 1);
-        assert!(endopulse.adjustment_applied);
+        assert!(endopulse.adjustment_proposed);
+        assert!(!endopulse.adjustment_applied);
         assert!(!endopulse.persistent_state_used);
     }
 
@@ -1357,9 +1399,11 @@ mod tests {
         let gate = evaluate_proofbound_auto_gate(&input);
 
         assert_eq!(gate.pre_application_status, "admitted");
-        assert_eq!(gate.post_application_status, "certified");
+        assert_eq!(gate.prerequisite_evidence_status, "certified");
+        assert_eq!(gate.post_application_status, "not_observed");
         assert_eq!(gate.no_fallback_status, "verified");
-        assert!(gate.claim_allowed);
+        assert!(!gate.claim_allowed);
+        assert_eq!(gate.missing_evidence, "runtime_application");
     }
 
     #[test]
@@ -1371,11 +1415,12 @@ mod tests {
             };
             let report = plan_pulseweave(input).expect("pulseweave report");
 
-            assert_eq!(report.status, "applied");
-            assert!(report.runtime_decision_applied);
-            assert_eq!(report.blocker, "none");
-            assert_eq!(report.proofbound.missing_evidence, "none");
-            assert!(report.proofbound.claim_allowed);
+            assert_eq!(report.status, "planned");
+            assert!(report.decision_admitted);
+            assert!(!report.runtime_decision_applied);
+            assert_eq!(report.blocker, "runtime_application");
+            assert_eq!(report.proofbound.missing_evidence, "runtime_application");
+            assert!(!report.proofbound.claim_allowed);
         }
     }
 
@@ -1388,10 +1433,11 @@ mod tests {
         };
         let report = plan_pulseweave(input).expect("pulseweave report");
 
-        assert_eq!(report.status, "applied");
-        assert!(report.runtime_decision_applied);
+        assert_eq!(report.status, "planned");
+        assert!(report.decision_admitted);
+        assert!(!report.runtime_decision_applied);
         assert_eq!(report.proofbound.pre_application_status, "admitted");
-        assert!(report.proofbound.claim_allowed);
+        assert!(!report.proofbound.claim_allowed);
     }
 
     #[test]
@@ -1403,11 +1449,13 @@ mod tests {
         };
         let report = plan_pulseweave(input).expect("pulseweave report");
 
-        assert_eq!(report.status, "applied");
-        assert!(report.runtime_decision_applied);
+        assert_eq!(report.status, "planned");
+        assert!(report.decision_admitted);
+        assert!(!report.runtime_decision_applied);
         assert_eq!(report.proofbound.pre_application_status, "admitted");
-        assert_eq!(report.proofbound.post_application_status, "certified");
-        assert!(report.proofbound.claim_allowed);
+        assert_eq!(report.proofbound.prerequisite_evidence_status, "certified");
+        assert_eq!(report.proofbound.post_application_status, "not_observed");
+        assert!(!report.proofbound.claim_allowed);
     }
 
     #[test]
@@ -1416,28 +1464,47 @@ mod tests {
         let gate = evaluate_proofbound_auto_gate(&input);
 
         assert_eq!(gate.pre_application_status, "blocked_unsupported_spill");
-        assert_eq!(gate.post_application_status, "not_evaluated");
+        assert_eq!(gate.prerequisite_evidence_status, "not_evaluated");
+        assert_eq!(gate.post_application_status, "not_observed");
         assert!(!gate.claim_allowed);
         assert!(gate.missing_evidence.contains("spill_support"));
     }
 
     #[test]
-    fn pulseweave_report_applies_when_proofbound_certified() {
+    fn certified_prerequisites_cannot_claim_runtime_application() {
         let report = plan_pulseweave(admitted_input()).expect("pulseweave report");
 
-        assert_eq!(report.status, "applied");
-        assert!(report.runtime_decision_applied);
-        assert!(report.policy_mutated);
-        assert_eq!(report.batch_window_size(4), 1);
-        assert_eq!(report.claim_gate_status, "pulseweave_runtime_certified");
+        assert_eq!(report.status, "planned");
+        assert!(report.decision_admitted);
+        assert!(!report.runtime_decision_applied);
+        assert!(!report.policy_mutated);
+        assert_eq!(report.batch_window_size(4), 4);
+        assert_eq!(report.endopulse.next_wip_limit, 1);
+        assert_eq!(report.claim_gate_status, "not_pulseweave_claim_grade");
         assert!(report.decision_digest.starts_with("fnv1a64:"));
         let fields = report.fields();
         assert!(fields.iter().any(|(key, value)| {
-            key == "pulseweave_runtime_decision_applied" && value == "true"
+            key == "pulseweave_runtime_decision_applied" && value == "false"
         }));
         assert!(fields.iter().any(|(key, value)| {
             key == "proofbound_certificate_status" && value == "certified"
         }));
+        for name in [
+            "flow_inventory_peak_in_flight",
+            "flow_inventory_ready_task_count",
+            "flow_inventory_held_for_memory_count",
+            "flow_inventory_held_for_downstream_count",
+            "flow_inventory_completed_task_count",
+            "flow_inventory_failed_task_count",
+            "flow_inventory_backpressure_event_count",
+            "flow_inventory_existing_scheduler_preserved",
+        ] {
+            assert!(
+                fields
+                    .iter()
+                    .any(|(key, value)| key == name && value == "unavailable")
+            );
+        }
     }
 
     #[test]
@@ -1450,8 +1517,39 @@ mod tests {
         let report = plan_pulseweave(input).expect("pulseweave report");
 
         assert_eq!(report.status, "blocked");
+        assert!(!report.decision_admitted);
         assert!(!report.runtime_decision_applied);
         assert_eq!(report.batch_window_size(4), 4);
         assert!(report.blocker.contains("execution_certificate"));
+    }
+
+    #[test]
+    fn reservation_refusals_do_not_invent_failed_tasks_or_adjustment_application() {
+        let input = admitted_input().with_memory_observations(8, 1, 7, 192 * 1024);
+        let report = plan_pulseweave(input).expect("plan");
+        assert!(!report.decision_admitted);
+        assert!(!report.runtime_decision_applied);
+        assert!(!report.endopulse.adjustment_applied);
+        assert_eq!(report.flow_inventory.failed_task_count, None);
+        assert_eq!(report.flow_inventory.completed_task_count, None);
+        assert_eq!(report.flow_inventory.backpressure_event_count, None);
+        assert_eq!(
+            report.scarcity_ledger.selected_action,
+            ScarcityLedgerAction::FailBeforeOom
+        );
+    }
+
+    #[test]
+    fn indivisible_work_is_not_admitted_for_splitting() {
+        let mut input = admitted_input().with_result_sink(false, false);
+        input.max_task_bytes = 1;
+        input.min_task_bytes = 1;
+        input.task_shapes[0].can_split = false;
+        let report = plan_pulseweave(input).expect("plan");
+        assert_eq!(
+            report.scarcity_ledger.selected_action,
+            ScarcityLedgerAction::KeepCurrentShape
+        );
+        assert!(!report.runtime_decision_applied);
     }
 }

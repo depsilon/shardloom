@@ -1,0 +1,704 @@
+{
+  "archive": {
+    "bytes": 7794968,
+    "path": "observations.json.gz",
+    "sha256": "21207da7c8f08c54fee92512a870c38c377ea11ea28d6d91d1bf51382b6b9088"
+  },
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "compiled_source_differences": [
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "queue-default-fmt-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "0204a5d7192ec69af85964a70f5dced5f524dde95ec5777f2116e0607a7b3b77",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        ".github/ci-native-baseline.json",
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py",
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "compiled_source_differences": [
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ],
+      "log_sha256": "91f951731ea8fea09564be32ecf9da78054bb2fbe6b757ac4d56bdca3ce9f420",
+      "name": "queue-default-lint-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "0c5717541edacefd676d9b5aa206d130ca29714d315eddfda331c345591cbc82",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        ".github/ci-native-baseline.json",
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py",
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "compiled_source_differences": [
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ],
+      "log_sha256": "84c1464b000e18dc37fc9a1b0dc708984fd616662029a5b43074a327c83a2ced",
+      "name": "queue-default-tests-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "4e514fbcf23544489b676d8d4a24b59d669ae943fdfd2d6efc0398d44f262b08",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3351,
+        "targets": 108
+      },
+      "whole_repository_differences": [
+        ".github/ci-native-baseline.json",
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py",
+        "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_delivery_tests.rs",
+        "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs",
+        "shardloom-vortex/src/local_primitives.rs",
+        "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "e35afa0bbdf07082451b99b34f5dda2e8ae571c19a6e7702b6fad580db627d43",
+      "name": "string-delivery-native-lint-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "a4f9d103f5144c32edad8acd97063798406d87ef8e07c13b1c95ecec0fb68fb6",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "incorporation-format-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "020d64f6889c06e4325dc706e739c56cccf4f92c7e3dd548f0fe891f57c8421f",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--profile",
+        "ci-native",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "5ad94691f8298225616c7d5fd4f0bbcf6b2d80f13b652875a8ccbe4b43bd3f54",
+      "name": "incorporation-native-checked-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "3b506553ac56278d11174d28a1ed4e721ede31f1db76e6742920218635c1dd4f",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 41,
+        "passed": 4432,
+        "targets": 17
+      },
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/check_string_inventory.py"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "45c26488b8f6f5e61774145f04027ee366a85d13c419800ee72183c0ab26a26b",
+      "name": "incorporation-inventory-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "196339406f1d2c8f050afb034fe7f7332e9a4223b9366ebc2513f8c62dead85a",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/float16_fixture.py",
+        "python/tests/test_native_analytical_workflows_binding.py",
+        "python/tests/test_native_application_batch_binding.py",
+        "python/tests/test_native_float16_lifecycle_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/ci_build_artifact.py",
+        "build",
+        "--product",
+        "cli-release",
+        "--directory",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/runtime-r1-cli"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "387c7e1f2937bc606b24eb2195f2a8d8c66fb37ce2faa5c20e44242951ec0ee5",
+      "name": "incorporation-cli-build-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "5ea84f3b559a3ece4ee82018f3bfe431aaa4adc253ce34a97a448341825aae53",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/test_native_analytical_workflows_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "scripts/ci_build_artifact.py",
+        "build",
+        "--product",
+        "native-extension",
+        "--directory",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/runtime-r1-extension"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "0e92965df4a2e708b21e639016fc981a11060bb241c3df23743d67c1a1d27c93",
+      "name": "incorporation-extension-build-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "30fb2b99a382b34d75b698531dd4d58a85619a8c1d5c68cf475e9f02d485fd65",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/test_native_analytical_workflows_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/libexec/bin/python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/prepare_combined_python.py"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "4b976c29361eff1813b0655cd00ea870a6f6b07008ec9cdcf7c2cc4a8216727c",
+      "name": "incorporation-focused-environment-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "c109d7933a2f1712897a00296082d23a4c136790c838a5f816842687bd388b9f",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/test_native_analytical_workflows_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/focused-python-r1/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/run_combined_focused.py",
+        "incorporation-focused-python-r1"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "7910337515fbc4c81a1aa50fecd6c1574fbe0020f7d2c498656737fd2cac10e7",
+      "name": "incorporation-focused-python-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "502314354310ccc24883e8c2795dc2034314ebc36e89ec6ca2cefba59bb1e2d8",
+      "sources_unchanged": true,
+      "status": "failed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md",
+        "python/tests/test_native_analytical_workflows_binding.py"
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/focused-python-r1/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/run_combined_focused.py",
+        "incorporation-focused-python-r2"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "9587c7493ec5cdc8b297e1d593968da7a0bae8a5b56706621696dcde9f0d3f3b",
+      "name": "incorporation-focused-python-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "00a6eb2fff8de6a24e79a9951c1768c9064d634a486e4284080de4d60684c9a1",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/wheel-tools-r1/venv/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/installed-wheel-r1",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/runtime-r1-extension/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/runtime-r1-cli/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/wheelhouse"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "6111aae998babe71885c174efc2dc561de771620537fdefe4d230b28651963a1",
+      "name": "incorporation-installed-wheel-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "24fe08b1d6112c395b26b568600bf442cd35b55c0b0d4c85572854acd17bc140",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--lib",
+        "--bin",
+        "shardloom",
+        "--test",
+        "vortex_prepare",
+        "--test",
+        "public_memory_inputs",
+        "--test",
+        "public_workflow_route",
+        "--test",
+        "resident_worker",
+        "--test",
+        "capability_runtime_discovery",
+        "--test",
+        "capability_discovery_snapshots",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "a95e9a343db97e1b62fe2d1c0ba978b43a798233c79c38873459450f378b309a",
+      "name": "incorporation-public-cli-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "63a2278b391bf0bbb55772778466bb59a047e33738c90693e936f8b1bb182ef1",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 1256,
+        "targets": 8
+      },
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "765a0dcb5477a456a45e056c151dd1ecda2369eef326b0b9243ccaaea22ae345",
+      "name": "incorporation-all-features-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "208733464140f9b4c5e45e02c68228785a60e9b224179c133e74247d5534e8af",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "c9935a6665b5173b5d53a277f4170e7f076c432317f35dba0f13dd3bdb005631",
+      "name": "incorporation-minimal-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "f428d829c2059d609125299957fa1856400d7f1a809921cc66d3415a21f66504",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "9d733dac2fe78a833583fd637d959b70c812ce0c6885c8f95114a9b566313f27",
+      "name": "incorporation-msrv-minimal-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "5d5d42989e7e3fd5955e7d7742443c2bc2855152a561cc6bbc6b087d7138de1b",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "01911a8cc80b001cd031911211e46b7d1abd89b1910c547fb89beb277ca29027",
+      "name": "incorporation-msrv-native-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "f16b3b0c015060286662e4ee593d73c2426ff3530782f33cf7d2a062eaac6e97",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": [
+        "docs/architecture/native-broad-query-program-2026-10-26.md",
+        "docs/architecture/native-rich-data-lifecycle-2026-10-24.md",
+        "docs/architecture/native-shared-capability-incorporation-2026-11-17.md",
+        "docs/architecture/native-shared-capability-owner-map-2026-11-17.md",
+        "docs/architecture/native-shared-combined-acceptance-2026-11-18.md",
+        "docs/architecture/phased-execution-plan.md"
+      ]
+    }
+  ],
+  "deep_traversal": "deferred_after_foundry_public_limit_unchanged",
+  "default_tests": {
+    "failed": 0,
+    "ignored": 0,
+    "passed": 3351,
+    "targets": 108
+  },
+  "finite_feedback": "screen_complete_no_candidate_admitted_implementation_deferred",
+  "focused_python": {
+    "cli": {
+      "shardloom": {
+        "bytes": 80780320,
+        "executable": true,
+        "sha256": "16f61ed22ddedc82f41c6f20e94b804ff61a5f71920930b10dca027ab643ebb2"
+      }
+    },
+    "errors": 0,
+    "extension": {
+      "_native.abi3.so": {
+        "bytes": 81332480,
+        "executable": true,
+        "sha256": "25a189a481255ea36440bbd4757e70d17afb53b8c69cdf6bb5a9853fa3fdc6cf"
+      }
+    },
+    "failures": 0,
+    "patterns": {
+      "test_native_analytical_workflows_binding.py": 4,
+      "test_native_application_batch_binding.py": 16,
+      "test_native_float16*binding.py": 14
+    },
+    "skipped": 0,
+    "status": "passed",
+    "tests": 34
+  },
+  "hosted_acceptance": "pending_required_checks",
+  "installed_tests": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "status": "passed",
+    "tests": 466
+  },
+  "native_tests": {
+    "failed": 0,
+    "ignored": 41,
+    "passed": 4432,
+    "targets": 17
+  },
+  "new_native_query_executions_by_replay": 0,
+  "new_performance_claim": false,
+  "propagation_families": 7,
+  "propagation_unique_tests": 107,
+  "publication_attempted": false,
+  "remote_refresh": "deferred_to_existing_io_foundry_owner",
+  "schema_version": "shardloom.incorporation_acceptance.v1",
+  "source_sha256": {
+    ".github/ci-native-baseline.json": "fabcd3da7c6bef7b10066e65582ab5e32022035fb46c2b4158eaea660cd5bfb9",
+    "docs/architecture/io-reuse-and-fanout-architecture.md": "2cb6e7331b648188169feae4b5048010440e725331029b713595041224ebe96f",
+    "docs/architecture/native-broad-query-program-2026-10-26.md": "b010d6ff1e499a3e975ba6d03e0ac34a9d3133e50f6ef5d8ec681270bfce825d",
+    "docs/architecture/native-rich-data-lifecycle-2026-10-24.md": "ccda7dadce7bc4eeb6bc3b77fdf1c4993d47a9d39b8c62ab25c7c1b5d01ef570",
+    "docs/architecture/native-shared-capability-incorporation-2026-11-17.md": "d9657e1579ee28496becaa20a144ecbe685b55f7e0abd65257136f81e18bd10e",
+    "docs/architecture/native-shared-capability-owner-map-2026-11-17.md": "3f4a6b1d8dde6102241e1e55d62af83592d784c9dd5cc9683160b2b59d38f1ba",
+    "docs/architecture/native-shared-combined-acceptance-2026-11-18.md": "0082935ad47c6885824cd73fb3e08fb506a98e1e3aba58f2ffe82137e3df5ddb",
+    "docs/architecture/phased-execution-plan.md": "63b0b4878e7e63e86ae1c730d74ff7fccf8fd592bfc123dec1c6c8275fe08687",
+    "docs/architecture/pulseweave-runtime-control.md": "a51e36813ae3c15e6771c1dd17b56fed5358f7a427d9608902132f25efae0711",
+    "docs/reference/shardloom-user-surface-index.json": "3209595260ba0ba25005dcce8e51d4bb87f99b3401c565efd934bd0d7e30750a",
+    "docs/reference/shardloom-user-surface-index.md": "653a738c3942aef1d2406b331117d60dbef520381ccd72aa0655350f8fc8ae41",
+    "python/src/shardloom/client.py": "d3811f4bc34617b160bd5ca6c14238525c724a1a268c23fd82dc9d557ae1a5b2",
+    "python/src/shardloom/models.py": "1c6d78f296f9f44eb826bc281197a516985407070e4253254dec94d7931af4b4",
+    "python/tests/float16_fixture.py": "154e1bfcff1111960aa20b5439693203b71e1f7d8f5c6cab2d128499fe42c4f7",
+    "python/tests/test_cli_client.py": "0e1714d39fcdb3fee14f42f37a6a4844051ffd670fd671d0ac632177bc9c931a",
+    "python/tests/test_native_analytical_workflows_binding.py": "25542257573a820732e85bfa0540fadc39f0e15bd6abf0a29aa2180208d81484",
+    "python/tests/test_native_application_batch_binding.py": "61eed2dc00741dcab1b0d25f87c51d728e229f86210659cce02213e7dda83f0c",
+    "python/tests/test_native_binding.py": "a5a1ba46acc2e93ef9c6c39dfe56499c5bba38619afd5e9483a8a21f1e1ab403",
+    "python/tests/test_native_float16_lifecycle_binding.py": "5b1968434169f03b4ba90d8c61137da9d58d2d9ff1f0905718f6acfe79943e06",
+    "python/tests/test_native_recursive_composition_binding.py": "2ff18f7f32e53fce7395006c3a530de86cbe59aa0bc9f27b37b467f8df66fe75",
+    "python/tests/test_native_tensor_binding.py": "4a8f7ac027db18017d62049fc528201fa4e9e1f3bf7cae61e58b346df188fffe",
+    "python/tests/test_native_tensor_variable_binding.py": "2068195054b558310f5a7256eb7a132a58953d40c2c8d480f867baf7a7cacaa4",
+    "scripts/check_golden_workflows.py": "73c74f48f405af5ea5369d9ef6fc01257aaa6b1119fe2858e7ae20319d83f6cb",
+    "scripts/ci_build_artifact.py": "53096ec298328803b86167092b5b03cae885e45eef6153b6953a5363de987ebe",
+    "scripts/prove_native_python_wheel.py": "28f2f7762de7708bd9566ce39e5a490f3c5a9eb3fdb803253df825f82ee58160",
+    "shardloom-cli/tests/vortex_prepare.rs": "fcd9442b8aba1e1e539df627094c96606d05cdef92ddf17b4f192e6f48b405bb",
+    "shardloom-exec/src/compute_pool.rs": "c7969e4a8ecaf6ffc6b517f4d4b35b1c6f49e7de999af6ff3aa14cad0e69c172",
+    "shardloom-exec/src/compute_pool_wait_tests.rs": "825f9c263aed14863119971c55511c6d99f6b33f942882a7b1200a5119dd124a",
+    "shardloom-exec/src/pulseweave.rs": "a9da9ca0a7d42d0d45a774cae6f87455389c9bb0cbef805e88b7d947ede059ce",
+    "shardloom-vortex/src/local_primitive_output_fanout_tests.rs": "1561c1efaa2e60ebcaeb9e9a7c9020d17649e6e4ebf46f13e0ad197d88355012",
+    "shardloom-vortex/src/local_primitive_pair_partition_native_tests.rs": "6c93513c135677b62d12237cf37cb111ad864241c985f18295fdbdd68736a971",
+    "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs": "e53ad01fa01754b0f66f1ff0c0f78d0a2811b0f8ac5519c2e64b84e6f7fbbdab",
+    "shardloom-vortex/src/local_primitive_relational_application_tests.rs": "1bea8bdf7b92f65400fe9f0f0eae5628c9c7d5a8a0f34fbd4e9b81fb00c75db3",
+    "shardloom-vortex/src/local_primitive_relational_expression_reuse_tests.rs": "fb589bc6ee24b0126211d91a4be20569800f0957e1bf0743c3648514beb6d98e",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_lifecycle_tests.rs": "be7162e9b6fb249aefb6946f00677ae74c65c1995596c0a7c79bda21cb706d32",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_mapped_tests.rs": "cc578d67398523894fb19c6515f5d04bb44033dfceda0e34774a002a705964ff",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_ranked_lifecycle_tests.rs": "dbe35267c3813ea39c10bc210f976c5704d89392d077207e00a0c0416a009db5",
+    "shardloom-vortex/src/local_primitive_relational_spatial_expression_tests.rs": "9f446ac917250dbdcf0a8d99eb3e2147511492f5a7c949527a68b90cc1e2fec4",
+    "shardloom-vortex/src/local_primitive_relational_vector_resource_tests.rs": "cc07564b8c8cb2e2eeb6ab32ed0102935c59e08a00dc7d62fe7c5ba6a13b1dcd",
+    "shardloom-vortex/src/local_primitive_string_delivery_tests.rs": "8f030514ab57a0a2a4ce6aa178ec31a7c7c5f08db43b455a4f65a24628e803a9",
+    "shardloom-vortex/src/local_primitive_string_wait_attribution_tests.rs": "7148f297ce142837162ca4eaed4d5ca2e33df4594302aacd43b4b464979b8b3e",
+    "shardloom-vortex/src/local_primitives.rs": "9c36fe436538a7859085f930a39dc978847c48c739c0d9a72dc2351cc3e7132f",
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs": "dbbbe2ab3a1badac037dc7ac8b877aed85d3311e8b9aaf2c9596551bf9235c7d",
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_jobs.rs": "70d44dcd4c0d3acb4c78f56cdebf6dcc27628eeda4f26b6f54c3921ad0c03a2b",
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_jobs_tests.rs": "37ab65648e401ca1377bfbc2c23cd05c637c949ba7261090d499500714cfe161",
+    "shardloom-vortex/src/local_primitives/aggregate_count_physical_key_tests.rs": "95771e7079891fc7e0e960a51e39c2c19c2bd26c3ce3b19890d8693532fd014e",
+    "shardloom-vortex/src/local_primitives/aggregate_count_workers.rs": "f8b1196e65dd42846adda07bf84ff1dbcfa63b951a203cd8ef086cfaa6537727",
+    "shardloom-vortex/src/local_primitives/aggregate_count_workers_tests.rs": "9fbe5a72eea5cb467affecf395074a5d0218288012102e6c5ea2ea0eb9327465",
+    "shardloom-vortex/src/local_primitives/compound_count_tests.rs": "0410c85b5c67aabb369fb3a34547f4909d287db5079f54954531af6a5491b6f5",
+    "shardloom-vortex/src/local_primitives/compound_count_workers.rs": "d0260a76d7721ddd36814b372c230217c8cb1864efefad42bf84926839f6a554",
+    "shardloom-vortex/src/local_primitives/dictionary_prepare_workers.rs": "0be914b712f67695aacc4061d3ca20abba733525b063760441309edc9a3708b3",
+    "shardloom-vortex/src/local_primitives/exact_distinct_workers.rs": "b25939d6e60ecd050e19a1a5b4c39ee9be28d20367c254468e5f57bd03177d93",
+    "shardloom-vortex/src/local_primitives/exact_distinct_workers_tests.rs": "863f5b3ff5a5081293f80799a018e485345a609d4868df34aec3c2bd1ac56c17",
+    "shardloom-vortex/src/local_primitives/filtered_string_count_tests.rs": "8295ebf542b78bac72cc613e9309c4a26f340e7e9e85d0014c5473f819447d13",
+    "shardloom-vortex/src/local_primitives/mixed_distinct_workers.rs": "3288536bb4cdaa51799b40b788bc85034a358040e2c2e4a1daca5c98c74bfa57",
+    "shardloom-vortex/src/local_primitives/native_relational_expression_reuse_tests.rs": "88a210586ba9a79ac33ac54ba91e551175d9a65f86c691ec2fca7fb4d295ea79",
+    "shardloom-vortex/src/local_primitives/native_relational_window_shared_identity_tests.rs": "73e1349a84a2c77c73ae53dae3e4349d8009da1817567b246e74592c23a73ed2",
+    "shardloom-vortex/src/local_primitives/pair_partition_tests.rs": "553398dbd2ac6e13768b9655eabb6023467e84f937a8d41f5fd1d928b262402e",
+    "shardloom-vortex/src/local_primitives/pair_partition_workers.rs": "d788b182d1403e72c7fd77d2b2ee5210eef281bd0fc6d46935370703449004de",
+    "shardloom-vortex/src/local_primitives/scalar_distinct_workers.rs": "8f08d2383a533e4de326c9ada91da19aab4d9a02c510a054e6aa6e311cf26e16",
+    "shardloom-vortex/src/local_primitives/triple_count_tests.rs": "66f99e064739ec7c1fd73a79412708a971587251c35cc276d6a33501e7ffe441",
+    "shardloom-vortex/src/local_primitives/triple_count_workers.rs": "bc428400c1a6197c788bb785942a9f7163e037d494b69251596acfc65b46caea",
+    "shardloom-vortex/src/local_primitives/utf8_integer_distinct_tests.rs": "a084173f9b66b6bf48f0b26df2f0da59d04976aa069e3089e5985da8a7fa4dd0",
+    "shardloom-vortex/src/native_duration_arrow.rs": "791aadce58b8722715d0b454d8c557a873f8bcd83b64d0a767b054e6075209b7",
+    "shardloom-vortex/src/resident_result_arrow_tests.rs": "6bfa457bdee975758ca223cd6c005ff0be8c01ec2a8f77ebfb134d981d2a900c",
+    "shardloom-vortex/src/vortex_ingest.rs": "896b558edc0a87370afd6a285a36761bf29e48a1cd38effe22c9a4edc5e11090",
+    "shardloom-vortex/src/vortex_ingest_owned_handoff_tests.rs": "6c273d3103f6bb950dd9851894893202716fdffb294ffde5b56b15f74012a312",
+    "shardloom-vortex/src/vortex_ingest_owned_tests.rs": "18ad813e338e234c48464a14a663fd7f48ef45596a3bbcccb93836796dfdd500"
+  },
+  "status": "local_acceptance_passed",
+  "wheel_sha256": "cfada9e86a12edc4f3438b9ca7978e8dc56a1cbb12bdbb5c44eb3bb5a858dc7b"
+}

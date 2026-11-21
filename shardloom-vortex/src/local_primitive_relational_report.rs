@@ -97,7 +97,13 @@ pub(super) fn certificate(
     } else {
         "shardloom.native_relational.vortex_0_90"
     };
-    let source_state = if columnar > 0 {
+    let reused_columns = input.is_some_and(|input| input.columnar_native_coverage_field_rows > 0);
+    let source_state = if columnar > 0 && !columnar_data && reused_columns && file_sources == 0 {
+        // The original source remains Parquet, but this operation receives
+        // previously realized native columns. Operator materialization below
+        // remains explicit; avoiding source decoding is not whole-query zero-decode.
+        RepresentationState::DecodedColumnar
+    } else if columnar > 0 {
         RepresentationState::ForeignEncoded
     } else {
         RepresentationState::VortexEncoded
@@ -138,11 +144,17 @@ pub(super) fn certificate(
         metrics.spillable_unary_reader_opens.get(),
     );
     let ownership_proof = input.map_or_else(String::new, |input| format!(
-        "intake_columnar_buffer_bytes_copied={} intake_columnar_buffer_bytes_transferred={} intake_columnar_buffer_regions_transferred={} intake_columnar_allocation_bytes_transferred={};actual_boundary_decisions;private_reader_transfer_requires_unique_standard_allocation_and_full_capacity_credit;public_producers_copy;not_decoder_rss_or_whole_query_zero_copy",
+        "intake_columnar_buffer_bytes_copied={} intake_columnar_buffer_bytes_transferred={} intake_columnar_buffer_regions_transferred={} intake_columnar_allocation_bytes_transferred={};actual_new_boundary_decisions;retained_native_source_coverage_is_not_new_arrow_intake;private_reader_transfer_requires_unique_standard_allocation_and_full_capacity_credit;public_producers_copy;not_decoder_rss_or_whole_query_zero_copy",
         input.intake_columnar_buffer_bytes_copied,
         input.intake_columnar_buffer_bytes_transferred,
         input.intake_columnar_buffer_regions_transferred,
         input.intake_columnar_allocation_bytes_transferred,
+    ));
+    let coverage_proof = input.filter(|input| input.columnar_sources > 0).map_or_else(String::new, |input| format!(
+        "native_source_coverage_field_rows={} native_source_coverage_regions={} native_source_coverage_retained_bytes={};optional_session_local_completed_native_columns;exact_held_file_generation_and_original_row_group_coordinates;prior_successful_operation_only;retained_bytes_are_maximum_observed_map_and_backing_capacity_including_pending_regions_not_final_residency_or_rss;source_reads_and_decodes_report_current_operation_only;native_operator_materialization_reported_separately;no_durable_fragment",
+        input.columnar_native_coverage_field_rows,
+        input.columnar_native_coverage_regions,
+        input.columnar_native_coverage_retained_bytes,
     ));
     let replay_proof = input.map_or_else(String::new, |input| format!(
         "streaming_replay_sources={} streaming_replay_passes={} streaming_replay_rows={} streaming_replay_batches_detached={} streaming_replay_rows_detached={} streaming_replay_buffer_bytes_copied={} streaming_replay_spilled_sources={} streaming_replay_prefilled_sources={}",
@@ -235,7 +247,7 @@ pub(super) fn certificate(
             accepted_operations: vec!["native_bound_scan".into()],
             rejected_operations: vec![],
             guarantee: if input.is_some() {
-                "declared_types_checked_each_batch;single_use_source_end_observed;all_input_buffer_owners_released_before_next_demand;declared_replay_native_owners_released_before_certification;output_ownership_detached;bound_file_generations_checked_before_and_after_final_consumer".into()
+                "declared_types_checked_each_batch;single_use_source_end_observed;input_delivery_owners_released_before_next_demand;bounded_optional_native_source_coverage_may_retain_credited_backing;declared_replay_native_owners_released_before_certification;output_ownership_detached;bound_file_generations_checked_before_and_after_final_consumer".into()
             } else {
                 "bound_types_and_generation_checked_before_and_after_final_consumer".into()
             },
@@ -357,6 +369,10 @@ pub(super) fn certificate(
         vec![],
     )?;
     let proof = &mut certificate.source_pushdown_report.proof_basis;
+    if !coverage_proof.is_empty() {
+        proof.push(' ');
+        proof.push_str(&coverage_proof);
+    }
     if metadata_counts > 0 {
         use std::fmt::Write as _;
         let rows = input.map_or(0, |input| input.metadata_count_rows);

@@ -140,6 +140,10 @@ fn parquet_join_parent_projection_retains_hidden_keys_and_omits_unused_payload()
             .fallback_attempted
     );
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }
 
@@ -458,6 +462,10 @@ fn parquet_join_nested_count_and_cross_projection_keep_native_row_records_and_sp
                 if spill { 2 } else { 0 }
             );
             drop(result);
+            prepared
+                .session
+                .shared_memory_pool()
+                .reclaim_optional_memory();
             assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
             if spill {
                 assert_eq!(fs::read_dir(&runs).unwrap().count(), 0);

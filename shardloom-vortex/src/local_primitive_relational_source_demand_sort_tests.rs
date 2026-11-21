@@ -62,6 +62,10 @@ fn parquet_demand_sort_keeps_hidden_keys_and_skips_unused_corrupt_payload() {
         assert_eq!(input.columnar_rows_decoded, 16);
         assert_eq!(input.columnar_prefix_sources, 0);
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }

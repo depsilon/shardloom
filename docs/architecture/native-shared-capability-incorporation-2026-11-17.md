@@ -28,8 +28,15 @@ execution evidence through the existing owners from intake to final delivery.
 The supplied review cites main at `6688dd9b9` after PR #1697. Its integration
 points were checked against the active deep-traversal worktree at `b83306a32`;
 this records the planning baseline, not a new remote-main or runtime acceptance
-claim. Proposed incorporation below remains unimplemented until owner evidence
-establishes otherwise. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
+claim. The [unit 1 owner map](native-shared-capability-owner-map-2026-11-17.md) now
+reconciles the named capabilities and seven boundary families. Its accompanying
+v2 reporting correction separates policy plans and task-role checks from actual
+scheduler application; unmeasured work stays unavailable. The November 18
+[local combined acceptance](native-shared-combined-acceptance-2026-11-18.md)
+completes the demonstrated lifecycle, seven-family reconciliation and public/package
+scope. The bounded performance screens admit no finite-feedback candidate;
+actual new feedback remains deferred pending material owner evidence. Hosted
+acceptance stays open. [Item 23's adaptive acceptance](native-adaptive-acceptance-2026-11-02.md)
 remains complete in its declared scope and must be reused, not reopened.
 
 Classification: `v1_candidate_pending_feasibility` for new performance
@@ -179,6 +186,83 @@ or a material pipeline imbalance. Composed COUNT, decode-to-consumer overlap and
 conversion-to-writer flow are candidates, not predetermined winners. Freeze the
 affected physical opportunities and nearby controls before implementation or
 measurement. A conspicuous missing connection alone does not establish value.
+
+### Completed-result cancellation correction
+
+The first required lifecycle correction is the completed-result merge boundary
+in `AggregateChunkJobs`, shared by count, distinct and dictionary preparation
+owners. Three regression tests fail on the preceding implementation: a
+completed result can enter its merge after cancellation, a cancellation during
+merge can still return success, and a caught merge panic can leave sibling work
+uncancelled. These are supported-path correctness obligations, not a proposed
+performance mechanism or evidence for a wider scheduling window.
+
+The correction checks cancellation before and after both borrowed and owned
+merges, cancels siblings on error or unwind, and preserves the original merge or
+recorded provider failure. Payload reservations and window permits remain held
+through consumption and cleanup. Fourteen focused lifecycle tests pass, including
+refusal/retry, ordered completion, worker failure, retained credit, normal
+retirement and the new cancellation cases. The follow-up caller review found
+that count workers had no enclosing-operation token, while dictionary and
+distinct preparation directly shared that token with a stage that cancels on
+drop. The eight non-spill job owners now derive a stage-local token that
+observes the enclosing operation without cancelling the parent on stage failure,
+retirement or drop. The native pair-partition test cancels inside an active
+worker, checks complete reservation refund, then executes the same prepared
+request with a fresh token and compares the full result. Existing dictionary
+and winner-distinct cancellation/recovery tests pass through the same change.
+The ninth owner, explicit weighted-count spill, retains its already separate
+shared spill/worker cancellation domain; its existing pressure, handoff and
+failure controls are included in the affected worker checks.
+
+The [source-bound acceptance record](../release/evidence/shared-native-capability-lifecycle-2026-11-17/validation.json)
+and compressed raw logs preserve all 200 distinct affected native tests, all
+3,346 default workspace tests across 108 targets, formatting, default workspace
+strict lint and enabled-native CLI/Vortex strict lint. They also retain the
+original three-regression failure and the corrected call-site compilation
+failure. At that checkpoint, full enabled-native, installed-package and hosted
+acceptance remained with the enclosing incorporation item. The later
+[combined acceptance](native-shared-combined-acceptance-2026-11-18.md) completes
+local workflow and source/package checks, records the no-candidate feedback
+decision and leaves hosted acceptance open. No new scheduler,
+provider, arithmetic, source order or output representation is introduced.
+
+### Bounded worker-wait attribution
+
+`ComputePool` now supports optional observations at its actual empty-worker and
+capacity-blocked producer waits. Ordinary construction leaves these observations
+unavailable. Observation metadata is reserved before worker startup; a closed
+snapshot follows the existing join boundary, while completed result credits
+remain with their final owners. Submission overhead and caller join waiting
+retain their distinct meanings. Elapsed worker waits include spurious wakeups,
+startup and shutdown, and can overlap other work; they are not engine time.
+
+The [frozen diagnostic and original outcomes](../release/evidence/shared-native-worker-observation-2026-11-17/README.md)
+exercise the real prepared numeric-pair aggregate across 18 declarations, once
+with optional waiting measurements disabled and once enabled. All 36 calls pass
+complete-value, schema, source-generation, no-fallback and final-refund checks.
+The six inputs span tiny, middle and million-row geometries, two-key and
+near-unique populations, and caller-inclusive parallelism 1, 2 and 4. Only the
+large near-unique declarations submit partition work; smaller inputs and sample
+declines remain controls. No producer waits on a full queue. The receipt window
+already bounds queued, active and completed-but-unconsumed work, and submission
+reserves against the same memory grant as the queue byte ceiling.
+
+The complete engine totals are 0.109595247 seconds with waiting measurements
+disabled and 0.107007254 seconds enabled. These are single observations with
+common capture overhead, no warmup and uncontrolled cache state; they establish
+neither a speedup nor a stable instrumentation-overhead bound. In particular,
+the saved Q34 UTF8 partition contention belongs to a different physical owner.
+No new queue policy is selected from this numeric-pair observation.
+
+Thirteen focused pool controls, five native pair controls, 3,351 default tests
+across 108 targets, strict default/native lint and formatting pass. The exact
+debug native inventory contains 4,449 tests and 40 intentionally ignored tests;
+the release profile correctly omits four debug-only diagnostics. All five
+original failed check attempts remain in the packet. Those observations remain
+unchanged. The subsequent [string delivery and combined acceptance](native-shared-combined-acceptance-2026-11-18.md)
+completes the enclosing local checks and reconciles all seven families. No new
+finite control is admitted; hosted acceptance remains open.
 
 ### Chrysalis and Resonance consume the foundation
 

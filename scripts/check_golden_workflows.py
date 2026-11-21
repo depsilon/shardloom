@@ -678,19 +678,20 @@ def workflow_local_csv_to_prepared_and_fanout(
                     "below_threshold_small_local_fixture"
                 ),
                 "vortex_capillary_preparation_prewrite_scheduler_applied": "false",
+                "vortex_capillary_preparation_prewrite_task_manifest_admitted": "false",
                 "vortex_capillary_preparation_prewrite_execution_window_count": "0",
                 "vortex_capillary_preparation_prewrite_execution_window_ids": "none",
                 "vortex_capillary_preparation_prewrite_array_build_gate_status": (
-                    "not_applicable_scheduler_not_applied"
+                    "not_applicable_manifest_not_admitted"
                 ),
                 "vortex_capillary_preparation_prewrite_write_gate_status": (
-                    "not_applicable_scheduler_not_applied"
+                    "not_applicable_manifest_not_admitted"
                 ),
                 "vortex_capillary_preparation_prewrite_reopen_gate_status": (
-                    "not_applicable_scheduler_not_applied"
+                    "not_applicable_manifest_not_admitted"
                 ),
                 "vortex_capillary_preparation_prewrite_sink_evidence_gate_status": (
-                    "not_applicable_scheduler_not_applied"
+                    "not_applicable_manifest_not_admitted"
                 ),
                 "vortex_capillary_preparation_prewrite_fallback_attempted": "false",
                 "vortex_capillary_preparation_prewrite_external_engine_invoked": "false",

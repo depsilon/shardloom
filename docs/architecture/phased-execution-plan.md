@@ -288,22 +288,27 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Complete source, runtime, installed-package and documentation acceptance.
   - [x] Complete ready-PR review, CI, merge and exact-main verification.
 
-- [ ] **Deep-traversal groundwork — PR checkpoint**
-  Status: PR checkpoint — implementation scope is closed at the maintainer's
-  November 17 request. Local source/provider checks pass; hosted checks remain required;
-  keep full deep-traversal acceptance open. Public nesting limits remain unchanged.
+- [x] **Deep-traversal groundwork — PR checkpoint**
+  Status: Complete (checkpoint closed) — [PR #1698](https://github.com/depsilon/shardloom/pull/1698)
+  merged as `abf1198a7` after all GitHub Actions PR checks passed (including
+  CodeQL, Python tests, Release readiness reports, Native test partitions, and
+  Native Python wheel acceptance; Cloudflare Workers retains the existing
+  maintainer exception). Keep full deep-traversal acceptance open; public
+  nesting limits remain unchanged.
   The [checkpoint and deferred scope](native-deep-traversal-checkpoint-2026-11-17.md)
   distinguish tested internal robustness from the still-unproven complete user workflow.
   Execution checklist:
   - [x] Complete current source/provider validation and package metadata; retain
     full hosted native/platform/package checks as separate required evidence.
-  - [ ] Open the ready PR and address review/check failures within this checkpoint.
+  - [x] Open the ready PR and address review/check failures within this checkpoint.
   - [x] Leave remaining deep traversal after Foundry integration.
 
 - [ ] **Shared native capability incorporation**
-  Status: Next — follows the deep-traversal PR checkpoint; takes priority
-  over every remaining queued item under the November 17 maintainer request,
-  including every unfinished item 20 obligation not absorbed into this plan.
+  Status: Local acceptance — the [November 18 result](native-shared-combined-acceptance-2026-11-18.md)
+  passes source, complete-workflow and installed-package checks. Hosted acceptance
+  remains pending required checks. The bounded performance screens admit no new
+  finite-feedback control; actual feedback stays deferred pending material owner
+  evidence. This item retains the November 17 priority and item 20/F ownership.
   The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
   extends item 20 and PulseWeave investigation F through existing admitted-operation,
   source, resource, operator and result owners. Item 23's completed adaptive
@@ -319,23 +324,28 @@ workflow, performance and acceptance work recorded in the historical notes.
     metadata-first execution, dynamic admission, timing boundaries and evidence
     tiers. Coordinate with existing adaptive sizing inside caller ceilings.
   Execution checklist:
-  - [ ] Map every named capability to current owners, callers, operative controls,
-    observation types, legal domains and remaining integration gaps.
-  - [ ] Select a material evidenced target and freeze affected opportunities and controls.
-  - [ ] Extend the shared Capillary lifecycle through completed results, downstream
+  - [x] Map every named capability to current owners, callers, operative controls,
+    observation types, legal domains and remaining integration gaps in the
+    [source-backed owner map](native-shared-capability-owner-map-2026-11-17.md).
+  - [x] Correct pure planning/application claims and preserve role checks;
+    v2 evidence keeps unobserved lifecycle and memory quantities unavailable.
+  - [x] Complete the declared numeric/UTF8 target screens and record no admitted
+    finite-feedback candidate without reviving removed experiments.
+  - [x] Extend the shared Capillary lifecycle through completed results, downstream
     retention, refusal, cancellation, drain and final-owner release.
-  - [ ] Connect finite PulseWeave feedback to actual settings with owner-proved application.
-  - [ ] Preserve compatible source/population facts, prepared keys/expressions and
-    native representations across existing and composed callers.
-  - [ ] Prove complete source-to-delivery ownership and reconcile all seven intake
+  - [x] Record the no-change feedback disposition; preserve current applied sizing
+    and keep new finite PulseWeave application explicitly deferred.
+  - [x] Verify compatible source/population facts, prepared keys/expressions and
+    native representations in the declared existing and composed controls.
+  - [x] Prove complete source-to-delivery ownership and reconcile all seven intake
     families with executed, justified-decline or explicit unobserved dispositions.
-  - [ ] Record the shared-contract dependencies for later Chrysalis and Resonance work.
-  - [ ] Complete scoped correctness/resource/performance, public-interface, source,
-    installed-package and hosted acceptance; move completed evidence to the ledger.
-  - Next outcome and scope: one complete relevant owner chain selected from
-    measured exposure, extending existing native context, source/conversion,
-    worker/operator, typed-observation and result/sink modules. Keep the public
-    CLI/Python/typed-relation/DataFrame/embedded interfaces on those shared owners.
+  - [x] Record the shared-contract dependencies for later Chrysalis and Resonance work.
+  - [x] Complete local correctness/resource checks, bounded performance dispositions,
+    public-interface, source and installed-package acceptance.
+  - [ ] Complete required hosted review/checks and merge; keep audit gates blocking.
+  - Next outcome and scope: hosted closeout proceeds independently while Chrysalis
+    and Resonance use the locally accepted shared ownership foundation. The seven
+    families bind 107 distinct executed tests, not blanket propagation coverage.
   - Acceptance and verification: real application at eligible physical opportunities,
     specific declines, truthful missing observations, unchanged semantics and
     ownership through delivery; exact owner tests, complete workflow controls,
@@ -348,22 +358,35 @@ workflow, performance and acceptance work recorded in the historical notes.
     `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
 
 - [ ] **Combined rich-data and analytical acceptance**
-  Status: Queued — follows shared native capability incorporation acceptance.
+  Status: Local acceptance — [complete mixed and analytical workflows](native-shared-combined-acceptance-2026-11-18.md#combined-user-workflows)
+  pass all 466 installed tests without skips. Hosted acceptance remains pending.
   Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
   and remaining [analytical program](native-broad-query-program-2026-10-26.md).
   Execution checklist:
-  - [ ] Reconcile existing-depth item-19 and item-20 obligations with accepted evidence;
+  - [x] Reconcile existing-depth item-19 and item-20 obligations with accepted evidence;
     carry the deferred deep-traversal lifecycle after Foundry integration.
-  - [ ] Verify complete mixed values, resource pressure and ownership across public interfaces.
-  - [ ] Record scoped acceptance and remaining independent competitive gates.
+  - [x] Verify complete mixed values, resource pressure and ownership across public interfaces.
+  - [x] Record scoped acceptance, the existing remote-refresh deferral and remaining
+    independent competitive gates; do not mark all of items 19/20 complete.
+  - [ ] Complete the enclosing batch's hosted acceptance.
 
 - [ ] **Chrysalis Cells and Map**
-  Status: Queued — follows combined rich-data and analytical acceptance.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  starts with exact partial native coverage for one immutable local Parquet source.
+  Status: Local acceptance (locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
+  the [prospective comparison report](../benchmarks/native-chrysalis-partial-coverage-2026-11-21.md)
+  and the [portable evidence packet](../release/evidence/chrysalis-partial-coverage-2026-11-21/README.md)
+  bind local source, resource, `NativeSession::close()` optional reclamation, release
+  build and isolated installed-wheel acceptance (`468/468` installed tests without skips).
+  The frozen 18-request sequential comparison records `150.509625 → 149.794248 ms`
+  engine time (`-0.48%`, with `numeric-overlap` `16.194250 → 12.276124 ms` and
+  `text-overlap` `54.002292 → 52.303834 ms`, while all eight non-reusing control groups
+  regress `+4.901207 ms` and `public_query_terminal_nanos` changes `169.037209 → 170.560665 ms`).
+  No large or general causal speedup, durability or competitive-gate closure is claimed;
+  hosted acceptance remains pending. The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  governs the following Resonance investigation.
   Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
-  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
+  - [x] Complete the targeted RFC and existing-provider review.
+  - [x] Implement the admitted bounded scope and complete-workflow acceptance.
+  - [ ] Complete the enclosing batch's hosted acceptance.
 
 - [ ] **Resonance Cells and Leases**
   Status: Queued — follows Chrysalis acceptance.

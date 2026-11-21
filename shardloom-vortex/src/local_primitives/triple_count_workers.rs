@@ -20,7 +20,10 @@ use super::{
 };
 use rustc_hash::FxHashMap;
 use shardloom_core::{Result, ShardLoomError};
-use shardloom_exec::live_memory::{Budgeted, LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{Budgeted, LiveMemoryPool, MemoryLease},
+};
 use std::{
     sync::{Arc, Mutex},
     time::Instant,
@@ -320,6 +323,7 @@ impl TripleWorkers {
         columns: &[String],
         policy: VortexLocalPrimitiveExecutionPolicy,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         let Some(roles) = roles(states, dtype, columns) else {
             return Ok(None);
@@ -357,11 +361,12 @@ impl TripleWorkers {
             })));
         }
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                cancellation,
             )?,
             partitions,
             roles,

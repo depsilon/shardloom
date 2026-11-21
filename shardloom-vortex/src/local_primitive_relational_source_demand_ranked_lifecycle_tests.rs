@@ -34,6 +34,7 @@ impl RankedConsumer for Hook<'_> {
             }
             "select_cancel" => self.token.cancel(),
             "pressure" => {
+                context.memory().reclaim_optional_memory();
                 let memory = context.memory().snapshot();
                 self.pressure = Some(
                     context
@@ -102,7 +103,7 @@ fn ranked_demand_phase_failures_reject_completion_release_credits_and_allow_fres
                 assert!(input.run_ranked(0, &["id".into()], 2, context, &mut hook)?);
                 Ok(())
             });
-        let error = result.expect_err("phase failure must not complete");
+        let error = result.expect_err(&format!("phase failure {failure} must not complete"));
         assert!(hook.rank_calls > 0, "{failure}");
         if failure == "consumer" {
             assert!(hook.payload_calls > 0 && error.to_string().contains("consumer sentinel"));

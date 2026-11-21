@@ -1,4 +1,4 @@
-"""Raw binary16 reference values and mixed native lifecycle fixtures."""
+"""Raw binary16 values and the complete mixed document/portfolio lifecycle."""
 
 import struct
 
@@ -87,6 +87,8 @@ def _fixture(count, *, finite=False):
         ("tensor", t.fixed_shape_tensor(half, [2, 2], permutation=[1, 0], dim_names=["行", "column"])),
         ("variable", t.variable_shape_tensor(half, 2, permutation=[1, 0], uniform_shape=[None, 2])),
         ("content", t.binary()),
+        ("portfolio_id", t.string()),
+        ("attributes", t.struct({"label": t.string(), "ranks": t.list_(t.int16())})),
     ]
     fields = [_arrow_field(name, dtype, pa) for name, dtype in declarations]
     by_name = {field.name: field for field in fields}
@@ -128,5 +130,12 @@ def _fixture(count, *, finite=False):
                                           mask=parent_mask)
     columns = [pa.array(range(count), pa.int64()), values(count), ragged, vector, embedding,
                *collections, tensor, variable,
-               pa.array([bytes((row % 251, 0, 255)) * 192 for row in range(count)], pa.binary())]
+               pa.array([None if row % 11 == 0 else b"" if row % 7 == 0 else
+                         bytes((row % 251, 0, 255)) * 192 for row in range(count)], pa.binary()),
+               pa.array([None if row % 19 == 0 else f"portfolio/東京-{row % 5}"
+                         for row in range(count)], pa.string()),
+               pa.array([None if row % 13 == 0 else {
+                   "label": None if row % 3 == 0 else f"文-{row}",
+                   "ranks": [] if row % 5 == 0 else [row % 32767, None, -(row % 32767)],
+               } for row in range(count)], by_name["attributes"].type)]
     return pa.Table.from_arrays(columns, schema=pa.schema(fields))

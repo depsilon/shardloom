@@ -1,0 +1,120 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Shared native capability owner and control map
+
+This is unit 1 of the [shared incorporation plan](native-shared-capability-incorporation-2026-11-17.md),
+grounded in the tree based on `d699e18a6` and the accompanying reporting correction.
+It records source applicability, not a new performance result. The November 18
+[combined acceptance](native-shared-combined-acceptance-2026-11-18.md) subsequently
+reconciles 107 executed native tests across all seven families and completes the
+bounded local lifecycle/public/package scope. No new finite-feedback candidate
+is admitted; actual feedback and unexplored reuse remain deferred or unobserved.
+Hosted acceptance stays open. The [phase plan](phased-execution-plan.md#current-execution)
+owns the queue; deep traversal remains after Foundry.
+
+The governing distinction is **proposed → admitted → executed → completed**.
+A descriptor, input certificate or proposed window cannot establish a later
+stage. The existing operation, worker, allocator, source and result owners remain
+authoritative. No new scheduler, global cache or evidence framework is added.
+
+## Capability reuse map
+
+“Implemented” below describes the named source boundary only. “Partial” means
+an existing implementation has a narrower domain than the incorporation plan.
+“Planning only” is not an execution decline: execution has not been observed.
+Links identify implementation and callers; explicit symbols make the map usable
+without fragile line numbers.
+
+| Capability | Concrete owner and callers | Operative control and observation | Legal domain, gap and disposition |
+| --- | --- | --- | --- |
+| Capillary Units | [`AggregateChunkJobs` / `CompletedChunk`](../../shardloom-vortex/src/local_primitives/aggregate_chunk_jobs.rs), called by [`aggregate_count_workers`](../../shardloom-vortex/src/local_primitives/aggregate_count_workers.rs), [`compound_count_workers`](../../shardloom-vortex/src/local_primitives/compound_count_workers.rs), [`exact_distinct_workers`](../../shardloom-vortex/src/local_primitives/exact_distinct_workers.rs) and dictionary preparation. The [ingest task manifest](../../shardloom-vortex/src/vortex_ingest.rs) is a separate planning representation. | Jobs reserve input credit, bound outstanding work, choose existing inline/worker paths, join in order and retain credit plus window permit through partial consumption. `submitted`, `joined`, outstanding/peak counts and scoped busy/wait clocks come from these jobs. | Implemented for admitted job families. A completed partial is still outstanding until consumed. Manifest roles do not prove that any such job ran; dependent ingest stages have no split/reorder/coalesce permission. Extend an evidenced owner in unit 2; retain existing job ownership. |
+| FlowInventory | [`plan_flow_inventory`](../../shardloom-exec/src/pulseweave.rs) is called by `plan_pulseweave`; its only production caller is `capillary_pulseweave_report` in ingest. Actual queue owners include [`ComputePool`](../../shardloom-exec/src/compute_pool.rs), `AggregateChunkJobs` and `StreamingColumnarVortexPrefetch`. | The policy computes a proposed WIP limit and estimated holds. Real owners enforce queue/window limits and observe their own lifecycle. The pure report has no queue connection. | Planning only in the named report. v2 leaves ready/running/completed/failed/held/backpressure observations unavailable. Do not sum overlapping owner snapshots into invented global counts. Connecting bounded owner observations is open. |
+| ScarcityLedger | [`compute_scarcity_ledger`](../../shardloom-exec/src/pulseweave.rs); admission authority remains [`LiveMemoryPool::reserve`](../../shardloom-exec/src/live_memory.rs), worker queues and the writer. | Pure policy costs use task estimates, configured caps and supplied observations. A price is a policy score, not measured memory, queue wait or saved work. No reservation is made by the ledger. | Planning only. Reservation refusal and exhausted memory block admission; splitting requires every supplied shape to permit it. No price or manifest estimate may replace live reservation or claim provider/RSS coverage. |
+| EndoPulse | [`plan_endopulse_adjustment`](../../shardloom-exec/src/pulseweave.rs), called by the pure planner. Existing applied sizing belongs to [`AdaptiveWorkSizer`](../../shardloom-exec/src/adaptive_work.rs) and its owner adapters. | Computes proposed target bytes/WIP from supplied signals. It does not consume a completed window or change a scheduler. v2 separates `adjustment_proposed` from `adjustment_applied=false`. | Planning only. A future connection must let the existing owner select and apply one setting; do not put a competing controller beside `AdaptiveWorkSizer`. |
+| ProofBound | [`evaluate_proofbound_auto_gate`](../../shardloom-exec/src/pulseweave.rs); prerequisite inputs originate at the requesting owner. [`NativeIoCapabilityDecisions`](../../shardloom-core/src/native_io_decisions.rs) supplies the existing considered/admitted/executed vocabulary elsewhere. | Validates route, caps, explicit boundaries, no-fallback policy and supplied certificates. v2 exposes `prerequisite_evidence_status` separately from unobserved post-application evidence. | Prerequisite checking implemented; scheduler execution proof absent. A certified output does not certify a control. `claim_allowed=false` for every pure plan, including fully certified prerequisites. |
+| PulseWeave | [`plan_pulseweave`](../../shardloom-exec/src/pulseweave.rs) and ingest's `capillary_pulseweave_report`; [`NativeExecutionContext`](../../shardloom-vortex/src/resident_execution_context.rs) already owns admission and operation-scoped evidence. | Combines the pure decisions. No current production caller consumes `batch_window_size` to execute work. v2 identifies `policy_plan`, distinguishes proposal admission and never sets application/policy-mutation flags. | Planning only in this report; finite runtime coordination remains open. Historical prepared-batch names and v1 evidence are not current caller proof. No provider expansion or new operation admission context is needed. |
+| Adaptive work sizing | [`AdaptiveWorkSizer::decide` / `complete`](../../shardloom-exec/src/adaptive_work.rs), [`native_work_sizing::Rows`](../../shardloom-vortex/src/native_work_sizing.rs), demanded input batch sizing, text streaming, ingest prefetch, result buffering and compatibility sinks. | Actual owners select against live headroom, reserve their allocations, complete selected windows and record owner-scoped work. Observed compact output cost can inform the next selection; borrowed backing size cannot stand in for per-row construction cost. | Implemented in [item 23's accepted scope](native-adaptive-acceptance-2026-11-02.md); reused unchanged here. Estimates do not bound indivisible provider decode workspace. New controls must preserve this authority and the cheap inline path. |
+| SourceState / VortexPreparedState | These are architectural/cache roles, not universal runtime wrapper types. Concrete owners are [`SourceIdentity`](../../shardloom-vortex/src/source_identity.rs), [`PreparedVortexSource`](../../shardloom-vortex/src/resident_session.rs), [`FlatLocalSourceTable` / columnar stream sources](../../shardloom-vortex/src/universal_format_io.rs), demanded readers and ingest's preparation reports. | Held file generations, explicit schemas/field bindings and optional preparation identity survive readers and publication checks. [`apply_source_demand`](../../shardloom-vortex/src/local_primitive_relational_source_demand.rs) rebinds expressions after physical narrowing. | Partial across admitted sources. A Unix file-generation identity is not a content hash or snapshot; producer/memory lifetimes have different identities. Native execution does not require durable preparation. Reuse facts only for matching generation, interpretation and population. |
+| Scout ingress / triage | [`evaluate_vortex_scout_ingress`](../../shardloom-vortex/src/vortex_ingest.rs), called by [`sql_local_source_runtime`](../../shardloom-cli/src/sql_local_source_runtime.rs). Actual readers own parsing and validation. | Produces triage fields from supplied source characterization, malformed/schema/shape observations and quarantine plans. The evaluator performs no source read, validation pass or quarantine write. | Planning/triage reporting implemented. Preserve reader errors and full-validation obligations; samples cannot prove exact pruning, absence of errors or complete source coverage. Cross-owner characterization reuse requires a matching identity. |
+| Vortex Layout/Write Advisor | Ingest's [`VortexLayoutWriteRuntimeDecision` and writer option builders](../../shardloom-vortex/src/vortex_ingest.rs), with CLI source characterization. | Admitted decisions feed actual Vortex row blocks, compression/concurrency and supported physical writer choices. `StreamingColumnarVortexPrefetch` independently bounds conversion and completed arrays before writer handoff. | Implemented for admitted writer choices; distinct from the pure capillary manifest. Read/conversion/writer overlap and downstream retained allocation scope must be proved at these owners. Do not infer scheduler execution from the advisor's name or a proposed layout. |
+| Copy budget / buffer lifecycle | [`ReservedHostAllocator` / retained credits](../../shardloom-vortex/src/owned_buffers.rs), [`native_payload`](../../shardloom-vortex/src/local_primitives/native_payload.rs), native results and controlled intake owners. Ingest also emits copy-budget reports. | Allocator and transferred owner credits follow backing storage, including clones/slices; payload copies reserve destination and scratch. Typed I/O decisions record copied/transferred bytes where measured. | Partial by allocation provenance and admitted provider. A small view may retain a large backing allocation. Report-only reuse counts are not universal allocation or zero-copy proof; provider allocations outside the controlled owner remain outside that accounting. |
+| Native keys / RowIndex | [`native_relational_keys`](../../shardloom-vortex/src/local_primitives/native_relational_keys.rs), [`RowIndex`](../../shardloom-vortex/src/local_primitives/native_relational_index.rs) and key caches, consumed by grouping, joins, DISTINCT, sets and window helpers. | Reserved index storage, exact equality after hash candidate selection, inline first row and ordered duplicate chains. Domain-specific caches retain their key/input owners. | Implemented in admitted domains; reuse equality and preparation without forcing distinct algorithms into one container. Dictionary IDs alone prove no cross-dictionary equality; samples and fingerprints alone prove no membership. Preserve multiplicity and reduction order. |
+| Completed expressions / compatible window state | [`Expression::bind_projection_reuse`](../../shardloom-vortex/src/local_primitives/native_relational_expression_reuse.rs), projection evaluation and [`window shared identity`](../../shardloom-vortex/src/local_primitives/native_relational_window_shared_identity.rs). | Reuses prior completed projection outputs under exact semantics; window sharing checks family, input/filter keys, frame/order and numerical options. Lazy subexpressions on different populations are not rebound to full-input results. | Implemented narrowly. No arbitrary cross-operation memoization or floating reduction reassociation. Preserve selected population, evaluation/error order and bounded comparison work. Additional composition reuse remains evidence-selected. |
+| OutputPlan / ResultBatchState / SinkArtifact | Architectural roles implemented by [`OwnedVortexResultBatch`](../../shardloom-vortex/src/resident_session.rs), [`native result buffers`](../../shardloom-vortex/src/local_primitive_result_batch.rs), [`fanout producer`](../../shardloom-vortex/src/local_primitive_output_fanout_producer.rs), replay and [`Staged::publish`](../../shardloom-vortex/src/local_primitive_output_fanout.rs). | Native output retains array owners; admitted fanout computes once through common replay; each requested adapter writes staging output before publication. Synchronous delivery and bounded replay own pressure/retention. | Partial to admitted results/adapters. The generic `write` helper itself replays its callback per target; compute-once credit belongs to the producer path. Conversion sharing is not universal. A late multi-target publication failure may leave earlier complete outputs visible. |
+| Native I/O decisions / execution certificates | [`NativeIoCapabilityDecisions`](../../shardloom-core/src/native_io_decisions.rs) and [`NativeExecutionContext::record_capability_decision`](../../shardloom-vortex/src/resident_execution_context.rs), supplied by the physical owners. | Six bounded summaries distinguish considered/admitted/declined/executed and optional owner observations. Recording admission does not increment execution. Missing quantities remain `None`. | Implemented for instrumented capabilities. This is the reuse point for future bounded scheduling observations; it currently does not observe the full scheduling lifecycle. Do not manufacture frequency from reason sets or device bytes from logical operands. |
+| Dynamic work shaping / Bayesian advisor | [`DynamicWorkShapingReport`](../../shardloom-exec/src/sizing.rs) and the [Bayesian design](bayesian-performance-layout-advisor.md), separate from applied native sizing and Vortex writer options. | Advisory estimates and candidate recommendations; no newly fitted controller or executing caller is established by this audit. | Advisory/queued. Preserve existing report-only posture. No inferred application, learned speedup or automatic tuning scope is added. |
+
+## Seven boundary dispositions
+
+These rows reconcile intake through delivery without claiming the Cartesian
+product of interfaces, formats and operators has been tested. CLI SQL, Python
+SQL, typed relations, DataFrame and embedded workflows reuse their existing
+native owners where admitted. The table below identifies the original proof
+locations. The later [executed matrix](native-shared-combined-acceptance-2026-11-18.md#seven-family-reconciliation)
+binds the exact passing tests without claiming every adjacent opportunity.
+
+| Boundary | Source-backed incorporation and operative constraint | Existing proof / remaining work |
+| --- | --- | --- |
+| Intake, direct execution, optional preparation | `SourceIdentity`, direct demanded readers, `apply_source_demand` and optional ingest preserve source/field interpretation. Narrowing must rebind field positions; deferred discovery keeps full schemas. Completion must still satisfy validation and peer consumers. | [Demand lifecycle tests](../../shardloom-vortex/src/local_primitive_relational_source_demand_lifecycle_tests.rs) and [mapped demand tests](../../shardloom-vortex/src/local_primitive_relational_source_demand_mapped_tests.rs). Text, columnar, memory and producers have distinct completion obligations. Broader fact reuse remains partial. |
+| Reading, conversion, preparation-to-writer | `StreamingColumnarVortexPrefetch::fill_window` counts queued plus completed pending arrays, reserves before submission, records sizing completion and yields ordered arrays. Writer handoff is a separate ownership boundary. | Ingest tests cover capillary roles, conversion, cancellation and writer behavior; the current correction executes focused manifest/writer controls. Unified live inventory through downstream retained output remains open; legacy task credits end at handoff and do not prove universal provider accounting. |
+| Expressions, selections, encoded computation | Projection reuse and native accessor/provider owners preserve selected domains. Existing encoded comparisons and FSST matcher reuse have operation-scoped evidence in `NativeExecutionContext`. | [Expression reuse controls](../../shardloom-vortex/src/local_primitive_relational_expression_reuse_tests.rs); representation-specific owners retain their existing gates. No new shared expression engine or eager lazy-branch work. |
+| Grouping, joins, DISTINCT, sets, windows | Native key owners, `RowIndex`, budgeted chunk jobs and compatible window state already serve these families. The [composed COUNT bridge](../../shardloom-vortex/src/local_primitives/native_relational_aggregate_count_partial.rs) is narrowly admitted integer work. | [Chunk lifecycle controls](../../shardloom-vortex/src/local_primitives/aggregate_chunk_jobs_tests.rs) and [window sharing identity controls](../../shardloom-vortex/src/local_primitives/native_relational_window_shared_identity_tests.rs). Expansion, retained partials and ordered merging remain owners' obligations. COUNT is a candidate, not proof that worker overlap is useful. |
+| Ordering, bounded ranking, spill, replay | Existing sort/ranking payload owners, [spill sizing](../../shardloom-vortex/src/local_primitives/native_relational_spill_sizing.rs) and [batch replay](../../shardloom-vortex/src/local_primitive_relational_batch_replay.rs) retain comparator, source, quota and cleanup contracts. | [Ranked lifecycle controls](../../shardloom-vortex/src/local_primitive_relational_source_demand_ranked_lifecycle_tests.rs) and replay pressure/recovery tests. Local order is not global order. Removed full-sort/spill performance investigations remain removed. |
+| Native results, conversion, fanout, publication | Native array ownership survives source closure; adapters convert only at requested boundaries. Shared producer replay is separate from generic repeated writes. `Staged::publish` revalidates all sources/targets before publishing each complete output. | [Fanout controls](../../shardloom-vortex/src/local_primitive_output_fanout_tests.rs) and [Arrow result controls](../../shardloom-vortex/src/resident_result_arrow_tests.rs). Cross-adapter conversion sharing and slow-consumer lifecycle expansion remain partial, not automatically implemented. |
+| Vectors, spatial/nested values, application batches | [`native_vector_input`](../../shardloom-vortex/src/local_primitives/native_vector_input.rs) credits coordinates/selected spans; [`native_spatial`](../../shardloom-vortex/src/native_spatial.rs) uses native coordinate/list layouts; payload and [application batch](../../shardloom-vortex/src/application_batch.rs) owners keep the same operation and effect boundaries. | [Vector resource controls](../../shardloom-vortex/src/local_primitive_relational_vector_resource_tests.rs), [spatial expression controls](../../shardloom-vortex/src/local_primitive_relational_spatial_expression_tests.rs) and existing callback tests. Reuse only identical immutable spans/preparations under matching semantics. No separate scheduler; public depth limits stay unchanged. |
+
+## Reporting correction and compatibility
+
+The pure PulseWeave, FlowInventory, EndoPulse, ProofBound and capillary
+preparation schemas advance to v2. Historical v1 artifacts stay unchanged and
+remain readable by the Python validator. The internal Rust reports use optional
+observations and emit the stable literal `unavailable`; policy estimates keep
+separate names. ScarcityLedger's cost-score schema remains v1 because those
+fields still describe deterministic policy scores rather than measured work.
+
+Fully certified prerequisites can produce `planned` with
+`pulseweave_decision_admitted=true`, but never application, policy mutation or a
+claim-grade certificate. Missing prerequisites remain blocked. The capillary
+manifest itself emits `planned_capillary_task_manifest`, with zero executed
+windows, no scheduler application and unavailable peak memory. Its synthetic
+manifest certificate is not execution proof. Prewrite role checks still execute
+and report `task_manifest_admitted` / `validated_task_role`; a missing required
+role still fails before its stage. Small-input skip behavior is preserved.
+
+This changes report interpretation, not query scheduling or Vortex data output.
+It does not revoke the independently applied `AdaptiveWorkSizer`, worker, native
+allocator or layout/write controls. Consumers that pin the affected v1 schemas
+must accept v2 and handle `unavailable` rather than parsing it as zero. The live
+CLI assertion and Python validation controls change with the producer.
+
+## Acceptance boundary
+
+Unit 1 closed the owner inventory and false planning/application claims. The
+later lifecycle correction and actual worker-to-delivery controls close the
+demonstrated correctness/resource gaps. Bounded numeric and UTF8 observations
+select no new scheduling control. This is a completed feasibility screen, not
+implemented finite feedback or a revival of prior conversion/COUNT experiments.
+Pinned Vortex array/scan/sink providers remain at their existing boundaries;
+no provider or dependency is added.
+
+The conversion handoff was checked specifically against
+[`source_handoff_and_slice_lifetime_share_the_prefetch_pool`](../../shardloom-vortex/src/vortex_ingest_owned_tests.rs)
+and the [owned conversion overlap control](../../shardloom-vortex/src/vortex_ingest_owned_handoff_tests.rs).
+On the admitted native-memory route, the task lease and the array's allocation
+owners are separate: releasing the former at handoff does not release the
+latter. A retained slice keeps its backing credit after the iterator is gone,
+and both inline and prefetched conversion use that contract. The legacy
+pre-writer lease therefore does not establish a missing native allocation
+owner or justify double-charging the same buffers. That original review did not
+count as a new execution. The later full native suite executes these controls
+and binds them in the seven-family matrix.
+The [prior ingest window decision](native-ingest-batch-window-scheduling-2026-10-25.md)
+also supplies no retained scheduling candidate to repeat unchanged. Future
+performance proposals still require new material exposure and a legal control.
+
+The [local validation record](../release/evidence/shared-native-capability-reporting-2026-11-17/validation.json)
+links exact changed-owner tests, default workspace
+gates, enabled-native lint and CLI preparation acceptance. Full hosted/platform
+acceptance of the preceding deep-traversal checkpoint is separate and still
+subject to its recorded CI failures. There is no new speedup, output-depth,
+publication, production-readiness or fallback-execution claim.
