@@ -394,6 +394,7 @@ mod local {
             for plan in [plain, alias.clone(), alias.compact_streaming()] {
                 let prepared = files.prepare(&plan);
                 let memory = prepared.session.memory().clone();
+                let baseline = memory.snapshot().reserved_bytes;
                 assert_eq!(complete(&prepared, &expected, 31, false).executions, 1);
                 let result = prepared
                     .collect_jsonl(&CancellationToken::default())
@@ -401,10 +402,40 @@ mod local {
                 assert_eq!(json_rows(&result), expected);
                 let input = result.execution.input.as_ref().unwrap();
                 assert_eq!(input.columnar_sources, 3);
-                assert_eq!(input.columnar_rows_decoded, 396);
+                if format == "parquet" {
+                    assert_eq!(input.columnar_rows_decoded, 0);
+                    assert_eq!(input.columnar_data_read_bytes, 0);
+                    assert!(input.columnar_native_coverage_field_rows > 0);
+                    assert!(input.columnar_native_coverage_regions > 0);
+                } else {
+                    assert_eq!(input.columnar_rows_decoded, 396);
+                    assert_eq!(input.columnar_native_coverage_field_rows, 0);
+                }
                 assert_eq!(input.join_build_rows_detached, 264);
                 assert!(input.join_build_batches_detached > 0);
                 drop(result);
+                if format == "parquet" {
+                    assert_eq!(
+                        prepared.snapshot().reserved_without_source_segment_cache(),
+                        baseline
+                    );
+                    prepared
+                        .session
+                        .shared_memory_pool()
+                        .reclaim_optional_memory();
+                    assert_eq!(memory.snapshot().reserved_bytes, baseline);
+                    let cold = prepared
+                        .collect_jsonl(&CancellationToken::default())
+                        .unwrap();
+                    assert_eq!(json_rows(&cold), expected);
+                    let cold_input = cold.execution.input.as_ref().unwrap();
+                    assert_eq!(cold_input.columnar_sources, 3);
+                    assert_eq!(cold_input.columnar_rows_decoded, 396);
+                    assert_eq!(cold_input.columnar_native_coverage_field_rows, 0);
+                    assert_eq!(cold_input.join_build_rows_detached, 264);
+                    assert!(cold_input.join_build_batches_detached > 0);
+                    drop(cold);
+                }
                 drop(prepared);
                 assert_eq!(memory.snapshot().reserved_bytes, 0);
             }
@@ -475,6 +506,14 @@ mod local {
                 });
             assert!(replaced);
             assert!(failure.err().unwrap().to_string().contains("changed"));
+            assert_eq!(
+                prepared.snapshot().reserved_without_source_segment_cache(),
+                baseline
+            );
+            prepared
+                .session
+                .shared_memory_pool()
+                .reclaim_optional_memory();
             assert_eq!(memory.snapshot().reserved_bytes, baseline);
             drop(prepared);
             assert_eq!(memory.snapshot().reserved_bytes, 0);

@@ -147,6 +147,16 @@ impl RuntimeOwner {
 }
 
 impl NativeExecutionContext<'_> {
+    /// Completed local-column reuse is initially limited to ordinary serialized
+    /// operations. Serving calls preserve their existing independent readers.
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+    pub(crate) fn columnar_coverage(&self) -> Option<(&super::columnar_coverage::Store, u64)> {
+        (self.class == CallClass::General && matches!(&self.gate, Gate::Exclusive(..)))
+            .then(|| self.owner.source_segments.columnar_coverage())
+            .flatten()
+            .map(|store| (store, self.operation))
+    }
+
     /// Only certificate-producing terminal owners opt into reuse. Nested
     /// operators share their enclosing scope; ordinary provider callers and
     /// report-only legacy operations keep the existing uncached route.

@@ -71,6 +71,10 @@ fn ranked_admission_declines_before_source_work_and_preserves_native_execution()
                 Ok(())
             })
             .unwrap();
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
         let result = prepared
             .collect_jsonl(&CancellationToken::default())
@@ -95,6 +99,10 @@ fn ranked_admission_declines_before_source_work_and_preserves_native_execution()
             u64::from(eligible)
         );
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }

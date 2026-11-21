@@ -1,0 +1,498 @@
+{
+  "archive": {
+    "bytes": 9614830,
+    "path": "observations.json.gz",
+    "sha256": "ea2afafed01e32da4c91a99349290ab62b9025df30f3d8ed08ea043298d79f6f"
+  },
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "coverage-format-r6",
+      "process_group_drained": true,
+      "receipt_sha256": "15f1bf198ce554fb9ac6f3af7151f103b68a450302dcde50f1ee316129b4b994",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "9c72cfa11d8a0407a2b195bf6c7a905e29e6439dc408b53462709fe1d4336af7",
+      "name": "coverage-native-cli-lint-r6",
+      "process_group_drained": true,
+      "receipt_sha256": "ab81ac4bc68ff2ee1b88468c24f403b041a8f93e8f35d94cd3c1ad070be348d8",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "b4dc080c56f329b5c3b00de1c6ed38c09d184ef6f37a3ac52daeb57e5775b442",
+      "name": "coverage-default-lint-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "691a58afc3ff7d23edcc97b99f7c665ce7f3beeb751bbee5250957f9ae9455ad",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "2ef656184ac6e6ced84cd45f15876e1894cfde0ee66e2e596d81b3dd86075e3a",
+      "name": "coverage-default-tests-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "7ef41dd5db3871a51b046e33e3dc24d9fd5659b66a2133ac1860d8dd6489e540",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 3351,
+        "targets": 108
+      },
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--profile",
+        "ci-native",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "c1f59fdfedbc7eb25ef3c04dd51c68ea72568ddfb3b6f8460a2b1e6c1fe0451e",
+      "name": "coverage-native-full-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "f81d9435175586480c2a7c4fec6a16769476f3640e3ff54fecc1ceac95bedd8d",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 42,
+        "passed": 4449,
+        "targets": 17
+      },
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/check_native_inventory_r5.py"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "bd7639376d309f705db58961aaeae724169df3eeb410009f89aaafbc93dba201",
+      "name": "coverage-native-inventory-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "95e18a73e36c89ab2d569521e2469ede39e1b7c4c50568f9ee4124f99d41c7af",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--lib",
+        "--bin",
+        "shardloom",
+        "--test",
+        "vortex_prepare",
+        "--test",
+        "public_memory_inputs",
+        "--test",
+        "public_workflow_route",
+        "--test",
+        "resident_worker",
+        "--test",
+        "capability_runtime_discovery",
+        "--test",
+        "capability_discovery_snapshots",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "aa068217fa9d983c302276c822515f5ad00211156bd4e2c080b8828337979688",
+      "name": "coverage-public-cli-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "85488f65841a6f851376ed178e92caa0aaf3cbb2372ad793157e335f31a9fdd6",
+      "sources_unchanged": true,
+      "status": "passed",
+      "tests": {
+        "failed": 0,
+        "ignored": 0,
+        "passed": 1257,
+        "targets": 8
+      },
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "6a0d5fb3019422b72db67e381ee29c02c91b4ae71d91f01cba05c21a93419f7c",
+      "name": "coverage-all-features-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "58950de11e189e9be78d2099f2835d77afbbb1b0fec37087e0e681224b87c58e",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "9ef71677310c96d4490707bd7d4557a11b4cadeadb2df9597c8bfe7c324e8516",
+      "name": "coverage-minimal-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "ccb97de1b5f5c6add35bc1238f0132e67830150d3aaadfa2f6f53626c6c0ed70",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--no-default-features"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "438a159edcf0495e6aed8df79c93692b383d8bf8bf22c50f0266f700838ece71",
+      "name": "coverage-msrv-minimal-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "4d3caf8c81825d245ab5150fd7cd1ab3a9de4d218539e907da729d7c39ba159b",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "cargo",
+        "check",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "86082fa30db1b32bb0d95fdb0ffdbcca6f890a9ead3946dcd31e50c7dae77783",
+      "name": "coverage-msrv-native-r5",
+      "process_group_drained": true,
+      "receipt_sha256": "c51e17d46d7fda495308dab2ab41f6e2f18c9dce018461bfeb8a56f8a5026e27",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/ci_build_artifact.py",
+        "build",
+        "--product",
+        "cli-release",
+        "--directory",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/runtime-r2-cli"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "90e0f147673a6bfc3872a85e768c56773eb88bdf87e1523ae8a18e3a86e617ea",
+      "name": "coverage-cli-build-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "173c00c2325b48a3f4e909fc3a31ce7b1ff9c55958d583c654e76e6b76046f24",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "/opt/homebrew/opt/python@3.13/bin/python3.13",
+        "-B",
+        "scripts/ci_build_artifact.py",
+        "build",
+        "--product",
+        "native-extension",
+        "--directory",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/runtime-r2-extension"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "1e0b250c9d682729b5373aa18a529c980c3896020fdb314ce93e4417c62804a9",
+      "name": "coverage-extension-build-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "ecea85db5ee412a5bfbfe215d3832c97d7eddc65f6b31ebd23fa805d4a11a086",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/focused-python-r1/bin/python",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/run_candidate_focused_r2.py"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "076570d795b666be350c8e3ebe89f3543a81211f534b4cb9fa23bd714d1acdc6",
+      "name": "coverage-focused-python-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "7ca5cb7550b66ec0f4fea6e2a44d3e0b66daea2a8a0a86f79d7f772723ca5cc8",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    },
+    {
+      "command": [
+        "/Users/dylan/LocalData/shardloom/native-pipeline-sql-minute-2026-11-13/wheel-tools-r1/venv/bin/python",
+        "-B",
+        "scripts/prove_native_python_wheel.py",
+        "--repo-root",
+        "/Users/dylan/LocalData/shardloom/optimization-investigation-queue-worktree",
+        "--output-dir",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/installed-wheel-r2",
+        "--native-library",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/runtime-r2-extension/_native.abi3.so",
+        "--cli-binary",
+        "/Users/dylan/LocalData/shardloom/native-chrysalis-resonance-2026-11-18/runtime-r2-cli/shardloom",
+        "--wheelhouse",
+        "/Users/dylan/LocalData/shardloom/native-pipeline-consolidation-2026-11-12/wheel-tools-r1/wheelhouse"
+      ],
+      "compiled_source_differences": [],
+      "log_sha256": "c5af0585307109eab95f31dbb70657d38185fd4e8a7feab93dc89d9747f28e8c",
+      "name": "coverage-installed-wheel-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "d4b67e44a21d4a86c50682e0aa8acf4ec9d24d05a56251c306d741b479e0c0fc",
+      "sources_unchanged": true,
+      "status": "passed",
+      "whole_repository_differences": []
+    }
+  ],
+  "comparison": {
+    "direct": {
+      "complete_public_workflow_nanos": 282764791,
+      "engine_nanos": 150509625,
+      "groups": 10,
+      "preparation_nanos": 0,
+      "public_query_terminal_nanos": 169037209,
+      "queries": 18,
+      "receipt_sha256": "8018b27aa517bbaee843ee331c4255c526c98b68e2a3eba068b81c201591298b"
+    },
+    "full-preparation": {
+      "complete_public_workflow_nanos": 1171740248,
+      "engine_nanos": 95469499,
+      "groups": 10,
+      "preparation_nanos": 985052876,
+      "public_query_terminal_nanos": 108418208,
+      "queries": 18,
+      "receipt_sha256": "16090f553cf16ad062e7554b33cbe1304188d0d7f4cfe28eb8ba2bd13e9568d5"
+    },
+    "partial": {
+      "complete_public_workflow_nanos": 245960709,
+      "engine_nanos": 149794248,
+      "groups": 10,
+      "preparation_nanos": 0,
+      "public_query_terminal_nanos": 170560665,
+      "queries": 18,
+      "receipt_sha256": "426c1908094ae2b1414eb7e5b7df9802e57f97af72b230761e3ed7aa3d62d7c7"
+    }
+  },
+  "decision": "locally_retained",
+  "focused_python": {
+    "cli": {
+      "shardloom": {
+        "bytes": 80858576,
+        "executable": true,
+        "sha256": "ea53667a2ad8c1a0ced59df0d4d5b504f33b66556e2cc116e599daffa06bfbec"
+      }
+    },
+    "errors": 0,
+    "extension": {
+      "_native.abi3.so": {
+        "bytes": 81394224,
+        "executable": true,
+        "sha256": "676a0adc1e1352deb5dad6d3b6a0f1514dcaa247ef60fe87c5d3c9ca6a84b122"
+      }
+    },
+    "failures": 0,
+    "patterns": {
+      "test_native_columnar_coverage_binding.py": 2,
+      "test_native_ranked_demand_binding.py": 1
+    },
+    "skipped": 0,
+    "status": "passed",
+    "tests": 3
+  },
+  "hosted_acceptance": "pending_required_checks",
+  "installed_tests": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "status": "passed",
+    "tests": 468
+  },
+  "native_tests": {
+    "failed": 0,
+    "ignored": 42,
+    "passed": 4449,
+    "targets": 17
+  },
+  "new_native_query_executions_by_replay": 0,
+  "new_performance_claim": false,
+  "predecessor_packets": [
+    {
+      "path": "docs/release/evidence/shared-native-incorporation-2026-11-18/observations.json.gz",
+      "sha256": "21207da7c8f08c54fee92512a870c38c377ea11ea28d6d91d1bf51382b6b9088"
+    }
+  ],
+  "preserved_failures": [
+    {
+      "name": "coverage-native-full-r1",
+      "receipt_sha256": "f41aa1a560cdc1ad4996cfe07c77d6f3ece16f34325343a6eee118ac01779c27",
+      "returncode": 101,
+      "snapshot_files": 3,
+      "status": "failed"
+    },
+    {
+      "name": "coverage-native-cli-lint-r3",
+      "receipt_sha256": "6610a61c589f10b791ebbc8c99d4149c95e19633d7293c65864fe6232985ef5f",
+      "returncode": 101,
+      "snapshot_files": 1,
+      "status": "failed"
+    },
+    {
+      "name": "coverage-public-cli-r3",
+      "receipt_sha256": "78b35337394d1827050aca40b6e4525180635fd6e748c18a285f2cdf1c85cfbb",
+      "returncode": 101,
+      "snapshot_files": 1,
+      "status": "failed"
+    },
+    {
+      "name": "coverage-installed-wheel-r1",
+      "receipt_sha256": "cceaeaf1953a4b2cfa1d736b097f3e1c2a261e35585c8ddb977483e64f3460aa",
+      "returncode": 1,
+      "snapshot_files": 5,
+      "status": "failed"
+    },
+    {
+      "name": "exposure-r1",
+      "receipt_sha256": "72e8576e97e376bd491a06e2cdd980f1a7a57047b58ab5c86d00f23908d8f4e7",
+      "returncode": 1,
+      "snapshot_files": 0,
+      "status": "failed"
+    }
+  ],
+  "publication_attempted": false,
+  "schema_version": "shardloom.chrysalis_acceptance.v1",
+  "source_sha256": {
+    ".github/ci-native-baseline.json": "782dba15325213430cb090af9c0fcaee88431ba89e88cb36f7e073d9de158b7e",
+    "python/tests/test_native_columnar_coverage_binding.py": "de65d4da3d6feaf08c7295da3dee0d3ab6bb5cd64aa4229aa30e0ffae1c8d397",
+    "shardloom-cli/src/native_runtime_owner.rs": "10eb8e6d4f73c013fe1f36813eb1439fb51836ddd59df9f7a228a2909cff0802",
+    "shardloom-cli/src/public_resident_relational.rs": "8d401652ff0ac2f58e633731a2e9eb916940ba11646fb1f657831dc6fb08abf8",
+    "shardloom-cli/tests/support/resident_relational.rs": "023a64dfd5ddaf94f37b38f8323bfd33cd7665b82c4affaa8199072abebb9614",
+    "shardloom-python/src/session.rs": "1b4afb9003e4df1fe21951ff03936c2b3300b87b18a4cfce5c58cb81d5e17f1c",
+    "shardloom-vortex/src/local_primitive_relational_batch_input.rs": "390ee7037546fa544f0822a148fdf212c47f228d9ead287b2945cee58ff05a46",
+    "shardloom-vortex/src/local_primitive_relational_cyclic_source_tests.rs": "b6c4289d03c09bd6bb5abf1e85c3f38e952273c312f416420ba893fd64f75af2",
+    "shardloom-vortex/src/local_primitive_relational_report.rs": "264ace122c63aab29a857bba3265afde411b53a0e75f1473b5558ebdc03ade12",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_cardinality_tests.rs": "fc5241ce09f331dbc70f5695e3ac8487a620d9ab095ae3026299ec2c8ab81e23",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_collection_tests.rs": "20e921c570d4b171bbc9a12560f75c865fd123e475cf67f286fb2071deaac6c5",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_join_lifecycle_tests.rs": "9c41ac7300b6a972657ac51d442a673985d21817f7d6fe90be7cb039cbcf885a",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_join_tests.rs": "757fa84ecca033784fcb576a622b55b556e8ff8a9d6df3bda5142092c9c0d4c6",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_lifecycle_tests.rs": "cc54b6943cd781c2ee824d1ca1f4d254f302cf0250a094fcf7e48cc763943b61",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_membership_tests.rs": "4aac1caceb10119b52fad4d94febe11772b5a1d439df39ef90b9ad0545e3401d",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_metadata_tests.rs": "841ab33b7f262085f159f90822ce735004fd428e68aaaa258938dd8b53b7096e",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_pipeline_tests.rs": "ef12bb42f819da5b9b94452bd6d55686becc50fca116c498669c60e25a91cef6",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_prefix_tests.rs": "695859f2f711b779f50f83874e2253c95a7da76f223ee548612ce6cba2ef946f",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_ranked_admission_tests.rs": "919725a40119bbb8251a55b6763fecdd1925bf24795d6c3741126ad522c169df",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_ranked_lifecycle_tests.rs": "c68665b51dc1ba20f0d8c94f942eea5e783af9a9ec2a0e4012a6f5cd855c63f3",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_ranked_tests.rs": "543c365e04e348441ffbb3f583e90bc5da068cec81a7218610b6a502fd9b5b34",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_sort_tests.rs": "f408a6d9e17c8996607a4d58332a8f734d6feb3dd946431a792d1a7e8eacb1bf",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_tests.rs": "f03a67f99916008bbda64eaec69e379fcba109fd4490fb4d6f218372514411e9",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_transfer_tests.rs": "2cfdcba7e04beb22ede0b5dd8685424efb8ef94934db0d9aaeb9f6cd84779a7e",
+    "shardloom-vortex/src/local_primitive_relational_source_demand_window_tests.rs": "d53bb525a5896940167db830d68e925b438f0c78e139252c66af2119e0a209d2",
+    "shardloom-vortex/src/resident_columnar_coverage.rs": "9c008170a3520f36c7f2dd46b86275d3e89ce2059873a2db427ee09065a75efd",
+    "shardloom-vortex/src/resident_execution_context.rs": "6027c8b71df7ee651245635fd3b29bc1c2e4d6aaf0215de43cdd173279d0751c",
+    "shardloom-vortex/src/resident_memory_arrow.rs": "4c6f9ffdcb5992b1e221458266c8a96228059563f9b138186a14309def1d5bd1",
+    "shardloom-vortex/src/resident_memory_columnar_coverage.rs": "24e32d33c13205107a97b8f908db5f1afa6fd200f6ce1e61af49e9b4f8a8e21f",
+    "shardloom-vortex/src/resident_memory_owned_intake.rs": "6cbbadbd8e087cb63f7307aee0a50e1115ccfcdbe9c80e371f1690d43b25984e",
+    "shardloom-vortex/src/resident_memory_source.rs": "c31459e695e01f322983ac6a8b0f0099eb4bc7ac13f9cf6953a28f4772e4d989",
+    "shardloom-vortex/src/resident_operation_resources.rs": "6bf941979a6a8758f6aa51e0f3b434848c11df0e07f0129c5de1a2dd59e142f3",
+    "shardloom-vortex/src/resident_session.rs": "84f9e28f894b2319848e483709ce92fd157d0ccdb1eee92fa40a2cddc71b80e0",
+    "shardloom-vortex/src/resident_source_segment_cache.rs": "0a5cb48cf8e5e328228be99cf05ca9f8bf03bbd76b04b722293c69c6cdc9f85e",
+    "shardloom-vortex/src/universal_format_io/demanded.rs": "63d7e02e734bf2584e3d3d17c339c1f26dd780a8dd6e788d03de159c4b27f775",
+    "shardloom-vortex/src/universal_format_io/demanded/chrysalis_attribution_tests.rs": "9002659109e3307bc0023885d3456ddadcfed61b8b22e10e5c52588c5d3a5f0f",
+    "shardloom-vortex/src/universal_format_io/demanded/coverage.rs": "7e0579c119f997c8104f24d7664af73219a5989b5c782997e98d6cc8af7feb5b",
+    "shardloom-vortex/src/universal_format_io/demanded/coverage_tests.rs": "4edacd8f3aea3eb4a5901b2bcb7c70d95396044f03486543cffb8057551ffc84",
+    "shardloom-vortex/src/universal_format_io/demanded/coverage_tests/boundaries.rs": "0dd5eab62d208b51362e9d9ddf2a36dcc6e09e8ceee971edd6ad518562398178",
+    "shardloom-vortex/src/universal_format_io/demanded/generic.rs": "a4987eea04a4bb822c9ac568b7642734e7c96982c0a8d830abf2e2d1778beca8",
+    "shardloom-vortex/src/universal_format_io/demanded/metadata_count.rs": "805f41843c4b3f220f859a378f957581d021207a4160b133176cc504bb1970ad",
+    "shardloom-vortex/src/universal_format_io/local_dataset.rs": "262815e446176e8c239145ed40aba04b2ef6c6e237cbdba9f6a73f7151f23230"
+  },
+  "status": "local_acceptance_passed",
+  "wheel_sha256": "bf6210eccf030bb50a9980fb77c23123f211a3974b240482c141df705de2d2b2"
+}

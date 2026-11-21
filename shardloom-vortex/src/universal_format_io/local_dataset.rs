@@ -72,7 +72,6 @@ impl LocalDataset {
         })
     }
 
-    #[cfg(all(feature = "vortex-local-primitives", unix))]
     pub(crate) fn is_single_file(&self) -> bool {
         matches!(self.membership, Membership::Single)
     }

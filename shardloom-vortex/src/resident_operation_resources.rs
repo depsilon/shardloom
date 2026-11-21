@@ -200,6 +200,12 @@ impl ConfigurableResidentSession {
         self.0.session.snapshot()
     }
 
+    /// Release optional session-retained caches without acquiring operation
+    /// admission or affecting caller-owned retained results.
+    pub fn reclaim_optional_memory(&self) {
+        self.0.session.reclaim_optional_memory();
+    }
+
     /// Resolve an already explicit declaration against the controller's
     /// administrator ceilings, then hold it through the complete callback.
     /// Preparation, retained state, execution and export share the same pool.

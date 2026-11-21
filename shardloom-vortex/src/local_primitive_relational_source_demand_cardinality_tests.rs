@@ -142,6 +142,10 @@ fn parquet_demand_cardinality_keeps_nullable_conjuncts_aliases_and_zero_matches(
             1
         );
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
     let prepared = fixture.prepare(&count_tests::count(
@@ -601,5 +605,9 @@ fn parquet_demand_unary_explicit_inputs_keep_hidden_predicates_without_output_le
         2
     );
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }

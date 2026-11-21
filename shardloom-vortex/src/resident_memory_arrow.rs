@@ -66,6 +66,7 @@ impl ResidentMemorySource {
         ownership: arrow_ownership::ArrowOwnershipPolicy,
     ) -> Result<Self> {
         Self::from_arrow_admitted(session, batch, context, is_batch, ownership, Origin::Caller)
+            .map(|(source, _)| source)
     }
 
     /// File adapters retain the existing ingest dictionary contract. This does
@@ -77,6 +78,25 @@ impl ResidentMemorySource {
         ownership: arrow_ownership::ArrowOwnershipPolicy,
     ) -> Result<Self> {
         Self::from_arrow_admitted(session, batch, context, true, ownership, Origin::LocalFile)
+            .map(|(source, _)| source)
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn from_local_arrow_with_coverage(
+        session: &ResidentVortexSession,
+        batch: RecordBatch,
+        context: &NativeExecutionContext<'_>,
+    ) -> Result<(Self, Option<super::DetachedColumnarBatch>)> {
+        let (source, capacity) = Self::from_arrow_admitted(
+            session,
+            batch,
+            context,
+            true,
+            arrow_ownership::ArrowOwnershipPolicy::ControlledParquet,
+            Origin::LocalFile,
+        )?;
+        let detached = capacity.map(|bytes| super::DetachedColumnarBatch::new(&source, bytes));
+        Ok((source, detached))
     }
 
     #[allow(clippy::too_many_lines)] // Keep allocation, validation and final owner publication together.
@@ -87,7 +107,7 @@ impl ResidentMemorySource {
         is_batch: bool,
         ownership: arrow_ownership::ArrowOwnershipPolicy,
         origin: Origin,
-    ) -> Result<Self> {
+    ) -> Result<(Self, Option<u64>)> {
         session.validate_execution_context(context)?;
         let memory = context.memory();
         let schema = batch.schema();
@@ -164,6 +184,19 @@ impl ResidentMemorySource {
         )?;
         let retained =
             nested::provider_batch(retained, Some(memory), &|| context.check_cancelled())?;
+        // These pinned conversions only wrap already credited buffers. Nonzero
+        // string offsets can allocate rebased offsets in Vortex, so decline that
+        // retention receipt instead of using visible nbytes as capacity proof.
+        let retained_capacity = (matches!(origin, Origin::LocalFile)
+            && ownership == arrow_ownership::ArrowOwnershipPolicy::ControlledParquet
+            && direct_coverage_buffers(&retained))
+        .then(|| {
+            counts
+                .copied_allocation_bytes
+                .checked_add(counts.transferred_allocation_bytes)
+                .and_then(|bytes| bytes.checked_add(metadata.bytes()))
+        })
+        .flatten();
         context.check_cancelled()?;
         let schema = crate::native_temporal::arrow::schema(schema.as_ref())?;
         let array = context
@@ -176,28 +209,66 @@ impl ResidentMemorySource {
         crate::binary_object::validate_descriptors(&array, context)?;
         let input_logical_bytes = usize::try_from(array.nbytes()).map_err(native_error)?;
         context.check_cancelled()?;
-        Ok(Self(Arc::new(MemorySourceOwner {
-            bounds: MemorySourceBounds {
-                max_input_rows: array.len().max(1),
-                max_input_bytes: input_logical_bytes.max(1),
-                max_output_rows: array.len().max(1),
-                ..MemorySourceBounds::default()
-            },
-            array,
-            session: session.clone(),
-            input_logical_bytes,
-            intake_payload_bytes_copied: 0,
-            intake_columnar_buffer_bytes_copied: counts.copied_buffer_bytes,
-            intake_columnar_copy_reasons: counts.copy_reasons,
-            intake_columnar_buffer_bytes_transferred: counts.transferred_buffer_bytes,
-            intake_columnar_buffer_regions_transferred: counts.transferred_buffer_regions,
-            intake_columnar_allocation_bytes_transferred: counts.transferred_allocation_bytes,
-            transfer_report: super::NativeTransferReport::default(),
-            metadata: Some(metadata),
-            is_batch,
-            generated_range: None,
-        })))
+        Ok((
+            Self(Arc::new(MemorySourceOwner {
+                bounds: MemorySourceBounds {
+                    max_input_rows: array.len().max(1),
+                    max_input_bytes: input_logical_bytes.max(1),
+                    max_output_rows: array.len().max(1),
+                    ..MemorySourceBounds::default()
+                },
+                array,
+                session: session.clone(),
+                input_logical_bytes,
+                intake_payload_bytes_copied: 0,
+                intake_columnar_buffer_bytes_copied: counts.copied_buffer_bytes,
+                intake_columnar_copy_reasons: counts.copy_reasons,
+                intake_columnar_buffer_bytes_transferred: counts.transferred_buffer_bytes,
+                intake_columnar_buffer_regions_transferred: counts.transferred_buffer_regions,
+                intake_columnar_allocation_bytes_transferred: counts.transferred_allocation_bytes,
+                transfer_report: super::NativeTransferReport::default(),
+                metadata: Some(metadata),
+                is_batch,
+                generated_range: None,
+            })),
+            retained_capacity,
+        ))
     }
+}
+
+fn direct_coverage_buffers(batch: &RecordBatch) -> bool {
+    use arrow_schema::DataType;
+    batch
+        .schema()
+        .fields()
+        .iter()
+        .zip(batch.columns())
+        .all(|(field, column)| {
+            if !field.metadata().is_empty() {
+                return false;
+            }
+            match field.data_type() {
+                DataType::Int8
+                | DataType::Int16
+                | DataType::Int32
+                | DataType::Int64
+                | DataType::UInt8
+                | DataType::UInt16
+                | DataType::UInt32
+                | DataType::UInt64
+                | DataType::Float16
+                | DataType::Float32
+                | DataType::Float64
+                | DataType::Utf8View => true,
+                DataType::Utf8 => column
+                    .as_string_opt::<i32>()
+                    .is_some_and(|values| values.offsets()[0] == 0),
+                DataType::LargeUtf8 => column
+                    .as_string_opt::<i64>()
+                    .is_some_and(|values| values.offsets()[0] == 0),
+                _ => false,
+            }
+        })
 }
 
 fn schema_metadata_bytes(

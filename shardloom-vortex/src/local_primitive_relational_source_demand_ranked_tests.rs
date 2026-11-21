@@ -250,6 +250,10 @@ fn ranked_demand_stable_rich_values_offsets_and_zero_prefix_reduce_actual_chunk_
                     )
             );
             drop(result);
+            prepared
+                .session
+                .shared_memory_pool()
+                .reclaim_optional_memory();
             assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
         }
     }
@@ -522,6 +526,10 @@ fn ranked_demand_validation_observes_rank_first_and_every_decoded_winning_group(
             assert_eq!(prepared.snapshot().completed_executions, 0);
         }
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
     let fixture = fixture(0, 397, 7);

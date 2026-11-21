@@ -52,6 +52,10 @@ fn parquet_join_demand_window_row_population_preserves_source_scope() {
         assert_eq!(input.columnar_projected_columns, 2);
         assert!(input.end_of_input_observed && input.output_ownership_detached);
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(
             prepared.snapshot().reserved_without_source_segment_cache(),
             initial
@@ -318,6 +322,10 @@ fn parquet_join_cancellation_consumer_failure_pressure_and_fresh_retry_release_o
         .unwrap();
     assert_eq!(json_rows(&result).len(), 16);
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }
 

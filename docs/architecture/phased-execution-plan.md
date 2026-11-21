@@ -371,13 +371,22 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete the enclosing batch's hosted acceptance.
 
 - [ ] **Chrysalis Cells and Map**
-  Status: Next — follows local combined rich-data and analytical acceptance;
-  the preceding batch's hosted checks remain independent closeout work.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  starts with exact partial native coverage for one immutable local Parquet source.
+  Status: Local acceptance (locally retained) — [RFC 0045](../rfcs/0045-partial-native-source-coverage.md),
+  the [prospective comparison report](../benchmarks/native-chrysalis-partial-coverage-2026-11-21.md)
+  and the [portable evidence packet](../release/evidence/chrysalis-partial-coverage-2026-11-21/README.md)
+  bind local source, resource, `NativeSession::close()` optional reclamation, release
+  build and isolated installed-wheel acceptance (`468/468` installed tests without skips).
+  The frozen 18-request sequential comparison records `150.509625 → 149.794248 ms`
+  engine time (`-0.48%`, with `numeric-overlap` `16.194250 → 12.276124 ms` and
+  `text-overlap` `54.002292 → 52.303834 ms`, while all eight non-reusing control groups
+  regress `+4.901207 ms` and `public_query_terminal_nanos` changes `169.037209 → 170.560665 ms`).
+  No large or general causal speedup, durability or competitive-gate closure is claimed;
+  hosted acceptance remains pending. The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  governs the following Resonance investigation.
   Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
-  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
+  - [x] Complete the targeted RFC and existing-provider review.
+  - [x] Implement the admitted bounded scope and complete-workflow acceptance.
+  - [ ] Complete the enclosing batch's hosted acceptance.
 
 - [ ] **Resonance Cells and Leases**
   Status: Queued — follows Chrysalis acceptance.

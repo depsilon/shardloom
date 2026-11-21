@@ -7,7 +7,10 @@ use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
         Array, ArrayRef, ArrayVTable, ArrayView, IntoArray as _, VortexSessionExecute as _,
-        arrays::{Bool, Primitive, PrimitiveArray, Slice, VarBin, VarBinArray},
+        arrays::{
+            Bool, Chunked, Constant, ConstantArray, Primitive, PrimitiveArray, Slice, VarBin,
+            VarBinArray, VarBinView,
+        },
         buffer::BufferHandle,
         dtype::{DType, NativePType, Nullability},
         validity::Validity,
@@ -191,7 +194,7 @@ impl OwnedMemoryColumn {
 /// buffer keeps its original capacity credit and gains the new schema owner;
 /// payload bytes and pointer identity are unchanged. Checked typed reconstruction
 /// preserves validity slots and slices without using erased unsafe rewrites.
-pub(super) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Result<ArrayRef> {
+pub(crate) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Result<ArrayRef> {
     fn retain<V: ArrayVTable>(
         vtable: &V,
         array: ArrayView<'_, V>,
@@ -214,7 +217,10 @@ pub(super) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Re
         }
         let retained = Array::<V>::try_from_parts(parts).map_err(native_error)?;
         retained.statistics().inherit_from(array.statistics());
-        Ok(retained.into_array())
+        retained
+            .into_array()
+            .with_retained_owner(credit.clone())
+            .map_err(native_error)
     }
     if let Some(array) = array.as_opt::<Primitive>() {
         retain(&Primitive, array, credit)
@@ -222,8 +228,21 @@ pub(super) fn retain_metadata(array: &ArrayRef, credit: &Arc<MemoryLease>) -> Re
         retain(&Bool, array, credit)
     } else if let Some(array) = array.as_opt::<VarBin>() {
         retain(&VarBin, array, credit)
+    } else if let Some(array) = array.as_opt::<VarBinView>() {
+        retain(&VarBinView, array, credit)
+    } else if let Some(array) = array.as_opt::<Chunked>() {
+        retain(&Chunked, array, credit)
     } else if let Some(array) = array.as_opt::<Slice>() {
         retain(&Slice, array, credit)
+    } else if let Some(array) = array.as_opt::<Constant>()
+        && (array.scalar().is_null() || array.dtype().is_primitive() || array.dtype().is_boolean())
+    {
+        // All-null intake and constant validity have no borrowed value backing.
+        // Constant::buffer serializes a scalar; it is not a replaceable buffer.
+        ConstantArray::new(array.scalar().clone(), array.len())
+            .into_array()
+            .with_retained_owner(credit.clone())
+            .map_err(native_error)
     } else {
         Err(memory_error(
             "owned intake metadata encountered an unadmitted encoding",

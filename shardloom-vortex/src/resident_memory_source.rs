@@ -61,6 +61,14 @@ mod ipc_intake;
 #[path = "resident_memory_arrow.rs"]
 mod arrow_intake;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "resident_memory_columnar_coverage.rs"]
+mod columnar_coverage;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub(crate) use columnar_coverage::DetachedColumnarBatch;
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+pub(crate) use owned_intake::retain_metadata as retain_columnar_metadata;
+
 /// Explicit typed input. Slices are borrowed only for intake;
 /// published Vortex buffers retain no references into caller memory.
 #[derive(Clone, Copy)]

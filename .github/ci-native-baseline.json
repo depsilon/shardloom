@@ -86,6 +86,7 @@
     "resident_session::segment_reuse::tests::io_tests::release_bench::scan_segment_reuse_release_lifecycle_pairs",
     "resident_session::source_reuse_bench::concurrent_source_reuse_attribution",
     "resident_session::source_reuse_bench::fanout::existing_owned_producer_fanout_pairs",
+    "universal_format_io::demanded::chrysalis_attribution_tests::chrysalis_exact_source_owner_attribution",
     "vortex_ingest::column_layout_tests::benchmark::column_footer_release_lifecycle_and_repeated_native_consumers",
     "vortex_ingest::dictionary_preservation::source_dictionary_bench::clickbench_source_dictionary_admission_screen",
     "vortex_ingest::dictionary_preservation::source_dictionary_bench::fsst_screen::clickbench_fsst_predicate_admission_screen",

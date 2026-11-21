@@ -359,7 +359,7 @@ fn worker_flat_declared_arrow_reads_nested_and_empty_results_directly() {
                 direct_compatibility_source(&result, 1, execution == 1);
                 assert_eq!(
                     field(&result, "resident_source_generation_validation"),
-                    "declared_schema_checked_each_batch;explicit_source_end;all_input_owners_released;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed"
+                    "declared_schema_checked_each_batch;explicit_source_end;input_delivery_owners_released;bounded_optional_source_coverage_reported_separately;bound_file_generations_checked_before_and_after_final_consumer;final_consumer_completed"
                 );
             }
             let output = root.0.join(format!("{surface}-{index}.jsonl"));

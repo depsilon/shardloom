@@ -123,6 +123,10 @@ fn parquet_membership_keeps_fallible_inner_projection_and_lazy_guard() {
         } else {
             assert_eq!(json_rows(&result.unwrap()), [json!({"marker":null})]);
         }
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }
@@ -198,6 +202,10 @@ fn parquet_membership_parent_projection_keeps_only_nullable_keys_for_in_and_not_
                 .fallback_attempted
         );
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }
@@ -268,5 +276,9 @@ fn parquet_membership_demand_retains_hidden_guard_and_inner_filter_columns() {
             .fallback_attempted
     );
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }
