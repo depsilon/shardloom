@@ -665,12 +665,21 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete source, installed-package and hosted acceptance.
 
 - [ ] **AI data workflows**
-  Status: Queued — follows Foundry, deferred deep traversal and selected serverless acceptance.
+  Status: Core native module and 5-workload acceptance implemented —
+  [`python/src/shardloom/ai.py`](../../python/src/shardloom/ai.py) and
+  [`python/tests/test_ai_data_workflows.py`](../../python/tests/test_ai_data_workflows.py) deliver
+  model-ready typed CPU batches over `__arrow_c_stream__`, generation-checked streaming and
+  strictly-increasing-read indexed dataset adapters, persisted fitted feature preparation
+  (`shardloom.ai_fitted_feature_pipeline.v1`), deterministic group/time splits, availability-time
+  `join_asof`, exact filtered native vector retrieval with late payload fetch, lexical BM25/hybrid
+  search, and an evaluated opt-in int8 compact-vector comparison (recording upstream
+  `vortex-turboquant` 0.74.0 is omitted and `exact_globally=false`). Live PyTorch/Hugging Face
+  wheel acceptance and hosted CI remain open.
   Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
   typed model-ready batches, source generations, ownership and retrieval semantics.
   Execution checklist:
-  - [ ] Complete typed batches, loaders and persisted fitted feature state.
-  - [ ] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
+  - [x] Complete typed batches, loaders and persisted fitted feature state.
+  - [x] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
   - [ ] Verify mixed workflow fidelity, resources and feature-specific acceptance.
 
 - [ ] **Version 1.3.0 source milestone**
