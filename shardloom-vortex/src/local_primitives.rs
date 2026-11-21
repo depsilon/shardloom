@@ -151,6 +151,10 @@ mod text_scan_reuse;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_schema.rs"]
 pub(crate) mod native_input_schema;
+#[cfg(all(test, feature = "vortex-local-primitives", unix))]
+#[allow(dead_code)]
+#[path = "local_primitives/native_input_schema_reference.rs"]
+mod native_input_schema_reference;
 #[cfg(all(feature = "vortex-local-primitives", unix))]
 #[path = "local_primitives/native_input_values.rs"]
 mod native_input_values;

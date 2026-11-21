@@ -251,53 +251,423 @@ the ledger.
 
 Current autonomous execution order:
 
-**November 16 material-potential priority.** The resident-join/copy change is
-merged in PR #1694; all 54 exact-main jobs now pass and scoped cleanup is complete. The
+### Current execution
+
+This checklist is the current work sequence. The read-only local workboard reads
+these same rows and the completed ledger; there is no separate board status to
+maintain. Hosted closeout continues alongside the next implementation when it
+has no unresolved dependency. Items 19, 20 and CG-1 through CG-23 remain open.
+After the deep-traversal PR checkpoint, shared native capability incorporation
+precedes all unfinished item 20 work. Remaining deep traversal is deferred until
+after Foundry integration under the November 17 maintainer reprioritization. Item 20 obligations absorbed into that plan are
+handled there; every unabsorbed remainder follows it, including capability,
+workflow, performance and acceptance work recorded in the historical notes.
+
+- [x] **Direct join aggregate — hosted integration**
+  Status: Complete — [PR #1696](https://github.com/depsilon/shardloom/pull/1696)
+  merged as `8969fc817` after all 58 PR checks passed. Exact-main CI and all
+  54 required checks pass; Cloudflare Workers retains the existing maintainer exception.
+  The [unique inner-dimension stage](native-join-aggregate-2026-11-16.md) is
+  [locally retained](../benchmarks/native-join-aggregate-2026-11-16.md). All 630
+  requests pass; complete engine time is 94.178862655 → 91.576505630 seconds.
+  Its 40 activated requests change 5.718050585 → 5.596205335 seconds; both
+  original large star requests regress. No causal or large speedup is established.
+  Execution checklist:
+  - [x] Complete source, installed-package and complete-result acceptance.
+  - [x] Complete hosted review, CI, merge and exact-main verification.
+
+- [x] **Native spatial values — hosted integration**
+  Status: Complete — [PR #1697](https://github.com/depsilon/shardloom/pull/1697)
+  merged as `6688dd9b9` after 57 required PR checks passed and review was clear;
+  Cloudflare Workers retains the existing maintainer exception. Exact-main CI
+  and all 54 required checks pass.
+  The [spatial unit](native-spatial-values-2026-11-16.md) supports 15 expressions
+  over native 2D Point, LineString and Polygon values. All 462 installed tests
+  pass without skips.
+  Execution checklist:
+  - [x] Complete source, runtime, installed-package and documentation acceptance.
+  - [x] Complete ready-PR review, CI, merge and exact-main verification.
+
+- [ ] **Deep-traversal groundwork — PR checkpoint**
+  Status: PR checkpoint — implementation scope is closed at the maintainer's
+  November 17 request. Local source/provider checks pass; hosted checks remain required;
+  keep full deep-traversal acceptance open. Public nesting limits remain unchanged.
+  The [checkpoint and deferred scope](native-deep-traversal-checkpoint-2026-11-17.md)
+  distinguish tested internal robustness from the still-unproven complete user workflow.
+  Execution checklist:
+  - [x] Complete current source/provider validation and package metadata; retain
+    full hosted native/platform/package checks as separate required evidence.
+  - [ ] Open the ready PR and address review/check failures within this checkpoint.
+  - [x] Leave remaining deep traversal after Foundry integration.
+
+- [ ] **Shared native capability incorporation**
+  Status: Next — follows the deep-traversal PR checkpoint; takes priority
+  over every remaining queued item under the November 17 maintainer request,
+  including every unfinished item 20 obligation not absorbed into this plan.
+  The [incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
+  extends item 20 and PulseWeave investigation F through existing admitted-operation,
+  source, resource, operator and result owners. Item 23's completed adaptive
+  execution is reused; Chrysalis and Resonance consume this foundation later.
+  - Intake review: accept shared lifecycle/control and composition gaps; reuse
+    existing adaptive execution, keys/windows and output replay/fanout; keep
+    advisory capabilities report-only and removed investigations removed.
+  - V1 scope classification: `v1_candidate_pending_feasibility` for new performance
+    mechanisms, explicitly prioritized; existing supported-path correctness and
+    resource obligations remain required. No new phase or CG identifier.
+  - ShardLoom technique review: connect PulseWeave, Capillary Units, FlowInventory,
+    ScarcityLedger, EndoPulse and ProofBound to actual owner controls; preserve
+    metadata-first execution, dynamic admission, timing boundaries and evidence
+    tiers. Coordinate with existing adaptive sizing inside caller ceilings.
+  Execution checklist:
+  - [ ] Map every named capability to current owners, callers, operative controls,
+    observation types, legal domains and remaining integration gaps.
+  - [ ] Select a material evidenced target and freeze affected opportunities and controls.
+  - [ ] Extend the shared Capillary lifecycle through completed results, downstream
+    retention, refusal, cancellation, drain and final-owner release.
+  - [ ] Connect finite PulseWeave feedback to actual settings with owner-proved application.
+  - [ ] Preserve compatible source/population facts, prepared keys/expressions and
+    native representations across existing and composed callers.
+  - [ ] Prove complete source-to-delivery ownership and reconcile all seven intake
+    families with executed, justified-decline or explicit unobserved dispositions.
+  - [ ] Record the shared-contract dependencies for later Chrysalis and Resonance work.
+  - [ ] Complete scoped correctness/resource/performance, public-interface, source,
+    installed-package and hosted acceptance; move completed evidence to the ledger.
+  - Next outcome and scope: one complete relevant owner chain selected from
+    measured exposure, extending existing native context, source/conversion,
+    worker/operator, typed-observation and result/sink modules. Keep the public
+    CLI/Python/typed-relation/DataFrame/embedded interfaces on those shared owners.
+  - Acceptance and verification: real application at eligible physical opportunities,
+    specific declines, truthful missing observations, unchanged semantics and
+    ownership through delivery; exact owner tests, complete workflow controls,
+    required Rust/native/package gates and a frozen scoped comparison as defined
+    in the contract. Do not substitute capability labels for execution evidence.
+  - Boundaries: ordinary execution needs no durable preparation; requested output
+    semantics and Vortex-native I/O remain. No removed campaign, Full43/full10k,
+    package publication, external engine or competitive claim is authorized here.
+    Preserve `fallback_attempted=false`, `external_engine_invoked=false` and
+    `claim_gate_status=not_claim_grade`; CG-1 through CG-23 remain independent.
+
+- [ ] **Combined rich-data and analytical acceptance**
+  Status: Queued — follows shared native capability incorporation acceptance.
+  Verify the mixed workflow in the [rich-data contract](native-rich-data-lifecycle-2026-10-24.md)
+  and remaining [analytical program](native-broad-query-program-2026-10-26.md).
+  Execution checklist:
+  - [ ] Reconcile existing-depth item-19 and item-20 obligations with accepted evidence;
+    carry the deferred deep-traversal lifecycle after Foundry integration.
+  - [ ] Verify complete mixed values, resource pressure and ownership across public interfaces.
+  - [ ] Record scoped acceptance and remaining independent competitive gates.
+
+- [ ] **Chrysalis Cells and Map**
+  Status: Queued — follows combined rich-data and analytical acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  starts with exact partial native coverage for one immutable local Parquet source.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Implement the admitted bounded scope and complete-workflow acceptance.
+
+- [ ] **Resonance Cells and Leases**
+  Status: Queued — follows Chrysalis acceptance.
+  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
+  then covers bounded shared live preparation for explicitly composed consumers.
+  Execution checklist:
+  - [ ] Complete the targeted RFC and existing-provider review.
+  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
+
+- [ ] **Portable serverless execution**
+  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
+  Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
+  Execution checklist:
+  - [ ] Complete portable worker, artifact and policy foundations.
+  - [ ] Prove one explicitly selected host and selective-access stages.
+
+- [ ] **Foundry integration**
+  Status: Queued — follows portable serverless and precedes deferred deep traversal.
+  Follow the [item-21 delivery contract](native-foundry-integration-2026-10-25.md).
+  Foundry hosts the job; ShardLoom computes through its native public interfaces.
+  Execution checklist:
+  - [ ] Prove the pinned installed native package and actual transform/output readback.
+  - [ ] Complete scalable multi-file adapter and failure-safe native writer acceptance.
+  - [ ] Complete the selected incremental and managed-Iceberg workflows.
+
+- [ ] **Resource-admitted deep traversal**
+  Status: Deferred — resumes after Foundry integration under the November 17
+  maintainer decision. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
+  preserves completed groundwork; public nesting limits and full-item gates
+  remain unchanged. Establish the concrete user benefit before expanding this work.
+  This will close the remaining depth obligation in the
+  [rich-data lifecycle](native-rich-data-lifecycle-2026-10-24.md). The depth-24
+  boundary remains until provider serialization, value traversal and final-owner
+  cleanup are covered together. Schema, array and scalar cleanup now pass
+  8,192-level small-stack tests, including detached/concurrent owners and panic
+  ordering. Equality, hashing and extension nullability also pass 8,192-level
+  small-stack checks, with recursive-reference hash compatibility and lazy parse
+  order verified. The iterative FlatBuffer writer preserves existing bytes and
+  metadata callback order and passes the same deep write test. Eager logical
+  reads preserve lazy caches, callback/error order and pending extension contexts;
+  8,192-level internal success/failure parsing passes on a small stack. Ordered
+  physical verification now preserves the original malformed-input errors and
+  exact depth/table/byte thresholds; explicit test-only deep options pass on the
+  same small stack while public defaults remain unchanged. Schema Display keeps
+  original bytes with iterative continuations; schema and scalar Debug have
+  explicit bounded expansion. Scalar clone/equality/hash/ordering and validation
+  pass the same deep-stack checks, with original shallow hash feeds, validation
+  errors and callback order preserved. Typed/raw scalar Display now preserves
+  original output, lazy/callback order and failed-sink boundaries on the same
+  deep-stack checks. Defaults/zero construction, zero inspection and approximate
+  size estimates also pass, preserving nullable widths, lazy short circuits,
+  validation callback order and failed partial cleanup. Native array writing now
+  preserves byte output, provider wire substitutions, callback order, shared
+  buffers and partial failures through flat owners and continuations. Physical
+  ArrayNode verification preserves malformed-data errors and configured limits;
+  8,192-level writing, failure cleanup and explicit-option verification pass on
+  small stacks. All 5,856 array-provider tests pass
+  (one existing ignored test), and strict provider lint passes. The two native
+  schema JSON writers now share admitted borrowed continuations, preserving
+  exact bytes, write-failure boundaries, callback order and 8-MiB limits.
+  Deep writing, denial, cancellation and refund checks pass. The native
+  workspace passes all 7,356 tests (42 existing opt-in tests ignored), strict
+  lint and formatting at this checkpoint; final whole-unit acceptance remains
+  required. Native protobuf schema conversion and temporary protobuf ownership
+  now pass the same deep conversion/failure/cleanup checks; shallow bytes,
+  malformed-object errors, lazy evaluation and extension callbacks match the
+  original converters. Scalar-value conversion now preserves all leaf policies,
+  one-layer extension unwrapping, lazy field order and repeated validation
+  callbacks through the same deep conversion and failure-cleanup checks.
+  Protobuf root clone/equality now use ordered continuations; independently
+  retained generated containers share them. Original generated references verify
+  shallow bytes, malformed objects, floating-point equality and diagnostic flags.
+  The 32-owner-edge diagnostic boundary and 8,192-level trait/cleanup checks pass
+  on 128-KiB stacks. Protobuf writing and length measurement now use borrowed
+  continuations and a flat writing plan. Independent original-model fixtures
+  verify exact bytes, capacity refusal and unchanged default decoding, including
+  malformed errors, input consumption, groups and partial merges. Complete
+  fixture grammar checks cover 8,192-level writing on the same small stacks.
+  All 5,872 provider tests and strict provider/native lint pass at that checkpoint.
+  The pinned Prost 0.14.4 patch now supplies checked delimited-message/depth
+  continuations and iterative unknown-group skipping. Both default and optional
+  unlimited-default configurations pass all 418 codec tests; explicitly supplied
+  bounds remain enforced in either configuration. Strict checks, both no-standard-
+  library builds and native workspace lint pass. Nine provider graphs select the
+  same-version patch without other lock changes; the older ORC graph is unchanged.
+  Protobuf model decoding now uses ordered owned continuations with original
+  optional/same-variant partial updates, repeated/replacement commit rules,
+  box reuse, exact error context and input consumption. Original generated
+  models verify malformed and interrupted inputs without read replay.
+  Explicitly bounded 8,192-level schema/value decoding, refusal and cleanup pass
+  on 128-KiB stacks. All 5,876 provider tests and strict provider/native lint pass
+  at this checkpoint. Logical array loading now has an explicit continuation
+  path that preserves conditional/repeated child requests, caught errors,
+  metadata/validation/statistics order and foreign descendants. Migrated core,
+  FSST, Zstd and DateTimeParts decoders share their original bodies with the
+  unchanged synchronous entrypoints. Six focused tests and 8,192-level real
+  nested-array/opaque-chain checks pass on 128-KiB stacks, including error,
+  panic and retained-owner cleanup. All 5,882 array, 127 FSST, 96 Zstd and 138
+  DateTimeParts provider tests pass, with two existing ignored tests in total,
+  plus strict lint. The remaining nine registered codec source patches now pass
+  all 1,713 standalone tests and strict lint. Nineteen native fixtures cover
+  complete values, physical graphs, legacy versions, conditional child failures
+  and malformed metadata; a standalone OnPair continuation test covers its five
+  children and nullable values. Sequence's unchanged no-child decoder is included.
+  Native workspace strict lint passes. Same-version intake, original-body
+  comparisons, six upstream golden fixtures, standalone lock identity and license
+  checks pass. Native memory prepayment, value traversal and complete deep-workflow
+  acceptance remain open; default decode and public depth limits are unchanged.
+  Terminal native JSON now uses an admitted flat view arena and ordered write
+  continuations. Five focused tests preserve original output, scalar/copy counts,
+  failed-write prefixes and cancellation boundaries; 8,192-level Struct,
+  FixedSizeList and mixed views pass construction, interrupted writing and
+  cleanup on 128-KiB stacks. Wide siblings, memory refusal and final-owner
+  release also pass. The complete native workspace passes all 7,363 tests
+  (42 existing opt-in tests ignored), strict lint and formatting with the codec
+  and terminal-JSON changes together. Typed native counter layout and array
+  construction now use admitted ordered continuations. Four focused tests
+  preserve original values, logical/copy sizes, errors and default expansion;
+  8,192-level Struct/List/FixedSizeList/mixed construction, partial failure,
+  allocation-panic cleanup and memory refusal pass on 128-KiB stacks. All 13
+  existing typed-source and 17 variable-tensor tests pass, as do strict native
+  workspace lint and formatting. Typed JSON parsing now uses ordered
+  continuations and a parsed-value owner with prepaid iterative cleanup. Four
+  focused tests preserve original numbers, full values, duplicate/error order,
+  depth boundaries and exact diagnostics; 8,192-level success/failure/unwind,
+  partial-container refusal and width-independent cleanup pass on small stacks.
+  All 221 typed-boundary tests pass, including real spill and writer/reopen
+  cases, together with strict native workspace lint and formatting. These are
+  source checkpoints. JSON-to-native schema conversion now uses admitted
+  ordered continuations, preserving all native leaf/extension schemas, exact
+  errors and metadata/child validation order against the original converter.
+  Four focused tests cover 8,192-level conversion, detached children, late
+  failure, allocation refusal and cleanup on 128-KiB stacks. The complete
+  native test population passes all 7,375 tests across source-identical bounded
+  runs (42 existing opt-in tests ignored), with strict lint and formatting.
+  Preserve the original workspace deadline failure: its sole unfinished
+  calendar cleanup test and remaining integration/example targets passed in
+  separate bounded runs. Native payload copying and scratch estimation now use
+  admitted ordered continuations. Nine frozen original function bodies verify
+  shallow schema/wire output, encodings, scalar counts, retained bytes and
+  errors across copy policies, wrappers and shredded Variant inputs. Private
+  8,192-level default construction and prepared-identity validation pass on
+  128-KiB stacks, including deep/late errors, denied growth, allocation panic,
+  cancellation and escaped-owner refunds. All 243 payload-related tests and
+  strict native workspace lint pass at this checkpoint. Preserve the original
+  unprepared-source stack failure as an original observation. The following
+  optimizer checkpoint replaces that recursive driver with ordered native
+  continuations. Frozen original methods verify rule/trace order, sharing,
+  graphs, values, statistics, marking, exact errors and rewrite limits.
+  Unprepared 8,192-level compound arrays, rewritten descendants and deep
+  error/panic cleanup pass on 128-KiB stacks; the native copier now passes its
+  deep identity validation without preparing fixture layers. All 5,885 array
+  provider tests pass (one existing opt-in test ignored), together with strict
+  provider/native workspace lint, formatting and provenance/license checks.
+  Explicit buffer owner links and a shared native credit chain now replace
+  recursive allocator/buffer wrappers. Shallow original-wrapper comparisons
+  preserve pointer identity, views and release order; 8,192-link allocation,
+  freeze, external reservation, shared/weak/concurrent owners and one-panic
+  cleanup pass on 128-KiB stacks. All 285 buffer-provider tests and 19
+  documentation tests pass, alongside 198 native credit and 243 payload tests,
+  strict provider/native workspace lint and provenance/license checks. Preserve
+  the original lint failures and the guard's refusal of an overlapping check.
+  The pinned Parquet Variant byte reader now fully validates container children
+  through borrowed ordered continuations. Four frozen original methods preserve
+  complete values, malformed-error order, inherited panic behavior, lazy views
+  and validated no-ops. Raw 8,192-level object/list/mixed validation and deep/late
+  failures pass on 128-KiB stacks. All 160 reader tests, eight upstream
+  interoperability tests and 59 documentation tests pass, alongside 38 native
+  Variant and 243 payload tests and strict provider/native workspace lint.
+  Same-version archive, all 61 upstream fixture identities, lock and license
+  checks pass. Preserve the original compile/lint/corpus failures and eight
+  connector-altered binary fixture observations; corrected fixture bytes match
+  every recorded Git blob.
+  Native raw framing/duplicate-name inspection and typed/shredded Variant
+  validation now use ordered continuations. Seven frozen original functions
+  preserve complete shallow results, first errors and raw cancellation/panic
+  callback order. Raw frames remain inside the existing byte-work grant with
+  checked capacity overlap; typed parents retain raw buffers, complete list
+  coordinate owners and shell credits until their children finish. Private
+  8,192-level object/list/mixed validation, denied growth, late errors,
+  cancellation and inherited decoder-panic cleanup pass on 128-KiB stacks.
+  All 42 Variant tests and 245 payload regressions pass; the final extended
+  fixtures and strict native workspace lint pass on the current sources.
+  The inherited out-of-range provider date panic is preserved, not corrected
+  by this continuation work. Variant workspace sizing now uses credited ordered
+  continuations for physical storage, expanded raw values and typed shells.
+  Nine frozen original functions and five unchanged helpers preserve sizing,
+  partial credit and error order; 8,192-level small-stack controls prove costs,
+  denied growth, cancellation and panic cleanup. All 44 Variant tests, 245
+  payload regressions and strict native workspace lint pass on the same sources.
+  Six native payload-presence classifiers now share the admitted borrowed schema
+  cursor. Frozen original predicates and exact transformations at all 16 callers
+  preserve family decisions, ordering and rejection messages. Shallow eager/lazy
+  parity, early-match lazy-field suppression, 8,192-level small-stack traversal,
+  denied growth, shared-subtree work bounds and cancellation/unwind cleanup pass.
+  The focused three tests, 538 nearby regressions and strict native workspace
+  lint pass; one existing release benchmark remains ignored. The initial
+  invalid nonnullable-Null fixture failure is retained.
+  Native preparation for Arrow export now uses one credited traversal for
+  ordinary arrays, Variant wrappers and shredded values. Eight original
+  functions verify prepared bytes, encodings, expansion counters, first
+  errors and callback order. Deep structs, lists, mixed values with UUID
+  leaves and Variant wrappers pass at 8,192 levels on 128-KiB stacks.
+  Retained offsets, denied growth, cancellation and panic cleanup pass.
+  All 542 selected regressions pass with one existing release benchmark
+  ignored. Both focused tests and strict native workspace lint pass on the
+  final sources. Arrow Variant intake now follows dictionary keys iteratively,
+  validates shredded lists at their original offsets and holds each object's
+  raw validation credit through its final field check. Three original functions
+  verify selected rows, null handling, first errors and callback order. Borrowed
+  8,192-level structs, lists and mixed trees pass on 128-KiB stacks, including
+  denied growth and cancellation/panic cleanup. All 556 selected regressions
+  pass, with one existing opt-in benchmark ignored. Strict native workspace lint
+  and all three focused write-only configuration tests pass. The write-only
+  build also exposed two tests missing their local-execution feature conditions.
+  Native binary-object discovery now shares the borrowed schema cursor.
+  Descriptor traversal uses credited continuations with the operation's source,
+  memory and cancellation owners. Two frozen functions confirm lazy field and
+  callback order, including selected list ranges and null ancestors. All four
+  focused tests pass, including 8,192-level mixed values on a 128-KiB stack and
+  denied capacity replacement after partial traversal. The 413 selected
+  native regressions, strict native workspace lint and binary-object feature
+  checks pass. Six opt-in tests remain ignored in the selected native sweep.
+  Nested relational keys now bind into a credited child-before-parent arena;
+  comparison, validation, hashing and exact identity use borrowed continuations.
+  Seven frozen original methods and eleven unchanged key methods preserve
+  values, ordering, hash bytes, first errors and writer/cancellation behavior.
+  Deep 8,192-level native keys pass on 128-KiB stacks, including partial binding,
+  denied growth, writer failure, panic cleanup and exact credit refunds.
+  The shared continuation stack keeps four frames inline before credited heap
+  growth. This repairs the original 4-MiB output-compaction pressure regression
+  without increasing the grant or changing copier leaf/enter/resume behavior.
+  All sixteen focused key, copy, stack and output controls pass on the final
+  sources, together with strict native workspace lint and the complete selected
+  regression sweep: 1,490 passed, zero failed and eleven existing opt-in checks
+  ignored. The earlier incomplete sweep, reproduced capacity denial and test-only
+  lint failure remain preserved. Public depth admission still waits for Arrow
+  schema and final owners, provider export and compute, native memory prepayment
+  and complete deep-workflow acceptance.
+  Arrow schema ownership/structural operations, descriptor cleanup/clone,
+  validation/slicing/alignment and typed descriptor export are implemented at
+  this checkpoint. Focused provider suites pass 180 schema, 61 descriptor and
+  788 array tests, with one existing array ignore. Native conversion, actual
+  caller prepayment, provider compute and the complete deep workflow remain
+  unaccepted. These tests do not authorize deeper public input or a performance claim.
+  Execution checklist:
+  - [x] Inventory schema, value, transport and provider ownership boundaries.
+  - [x] Add a memory-admitted iterative schema cursor and focused regressions.
+  - [x] Share fallible provider child traversal with result-schema admission.
+  - [x] Add intrinsic schema, array-slot and scalar cleanup with retained-owner proof.
+  - [x] Make native schema equality, hashing and extension nullability stack-safe.
+  - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
+  - [x] Replace eager logical schema reading while preserving lazy views and errors.
+  - [x] Make physical schema verification iterative with unchanged checks and limits.
+  - [ ] Complete native provider serialization, value traversal and cleanup.
+  - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
+  - [ ] Complete source, installed-package and hosted acceptance.
+
+- [ ] **AI data workflows**
+  Status: Queued — follows Foundry, deferred deep traversal and selected serverless acceptance.
+  Follow the [item-22 package](native-ai-data-workflows-2026-10-24.md), preserving
+  typed model-ready batches, source generations, ownership and retrieval semantics.
+  Execution checklist:
+  - [ ] Complete typed batches, loaders and persisted fitted feature state.
+  - [ ] Complete exact filtered retrieval and the selected lexical/hybrid workflows.
+  - [ ] Verify mixed workflow fidelity, resources and feature-specific acceptance.
+
+- [ ] **Version 1.3.0 source milestone**
+  Status: Queued — follows AI data workflow acceptance.
+  This source milestone does not authorize package publication.
+  Execution checklist:
+  - [ ] Reconcile accepted scope, version sources and release evidence.
+  - [ ] Complete the separately governed package/channel readiness checks.
+
+### Current decision notes
+
+The November 17 [shared incorporation decision](native-shared-capability-incorporation-2026-11-17.md)
+places that item first after the deep-traversal PR checkpoint, ahead of the
+unfinished item 20 remainder. The later November 17 reprioritization stops
+expansion of active deep traversal and moves its remaining acceptance after
+Foundry integration; it does not mark item 19 complete. Absorbed item 20/F
+obligations execute within the incorporation plan; all unabsorbed item 20
+capability, workflow, performance and acceptance work follows it. Remaining
+items keep their relative order. This extends item 20/F and
+the existing source-to-delivery owners, preserves completed item 23, and makes
+the later Chrysalis/Resonance designs consume the shared contracts. Historical
+sequence notes below do not override the Current execution checklist.
+
+The resident-join/copy change is merged in PR #1694 and the
 [dense integer join directory](../benchmarks/native-dense-integer-joins-2026-11-16.md)
-is merged in PR #1695: all 630 scoped requests pass, with engine
-time 102.926667930 → 94.178862655 seconds. Exact-main validation is finishing. Keep required
-correctness and CI checks, retain observations, and follow the maintainer's
-latest instruction to reduce optional packaging/report ceremony and move on.
-Select new performance work only when saved evidence supports credible
-material upside. Prioritize reducing join input/intermediate-result volume,
-repeated scans/builds, expensive sorting and spill work. Identify actual
-exposure, cost and removable work before implementation; do not add another
-accessor/bookkeeping or speculative tuning experiment with only sliver
-potential. Implausible proposals may leave the active pool. The maintainer's
-clarification does not require dropping useful existing work or a candidate
-solely because its eventual positive gain is smaller than expected. No fixed
-numeric material threshold is implied, and frozen decisions remain unchanged.
-This prospective performance priority precedes the previously next spatial
-unit; the required feature roadmap remains intact. The investigation lists
-below are candidate contracts, not instructions to implement every hypothesis.
+in PR #1695; all 54 exact-main checks pass for each. Scoped resident-join cleanup
+is complete. Dense joins pass all 630 requests, with engine time
+102.926667930 → 94.178862655 seconds.
 
-The subsequent November 16 maintainer feedback prioritizes
-[direct aggregate consumption of exact join matches](native-join-aggregate-2026-11-16.md)
-within item 20. That unique inner-dimension stage is now
-[locally retained](../benchmarks/native-join-aggregate-2026-11-16.md): all 630
-requests pass, with engine time 94.178862655 → 91.576505630 seconds. Direct work
-activates in 40 requests; its subset changes 5.718050585 → 5.596205335 seconds,
-while both original large star requests regress. Most of the overall difference
-is on inactive paths; no causal or large speedup is established. All source,
-installed-package and complete-result checks pass. Finish hosted integration.
-The resumed [native spatial unit](native-spatial-values-2026-11-16.md) now passes
-complete source and installed-package acceptance: 15 expressions over native
-2D Point, LineString and Polygon values, with all 462 installed tests passing
-without skips. Complete its hosted integration, then resource-admitted deep
-traversal and combined rich-data/analytical acceptance. Duplicate
-multiplicity reduction remains a separately proved extension; it is not an
-extra prerequisite before the accepted roadmap sequence.
-
-The subsequent November 16 maintainer request inserts
-[Chrysalis Cells/Map, then Resonance Cells/Leases](native-chrysalis-resonance-cells-2026-11-16.md)
-**after rich-data and analytical acceptance and before portable serverless and
-item-21 Foundry integration**. First investigate exact partial native coverage
-for one immutable local Parquet source; then bounded shared live preparation
-for explicitly composed consumers. Each needs a targeted RFC, existing-provider
-review, bounded implementation and complete-workflow acceptance. These are
-item-20/shared-source extensions, not new phase IDs or existing capabilities.
-Their accepted contracts feed the subsequent remote/selective-preparation and
-AI work without duplicating those owners.
+Keep required correctness and CI checks and original observations while reducing
+optional packaging/report ceremony. New performance work needs credible material
+removable work in saved evidence. Prioritize input/intermediate volume, repeated
+scans/builds, sorting and spill only when actual exposure and cost justify it.
+Do not add speculative accessor/bookkeeping tuning. There is no fixed numeric
+material threshold, no requirement to drop useful retained work merely because
+its measured gain is small, and no change to frozen decisions. Duplicate
+multiplicity reduction remains separately proved scope, not a prerequisite
+before the required feature sequence. Chrysalis and Resonance remain item-20
+shared-source extensions, not new phase IDs or claims of existing capability.
 
 The latest November 16 [queue disposition](native-optimization-pruning-2026-11-16.md)
 removes the remaining blanket Vortex demand/encoding campaign, earlier join
@@ -632,6 +1002,9 @@ authorize additional experiments. Reuse compatible saved evidence.
       reuse, then exact scoring into bounded ranking with separate vector cases.
     - [ ] F: attribute one pipeline imbalance and compare finite PulseWeave
       feedback choices with sampling-overhead and small-query controls.
+      Incorporated into the November 17
+      [shared capability contract](native-shared-capability-incorporation-2026-11-17.md);
+      this is the same investigation, not a parallel queue or an applied-control claim.
     - [ ] G: verify managed-object insertion/capture costs and compare credited
       amortized metadata growth with deduplication, publication and cleanup proof.
     - Historical H/I/J exposure audit is preserved. J's full-sort experiment
@@ -1654,6 +2027,12 @@ visible and independent; this implementation does not automatically close them.
     hosted acceptance is complete in #1611 at `4d25a06e`. New
     analytical capabilities and the broader item-20 completion remain unfinished.
     This is requested post-1.0 implementation, not a retroactive release blocker.
+    The November 17 [shared incorporation contract](native-shared-capability-incorporation-2026-11-17.md)
+    extends these owners and investigation F; the Current execution checklist
+    owns its priority. All unfinished item 20 work not absorbed into that plan
+    follows it; historical sequencing in this section does not advance any
+    remainder ahead of the new plan. Completed item 23 remains accepted in its
+    existing scope.
   - Intake review: existing parity, ordinary CTEs/parameters and harness guards
     are reused; new breadth and strict semantics are accepted; connectors retain
     their owners; one Polars comparison per selected case is now authorized for
@@ -1664,7 +2043,9 @@ visible and independent; this implementation does not automatically close them.
     separate and Vortex-native input/output explicit.
   - **Two unfinished tracks remain inside item 20:** capability/workflow completion
     and the performance checklist immediately below. Capability PRs do not close
-    the performance track. The latest October 29 maintainer ordering is to finish
+    the performance track. Both unfinished tracks follow the November 17
+    incorporation plan except for obligations absorbed into that plan itself.
+    Historically, the October 29 maintainer ordering was to finish
     the active recursive/materialized composition unit and its acceptance, then
     run the seven performance candidates before explicit batch-function work.
     Those candidates and the follow-through are merged in #1626/#1627. The

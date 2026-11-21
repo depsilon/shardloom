@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(all(feature = "vortex-local-primitives", feature = "vortex-write", unix))]
 #[test]
 fn streaming_text_adaptive_shared_alignment_preserves_complete_values_with_live_pressure() {
     use crate::universal_format_io::demanded::LocalColumnarSource;

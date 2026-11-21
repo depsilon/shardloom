@@ -1,0 +1,63 @@
+{
+  "schema": "shardloom.arrow-array-export-reference.v1",
+  "source_commit": "feb503463208aefac9d6be56274569628b37eadb",
+  "adaptation": "Keep original body; redirect recursive child to_data calls into the shallow test reference dispatcher.",
+  "items": [
+    {
+      "file": "vendor/arrow-array/src/array/list_array.rs",
+      "original_source_sha256": "227969f2691c562adba8940a75cc152b71a78458d0f9d70c2d72aa8706e5371e",
+      "original_implementation": "impl<OffsetSize: OffsetSizeTrait> From<GenericListArray<OffsetSize>> for ArrayData {\n    fn from(array: GenericListArray<OffsetSize>) -> Self {\n        let len = array.len();\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(len)\n            .nulls(array.nulls)\n            .buffers(vec![array.value_offsets.into_inner().into_inner()])\n            .child_data(vec![array.values.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "0cdc722374a2ba0e0ac721981394d42d6da2377e597368f906b7b9260c554766",
+      "adapted_reference_body_sha256": "264b783885a0b3904e839ad7e5990c4fa6b78297d18ee4c1ae4d30b8960cea9e"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/list_view_array.rs",
+      "original_source_sha256": "8f14c00e18089b1691446b0e8bc6fd4b96ae107cceb7de5fceb3a93972255dfd",
+      "original_implementation": "impl<OffsetSize: OffsetSizeTrait> From<GenericListViewArray<OffsetSize>> for ArrayData {\n    fn from(array: GenericListViewArray<OffsetSize>) -> Self {\n        let len = array.len();\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(len)\n            .nulls(array.nulls)\n            .buffers(vec![\n                array.value_offsets.into_inner(),\n                array.value_sizes.into_inner(),\n            ])\n            .child_data(vec![array.values.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "6b89be1f5ee4cd36ae1de128137a7235cecc4b2aafb43211c812414db54b775d",
+      "adapted_reference_body_sha256": "8c01f2857a725ab35419a86fc3e941abd8cfb86d520a99d6ab92ca36b4ab0704"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/fixed_size_list_array.rs",
+      "original_source_sha256": "b382ca72d89c5a263c668702ba8966b8ff83519958927ff4cfa01a21e48cac6f",
+      "original_implementation": "impl From<FixedSizeListArray> for ArrayData {\n    fn from(array: FixedSizeListArray) -> Self {\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(array.len)\n            .nulls(array.nulls)\n            .child_data(vec![array.values.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "efc80e3e8ef0beb0fd24440bc8cfcc0699498196dd0d802c419911f4652c87d9",
+      "adapted_reference_body_sha256": "3e19da99ddcbbde0648e1b2dd270433f8a3178ade5d5012fabc37477a6467c2c"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/struct_array.rs",
+      "original_source_sha256": "024ac1674ad6b948a9a5491c243fa0570664aede14d65607654b4fac7c7a9098",
+      "original_implementation": "impl From<StructArray> for ArrayData {\n    fn from(array: StructArray) -> Self {\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(array.len)\n            .nulls(array.nulls)\n            .child_data(array.fields.iter().map(|x| x.to_data()).collect());\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "9ff7fe22b06aa9abd6a8a11c8bf5a9774a4a6b1d9d3acd6a1e47c162cf8c95d5",
+      "adapted_reference_body_sha256": "f35293459d5248e73b84f11d609076e0a8a554ccde34aa911c344b67143b6a43"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/map_array.rs",
+      "original_source_sha256": "f922d17630237af71cdda2efccbd74c614fa438db97475b3b944daf7d076f109",
+      "original_implementation": "impl From<MapArray> for ArrayData {\n    fn from(array: MapArray) -> Self {\n        let len = array.len();\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(len)\n            .nulls(array.nulls)\n            .buffers(vec![array.value_offsets.into_inner().into_inner()])\n            .child_data(vec![array.entries.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "b07d7b5a77defe2d35e0b8538ee5e8cb07955f46010c46e0ab70ec09af852242",
+      "adapted_reference_body_sha256": "b3d11b9a6537c4faa33382e272f72834c6867ebfcfac583a852b6fcf3d256664"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/union_array.rs",
+      "original_source_sha256": "31eea58f59009c2b9ecd4a012f87f17868cee9a76e4f4d28033bd139e3818c5e",
+      "original_implementation": "impl From<UnionArray> for ArrayData {\n    fn from(array: UnionArray) -> Self {\n        let len = array.len();\n        let f = match &array.data_type {\n            DataType::Union(f, _) => f,\n            _ => unreachable!(),\n        };\n        let buffers = match array.offsets {\n            Some(o) => vec![array.type_ids.into_inner(), o.into_inner()],\n            None => vec![array.type_ids.into_inner()],\n        };\n\n        let child = f\n            .iter()\n            .map(|(i, _)| array.fields[i as usize].as_ref().unwrap().to_data())\n            .collect();\n\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(len)\n            .buffers(buffers)\n            .child_data(child);\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "c86042b68490702548ff50afc131b3e4e99444cae5d640117f0baddd82c011ed",
+      "adapted_reference_body_sha256": "2d51a0a8e98f82fab797ba5e752afede71b6700000ffbeb20b53ad9627a78b49"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/dictionary_array.rs",
+      "original_source_sha256": "04affef07917aa8f536f637fe3e8f4df6c6c483fd7c1ce25e648377feb3a1a3a",
+      "original_implementation": "impl<T: ArrowDictionaryKeyType> From<DictionaryArray<T>> for ArrayData {\n    fn from(array: DictionaryArray<T>) -> Self {\n        let builder = array\n            .keys\n            .into_data()\n            .into_builder()\n            .data_type(array.data_type)\n            .child_data(vec![array.values.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "8246cd6cb89307a56896d814c8ce9472989a7a52ce736ed750e89a9c5b4b8ffb",
+      "adapted_reference_body_sha256": "8485a056fff62d3af8cb11f97e7eb8553a7261aa64bce1e7a5cb87fc55ab5d19"
+    },
+    {
+      "file": "vendor/arrow-array/src/array/run_array.rs",
+      "original_source_sha256": "ff91da6303147394cc2ed61c8c114563b42e8633ae26a865d22a6ad93531044a",
+      "original_implementation": "impl<R: RunEndIndexType> From<RunArray<R>> for ArrayData {\n    fn from(array: RunArray<R>) -> Self {\n        let len = array.run_ends.len();\n        let offset = array.run_ends.offset();\n\n        let run_ends = ArrayDataBuilder::new(R::DATA_TYPE)\n            .len(array.run_ends.values().len())\n            .buffers(vec![array.run_ends.into_inner().into_inner()]);\n\n        let run_ends = unsafe { run_ends.build_unchecked() };\n\n        let builder = ArrayDataBuilder::new(array.data_type)\n            .len(len)\n            .offset(offset)\n            .child_data(vec![run_ends, array.values.to_data()]);\n\n        unsafe { builder.build_unchecked() }\n    }\n}",
+      "original_body_sha256": "c11364f19136e60f61e94a85a8ff87cb7c40c77d577b2ccd7090f3d1bb89040d",
+      "adapted_reference_body_sha256": "f1cf009ef2dbc0d5b1b38913ea6b9aa310928e8ecf0cb1376f2c612c7a0b1883"
+    }
+  ]
+}

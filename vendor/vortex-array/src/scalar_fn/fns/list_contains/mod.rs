@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: borrow the list element dtype during set preparation.
 
 mod kernel;
 mod prepared;
@@ -382,7 +383,8 @@ fn prepare_constant_list<T: ReduceNode>(
     list: &T,
     needle: &T,
 ) -> VortexResult<Option<PreparedSetData>> {
-    let DType::List(element_dtype, _) = list.node_dtype()? else {
+    let node_dtype = list.node_dtype()?;
+    let DType::List(element_dtype, _) = &node_dtype else {
         return Ok(None);
     };
     if !element_dtype.eq_ignore_nullability(&needle.node_dtype()?) {

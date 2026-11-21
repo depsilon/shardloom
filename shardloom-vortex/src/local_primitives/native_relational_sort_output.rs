@@ -54,7 +54,10 @@ fn cost(fields: &[(String, DType)], context: &NativeExecutionContext<'_>) -> Res
     // retained source payloads already have credits in the live snapshot.
     let scratch = fields.iter().try_fold(128_u64, |bytes, (_, dtype)| {
         bytes
-            .checked_add(native_payload::gather_scratch_per_row(dtype)?)
+            .checked_add(native_payload::gather_scratch_per_row(
+                dtype,
+                context.memory(),
+            )?)
             .and_then(|bytes| bytes.checked_add(32))
             .ok_or_else(overflow)
     })?;

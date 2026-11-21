@@ -52,7 +52,7 @@
   },
   "modified_files_sha256": {
     "Cargo.toml": "909b4202b749f1af92298d471b52aac1790e67702c3c6c3647d49c384895f11b",
-    "src/array.rs": "f16ba8ec714bf1bb570899d2f223738d8b7ebb072c4b9e124e933c145d064481",
+    "src/array.rs": "cf6e531a22b1acfff27fb66e2b3c6e68b450f6ba1547669dd7dbea8d3751f18b",
     "src/canonical.rs": "a4dac53d97852f3657ff2c412b446214dd21dbf2695054236117ea36992c4aaf",
     "src/compute/like.rs": "5a5f27f6f208a1bc231428b206047cb989badd76052bc7099b05c22de0fe2ac7",
     "src/dfa/flat_contains.rs": "005412dbbe116d72025c0e72f1f5befc5cd293a26a220cb82ec38c4add7649c9",
@@ -62,17 +62,17 @@
   },
   "added_files_sha256": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "README.shardloom.md": "eb4fa5d074ce5cc8b4c86f5f1314613bdd1213200959d35eca96ab10c4b15312",
+    "README.shardloom.md": "da6eff88175ade0812208ab89fe20be7bbd1a9baa4a853dbd7123cb23b11829a",
     "goldenfiles/fsst.metadata": "484c1d036b954355f2cf8bd83bf393af07f5c9feb9f94b8f26f8cbe8027a7e40",
+    "src/compute/like_slice_tests.rs": "91302586838bb4272a5d8d6f370701957739e0c0d0cc3c9aba3de926df4866aa",
     "src/dfa/prefilter.rs": "d85f5aad923b3030730f11351443308b68dacf1b5228f15154045aee70865dbb",
     "src/like_observation.rs": "3c3c25f1de057645701b652c4f04105322229cd8fee1680132dd5614572d6239",
     "src/matcher_reuse.rs": "f1be91766ce8997d066e32c7352c579bdb1bdc624c4c51289cca83217e2f1098",
-    "src/matcher_reuse/tests.rs": "ef6692d83a5448764ead3b4a7aa1ec669b95602c51da6b715f9d1ee34c2437c5",
-    "src/compute/like_slice_tests.rs": "91302586838bb4272a5d8d6f370701957739e0c0d0cc3c9aba3de926df4866aa"
+    "src/matcher_reuse/tests.rs": "ef6692d83a5448764ead3b4a7aa1ec669b95602c51da6b715f9d1ee34c2437c5"
   },
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "eb4fa5d074ce5cc8b4c86f5f1314613bdd1213200959d35eca96ab10c4b15312"
+    "sha256": "da6eff88175ade0812208ab89fe20be7bbd1a9baa4a853dbd7123cb23b11829a"
   },
   "omitted_files": {
     "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"

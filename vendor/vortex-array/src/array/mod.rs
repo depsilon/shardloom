@@ -44,6 +44,8 @@ pub(crate) use foreign::*;
 mod typed;
 pub use typed::*;
 
+mod release;
+
 #[cfg(test)]
 mod owner_tests;
 
@@ -140,6 +142,10 @@ pub(crate) trait DynArrayData: 'static + private::Sealed + Send + Sync + Debug {
 
     /// Non-buffer ownership that a native view must retain.
     fn retained_owner(&self) -> Option<&Arc<dyn Any + Send + Sync>>;
+
+    /// Select the extractor for this allocation's concrete, sealed data type.
+    /// It must only be invoked with the same allocation that selected it.
+    fn release_fn(&self) -> release::Extractor;
 
     /// Returns the [`Validity`] of the array.
     fn validity(&self, this: &ArrayRef) -> VortexResult<Validity>;
@@ -322,6 +328,10 @@ impl<V: VTable> DynArrayData for ArrayData<V> {
 
     fn retained_owner(&self) -> Option<&Arc<dyn Any + Send + Sync>> {
         self.retained_owner.as_ref()
+    }
+
+    fn release_fn(&self) -> release::Extractor {
+        release::extract::<V>
     }
 
     fn validity(&self, this: &ArrayRef) -> VortexResult<Validity> {

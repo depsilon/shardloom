@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: borrow output extension dtype across validation.
 
 //! Plans the concrete signature selected by [`RowFn::dispatch`].
 //!
@@ -269,7 +270,7 @@ fn validate_output_label(
         return Ok(None);
     }
 
-    let DType::Extension(output_label) = output_dtype else {
+    let DType::Extension(output_label) = &output_dtype else {
         vortex_bail!(
             "a declared row output dtype must be an extension dtype over the storage dtype \
              {storage_dtype}, got {output_dtype}",
@@ -281,7 +282,7 @@ fn validate_output_label(
         "a declared row extension output dtype has the wrong storage dtype",
     );
 
-    Ok(Some(output_label))
+    Ok(Some(output_label.clone()))
 }
 
 /// The nullable execution policy derived from one concrete dispatch.

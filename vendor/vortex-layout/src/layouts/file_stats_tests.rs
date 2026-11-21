@@ -155,7 +155,7 @@ fn variable_length_statistics_are_compact_conservative_bounds() {
             let precision = stats.get(stat);
             assert!(matches!(precision, Precision::Inexact(_)));
             let value = precision.into_inner().unwrap();
-            let bytes = match value {
+            let bytes = match &value {
                 ScalarValue::Utf8(value) => value.as_bytes().to_vec(),
                 ScalarValue::Binary(value) => value.as_slice().to_vec(),
                 _ => panic!("expected bounded string/binary statistic"),

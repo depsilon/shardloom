@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use prost::Message;
 
@@ -161,35 +162,54 @@ impl VTable for Patched {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = PatchedMetadata::decode(metadata)?;
-        let n_patches = metadata.n_patches as usize;
-        let n_lanes = metadata.n_lanes as usize;
-        let offset = metadata.offset as usize;
-
-        // n_chunks should correspond to the chunk in the `inner`.
-        // After slicing when offset > 0, there may be additional chunks.
-        let n_chunks = (len + offset).div_ceil(1024);
-
-        let inner = children.get(0, dtype, len)?;
-        let lane_offsets = children.get(1, PType::U32.into(), n_chunks * n_lanes + 1)?;
-        let indices = children.get(2, PType::U16.into(), n_patches)?;
-        let values = children.get(3, dtype, n_patches)?;
-
-        let data = PatchedData { n_lanes, offset };
-        let slots = PatchedSlots {
-            inner,
-            lane_offsets,
-            patch_indices: indices,
-            patch_values: values,
-        }
-        .into_slots();
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = PatchedMetadata::decode(metadata)?;
+            let n_patches = metadata.n_patches as usize;
+            let n_lanes = metadata.n_lanes as usize;
+            let offset = metadata.offset as usize;
+
+            // n_chunks should correspond to the chunk in the `inner`.
+            // After slicing when offset > 0, there may be additional chunks.
+            let n_chunks = (len + offset).div_ceil(1024);
+
+            let inner = children.get_async(0, dtype, len).await?;
+            let lane_offsets = children
+                .get_async(1, PType::U32.into(), n_chunks * n_lanes + 1)
+                .await?;
+            let indices = children.get_async(2, PType::U16.into(), n_patches).await?;
+            let values = children.get_async(3, dtype, n_patches).await?;
+
+            let data = PatchedData { n_lanes, offset };
+            let slots = PatchedSlots {
+                inner,
+                lane_offsets,
+                patch_indices: indices,
+                patch_values: values,
+            }
+            .into_slots();
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn append_to_builder(

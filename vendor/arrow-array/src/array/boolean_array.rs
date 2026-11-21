@@ -631,7 +631,8 @@ unsafe impl Array for BooleanArray {
     }
 
     fn data_type(&self) -> &DataType {
-        &DataType::Boolean
+        static DATA_TYPE: DataType = DataType::Boolean;
+        &DATA_TYPE
     }
 
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {

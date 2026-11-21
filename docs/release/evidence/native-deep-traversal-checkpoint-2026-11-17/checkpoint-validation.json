@@ -1,0 +1,429 @@
+{
+  "status": "passed",
+  "scope": "local_source_and_provider_checkpoint; no deeper public admission",
+  "checks": [
+    {
+      "name": "arrow-json-test",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-json/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--all-features",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "passed",
+      "log_sha256": "b301bf7352d763a429178fd906d563d8dbf42629247746cc792266144aa896ed",
+      "guard_receipt_sha256": "95f596e61a48fac92d3d177421f57ae745413e113e9ebd7b35fdeeec861e92b6",
+      "test_targets": 1,
+      "passed_tests": 134,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "arrow-json-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-json/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--all-features",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "74a3f3ae74a13012305df0add655df12680e63f9536715d0d299b8fb50e42069",
+      "guard_receipt_sha256": "95f596e61a48fac92d3d177421f57ae745413e113e9ebd7b35fdeeec861e92b6",
+      "test_targets": 0,
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "arrow-row-test",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-row/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--all-features",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "passed",
+      "log_sha256": "76bda7d4c0207c937fcdbdf3ee233bf566ef4f2e6c21c749bf8f0bc6c7c34a25",
+      "guard_receipt_sha256": "95f596e61a48fac92d3d177421f57ae745413e113e9ebd7b35fdeeec861e92b6",
+      "test_targets": 1,
+      "passed_tests": 95,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "arrow-row-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-row/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-array.path=\"vendor/arrow-array\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--all-features",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "9f911624510ffb31b045d80da13ba3a9fa06bf3f048d1b3263e7690feb791ce6",
+      "guard_receipt_sha256": "96d399b81ebb799a80e1c34d7b39b04d90ac065f23e4c75c361f947602c4ba15",
+      "test_targets": 0,
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "workspace-fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "status": "passed",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "guard_receipt_sha256": "96d399b81ebb799a80e1c34d7b39b04d90ac065f23e4c75c361f947602c4ba15",
+      "test_targets": 0,
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "dfe4fd5d03d57f777321884c7ceb8471fbfbd14bc221a6ffaceae1a5d68c44cf",
+      "guard_receipt_sha256": "96d399b81ebb799a80e1c34d7b39b04d90ac065f23e4c75c361f947602c4ba15",
+      "test_targets": 0,
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "status": "passed",
+      "log_sha256": "24e606eb57301d54d5ff7da80ce34b072ec94672e6d157caeb33d7ab4e060238",
+      "guard_receipt_sha256": "96d399b81ebb799a80e1c34d7b39b04d90ac065f23e4c75c361f947602c4ba15",
+      "test_targets": 108,
+      "passed_tests": 3344,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "80742dbffd2959e18164b26c3c61f5d98d1cec3249c39974a7e55041d1f62d52",
+      "guard_receipt_sha256": "db06081f9e544fc195b6562bb1fbe230c02d0ca1b80783f1e31e00b28742cdce",
+      "test_targets": 0,
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    }
+  ],
+  "focused_provider_checks": [
+    {
+      "name": "arrow-schema-format-tests-r1",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-schema/Cargo.toml",
+        "--all-features",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "status": "passed",
+      "log_sha256": "172970a546414634ccecadfb9b54267d9e2efedabdc03fa3c1e828310975de74",
+      "guard_receipt_sha256": "319908e97ff27ef5c618d7481c4de0aea2722c67f7df61376357afa72b1f18b6",
+      "passed_tests": 180,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "arrow-schema-structural-clippy-r1",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-schema/Cargo.toml",
+        "--all-features",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "686ed6fe307617ed9dfa4179ea32d00eb53da339f1453a3f3c675432bce8d03b",
+      "guard_receipt_sha256": "72574b41dccb36216be7b52b725226b0687551b57258a2c1c2a9bc9085208073",
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "data-traversal-tests-r3",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-data/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--features",
+        "ffi",
+        "--lib"
+      ],
+      "status": "passed",
+      "log_sha256": "9bca5b7b3863dc5fc937a405a628c8156132201bdd470bcc2466d139fdce207f",
+      "guard_receipt_sha256": "4f7d267f121bef0c3f1234a1ee7aa0b34955a02b87d9c6616aa52966bc6be2e4",
+      "passed_tests": 61,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "data-traversal-clippy-r2",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-data/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--features",
+        "ffi",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "45962754f9c714418693da82b6d052f5d0be6b5010039b083f6045091c129c9e",
+      "guard_receipt_sha256": "4b3425e2f9e4e354914d1131aa79fb7bd1b619e72c13fcca5b57b0746238cd94",
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "array-export-tests-r2",
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-array/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "ffi",
+        "--lib"
+      ],
+      "status": "passed",
+      "log_sha256": "45d4075636d25d89db65f4379d78862aa924f0c6542d7bdf47b447d367a577a2",
+      "guard_receipt_sha256": "9c4f4d28db42374b9ed194812e031661844945ec726d6c78bce3c1e38071a4b0",
+      "passed_tests": 788,
+      "failed_tests": 0,
+      "ignored_tests": 1
+    },
+    {
+      "name": "array-export-clippy-r2",
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--manifest-path",
+        "vendor/arrow-array/Cargo.toml",
+        "--config",
+        "patch.crates-io.arrow-schema.path=\"vendor/arrow-schema\"",
+        "--config",
+        "patch.crates-io.arrow-data.path=\"vendor/arrow-data\"",
+        "--features",
+        "ffi",
+        "--lib",
+        "--tests",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "status": "passed",
+      "log_sha256": "6598254155dc7a45132cfe75ec9f63e076cf481e4e5f4a0ae6e764badd19c346",
+      "guard_receipt_sha256": "02ec2a67d9623e763f19d20180a0ff6412183e13d1dbf0432087521f73421230",
+      "passed_tests": 0,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "checkpoint-arrow-consumer-tests-r2",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "native_arrow_conversion::immediate_tests"
+      ],
+      "status": "passed",
+      "log_sha256": "6ca15751f3b52918c33b1eb3ea4dbb13f66554715b5fa0f8b159b625abdd2e79",
+      "guard_receipt_sha256": "3691047e05832c779c53366bf44fac7ec0b2307bd830e8979e5bebcd5a68c631",
+      "passed_tests": 4,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    },
+    {
+      "name": "checkpoint-orc-consumer-tests-r1",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "universal_format_io::tests::orc_"
+      ],
+      "status": "passed",
+      "log_sha256": "6799dbbe8f28dd6f22e82d396c20494799051a903c11028a010a58d447844e75",
+      "guard_receipt_sha256": "b2904e724e60813c8bfb8bb3813c93d495ab826f4516aa196e4664651d2eddca",
+      "passed_tests": 2,
+      "failed_tests": 0,
+      "ignored_tests": 0
+    }
+  ],
+  "retained_failures": [
+    "missing upstream JSON fixtures in r1",
+    "ineffective upstream JSON format width in r2",
+    "redundant Arrow Row test import in r3",
+    "native test consuming schema patterns in r4/r5",
+    "initial Arrow consumer filter selected zero tests; corrected r2 executes four"
+  ],
+  "full_native_suite": {
+    "status": "stopped_incomplete",
+    "reason": "Use the required hosted ci-native checked optimized suite for full native coverage; finish affected conversion controls locally. No test or CI gate removed.",
+    "completed_test_rows_at_stop": 1575,
+    "failed_test_rows_at_stop": 0
+  },
+  "unclaimed": [
+    "full deep lifecycle",
+    "all caller traversal/output/error memory grants",
+    "deeper public nesting",
+    "benchmark improvement",
+    "package publication",
+    "hosted check completion"
+  ],
+  "source_manifest": {
+    "file_count": 3953,
+    "sha256": "8a7fe456e3d40675f33f8b4a0b8c40deb03879eddfc5ad65278b40b92d0309d1",
+    "rule": "SHA-256 of UTF-8 JSON sorted path-to-SHA256 mapping without whitespace; tracked and nonignored .rs/.toml/.py files under shardloom-*, vendor/ and scripts/, plus root Cargo.toml/Cargo.lock and .github/provider-locks/*.lock."
+  },
+  "provider_source_audit": {
+    "providers": 30,
+    "verified_source_records": 2668,
+    "mismatches": 0
+  },
+  "existing_lock_review": {
+    "lockfiles": 26,
+    "policy": "Only matching 59.3.2 source/checksum removals; package versions, dependency edges and all other fields unchanged."
+  },
+  "license_bundle": {
+    "registry_packages": 421,
+    "vendored_packages": 30,
+    "license_file_records": 840,
+    "unique_text_files": 249,
+    "status": "passed"
+  },
+  "metadata_checks": {
+    "provider_and_license_unit_tests": 30,
+    "ci_gate_matrix": "passed",
+    "inclusion_scope": "passed"
+  }
+}

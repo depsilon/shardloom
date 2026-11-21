@@ -30,7 +30,7 @@ pub(super) fn validate_schema(
     scope: crate::native_payload_schema::Scope<'_>,
 ) -> Result<()> {
     // Preserve the text writer's existing flat-domain support while admitting
-    // nested walks before recursive extension classification.
+    // nested support before the separately credited extension searches.
     if let Some(fields) = dtype.as_struct_fields_opt() {
         for dtype in fields.try_field_dtypes() {
             let dtype = dtype.map_err(vortex_error)?;
@@ -39,24 +39,26 @@ pub(super) fn validate_schema(
             }
         }
     }
-    if crate::native_vector::contains(dtype) {
+    if crate::native_vector::contains(dtype, scope)? {
         return Err(failed(
             "text output cannot preserve vector interpretation; use Vortex, Arrow IPC or Parquet",
         ));
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(dtype).map_err(vortex_error)? {
+    if crate::native_binary_type::contains(dtype, scope, vortex_error)? {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "text output cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
         ));
     }
-    if crate::native_embedding::contains(dtype) {
+    if crate::native_embedding::contains(dtype, scope)? {
         return Err(failed(
             "text output cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
         ));
     }
-    if crate::native_tensor::contains(dtype) || crate::native_variable_tensor::contains(dtype) {
+    if crate::native_tensor::contains(dtype, scope)?
+        || crate::native_variable_tensor::contains(dtype, scope)?
+    {
         return Err(failed(
             "text output cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
         ));

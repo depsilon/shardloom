@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: fallible borrowed union dtype inspection.
 
 use std::fmt;
 use std::hash::Hash;
@@ -79,25 +80,7 @@ impl fmt::Debug for UnionVariants {
 
 impl fmt::Display for UnionVariants {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Surface non-consecutive type tags so they aren't hidden by the format. Consecutive
-        // `[0, 1, ..., N-1]` is the common case and is left implicit.
-        let show_tags = !self.is_consecutive();
-        write!(
-            f,
-            "{}",
-            self.names()
-                .iter()
-                .zip(self.variants())
-                .zip(self.type_ids().iter())
-                .map(|((name, dt), tag)| {
-                    if show_tags {
-                        format!("{name}@{tag}={dt}")
-                    } else {
-                        format!("{name}={dt}")
-                    }
-                })
-                .join(", ")
-        )
+        super::formatting::display_union(self, f)
     }
 }
 
@@ -107,7 +90,7 @@ struct UnionVariantsInner {
     names: FieldNames,
 
     /// The types of each of the variants.
-    dtypes: Arc<[FieldDType]>,
+    dtypes: Vec<FieldDType>,
 
     /// One tag per variant, in variant order. The common case where children are referenced by
     /// consecutive offsets is `[0, 1, ..., N-1]`.
@@ -117,7 +100,7 @@ struct UnionVariantsInner {
 }
 
 impl UnionVariantsInner {
-    fn from_fields(names: FieldNames, dtypes: Arc<[FieldDType]>, type_ids: Arc<[u8]>) -> Self {
+    fn from_fields(names: FieldNames, dtypes: Vec<FieldDType>, type_ids: Arc<[u8]>) -> Self {
         Self {
             names,
             dtypes,
@@ -143,6 +126,18 @@ impl Hash for UnionVariantsInner {
 }
 
 impl UnionVariants {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+
+    pub(super) fn raw_dtypes(&self) -> &[FieldDType] {
+        &self.0.dtypes
+    }
+
+    pub(super) fn into_owned_fields(self) -> Option<Vec<FieldDType>> {
+        Arc::into_inner(self.0).map(|inner| inner.dtypes)
+    }
+
     /// Check if these union variants are equal, ignoring variant dtype nullability recursively.
     pub fn eq_ignore_nullability(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
@@ -152,16 +147,6 @@ impl UnionVariants {
                     .zip_eq(other.variants())
                     .all(|(lhs, rhs)| lhs.eq_ignore_nullability(&rhs))
                 && self.0.type_ids == other.0.type_ids)
-    }
-
-    /// Hash these union variants using the same equivalence relation as
-    /// [`Self::eq_ignore_nullability`].
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.0.names.hash(state);
-        for variant in self.variants() {
-            variant.hash_ignore_nullability(state);
-        }
-        self.0.type_ids.hash(state);
     }
 }
 
@@ -213,7 +198,7 @@ impl UnionVariants {
     pub fn try_new(names: FieldNames, dtypes: Vec<DType>, type_ids: Vec<u8>) -> VortexResult<Self> {
         Self::validate_shape(&names, dtypes.len(), &type_ids)?;
 
-        let dtypes: Arc<[FieldDType]> = dtypes.into_iter().map(FieldDType::from).collect();
+        let dtypes: Vec<FieldDType> = dtypes.into_iter().map(FieldDType::from).collect();
         let type_ids: Arc<[u8]> = Arc::from(type_ids);
 
         Ok(Self(Arc::new(UnionVariantsInner::from_fields(
@@ -264,7 +249,7 @@ impl UnionVariants {
 
         Ok(Self(Arc::new(UnionVariantsInner::from_fields(
             names,
-            dtypes.into(),
+            dtypes,
             Arc::from(type_ids),
         ))))
     }
@@ -335,6 +320,12 @@ impl UnionVariants {
             .dtypes
             .iter()
             .map(|dt| dt.value().vortex_expect("variant DType must be valid"))
+    }
+
+    /// Borrow variant dtypes in order through the fallible lazy cache.
+    /// Skipped variants are not parsed and returned dtypes borrow this owner.
+    pub fn try_variant_dtypes(&self) -> impl ExactSizeIterator<Item = VortexResult<&DType>> + '_ {
+        self.0.dtypes.iter().map(FieldDType::value_ref)
     }
 
     /// Convert a data-level type tag to a child offset. Returns `None` if the tag is not in

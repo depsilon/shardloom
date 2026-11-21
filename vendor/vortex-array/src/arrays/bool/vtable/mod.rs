@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -167,30 +168,48 @@ impl VTable for Bool {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = BoolMetadata::decode(metadata)?;
-        if buffers.len() != 1 {
-            vortex_bail!("Expected 1 buffer, got {}", buffers.len());
-        }
-
-        let validity = if children.is_empty() {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 1 {
-            let validity = children.get(0, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!("Expected 0 or 1 child, got {}", children.len());
-        };
-
-        let buffer = buffers[0].clone();
-        let slots = BoolData::make_slots(&validity, len);
-        let data = BoolData::try_new_from_handle(buffer, metadata.offset as usize, len, validity)?;
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = BoolMetadata::decode(metadata)?;
+            if buffers.len() != 1 {
+                vortex_bail!("Expected 1 buffer, got {}", buffers.len());
+            }
+
+            let validity = if children.is_empty() {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 1 {
+                let validity = children.get_async(0, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!("Expected 0 or 1 child, got {}", children.len());
+            };
+
+            let buffer = buffers[0].clone();
+            let slots = BoolData::make_slots(&validity, len);
+            let data =
+                BoolData::try_new_from_handle(buffer, metadata.offset as usize, len, validity)?;
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

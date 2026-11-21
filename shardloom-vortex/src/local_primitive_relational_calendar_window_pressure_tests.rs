@@ -18,7 +18,7 @@ fn text(row: usize) -> String {
 }
 
 fn large_fixture() -> Fixture {
-    let DType::Extension(dtype) = crate::native_temporal::vortex_dtype(
+    let DType::Extension(dtype) = &crate::native_temporal::vortex_dtype(
         &TemporalDType::parse("timestamp(s,America/New_York)").unwrap(),
         Nullability::NonNullable,
     )

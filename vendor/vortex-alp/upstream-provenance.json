@@ -1,0 +1,100 @@
+{
+  "provider": "vortex-alp",
+  "version": "0.93.0",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "registry_archive_sha256": "514c43807defff4b9d05d96715a59a732b9a48c4521c5f217a6319da77aee6da",
+  "registry_archive_file_count": 34,
+  "registry_archive_uncompressed_bytes": 264416,
+  "source_of_truth": "https://static.crates.io/crates/vortex-alp/vortex-alp-0.93.0.crate",
+  "vcs_info": {
+    "git": {
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/alp"
+  },
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "5f3f7efe79029311b0c8a97e5ce4a7a144bef482ae0dade4f48607c92312491d",
+    "Cargo.lock": "55e196030d5427ab06439cb0dc54403f7804586b3ecd9668c403e9dab29ea2b6",
+    "Cargo.toml": "2d0a91def74dff43c57ebc58983119d269b47714dff3226aa8e9476a886564f8",
+    "Cargo.toml.orig": "477166f19f3fe01a99787e0c3f1c2982032d4e245bb24942a79022fce02944cb",
+    "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+    "src/alp/array.rs": "e4ae4933d95503f78d1207b7431db05e8d4b30898d6f106fe20a82c33efc3c17",
+    "src/alp/compress.rs": "95f57ce99457ed12c06cdb8e974ede22eb64b231527fa6d00ee36a5878802572",
+    "src/alp/compute/between.rs": "e77140295949897ccdd3693c8f024b714c83ef5c0a9f4e18f4c96fad6b979cf1",
+    "src/alp/compute/cast.rs": "9cec6fae084677e2fb1a29f99d2508e8c9b15dec32d018d328bf60729adec1d9",
+    "src/alp/compute/compare.rs": "4d3d23846b9b0ac9c2c0c0a0279afdca35a16f83f3e633dc2cae4456e6271eb2",
+    "src/alp/compute/filter.rs": "78137eb337f2accf934ae9fc0ed3968b8af526b752502813d6c5a041dbf88421",
+    "src/alp/compute/mask.rs": "1b9f115deda323ef62688f0c89b5507556cbf2cb697a15827fa98aea00a4e2f2",
+    "src/alp/compute/mod.rs": "bed1aa6f3fe46a84b11c3bf7681579ad8e83a44583be2466b287028291092459",
+    "src/alp/compute/nan_count.rs": "4a556a39f67a530befeacbbfdf4ae4060dce61cfedc1b5e5370cbb92bbb51a55",
+    "src/alp/compute/predicate.rs": "61cba70867b010cbb6e478a3ab6f7d85f1f0dce9cc011bdf3351da0c1d75bfb8",
+    "src/alp/compute/slice.rs": "01c9188d9373f9bd9c1c32409a1155e95596f937aff5821477c3fe2a2a624aca",
+    "src/alp/compute/take.rs": "5deb68efe0333070da6910375b16899a209a7f5d82adcd12bf2169815275fd74",
+    "src/alp/decompress.rs": "a80b3d7eca15985058cd0444c78bd4b86556fa1480005a98ab8a7dc8e79a9619",
+    "src/alp/mod.rs": "fb1e651d657f684a6913d3566d15637e37e07587809384d39d3c27a733ee7957",
+    "src/alp/ops.rs": "733613d6c4470aefd17c5f089220b17c14e853b6592a3d4df1d15afcc61ee4ba",
+    "src/alp/plugin.rs": "3f53af9272ddc38c313e7a992b2f95611acba7edde71a39589be3feb1381ab9e",
+    "src/alp/rules.rs": "a024356cba52efaa6dcd10ffa06d58b54e9f174b51701cb6eeaa456128f2d08f",
+    "src/alp_rd/array.rs": "4c8c6ef435abcaf6bc5143e3e850ee9f080459a084e70d97e16b8bbdd7054521",
+    "src/alp_rd/compute/cast.rs": "112510a36a997e358e1b334c6b14cee60755c15dc02d00a2b4ac0fec8da0f124",
+    "src/alp_rd/compute/filter.rs": "97bbe66081191d9f363ab7fd1dad8e657d6aa0b452d151f410b71c8b9ece9be2",
+    "src/alp_rd/compute/mask.rs": "71b9f2eb8de720fc53a4a42e5de322b979140264e545ea84912b2c024f8f81d8",
+    "src/alp_rd/compute/mod.rs": "7dcb11ab32e472f4ce3e3ad4c31c6ec4cb913bfef037cbc9ba5b7e9d84fa17f7",
+    "src/alp_rd/compute/take.rs": "c736bb21ba3717d61c0fc0c8de3460479619d7f91d4e5148b7416ece6f04d965",
+    "src/alp_rd/kernel.rs": "c14fbe9a4238bad04945398759a6308ed2d070f96007fa331a201f3c31ce59c7",
+    "src/alp_rd/mod.rs": "d7c8bb65d6a03f83509acc76d58dd98454febd2c7960281d06a36d2aad4eb214",
+    "src/alp_rd/ops.rs": "cb7cd46b890133d8143aa2211a067a097cb104519a236c69aeb17af9fdb3b87e",
+    "src/alp_rd/rules.rs": "92225363e8b1404cb3785a636a1d140acb6f6c7d6c9a6ea309fe44a6ddeb41c1",
+    "src/alp_rd/slice.rs": "2fa16e3acb485879014008f3e304e50347309cb08f3fa7b81713e147c5827e6e",
+    "src/lib.rs": "129f7e7d9ec899febd57f7a04454abf29cf3b0753e98e2b651452577900cdacd"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "c6577498a33446e9380c8bb4595a305423d66ff89511d69d6925cc763435beec",
+    "src/alp/array.rs": "9134d3f330bb3778f19f4fe73ebc60c9a7cf19802d1521ae6e472a5d993c6a02",
+    "src/alp/plugin.rs": "3dc6cd32f7f1a52f7e032e125ab5b5ddf804ae8f4ad7156ccec00267e9434989",
+    "src/alp_rd/array.rs": "c09948abd35b9d708199f39c13034c762ddb4194eb13ae747d1cfbbc4d5b3626"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "450ee50682b393c3571532900f0b37c443002489473aca11bcc698ae29c855fa",
+    "goldenfiles/alp.metadata": "8f748289678e3e550be397f6b8103e65c482a01c4de3f204c930aedc93d69ebb",
+    "goldenfiles/alprd.metadata": "55a47036372b7f74547e76029daf21d9a307caad7d7f4e6f11726a5db4d79494"
+  },
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "450ee50682b393c3571532900f0b37c443002489473aca11bcc698ae29c855fa"
+  },
+  "supplemental_test_files": {
+    "goldenfiles/alp.metadata": {
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/alp/goldenfiles/alp.metadata",
+      "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "git_blob_sha1": "93929866209c01a6cae3319a29dbf1682474a1d6",
+      "sha256": "8f748289678e3e550be397f6b8103e65c482a01c4de3f204c930aedc93d69ebb",
+      "bytes": 38,
+      "test_source": "src/alp/mod.rs",
+      "test_function": "test_alp_metadata",
+      "test_function_sha256": "e6a53d3c3b3f46d6caa6eb272071c5ad523212c32759e33c7f08fefdd46ddda1",
+      "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+      "test_function_matches_published_archive": true
+    },
+    "goldenfiles/alprd.metadata": {
+      "upstream_url": "https://raw.githubusercontent.com/vortex-data/vortex/c1439e69bf833fc702a60335ed674a1674ca358d/encodings/alp/goldenfiles/alprd.metadata",
+      "source_commit": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "git_blob_sha1": "069b2721616bbdfd701d64b0ad8e40c512151f20",
+      "sha256": "55a47036372b7f74547e76029daf21d9a307caad7d7f4e6f11726a5db4d79494",
+      "bytes": 36,
+      "test_source": "src/alp_rd/array.rs",
+      "test_function": "test_alprd_metadata",
+      "test_function_sha256": "62f9a143a3ba15fa1b799af71ad8fe511b6fcc9db3ba8e336b409365ce329ea4",
+      "test_function_hash_scope": "fn signature through final brace, including initial indentation, excluding following newline",
+      "test_function_matches_published_archive": true
+    }
+  }
+}

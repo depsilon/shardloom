@@ -1,0 +1,94 @@
+{
+  "schema": "shardloom.arrow-data-traversal-reference.v1",
+  "commit": "feb503463208aefac9d6be56274569628b37eadb",
+  "source_path": "vendor/arrow-data/src/data.rs",
+  "source_sha256": "22c5cf8d60371af3ee839717553226cde2c59d855730f87e812ce32c519bf7ff",
+  "adaptation": "Rename the twelve ArrayData methods with reference_ only; NullBuffer x.slice stays unchanged.",
+  "items": [
+    {
+      "name": "get_buffer_memory_size",
+      "start_line": 500,
+      "end_line": 512,
+      "literal_sha256": "8cc0841caa8cc2afde8c1c79f86f0dd3c8784559e56dd152193d51834d17dedc",
+      "adapted_sha256": "de711d58492eb1496d7cec65be074f9649108622ef7daa4867919e79b4b2037d"
+    },
+    {
+      "name": "get_slice_memory_size",
+      "start_line": 526,
+      "end_line": 589,
+      "literal_sha256": "dab498e42ca9e48fdac1309556acd3630fff8e687e7d75629ecc2ebe102532bb",
+      "adapted_sha256": "3055c8224127856017c949be2e075ae24482bce368e49a07e9f1cd0439b8bd55"
+    },
+    {
+      "name": "get_array_memory_size",
+      "start_line": 599,
+      "end_line": 615,
+      "literal_sha256": "21679ad4a3180df9384a5d04a12b67cf93f3ee743495d467b6f65bb35be46a86",
+      "adapted_sha256": "7f0cc903d305c17155ba4a079ad85360fa1ce8993cda0064ea7650243b051e8e"
+    },
+    {
+      "name": "slice",
+      "start_line": 624,
+      "end_line": 658,
+      "literal_sha256": "c84787555b89f716a6adb9a379ec0d216e7dd2f8e30f84e8d3f6a801cc287ee7",
+      "adapted_sha256": "6a18fb253547a18e80da394d66e1b24d19cab05c984a4a5c61a2a9f86feac6d5"
+    },
+    {
+      "name": "align_buffers",
+      "start_line": 850,
+      "end_line": 863,
+      "literal_sha256": "bbf2771156af30ffd63f0311dd512c76b98af075afa80df56dd980c2ec29350d",
+      "adapted_sha256": "9d882613e98abcc4d96378ed015dcb976acecf962a624630e5176a8e9eab7cc8"
+    },
+    {
+      "name": "validate",
+      "start_line": 875,
+      "end_line": 1018,
+      "literal_sha256": "91b94741352fbff5563deda1ac3ff5e26e6aa4eaab2dca21624252b20673d8ed",
+      "adapted_sha256": "6bbd574022d3ce46a756b3fb58c65338c0837d2914bf2705b4c4161487bf4c71"
+    },
+    {
+      "name": "validate_child_data",
+      "start_line": 1161,
+      "end_line": 1301,
+      "literal_sha256": "5e74f511bf087f8fc6b9026308e35ef11b73c48635a44ca0176df8ecba28940a",
+      "adapted_sha256": "538a96cd034cb30d7461496e01cef94d008290e3c151d15b7f557da54b880998"
+    },
+    {
+      "name": "get_single_valid_child_data",
+      "start_line": 1306,
+      "end_line": 1312,
+      "literal_sha256": "84d4dddacdac1e42003796ea423c631c9cee1a469d8a2ae38bfa40dcf6635c31",
+      "adapted_sha256": "8c84491c4534099a7d86cfcff0f9107091791bdc7bacf3a5b6814aed03ed999b"
+    },
+    {
+      "name": "validate_num_child_data",
+      "start_line": 1315,
+      "end_line": 1326,
+      "literal_sha256": "a4b62ff2def001d604b0159729c6824a6a14a9a8fb3f0de81e354962a5fbe408",
+      "adapted_sha256": "683138424ff45de29f66ac8093e2dc6ed404d2e8a1aa3256f10ae2a25da0cf44"
+    },
+    {
+      "name": "get_valid_child_data",
+      "start_line": 1330,
+      "end_line": 1353,
+      "literal_sha256": "057dea3eaa6f9c6608206cf30bf98a9801f712d1dd1091711bf6de011503131c",
+      "adapted_sha256": "f95fe69abbc9dc9002a9dac32057692baa8f1c2639488631aec396e3a84d5dac"
+    },
+    {
+      "name": "validate_data",
+      "start_line": 1370,
+      "end_line": 1376,
+      "literal_sha256": "bda02cbe56364270d2faec2ccf1cac821db5c1bbdf5b4ae9f9929f9b08591d7b",
+      "adapted_sha256": "4f3db9b682aef05c65b5caf452fe8e23154ccf808135a599c435e8780d2964dc"
+    },
+    {
+      "name": "validate_full",
+      "start_line": 1382,
+      "end_line": 1397,
+      "literal_sha256": "3209fd9d7c6d020422c90eb4deafcd968ca8f1767bbbdbb176c80e4f85a1b067",
+      "adapted_sha256": "e2699935f4588be9b7b5e1de3e447a205a1b8d117e896274228d6876aa4c1806"
+    }
+  ],
+  "reference_sha256": "de74e4b5a5e97b726df4bfc3b180a2e8b78662eadd2d339d2fa9984429b3298a"
+}

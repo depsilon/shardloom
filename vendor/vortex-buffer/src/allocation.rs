@@ -345,6 +345,7 @@ impl Drop for Allocation {
 pub(crate) enum BufferBacking {
     Owned(Allocation),
     Bytes(bytes::Bytes),
+    Retained(crate::retained_owner::RetainedBufferOwner),
     #[cfg(feature = "arrow")]
     Arrow(arrow_buffer::Buffer),
     External {
@@ -358,7 +359,7 @@ impl BufferBacking {
     pub(crate) fn allocator(&self) -> &BufferAllocatorRef {
         match self {
             Self::Owned(allocation) => allocation.allocator(),
-            Self::Bytes(_) | Self::External { .. } => &STATIC_ALLOCATOR,
+            Self::Bytes(_) | Self::External { .. } | Self::Retained(_) => &STATIC_ALLOCATOR,
             #[cfg(feature = "arrow")]
             Self::Arrow(_) => &STATIC_ALLOCATOR,
         }

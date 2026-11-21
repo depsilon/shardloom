@@ -260,6 +260,1380 @@ neither serialized values nor metadata accounting.
 
 ## Verification
 
+### Native schema final-owner cleanup amendment, November 17, 2026
+
+Item 19's resource-admitted deep traversal needs stack-safe cleanup of the
+existing Vortex 0.93 `DType`, including independently retained children,
+partially built values and concurrent last owners. A root-only keepalive cannot
+establish that contract. Use an intrinsic dtype destructor within the existing
+excluded `vendor/vortex-array` patch. No public depth boundary changes until
+serialization, values, physical verification and complete native lifecycles also
+pass. Array ownership is a separate remaining obligation.
+
+Keep the existing public dtype variants and serialized identity. Extract each
+node's owning field into a private work item, replacing the original node with
+`DType::Null`. Consume shared allocations with `Arc::into_inner`; a failed
+`try_unwrap(...).ok()` is insufficient because simultaneous last-owner release
+can drop a nested value outside the work loop. Traverse siblings through owned
+iterators and preserve declaration order. Store struct/union field vectors
+directly inside their already shared container, so last-owner extraction does
+not require unwrapping an unsized `Arc<[FieldDType]>`. Lazy caches are released
+without parsing absent values. Keep each provider metadata reservation alive
+until its pending fields are released. Extension storage can be extracted by
+safe `Arc<Self>` dispatch on the existing sealed, concrete extension owner.
+
+This amendment permits one narrowly scoped unsafe ownership extraction helper
+inside the excluded dtype provider. Its complete safety contract is:
+
+- Accept only an exclusive reference to an initialized, unpinned `DType`.
+- Replace that value with `Null` using safe `mem::replace` before any extraction.
+  Put the removed enum in a local `ManuallyDrop`; never publish, store, clone,
+  format, inspect again, or manually destroy that wrapper after extraction.
+- Match every enum variant exhaustively. Each compound variant has exactly one
+  owning field; transfer that field once with `ptr::read` from its valid,
+  naturally aligned reference. The remaining fields are `Copy`. Every leaf
+  variant contains only `Copy` fields. Adding a variant requires a fresh review
+  of this exhaustive match and its ownership tests.
+- The extraction block performs no allocation, callback, formatting, fallible
+  operation or other potentially panicking operation between removing the enum
+  and returning its fully owned work item. No pointer escapes the helper.
+- The resulting work item has ordinary Rust ownership and is released exactly
+  once. The original location remains `Null`, so its automatic field destruction
+  cannot release a transferred child again. All subsequent traversal and Arc
+  extraction use safe Rust.
+
+The helper avoids placeholder allocations, a global or thread-local drop queue,
+type-layout reinterpretation, raw Arc reconstruction and a parallel type model.
+Workspace crates retain `unsafe_code = "forbid"`. This exception does not permit
+unchecked file reads, a custom allocator, FFI, arbitrary extension metadata
+destructors, or changes to public format/error admission. It follows the standard
+library contracts for [ownership reads](https://doc.rust-lang.org/std/ptr/fn.read.html),
+[local manual-drop storage](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html)
+and [concurrent Arc extraction](https://doc.rust-lang.org/std/sync/struct.Arc.html#method.into_inner).
+The implementation uses APIs available before the supported Rust 1.96 minimum.
+
+Cleanup may use a heap continuation vector. It must request no new execution
+reservation during destruction. Before deeper values become public, native
+schema admission must prepay its growth/overlap allowance and retain that credit
+through final cleanup, including independently retained children. Raw provider
+objects without a ShardLoom owner remain outside the resource-accounting claim.
+This design is not a process-RSS or system-allocation-failure guarantee.
+
+Acceptance requires small-stack subprocess tests for deep list, fixed-list,
+struct, map, union and extension chains, detached children, weak references,
+simultaneous final owners, expanded shared subtrees, partial construction and
+unwinding. Count final drops and validate that lazy caches are not parsed during
+release and provider credits survive their descendants. Run focused provider
+and adapter tests, strict lint, workspace/feature/MSRV gates, and an interpreter
+or sanitizer check where supported. Record unavailable tooling explicitly.
+Owned pattern matches and promoted dtype references must be migrated without
+changing values or public method results. No support or speed claim follows from
+the ownership prototype alone.
+
+### Native array final-owner cleanup amendment, November 17, 2026
+
+The same deep-traversal obligation includes every independently retained native
+array. The Vortex-first decision is `use_vortex_native_provider`: extend the
+pinned provider's existing `ArrayRef`, typed `ArrayInner<ArrayData<V>>` and child
+slots, without a parallel array representation or execution engine. This covers
+declared slots; nested scalar values, statistics and serialization trees retain
+their own lifecycle obligations. Existing public depth limits remain in place.
+
+Keep the 16-byte erased Arc handle and its direct metadata reads. Its private
+field becomes `ManuallyDrop<Arc<ArrayInner<dyn DynArrayData>>>`. Two private paths
+may transfer that Arc: destruction and a consuming conversion. Each takes the
+initialized field exactly once. The consuming conversion first puts the entire
+handle into a local `ManuallyDrop`. After taking a field, neither wrapper may be
+observed, cloned, formatted, returned or manually destroyed. Public safe APIs
+only receive live handles; automatic field destruction remains inert on unwind.
+This follows the standard library's
+[manual-drop layout and take contract](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html#method.take).
+
+The sealed dynamic data trait selects the final-owner extractor monomorphized
+for its actual `ArrayData<V>`. Invoke that extractor on the **same** Arc whose
+data selected it, with no intervening mutation or caller-supplied type, encoding
+ID or registry lookup. That relation is the complete safety precondition of the
+private function pointer. Its implementation may call the existing unchecked
+typed Arc downcast because the concrete type is exactly `ArrayData<V>`. There is
+no new raw Arc reconstruction, unsized allocation manipulation or allocator.
+All new unsafe operations stay inside this excluded provider: the two single-use
+field takes, this same-allocation extractor call, and its existing typed downcast.
+Workspace crates retain `unsafe_code = "forbid"`.
+
+Use `Arc::into_inner` for final ownership so simultaneous last owners cannot
+bypass the iterative path through a failed `try_unwrap(...).ok()`. At final
+extraction, create a frame holding the slot iterator and retained lifetime owner
+before dropping metadata and encoding data. Move all remaining owned fields into
+one temporary tuple for destruction: if a field's destructor panics, its tuple
+siblings finish before the frame unwinds. Both data and slot descendants must
+be released before the lifetime owner; no data-versus-slot order is promised.
+Consume present children in slot order with owned continuation frames. Use a
+tail path when neither pending children nor a retained owner needs a frame.
+On unwind, drain frames from innermost to outermost so ancestor credits outlive
+their pending descendants. Cleanup performs no execution or canonicalization.
+
+No new execution grant is requested during destruction. Before deeper shapes
+are publicly admitted, traversal growth and overlap must be prepaid and retained
+through final cleanup, including detached children. Raw provider objects without
+ShardLoom ownership do not establish whole-process accounting. Arbitrary user
+destructors, cyclic external ownership, and nested values hidden inside opaque
+custom encoding data are outside the slot traversal guarantee. A second panic
+while unwinding retains Rust's ordinary abort behavior.
+
+Acceptance requires deep canonical struct, list, fixed-list and extension arrays
+plus opaque slot chains on small stacks in subprocesses with explicit completion
+markers. Cover typed/erased/parts conversions, raw typed ownership, weak references,
+simultaneous final owners, detached children, shared DAGs, failed construction,
+unwinding, exact payload/owner drop counts and descendant-before-owner ordering.
+Preserve handle-layout checks and run provider/native/default/feature/MSRV gates.
+Record unavailable interpreter or sanitizer tooling without implying such proof.
+No deeper support or performance claim follows from cleanup tests alone.
+
+### Native scalar-value final-owner cleanup amendment, November 17, 2026
+
+Constant arrays, statistics and independently retained scalar values must share
+the same cleanup guarantee. Extend the pinned provider's `ScalarValue` and
+`Scalar`; keep every public variant and serialized representation. This is safe
+Rust ownership handling and requires no further unsafe exception.
+
+An intrinsic `ScalarValue` destructor takes tuple vectors with `mem::take`, union
+children with `Option::take`, and the whole Scalar inside a Variant's existing
+Box with `mem::replace`. The replacement is an allocation-free Null/None Scalar,
+so no new Box is needed. Ordinary enum field destruction later releases this
+inert box. Leaf payloads retain ordinary buffer destruction. Consume existing
+children one at a time through owned iterators; never clone or eagerly expand
+descendants during cleanup. Keep a Variant's extracted dtype in its continuation
+frame until its child value finishes. Release continuations innermost first on
+unwind, with child values declared before their metadata owners. Scalar's private
+value field likewise precedes its dtype so normal destruction retains schema
+credit through nested value release. This changes no public layout promise,
+named construction, or explicit protobuf conversion order.
+
+Preserve consuming accessors without deep copies: return tuple storage using
+`mem::take`, replace text/binary buffers with their existing empty values, replace
+a returned union with an empty union, and replace a returned Variant's boxed
+Scalar with Null/None. Wrong-variant diagnostics stay the same. These replacements
+need no new heap allocation. Compile all provider and native consumers to find
+owned patterns affected by adding Drop; borrow read-only matches rather than
+silently cloning nested values.
+
+Before lifting any depth limit, retain the proved cleanup scratch allowance for
+independently retained scalar values, array metadata and statistics, including
+traversal overlap. Cleanup requests no new execution grant. Acceptance includes
+deep tuples, unions, variants and mixtures on small-stack subprocesses, nulls,
+wide siblings, partial construction, unwinding, exactly-once buffer destruction,
+raw consuming-accessor results, ConstantArray/statistics ownership and dtype
+credit surviving nested buffers on normal and one-panic paths. Test construction
+must not imply proof of still-recursive validation, clone, comparison, formatting
+or serialization. Those operations remain separate deep-lifecycle obligations.
+
+### Native schema structural-operation amendment, November 17, 2026
+
+Continue the deep lifecycle inside the existing pinned Vortex dtype provider.
+Ordinary and nullability-insensitive equality and hashing use borrowed iterative
+continuations; they do not build a second schema, clone child dtypes, serialize
+extension metadata, or eagerly inspect later lazy fields. Preserve existing Arc
+identity shortcuts, per-field parse order (including owned/view comparison
+orientation), metadata-vtable dispatch and short-circuit order. Map sortedness
+and union type tags remain trailing comparisons after their children.
+
+Preserve the ordinary derived-hash field order and the existing
+nullability-insensitive hash feed, including their different child-vector length
+prefixes. Test against a shallow independent recursive representation on the
+same compiler, as well as equality/hash consistency; do not assert portable
+numeric hashes. Rust's [Hash contract](https://doc.rust-lang.org/std/hash/trait.Hash.html)
+does not promise feed stability across compilers or architectures. Single-child
+equality chains need no heap continuation; branching traversal retains only the
+unvisited sibling ranges and trailing work. Hashing retains pending suffixes.
+The provider's infallible trait boundary still requires ShardLoom admission to
+prepay the proved scratch/overlap allowance before any depth increase. This
+amendment does not establish that allowance or lift the current depth boundary.
+
+Require small-stack deep equality/hash tests for each compound shape, independent
+trees, shared subtrees, deepest-leaf mismatches, nullable equivalence and lazy
+parse failures/short circuits. Nullability lookup follows only an unbroken
+extension storage chain. Conversion clones extension vtables and metadata in
+the original outer-to-inner order, then installs the converted storage inside
+private uniquely owned drafts from inner to outer. These drafts temporarily
+contain Null storage, cannot escape, never invoke validation or formatting, and
+use safe `Arc::get_mut` to finish the same allocation. Preserve the erased
+no-change identity shortcut and typed conversion's distinct result ownership.
+Drain unfinished drafts innermost first on unwind. Test metadata clone/drop
+order, NULL refusal and unchanged nested-child nullability.
+
+Formatting, physical verification and serialization remain separate obligations.
+No new unsafe code is needed for these structural operations.
+
+### Native schema FlatBuffer write amendment, November 17, 2026
+
+Replace recursive DType writing with borrowed parent continuations inside the
+existing array provider. Keep the same generated FlatBuffer tables, enum tags,
+metadata callbacks and builder. Write struct/union name strings and their vector
+before visiting children, preserve key-before-value and declared sibling order,
+write union tags after child offsets, and create an extension ID before its
+storage child and metadata only after that child succeeds. Preserve lazy-field
+panic boundaries and metadata errors. Do not preparse the complete schema or
+reorder table/string creation: existing shallow buffers must remain byte-identical
+when written into identical builder states.
+
+Parent frames borrow schema metadata and retain only pending child offsets. Lists
+and extensions need no per-node child vector. Struct/union vectors use their
+declared child count and are released after their table is emitted. Source
+ownership and the existing writer admission must cover the frames, offsets,
+builder growth and overlap before deeper inputs are admitted. A small-stack
+write test establishes writer stack safety only; the existing recursive physical
+verifier and reader remain explicit blockers to a deep round-trip claim. Keep
+those guards until their independent implementation and adversarial validation
+are complete. No new unsafe code, schema version or external execution provider
+is introduced by this writer amendment.
+
+### Native schema logical-read amendment, November 17, 2026
+
+Replace eager list, fixed-list, extension-storage and map-key recursion with
+ordered continuations over an already physically verified FlatBuffer. Struct
+and union fields and map values retain their existing lazy views. A map key
+retains its view and initialized cache rather than changing to an owned field.
+Check both map child offsets before parsing its key; require extension IDs
+before storage, and resolve metadata and the registry only after storage
+succeeds. Preserve the extension context added by each failed storage ancestor,
+including errors from nested map keys and lazy container construction.
+
+The logical parser does not verify bytes and must never substitute for physical
+verification. Its internal deep tests may use only known offsets returned by
+the native writer; the public entry still uses the unchanged checked root and
+its existing depth limit. Require shallow recursive-reference equivalence,
+lazy cache/parse order, malformed logical declarations, extension callback
+order and small-stack eager-chain tests. Final resource admission must prepay
+continuations, created owners and unwind overlap before any guard is raised.
+No new unsafe code or public transport capability is authorized by this step.
+
+### Physical verifier continuation amendment, November 17, 2026
+
+The pinned FlatBuffers 25.12.19 verifier owns checked scalar/offset access,
+table/vtable validation, UTF-8 and terminator checks, cumulative apparent-byte
+and table counts, depth accounting and error traces. Its
+[table verifier](https://github.com/google/flatbuffers/blob/v25.12.19/rust/flatbuffers/src/verifier.rs)
+holds a mutable verifier borrow throughout recursive child checks. No existing
+public API can preserve that parent across an iterative child visit. Resetting
+counters, skipping physical checks or duplicating a raw-byte verifier is not
+an accepted replacement.
+
+Vendor the same checksum-pinned Apache-2.0 crate, with no version or dependency
+addition, to expose a narrow safe continuation. Suspending a table consumes its
+handle and retains the checked descriptor, immutable buffer/options references,
+depth and cumulative counter minima. Resuming consumes this private, non-Clone
+token, checks the same buffer/options identity, exact pending depth and monotonic
+counters, then restores the handle without re-reading or recounting bytes/tables.
+The existing `finish` decrements depth exactly once. Resume misuse is a programmer
+error; an input error aborts verification as before. No verifier reset or unsafe
+code is introduced. Export the existing checked vector-range and error-trace
+helpers without changing their algorithms or default limits.
+
+Native generated schema verification may delegate to an explicit continuation
+walker using these checked primitives. Preserve original field order, absent
+field and union-tag behavior, offset arithmetic, string/primitive checks, expanded
+alias work, all configured depth/table/apparent-byte limits and the complete
+error trace. Complete each child before touching the next field or sibling.
+Continuation storage must be prepaid by native admission before any public
+depth increase; this amendment keeps existing public limits.
+
+Require exhaustive generated-table coverage, shallow comparisons to independent
+original recursive verifiers, malformed/truncated/mutated buffers and configured
+budget boundaries, alias amplification, small-stack deep verification with
+explicit test options, and exact dependency/license/source records. Check both
+standard and no-default-feature FlatBuffers builds, affected native/compatibility
+providers and the supported Rust version. Physical verification alone does not
+certify logical values, array decoding, formatting or the complete runtime
+lifecycle.
+
+### Native schema formatting amendment, November 17, 2026
+
+Schema `Display` bytes participate in prepared-source and layout identities.
+Keep those bytes unchanged, including nullable suffixes, union tags, field
+order, extension metadata and the alternate standalone-struct form. Replace
+child recursion with borrowed ordered continuations. Resolve both map children
+before displaying either, as the original argument evaluation does. Preserve
+the struct/union join boundary: complete its child text before writing that
+joined value to the caller. While already inside such an infallible string
+buffer, nested joins may append to the same buffer; do not allocate one full
+subtree string per ancestor. Keep extension metadata formatting callbacks and
+lazy parse/error order. No child dtype clone or new schema representation is
+needed. Native admission must cover the continuation stack, joined text and
+metadata-format overlap before exposing deeper schemas.
+
+`Debug` is diagnostic text, not the schema identity format. It must not parse
+lazy fields merely to assess depth. Inspect only owned and already cached
+schema children using a fixed-capacity borrowed stack. Preserve the previous
+derived representation, raw lazy/cache information and formatter flags for
+schemas with at most 32 child edges. A deeper owned/cached tree prints the
+ordinary Rust non-exhaustive variant form, such as `List(..)`, instead of
+recursively expanding it. Standalone field/map/union/extension debug wrappers
+reach the same dtype guard. This is an explicit diagnostic presentation change,
+not loss of schema data, a serialization change or an execution depth limit.
+Opaque third-party metadata callbacks retain their own contract; native
+admission covers the supported bounded metadata providers.
+
+Require shallow recursive-reference Display comparisons, formatter variants,
+lazy cache/failure and metadata callback ordering, failed output sinks,
+deep and wide schemas and small-stack diagnostic/Display checks. Do not
+truncate Display or use the bounded Debug form in identity calculations.
+Public data depth limits remain until the rest of the lifecycle is admitted.
+
+### Native scalar structural-operation amendment, November 17, 2026
+
+Continue the same native-value lifecycle through `ScalarValue` cloning, equality
+and hashing. Tuple elements, selected union children and row-specific Variant
+scalars use ordered borrowed continuations. Clone only the existing native
+containers; retain the ordinary shared buffer and dtype owners. Build Variant
+copies directly from their already validated fields without revalidation or
+an intermediate row representation. Partially built native values use their
+intrinsic iterative cleanup on failure.
+
+Preserve tuple length checks and element order, union tag-before-child checks,
+and the Variant scalar's nullability-insensitive dtype comparison before its
+optional value. Hashing must preserve the prior enum and Option discriminants,
+tuple length prefixes, union tags, dtype feed and every leaf hash write on the
+same compiler. Scalar's existing outer dtype/optional-value contract and the
+standalone `UnionValue` wrapper remain unchanged. No new unsafe code or provider
+dependency is needed. Native admission must cover continuation growth and
+cloned container overlap before deeper values become public.
+
+Require independent shallow derived-reference comparisons and per-write hash
+checks, all primitive and null states, selected union tags, Variant dtype
+differences, wide tuples, shared-buffer ownership and 8,192-level small-stack
+clone/equality/hash/release tests. Validation, ordering, formatting, transport
+and whole-runtime resource admission remain separate obligations; these checks
+alone do not lift the public depth guard.
+
+### Native scalar validation and diagnostic amendment, November 17, 2026
+
+Replace recursive native scalar compatibility and detailed validation with the
+same ordered borrowed traversal. Retain the inline null/primitive fast checks;
+the compatibility walk must not construct diagnostic strings. Preserve lazy
+field order, map key/value pre-resolution, union tag selection, Variant null
+rules and storage-before-extension callbacks. Detailed validation keeps the
+same first failing leaf and existing messages for ordinary shallow inputs.
+The constructor's top-level legacy F16-bit conversion remains unchanged.
+
+Failure presentation must not reintroduce stack recursion or multiply an
+arbitrarily deep schema across every ancestor message. ScalarValue Debug retains
+its original derived field spelling and flags through 32 value-child edges,
+then uses a non-exhaustive variant such as `Tuple(..)`. It inspects values without
+validating, cloning or formatting extension metadata. Detailed validation uses
+the same bound before displaying a mismatched raw value. Preserve all existing
+ancestor contexts when there are at most 32; for deeper failures retain the 32
+nearest contexts and explicitly report the number of omitted outer contexts.
+This is a diagnostic presentation bound, not a data admission limit. Ordinary
+Display and persisted values are not truncated by this policy.
+
+Require shallow success/error/callback parity against the original recursive
+validator, lazy-error ordering, independent null/length/tag/type controls, deep
+valid and invalid constructors on small stacks, bounded deep diagnostics and
+cleanup after failure. Prepayment for continuation growth and bounded diagnostic
+overlap remains mandatory before public depth admission changes.
+
+### Native scalar ordering amendment, November 17, 2026
+
+Replace recursive native Scalar ordering with borrowed ordered continuations.
+Preserve dtype equality ignoring nullability before inspecting values, nulls
+before present values, existing primitive/decimal comparisons, lexicographic
+list and map ordering, exact struct shape checks and field order, and union
+comparison only when both values select the same tag. Present Variant values
+remain unordered. Extension storage is unwrapped only for tuple interpretation,
+as in the original implementation; this amendment adds no ordering capability.
+
+Map entry interpretation borrows the existing key/value dtypes instead of
+constructing an intermediate entry schema. Resolve both map fields before
+comparing entries, preserve lazy struct/union selection and stop at the first
+unequal or unordered child. The same native dtype and value owners outlive all
+borrowed frames. Require original shallow-reference parity, null and length
+controls, lazy failure ordering, unchanged extension callbacks and 8,192-level
+small-stack comparisons. Traversal scratch must be admitted with the complete
+lifecycle before the public nesting guard changes.
+
+### Native scalar Display amendment, November 17, 2026
+
+Use one borrowed continuation engine for ordinary typed Scalar and raw
+ScalarValue Display, including standalone list, struct, map, union and Variant
+views. Preserve existing text, raw versus typed spelling, null distinctions,
+legacy child F16 construction, lazy field order and validation/formatting callback
+order. List child construction happens before its separator; struct fields and
+map entries finish their temporary formatted text before the separator reaches
+the caller. Keep debug-build unchecked-constructor validation where the original
+view performed it, without adding that validation to release builds.
+
+Nested field/entry joins may share one infallible String while retaining the
+outermost field/entry write boundary. A formatting error inside that String must
+still panic, as the original format operation did; an error in the caller's
+formatter must still propagate at the same output boundary. Avoid cloning whole
+child values or building one complete subtree string per ancestor.
+
+The pinned ForeignExtDType's native display is exactly its raw ScalarValue and
+has no unpacking side effects; route that known provider through the same raw
+continuation. Other extension NativeValue formatters retain their native vtable
+boundary and callback semantics. Arbitrary custom extension formatter recursion
+is not made stack-safe by this amendment. Native extension admission must keep
+its existing typed storage contracts.
+
+Require an independent shallow recursive reference, typed/raw/standalone view
+parity, null and legacy F16 controls, formatting flags, extension callback and
+lazy failure order, failed-sink partial-output comparisons, and deep small-stack
+Display and cleanup. Ordinary Display is not truncated. The existing public
+depth guard and traversal/join/diagnostic prepayment obligations remain until
+complete lifecycle acceptance.
+
+### Native scalar initialization and inspection amendment, November 17, 2026
+
+Use private ordered continuations for default/zero value construction, zero
+inspection and approximate scalar byte counts in the existing native provider.
+Preserve nullable defaults, non-null zeros, first-union-variant selection,
+extension-storage behavior, and the final public constructor's validation.
+Empty lists/maps remain identities without inspecting their child dtypes; a
+zero-length fixed list must likewise avoid visiting its element type. Construct
+fixed-list elements and struct fields in declaration order, stop at the first
+missing default/zero, and release partial values through native scalar cleanup.
+
+Zero inspection keeps list/map emptiness distinct from fixed-list/struct
+conjunction. A null or undefined child makes a conjunction false; a first union
+child propagates its own result, a later union variant is false, and a present
+Variant containing null is true. Preserve short circuits and the original lazy
+child and debug-build unchecked-constructor validation order without copying
+whole child values. Extension storage remains an ordinary native child.
+
+Approximate bytes retain the original nullable fixed-width estimates, decimal
+widths, union tag byte, and per-container addition order and overflow behavior.
+List element validation is eager before the first child estimate; struct
+validation is per field; both map children are resolved/validated before its key
+estimate. Retain those boundaries with borrowed children and local accumulators.
+This estimate remains an estimate of uncompressed data, not an allocation grant.
+
+Require shallow original-source references, complete leaf widths and nulls,
+empty/wide controls, lazy failures and extension callback ordering, early exits,
+and 8,192-level small-stack construction/inspection/cleanup. No new unsafe code,
+dependency or execution fallback is allowed. Public depth admission still waits
+for complete transport, traversal/allocation prepayment and lifecycle acceptance.
+
+### Native array serialization and physical verification amendment, November 17, 2026
+
+Keep the pinned native `ArraySerializationTree` as the serialization owner,
+using a private flat preorder node vector and subtree-end positions instead of
+recursively owned child trees. Each node retains its source array, selected wire
+ID, metadata and native buffer handles. Visit each serializer once in original
+depth-first child order, including providers that substitute wire IDs, buffers
+or children. Complete serialization before the existing total-buffer check;
+preserve the `u16` buffer-count limit and native buffer emission order.
+
+Write the unchanged ArrayNode FlatBuffer through ordered parent continuations.
+Intern each encoding and write its metadata before its children, then write
+child offsets, buffer indices and source statistics in the original order.
+Keep exact bytes, partial-builder results on errors, allowed-ID checks and
+alignment/padding behavior. Temporary tree cleanup must not recurse through
+children; source, metadata and buffer owners remain alive through their use.
+This changes neither the physical file schema nor the execution provider.
+
+Replace only ArrayNode's recursive physical verification with checked parent
+continuations through the same pinned FlatBuffers suspension API. Encoding and
+metadata fields precede ordered child offsets; buffer indices and statistics
+follow them. Preserve optional-field handling, alignment/range checks, expanded
+alias work, exact error traces and all configured depth/table/byte thresholds.
+Default verifier limits remain unchanged; no unchecked buffer access is added.
+
+Require independent original-source shallow serialization/verifier references,
+wire-substitution and callback/error-order controls, native buffer identity,
+padding/offset cases, malformed/truncated/mutated data, alias and threshold
+controls, and 8,192-level small-stack write/verify/cleanup tests with explicit
+test-only verifier options. Statistics/scalar transport and plugin-directed
+logical array decoding retain their separate obligations. Admit all node,
+continuation and builder overlap before changing public deep-data admission.
+
+### Native schema JSON boundary amendment, November 17, 2026
+
+The two direct native DType JSON writers (result-schema delivery and inert
+application-schema wire-size validation) may use one private iterative adapter
+for the existing `vortex.dtype.serde.v1` representation. Keep generic upstream
+Serde behavior unchanged. Use Serde JSON for leaf values, names, IDs, tags and
+metadata; emit compound syntax with the same compact writer boundaries and
+ordered borrowed continuations. Do not create a nested `serde_json::Value` or
+clone a complete schema merely to serialize it.
+
+Keep names before dtypes, eager direct-field resolution before serializing a
+struct/union's dtype sequence, map key before value, union tags after children,
+and extension metadata callbacks after storage serialization but before its
+metadata field key. Preserve complete bytes, callback failures, partial failed
+sink output and existing caller diagnostic mapping. Existing fallible schema
+preflight and 8-MiB output/wire-size limits remain in both callers.
+
+Charge continuation capacity and reallocation overlap against the same caller
+memory pool before allocating; release the frames before their credit, and
+check cancellation as traversal advances. Do not infer a whole-process grant
+for arbitrary extension callbacks. Require original generic-Serde parity for
+all shapes and escaping, failed-sink/callback ordering, exact wire-size checks,
+denial/cancellation/refund controls and 8,192-level internal writing/cleanup on
+a small stack. Public depth admission still waits for complete lifecycle proof.
+
+### Native protobuf object ownership and conversion amendment, November 17, 2026
+
+Keep the pinned provider's protobuf schema and generated models. Add intrinsic
+cleanup for the existing `pb::DType` and `pb::ScalarValue` owners in a handwritten
+sibling module: take their optional oneof fields with safe Rust and traverse
+owned child boxes/vectors through continuations. Every recursive model cycle
+crosses one of these two owners. Independently retained children, partial
+construction and unwind must be safe without a new execution grant in Drop.
+No generated layout change, unsafe operation or new dependency is needed.
+
+Replace native DType protobuf object conversion with ordered borrowed cursors
+and owned partial-result continuations. Preserve names before children, lazy
+field order, both map dtypes resolved before key encoding, key conversion before
+value conversion, union tags after children and extension metadata after storage.
+On reads, check a missing map value only after converting its key. Preserve
+existing malformed-field errors and constructor panic behavior; unwind partial
+native owners from the innermost continuation. Use the same native scalar model
+for the following value-conversion work, preserving its existing leaf policies.
+
+Scalar-value conversion uses borrowed protobuf/native value cursors and ordered
+partial tuple, union and Variant continuations. A read cursor may own a shallow
+native dtype header, sharing the existing schema children; a Variant continuation
+retains its newly parsed dtype until final construction. Unwrap exactly one
+extension storage layer per value invocation. Preserve struct width checks before
+lazy field resolution, one entries dtype per map invocation, union tag and child
+validation order, and Variant dtype parsing before missing-value checks. Keep
+the original repeated validation and extension callback counts; removing recursive
+calls does not authorize eliminating observable validation work. Leaf numeric,
+decimal, byte/string and legacy F16 conversion policy stays unchanged. Partial
+native owners unwind inside-out, including failure after an earlier deep sibling.
+
+Require mechanically checked original-source shallow references, complete type
+shapes, exact shallow protobuf bytes, malformed objects, lazy and extension
+callback order, and 8,192-level small-stack conversion and temporary-owner
+cleanup checks. Object conversion does not establish deep wire transport:
+generated Clone/Debug/equality and Prost encoding/decoding keep separate
+obligations. Prost's default decoding limit and public depth guards remain
+unchanged. Before public deep admission, prepay protobuf model, continuation,
+error and cleanup overlap through the existing native operation owner; raw
+provider object APIs alone do not establish resource admission.
+
+### Protobuf structural traits amendment, November 17, 2026
+
+Continue inside the pinned Vortex protobuf provider, retaining its model, wire
+schema, oneof variants and field types. Replace only the root `DType` and
+`ScalarValue` Clone/PartialEq implementations with private ordered owner
+continuations. Every recursive generated model cycle crosses those roots.
+Clone scalar/header payloads and attach completed children in slot order;
+independently retained generated containers use the same root implementations.
+Equality compares the original primitive fields, including floating-point NaN
+and signed-zero semantics, and traverses borrowed children without serializing
+or cloning either operand. No new unsafe operation or dependency is admitted.
+
+Give those roots bounded Debug implementations, using Prost's supported
+`skip_debug` attribute while retaining its Message derive. A fixed-size borrowed
+probe follows only model owners, without allocating or formatting. Keep the
+original field spelling, nested generated formatters and formatting flags for
+trees with at most 32 owner edges; deeper roots print the same struct name with
+non-exhaustive fields. This bound is diagnostic only. Ordinary serialization
+and supported input depths do not change.
+
+Keep immutable, test-only copies of the pre-change generated model files as the
+independent shallow reference, mechanically checked against their source commit.
+Compare complete shapes, missing children, malformed objects, exact Debug flags,
+clone wire bytes and the equality cross-product, including NaNs and both zeros.
+Require 8,192-level clone/equality/diagnostic/cleanup checks on small stacks and
+standalone generated-container checks. The upstream generator is absent from
+this vendored checkout; after regeneration reapply the two root derive changes
+and `skip_debug` attributes described beside the generated files, then rerun the
+reference, provider and native gates. Record hashes in the provider provenance.
+
+Prost encoding/decoding remains a separate obligation, with its default limits
+unchanged. Native admission must prepay clone output, continuation growth and
+cleanup overlap before deeper public input is accepted. These raw provider
+traits are not an allocation grant or an end-to-end deep-data support claim.
+
+### Protobuf wire-writing amendment, November 17, 2026
+
+Keep the existing protobuf fields and oneofs and replace Message derivation only
+at `DType` and `ScalarValue`. Their handwritten Message implementations measure
+and write borrowed protobuf nodes through ordered continuations. A flat preorder
+writing plan records subtree ends and each message's complete encoded length;
+compute each descendant length once before emitting its parent delimiter.
+Do not remeasure the full subtree at every ancestor. Emit prefixes, children and
+tails in the generated tag order, using the existing Prost leaf codecs.
+Preserve optional empty fields, oneof zero/false/empty presence, unknown enum
+integers, packed union tags, float bits and every length delimiter.
+
+The same Message implementation must retain the original generated merge_field
+dispatch, oneof merge helper, error context and unknown-field skip helper with
+the untouched DecodeContext. Default and clear preserve their original empty
+state. This change authorizes stack-safe writing, not a different decode policy.
+Prost's default recursion limit, partial-merge behavior and malformed-input
+diagnostics remain unchanged; explicit bounded iterative deep decoding remains
+required separately in this same deep-lifecycle unit. Do not disable the limit,
+inspect private context layout or use another engine.
+
+Compare raw and length-delimited bytes/lengths with the immutable generated
+references, including every shape, malformed object, missing/present child,
+varint boundary and insufficient output capacity. Check default decode errors,
+unknown fields/groups, same-variant partial merges and different-variant failed
+commits against those references. Require deep writing/measurement/cleanup on
+128-KiB stacks, including independent generated containers. Update the two root
+regeneration overrides and provenance. Native operation admission must prepay
+the writing plan, continuations, output and cleanup overlap before public depth
+guards can change. Writer tests alone do not establish a deep wire round trip.
+
+### Protobuf decode-continuation amendment, November 17, 2026
+
+Vendor the already pinned Apache-2.0 Prost 0.14.4 package, with its published
+archive and source identities, for a narrow safe decode-context extension.
+`DecodeContext::with_recursion_limit` supplies an explicit remaining bound;
+`check_recursion_limit` reads that bound and `enter_recursion_checked` returns
+a checked child context without changing its parent. Keep the existing default
+of 100 and the original recursive helper behavior. The optional upstream
+`no-recursion-limit` feature retains its unbounded **default**, but an explicitly
+constructed bounded context remains bounded even under feature unification.
+Do not enable that feature, inspect private representation, manufacture callback
+probes, or change dependency versions. Preserve the separate older Prost graph
+and independent fixture producers.
+
+Make unknown-group skipping iterative inside that pinned codec. Ordinary unknown
+fields retain their existing codecs and depth checks. Group continuations must
+preserve key consumption, matching end tags, error precedence and the original
+rule that an immediate matching end tag consumes no further recursion budget.
+Use no new unsafe operation; allocate continuations only for group nesting.
+
+Then replace the recursive Vortex protobuf root merge paths with owned model
+continuations. Preserve the original field/oneof model, primitive codecs and
+caller context. Delimited loops retain remaining-byte end offsets and detect
+overrun after each complete field, rather than limiting the underlying buffer.
+Same-variant updates and singular optional children retain partial changes on
+error; different-variant candidates and repeated children commit only after
+successful completion. Optional message slots are initialized before the original
+wire/depth/length checks. Accumulate exactly the generated known-field error
+contexts; unknown-field failures acquire no new local context. No callback replay,
+model serialization bootstrap or alternate execution engine is permitted.
+
+Expose a pinned `message::DecodeContinuation` that enters a checked delimited
+message and returns its next field or completion using those same end offsets.
+Its private bound and child context preserve Prost's own error variants and
+check order without exposing error internals or using synthetic callbacks to
+obtain them. Consumers retain the same buffer and restore parent continuations
+after child completion. This is a parser continuation, not a memory grant.
+
+Require exact shallow values, errors and remaining-input comparisons against the
+immutable generated model and original unknown-field helper, including malformed
+wire, optional/repeated partial failure, replacement oneofs, sibling completion,
+depth boundaries and feature-unified explicit bounds. Require 8,192-level valid,
+invalid and unknown-group decoding/cleanup on 128-KiB stacks. This is provider
+foundation work within the full lifecycle unit: native operation owners must
+prepay model, continuation, error-context and cleanup overlap before public deep
+admission. Public depth 24 and all existing guards remain unchanged until the
+remaining native array/value/workflow acceptance passes.
+
+### Logical array decode-continuation amendment, November 17, 2026
+
+Classify this as `use_vortex_native_provider`: retain the pinned Vortex 0.93.0
+`SerializedArray`, `ArrayPlugin`, `VTable`, `ArrayParts` and `ArrayChildren`
+boundaries. Their existing synchronous child callback is recursive. Vortex's
+iterative execution-slot scheduler does not suspend deserialization locals;
+restarting a decoder through that scheduler would replay metadata, validation
+and plugin callbacks. Do not predecode all children: Chunked reads and executes
+offsets before requesting chunks, and other encodings conditionally request
+validity, logical types and lengths from their metadata.
+
+Add an opt-in provider decoder driven by a flat stack of suspended futures. A
+future here is a Rust-owned continuation, polled synchronously on the calling
+thread; it introduces no executor, task, thread, I/O request or external engine.
+Each encoding's async deserialize hook executes its original body once, awaiting
+only the next requested child. A per-frame mailbox yields exactly one child to
+the outer driver. Only the innermost frame is polled; it returns the completed
+child result to its parent before that parent resumes. Preserve errors that a
+plugin catches, repeated requests for the same child, and the order of all
+metadata, validation, execution and statistics work. Do not cache or deduplicate
+requests. Reject external suspension or concurrent/unconsumed child requests
+explicitly rather than spinning, replaying or silently running recursively.
+
+Keep the existing synchronous APIs and default decoding behavior. New default
+hooks may run an unchanged leaf decoder once. On the explicit continuation path,
+a synchronous child request fails with a deterministic unsupported diagnostic;
+it must not recurse. Migrated encodings share one async body: their synchronous
+entrypoint supplies an immediate-child adapter and requires immediate completion.
+Unmodified external codecs remain compatible with the old entrypoint and cannot
+claim deep support merely by inheriting the default hook. Native deep admission
+must select this explicit continuation path and certify any non-migrated leaf
+provider before the public guard changes.
+
+Each suspended frame owns its serialized node, shallow dtype header, buffers and
+partial decoder locals. Borrowed payloads stay tied to those owners without
+unsafe lifetime extension. On normal/error completion, retain existing generic
+array validation, length/dtype/encoding assertions, statistics overrides and
+optimized markers in their original order. Unknown-encoding preservation keeps
+all descendants foreign, even if a descendant has a registered encoding; collect
+that parent's buffers only after its children, and do not run normal plugin or
+statistics hooks on that path. Drop pending frames innermost first on panic or
+cancellation, with no callback replay or recursive ownership chain.
+
+Require original-body source comparisons, shallow round trips and malformed
+input parity, complete callback traces for conditional/repeated/caught-error
+requests, validation/statistics failures, unsupported synchronous/external waits,
+foreign descendants, panic cleanup and retained owners. Verify 8,192-level real
+nested array loading on 128-KiB stacks with complete values and metadata. The
+native owner must prepay future/frame/mailbox storage, model output, temporary
+buffers, error and cleanup overlap before deep admission; a future is not a
+memory grant. Keep existing physical verification and public depth limits until
+native value traversal and whole-workflow acceptance are complete.
+
+The remaining registered compression and Variant codecs use the same optional
+continuation contract. The existing 0.93.0 ALP, ByteBool, DecimalByteParts,
+FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag packages become reviewed
+same-version source patches. Preserve legacy version dispatch and conditional
+patch, validity and offset requests. Sequence's primitive no-child decoder
+retains its existing leaf hook and requires direct acceptance coverage; rejecting
+VTable hooks remain rejecting when a custom plugin owns deserialization. This
+intake does not change enabled features, dependency versions or public limits.
+
+### Native terminal JSON continuation amendment, November 17, 2026
+
+Keep terminal nested JSON delivery on the existing native Struct/List/FixedSizeList
+views and scalar writers. Replace the recursively owned view tree with a flat
+postorder arena: struct nodes store ordered child indices and list nodes store
+one child index. Child views precede their parent views in storage and release;
+native array ownership continues through the intrinsic provider cleanup. The
+column's admitted schema owner outlives every view and container.
+
+Build one child at a time through owned continuations. Preserve UUID and
+structured-extension dispatch, native execution order, struct name capture
+before its children, validity capture after its children, and list-coordinate
+construction before its element view. Keep active provider arrays until their
+child finishes, and drain unfinished continuations innermost first on error or
+panic. Do not execute or materialize later siblings early.
+
+The node arena, per-struct child indices, and build/write continuation capacity
+use the existing native reserved vector with pre-allocation replacement-overlap
+credit. Native payload/metadata owners remain separate. This admission covers
+the new containers; it does not claim arbitrary provider canonicalization
+allocations or process RSS.
+
+Writing retains borrowed Struct/List cursors and per-parent scalar/UTF-8 counts.
+Preserve exact field order and escaping, delimiter writes, null short-circuits,
+coordinate/scalar callbacks, count-overflow order, and cancellation at node
+entry. Memory denial can stop before a composite begins; with admitted memory,
+writer failures must leave the same byte prefix as the old implementation.
+No owned scalar/JSON row tree or precomputed output string is introduced.
+
+Acceptance compares bytes, counts and failing-writer prefixes against the
+frozen original writer, including nullable and empty composites, escaped names,
+rich scalar/extension values and cancellation. Require complete 8,192-level
+Struct, FixedSizeList and mixed output on 128-KiB subprocess stacks, plus
+construction/write denial, cleanup and reusable-pool refunds. Private mechanism
+checks do not bypass or lift the public depth guard; complete deep lifecycle
+admission remains required.
+
+### Typed native value continuation amendment, November 17, 2026
+
+Keep typed intake on the existing native Struct/List/FixedSizeList/Extension
+constructors and leaf, validity and offset builders. Replace the ShardLoom-owned
+recursive counter layout and construction traversal; no Arrow execution
+representation or external engine is introduced. JSON parsing, dtype conversion
+and JSON-tree cleanup remain separate obligations, with their public limits
+unchanged until complete lifecycle admission.
+
+The counter layout has an inline root and a flat preorder vector of descendant
+counters. Each counter stores rows, variable bytes, copied bytes and its exclusive
+subtree end; that end also identifies the next sibling. A primitive root needs
+no arena allocation. Borrowed cursors resolve one child at a time. Preserve
+structured-storage unwrapping, extension validation, null defaults, row updates,
+shape checks and arithmetic/error order. Defaults initialize storage without
+becoming copies of caller payload. Observation must not inspect later fields or
+list items early. Postorder sizing keeps per-parent validity and partial sums;
+List offset arithmetic precedes the child and validity addition follows it.
+Copied bytes sum the nonnegative flat counters with the same overflow diagnostic.
+
+Construction retains parent cell references and completed native children while
+visiting one child at a time. A flat active-cell arena holds reserved reference
+buffers by index; root cells remain borrowed. Extension descent reuses its input
+owner without cloning cells. A Struct stores each completed array before releasing
+that field's temporary references and preparing the next child. Lists retain
+flattened elements and offsets through child, validity and parent construction.
+Preserve constructor order, nullable-parent initialization, empty lists and fixed
+width defaults. Pending frames and temporary owners drain innermost first on
+failure or panic, without recursive frame ownership.
+
+New arenas and continuations use the existing reserved vector, including
+pre-allocation replacement-overlap admission. Existing dtype credit stays with
+native result buffers/owners; parsed-JSON workspace spans construction. These
+container charges do not establish arbitrary provider allocation or process-RSS
+coverage. Preserve original output, logical/copy byte counts and validation errors
+against byte-exact original counter/construction references. Require shallow
+scalar/nested/nullable/wide/extension cases, checked default expansion, private
+8,192-level Struct/List/FixedSizeList/mixed small-stack construction and partial
+failure, budget refusal, retained ownership and reusable-pool refund. Public
+depth24 rejection remains until the entire deep lifecycle is accepted.
+
+### Typed JSON parsing and ownership amendment, November 17, 2026
+
+Continue typed intake with the locked serde_json provider and its borrowed
+`RawValue` syntax validation. Its ignored-value parser already uses an explicit
+stack. Replace ShardLoom's recursive typed visitor with ordered continuations
+over those validated tokens. Keep exact integer lexemes, finite float parsing,
+negative zero, duplicate decoded-key rejection before its value, syntax-before-
+semantics within each raw subtree, and semantic errors before root trailing-data
+checks. Decode one key or value at a time; never evaluate later siblings early.
+The existing 8-MiB and depth-96 JSON bounds remain unchanged.
+
+Keep the private `serde_json::Value` intake representation consumed by native
+schema/value construction. A private parsed owner retains prepaid cleanup
+storage sized by maximum observed container depth, not by sibling count or raw
+byte length. Drop takes the root and drains owned array/map iterators one child
+at a time. It performs no new allocation or execution-budget request. Grow that
+storage before entering each container. An overall building owner retains all
+partial containers and completed values; error and unwind cleanup drains these
+innermost first using the same already admitted storage. Containers and parser
+continuations use the existing replacement-overlap admission; the existing JSON
+workspace continues to cover serde-owned maps, values, strings and syntax
+scratch. A scalar root requires no continuation allocation. Inert application
+declarations use an explicit temporary pool bounded by their existing JSON
+size contract; execution binding still owns persistent schema admission.
+
+Preserve the locked provider's existing error text and byte-based line/column
+positions. Its custom-error conversion restores a trailing location, so outer
+containers preserve the innermost reported position. An unpositioned semantic
+error is positioned only after the immediate container's original end-sequence
+or end-map cursor behavior. Root scalar errors remain unpositioned, key-decoding
+errors are relative to their container, and leaf-decoding errors retain their
+own token position. No recursive diagnostic replay is permitted. These rules
+also bound diagnostic context for internal deep tests without a new truncation
+policy or a change to current diagnostics.
+
+Require byte-exact original-parser comparisons for complete shallow values,
+floating-point bits, numeric overflow, duplicate escaped keys, Unicode errors,
+depth boundaries, trailing input and competing failures. Private explicit deep
+bounds must pass 8,192-level mixed parsing and normal/error/unwind cleanup on
+128-KiB subprocess stacks, wide-sibling and memory-refusal checks, and complete
+pool refunds. Test the real typed-source and extension boundaries. Schema
+conversion, native payload operations and final lifecycle admission remain
+separate obligations; this amendment does not raise public depth limits.
+
+### Typed JSON schema conversion amendment, November 17, 2026
+
+Build the existing native DType from the restricted typed-input JSON vocabulary
+using borrowed ordered continuations. Reuse pinned Vortex DType, StructFields
+and extension constructors; its broader generic serde vocabulary does not
+replace ShardLoom's restricted input contract. Increment the checked node count
+and apply the depth limit before inspecting each one-variant declaration.
+Validate nullability and fixed width before the child; validate all struct names
+before any child dtype, then visit children in declaration order. Preserve
+unsupported-kind diagnostics and exact parameter checks.
+
+Keep extension validation split at its original child boundary. Binary-object
+metadata validation precedes its storage dtype. Other admitted rich extensions
+validate their field set, convert storage, then deserialize metadata and invoke
+the existing native constructor. Temporal extensions retain their direct signed
+primitive-storage parsing and canonical metadata checks. Never inspect a later
+metadata error or sibling before an earlier storage conversion completes.
+
+Continuation storage and completed child vectors use the existing admitted
+capacity containers. Retain unfinished parent state and drain it innermost first
+on errors or unwinding. Each native completed subtree uses the already adopted
+intrinsic DType cleanup. The existing JSON workspace continues to cover temporary
+provider construction, and execution intake must still reserve complete schema
+metadata before returning it. This does not establish all provider cleanup
+allowances or change inert caller-owned application declaration semantics.
+
+Compare complete shallow schemas, serialized forms and exact errors against the
+byte-exact original converter, including every admitted leaf/extension family,
+duplicate names, malformed metadata, competing failures and width/depth bounds.
+Private explicit deep options must prove 8,192-level List/FixedSizeList/Struct/
+mixed conversion, complete field inspection, late failure, capacity refusal,
+detached children and cleanup on 128-KiB subprocess stacks. Keep the public
+depth-24 schema and depth-96 JSON limits until whole-lifecycle admission passes.
+
+### Native payload continuation amendment, November 17, 2026
+
+Retain Vortex's native arrays, selection providers and constructors while
+replacing the payload copier's recursive control with ordered continuations.
+Upstream take does not replace ShardLoom's parent masking, typed validation,
+numeric observation, scalar counts or credited output contract. Ordinary
+payloads and Variant wrappers must share one driver so a shredded child cannot
+reenter a recursive copier. Do not introduce a decoded row tree, Arrow execution
+or external-engine delegation.
+
+Keep root coordinates borrowed. Temporary child coordinates live in a flat,
+admitted arena; parent frames retain their indices, selected native arrays,
+execution contexts, fixed-list expansion, child containers, offsets and masks
+until the original completion boundary. Admit frame and arena replacement
+overlap before allocation. On failure or unwind, drain suspended parents
+innermost first, keeping coordinate capacity credit through contained cleanup.
+Cleanup must not allocate or request another grant.
+
+Use the shared native credited stack with four fixed inline frames before
+heap growth. This preserves the existing shallow output-compaction headroom;
+the initial eight-frame heap allocation otherwise exceeds its fixed allowance.
+Deeper capacity still reserves replacement overlap through `ReservedVec`.
+The inline prefix is bounded stack storage, not an uncredited growing buffer.
+Reverse occupied storage before ordinary element cleanup so suspended parents
+release innermost first even if a provider destructor panics. Verify initial
+and replacement refusal, exact last-owner refunds and one-panic cleanup, plus
+the unchanged output-pressure regression and deep payload/key controls.
+
+Preserve extension validation before storage copying, struct parent validity
+before field-major children, and list coordinates and fixed-size expansion
+before selection. Finish the flattened child before creating parent validity
+and offsets. Keep lazy sibling inspection, cancellation checks, copy policies,
+scalar counts and leaf operations in their original order. Variant handling
+preserves mapped dictionary/slice/mask coordinates, contiguous chunk runs,
+core-before-shredded validation, synthetic metadata/value/typed_value field
+order, all-null/default shortcuts and the existing depth-64 wrapper diagnostic.
+Chunk and Parquet metadata owners must remain live through output construction.
+
+The payload scratch estimator uses admitted borrowed continuations in the
+caller's live pool. Preserve postorder checked arithmetic, extension no-overhead
+returns, lazy struct fields and the depth-64 overflow diagnostic, including
+zero-width fixed-list cases. A private explicit limit may exercise deep
+mechanisms; it is not public admission.
+
+Require frozen original-function comparisons of complete shallow schema/wire
+output, encodings, scalar counts, errors and retained credit for both copy
+policies and retention modes. Cover all selected wrapper forms, wide siblings,
+null/repeated/default coordinates, counter overflow and non-finite bit patterns.
+Private 8,192-level tests must inspect complete default output and identity
+validation of independently prepared native inputs, deepest/late errors,
+allocation panic, cancellation, denied growth
+and escaped-owner refunds on 128-KiB stacks. Present retained deep selections
+still require separate Vortex optimizer/take/filter/scalar/cast/canonical proofs;
+default and prepared-identity fixtures cannot establish them. Variant value validation and
+nested allocator-owner cleanup retain their separate obligations. Do not lift
+public depth limits or claim full lifecycle or performance acceptance from
+this amendment alone.
+
+### Native optimizer continuation amendment, November 17, 2026
+
+Replace the pinned array optimizer's recursive driver with ordered owned
+continuations inside the existing provider. Keep root-only optimization,
+session optimization, execution's shared optimizer and native rule callbacks
+on their existing entrypoints. This does not add another optimizer or execute
+through an external engine.
+
+Preserve root-first rules before previously unoptimized children, session parent
+rules before static parent rules, slot order and first-match restart. Each
+rewrite's new descendants finish before the next root pass. Keep the existing
+inclusive 101-pass limits, including the outer child-change loop's existing
+completion behavior, exact errors and trace event order. Preserve statistics
+inheritance and optimized marking only at the original completion boundary.
+
+Check shared ownership before making continuation-owned clones. Keep original
+nodes, rewritten nodes and lazy slot replacements alive for the same callback
+boundaries as before; cache only nonidentity rewrites of originally shared
+nodes. Do not clone child arrays to queue them before that decision. Visit one
+child at a time and allocate replacement slots only after the first changed
+child. Error and panic cleanup drains suspended calls innermost first, using
+the intrinsic native array cleanup and requesting no new execution grant.
+
+Require frozen original-driver comparisons of shallow output graphs, complete
+values, pointer-sharing relationships, callback order, sharing observations,
+statistics, optimized marks, trace events and exact errors. Cover missing
+slots, rewrite-created descendants, parent short circuits, session precedence,
+the rewrite threshold and errors/panics after earlier deep children. Unprepared
+8,192-level compound native arrays and changed descendants must optimize and
+release on 128-KiB stacks. These provider tests are not a memory grant: native
+deep admission must prepay continuation, replacement-slot, cache and cleanup
+overlap. Recursive work inside individual take/filter/scalar/cast/canonical
+providers remains a separate obligation. Public depth limits remain unchanged
+until complete lifecycle acceptance.
+
+### Variant validation continuation amendment, November 17, 2026
+
+Classify this as `use_vortex_native_provider` for the existing Vortex Parquet
+Variant representation and its pinned Apache-2.0 `parquet-variant` 59.3.2 byte
+reader. Its full object/list validator recursively validates children; its
+public shallow constructors are not a substitute for that validation. Preserve
+the exact package version, wire representation, metadata rules and public
+constructor contracts in a reviewed same-version source patch. Record the
+published archive checksum, all original/changed members, and the same-release
+Parquet license/notice already used by the license bundle.
+
+Replace the provider's full-validation recursion with ordered borrowed parent
+continuations. Parse each container header first, validate its metadata and all
+object field names before any child, then obtain and fully validate one child
+at a time. Preserve object suffix access, list adjacent-offset bounds, the
+original first failure, already-validated no-ops, and the root's validation
+flag and metadata state. Leave lazy accessors lazy. Borrowed Variant wrappers
+own no recursive children; error/unwind cleanup discards only shallow frames.
+No new unsafe operation, second format parser, query engine or dependency
+version is needed.
+
+ShardLoom's envelope and duplicate-name walks must likewise retain their
+original preorder callbacks, byte-work budget, object suffixes, list ranges,
+and error precedence. Its shredded validators must retain raw-byte validation
+before typed inspection, field/element order, null shortcuts, metadata and
+overlap checks at their existing before/after-child positions. Charge native
+continuation capacity and growth overlap to the existing operation owner.
+An owned raw buffer may be retained across a child and viewed again only after
+full validation has succeeded; reconstructing that unchanged borrowed view
+must not replace the original full check or extend its lifetime.
+
+For raw-byte framing and duplicate-name inspection, reuse the caller's existing
+`64 * encoded_bytes + 4096` validation grant. Each suspended native frame must
+fit 80 bytes, each descended container consumes at least four framing bytes,
+and geometric capacity growth must admit old/new overlap before allocating.
+Enforce the computed grant at every growth, use fallible exact reservation and
+reject unexpected capacity expansion. Framing, provider validation and name
+inspection run sequentially; their continuation storage does not overlap.
+Do not claim a grant for the existing optional-memory Arrow inspection path
+when no pool was supplied. Its depth boundary remains unchanged. Native
+typed-tree parents use the existing credited vector and retain complete list
+coordinate owners through descendants. Private depth parameters are test
+mechanisms, not a new public admission route.
+
+Keep frozen recursive references for shallow complete-value/error comparisons,
+including competing malformed conditions and cancellation points. Exercise
+deep list/object/mixed byte trees and shredded native arrays on small stacks,
+including malformed descendants, late sibling errors, denied growth and
+cleanup. Run the full pinned-provider tests, nearby native Variant/payload
+tests, strict lint and source/license/lock checks. The existing public depth
+guards remain until complete native traversal/output/cleanup prepayment and
+deep import/retain/filter/join/spill/write/reopen/export acceptance pass.
+
+### Native Variant workspace continuation amendment, November 17, 2026
+
+Use the existing native Variant provider and its current admission arithmetic.
+Replace the physical-storage, expanded-byte and typed-shell workspace walks
+with ordered continuations charged to the same operation owner. The physical
+walk borrows the provider's existing `ArrayRef::slots` in their original order;
+it must retain each parent's buffer-inspection grant through its children.
+The raw-value walk borrows the fully validated provider object/list headers,
+adds object-name work before each child, and retains the existing node and
+string/binary size charges. Typed-shell traversal retains complete native list
+coordinate and struct owners across descendants and preserves raw validation
+before typed traversal, cancellation order, null shortcuts and error order.
+No decoded value tree or new storage representation is needed.
+
+Keep the original depth guards and sizing formulas at production entrypoints
+until complete native admission is accepted. Use private depth parameters only
+to prove the control mechanism. Compare frozen shallow implementations for
+returned and partially accumulated credit, complete errors and ordering. Deep
+physical wrapper, raw object/list and typed-shell fixtures must prove credited
+growth, cancellation/error/unwind cleanup and final owner release on small
+stacks. They do not replace full deep workflow or Arrow conversion proof.
+
+### Native payload classification amendment, November 17, 2026
+
+Use the existing borrowed `DTypeChildren` provider and admitted schema cursor
+for the six recursive Variant, vector, fixed/variable tensor, embedding and
+Float16 presence checks. Only lists, fixed lists and struct fields are searched,
+in their current order; extensions, maps and unions retain their existing leaf
+classification. Stop at the first matching node and do not inspect later lazy
+fields. This is semantic inspection of the same native schema, not conversion
+or a new representation.
+
+Pass the caller's existing schema scope through each classification boundary.
+The existing schema budget charges visited work and continuation capacity,
+including replacement overlap; cancellation and fallible lazy-field errors
+must propagate, and all temporary credits must refund on success, denial,
+error or unwind. Each presence check keeps its own existing position in key
+and output admission so that family rejection precedence does not change.
+The lower-level binary-object classifier has additional file/layout owner
+boundaries and remains a separate admission obligation.
+
+Compare the six frozen original predicates on complete shallow schemas,
+including unrelated extensions and unsupported container domains. Deep ordered
+chains, branching/wide schemas, shared-subtree amplification, early matches,
+denied growth and cancellation must be checked on small stacks. Keep every
+public payload-depth guard until full lifecycle acceptance.
+
+### Native preparation for Arrow export, November 17, 2026
+
+Use the existing Vortex providers to prepare native arrays at the export
+boundary. Run canonical preparation, Variant storage inspection and logical
+shredded-list reframing on one ordered continuation stack. Charge its capacity
+and replacement overlap to the caller's live memory pool. Each frame retains
+the complete native parent, including its validity, offsets and partial
+children. Drain parents innermost first on error or unwind. Struct and chunk
+constructors consume individual handles while the temporary child vector
+still owns its capacity grant. The existing schema reservation covers the
+provider's separate result metadata at the production boundary.
+
+Preserve the row and byte charges, provider choices and cancellation points.
+Visit struct fields and chunks in order. Finish Variant core storage before
+preparing and reframing the shredded child. For Parquet Variant, prepare
+metadata, raw values and typed values in that order, then size field names
+and framing before validating rows. Preserve the original name arithmetic
+after each child and check list contiguity before descending into elements.
+
+Compare complete shallow prepared arrays, counts, failures and callback order
+with the original implementation. Exercise deep native construction, denied
+growth, cancellation and final release on small stacks. Keep the public depth
+limits through the separate Arrow schema, provider export and full lifecycle
+acceptance gates.
+
+### Borrowed Arrow Variant intake, November 17, 2026
+
+At the Arrow import boundary, resolve dictionary keys in row order. Each
+selected key leads to one row in the next dictionary, so descent needs only
+the borrowed current array and row. Check cancellation, null keys, integer
+conversion and value bounds before descending.
+
+Validate shredded values with ordered borrowed parent frames. An object
+frame retains the validated residual and its raw validation credit through
+all child checks. Check field membership and residual overlap after its
+child returns. A list frame borrows the original Arrow child array and
+visits its offset range for the selected row. This avoids creating the
+recursive struct slices that Arrow's list value accessor would produce.
+Both 32-bit and 64-bit offsets use the list's own visible offset buffer.
+
+Share fallible frame-capacity growth with the native schema cursor. Reserve
+old and new capacity together when the caller supplies a pool. The existing
+inspection path without a pool retains the bounded shredded depth and its
+fallible temporary allocations. Compare complete shallow results, errors,
+callback order and selected rows with the original validator. Prove borrowed
+deep traversal, denial and error cleanup independently of the lifetime of
+the caller's Arrow arrays.
+
+### Binary-object discovery and descriptor traversal, November 17, 2026
+
+Binary-object discovery uses Vortex's borrowed, fallible child-type iterator
+and the existing native payload search order. Inspect extensions as leaves.
+Return at the first object match, before evaluating later lazy fields. Native
+callers charge each inspected type and pending sibling storage to their live
+operation. Preserve each caller's mapping of provider metadata failures.
+Layout deserialization and compatibility writes without an ingest pool use
+their Vortex session's configured host allocator. At those boundaries, retain
+an external work reservation for each visit and admit replacement capacity
+before growing the temporary owner and sibling arrays. A custom allocator's
+refusal propagates through the original calling boundary.
+
+Descriptor collection uses the existing Vortex execution context and the
+memory and cancellation owners of validation, writing or transfer. Visit
+struct fields in declaration order, then each valid parent row in order.
+For lists, visit only the selected elements of valid rows. Keep each typed
+parent alive while its child is in progress. Continue to use native provider
+execution, validity, slicing and descriptor parsing at their existing points.
+Credit parent continuation storage before allocation and release partial
+parents innermost first on failure or cancellation.
+
+Compare eager and lazy discovery, complete descriptor callback sequences,
+error precedence, null ancestors, list offsets and fixed lists against the
+original functions. Include deep traversal, refusal, cancellation, callback
+failure and last-owner checks before expanding the public depth domain.
+
+### Native nested key traversal, November 17, 2026
+
+Keep Vortex struct fields, list coordinates and scalar key owners as the
+providers for nested relational keys. Bind them in declaration order with
+credited continuations. A pending frame holds the complete source and
+canonical parent through each child preparation. Store each completed node
+before its parent in one credited arena and link siblings by index. A node's
+owned native value and metadata release before its parent. Abandoned builders
+release the completed nodes first and open frames innermost first. Final
+release uses the arena's existing storage and requires no traversal allocation.
+
+Comparison, validation, hashing and exact text identity borrow this owner.
+Use a bounded inline set of pending sibling cursors and prepay any larger
+capacity with the key preparation pool. Preserve null and type checks, the
+first non-equal comparison, list length after an equal prefix, full validation,
+hash tags and exact framing. Keep native row and leaf checks in their original
+order and propagate cancellation, denied capacity and writer errors through
+the existing fallible operator interfaces.
+
+Check these operations and final-owner release on deep native keys, alongside
+frozen shallow parity and existing relational operator controls. Keep the
+public depth check through the provider and complete lifecycle gates.
+
+### Native buffer-credit continuation amendment, November 17, 2026
+
+Remove recursive ShardLoom credit wrappers while retaining the same Vortex
+buffers and fallible host allocator. The provider check selects the existing
+`Buffer` backing, `HostAllocator`, `HostMemoryReservation` and shared native
+leases. Pinned Vortex does not expose typed retention of a second owner on an
+existing buffer; its `Bytes` owner erases that link. Add a safe retained-owner
+backing to the same buffer provider, rather than copying bytes or building a
+separate buffer model. This is a native-provider ownership extension, with no
+new allocator implementation, unsafe operation or external execution dependency.
+
+The added buffer method moves its existing backing into an explicit owner link
+without changing pointer, length, alignment or visible values. Clones, nonempty
+slices, typed conversions, and Bytes/Arrow exports retain the link, including
+owned empty buffers. Ordinary empty slices keep their existing detach behavior.
+Retained buffers remain immutable for `try_into_mut`, as the previous owner-
+wrapped buffers were. Release the underlying storage before attached owners,
+and older attached owners before newer ones when all become uniquely owned.
+Use concurrent-safe `Arc::into_inner` extraction and ordered local cleanup;
+stop at shared links. A single panicking storage/owner destructor must still
+drain remaining owners in that order. Arbitrary foreign owners remain opaque.
+
+Add `Any` as a supertrait on the already-static host allocator boundary so
+ShardLoom can safely recognize its own credit wrapper. Repeated attachments
+retain one base allocator and a persistent shared credit chain. Allocation and
+external reservation each invoke that base once, preserving its exact inputs,
+typed errors and refusal behavior. Writable buffers, frozen buffers and foreign
+reservation owners retain the complete chain independently of the allocator.
+Release the base storage/reservation before the chain, and drain uniquely owned
+credits oldest first. No global/thread-local queue, raw Arc manipulation, or
+new execution grant during cleanup is permitted. Native deep admission must
+prepay owner-link and cleanup-vector capacity/overlap before public depth
+limits change; fixed headers and arbitrary external destructors are not a
+process-RSS guarantee.
+
+Require 8,192-link allocation, access, freeze, external reservation and cleanup
+on 128-KiB stacks; detached/intermediate aliases, weak witnesses, concurrent
+last owners, denied allocations, partial construction and one-panic cleanup.
+Verify pointer identity, bytes, alignment, empty ownership and exact live
+credits through buffer, typed, Bytes and Arrow aliases. Compare shallow release
+order to the old wrapper semantics and keep public depth limits unchanged.
+
+### Arrow schema final-owner cleanup, November 17, 2026
+
+Item 19 includes Arrow schemas that escape an export stream, independently
+retained nested fields, and boxed dictionary types. Field-only cleanup cannot
+protect a standalone `DataType::Dictionary` chain. Extend the pinned 59.3.2
+`arrow-schema` provider with intrinsic dtype cleanup while retaining every
+public variant and serialized value. The isolated compile probe identified
+the consuming matches and promoted references in the actual release-user-
+surfaces graph. Same-version `arrow-json` and `arrow-row` patches only migrate
+those matches; existing Arrow array, Parquet, ORC and native adapter patches
+do likewise. This is internal dependency compatibility, not a claim that
+arbitrary downstream Rust programs accept a new enum destructor unchanged.
+
+Use a private shared, sized field-container allocation holding the existing
+ordered vector and opaque retained owners. `Fields` and `UnionFields` retain
+their public constructors, slices, iteration and serde sequence representation.
+The last owner can detach the vector with `Arc::into_inner`. A failed
+`try_unwrap(...).ok()` must not release recursive values outside the traversal.
+The original `FieldRef = Arc<Field>` alias and field identity remain intact.
+Standalone fields need no custom destructor: their dtype cleanup already
+handles descendants. Explicitly cloned fields retain existing credit; the
+caller's newly allocated strings, metadata and headers are separate storage.
+
+Retained owners are private and excluded from metadata, serialization,
+debugging, equality, ordering and hashing. They release after their fields and
+metadata. Attach real native schema credit to both field and container owners,
+including empty containers, before the public depth boundary changes. Preserve
+all old owners when adding another credit. This avoids a stream-only lease and
+does not invent serialized accounting metadata.
+
+This amendment permits one additional single-use ownership extraction helper
+inside excluded `arrow-schema`. Accept only an exclusive, initialized, unpinned
+`DataType`; replace it with `Null`, and put the removed enum in a local
+`ManuallyDrop`. Match all variants exhaustively and transfer every owning field
+exactly once from its valid, naturally aligned reference with `ptr::read`.
+Timestamp has an optional owned timezone; dictionaries have two owned boxes;
+run-end types have two owned fields; list/map, struct and union variants own
+their corresponding field containers. All remaining fields are `Copy`.
+Perform no allocation, callback, formatting or fallible operation within the
+extraction. Do not use, expose, store, clone, format or destroy the manual-drop
+wrapper afterwards. The original location stays `Null`; fully owned work items
+subsequently use safe Rust. This is not permission for raw Arc reconstruction,
+layout reinterpretation, FFI, a custom allocator or workspace unsafe code.
+The [ownership-read](https://doc.rust-lang.org/std/ptr/fn.read.html),
+[manual-drop](https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html), and
+[Arc extraction](https://doc.rust-lang.org/std/sync/struct.Arc.html#method.into_inner)
+contracts apply, using APIs available at the supported Rust 1.96 minimum.
+
+Consume children in declaration order. A field's name releases before its
+dtype; its metadata and retained owners release after that entire subtree.
+Keep sibling vectors, dictionary boxes and trailing owners in ordered cleanup
+frames through the final child. On one opaque-owner panic, drain innermost
+frames before outer frames. No cleanup operation requests execution credit.
+The actual native operation must prepay continuation growth and replacement
+overlap and keep it alive through the last independent owner. Raw provider
+tests establish stack behavior, not operation-level resource admission.
+
+Replace recursive dictionary cloning with ordered construction continuations;
+field and container Arc clones remain shallow. Structural comparison, hashing,
+formatting, conversion and provider array ownership remain distinct obligations
+and must pass their actual-path tests before deeper public data is admitted.
+Require small-stack deep list/fixed-list/struct/union/map/run-end/dictionary
+cleanup, shared and detached children, concurrent last owners, weak witnesses,
+partial construction and single-panic cleanup. Preserve shallow values, field
+identity, metadata, serialization and retained-owner release order. Record
+provider, native, feature, supported-Rust and packaging proof separately. Keep
+all current public depth guards until the whole item 19 lifecycle passes.
+
+### Arrow schema structural traversal, November 17, 2026
+
+Arrow's constructors compare nested schema values, so intrinsic cleanup alone
+does not make conversion safe. Replace the selected recursive dtype operations
+with borrowed ordered continuations. Preserve the original enum ordering,
+field ordering, nullable checks, metadata comparison and exact hash input. Field
+dictionary bookkeeping remains excluded from ordinary equality/order/hash.
+Type-only equality and containment keep their distinct field-name, metadata,
+nullability and union-tag rules; do not normalize them into one relation.
+
+Keep shared field/container identity shortcuts where the original shared-owner
+traits permit them. Visit repeated unshared subtrees normally. Sibling cursors
+must avoid copying wide field vectors. Dictionary cloning, ordinary comparison,
+hashing, type-only comparison, containment, size inspection and formatting each
+retain their own contract and tests. Formatting must preserve compact and pretty
+text, field/metadata order and formatter flags; a failed writer returns its
+formatting error without further writes. Opaque retained credits never become
+logical or formatted metadata. Size inspection must count the newly owned
+container and credit-vector storage; it cannot count the internals of an opaque
+external owner or claim process RSS.
+
+Freeze the original pinned implementations and derived enum/field traits as a
+shallow test oracle, preserving their source identity. Compare complete results,
+ordering, hash writes, metadata and formatted text across all variants, changed
+field flags, competing differences and shared/unshared forms. Deep positive and
+negative paths, short-circuiting, wide siblings and failed formatting must run
+on small stacks. Native traversal/output/error admission still has to prepay
+all temporary growth and replacement overlap before public limits change.
+No new unsafe operation or external execution provider is needed here.
+
+### Arrow array final-owner cleanup, November 17, 2026
+
+Arrow's public `ArrayRef` remains an `Arc<dyn Array>`, with the same concrete
+arrays, buffers and accessors. Deep final-owner cleanup must also work when a
+caller retains an individual typed child, a schema field or an empty container.
+An external wrapper around the returned batch cannot establish this property.
+
+Inside the pinned array provider, private single-child and child-vector owners
+may detach their handles before destruction. A hidden object-safe release hook
+on `Array` defaults to ordinary release for other implementations. The built-in
+nested implementations consume their correctly typed `Arc<Self>` through
+`Arc::into_inner`, returning an opaque ordered release node. Do not infer an
+allocation's concrete type from `as_any` or cast erased Arc pointers: forwarding
+array implementations make such an inference unsound. No unsafe downcast or
+global/thread-local release queue is admitted.
+
+List, list-view, fixed-size-list, struct, map, union, dictionary and run-end
+owners must expose their actual declaration-order parts to one iterative
+release loop. The node retains vector allocations and trailing buffers until
+their original position in that order. Empty or already-consumed private child
+owners are inert. Shared owners keep their original aliases; concurrent last
+owners use the safe Arc extraction contract. An ordered unwind guard drains
+innermost work before outer tails, including one panicking external buffer
+owner. Clones, public `into_parts` and buffer identity must stay compatible.
+
+ArrayData's owned child graph needs the same independent cleanup contract.
+ArrayData cloning, observation, reconstruction and validation remain separate
+traversal obligations. Provider cleanup alone does not admit public depth:
+real callers must retain credit for returned model storage and prepay temporary
+release growth, including surviving detached owners and error paths. Keep the
+whole deep workflow, resource-refusal and final-refund gates in force.
+
+Arrow descriptor inspection, alignment, slicing and validation also use
+ordered continuations. Cheap validation retains layout-before-children,
+child-type-before-child-validation, and each parent's post-child length/offset
+checks before the next sibling. Full validation first completes that same
+immutable whole-tree cheap check. It then visits null/value checks in preorder;
+the formerly repeated successful cheap checks add no new observation. Preserve
+the exact original nested error wrappers, including their order, and freeze
+the original implementations as a shallow competing-error oracle. Struct
+slicing keeps the accepted parent-offset correction and original shared payload
+buffers. These provider operations do not themselves establish caller credit;
+their continuation, retained model and diagnostic storage must still be admitted
+at the actual native boundary before lifting public depth limits.
+
+Typed Arrow descriptor export uses an optional opaque provider hook on `Array`.
+Built-in nested arrays expose the same owned prefix and ordered children that
+their original `From<T> for ArrayData` implementations used. The shared traversal
+requests one child's descriptor at a time and resumes the parent afterwards.
+Other implementations keep their original `to_data` callback; do not downcast
+through `as_any` to infer either callback semantics or ownership. The source
+child owners remain alive until their parent's descriptor has been built.
+Keep run-end descriptors before values, declared union field order, zero-copy
+buffer handles, the original constructor validation/panics, and innermost-first
+failure cleanup. Reuse the provider's existing unchecked descriptor builder
+only for the same valid typed-array contract, with its safety obligation
+centralized in the continuation finalizer. This does not introduce a new
+unchecked native input boundary or a new execution representation.
+
 ### Native text validity handoff candidate
 
 The [text validation contract](../architecture/native-text-validity-2026-10-17.md)

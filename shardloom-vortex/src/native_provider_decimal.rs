@@ -44,6 +44,14 @@ impl ArrayPlugin for NativeDecimalStorage {
         DecimalPlugin.deserialize_preserving_storage(parts)
     }
 
+    fn deserialize_async<'a>(
+        &'a self,
+        parts: ArrayDeserialization<'a>,
+        _session: &'a VortexSession,
+    ) -> vortex::array::serde::DeserializeFuture<'a, ArrayRef> {
+        DecimalPlugin.deserialize_preserving_storage_async(parts)
+    }
+
     fn is_supported_encoding(&self, id: &ArrayId) -> bool {
         DecimalPlugin.is_supported_encoding(id)
     }

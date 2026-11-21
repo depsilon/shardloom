@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 mod operations;
 mod validity;
 
@@ -132,44 +133,62 @@ impl VTable for Masked {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "MaskedArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        if !buffers.is_empty() {
-            vortex_bail!("Expected 0 buffer, got {}", buffers.len());
-        }
-
-        vortex_ensure!(
-            children.len() == 1 || children.len() == 2,
-            "`MaskedArray::build` expects 1 or 2 children, got {}",
-            children.len()
-        );
-
-        let child = children.get(0, &dtype.as_nonnullable(), len)?;
-
-        let validity = if children.len() == 2 {
-            let validity = children.get(1, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            Validity::from(dtype.nullability())
-        };
-
-        let validity_slot = validity_to_child(&validity, len);
-        let data = MaskedData::try_new(
-            len,
-            child.all_valid(&mut session.create_execution_ctx())?,
-            validity,
-        )?;
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            smallvec![Some(child), validity_slot],
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "MaskedArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            if !buffers.is_empty() {
+                vortex_bail!("Expected 0 buffer, got {}", buffers.len());
+            }
+
+            vortex_ensure!(
+                children.len() == 1 || children.len() == 2,
+                "`MaskedArray::build` expects 1 or 2 children, got {}",
+                children.len()
+            );
+
+            let child = children.get_async(0, &dtype.as_nonnullable(), len).await?;
+
+            let validity = if children.len() == 2 {
+                let validity = children.get_async(1, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                Validity::from(dtype.nullability())
+            };
+
+            let validity_slot = validity_to_child(&validity, len);
+            let data = MaskedData::try_new(
+                len,
+                child.all_valid(&mut session.create_execution_ctx())?,
+                validity,
+            )?;
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                smallvec![Some(child), validity_slot],
+            ))
+        })
     }
 
     fn execute(array: Array<Self>, ctx: &mut ExecutionCtx) -> VortexResult<ExecutionResult> {

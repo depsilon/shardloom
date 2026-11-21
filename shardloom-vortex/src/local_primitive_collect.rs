@@ -856,7 +856,8 @@ pub(crate) fn serialize_result_schema<'a>(
     let scope = scope.into();
     let _scratch = crate::native_payload_schema::reserve_serialization(dtype, scope)?;
     let mut output = BoundedJson::new(scope.memory(), MAX_JSON_BYTES)?;
-    serde_json::to_writer(&mut output, dtype).map_err(collect_io_error)?;
+    crate::native_payload_schema::json::write(dtype, scope, &mut output)
+        .map_err(|error| error.into_error(collect_io_error))?;
     let text = String::from_utf8(output.bytes).map_err(collect_io_error)?;
     Ok(Budgeted::new(text, output.lease))
 }

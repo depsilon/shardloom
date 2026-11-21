@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
 // Modified by ShardLoom on 2026-11-09: fallible field inspection and serialized
 // lazy initialization preserve allocation failures without duplicate parsing.
+// Modified on 2026-11-17: share borrowed lazy inspection with native dtype children.
 
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -135,6 +136,59 @@ impl Hash for FieldDTypeInner {
 }
 
 impl FieldDType {
+    /// Inspect raw debug ownership without initializing a lazy field.
+    pub(super) fn initialized_ref(&self) -> Option<&DType> {
+        match &self.inner {
+            FieldDTypeInner::Owned(dtype) => Some(dtype),
+            FieldDTypeInner::View(_, cached) => cached.value.get(),
+        }
+    }
+
+    /// Preserve the lazy-view representation after an eager map-key parse.
+    /// The new cache has no other owner and contains the result of this view.
+    pub(super) fn from_view_initialized(view: ViewedDType, dtype: DType) -> Self {
+        Self {
+            inner: FieldDTypeInner::View(
+                view,
+                Arc::new(CachedDType {
+                    value: OnceLock::from(dtype),
+                    initialize: Mutex::new(()),
+                }),
+            ),
+        }
+    }
+
+    /// Match the existing ordinary equality orientation without cloning or
+    /// inspecting any sibling. Mixed fields compare the owned dtype first.
+    pub(super) fn equality_values<'a>(&'a self, other: &'a Self) -> (&'a DType, &'a DType) {
+        let message = "Failed to parse FieldDType into DType";
+        match (&self.inner, &other.inner) {
+            (FieldDTypeInner::View(..), FieldDTypeInner::Owned(owned)) => {
+                let viewed = self.value_ref().vortex_expect(message);
+                (owned, viewed)
+            }
+            _ => (
+                self.value_ref().vortex_expect(message),
+                other.value_ref().vortex_expect(message),
+            ),
+        }
+    }
+
+    /// Take an already initialized child for final-owner cleanup. Never parse a view.
+    pub(super) fn into_initialized(self) -> Option<DType> {
+        match self.inner {
+            FieldDTypeInner::Owned(dtype) => Some(dtype),
+            FieldDTypeInner::View(_, cached) => {
+                Arc::into_inner(cached).and_then(|cached| cached.value.into_inner())
+            }
+        }
+    }
+
+    /// Borrow the concrete dtype through the fallible lazy cache.
+    pub(crate) fn value_ref(&self) -> VortexResult<&DType> {
+        self.inner.value_ref()
+    }
+
     /// Returns the concrete DType, parsing it from the underlying buffer if necessary.
     #[inline]
     pub fn value(&self) -> VortexResult<DType> {
@@ -204,66 +258,24 @@ impl std::fmt::Debug for StructFields {
 
 impl Display for StructFields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            self.fmt_indented(f, 0)
-        } else {
-            write!(
-                f,
-                "{{{}}}",
-                self.names()
-                    .iter()
-                    .zip(self.fields())
-                    .map(|(n, dt)| format!("{n}={dt}"))
-                    .join(", ")
-            )
-        }
+        super::formatting::display_struct(self, f)
     }
 }
 
 impl StructFields {
-    fn fmt_indented(&self, f: &mut Formatter<'_>, depth: usize) -> std::fmt::Result {
-        let indent = "  ".repeat(depth);
-        let inner_indent = "  ".repeat(depth + 1);
-
-        writeln!(f, "{{")?;
-        for (i, (name, dtype)) in self.names().iter().zip(self.fields()).enumerate() {
-            if i > 0 {
-                writeln!(f, ",")?;
-            }
-            write!(f, "{inner_indent}{name}=")?;
-            Self::fmt_dtype_indented(f, &dtype, depth + 1)?;
-        }
-        if !self.names().is_empty() {
-            writeln!(f)?;
-        }
-        write!(f, "{indent}}}")
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
     }
 
-    fn fmt_dtype_indented(f: &mut Formatter<'_>, dtype: &DType, depth: usize) -> std::fmt::Result {
-        match dtype {
-            DType::Struct(sf, nullability) => {
-                sf.fmt_indented(f, depth)?;
-                write!(f, "{nullability}")
-            }
-            DType::List(inner, nullability) => {
-                write!(f, "list(")?;
-                Self::fmt_dtype_indented(f, inner, depth)?;
-                write!(f, "){nullability}")
-            }
-            DType::FixedSizeList(inner, size, nullability) => {
-                write!(f, "fixed_size_list(")?;
-                Self::fmt_dtype_indented(f, inner, depth)?;
-                write!(f, ")[{size}]{nullability}")
-            }
-            _ => write!(f, "{dtype}"),
-        }
+    pub(super) fn raw_dtypes(&self) -> &[FieldDType] {
+        &self.0.dtypes
     }
 }
 
 #[derive(Default)]
 struct StructFieldsInner {
     names: FieldNames,
-    dtypes: Arc<[FieldDType]>,
+    dtypes: Vec<FieldDType>,
     // Derived from names, maps from field name to first index.
     indices: OnceLock<HashMap<FieldName, usize>>,
     // Declared last: containers, cached children and lookup storage are released
@@ -273,7 +285,7 @@ struct StructFieldsInner {
 }
 
 impl StructFieldsInner {
-    fn from_fields(names: FieldNames, dtypes: Arc<[FieldDType]>) -> Self {
+    fn from_fields(names: FieldNames, dtypes: Vec<FieldDType>) -> Self {
         Self {
             names,
             dtypes,
@@ -309,6 +321,12 @@ impl Hash for StructFieldsInner {
 }
 
 impl StructFields {
+    pub(super) fn into_owned_fields(
+        self,
+    ) -> Option<(Vec<FieldDType>, Option<HostMemoryReservation>)> {
+        Arc::into_inner(self.0).map(|inner| (inner.dtypes, inner._metadata))
+    }
+
     /// Check if these struct fields are equal, ignoring field dtype nullability recursively.
     pub fn eq_ignore_nullability(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
@@ -317,15 +335,6 @@ impl StructFields {
                     .fields()
                     .zip_eq(other.fields())
                     .all(|(lhs, rhs)| lhs.eq_ignore_nullability(&rhs)))
-    }
-
-    /// Hash these struct fields using the same equivalence relation as
-    /// [`Self::eq_ignore_nullability`].
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.0.names.hash(state);
-        for field in self.fields() {
-            field.hash_ignore_nullability(state);
-        }
     }
 }
 
@@ -340,7 +349,7 @@ impl StructFields {
     pub fn empty() -> Self {
         Self(Arc::new(StructFieldsInner {
             names: FieldNames::default(),
-            dtypes: Arc::from([]),
+            dtypes: Vec::new(),
             indices: OnceLock::new(),
             _metadata: None,
         }))
@@ -375,10 +384,7 @@ impl StructFields {
                 dtypes.len()
             );
         }
-        Self(Arc::new(StructFieldsInner::from_fields(
-            names,
-            dtypes.into(),
-        )))
+        Self(Arc::new(StructFieldsInner::from_fields(names, dtypes)))
     }
 
     pub(crate) fn from_reserved_fields(
@@ -386,7 +392,7 @@ impl StructFields {
         dtypes: Vec<FieldDType>,
         metadata: HostMemoryReservation,
     ) -> Self {
-        let mut fields = StructFieldsInner::from_fields(names, dtypes.into());
+        let mut fields = StructFieldsInner::from_fields(names, dtypes);
         fields._metadata = Some(metadata);
         Self(Arc::new(fields))
     }

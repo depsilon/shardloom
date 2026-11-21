@@ -942,24 +942,26 @@ fn validate_payload(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
 }
 
 fn validate_key(dtype: &DType, scope: SchemaScope<'_>) -> Result<()> {
-    // Admit the full expanded walk before recursive semantic classification.
+    // Admit payload support before the separately credited semantic searches.
     validate_payload(dtype, scope)?;
-    if crate::native_variant::contains(dtype) {
+    if crate::native_variant::contains(dtype, scope)? {
         return Err(failed(
             "Variant values are payload-only; compare, group, order or join on ordinary columns",
         ));
     }
-    if crate::native_vector::contains(dtype) {
+    if crate::native_vector::contains(dtype, scope)? {
         return Err(failed(
             "sparse and quantized vectors are payload-only; compare, group, order or join on ordinary columns",
         ));
     }
-    if crate::native_tensor::contains(dtype) || crate::native_variable_tensor::contains(dtype) {
+    if crate::native_tensor::contains(dtype, scope)?
+        || crate::native_variable_tensor::contains(dtype, scope)?
+    {
         return Err(failed(
             "tensor values are payload-only; compare, group, order or join on ordinary columns",
         ));
     }
-    if crate::native_embedding::contains(dtype) {
+    if crate::native_embedding::contains(dtype, scope)? {
         return Err(failed(
             "embedding values are payload-only; compare, group, order or join on ordinary columns",
         ));

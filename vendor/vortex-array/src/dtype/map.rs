@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: fallible borrowed map dtype inspection.
 
 use std::fmt;
 use std::hash::Hash;
@@ -44,13 +45,7 @@ impl fmt::Debug for MapDType {
 
 impl fmt::Display for MapDType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "map({}, {}, keys_sorted={})",
-            self.key_dtype(),
-            self.value_dtype(),
-            self.keys_sorted()
-        )
+        super::formatting::display_map(self, f)
     }
 }
 
@@ -77,19 +72,16 @@ impl Hash for MapDTypeInner {
 }
 
 impl MapDType {
-    pub(crate) fn eq_ignore_nullability(&self, other: &Self) -> bool {
+    pub(super) fn ptr_eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
-            || (self.key_dtype().eq_ignore_nullability(&other.key_dtype())
-                && self
-                    .value_dtype()
-                    .eq_ignore_nullability(&other.value_dtype())
-                && self.keys_sorted() == other.keys_sorted())
     }
 
-    pub(crate) fn hash_ignore_nullability<H: Hasher>(&self, state: &mut H) {
-        self.key_dtype().hash_ignore_nullability(state);
-        self.value_dtype().hash_ignore_nullability(state);
-        self.keys_sorted().hash(state);
+    pub(super) fn raw_fields(&self) -> (&FieldDType, &FieldDType) {
+        (&self.0.key, &self.0.value)
+    }
+
+    pub(super) fn into_owned_fields(self) -> Option<[FieldDType; 2]> {
+        Arc::into_inner(self.0).map(|inner| [inner.key, inner.value])
     }
 
     /// Creates a map dtype from its key and value dtypes.
@@ -126,12 +118,22 @@ impl MapDType {
             .vortex_expect("map key dtype must be valid")
     }
 
+    /// Borrow the key dtype without panicking on a lazy parse or allocation failure.
+    pub fn try_key_dtype(&self) -> VortexResult<&DType> {
+        self.0.key.value_ref()
+    }
+
     /// Returns the dtype of the map values.
     pub fn value_dtype(&self) -> DType {
         self.0
             .value
             .value()
             .vortex_expect("map value dtype must be valid")
+    }
+
+    /// Borrow the value dtype without panicking on a lazy parse or allocation failure.
+    pub fn try_value_dtype(&self) -> VortexResult<&DType> {
+        self.0.value.value_ref()
     }
 
     /// Returns whether producers assert that keys are sorted within every map value.

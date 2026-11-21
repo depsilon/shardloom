@@ -57,78 +57,7 @@ fn physical(
     context: &NativeExecutionContext<'_>,
     depth: usize,
 ) -> Result<()> {
-    context.check_cancelled()?;
-    // This is the already validated/copied physical tree, which can include
-    // Variant shells around the existing 24-level logical payload boundary.
-    if depth > 128 {
-        return Err(failed(
-            "Variant provider physical storage exceeds its admitted depth",
-        ));
-    }
-    let metadata = crate::native_payload_schema::metadata_bytes(array.dtype(), context)?;
-    let rows = u64::try_from(array.len()).map_err(|_| overflow())?;
-    add(
-        credit,
-        metadata
-            .checked_mul(rows.saturating_add(1))
-            .and_then(|n| n.checked_add(rows.checked_mul(128)?))
-            .ok_or_else(overflow)?,
-    )?;
-
-    // Admit the temporary handle vector before asking the provider to create it.
-    let handles = (array.nbuffers() as u64)
-        .checked_mul(64)
-        .and_then(|n| n.checked_add(4096))
-        .ok_or_else(overflow)?;
-    let _inspection = context.memory().reserve(handles)?;
-    for buffer in array.buffer_handles() {
-        if !buffer.is_on_host() {
-            return Err(failed("Variant expression requires admitted host storage"));
-        }
-        add(
-            credit,
-            (buffer.len() as u64)
-                .checked_mul(128)
-                .ok_or_else(overflow)?,
-        )?;
-    }
-    if let Some(storage) = array.as_opt::<ParquetVariant>() {
-        let mut execution = context.native_session().create_execution_ctx();
-        for row in 0..array.len() {
-            context.check_cancelled()?;
-            if array
-                .is_invalid(row, &mut execution)
-                .map_err(vortex_error)?
-            {
-                continue;
-            }
-            let metadata = binary(storage.metadata(), row, &mut execution)?
-                .ok_or_else(|| failed("present Variant requires metadata"))?;
-            raw(
-                storage.value(),
-                row,
-                metadata.as_slice(),
-                credit,
-                context,
-                &mut execution,
-            )?;
-            if let Some(typed) = storage.typed_value() {
-                typed_value(
-                    typed,
-                    row,
-                    metadata.as_slice(),
-                    credit,
-                    context,
-                    &mut execution,
-                    0,
-                )?;
-            }
-        }
-    }
-    for child in array.children_iter() {
-        physical(child, credit, context, depth + 1)?;
-    }
-    Ok(())
+    walk::physical(array, credit, context, depth, 128)
 }
 
 fn binary(
@@ -178,75 +107,7 @@ fn expanded(
     credit: &mut MemoryLease,
     context: &NativeExecutionContext<'_>,
 ) -> Result<()> {
-    use parquet_variant::Variant as V;
-    context.check_cancelled()?;
-    // Covers scalar/row-builder nodes, validity, offsets, growth and the
-    // simultaneous normalization, extraction and final-detachment stages.
-    add(credit, 8192)?;
-    match value {
-        V::Binary(bytes) => add(
-            credit,
-            (bytes.len() as u64).checked_mul(128).ok_or_else(overflow)?,
-        )?,
-        V::String(text) => add(
-            credit,
-            (text.len() as u64).checked_mul(128).ok_or_else(overflow)?,
-        )?,
-        V::ShortString(text) => add(
-            credit,
-            (text.as_str().len() as u64)
-                .checked_mul(128)
-                .ok_or_else(overflow)?,
-        )?,
-        V::List(list) => {
-            for value in list.iter() {
-                expanded(&value, credit, context)?;
-            }
-        }
-        V::Object(object) => {
-            for (name, value) in object.iter() {
-                add(
-                    credit,
-                    (name.len() as u64).checked_mul(128).ok_or_else(overflow)?,
-                )?;
-                expanded(&value, credit, context)?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-fn shell(
-    array: &ArrayRef,
-    row: usize,
-    metadata: &[u8],
-    credit: &mut MemoryLease,
-    context: &NativeExecutionContext<'_>,
-    execution: &mut ExecutionCtx,
-    depth: usize,
-) -> Result<()> {
-    context.check_cancelled()?;
-    if array.is_invalid(row, execution).map_err(vortex_error)? {
-        return Ok(());
-    }
-    let structure = array
-        .clone()
-        .execute::<StructArray>(execution)
-        .map_err(vortex_error)?;
-    let field = |name: &str| {
-        structure
-            .names()
-            .iter()
-            .position(|field| field.as_ref() == name)
-            .map(|index| structure.unmasked_field(index))
-    };
-    raw(field("value"), row, metadata, credit, context, execution)?;
-    if let Some(typed) = field("typed_value") {
-        typed_value(typed, row, metadata, credit, context, execution, depth)?;
-    }
-    Ok(())
+    walk::expanded(value, credit, context)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -259,50 +120,16 @@ fn typed_value(
     execution: &mut ExecutionCtx,
     depth: usize,
 ) -> Result<()> {
-    context.check_cancelled()?;
-    if depth > 24 {
-        return Err(failed(
-            "Variant typed workspace exceeds the current depth boundary",
-        ));
-    }
-    if array.is_invalid(row, execution).map_err(vortex_error)? {
-        return Ok(());
-    }
-    match array.dtype() {
-        DType::Struct(..) => {
-            let structure = array
-                .clone()
-                .execute::<StructArray>(execution)
-                .map_err(vortex_error)?;
-            for index in 0..structure.names().len() {
-                shell(
-                    structure.unmasked_field(index),
-                    row,
-                    metadata,
-                    credit,
-                    context,
-                    execution,
-                    depth + 1,
-                )?;
-            }
-        }
-        DType::List(..) => {
-            let list = crate::local_primitives::native_list::Column::new(array.clone(), execution)?;
-            if let Some((start, count)) = list.coordinates(row, execution)? {
-                for index in start..start + count {
-                    shell(
-                        &list.elements,
-                        index,
-                        metadata,
-                        credit,
-                        context,
-                        execution,
-                        depth + 1,
-                    )?;
-                }
-            }
-        }
-        _ => {}
-    }
-    Ok(())
+    walk::typed_value(array, row, metadata, credit, context, execution, depth, 24)
 }
+
+#[path = "native_relational_variant_workspace_walk.rs"]
+mod walk;
+
+#[cfg(test)]
+#[path = "native_relational_variant_workspace_reference.rs"]
+mod reference;
+
+#[cfg(test)]
+#[path = "native_relational_variant_workspace_tests.rs"]
+mod tests;

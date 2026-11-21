@@ -46,6 +46,22 @@ pub struct MapArray {
 }
 
 impl MapArray {
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            nulls,
+            entries,
+            value_offsets,
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Nulls(nulls),
+            Part::Struct(entries),
+            Part::Buffer(value_offsets.into_inner().into_inner()),
+        ])
+    }
+
     /// Create a new [`MapArray`] from the provided parts
     ///
     /// See [`MapBuilder`](crate::builder::MapBuilder) for a higher-level interface
@@ -181,8 +197,8 @@ impl MapArray {
         Option<NullBuffer>,
         bool,
     ) {
-        let (f, ordered) = match self.data_type {
-            DataType::Map(f, ordered) => (f, ordered),
+        let (f, ordered) = match &self.data_type {
+            DataType::Map(f, ordered) => (f.clone(), *ordered),
             _ => unreachable!(),
         };
         (f, self.value_offsets, self.entries, self.nulls, ordered)
@@ -297,15 +313,34 @@ impl From<ArrayData> for MapArray {
 
 impl From<MapArray> for ArrayData {
     fn from(array: MapArray) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl MapArray {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let len = array.len();
+        let builder = ArrayDataBuilder::new(array.data_type)
+            .len(len)
+            .nulls(array.nulls)
+            .buffers(vec![array.value_offsets.into_inner().into_inner()]);
+
+        super::ArrayDataNode::structure(builder, array.entries)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data(array: MapArray) -> ArrayData {
         let len = array.len();
         let builder = ArrayDataBuilder::new(array.data_type)
             .len(len)
             .nulls(array.nulls)
             .buffers(vec![array.value_offsets.into_inner().into_inner()])
-            .child_data(vec![array.entries.to_data()]);
+            .child_data(vec![super::data_export::tests::reference_data(&array.entries)]);
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 type Entries<Key, Value> = Vec<(Key, Value)>;
@@ -489,6 +524,14 @@ impl MapArray {
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl Array for MapArray {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

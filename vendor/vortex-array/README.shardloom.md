@@ -1,5 +1,377 @@
 # Vortex timestamp, statistics and ownership patches
 
+## November 17 host allocator owner inspection
+
+The already-static `HostAllocator` trait now has the `Any` supertrait for safe
+concrete owner inspection. This lets ShardLoom flatten its own repeated credit
+attachments while forwarding allocations and external reservations to the same
+base provider. Method signatures and default refusal remain unchanged. There
+is no new unsafe operation or allocator implementation. Native credit-chain,
+buffer alias, denial and cleanup tests live at the adapter boundary; see the
+[buffer-credit amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-buffer-credit-continuation-amendment-november-17-2026).
+
+## November 17 ordered optimizer traversal
+
+The existing optimizer entrypoints now use ordered owned continuations. Root
+rules still run before unoptimized children; rewritten descendants finish
+before the next root pass. Session parent rules retain precedence, with the
+same slot order, first-match restart, rewrite limits, statistics inheritance,
+optimized marks and trace events. Shared-node caching tests ownership before
+cloning, and partial slot replacement stays lazy. Suspended calls unwind
+innermost first without new cleanup grants.
+
+The test-only original driver preserves its six method bodies and session
+helper. Comparisons cover complete values and graphs, sharing, marks,
+statistics, callback/error order and traces. Private 8,192-level unprepared
+Struct/List/FixedSizeList/mixed arrays, rewritten descendants and deep
+error/panic cleanup exercise 128-KiB stacks. Native deep admission still must
+prepay continuation, replacement-slot, cache and cleanup overlap; recursion
+inside individual compound compute providers remains separate. Public depth
+limits are unchanged. See the
+[optimizer amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-optimizer-continuation-amendment-november-17-2026).
+
+## November 17 ordered logical array decoding
+
+`SerializedArray::decode_iterative` drives a flat stack of decoder continuations.
+Each plugin runs once and requests children sequentially with `get_async`, so
+conditional validity, computed child lengths, repeated requests and caught
+child errors retain their original order. No child is predecoded or cached.
+The built-in child consumers share their original decoder bodies between this
+hook and the existing synchronous entrypoint. Decimal's ordinary and private
+storage-preserving paths retain their separate validation policies.
+
+These Rust futures are synchronously driven local continuations; there is no
+executor, background task or I/O scheduler. The explicit path rejects a
+synchronous child request, external wait or unconsumed request. Unchanged leaf
+decoders remain usable, but inheriting the default hook does not certify a
+recursive external codec. Foreign descendants stay foreign, with the original
+buffer/statistics boundary. Unwinding drops the innermost pending callback first.
+
+Source comparisons verify 21 migrated provider bodies and five helper bodies
+against the preceding source, with explicit ordered loop/match replacements.
+Six driver tests cover conditional/repeated/caught-error callbacks, refusal,
+malformed buffers, foreign descendants, statistics and panic cleanup. Actual
+8,192-level nested Struct/FixedSizeList loading and opaque encoding chains pass
+on 128-KiB stacks, including deep failure, panic and retained-owner cleanup.
+All 5,882 array-provider tests pass (one existing ignored test), with strict lint.
+
+The default decoder and physical verification limits remain unchanged. The
+explicit continuation mechanism does not prepay future/frame/mailbox, output,
+temporary-buffer or cleanup storage. Native resource admission, additional
+codec certification and complete deep workflows remain required before public
+depth guards change. See the
+[logical decode amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#logical-array-decode-continuation-amendment-november-17-2026).
+
+## November 17 iterative protobuf model decoding
+
+Schema and scalar-value root merges now use owned, ordered continuations through
+the pinned Prost checked-delimiter API. Primitive field codecs remain generated.
+Same-variant and optional children retain partial updates; replacement oneofs
+and repeated children commit only on success. Existing boxes remain in place.
+An ownership guard restores the same partial state when an input buffer panics,
+without replaying any read. Generated containers and oneofs use the same roots.
+The wire schema and default depth limit remain unchanged.
+
+Original generated models and independently constructed raw fixtures verify
+complete values, exact error variants/contexts, remaining input, optional
+presence, sibling completion and failed replacement behavior. Every compound
+shape passes 8,192-level schema/value round trips on 128-KiB stacks, with exact
+depth refusal, invalid deep fields, retained preexisting owners, interrupted
+buffers and unknown groups inside generated leaf messages. These provider
+checks do not grant native model/continuation/error/cleanup memory or complete
+deep user-workflow support. Public depth guards remain unchanged. See the
+[decode amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-decode-continuation-amendment-november-17-2026).
+
+## November 17 iterative protobuf wire writing
+
+The existing protobuf roots now measure and write with borrowed continuations.
+A flat writing plan records subtree boundaries and bottom-up lengths, preserving
+the original tag order, optional empty payloads, oneof defaults, packed tags and
+floating-point bits. Length measurement retains only active ancestors; empty
+messages and leaf oneofs need no heap plan. Generated containers and oneofs use
+the same root implementations. No wire schema, unsafe operation or dependency
+changes at the writing checkpoint. Default decoding then retained the original
+generated merger; the later section above replaces its recursive model walk
+while preserving its context, limits and failure semantics.
+
+Independent raw fixtures instantiate the original generated types without using
+the replacement writer to construct the reference. Exact bytes, lengths,
+delimited output, capacity refusal, varint boundaries, malformed decode errors,
+input consumption, groups and partial merge behavior match. Complete fixture
+grammar inspection verifies 8,192-level schema/value writing and standalone
+generated containers on 128-KiB stacks, including a Variant with both a deep
+schema and a deep value. All 5,872 provider tests pass (one existing ignored
+test), with strict provider and native workspace lint at that checkpoint. The
+later decoding section above retains native resource/lifecycle admission as an
+open obligation. The public
+depth guards are unchanged. See the
+[wire-writing amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-wire-writing-amendment-november-17-2026).
+
+## November 17 intrinsic protobuf structural traits
+
+The existing protobuf DType and ScalarValue owners now clone and compare through
+ordered continuations. Generated containers and oneofs use these same roots;
+field types and wire schemas stay unchanged. Comparisons preserve missing-field
+positions, NaN inequality and signed-zero equality without serialization.
+Debug uses a fixed-size raw-owner probe: original fields and flags are preserved
+through 32 owner edges, and deeper roots use non-exhaustive output. No new unsafe
+operation or dependency is added. The two generated root derive overrides and
+regeneration procedure are documented in `src/proto/generated/README.shardloom.md`.
+
+Byte-identical original generated models from commit `59ffad352` independently
+verify shallow clone bytes, complete equality cross-products, malformed objects
+and Debug flags. Every compound schema/value shape and mixed paths pass
+8,192-level clone, equality, standalone-container and unwind cleanup checks on
+128-KiB stacks; the exact diagnostic boundary also passes on those stacks.
+All 5,868 provider tests pass (one existing ignored test), with strict provider
+and native workspace lint at that checkpoint. Writing is covered by the later
+section above; deep decoding, native scratch admission and the full workflow
+remain required. Default decode and public depth
+limits are unchanged. See the
+[structural trait amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#protobuf-structural-traits-amendment-november-17-2026).
+
+## November 17 protobuf schema/value conversion and temporary ownership
+
+Native DType conversion into and out of the existing protobuf model uses
+ordered continuations. Names, lazy fields, map children, union tags and
+extension metadata retain their original evaluation and failure order. Safe
+intrinsic cleanup of protobuf DType and ScalarValue owners also protects
+detached children and unfinished conversions, without changing generated types
+or adding unsafe operations.
+
+Mechanically verified original-source references cover shallow objects, bytes,
+errors and constructor panics. All compound schema shapes pass 8,192-level
+conversion, failed partial construction and cleanup on 128-KiB stacks; raw
+protobuf tuple, union and Variant cleanup passes the same checks. All 5,860
+provider tests passed at the schema checkpoint. Scalar-value conversion now
+uses the same ordered continuation approach, preserving numeric and decimal
+widths, nulls, legacy F16 handling, one-layer extension unwrapping, map entry
+schemas, union validation and Variant dtype-before-value ordering. Original
+recursive references verify bytes, malformed-object errors and callback counts.
+All value shapes pass 8,192-level conversion and cleanup on 128-KiB stacks,
+including an invalid innermost value and failure after a completed deep sibling.
+Nested extension values retain the original explicit refusal. All 5,864 provider
+tests pass (one existing ignored test), as do strict provider and native workspace
+lint at that conversion checkpoint. Structural traits are covered by the later
+section above; wire encoding/decoding and full resource admission remain required.
+Prost's default decode limit and public depth guards are unchanged. See the
+[protobuf object amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-protobuf-object-ownership-and-conversion-amendment-november-17-2026).
+
+## November 17 iterative array writing and physical verification
+
+The native serialization owner stores preorder nodes and subtree boundaries in
+a flat vector. Each serializer runs once in its original depth-first order;
+provider-selected wire IDs, replacement buffers and replacement children remain
+authoritative. The writer preserves exact FlatBuffer bytes, source statistics,
+buffer sharing, alignment/padding and unfinished output on context refusal.
+The existing total `u16` buffer limit is checked after all serializers finish.
+
+ArrayNode physical verification uses the same checked continuation API as DType
+verification. Optional fields, child order, expanded alias work, complete error
+traces and configured depth/table/apparent-byte thresholds match the original
+generated verifier. Public verifier defaults are unchanged. No new unchecked
+access, dependency or wire format is introduced.
+
+Mechanically verified original-source references cover the serializer/tree and
+both generated array verifiers. Tests cover substitutions, shared native buffer
+identity, callback failures, buffer-count limits, every fixture-byte mutation,
+truncation and independent budget boundaries. Writing, failure cleanup and
+physical verification pass 8,192-level checks on 128-KiB stacks. All 5,856
+provider tests and strict provider lint pass, with one existing ignored test.
+Statistics/scalar transport, plugin-directed logical decoding and complete
+resource/lifecycle acceptance remain required before public depth admission
+changes. See the [array serialization and verification amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-array-serialization-and-physical-verification-amendment-november-17-2026).
+
+## November 17 iterative scalar initialization and inspection
+
+Default/zero construction, zero checks and approximate byte estimates use
+ordered native continuations. Initializers preserve nullable defaults, non-null
+zeros, first-union selection and final constructor validation; partially built
+siblings unwind from the innermost frame. Zero checks preserve conjunction,
+union and Variant-null semantics and their original short circuits.
+
+Byte estimates retain null fixed-width sizes, decimal widths, union tag bytes
+and per-container addition order. Borrowed child inspection preserves eager
+list validation, per-field struct validation and map key/value validation before
+estimating the key. Unchecked-constructor validation remains debug-only, as
+before. The estimate is not an allocation grant.
+
+Mechanically verified original-source references cover all four operations.
+Tests compare complete leaf widths, nulls, empty/wide/malformed shapes, lazy
+failures and callback order. Construction, failed partial cleanup and inspection
+pass 8,192-level checks on 128-KiB stacks. All 5,847 provider tests and strict
+provider lint pass, with one existing ignored test. Provider transport and
+complete resource/lifecycle acceptance remain required before depth admission
+changes. See the [initialization and inspection amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-initialization-and-inspection-amendment-november-17-2026).
+
+## November 17 iterative scalar formatting
+
+Ordinary typed and raw scalar Display share borrowed ordered continuations,
+including standalone list, struct, map, union and Variant views. Original text,
+partial failed-sink output, legacy F16 child construction, lazy access and
+validation/unpack/format callback order are preserved. Struct fields and map
+entries still finish before their separators reach the caller; nested joins
+share one String. Errors inside that String retain their original panic outcome.
+
+The pinned foreign extension's raw display shares the loop. Other native
+extension formatters keep their callback boundary; arbitrary custom callback
+recursion is outside this guarantee. Independently adapted recursive references
+cover shallow output, flags, callback failures and every byte-sized sink limit.
+All compound shapes and a foreign/Variant/struct chain pass 8,192-level Display
+and cleanup on a 128-KiB stack. All 5,840 provider tests and strict provider lint
+pass, with one existing ignored test. Ordinary Display is not truncated; the
+existing depth admission remains until full lifecycle/resource acceptance.
+See the [scalar Display amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-display-amendment-november-17-2026).
+
+## November 17 iterative scalar ordering
+
+Scalar ordering traverses nested tuples and selected union values with borrowed
+continuations. It preserves dtype checks, null ordering, lexicographic list/map
+semantics, struct shape checks, lazy child order and first-difference exits.
+Map entries borrow their existing key/value dtypes; both are resolved before
+entry comparison. Same-tag unions retain their existing child order, present
+Variants remain unordered, and extension storage is unwrapped only for tuple
+interpretation. No ordering capability is added.
+
+A mechanically verified copy of the original recursive helpers provides the
+shallow reference, including all numeric widths, NaNs, nulls, wide tuples,
+malformed shapes and lazy failures. Small-stack checks compare 8,192-level
+values through Scalar and the list/struct/extension views. Ordinary Display,
+transport and resource admission remain separate obligations under the
+[ordering amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-ordering-amendment-november-17-2026).
+
+## November 17 ordered scalar validation and diagnostics
+
+Native scalar compatibility and detailed validation use borrowed continuations
+for lists, fixed-size lists, structs, maps, unions, variants and extensions.
+Inline leaf checks, null rules, the first failing child, lazy field selection,
+map key/value pre-resolution and storage-before-extension callbacks retain
+their previous behavior. Top-level legacy F16-bit construction is unchanged.
+The fast compatibility walk does not build diagnostic strings.
+
+ScalarValue Debug preserves original field names and formatting flags through
+32 value-child edges. Deeper values use an explicit non-exhaustive variant.
+Malformed-value diagnostics use the same presentation limit; deep validation
+errors keep the nearest 32 ancestor contexts and report omitted outer contexts.
+Ordinary Display remains unchanged. The probe neither validates nor formats
+hidden extension metadata.
+
+The original recursive validator is retained, with its Apache-2.0 copyright,
+as a mechanically verified shallow reference. Tests cover exact errors,
+callback order, lazy failures and 8,192-level valid/invalid construction and
+cleanup on 128-KiB stacks. These checks do not lift native depth admission;
+ordering, ordinary Display, transport and resource prepayment remain required.
+See the [validation amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-validation-and-diagnostic-amendment-november-17-2026).
+
+## November 17 iterative scalar structural operations
+
+ScalarValue clone, equality and hashing traverse tuple, union and Variant
+children with explicit ordered continuations. Copies preserve the existing
+shared native buffer and dtype owners. Equality keeps length/tag checks and
+Variant dtype-before-value checks; hashing preserves each original discriminant,
+length, dtype and leaf write on the same compiler. Standalone Scalar and
+UnionValue wrappers use the same iterative child operations.
+
+Independent shallow derived references cover all numeric/decimal widths, nulls,
+non-consecutive union tags, Variant nullability and wide tuples. Existing raw
+PValue cross-domain upcast panics are preserved and compared as outcomes.
+Small-stack 8,192-level clone/equality/hash/release checks prove retained buffer
+identity and last-owner lifetime. The validation section above records the next
+completed provider operation; ordering, ordinary Display, serialization and
+resource prepayment remain separate obligations under the
+[scalar structural amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-structural-operation-amendment-november-17-2026).
+
+## November 17 iterative schema formatting
+
+Native schema Display now uses borrowed ordered continuations. Its text remains
+byte-identical to the original recursive implementation, including standalone
+alternate struct formatting, lazy parse order, metadata callbacks and partial
+output on sink failure. Nested struct/union joins reuse their enclosing string
+buffer rather than retaining a full subtree string per ancestor. The test-only
+recursive reference preserves the original Apache-2.0 source and copyright.
+
+Debug keeps raw lazy/cache details and formatter flags through 32 owned/cached
+child edges without initializing lazy fields. Deeper trees use an explicit
+non-exhaustive variant form, such as `List(..)`. Display is never truncated.
+Small-stack subprocesses cover the full Debug boundary and 8,192-level Display
+for all compound shapes. These are formatting checks, not public deep-lifecycle
+admission; see the [formatting amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-formatting-amendment-november-17-2026).
+
+## November 17 ordered physical schema verification
+
+Generated DType verification delegates to an explicit parent-continuation loop
+through the same-version FlatBuffers checked verifier. Leaf payload verification
+is unchanged. Compound fields preserve their original order, optional/unknown
+tag behavior, string and offset checks, expanded alias work and complete error
+traces. Depth, table and apparent-byte thresholds match the original recursive
+verifier exactly. The default 64-table depth limit remains unchanged.
+
+Tests compare all generated variants, truncated buffers, every fixture byte
+under five substitutions, missing terminators, independent budget boundaries
+and repeated child offsets against original recursive verification. With explicit
+test-only options, 8,192-level validation and deepest corruption run on a
+128-KiB stack. The test reference preserves the original Apache-2.0 generated
+implementations; its distinct DType marker's alignment-error spelling is the
+only normalized diagnostic. This does not admit deeper native user workflows.
+See the [physical-verifier amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#physical-verifier-continuation-amendment-november-17-2026).
+
+## November 17 iterative logical schema reader
+
+Eager list, fixed-list, extension storage and map-key parsing now uses an ordered
+continuation stack over already verified bytes. Struct/union children and map
+values stay lazy; map keys retain their view and initialized cache. Tests compare
+the prior reader's values, raw lazy representation, error messages and extension
+contexts. Metadata callbacks keep their inner-to-outer order, failed lazy parses
+stay retryable, and internal 8,192-level success/failure cases pass on a 128-KiB
+stack. A shallow recursive reference retains the Apache-2.0 source and copyright;
+its eager map-key call is made explicit so it cannot invoke the new parser.
+
+These internal tests use only offsets returned by the native writer. Public
+reads still use the unchanged default physical depth guard. This is not
+deep file or runtime acceptance; see the
+[logical-read amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-logical-read-amendment-november-17-2026).
+
+## November 17 iterative schema writer
+
+The native FlatBuffer dtype writer uses borrowed parent continuations instead
+of recursive child calls. It preserves generated table/string order, lazy field
+inspection and extension metadata callback order. Shallow eager/lazy fixtures
+match the prior recursive writer byte-for-byte, including populated builders and
+partial buffers after metadata errors. Small-stack subprocesses write 8,192-level
+list, fixed-list, map, struct, union, extension and mixed schemas. The unchanged
+default-limit verifier still rejects those deep buffers; these writer tests do not
+establish a public deep round trip or increase admission. See the
+[writer amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-flatbuffer-write-amendment-november-17-2026).
+The test-only recursive reference retains the pinned writer's Apache-2.0 source
+and copyright notice, with only its function entry and recursive calls adapted.
+
+## November 17 schema structural operations
+
+Ordinary and nullability-insensitive DType equality and hashing now traverse
+borrowed children iteratively. They preserve Arc shortcuts, lazy parse order,
+trailing map/union checks, extension metadata dispatch and the existing hash feed
+on the same compiler. Independent shallow recursive references check equality
+and each hash write; small-stack subprocesses cover 8,192-level independent trees,
+deepest-leaf mismatches, shared subtrees and nullable equivalence.
+
+Nullability lookup follows extension storage iteratively. Conversion preserves
+outer-to-inner metadata cloning and rebuilds private, uniquely owned extension
+drafts in the opposite order without revalidation or new unsafe code. Failure
+drains unfinished drafts innermost first. Erased no-change conversion retains its
+Arc identity; typed conversion still constructs a distinct owner. Native depth
+admission, formatting, serialization and traversal prepayment remain separate
+work under the [structural-operation amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-structural-operation-amendment-november-17-2026).
+
+## November 17 borrowed schema children
+
+`DType::try_child_dtypes` borrows immediate children in native declaration order
+through the existing fallible lazy field cache. It makes no dtype clones or
+iterator allocations, and skipped fields are not parsed. Map and union accessors
+now expose that same fallible borrowed inspection. ShardLoom can use one admitted
+continuation cursor for schema and result-schema inspection without eager sibling
+construction or recursive inspection calls. The iterator does not change provider
+serialization, dtype destruction, or any admitted nesting boundary.
+
 ## November 14 encoded comparison observations
 
 The comparison adaptor optionally records successful ALP, FastLanes BitPacked
@@ -188,6 +560,41 @@ construction. The new row-function fixtures exercise deferred execution errors
 without creating an invalid value through an unchecked constructor.
 
 ## External memory reservations
+
+The November 17 deep-traversal foundation adds intrinsic iterative `DType`
+cleanup. It consumes existing list, field, map, union and extension owners with
+`Arc::into_inner`, retains metadata reservations through descendant release,
+and never parses an uninitialized lazy field while dropping it. Struct and
+union containers own their field vectors inside the existing shared allocation.
+A narrowly scoped ownership extractor is governed by the
+[RFC 0044 cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-schema-final-owner-cleanup-amendment-november-17-2026).
+The enum variants and serialized identity remain the same. Rust consuming
+matches and references formerly promoted from temporary dtypes now borrow or
+use immutable statics; this is a source-compatibility change for provider users
+that move fields out of the public enum. The provider is an internal pinned patch.
+The native public depth limits remain unchanged. The structural-operation
+section above records subsequent equality/hash/nullability work; formatting,
+serialization and resource prepayment remain separate acceptance work.
+
+Array handles now release their declared child slots through an ordered final-owner
+loop while keeping the 16-byte erased Arc layout. A sealed extractor recovers the
+existing typed allocation and uses `Arc::into_inner` for concurrent last owners.
+Retained owners survive metadata, encoding data and every pending child, including
+unwinding. The private single-use Arc transfers and existing typed downcast are
+specified by the [array cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-array-final-owner-cleanup-amendment-november-17-2026).
+Opaque custom encoding internals are not covered by slot traversal alone.
+
+Intrinsic `ScalarValue` cleanup consumes tuple, union and Variant children using
+safe Rust transfers. Variant dtype ownership survives its value subtree; ordinary
+Scalar destruction likewise releases the value before its dtype while preserving
+the prior Debug field order. Consuming accessors transfer existing vector/buffer
+storage without deep clones or new placeholder allocations. Provider users that
+previously moved owning fields out of ScalarValue must use these accessors or
+borrowed patterns. The [scalar cleanup amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-scalar-value-final-owner-cleanup-amendment-november-17-2026)
+records this source-compatibility change. Focused small-stack subprocesses cover
+8,192 nested levels, detached/raw owners, concurrent arrays, partial construction,
+statistics and panic ordering. These cleanup checks do not establish deeper
+validation, cloning, comparison, formatting, transport or resource admission.
 
 The November 9 wide-schema follow-up makes named lazy field lookup fallible.
 `GetItem` type binding and `Select` exclusion/simplification propagate lazy parse

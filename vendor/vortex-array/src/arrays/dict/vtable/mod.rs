@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::hash::Hasher;
 
@@ -165,32 +166,53 @@ impl VTable for Dict {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = DictMetadata::decode(metadata)?;
-        let codes_ptype = metadata.get_codes_ptype()?;
-        if children.len() != 2 {
-            vortex_bail!(
-                "Expected 2 children for dict encoding, found {}",
-                children.len()
-            )
-        }
-        let codes_nullable = metadata
-            .is_nullable_codes
-            .map(Nullability::from)
-            // If no `is_nullable_codes` metadata use the nullability of the values
-            // (and whole array) as before.
-            .unwrap_or_else(|| dtype.nullability());
-        let codes_dtype = DType::Primitive(codes_ptype, codes_nullable);
-        let codes = children.get(0, &codes_dtype, len)?;
-        let values = children.get(1, dtype, metadata.values_len as usize)?;
-        let all_values_referenced = metadata.all_values_referenced.unwrap_or(false);
-
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            unsafe { DictData::new_unchecked().set_all_values_referenced(all_values_referenced) },
-            smallvec![Some(codes), Some(values)],
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = DictMetadata::decode(metadata)?;
+            let codes_ptype = metadata.get_codes_ptype()?;
+            if children.len() != 2 {
+                vortex_bail!(
+                    "Expected 2 children for dict encoding, found {}",
+                    children.len()
+                )
+            }
+            let codes_nullable = metadata
+                .is_nullable_codes
+                .map(Nullability::from)
+                // If no `is_nullable_codes` metadata use the nullability of the values
+                // (and whole array) as before.
+                .unwrap_or_else(|| dtype.nullability());
+            let codes_dtype = DType::Primitive(codes_ptype, codes_nullable);
+            let codes = children.get_async(0, &codes_dtype, len).await?;
+            let values = children
+                .get_async(1, dtype, metadata.values_len as usize)
+                .await?;
+            let all_values_referenced = metadata.all_values_referenced.unwrap_or(false);
+
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                unsafe {
+                    DictData::new_unchecked().set_all_values_referenced(all_values_referenced)
+                },
+                smallvec![Some(codes), Some(values)],
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

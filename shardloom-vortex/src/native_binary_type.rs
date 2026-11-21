@@ -91,20 +91,31 @@ pub(crate) fn storage(dtype: &DType) -> Option<&DType> {
     Some(extension.storage_dtype())
 }
 
-pub(crate) fn contains(dtype: &DType) -> VortexResult<bool> {
-    Ok(match dtype {
-        DType::Extension(_) => storage(dtype).is_some(),
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains(child)?,
-        DType::Struct(fields, _) => {
-            for child in fields.try_field_dtypes() {
-                if contains(child?)? {
-                    return Ok(true);
-                }
-            }
-            false
-        }
-        _ => false,
-    })
+pub(crate) fn contains(
+    dtype: &DType,
+    scope: crate::native_payload_schema::Scope<'_>,
+    map_provider: impl Fn(vortex::error::VortexError) -> shardloom_core::ShardLoomError,
+) -> shardloom_core::Result<bool> {
+    crate::native_payload_schema::contains_mapped(
+        dtype,
+        scope,
+        |node| storage(node).is_some(),
+        map_provider,
+    )
+}
+
+pub(crate) fn contains_in_session(
+    dtype: &DType,
+    session: &vortex::session::VortexSession,
+    cancellation: Option<&shardloom_exec::compute_pool::CancellationToken>,
+) -> VortexResult<bool> {
+    use vortex::array::memory::HostMemorySessionExt as _;
+    crate::native_payload_schema::contains_on_host(
+        dtype,
+        session.host_allocator().as_ref(),
+        cancellation,
+        |node| storage(node).is_some(),
+    )
 }
 
 pub(crate) fn dtype(nullable: bool) -> VortexResult<DType> {
@@ -125,6 +136,10 @@ pub(crate) fn register(session: &vortex::session::VortexSession) {
 
 #[path = "native_binary_edition.rs"]
 mod edition;
+
+#[cfg(test)]
+#[path = "native_binary_type_reference.rs"]
+pub(crate) mod reference;
 
 #[cfg(feature = "universal-format-io")]
 #[path = "native_binary_type_arrow.rs"]
@@ -165,7 +180,8 @@ mod tests {
         for nullable in [false, true] {
             let ty = dtype(nullable).unwrap();
             assert_eq!(storage(&ty), Some(&DType::Binary(nullable.into())));
-            assert!(contains(&ty).unwrap());
+            let pool = shardloom_exec::live_memory::LiveMemoryPool::new(4096).unwrap();
+            assert!(contains(&ty, (&pool).into(), crate::local_primitives::vortex_error).unwrap());
         }
     }
 }

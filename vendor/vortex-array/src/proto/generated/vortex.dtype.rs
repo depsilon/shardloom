@@ -99,12 +99,9 @@ pub struct Map {
     #[prost(bool, tag = "4")]
     pub nullable: bool,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+// ShardLoom: structural traits and Message live in ../structural.rs and ../wire.rs.
+#[derive(Default)]
 pub struct DType {
-    #[prost(
-        oneof = "d_type::DtypeType",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
-    )]
     pub dtype_type: ::core::option::Option<d_type::DtypeType>,
 }
 /// Nested message and enum types in `DType`.

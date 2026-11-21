@@ -289,6 +289,7 @@ impl NativeArrowBatchStream {
         let mut ctx = context.native_session().create_execution_ctx();
         let check = || context.check_cancelled();
         let limits = ConversionLimits {
+            memory: context.memory(),
             string_bytes: usize::MAX,
             arrow_batch_bytes: context.memory().snapshot().limit_bytes,
             check: &check,
@@ -347,10 +348,13 @@ impl NativeArrowBatchStream {
         work.resize(retained)?;
         let credit = Arc::new(ExportCredit {
             #[cfg(feature = "native-binary-objects")]
-            _objects: crate::native_binary_type::contains(array.dtype())
-                .map_err(native_error)?
-                .then(|| crate::binary_object::Arena::get(context.native_session()))
-                .transpose()?,
+            _objects: crate::native_binary_type::contains(
+                array.dtype(),
+                context.into(),
+                native_error,
+            )?
+            .then(|| crate::binary_object::Arena::get(context.native_session()))
+            .transpose()?,
             _conversion: work,
             _schema: Arc::clone(&self.metadata),
         });

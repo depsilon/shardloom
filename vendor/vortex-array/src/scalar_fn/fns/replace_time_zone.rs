@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: borrow extension dtypes before retaining their handles.
 
 //! Reinterpret timestamp wall times in a different timezone.
 
@@ -208,7 +209,7 @@ impl ScalarFnVTable for ReplaceTimeZone {
             output.push(replaced.unwrap_or_default());
             output_valid.append(replaced.is_some());
         }
-        let DType::Extension(ext) = dtype else {
+        let DType::Extension(ext) = &dtype else {
             unreachable!()
         };
         let storage = PrimitiveArray::new(
@@ -216,7 +217,7 @@ impl ScalarFnVTable for ReplaceTimeZone {
             Validity::from_bit_buffer(output_valid.freeze(), Nullability::Nullable),
         )
         .into_array();
-        Ok(ExtensionArray::new(ext, storage).into_array())
+        Ok(ExtensionArray::new(ext.clone(), storage).into_array())
     }
 }
 
@@ -226,9 +227,9 @@ fn replace_scalar(
     value: &Scalar,
     policy: &Scalar,
 ) -> VortexResult<Scalar> {
-    let DType::Extension(ext) =
-        ReplaceTimeZone.return_dtype(options, &[value.dtype().clone(), policy.dtype().clone()])?
-    else {
+    let output_dtype =
+        ReplaceTimeZone.return_dtype(options, &[value.dtype().clone(), policy.dtype().clone()])?;
+    let DType::Extension(ext) = &output_dtype else {
         unreachable!("replace_time_zone() returns a timestamp")
     };
     let metadata = timestamp_options(value.dtype())?;
@@ -253,7 +254,7 @@ fn replace_scalar(
         || Scalar::null(DType::Primitive(PType::I64, Nullability::Nullable)),
         |v| Scalar::primitive(v, Nullability::Nullable),
     );
-    Scalar::try_extension_ref(ext, storage)
+    Scalar::try_extension_ref(ext.clone(), storage)
 }
 
 fn timestamp_options(dtype: &DType) -> VortexResult<&TimestampOptions> {

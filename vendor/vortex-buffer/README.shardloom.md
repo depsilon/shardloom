@@ -1,5 +1,26 @@
 # ShardLoom Vortex buffer provider candidate
 
+## November 17 explicit retained buffer owners
+
+`Buffer::with_retained_owner` attaches a shared owner to the existing backing,
+preserving pointer, length, alignment and bytes. Unlike an opaque nested Bytes
+owner, the backing link is available to ordered iterative cleanup. Storage
+releases before attached owners, and uniquely owned attachments release oldest
+first. Clones, nonempty slices, typed conversion and Bytes/Arrow exports keep
+the complete owner chain, including explicitly owned empty buffers. Ordinary
+empty-slice detachment and immutable `try_into_mut` behavior are unchanged.
+
+Safe `Arc::into_inner` extraction handles shared and concurrent final owners.
+Local pending owners drain in reverse attachment order on a single panic as
+well as normal completion; no global queue, new unsafe operation, byte copy or
+cleanup execution grant is introduced. Native deep admission still must prepay
+link/cleanup storage before changing public limits. Tests compare the previous
+owner wrapper's shallow behavior and exercise 8,192 links, intermediate and
+weak aliases, concurrent release and storage/owner panics on 128-KiB stacks.
+See the [ownership amendment](../../docs/rfcs/0044-resident-runtime-resource-ownership.md#native-buffer-credit-continuation-amendment-november-17-2026).
+
+## Provider source and preceding empty-owner contract
+
 This directory contains the Apache-2.0 `vortex-buffer` 0.93.0 published source,
 with the Cargo registry archive and original member hashes recorded in
 `upstream-provenance.json`. The published archive is authoritative and its VCS

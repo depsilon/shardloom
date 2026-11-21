@@ -12,6 +12,7 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_err;
 use vortex_session::VortexSession;
 
+use super::FieldDTypeInner;
 use super::StructFields;
 use crate::dtype::DType;
 use crate::dtype::Nullability;
@@ -138,6 +139,88 @@ fn lazy_struct_admission_refuses_retries_and_follows_the_final_child_owner() -> 
 }
 
 #[test]
+fn native_child_cursor_does_not_parse_skipped_lazy_children() -> VortexResult<()> {
+    use crate::dtype::UnionVariants;
+
+    let wide = DType::Struct(
+        StructFields::from_iter((0..1025).map(|index| (format!("field_{index}"), DType::Null))),
+        Nullability::Nullable,
+    );
+    let leaf = DType::Bool(Nullability::NonNullable);
+    for dtype in [
+        DType::Struct(
+            StructFields::from_iter([("wide", wide.clone()), ("leaf", leaf.clone())]),
+            Nullability::Nullable,
+        ),
+        DType::Union(
+            UnionVariants::new(["wide", "leaf"].into(), vec![wide, leaf.clone()])?,
+            Nullability::Nullable,
+        ),
+    ] {
+        let admission = Admission::default();
+        admission.0.lock().limit = 32 << 20;
+        let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+        let root =
+            DType::from_flatbuffer(FlatBuffer::from(dtype.write_flatbuffer_bytes()?), &session)?;
+        let live = admission.0.lock().live;
+        admission.0.lock().limit = live;
+        let children = root.try_child_dtypes();
+        assert_eq!(children.len(), 2);
+        assert_eq!(admission.0.lock().live, live);
+        assert_eq!(children.clone().nth(1).unwrap()?, &leaf);
+        assert_eq!(admission.0.lock().live, live);
+        assert!(children.clone().next().unwrap().is_err());
+        assert_eq!(admission.0.lock().live, live);
+        admission.0.lock().limit = 32 << 20;
+        assert_eq!(
+            children
+                .clone()
+                .next()
+                .unwrap()?
+                .as_struct_fields_opt()
+                .unwrap()
+                .nfields(),
+            1025
+        );
+        assert!(admission.0.lock().live > live);
+        drop(root);
+        assert_eq!(admission.0.lock().live, 0);
+    }
+    Ok(())
+}
+
+#[test]
+fn borrowed_map_value_reports_lazy_admission_failure_and_can_retry() -> VortexResult<()> {
+    let value = DType::Struct(
+        StructFields::from_iter((0..1025).map(|index| (format!("field_{index}"), DType::Null))),
+        Nullability::Nullable,
+    );
+    let dtype = DType::map(
+        DType::Primitive(PType::I64, Nullability::NonNullable),
+        value,
+        false,
+        Nullability::Nullable,
+    )?;
+    let admission = Admission::default();
+    let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+    let root = DType::from_flatbuffer(FlatBuffer::from(dtype.write_flatbuffer_bytes()?), &session)?;
+    let mut children = root.try_child_dtypes();
+    assert_eq!(
+        children.next().unwrap()?,
+        &DType::Primitive(PType::I64, Nullability::NonNullable)
+    );
+    assert!(children.next().unwrap().is_err());
+    assert_eq!(admission.0.lock().live, 0);
+    admission.0.lock().limit = 32 << 20;
+    let value = root.try_child_dtypes().nth(1).unwrap()?;
+    assert_eq!(value.as_struct_fields_opt().unwrap().nfields(), 1025);
+    assert!(admission.0.lock().live > 0);
+    drop(root);
+    assert_eq!(admission.0.lock().live, 0);
+    Ok(())
+}
+
+#[test]
 fn concurrent_lazy_first_touch_constructs_one_admitted_child() -> VortexResult<()> {
     let admission = Admission::default();
     admission.0.lock().limit = 32 << 20;
@@ -149,7 +232,7 @@ fn concurrent_lazy_first_touch_constructs_one_admitted_child() -> VortexResult<(
     let workers: Vec<_> = (0..8)
         .map(|_| {
             let fields = fields.clone();
-            let start = start.clone();
+            let start = Arc::clone(&start);
             thread::spawn(move || {
                 start.wait();
                 fields.try_field_by_index(0).unwrap().unwrap()
@@ -170,6 +253,65 @@ fn concurrent_lazy_first_touch_constructs_one_admitted_child() -> VortexResult<(
     assert_eq!(admission.0.lock().reservations, 2);
     drop((root, fields, session, children));
     assert_eq!(admission.0.lock().live, 0);
+    Ok(())
+}
+
+#[test]
+fn dropping_uninspected_schema_releases_only_its_single_reservation() -> VortexResult<()> {
+    let admission = Admission::default();
+    admission.0.lock().limit = 32 << 20;
+    let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+    let root = DType::from_flatbuffer(fixture()?, &session)?;
+    let fields = root.as_struct_fields_opt().unwrap();
+    let FieldDTypeInner::View(_, cache) = &fields.0.dtypes[0].inner else {
+        unreachable!("flatbuffer struct field must remain a lazy view")
+    };
+    assert!(cache.value.get().is_none());
+
+    let live = admission.0.lock().live;
+    assert!(live > 0);
+    assert_eq!(admission.0.lock().reservations, 1);
+    admission.0.lock().limit = live;
+    drop(root);
+    drop(session);
+
+    assert_eq!(admission.0.lock().live, 0);
+    assert_eq!(admission.0.lock().reservations, 1);
+    Ok(())
+}
+
+#[test]
+fn detached_initialized_field_keeps_child_storage_until_its_final_drop() -> VortexResult<()> {
+    let admission = Admission::default();
+    admission.0.lock().limit = 32 << 20;
+    let session = VortexSession::empty().with_host_allocator(Arc::new(admission.clone()));
+    let root = DType::from_flatbuffer(fixture()?, &session)?;
+    let fields = root.as_struct_fields_opt().unwrap();
+    let root_live = admission.0.lock().live;
+    assert_eq!(admission.0.lock().reservations, 1);
+
+    // First touch initializes the cached child; discard the returned DType so the cache is the
+    // only child owner retained by the detached FieldDType below.
+    drop(fields.try_field_by_index(0)?.unwrap());
+    let detached = fields.0.dtypes[0].clone();
+    let FieldDTypeInner::View(_, cache) = &detached.inner else {
+        unreachable!("flatbuffer struct field must remain a lazy view")
+    };
+    assert!(cache.value.get().is_some());
+
+    let all_live = admission.0.lock().live;
+    assert!(all_live > root_live);
+    assert_eq!(admission.0.lock().reservations, 2);
+    drop(root);
+    drop(session);
+
+    let child_live = all_live - root_live;
+    assert_eq!(admission.0.lock().live, child_live);
+    assert!(child_live > 0);
+    assert_eq!(admission.0.lock().reservations, 2);
+    drop(detached);
+    assert_eq!(admission.0.lock().live, 0);
+    assert_eq!(admission.0.lock().reservations, 2);
     Ok(())
 }
 

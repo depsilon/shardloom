@@ -290,6 +290,7 @@ fn native_variant_arrow_export_terminates_for_chunked_and_canonical_cores() {
         .with_native_execution_context(&CancellationToken::default(), |context| {
             let mut execution = context.native_session().create_execution_ctx();
             let limits = ConversionLimits {
+                memory: context.memory(),
                 string_bytes: usize::MAX,
                 arrow_batch_bytes: 32 << 20,
                 check: &|| Ok(()),
@@ -390,6 +391,7 @@ fn native_variant_canonical_shredding_keeps_native_selection_and_export_values()
                     &copied,
                     &mut execution,
                     &crate::native_arrow_conversion::ConversionLimits {
+                        memory: context.memory(),
                         string_bytes: usize::MAX,
                         arrow_batch_bytes: 32 << 20,
                         check: &|| Ok(()),

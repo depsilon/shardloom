@@ -41,10 +41,10 @@ fn temporal_array(name: &str, values: &[Option<i64>]) -> ArrayRef {
     } else {
         PrimitiveArray::from_option_iter(values.iter().copied()).into_array()
     };
-    let DType::Extension(extension) = native else {
+    let DType::Extension(extension) = &native else {
         panic!("temporal extension")
     };
-    ExtensionArray::try_new(extension, storage)
+    ExtensionArray::try_new(extension.clone(), storage)
         .unwrap()
         .into_array()
 }

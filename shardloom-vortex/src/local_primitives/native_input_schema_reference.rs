@@ -1,0 +1,566 @@
+//! Restricted pinned-DType parsing before native input construction.
+
+use serde::de::{DeserializeSeed, Error as _, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize as _, Deserializer as _};
+use serde_json::{Map, Value, value::RawValue};
+use shardloom_core::Result;
+use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use vortex::array::{
+    dtype::{
+        DType, DecimalDType, FieldNames, Nullability, PType, StructFields,
+        extension::{ExtDType, ExtVTable},
+    },
+    extension::datetime::{Date, Time, Timestamp},
+};
+
+use super::{native_typed_input::failed, vortex_error};
+
+pub(super) const MAX_JSON_BYTES: usize = 8 * 1024 * 1024;
+
+/// Covers decoded JSON nodes, map/container growth, strings and conversion
+/// overlap. This is conservative workspace admission, not process RSS accounting.
+pub(super) fn reserve_json(memory: &LiveMemoryPool, bytes: usize) -> Result<MemoryLease> {
+    if bytes > MAX_JSON_BYTES {
+        return Err(failed("typed input JSON exceeds 8 MiB"));
+    }
+    let bytes = bytes
+        .checked_mul(128)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .and_then(|bytes| u64::try_from(bytes).ok())
+        .ok_or_else(|| failed("typed input JSON workspace overflow"))?;
+    memory.reserve(bytes)
+}
+
+pub(crate) fn parse_dtype(raw: &str, memory: &LiveMemoryPool) -> Result<(DType, MemoryLease)> {
+    let _workspace = reserve_json(memory, raw.len())?;
+    let value = parse_json(raw)?;
+    let dtype = dtype(&value, 0, &mut 0)?;
+    let credit = crate::native_payload_schema::reserve_metadata(&dtype, memory)?;
+    Ok((dtype, credit))
+}
+
+/// Parse inert caller-owned application metadata before an operation exists.
+/// This retains the ordinary depth and JSON byte bounds; query binding later
+/// reserves the complete schema against its execution allocation. Top-level
+/// record width follows shared schema admission rather than nested limits.
+pub(crate) fn application_fields(fields: &[(String, String)]) -> Result<DType> {
+    fields.iter().try_fold(0_usize, |bytes, (name, raw)| {
+        bytes
+            .checked_add(name.len())
+            .and_then(|bytes| bytes.checked_add(raw.len()))
+            .filter(|bytes| *bytes <= MAX_JSON_BYTES)
+            .ok_or_else(|| failed("application schema exceeds 8 MiB"))
+    })?;
+    let types = fields
+        .iter()
+        .map(|(_, raw)| dtype(&parse_json(raw)?, 0, &mut 0))
+        .collect::<Result<Vec<_>>>()?;
+    let schema = DType::Struct(
+        StructFields::new(
+            FieldNames::from(
+                fields
+                    .iter()
+                    .map(|(name, _)| name.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+            types,
+        ),
+        Nullability::NonNullable,
+    );
+    validate_application_dtype(&schema)?;
+    Ok(schema)
+}
+
+/// Inert caller metadata has no operation owner. Bound its validation workspace
+/// by the existing JSON declaration contract, then count its exact wire bytes
+/// without allocating another serialized schema. Binding still admits its own
+/// persistent metadata against the caller's execution pool.
+pub(crate) fn validate_application_dtype(dtype: &DType) -> Result<()> {
+    struct WireSize(usize);
+    impl std::io::Write for WireSize {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self
+                .0
+                .checked_add(bytes.len())
+                .filter(|bytes| *bytes <= MAX_JSON_BYTES)
+                .ok_or_else(|| std::io::Error::other("application schema exceeds 8 MiB"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let limit = (MAX_JSON_BYTES as u64)
+        .checked_mul(512)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(|| failed("application schema workspace overflow"))?;
+    let validation = LiveMemoryPool::new(limit)?;
+    let _workspace = crate::native_payload_schema::reserve_schema(dtype, &validation)?;
+    crate::native_payload_schema::json::write(dtype, &validation, WireSize(0))
+        .map_err(|error| error.into_error(|error| failed(&error.to_string())))
+}
+
+/// Payload intake holds `reserve_json` credit. Inert application declarations
+/// have separately bounded caller-owned metadata until operation binding.
+pub(super) fn parse_json(raw: &str) -> Result<Value> {
+    let mut parser = serde_json::Deserializer::from_str(raw);
+    let value = JsonSeed(0)
+        .deserialize(&mut parser)
+        .map_err(|error| failed(&error.to_string()))?;
+    parser.end().map_err(|error| failed(&error.to_string()))?;
+    Ok(value)
+}
+
+struct JsonSeed(usize);
+
+impl<'de> DeserializeSeed<'de> for JsonSeed {
+    type Value = Value;
+
+    fn deserialize<D: serde::Deserializer<'de>>(
+        self,
+        parser: D,
+    ) -> std::result::Result<Value, D::Error> {
+        if self.0 > 96 {
+            return Err(D::Error::custom(
+                "typed input JSON nesting exceeds 96 levels",
+            ));
+        }
+        // RawValue validates JSON syntax while retaining the exact numeric
+        // lexeme. Parsing a generic JSON Number first can round integer
+        // overflow and, without float_roundtrip, change finite float bits.
+        let raw = <&RawValue>::deserialize(parser)?;
+        let raw = raw.get();
+        match raw.as_bytes().first() {
+            Some(b'{' | b'[') => serde_json::Deserializer::from_str(raw)
+                .deserialize_any(self)
+                .map_err(D::Error::custom),
+            Some(b'-' | b'0'..=b'9') => number(raw).map_err(D::Error::custom),
+            _ => serde_json::from_str(raw).map_err(D::Error::custom),
+        }
+    }
+}
+
+fn number(raw: &str) -> Result<Value> {
+    if raw == "-0" || raw.contains(['.', 'e', 'E']) {
+        let value = raw
+            .parse::<f64>()
+            .map_err(|error| failed(&error.to_string()))?;
+        return serde_json::Number::from_f64(value)
+            .map(Value::Number)
+            .ok_or_else(|| failed("typed input numbers must be finite"));
+    }
+    // Exact integer tokens have the same int64/uint64 domain as the admitted
+    // primitive types. Wider floating values use a decimal/exponent literal.
+    if raw.starts_with('-') {
+        raw.parse::<i64>().map(Value::from)
+    } else {
+        raw.parse::<u64>().map(Value::from)
+    }
+    .map_err(|_| failed("typed input integer JSON exceeds its exact 64-bit domain"))
+}
+
+impl<'de> Visitor<'de> for JsonSeed {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("finite JSON without duplicate object fields")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> std::result::Result<Value, A::Error> {
+        let mut result = Vec::new();
+        while let Some(value) = sequence.next_element_seed(JsonSeed(self.0 + 1))? {
+            result.push(value);
+        }
+        Ok(Value::Array(result))
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Value, A::Error> {
+        let mut result = Map::new();
+        while let Some(key) = map.next_key::<String>()? {
+            if result.contains_key(&key) {
+                return Err(A::Error::custom("duplicate typed input JSON field"));
+            }
+            result.insert(key, map.next_value_seed(JsonSeed(self.0 + 1))?);
+        }
+        Ok(Value::Object(result))
+    }
+}
+
+fn fields<'a>(value: &'a Value, keys: &[&str]) -> Result<&'a Map<String, Value>> {
+    let fields = value
+        .as_object()
+        .ok_or_else(|| failed("invalid native dtype object"))?;
+    if fields.len() != keys.len() || keys.iter().any(|key| !fields.contains_key(*key)) {
+        return Err(failed("native dtype has unknown or missing fields"));
+    }
+    Ok(fields)
+}
+
+fn dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    *nodes = nodes
+        .checked_add(1)
+        .ok_or_else(|| failed("input dtype node count overflow"))?;
+    if depth > 24 {
+        return Err(failed("nested input dtype exceeds depth 24"));
+    }
+    let object = value
+        .as_object()
+        .filter(|value| value.len() == 1)
+        .ok_or_else(|| failed("native input dtype requires one variant"))?;
+    let (kind, value) = object.iter().next().expect("one dtype variant");
+    if matches!(kind.as_str(), "Bool" | "Utf8" | "Binary") {
+        let nullable = nullability(value)?;
+        return Ok(match kind.as_str() {
+            "Bool" => DType::Bool(nullable),
+            "Utf8" => DType::Utf8(nullable),
+            _ => DType::Binary(nullable),
+        });
+    }
+    if kind == "Extension" {
+        return extension_dtype(value, depth + 1, nodes);
+    }
+    let size = if kind == "FixedSizeList" { 3 } else { 2 };
+    let parts = value
+        .as_array()
+        .filter(|parts| parts.len() == size)
+        .ok_or_else(|| failed("invalid native input dtype parameters"))?;
+    let nullable = nullability(&parts[size - 1])?;
+    Ok(match kind.as_str() {
+        "Primitive" => DType::Primitive(
+            match parts[0].as_str() {
+                Some("i8") => PType::I8,
+                Some("i16") => PType::I16,
+                Some("i32") => PType::I32,
+                Some("i64") => PType::I64,
+                Some("u8") => PType::U8,
+                Some("u16") => PType::U16,
+                Some("u32") => PType::U32,
+                Some("u64") => PType::U64,
+                Some("f16") => PType::F16,
+                Some("f32") => PType::F32,
+                Some("f64") => PType::F64,
+                _ => return Err(failed("unsupported native input primitive")),
+            },
+            nullable,
+        ),
+        "Decimal" => decimal_dtype(&parts[0], nullable)?,
+        "List" => DType::List(dtype(&parts[0], depth + 1, nodes)?.into(), nullable),
+        "FixedSizeList" => {
+            let size = parts[1]
+                .as_u64()
+                .and_then(|size| u32::try_from(size).ok())
+                .ok_or_else(|| failed("fixed-size input width must be uint32"))?;
+            DType::FixedSizeList(dtype(&parts[0], depth + 1, nodes)?.into(), size, nullable)
+        }
+        "Struct" => {
+            let fields = fields(&parts[0], &["names", "dtypes"])?;
+            let names = fields["names"]
+                .as_array()
+                .filter(|names| !names.is_empty())
+                .ok_or_else(|| failed("nested input structs require at least one field"))?;
+            let types = fields["dtypes"]
+                .as_array()
+                .filter(|types| types.len() == names.len())
+                .ok_or_else(|| failed("nested input names and dtypes must have equal length"))?;
+            let mut distinct = std::collections::BTreeSet::new();
+            let names = names
+                .iter()
+                .map(|name| {
+                    let name = name
+                        .as_str()
+                        .filter(|name| !name.is_empty())
+                        .ok_or_else(|| {
+                            failed("nested input field names must be nonempty strings")
+                        })?;
+                    if !distinct.insert(name) {
+                        return Err(failed("nested input field names must be distinct"));
+                    }
+                    Ok(name)
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let types = types
+                .iter()
+                .map(|value| dtype(value, depth + 1, nodes))
+                .collect::<Result<Vec<_>>>()?;
+            DType::Struct(StructFields::new(FieldNames::from(names), types), nullable)
+        }
+        _ => return Err(failed("unsupported native input dtype")),
+    })
+}
+
+fn extension_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let id = value.get("id").and_then(Value::as_str);
+    #[cfg(feature = "native-binary-objects")]
+    if id == Some(crate::native_binary_type::ID) {
+        return binary_object_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_embedding::ID) {
+        return embedding_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_tensor::ID) {
+        return tensor_dtype(value, depth, nodes);
+    }
+    if id == Some(crate::native_variable_tensor::ID) {
+        return variable_tensor_dtype(value, depth, nodes);
+    }
+    if let Some(kind) = id.and_then(crate::native_vector::Kind::from_id) {
+        return vector_dtype(kind, value, depth, nodes);
+    }
+    if let Some(kind) = id.and_then(crate::native_spatial::Kind::from_id) {
+        return spatial_dtype(kind, value, depth, nodes);
+    }
+    temporal_dtype(value)
+}
+
+#[cfg(feature = "native-binary-objects")]
+fn binary_object_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let fields = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let expected = b"{\"version\":1}";
+    let raw = fields["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("binary-object metadata requires UTF8 bytes"))?;
+    if raw.len() != expected.len()
+        || raw
+            .iter()
+            .zip(expected)
+            .any(|(value, byte)| value.as_u64() != Some(u64::from(*byte)))
+    {
+        return Err(failed("invalid binary-object metadata"));
+    }
+    let storage = dtype(&fields["storage_dtype"], depth, nodes)?;
+    ExtDType::<crate::native_binary_type::BinaryObjectType>::try_new(
+        crate::native_binary_type::Metadata,
+        storage,
+    )
+    .map(|dtype| DType::Extension(dtype.erased()))
+    .map_err(vortex_error)
+}
+
+fn embedding_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let metadata = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("embedding metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|byte| {
+            byte.as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("embedding metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = crate::native_embedding::Embedding::default()
+        .deserialize_metadata(&metadata)
+        .map_err(vortex_error)?;
+    Ok(DType::Extension(
+        ExtDType::<crate::native_embedding::Embedding>::try_new(metadata, storage)
+            .map_err(vortex_error)?
+            .erased(),
+    ))
+}
+
+fn tensor_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let metadata = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("tensor metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|byte| {
+            byte.as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("tensor metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = crate::native_tensor::FixedShapeTensor::default()
+        .deserialize_metadata(&metadata)
+        .map_err(vortex_error)?;
+    Ok(DType::Extension(
+        ExtDType::<crate::native_tensor::FixedShapeTensor>::try_new(metadata, storage)
+            .map_err(vortex_error)?
+            .erased(),
+    ))
+}
+
+fn variable_tensor_dtype(value: &Value, depth: usize, nodes: &mut usize) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let metadata = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("tensor metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|byte| {
+            byte.as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("tensor metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = crate::native_variable_tensor::VariableShapeTensor::default()
+        .deserialize_metadata(&metadata)
+        .map_err(vortex_error)?;
+    Ok(DType::Extension(
+        ExtDType::<crate::native_variable_tensor::VariableShapeTensor>::try_new(metadata, storage)
+            .map_err(vortex_error)?
+            .erased(),
+    ))
+}
+
+fn vector_dtype(
+    kind: crate::native_vector::Kind,
+    value: &Value,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let bytes = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("vector metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("vector metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = match kind {
+        crate::native_vector::Kind::Sparse => {
+            crate::native_vector::SparseVector::default().deserialize_metadata(&bytes)
+        }
+        crate::native_vector::Kind::Quantized => {
+            crate::native_vector::QuantizedVector::default().deserialize_metadata(&bytes)
+        }
+    }
+    .map_err(vortex_error)?;
+    crate::native_vector::dtype(metadata, storage).map_err(vortex_error)
+}
+
+fn spatial_dtype(
+    kind: crate::native_spatial::Kind,
+    value: &Value,
+    depth: usize,
+    nodes: &mut usize,
+) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = dtype(&extension["storage_dtype"], depth, nodes)?;
+    let bytes = extension["metadata"]
+        .as_array()
+        .ok_or_else(|| failed("spatial metadata requires UTF8 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("spatial metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let metadata = match kind {
+        crate::native_spatial::Kind::Point => {
+            crate::native_spatial::Point::default().deserialize_metadata(&bytes)
+        }
+        crate::native_spatial::Kind::LineString => {
+            crate::native_spatial::LineString::default().deserialize_metadata(&bytes)
+        }
+        crate::native_spatial::Kind::Polygon => {
+            crate::native_spatial::Polygon::default().deserialize_metadata(&bytes)
+        }
+    }
+    .map_err(vortex_error)?;
+    crate::native_spatial::dtype(metadata, storage).map_err(vortex_error)
+}
+
+fn decimal_dtype(value: &Value, nullable: Nullability) -> Result<DType> {
+    let fields = fields(value, &["precision", "scale"])?;
+    let precision = fields["precision"]
+        .as_u64()
+        .filter(|n| (1..=38).contains(n))
+        .ok_or_else(|| failed("decimal input precision must be 1..=38"))?;
+    let scale = fields["scale"]
+        .as_u64()
+        .filter(|n| *n <= precision)
+        .ok_or_else(|| failed("decimal input scale must be 0..=precision"))?;
+    Ok(DType::Decimal(
+        DecimalDType::new(
+            u8::try_from(precision).map_err(vortex_error)?,
+            i8::try_from(scale).map_err(vortex_error)?,
+        ),
+        nullable,
+    ))
+}
+
+fn temporal_dtype(value: &Value) -> Result<DType> {
+    let extension = fields(value, &["id", "metadata", "storage_dtype"])?;
+    let storage = fields(&extension["storage_dtype"], &["Primitive"])?;
+    let storage = storage["Primitive"]
+        .as_array()
+        .filter(|parts| parts.len() == 2)
+        .ok_or_else(|| failed("temporal input requires primitive storage"))?;
+    let nullable = nullability(&storage[1])?;
+    let storage = DType::Primitive(
+        match storage[0].as_str() {
+            Some("i32") => PType::I32,
+            Some("i64") => PType::I64,
+            _ => return Err(failed("temporal input requires signed native storage")),
+        },
+        nullable,
+    );
+    // Timestamp metadata is one unit byte, a u16 length and at most 255
+    // timezone bytes. All other admitted temporal metadata has one byte.
+    let metadata = extension["metadata"]
+        .as_array()
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= 258)
+        .ok_or_else(|| failed("temporal metadata requires 1..=258 bytes"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|n| u8::try_from(n).ok())
+                .ok_or_else(|| failed("temporal metadata must contain bytes"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    macro_rules! decode {
+        ($provider:expr, $ty:ty) => {{
+            let decoded = $provider
+                .deserialize_metadata(&metadata)
+                .map_err(vortex_error)?;
+            if $provider
+                .serialize_metadata(&decoded)
+                .map_err(vortex_error)?
+                != metadata
+            {
+                return Err(failed(
+                    "temporal metadata must use its exact canonical encoding",
+                ));
+            }
+            DType::Extension(
+                ExtDType::<$ty>::try_new(decoded, storage)
+                    .map_err(vortex_error)?
+                    .erased(),
+            )
+        }};
+    }
+    let dtype = match extension["id"].as_str() {
+        Some("vortex.date") => decode!(Date, Date),
+        Some("vortex.time") => decode!(Time, Time),
+        Some("vortex.timestamp") => decode!(Timestamp, Timestamp),
+        Some("shardloom.duration.v1") => decode!(
+            crate::native_temporal::Duration,
+            crate::native_temporal::Duration
+        ),
+        _ => return Err(failed("unsupported native input extension metadata")),
+    };
+    if crate::native_temporal::temporal_storage(&dtype).is_none() {
+        return Err(failed(
+            "unsupported native input temporal domain or timezone",
+        ));
+    }
+    Ok(dtype)
+}
+
+fn nullability(value: &Value) -> Result<Nullability> {
+    value
+        .as_bool()
+        .map(Nullability::from)
+        .ok_or_else(|| failed("native input nullability must be a bool"))
+}

@@ -31,7 +31,10 @@ impl RunWork {
             cost: fields_cost(&spec.fields, 2, context)?,
             gather_scratch_per_row: spec.fields.iter().try_fold(0_u64, |bytes, (_, dtype)| {
                 bytes
-                    .checked_add(super::super::native_payload::gather_scratch_per_row(dtype)?)
+                    .checked_add(super::super::native_payload::gather_scratch_per_row(
+                        dtype,
+                        context.memory(),
+                    )?)
                     .ok_or_else(capacity_error)
             })?,
             validation_rows,

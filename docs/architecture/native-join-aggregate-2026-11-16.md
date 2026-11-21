@@ -143,6 +143,15 @@ build, with complete source correspondence and binary identities retained.
 All 1,260 result packets replay against independent references. The standalone
 offline replay passes 130 corruption controls and executes no queries.
 
+## Hosted integration
+
+[PR #1696](https://github.com/depsilon/shardloom/pull/1696) merged as
+`8969fc817dbbbefd7cf7f5f623899107617a61cd` after all 58 PR checks and review passed.
+[CI on that exact merge](https://github.com/depsilon/shardloom/actions/runs/43999158038)
+passes. All 54 required main checks pass; the separate Cloudflare Workers failure
+is covered by the maintainer's existing exception. This hosted result does not
+change the original performance observations, scoped admission or remaining work.
+
 ## Later separate admission
 
 Exact duplicate multiplicities may later feed COUNT when group dependencies and

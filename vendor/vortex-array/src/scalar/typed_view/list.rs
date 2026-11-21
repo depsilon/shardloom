@@ -9,7 +9,6 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
 use vortex_error::vortex_err;
@@ -18,6 +17,7 @@ use vortex_error::vortex_panic;
 use crate::dtype::DType;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// A scalar value representing a list or fixed-size list (array) of elements.
 ///
@@ -44,26 +44,7 @@ pub struct ListScalar<'a> {
 
 impl Display for ListScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.elements {
-            None => write!(f, "null"),
-            Some(elems) => {
-                let type_str: &dyn Display = if let DType::FixedSizeList(_, size, _) = self.dtype {
-                    &format!("fixed_size<{size}>")
-                } else {
-                    &""
-                };
-
-                write!(
-                    f,
-                    "{type_str}[{}]",
-                    elems
-                        .iter()
-                        .map(|e| Scalar::try_new(self.element_dtype().clone(), e.clone())
-                            .vortex_expect("`ListScalar` is already a valid `Scalar`"))
-                        .format(", ")
-                )
-            }
-        }
+        formatting::display_list(self.dtype, self.elements, f)
     }
 }
 

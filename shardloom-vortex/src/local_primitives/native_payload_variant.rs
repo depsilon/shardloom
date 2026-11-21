@@ -1,14 +1,13 @@
-//! Detach selected Variant storage through the ordinary credited payload copier.
-//! Values remain encoded native children; no Arrow or JSON conversion executes.
+//! Ordered Variant storage copying through the same native payload driver.
 
-use super::{
-    CopyPolicy, CopyState, ReservedVec, Value, check, copy_rows, failed, result_batch, vortex_error,
-};
+use super::copying::{Frame as Parent, Inputs, Kind, Start, State, Visit};
+use super::{CopyPolicy, CopyState, ReservedVec, Value, check, failed, result_batch, vortex_error};
 use crate::resident_session::NativeExecutionContext;
 use shardloom_core::Result;
+use shardloom_exec::live_memory::MemoryLease;
 use vortex::{
     array::{
-        ArrayRef, ArrayView, IntoArray, VortexSessionExecute as _,
+        ArrayRef, IntoArray, VortexSessionExecute as _,
         arrays::{
             Chunked, ChunkedArray, Constant, Dict, Masked, Slice, StructArray, Variant,
             VariantArray,
@@ -30,9 +29,9 @@ use vortex::{
 };
 
 #[path = "native_payload_variant_canonical_validation.rs"]
-mod canonical_validation;
+pub(super) mod canonical_validation;
 #[path = "native_payload_variant_validation.rs"]
-mod validation;
+pub(super) mod validation;
 
 struct Storage;
 impl Matcher for Storage {
@@ -49,33 +48,119 @@ impl Matcher for Storage {
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-pub(super) fn copy<const RETAIN: bool>(
-    source: Option<&ArrayRef>,
-    rows: &[Option<usize>],
-    dtype: &DType,
-    policy: CopyState<'_>,
-    context: &NativeExecutionContext<'_>,
-    allocator: &HostAllocatorRef,
+pub(super) enum Frame {
+    Wrapper {
+        _source: ArrayRef,
+        _extra: Option<ArrayRef>,
+        selected: usize,
+    },
+    Chunked {
+        output: ReservedVec<ArrayRef>,
+        source: ArrayRef,
+        selected: usize,
+        end: usize,
+        depth: usize,
+        allocator: HostAllocatorRef,
+    },
+    Core {
+        source: ArrayRef,
+    },
+    Shredded {
+        core: ArrayRef,
+        _source: ArrayRef,
+        visible: usize,
+        _allocator: HostAllocatorRef,
+    },
+    Parquet {
+        _storage: ArrayRef,
+        _output_type: DType,
+        _source: ArrayRef,
+        _allocator: HostAllocatorRef,
+        _scratch: MemoryLease,
+    },
+}
+
+#[allow(clippy::too_many_lines)] // Preserve ordered wrapper dispatch and its validation boundaries.
+pub(super) fn enter<'a, const RETAIN: bool>(
+    visit: Visit<'a>,
     depth: usize,
-) -> Result<ArrayRef> {
+    inputs: &mut Inputs<'_>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Start<'a>> {
     context.check_cancelled()?;
     if depth > 64 {
         return Err(failed(
             "Variant storage wrappers exceed the current depth boundary",
         ));
     }
+    let rows = inputs.get(visit.rows);
     if rows.iter().all(Option::is_none) {
-        return defaults(dtype, if RETAIN { rows.len() } else { 0 }, allocator);
+        return defaults(
+            &visit.dtype,
+            if RETAIN { rows.len() } else { 0 },
+            &visit.allocator,
+        )
+        .map(Start::Complete);
     }
-    let source = source.ok_or_else(|| failed("Variant source is absent"))?;
+    let source = visit
+        .source
+        .as_ref()
+        .ok_or_else(|| failed("Variant source is absent"))?;
     let mut execution = context.native_session().create_execution_ctx();
     let source = source
         .clone()
         .execute_until::<Storage>(&mut execution)
         .map_err(vortex_error)?;
     if let Some(storage) = source.as_opt::<ParquetVariant>() {
-        return copy_parquet::<RETAIN>(storage, rows, dtype, policy, context, allocator);
+        let scratch = context.memory().reserve(4096)?;
+        let mut names = vec!["metadata"];
+        let mut children = vec![storage.metadata().clone()];
+        if let Some(value) = storage.value() {
+            names.push("value");
+            children.push(value.clone());
+        }
+        if let Some(value) = storage.typed_value() {
+            names.push("typed_value");
+            children.push(value.clone());
+        }
+        let array = StructArray::try_new(
+            FieldNames::from(names),
+            children,
+            storage.len(),
+            storage.parquet_variant_validity(),
+        )
+        .map_err(vortex_error)?
+        .into_array();
+        let output_type = array.dtype().with_nullability(visit.dtype.nullability());
+        let metadata = crate::native_payload_schema::reserve_metadata(&output_type, context)?;
+        let allocator = crate::owned_buffers::with_credit(visit.allocator.clone(), metadata);
+        validation::validate(&storage, rows, context)?;
+        let mut next = visit.child(
+            Some(array.clone()),
+            output_type.clone(),
+            visit.rows,
+            CopyState {
+                policy: CopyPolicy::PreserveUnobserved,
+                ..visit.copy
+            },
+            Kind::Payload,
+        );
+        next.allocator = allocator.clone();
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Parquet {
+                    _source: source,
+                    _storage: array,
+                    _output_type: output_type,
+                    _allocator: allocator,
+                    _scratch: scratch,
+                }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
     if let Some(dictionary) = source.as_opt::<Dict>() {
         let mut selected = ReservedVec::new(context.memory())?;
@@ -101,15 +186,28 @@ pub(super) fn copy<const RETAIN: bool>(
                 None
             });
         }
-        return copy::<RETAIN>(
-            Some(dictionary.values()),
-            &selected.values,
-            dtype,
-            policy,
-            context,
-            allocator,
-            depth + 1,
+        let child = dictionary.values().clone();
+        let selected = inputs.push(selected)?;
+        let next = visit.child(
+            Some(child),
+            visit.dtype.clone(),
+            Some(selected),
+            visit.copy,
+            Kind::Variant(depth + 1),
         );
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Wrapper {
+                    _source: source,
+                    _extra: None,
+                    selected,
+                }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
     if let Some(slice) = source.as_opt::<Slice>() {
         let mut selected = ReservedVec::new(context.memory())?;
@@ -124,15 +222,28 @@ pub(super) fn copy<const RETAIN: bool>(
                 .transpose()?,
             );
         }
-        return copy::<RETAIN>(
-            Some(slice.child()),
-            &selected.values,
-            dtype,
-            policy,
-            context,
-            allocator,
-            depth + 1,
+        let child = slice.child().clone();
+        let selected = inputs.push(selected)?;
+        let next = visit.child(
+            Some(child),
+            visit.dtype.clone(),
+            Some(selected),
+            visit.copy,
+            Kind::Variant(depth + 1),
         );
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Wrapper {
+                    _source: source,
+                    _extra: None,
+                    selected,
+                }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
     if let Some(masked) = source.as_opt::<Masked>() {
         let mut selected = ReservedVec::new(context.memory())?;
@@ -151,152 +262,342 @@ pub(super) fn copy<const RETAIN: bool>(
                 _ => None,
             });
         }
-        return copy::<RETAIN>(
-            Some(masked.child()),
-            &selected.values,
-            dtype,
-            policy,
-            context,
-            allocator,
-            depth + 1,
+        let child = masked.child().clone();
+        let selected = inputs.push(selected)?;
+        let next = visit.child(
+            Some(child),
+            visit.dtype.clone(),
+            Some(selected),
+            visit.copy,
+            Kind::Variant(depth + 1),
         );
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Wrapper {
+                    _source: source,
+                    _extra: None,
+                    selected,
+                }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
-    if let Some(chunks) = source.as_opt::<Chunked>() {
+    if source.is::<Chunked>() {
         let credit = context.memory().reserve(
             (rows.len() as u64)
                 .checked_mul(1024)
                 .ok_or_else(|| failed("Variant chunk workspace overflow"))?,
         )?;
-        let allocator = crate::owned_buffers::with_credit(allocator.clone(), credit);
+        let allocator = crate::owned_buffers::with_credit(visit.allocator.clone(), credit);
         let mut output = ReservedVec::new(context.memory())?;
         let mut selected = ReservedVec::new(context.memory())?;
         output.reserve(rows.len())?;
         selected.reserve(rows.len())?;
-        let mut start = 0;
-        while start < rows.len() {
-            check(start, context)?;
-            let chunk = rows[start]
-                .map(|row| {
-                    chunks
-                        .find_chunk_idx(row)
-                        .map(|(chunk, _)| chunk)
-                        .map_err(vortex_error)
-                })
-                .transpose()?;
-            let mut end = start;
-            selected.values.clear();
-            while end < rows.len() {
-                let position = rows[end]
-                    .map(|row| chunks.find_chunk_idx(row).map_err(vortex_error))
-                    .transpose()?;
-                if position.map(|(chunk, _)| chunk) != chunk {
-                    break;
-                }
-                selected.values.push(position.map(|(_, row)| row));
-                end += 1;
-            }
-            let value = copy::<RETAIN>(
-                chunk.map(|index| chunks.chunk(index)),
-                &selected.values,
-                dtype,
-                policy,
-                context,
-                &allocator,
-                depth + 1,
-            )?;
-            if RETAIN {
-                output.values.push(value);
-            }
-            start = end;
-        }
-        if !RETAIN {
-            return defaults(dtype, 0, &allocator);
-        }
-        let (output, _scratch) = output.into_parts();
-        return ChunkedArray::try_new(output, dtype.clone())
-            .map(IntoArray::into_array)
-            .map_err(vortex_error);
+        let selected = inputs.push(selected)?;
+        let (child, end) = chunk(&source, visit.rows, selected, 0, inputs, context)?;
+        let mut next = visit.child(
+            child,
+            visit.dtype.clone(),
+            Some(selected),
+            visit.copy,
+            Kind::Variant(depth + 1),
+        );
+        next.allocator = allocator.clone();
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Chunked {
+                    source,
+                    selected,
+                    output,
+                    end,
+                    depth,
+                    allocator,
+                }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
     if let Some(variant) = source.as_opt::<Variant>() {
-        let core = copy::<RETAIN>(
-            Some(variant.core_storage()),
-            rows,
-            dtype,
-            policy,
-            context,
-            allocator,
-            depth + 1,
-        )?;
-        let mut visible = ReservedVec::new(context.memory())?;
-        visible.reserve(rows.len())?;
-        for (ordinal, row) in rows.iter().enumerate() {
-            check(ordinal, context)?;
-            visible.values.push(match row {
-                Some(row)
-                    if variant
-                        .core_storage()
-                        .is_valid(*row, &mut execution)
-                        .map_err(vortex_error)? =>
-                {
-                    Some(*row)
-                }
-                _ => None,
-            });
-        }
-        let shredded = variant
-            .shredded()
-            .map(|child| {
-                let metadata =
-                    crate::native_payload_schema::reserve_metadata(child.dtype(), context)?;
-                let allocator = crate::owned_buffers::with_credit(allocator.clone(), metadata);
-                canonical_validation::validate(variant.core_storage(), child, rows, context)?;
-                copy_rows::<RETAIN>(
-                    Some(child),
-                    &visible.values,
-                    child.dtype(),
-                    CopyState {
-                        policy: CopyPolicy::PreserveUnobserved,
-                        ..policy
-                    },
-                    context,
-                    &allocator,
-                )
-            })
-            .transpose()?;
-        return VariantArray::try_new(core, shredded)
-            .map(IntoArray::into_array)
-            .map_err(vortex_error);
+        let next = visit.child(
+            Some(variant.core_storage().clone()),
+            visit.dtype.clone(),
+            visit.rows,
+            visit.copy,
+            Kind::Variant(depth + 1),
+        );
+        return Ok(Start::Child(
+            next,
+            Parent {
+                state: State::Variant(Frame::Core { source }),
+                execution,
+                expansion: None,
+                visit,
+            },
+        ));
     }
     if let Some(constant) = source.as_opt::<Constant>() {
         let scalar = constant.scalar();
         if scalar.is_null() {
-            if !dtype.is_nullable() {
+            if !visit.dtype.is_nullable() {
                 return Err(failed("null in a nonnullable Variant"));
             }
-            return defaults(dtype, if RETAIN { rows.len() } else { 0 }, allocator);
+            return defaults(
+                &visit.dtype,
+                if RETAIN { rows.len() } else { 0 },
+                &visit.allocator,
+            )
+            .map(Start::Complete);
         }
         if scalar.as_variant().is_variant_null() == Some(true) {
             let present = DType::Variant(Nullability::NonNullable);
-            let value = defaults(&present, 1, allocator)?;
+            let value = defaults(&present, 1, &visit.allocator)?;
             let mut selected = ReservedVec::new(context.memory())?;
             selected.reserve(rows.len())?;
             selected
                 .values
                 .extend(rows.iter().map(|row| row.map(|_| 0)));
-            return copy::<RETAIN>(
-                Some(&value),
-                &selected.values,
-                dtype,
-                policy,
-                context,
-                allocator,
-                depth + 1,
+            let selected = inputs.push(selected)?;
+            let next = visit.child(
+                Some(value.clone()),
+                visit.dtype.clone(),
+                Some(selected),
+                visit.copy,
+                Kind::Variant(depth + 1),
             );
+            return Ok(Start::Child(
+                next,
+                Parent {
+                    state: State::Variant(Frame::Wrapper {
+                        _source: source,
+                        _extra: Some(value),
+                        selected,
+                    }),
+                    execution,
+                    expansion: None,
+                    visit,
+                },
+            ));
         }
     }
     Err(failed(
         "Variant payload requires admitted Parquet Variant storage",
     ))
+}
+
+fn chunk(
+    source: &ArrayRef,
+    parent: super::copying::RowOwner,
+    selected: usize,
+    start: usize,
+    inputs: &mut Inputs<'_>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<(Option<ArrayRef>, usize)> {
+    check(start, context)?;
+    let chunks = source.as_opt::<Chunked>().expect("retained chunked source");
+    let (rows, selected) = inputs.parent_and_child(parent, selected);
+    let chunk = rows[start]
+        .map(|row| {
+            chunks
+                .find_chunk_idx(row)
+                .map(|(chunk, _)| chunk)
+                .map_err(vortex_error)
+        })
+        .transpose()?;
+    let mut end = start;
+    selected.values.clear();
+    while end < rows.len() {
+        let position = rows[end]
+            .map(|row| chunks.find_chunk_idx(row).map_err(vortex_error))
+            .transpose()?;
+        if position.map(|(chunk, _)| chunk) != chunk {
+            break;
+        }
+        selected.values.push(position.map(|(_, row)| row));
+        end += 1;
+    }
+    Ok((chunk.map(|index| chunks.chunk(index).clone()), end))
+}
+
+#[allow(clippy::too_many_lines)] // Each arm completes exactly one suspended native owner.
+pub(super) fn resume<'a, const RETAIN: bool>(
+    parent: Parent<'a>,
+    complete: ArrayRef,
+    inputs: &mut Inputs<'_>,
+    context: &NativeExecutionContext<'_>,
+) -> Result<Start<'a>> {
+    let Parent {
+        state,
+        mut execution,
+        expansion,
+        visit,
+    } = parent;
+    let State::Variant(state) = state else {
+        unreachable!()
+    };
+    match state {
+        Frame::Wrapper {
+            _source,
+            _extra,
+            selected,
+        } => {
+            inputs.release(selected);
+            Ok(Start::Complete(complete))
+        }
+        Frame::Chunked {
+            source,
+            selected,
+            mut output,
+            end,
+            depth,
+            allocator,
+        } => {
+            if RETAIN {
+                output.values.push(complete);
+            } else {
+                drop(complete);
+            }
+            if end < inputs.get(visit.rows).len() {
+                let (child, end) = chunk(&source, visit.rows, selected, end, inputs, context)?;
+                let mut next = visit.child(
+                    child,
+                    visit.dtype.clone(),
+                    Some(selected),
+                    visit.copy,
+                    Kind::Variant(depth + 1),
+                );
+                next.allocator = allocator.clone();
+                return Ok(Start::Child(
+                    next,
+                    Parent {
+                        state: State::Variant(Frame::Chunked {
+                            source,
+                            selected,
+                            output,
+                            end,
+                            depth,
+                            allocator,
+                        }),
+                        execution,
+                        expansion,
+                        visit,
+                    },
+                ));
+            }
+            let array = if RETAIN {
+                let (output, _scratch) = output.into_parts();
+                ChunkedArray::try_new(output, visit.dtype.clone())
+                    .map(IntoArray::into_array)
+                    .map_err(vortex_error)
+            } else {
+                defaults(&visit.dtype, 0, &allocator)
+            };
+            inputs.release(selected);
+            array.map(Start::Complete)
+        }
+        Frame::Core { source } => {
+            let variant = source.as_opt::<Variant>().expect("retained Variant source");
+            let rows = inputs.get(visit.rows);
+            let mut visible = ReservedVec::new(context.memory())?;
+            visible.reserve(rows.len())?;
+            for (ordinal, row) in rows.iter().enumerate() {
+                check(ordinal, context)?;
+                visible.values.push(match row {
+                    Some(row)
+                        if variant
+                            .core_storage()
+                            .is_valid(*row, &mut execution)
+                            .map_err(vortex_error)? =>
+                    {
+                        Some(*row)
+                    }
+                    _ => None,
+                });
+            }
+            let Some(child) = variant.shredded() else {
+                return VariantArray::try_new(complete, None)
+                    .map(IntoArray::into_array)
+                    .map_err(vortex_error)
+                    .map(Start::Complete);
+            };
+            let metadata = crate::native_payload_schema::reserve_metadata(child.dtype(), context)?;
+            let allocator = crate::owned_buffers::with_credit(visit.allocator.clone(), metadata);
+            canonical_validation::validate(variant.core_storage(), child, rows, context)?;
+            let child_dtype = child.dtype().clone();
+            let child = child.clone();
+            let visible = inputs.push(visible)?;
+            let mut next = visit.child(
+                Some(child),
+                child_dtype,
+                Some(visible),
+                CopyState {
+                    policy: CopyPolicy::PreserveUnobserved,
+                    ..visit.copy
+                },
+                Kind::Payload,
+            );
+            next.allocator = allocator.clone();
+            Ok(Start::Child(
+                next,
+                Parent {
+                    state: State::Variant(Frame::Shredded {
+                        _source: source,
+                        core: complete,
+                        visible,
+                        _allocator: allocator,
+                    }),
+                    execution,
+                    expansion,
+                    visit,
+                },
+            ))
+        }
+        Frame::Shredded {
+            _source,
+            core,
+            visible,
+            _allocator,
+        } => {
+            let output = VariantArray::try_new(core, Some(complete))
+                .map(IntoArray::into_array)
+                .map_err(vortex_error);
+            inputs.release(visible);
+            output.map(Start::Complete)
+        }
+        Frame::Parquet {
+            _source,
+            _storage,
+            _output_type,
+            _allocator,
+            _scratch,
+        } => {
+            let mut inner_execution = context.native_session().create_execution_ctx();
+            let copied = complete
+                .execute::<StructArray>(&mut inner_execution)
+                .map_err(vortex_error)?;
+            let find = |name: &str| {
+                copied
+                    .names()
+                    .iter()
+                    .position(|field| field.as_ref() == name)
+                    .map(|index| copied.unmasked_field(index).clone())
+            };
+            ParquetVariant::try_new(
+                copied.struct_validity(),
+                find("metadata").expect("copied Variant metadata"),
+                find("value"),
+                find("typed_value"),
+            )
+            .map(IntoArray::into_array)
+            .map_err(vortex_error)
+            .map(Start::Complete)
+        }
+    }
 }
 
 fn defaults(dtype: &DType, rows: usize, allocator: &HostAllocatorRef) -> Result<ArrayRef> {
@@ -319,71 +620,4 @@ fn defaults(dtype: &DType, rows: usize, allocator: &HostAllocatorRef) -> Result<
     )
     .map(IntoArray::into_array)
     .map_err(vortex_error)
-}
-
-fn copy_parquet<const RETAIN: bool>(
-    source: ArrayView<'_, ParquetVariant>,
-    rows: &[Option<usize>],
-    dtype: &DType,
-    policy: CopyState<'_>,
-    context: &NativeExecutionContext<'_>,
-    allocator: &HostAllocatorRef,
-) -> Result<ArrayRef> {
-    let scratch = context.memory().reserve(4096)?;
-    let mut names = vec!["metadata"];
-    let mut children = vec![source.metadata().clone()];
-    if let Some(value) = source.value() {
-        names.push("value");
-        children.push(value.clone());
-    }
-    if let Some(value) = source.typed_value() {
-        names.push("typed_value");
-        children.push(value.clone());
-    }
-    let storage = StructArray::try_new(
-        FieldNames::from(names),
-        children,
-        source.len(),
-        source.parquet_variant_validity(),
-    )
-    .map_err(vortex_error)?
-    .into_array();
-    let output_type = storage.dtype().with_nullability(dtype.nullability());
-    let metadata = crate::native_payload_schema::reserve_metadata(&output_type, context)?;
-    let allocator = crate::owned_buffers::with_credit(allocator.clone(), metadata);
-    // PreserveUnobserved is a numeric observation policy, not permission to
-    // publish malformed Variant bytes or conflicting shredded fields.
-    validation::validate(&source, rows, context)?;
-    let copied = copy_rows::<RETAIN>(
-        Some(&storage),
-        rows,
-        &output_type,
-        CopyState {
-            policy: CopyPolicy::PreserveUnobserved,
-            ..policy
-        },
-        context,
-        &allocator,
-    )?;
-    let mut execution = context.native_session().create_execution_ctx();
-    let copied = copied
-        .execute::<StructArray>(&mut execution)
-        .map_err(vortex_error)?;
-    let find = |name: &str| {
-        copied
-            .names()
-            .iter()
-            .position(|field| field.as_ref() == name)
-            .map(|index| copied.unmasked_field(index).clone())
-    };
-    let output = ParquetVariant::try_new(
-        copied.struct_validity(),
-        find("metadata").expect("copied Variant metadata"),
-        find("value"),
-        find("typed_value"),
-    )
-    .map(IntoArray::into_array)
-    .map_err(vortex_error);
-    drop(scratch);
-    output
 }

@@ -250,7 +250,7 @@ pub struct DictionaryArray<K: ArrowDictionaryKeyType> {
     keys: PrimitiveArray<K>,
 
     /// Array of dictionary values (can be any DataType).
-    values: ArrayRef,
+    values: super::release::Child,
 
     /// Values are ordered.
     is_ordered: bool,
@@ -268,6 +268,24 @@ impl<K: ArrowDictionaryKeyType> Clone for DictionaryArray<K> {
 }
 
 impl<K: ArrowDictionaryKeyType> DictionaryArray<K> {
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            keys,
+            values,
+            ..
+        } = self;
+        let (key_type, key_values, key_nulls) = keys.into_parts();
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Type(key_type),
+            Part::Buffer(key_values.into_inner()),
+            Part::Nulls(key_nulls),
+            Part::Child(values.into_inner()),
+        ])
+    }
+
     /// Attempt to create a new DictionaryArray with a specified keys
     /// (indexes into the dictionary) and values (dictionary)
     /// array.
@@ -311,7 +329,7 @@ impl<K: ArrowDictionaryKeyType> DictionaryArray<K> {
         Ok(Self {
             data_type,
             keys,
-            values,
+            values: values.into(),
             is_ordered: false,
         })
     }
@@ -342,14 +360,14 @@ impl<K: ArrowDictionaryKeyType> DictionaryArray<K> {
         Self {
             data_type,
             keys,
-            values,
+            values: values.into(),
             is_ordered: false,
         }
     }
 
     /// Deconstruct this array into its constituent parts
     pub fn into_parts(self) -> (PrimitiveArray<K>, ArrayRef) {
-        (self.keys, self.values)
+        (self.keys, self.values.into_inner())
     }
 
     /// Return an array view of the keys of this dictionary as a PrimitiveArray.
@@ -481,7 +499,7 @@ impl<K: ArrowDictionaryKeyType> DictionaryArray<K> {
         Self {
             data_type,
             keys: self.keys.clone(),
-            values,
+            values: values.into(),
             is_ordered: false,
         }
     }
@@ -618,7 +636,7 @@ impl<T: ArrowDictionaryKeyType> From<ArrayData> for DictionaryArray<T> {
             Self {
                 data_type,
                 keys,
-                values,
+                values: values.into(),
                 is_ordered: false,
             }
         } else {
@@ -629,15 +647,34 @@ impl<T: ArrowDictionaryKeyType> From<ArrayData> for DictionaryArray<T> {
 
 impl<T: ArrowDictionaryKeyType> From<DictionaryArray<T>> for ArrayData {
     fn from(array: DictionaryArray<T>) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl<T: ArrowDictionaryKeyType> DictionaryArray<T> {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let builder = array
+            .keys
+            .into_data()
+            .into_builder()
+            .data_type(array.data_type);
+
+        super::ArrayDataNode::one(builder, array.values)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data<T: ArrowDictionaryKeyType>(array: DictionaryArray<T>) -> ArrayData {
         let builder = array
             .keys
             .into_data()
             .into_builder()
             .data_type(array.data_type)
-            .child_data(vec![array.values.to_data()]);
+            .child_data(vec![super::data_export::tests::reference_data(array.values.as_ref())]);
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 /// Constructs a `DictionaryArray` from an iterator of optional strings.
@@ -697,6 +734,14 @@ impl<'a, T: ArrowDictionaryKeyType> FromIterator<&'a str> for DictionaryArray<T>
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl<T: ArrowDictionaryKeyType> Array for DictionaryArray<T> {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

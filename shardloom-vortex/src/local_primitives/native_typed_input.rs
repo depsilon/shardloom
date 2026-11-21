@@ -4,16 +4,15 @@ use serde_json::Value as Json;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
 use vortex::array::{
-    ArrayRef, VortexSessionExecute as _,
-    arrays::{ExtensionArray, FixedSizeListArray, ListArray, StructArray},
-    dtype::{DType, Nullability, PType},
-    memory::{HostAllocatorRef, HostMemorySessionExt as _},
+    ArrayRef,
+    dtype::{DType, Nullability},
+    memory::HostAllocatorRef,
     validity::Validity,
 };
 
 use super::{
     native_capacity::ReservedVec,
-    native_input_schema::{parse_dtype, parse_json, reserve_json},
+    native_input_schema::{ParsedJson, parse_dtype, parse_json, reserve_json},
     native_input_values::{Layout, add, leaf, multiply},
     result_batch::{self, Value},
     vortex_error,
@@ -41,13 +40,14 @@ pub(crate) fn build(
     let mut parsed = ReservedVec::new(memory)?;
     parsed.reserve(values.len())?;
     for value in values {
-        parsed
-            .values
-            .push(value.map_or(Ok(Json::Null), parse_json)?);
+        parsed.values.push(match value {
+            Some(value) => parse_json(value, memory)?,
+            None => ParsedJson::null(memory)?,
+        });
     }
-    let mut layout = Layout::new(&dtype);
+    let mut layout = Layout::new(&dtype, memory)?;
     for value in &parsed.values {
-        layout.observe(&dtype, Some(value))?;
+        layout.observe(&dtype, Some(value.value()))?;
     }
     let logical_bytes = layout.bytes(&dtype)?;
     if logical_bytes > max_bytes {
@@ -57,8 +57,10 @@ pub(crate) fn build(
     drop(layout);
     let mut cells = ReservedVec::new(memory)?;
     cells.reserve(parsed.values.len())?;
-    cells.values.extend(parsed.values.iter().map(Some));
-    let array = construct(&dtype, &cells.values, memory, &allocator)?;
+    cells
+        .values
+        .extend(parsed.values.iter().map(|value| Some(value.value())));
+    let array = construct::construct(&dtype, &cells.values, memory, &allocator)?;
     if array.dtype() != &dtype
         || array.len() != values.len()
         || array.nbytes() != logical_bytes as u64
@@ -74,98 +76,8 @@ pub(crate) fn build(
     })
 }
 
-fn construct(
-    dtype: &DType,
-    cells: &[Option<&Json>],
-    memory: &LiveMemoryPool,
-    allocator: &HostAllocatorRef,
-) -> Result<ArrayRef> {
-    match dtype {
-        DType::Extension(extension)
-            if crate::native_extensions::structured_payload_storage(dtype).is_some() =>
-        {
-            let storage = construct(extension.storage_dtype(), cells, memory, allocator)?;
-            ExtensionArray::try_new(extension.clone(), storage)
-                .map(vortex::array::IntoArray::into_array)
-                .map_err(vortex_error)
-        }
-        DType::Struct(fields, _) => {
-            let mut columns = ReservedVec::new(memory)?;
-            columns.reserve(fields.nfields())?;
-            for (name, child) in fields.names().iter().zip(fields.fields()) {
-                let mut values = ReservedVec::new(memory)?;
-                values.reserve(cells.len())?;
-                for value in cells {
-                    values.values.push(
-                        value
-                            .and_then(Json::as_object)
-                            .and_then(|value| value.get(name.as_ref())),
-                    );
-                }
-                columns
-                    .values
-                    .push(construct(&child, &values.values, memory, allocator)?);
-            }
-            let validity = validity(dtype, cells, allocator)?;
-            let (columns, _container_credit) = columns.into_parts();
-            StructArray::try_new(fields.names().clone(), columns, cells.len(), validity)
-                .map(vortex::array::IntoArray::into_array)
-                .map_err(vortex_error)
-        }
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-            let mut values = ReservedVec::new(memory)?;
-            let mut offsets = ReservedVec::new(memory)?;
-            offsets.reserve(add(cells.len(), 1)?)?;
-            offsets.values.push(0usize);
-            if let DType::FixedSizeList(_, size, _) = dtype {
-                values.reserve(multiply(cells.len(), *size as usize)?)?;
-            }
-            for value in cells {
-                let items = value.and_then(Json::as_array);
-                let count = if let DType::FixedSizeList(_, size, _) = dtype {
-                    *size as usize
-                } else {
-                    items.map_or(0, Vec::len)
-                };
-                values.reserve(count)?;
-                if let Some(items) = items {
-                    values.values.extend(items.iter().map(Some));
-                } else {
-                    let length = add(values.values.len(), count)?;
-                    values.values.resize(length, None);
-                }
-                offsets.values.push(values.values.len());
-            }
-            let child = construct(child, &values.values, memory, allocator)?;
-            let validity = validity(dtype, cells, allocator)?;
-            if let DType::FixedSizeList(_, size, _) = dtype {
-                FixedSizeListArray::try_new(child, *size, validity, cells.len())
-                    .map(vortex::array::IntoArray::into_array)
-                    .map_err(vortex_error)
-            } else {
-                let offsets = result_batch::build_column(
-                    &DType::Primitive(PType::U64, Nullability::NonNullable),
-                    offsets.values.len(),
-                    allocator,
-                    |row| Ok(Value::UInt(offsets.values[row] as u64)),
-                )?;
-                ListArray::try_new(
-                    child,
-                    offsets,
-                    validity,
-                    &mut vortex::session::VortexSession::empty()
-                        .with_host_allocator(allocator.clone())
-                        .create_execution_ctx(),
-                )
-                .map(vortex::array::IntoArray::into_array)
-                .map_err(vortex_error)
-            }
-        }
-        _ => {
-            result_batch::build_column(dtype, cells.len(), allocator, |row| leaf(dtype, cells[row]))
-        }
-    }
-}
+#[path = "native_typed_construct.rs"]
+mod construct;
 
 fn validity(
     dtype: &DType,
@@ -192,3 +104,7 @@ pub(super) fn failed(reason: &str) -> ShardLoomError {
         "native typed input: {reason}; no fallback execution was attempted"
     ))
 }
+
+#[cfg(test)]
+#[path = "native_typed_value_tests.rs"]
+mod tests;

@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: share the test-only original protobuf reference.
 
 //! Serde serialization and deserialization for DTypes
 
 pub(crate) mod flatbuffers;
 
 mod proto;
+
+#[cfg(test)]
+pub(crate) mod proto_reference;
 
 #[expect(clippy::module_inception)]
 #[cfg(feature = "serde")]

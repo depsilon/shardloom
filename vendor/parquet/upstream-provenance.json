@@ -2,7 +2,7 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "d1a036f732032ddb33a797ed70352f25713dfbeb43cbf47878016bc5739b3d6b",
+    "README.shardloom.md": "a8d4f0f07d0fc5d793783372447a51d741aeb22e3a6a1f01ead6b171681c268d",
     "src/file/metadata/memory_reservation.rs": "4ae4141063aba87d2f857357eb50b2ad379d1ace70ace32a80d201ebf571e3a1",
     "test/arrow-testing/LICENSE.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "test/arrow-testing/README.md": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -278,9 +278,9 @@
   "license_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "d1a036f732032ddb33a797ed70352f25713dfbeb43cbf47878016bc5739b3d6b"
+    "sha256": "a8d4f0f07d0fc5d793783372447a51d741aeb22e3a6a1f01ead6b171681c268d"
   },
-  "migration_status": "retained_local_contract_port",
+  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
   "modified_files_sha256": {
     "Cargo.toml": "4cbf53f3b5d85648a6022e71009d5c8cc2f032c1a274d610563f624e2daf206c",
     "src/arrow/array_reader/byte_array.rs": "9082f16e2ece181987affb2a8db68dace3a5f1f2585c87e6d73adb3b23b7c76b",
@@ -303,7 +303,9 @@
     "src/file/metadata/mod.rs": "544d9edc33994ac921e55d1a7964328f33ff8d21768816d378e871a70960f741",
     "src/file/metadata/options.rs": "7b4894514437a2cb4e7d5e8ab52572fc5a5868ca4698f890b18691d3e23126e5",
     "src/file/metadata/thrift/mod.rs": "c46d60cf663b4e89443b32b4c8be1242864c17785af1e71f4d47313064943ab5",
-    "tests/arrow_reader/bad_data.rs": "e276bee9bca586efda022d9763a4d60a1a4e22dc518ff8c948321c47c4adbb9b"
+    "tests/arrow_reader/bad_data.rs": "e276bee9bca586efda022d9763a4d60a1a4e22dc518ff8c948321c47c4adbb9b",
+    "src/arrow/array_reader/row_group_index.rs": "1d5e7081f3d6d86ba3aacd9a7ad7eeadcfd54ab4df85b6cd61712dba81bc2f95",
+    "src/arrow/array_reader/row_number.rs": "272d6e846cea8386d839bd4ebfa25233c14972957a30efd92e83eab73b6a4b8f"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/parquet/parquet-59.3.2.crate#NOTICE.txt",

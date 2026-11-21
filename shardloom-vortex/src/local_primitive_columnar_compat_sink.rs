@@ -199,7 +199,8 @@ pub(super) fn prepare_plan(
         return Ok(None);
     }
     #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::contains(&plan.dtype).map_err(vortex_error)? {
+    if crate::native_binary_type::contains(&plan.dtype, plan.session.memory().into(), vortex_error)?
+    {
         return Err(crate::binary_object::error(
             "OUTPUT",
             "this output format cannot carry owned binary objects; use Vortex or explicitly read the bytes into inline Binary",
@@ -216,7 +217,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && crate::native_embedding::contains(&plan.dtype)
+    ) && crate::native_embedding::contains(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format cannot preserve embedding identity; use Vortex, Arrow IPC or Parquet",
@@ -225,8 +226,8 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && (crate::native_tensor::contains(&plan.dtype)
-        || crate::native_variable_tensor::contains(&plan.dtype))
+    ) && (crate::native_tensor::contains(&plan.dtype, plan.session.memory().into())?
+        || crate::native_variable_tensor::contains(&plan.dtype, plan.session.memory().into())?)
     {
         return Err(error(
             "this output format cannot preserve tensor metadata; use Vortex, Arrow IPC or Parquet",
@@ -235,7 +236,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && contains_float16(&plan.dtype)
+    ) && contains_float16(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format has no admitted exact Float16 mapping; use Vortex, Arrow IPC or Parquet",
@@ -244,7 +245,7 @@ pub(super) fn prepare_plan(
     if matches!(
         format,
         VortexLocalPrimitiveRowExportFormat::Avro | VortexLocalPrimitiveRowExportFormat::Orc
-    ) && crate::native_vector::contains(&plan.dtype)
+    ) && crate::native_vector::contains(&plan.dtype, plan.session.memory().into())?
     {
         return Err(error(
             "this output format cannot preserve vector interpretation; use Vortex, Arrow IPC or Parquet",
@@ -295,13 +296,10 @@ pub(super) fn prepare_plan(
     }))
 }
 
-fn contains_float16(dtype: &DType) -> bool {
-    match dtype {
-        DType::Primitive(vortex::array::dtype::PType::F16, _) => true,
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => contains_float16(child),
-        DType::Struct(fields, _) => fields.fields().any(|child| contains_float16(&child)),
-        _ => false,
-    }
+fn contains_float16(dtype: &DType, scope: crate::native_payload_schema::Scope<'_>) -> Result<bool> {
+    crate::native_payload_schema::contains_type(dtype, scope, |dtype| {
+        matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F16, _))
+    })
 }
 
 fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
@@ -340,6 +338,7 @@ fn admitted_canonical(
     dtype: &DType,
     ctx: &mut ExecutionCtx,
     limits: &CompatibilityLimits,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
 ) -> Result<(ArrayRef, u64)> {
     if array.len() > limits.batch_rows {
         return Err(error("native scan exceeded batch row admission"));
@@ -351,6 +350,7 @@ fn admitted_canonical(
     let mut children = Vec::with_capacity(fields.nfields());
     let check = || limits.check();
     let conversion = nested::ConversionLimits {
+        memory,
         string_bytes: limits.string_bytes,
         arrow_batch_bytes: limits.arrow_batch_bytes,
         check: &check,

@@ -1,11 +1,97 @@
 # Standalone patched-provider validation locks
 
-These fifteen lockfiles freeze the current excluded provider test configurations.
+These thirty lockfiles freeze the current excluded provider test configurations.
 `scripts/ci_provider_tests.py` copies the matching lock to each provider before
 running its recorded feature/patch/target configuration with `--locked`.
 The four CI groups share compatible Cargo fingerprints within each job; they
 do not combine every provider into a maximal-feature graph. The buffer command
 still includes integration tests and doctests.
+
+## November 17 Arrow ownership checkpoint
+
+Arrow Schema, JSON and Row join the format group at the existing 59.3.2 version.
+The Schema configuration covers all features; JSON and Row cover their complete
+library tests and strict lint. Each existing provider whose standalone graph
+contains the affected 59.3.2 packages selects the same local ownership patches.
+ORC's independent Arrow 58 test graph remains unchanged. Existing package/version
+identities, features, codec tests and fixtures are preserved.
+
+The new JSON and Row graphs retain their published archive lock identities.
+Schema's standalone test dependencies are separately resolved and frozen; they
+do not change the root runtime graph. The root lock changes only the source of
+Schema, JSON and Row from registry archives to verified local source. This
+checkpoint preserves the public nesting guards and does not admit a complete
+deep-data workflow.
+
+Hosted checkpoint follow-up: the Layout and File recipes now select the
+existing same-version `vortex-datetime-parts` patch alongside the patched DType
+owner. Their locks change only that package's registry source/checksum to the
+local source; package versions and edges stay unchanged. Arrow IPC's malformed
+fixed-list regression constructs its schema within the panic boundary so
+retained lifetime owners need not implement `UnwindSafe`. No runtime code,
+feature, test gate or advisory policy is changed by these CI corrections.
+
+## November 17 full Variant validation
+
+`parquet-variant` remains at 59.3.2 and gains a standalone configuration for its
+ordered full-validation source patch. Its 144-package test graph contains only
+package/version/source/checksum identities already present in the reviewed root
+or provider locks. The existing Parquet and Vortex ParquetVariant locks change
+only this package's registry source to the local path; all other resolution
+entries are unchanged. Both recipes explicitly select that patch.
+
+The new format recipe runs library and upstream integration tests with the
+complete, Git-identity-verified `variant/` fixture directory from the existing
+59.3.2 Parquet-testing submodule pin. Its fixture path and Clippy configuration
+are scoped to the provider. The 61 files, upstream license and exact source
+identities are recorded in the provider provenance. No runtime feature, format
+version or public depth boundary changes with this configuration.
+
+## November 17 registered codec continuations
+
+Nine existing Vortex 0.93.0 codecs gain standalone configurations: ALP, ByteBool,
+DecimalByteParts, FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag. Their
+graphs are seeded from the current root lock and resolved with the exact CI
+recipe. Every selected package/version already occurs in the previously
+reviewed root or provider locks. The recipes select the array, FlatBuffers and
+Prost continuation patches; ALP also selects FastLanes. ParquetVariant's existing
+file tests select the retained file, layout, I/O and DateTimeParts patches.
+DecimalByteParts and FastLanes explicitly enable their required test helpers.
+The original
+seventeen configurations are unchanged, and all four CI groups remain intact.
+These test configurations enable no new runtime feature or dependency version.
+
+## November 17 checked-verifier source patch
+
+FlatBuffers remains at 25.12.19. Eleven existing provider locks change only its
+registry source to the reviewed local continuation patch; every other package,
+version, checksum and dependency edge is unchanged. Their recipes explicitly
+select the same path patch. The four configurations without FlatBuffers retain
+their existing graphs and commands.
+
+The new `flatbuffers` configuration joins the buffer group. It runs all-feature
+tests and strict lint plus a separate no-default-feature build. Its twelve
+package identities and registry checksums already occur in the root lock.
+All-feature standalone testing activates the existing optional serde edge;
+root runtime features are unchanged. This is source/graph registration, not
+complete deep-runtime or all-provider acceptance.
+
+## November 17 Prost decode-context source patch
+
+Prost remains at 0.14.4. The local source patch provides checked decode
+continuations and iterative unknown-group skipping. It retains the default
+recursion limit of 100 and keeps explicit
+bounds active when `no-recursion-limit` is selected. The standalone Prost
+configuration checks default and `no-recursion-limit` tests and strict lint,
+plus both no-default-feature builds. The four groups remain unchanged; Prost
+joins the buffer group. Nine Vortex provider configurations select the path
+patch, while `orc-rust` retains its independent Prost 0.13.5 lock entry.
+The nine lock changes remove only the Prost 0.14.4 registry source and checksum;
+all other package identities, checksums and dependency edges remain unchanged.
+The new standalone lock's 112 identities and registry checksums already occur
+in the reviewed root and provider graphs. No dependency version changes.
+These recipes and source identities do not establish acceptance until the
+reviewed patch, lock provenance, and provider checks are complete.
 
 ## November 8 provider migration
 

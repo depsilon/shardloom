@@ -227,7 +227,7 @@ pub fn new_timestamp_instant_decoder(
     field_type: ArrowDataType,
     stripe: &Stripe,
 ) -> Result<Box<dyn ArrayBatchDecoder>> {
-    match field_type {
+    match &field_type {
         ArrowDataType::Timestamp(TimeUnit::Second, Some(tz)) if tz.as_ref() == "UTC" => Ok(
             get_timestamp_instant_decoder::<TimestampSecondType>(column, stripe)?,
         ),

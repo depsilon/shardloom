@@ -38,7 +38,7 @@ mod shardloom_owner_tests {
                 let bytes = ByteBuffer::from_bytes_aligned(
                     Bytes::from_owner(Source {
                         bytes: vec![b'a'; length],
-                        drops: drops.clone(),
+                        drops: Arc::clone(&drops),
                     }),
                     Alignment::none(),
                 );
@@ -410,14 +410,14 @@ fn truncate_max(value: Scalar, max_bytes: usize) -> VortexResult<Option<Scalar>>
     bound
         .map(|bound| {
             let dtype = bound.dtype().clone();
-            let value = bound.into_value().map(|value| match value {
+            let value = bound.into_value().map(|value| match &value {
                 crate::scalar::ScalarValue::Utf8(value) => {
-                    crate::scalar::ScalarValue::Utf8(BufferString::from(&*value))
+                    crate::scalar::ScalarValue::Utf8(BufferString::from(&**value))
                 }
                 crate::scalar::ScalarValue::Binary(value) => {
                     crate::scalar::ScalarValue::Binary(ByteBuffer::copy_from(value.as_slice()))
                 }
-                value => value,
+                _ => value,
             });
             Scalar::try_new(dtype, value)
         })

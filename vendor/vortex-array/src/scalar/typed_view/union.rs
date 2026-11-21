@@ -17,6 +17,7 @@ use crate::dtype::Nullability;
 use crate::dtype::UnionVariants;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// The present value stored by a union scalar.
 ///
@@ -58,6 +59,11 @@ impl UnionValue {
     pub fn child_value(&self) -> Option<&ScalarValue> {
         self.value.as_deref()
     }
+
+    /// Transfer the nested value for intrinsic cleanup, leaving this union inert.
+    pub(in crate::scalar) fn take_child(&mut self) -> Option<ScalarValue> {
+        self.value.take().map(|child| *child)
+    }
 }
 
 /// A typed view into a [`DType::Union`] scalar.
@@ -76,14 +82,7 @@ pub struct UnionScalar<'a> {
 
 impl Display for UnionScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let Some(value) = self.child() else {
-            return write!(f, "null");
-        };
-        let name = self
-            .variant_name()
-            .vortex_expect("non-null union scalar must select a variant");
-
-        write!(f, "{name}({value})")
+        formatting::display_union(self.variants(), self.value, f)
     }
 }
 

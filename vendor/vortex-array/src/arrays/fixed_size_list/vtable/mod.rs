@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -152,48 +153,67 @@ impl VTable for FixedSizeList {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "FixedSizeListArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        vortex_ensure!(
-            buffers.is_empty(),
-            "`FixedSizeList::build` expects no buffers"
-        );
-
-        let DType::FixedSizeList(element_dtype, list_size, _) = &dtype else {
-            vortex_bail!("Expected `DType::FixedSizeList`, got {:?}", dtype);
-        };
-
-        let validity = {
-            if children.len() > 2 {
-                vortex_bail!("`FixedSizeList::build` method expected 1 or 2 children")
-            }
-
-            if children.len() == 2 {
-                let validity = children.get(1, &Validity::DTYPE, len)?;
-                Validity::Array(validity)
-            } else {
-                debug_assert_eq!(children.len(), 1);
-                Validity::from(dtype.nullability())
-            }
-        };
-
-        let num_elements = len * (*list_size as usize);
-        let elements = children.get(0, element_dtype.as_ref(), num_elements)?;
-
-        let data =
-            FixedSizeListData::try_build(elements.clone(), *list_size, validity.clone(), len)?;
-        let slots = FixedSizeListData::make_slots(&elements, &validity, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "FixedSizeListArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            vortex_ensure!(
+                buffers.is_empty(),
+                "`FixedSizeList::build` expects no buffers"
+            );
+
+            let DType::FixedSizeList(element_dtype, list_size, _) = &dtype else {
+                vortex_bail!("Expected `DType::FixedSizeList`, got {:?}", dtype);
+            };
+
+            let validity = {
+                if children.len() > 2 {
+                    vortex_bail!("`FixedSizeList::build` method expected 1 or 2 children")
+                }
+
+                if children.len() == 2 {
+                    let validity = children.get_async(1, &Validity::DTYPE, len).await?;
+                    Validity::Array(validity)
+                } else {
+                    debug_assert_eq!(children.len(), 1);
+                    Validity::from(dtype.nullability())
+                }
+            };
+
+            let num_elements = len * (*list_size as usize);
+            let elements = children
+                .get_async(0, element_dtype.as_ref(), num_elements)
+                .await?;
+
+            let data =
+                FixedSizeListData::try_build(elements.clone(), *list_size, validity.clone(), len)?;
+            let slots = FixedSizeListData::make_slots(&elements, &validity, len);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

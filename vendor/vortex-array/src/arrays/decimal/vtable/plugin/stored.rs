@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: suspend validity decoding in child order.
 
 //! Validation of a `vortex.decimal` node before [`DecimalPlugin`] constructs an array in memory.
 //!
@@ -51,7 +52,7 @@ impl StoredDecimal {
     /// if the node does not have exactly one buffer, if the buffer does not hold `len` values of
     /// the stored width or is not aligned to it, or if the validity children do not match the
     /// nullability of `dtype`.
-    pub(super) fn deserialize(
+    pub(super) async fn deserialize(
         dtype: &DType,
         len: usize,
         metadata: &[u8],
@@ -81,7 +82,8 @@ impl StoredDecimal {
 
         DecimalData::validate(&values, values_type)?;
 
-        let validity = fixed_width::deserialize_validity(dtype.nullability(), len, children)?;
+        let validity =
+            fixed_width::deserialize_validity_async(dtype.nullability(), len, children).await?;
 
         Ok(Self {
             decimal_dtype,

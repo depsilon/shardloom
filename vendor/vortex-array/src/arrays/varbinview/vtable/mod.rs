@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 // Modified by ShardLoom on 2026-10-16: admit new buffer tables through their allocator.
 // Modified by ShardLoom on 2026-10-17: retain checked UTF-8 validation on identical replacement.
 
@@ -246,92 +247,113 @@ impl VTable for VarBinView {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "VarBinViewArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        let Some((views_handle, data_handles)) = buffers.split_last() else {
-            vortex_bail!("Expected at least 1 buffer, got 0");
-        };
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
+        ))
+    }
 
-        let validity = if children.is_empty() {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 1 {
-            let validity = children.get(0, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!("Expected 0 or 1 children, got {}", children.len());
-        };
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
 
-        let views_nbytes = views_handle.len();
-        let expected_views_nbytes = len
-            .checked_mul(size_of::<BinaryView>())
-            .ok_or_else(|| vortex_err!("views byte length overflow for len={len}"))?;
-        if views_nbytes != expected_views_nbytes {
-            vortex_bail!(
-                "Expected views buffer length {} bytes, got {} bytes",
-                expected_views_nbytes,
-                views_nbytes
-            );
-        }
-        VarBinViewData::check_view_layout(views_handle)?;
-        let allocator = session.host_allocator();
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "VarBinViewArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            let Some((views_handle, data_handles)) = buffers.split_last() else {
+                vortex_bail!("Expected at least 1 buffer, got 0");
+            };
 
-        // Device contents remain opaque; the checked constructor still validates
-        // every available host view and every known payload-buffer extent.
-        if buffers.iter().any(|b| b.is_on_device()) {
-            let data = VarBinViewData::try_new_handle_in(
-                views_handle.clone(),
-                data_handles.iter().cloned(),
-                dtype.clone(),
-                validity.clone(),
+            let validity = if children.is_empty() {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 1 {
+                let validity = children.get_async(0, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!("Expected 0 or 1 children, got {}", children.len());
+            };
+
+            let views_nbytes = views_handle.len();
+            let expected_views_nbytes = len
+                .checked_mul(size_of::<BinaryView>())
+                .ok_or_else(|| vortex_err!("views byte length overflow for len={len}"))?;
+            if views_nbytes != expected_views_nbytes {
+                vortex_bail!(
+                    "Expected views buffer length {} bytes, got {} bytes",
+                    expected_views_nbytes,
+                    views_nbytes
+                );
+            }
+            VarBinViewData::check_view_layout(views_handle)?;
+            let allocator = session.host_allocator();
+
+            // Device contents remain opaque; the checked constructor still validates
+            // every available host view and every known payload-buffer extent.
+            if buffers.iter().any(|b| b.is_on_device()) {
+                let data = VarBinViewData::try_new_handle_in(
+                    views_handle.clone(),
+                    data_handles.iter().cloned(),
+                    dtype.clone(),
+                    validity.clone(),
+                    &allocator,
+                )?;
+                let slots = VarBinViewData::make_slots(&validity, len);
+                return Ok(ArrayParts::new(
+                    self.clone(),
+                    dtype.clone(),
+                    len,
+                    data,
+                    slots,
+                ));
+            }
+
+            // The temporary host-only validation list is independent of the final
+            // handle table. It remains admitted until validation has finished.
+            let data_buffers = MetadataVec::from_iter(
+                data_handles.iter().map(|b| b.as_host().clone()),
                 &allocator,
             )?;
+            let views =
+                Buffer::<BinaryView>::from_byte_buffer(views_handle.clone().as_host().clone());
+            let views = VarBinViewData::validate_and_fix(
+                views,
+                &data_buffers,
+                dtype,
+                &validity,
+                &mut session.create_execution_ctx(),
+            )?;
+            drop(data_buffers);
+            // SAFETY: validate_and_fix checked all non-null values against exactly
+            // these host payloads and replaced null slots with valid empty views.
+            // Dropping the temporary handle list does not change the buffers.
+            let data = unsafe {
+                VarBinViewData::try_new_handle_in_unchecked(
+                    BufferHandle::new_host(views.into_byte_buffer()),
+                    data_handles.iter().cloned(),
+                    dtype.clone(),
+                    validity.clone(),
+                    &allocator,
+                )?
+            };
             let slots = VarBinViewData::make_slots(&validity, len);
-            return Ok(ArrayParts::new(
+            Ok(ArrayParts::new(
                 self.clone(),
                 dtype.clone(),
                 len,
                 data,
                 slots,
-            ));
-        }
-
-        // The temporary host-only validation list is independent of the final
-        // handle table. It remains admitted until validation has finished.
-        let data_buffers =
-            MetadataVec::from_iter(data_handles.iter().map(|b| b.as_host().clone()), &allocator)?;
-        let views = Buffer::<BinaryView>::from_byte_buffer(views_handle.clone().as_host().clone());
-        let views = VarBinViewData::validate_and_fix(
-            views,
-            &data_buffers,
-            dtype,
-            &validity,
-            &mut session.create_execution_ctx(),
-        )?;
-        drop(data_buffers);
-        // SAFETY: validate_and_fix checked all non-null values against exactly
-        // these host payloads and replaced null slots with valid empty views.
-        // Dropping the temporary handle list does not change the buffers.
-        let data = unsafe {
-            VarBinViewData::try_new_handle_in_unchecked(
-                BufferHandle::new_host(views.into_byte_buffer()),
-                data_handles.iter().cloned(),
-                dtype.clone(),
-                validity.clone(),
-                &allocator,
-            )?
-        };
-        let slots = VarBinViewData::make_slots(&validity, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
-        ))
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

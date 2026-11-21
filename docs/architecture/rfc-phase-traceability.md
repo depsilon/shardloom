@@ -15,6 +15,14 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The November 17 [shared capability incorporation](native-shared-capability-incorporation-2026-11-17.md)
+extends item 20/PulseWeave investigation F under RFCs
+0013/0014/0015/0016/0017/0021/0031/0033/0044. It reuses completed item 23 and
+establishes shared-contract dependencies for the later Chrysalis/Resonance items.
+CG-8/CG-14/CG-15/CG-20/CG-21 supply relevant proof obligations without changing
+the independent status of any CG-1 through CG-23 gate. The phase plan alone owns
+priority; this is no new phase and establishes no runtime or performance claim.
+
 The October 31 [engine-wide adaptive-execution item](phased-execution-plan.md#engine-wide-adaptive-execution)
 promotes missing shared runtime integration under RFCs 0013/0014/0016/0017/0044,
 reusing scoped PulseWeave, memory admission, streaming and spill. Relevant proof

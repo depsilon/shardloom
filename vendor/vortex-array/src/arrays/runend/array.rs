@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -163,30 +164,48 @@ impl VTable for RunEnd {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let metadata = RunEndMetadata::decode(metadata)?;
-        let ends_ptype = metadata.get_ends_ptype()?;
-        let ends_dtype = DType::Primitive(ends_ptype, Nullability::NonNullable);
-        let runs = usize::try_from(metadata.num_runs).vortex_expect("Must be a valid usize");
-        let ends = children.get(0, &ends_dtype, runs)?;
-
-        let values = children.get(1, dtype, runs)?;
-        let offset = usize::try_from(metadata.offset).vortex_expect("Offset must be a valid usize");
-        RunEndData::validate_parts(
-            &ends,
-            &values,
-            offset,
-            len,
-            &mut session.create_execution_ctx(),
-        )?;
-        let slots = RunEndSlots { ends, values }.into_slots();
-        let data = RunEndData::new(offset);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let metadata = RunEndMetadata::decode(metadata)?;
+            let ends_ptype = metadata.get_ends_ptype()?;
+            let ends_dtype = DType::Primitive(ends_ptype, Nullability::NonNullable);
+            let runs = usize::try_from(metadata.num_runs).vortex_expect("Must be a valid usize");
+            let ends = children.get_async(0, &ends_dtype, runs).await?;
+
+            let values = children.get_async(1, dtype, runs).await?;
+            let offset =
+                usize::try_from(metadata.offset).vortex_expect("Offset must be a valid usize");
+            RunEndData::validate_parts(
+                &ends,
+                &values,
+                offset,
+                len,
+                &mut session.create_execution_ctx(),
+            )?;
+            let slots = RunEndSlots { ends, values }.into_slots();
+            let data = RunEndData::new(offset);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

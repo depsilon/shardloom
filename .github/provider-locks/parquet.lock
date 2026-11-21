@@ -219,8 +219,6 @@ dependencies = [
 [[package]]
 name = "arrow-json"
 version = "59.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2bc4d56a0dad84cc51c5812ccff48b642047a1f3be80349cd84318983e79edb"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -257,8 +255,6 @@ dependencies = [
 [[package]]
 name = "arrow-row"
 version = "59.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8c68b87a569f92b90c46cb0a09d86bd9609ddc9b1bf1fc5a503c8c6907c14e"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -270,8 +266,6 @@ dependencies = [
 [[package]]
 name = "arrow-schema"
 version = "59.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e87acb0c6bf6237fca7a50d7b51e801c98a18a5fe6f3bb34f7d77b85ca165388"
 dependencies = [
  "serde_core",
  "serde_json",
@@ -705,8 +699,6 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 [[package]]
 name = "flatbuffers"
 version = "25.12.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3"
 dependencies = [
  "bitflags",
  "rustc_version",
@@ -1650,8 +1642,6 @@ dependencies = [
 [[package]]
 name = "parquet-variant"
 version = "59.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d0085fde95ccfae0b8d703acd1245bda8855a0bf996eba848e8e2f9995f8606"
 dependencies = [
  "arrow",
  "arrow-schema",

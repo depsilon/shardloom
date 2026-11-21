@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: suspend validity decoding in child order.
 
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -38,7 +39,7 @@ pub(crate) fn single_buffer(buffers: &[BufferHandle]) -> VortexResult<BufferHand
 ///
 /// Returns an error if there is more than one child, or if a non-nullable node has a validity
 /// child.
-pub(crate) fn deserialize_validity(
+pub(crate) async fn deserialize_validity_async(
     nullability: Nullability,
     len: usize,
     children: &dyn ArrayChildren,
@@ -53,7 +54,9 @@ pub(crate) fn deserialize_validity(
                 "A validity child requires a nullable dtype, got a non-nullable dtype"
             );
 
-            Ok(Validity::Array(children.get(0, &Validity::DTYPE, len)?))
+            Ok(Validity::Array(
+                children.get_async(0, &Validity::DTYPE, len).await?,
+            ))
         }
         child_count => vortex_bail!("Expected 0 or 1 child, got {child_count}"),
     }

@@ -54,6 +54,7 @@ impl<'a> ConversionWindow<'a> {
             schema_bytes: crate::native_payload_schema::schema_bytes(&export.plan.dtype, context)?,
             gather_scratch: crate::local_primitives::native_payload::gather_scratch_per_row(
                 &export.plan.dtype,
+                context.memory(),
             )?,
         })
     }

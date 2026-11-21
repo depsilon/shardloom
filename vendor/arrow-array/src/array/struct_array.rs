@@ -78,10 +78,25 @@ pub struct StructArray {
     len: usize,
     data_type: DataType,
     nulls: Option<NullBuffer>,
-    fields: Vec<ArrayRef>,
+    fields: super::release::Children,
 }
 
 impl StructArray {
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            nulls,
+            fields,
+            ..
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Nulls(nulls),
+            Part::Children(fields.into_inner().into_iter()),
+        ])
+    }
+
     /// Create a new [`StructArray`] from the provided parts, panicking on failure
     ///
     /// # Panics
@@ -184,7 +199,7 @@ impl StructArray {
             len,
             data_type: DataType::Struct(fields),
             nulls: nulls.filter(|n| n.null_count() > 0),
-            fields: arrays,
+            fields: arrays.into(),
         })
     }
 
@@ -228,7 +243,7 @@ impl StructArray {
             len,
             data_type: DataType::Struct(fields),
             nulls,
-            fields: arrays,
+            fields: arrays.into(),
         }
     }
 
@@ -251,7 +266,7 @@ impl StructArray {
             len,
             data_type: DataType::Struct(fields),
             nulls,
-            fields: arrays,
+            fields: arrays.into(),
         }
     }
 
@@ -267,18 +282,18 @@ impl StructArray {
         Self {
             len,
             data_type: DataType::Struct(Fields::empty()),
-            fields: vec![],
+            fields: vec![].into(),
             nulls,
         }
     }
 
     /// Deconstruct this array into its constituent parts
     pub fn into_parts(self) -> (Fields, Vec<ArrayRef>, Option<NullBuffer>) {
-        let f = match self.data_type {
-            DataType::Struct(f) => f,
+        let f = match &self.data_type {
+            DataType::Struct(f) => f.clone(),
             _ => unreachable!(),
         };
-        (f, self.fields, self.nulls)
+        (f, self.fields.into_inner(), self.nulls)
     }
 
     /// Returns the field at `pos`.
@@ -391,7 +406,7 @@ impl StructArray {
 
         let struct_nulls = match &self.nulls {
             Some(n) => n,
-            None => return (schema_fields.clone(), self.fields.clone()),
+            None => return (schema_fields.clone(), self.fields.clone().into_inner()),
         };
 
         let new_fields: Fields = schema_fields
@@ -451,13 +466,30 @@ impl From<ArrayData> for StructArray {
 
 impl From<StructArray> for ArrayData {
     fn from(array: StructArray) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl StructArray {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let builder = ArrayDataBuilder::new(array.data_type)
+            .len(array.len)
+            .nulls(array.nulls);
+
+        super::ArrayDataNode::many(builder, array.fields)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data(array: StructArray) -> ArrayData {
         let builder = ArrayDataBuilder::new(array.data_type)
             .len(array.len)
             .nulls(array.nulls)
-            .child_data(array.fields.iter().map(|x| x.to_data()).collect());
+            .child_data(array.fields.iter().map(|x| super::data_export::tests::reference_data(x.as_ref())).collect());
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
@@ -481,6 +513,14 @@ impl TryFrom<Vec<(&str, ArrayRef)>> for StructArray {
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl Array for StructArray {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -602,7 +642,7 @@ impl From<RecordBatch> for StructArray {
             len: value.num_rows(),
             data_type: DataType::Struct(value.schema().fields().clone()),
             nulls: None,
-            fields: value.columns().to_vec(),
+            fields: value.columns().to_vec().into(),
         }
     }
 }

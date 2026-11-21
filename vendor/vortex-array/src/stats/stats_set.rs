@@ -634,6 +634,7 @@ mod test {
     use crate::stats::StatsSet;
     use crate::stats::stats_set::Scalar;
 
+    static I32_DTYPE: DType = DType::Primitive(PType::I32, Nullability::NonNullable);
     static SESSION: LazyLock<VortexSession> = LazyLock::new(VortexSession::empty);
 
     #[test]
@@ -731,11 +732,11 @@ mod test {
                 (Stat::Min, Precision::inexact(42)),
                 (Stat::IsConstant, Precision::exact(true)),
             ]),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
+            &I32_DTYPE,
         );
 
         // With an inexact min, the two constant parts cannot be compared.
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(
             first_ref.get_as::<bool>(Stat::IsConstant),
             Precision::Absent
@@ -805,62 +806,50 @@ mod test {
 
     #[test]
     fn merge_into_min() {
-        let first = StatsSet::of(Stat::Min, Precision::exact(42)).merge_ordered(
-            &StatsSet::default(),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::of(Stat::Min, Precision::exact(42))
+            .merge_ordered(&StatsSet::default(), &I32_DTYPE);
 
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert!(first_ref.get(Stat::Min).is_absent());
     }
 
     #[test]
     fn merge_from_min() {
-        let first = StatsSet::default().merge_ordered(
-            &StatsSet::of(Stat::Min, Precision::exact(42)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::default()
+            .merge_ordered(&StatsSet::of(Stat::Min, Precision::exact(42)), &I32_DTYPE);
 
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert!(first_ref.get(Stat::Min).is_absent());
     }
 
     #[test]
     fn merge_mins() {
-        let first = StatsSet::of(Stat::Min, Precision::exact(37)).merge_ordered(
-            &StatsSet::of(Stat::Min, Precision::exact(42)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::of(Stat::Min, Precision::exact(37))
+            .merge_ordered(&StatsSet::of(Stat::Min, Precision::exact(42)), &I32_DTYPE);
 
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(first_ref.get_as::<i32>(Stat::Min), Precision::exact(37));
     }
 
     #[test]
     fn merge_into_bound_max() {
-        let first = StatsSet::of(Stat::Max, Precision::exact(42)).merge_ordered(
-            &StatsSet::default(),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::of(Stat::Max, Precision::exact(42))
+            .merge_ordered(&StatsSet::default(), &I32_DTYPE);
         assert!(first.get(Stat::Max).is_absent());
     }
 
     #[test]
     fn merge_from_max() {
-        let first = StatsSet::default().merge_ordered(
-            &StatsSet::of(Stat::Max, Precision::exact(42)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::default()
+            .merge_ordered(&StatsSet::of(Stat::Max, Precision::exact(42)), &I32_DTYPE);
         assert!(first.get(Stat::Max).is_absent());
     }
 
     #[test]
     fn merge_maxes() {
-        let first = StatsSet::of(Stat::Max, Precision::exact(37)).merge_ordered(
-            &StatsSet::of(Stat::Max, Precision::exact(42)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first = StatsSet::of(Stat::Max, Precision::exact(37))
+            .merge_ordered(&StatsSet::of(Stat::Max, Precision::exact(42)), &I32_DTYPE);
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(first_ref.get_as::<i32>(Stat::Max), Precision::exact(42));
     }
 
@@ -877,11 +866,9 @@ mod test {
     fn merge_into_scalar() {
         // Sum stats for primitive types are always the 64-bit version (i64 for signed, u64
         // for unsigned, f64 for floats).
-        let first = StatsSet::of(Stat::Sum, Precision::exact(42i64)).merge_ordered(
-            &StatsSet::default(),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first = StatsSet::of(Stat::Sum, Precision::exact(42i64))
+            .merge_ordered(&StatsSet::default(), &I32_DTYPE);
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert!(first_ref.get(Stat::Sum).is_absent());
     }
 
@@ -891,9 +878,9 @@ mod test {
         // for unsigned, f64 for floats).
         let first = StatsSet::default().merge_ordered(
             &StatsSet::of(Stat::Sum, Precision::exact(42i64)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
+            &I32_DTYPE,
         );
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert!(first_ref.get(Stat::Sum).is_absent());
     }
 
@@ -903,18 +890,16 @@ mod test {
         // for unsigned, f64 for floats).
         let first = StatsSet::of(Stat::Sum, Precision::exact(37i64)).merge_ordered(
             &StatsSet::of(Stat::Sum, Precision::exact(42i64)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
+            &I32_DTYPE,
         );
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(first_ref.get_as::<i64>(Stat::Sum), Precision::exact(79i64));
     }
 
     #[test]
     fn merge_into_sortedness() {
-        let first = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true)).merge_ordered(
-            &StatsSet::default(),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let first = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true))
+            .merge_ordered(&StatsSet::default(), &I32_DTYPE);
         assert!(first.get(Stat::IsStrictSorted).is_absent());
     }
 
@@ -922,7 +907,7 @@ mod test {
     fn merge_from_sortedness() {
         let first = StatsSet::default().merge_ordered(
             &StatsSet::of(Stat::IsStrictSorted, Precision::exact(true)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
+            &I32_DTYPE,
         );
         assert!(first.get(Stat::IsStrictSorted).is_absent());
     }
@@ -933,12 +918,9 @@ mod test {
         first.set(Stat::Max, Precision::exact(1));
         let mut second = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true));
         second.set(Stat::Min, Precision::exact(2));
-        first = first.merge_ordered(
-            &second,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        first = first.merge_ordered(&second, &I32_DTYPE);
 
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(
             first_ref.get_as::<bool>(Stat::IsStrictSorted),
             Precision::exact(true)
@@ -951,13 +933,9 @@ mod test {
         first.set(Stat::Min, Precision::exact(1));
         let mut second = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true));
         second.set(Stat::Max, Precision::exact(2));
-        second = second.merge_ordered(
-            &first,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        second = second.merge_ordered(&first, &I32_DTYPE);
 
-        let second_ref =
-            second.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let second_ref = second.as_typed_ref(&I32_DTYPE);
         assert_eq!(
             second_ref.get_as::<bool>(Stat::IsStrictSorted),
             Precision::inexact(false)
@@ -970,10 +948,7 @@ mod test {
         first.set(Stat::Max, Precision::exact(1));
         let mut second = StatsSet::of(Stat::IsStrictSorted, Precision::exact(false));
         second.set(Stat::Min, Precision::exact(2));
-        let merged = first.merge_ordered(
-            &second,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let merged = first.merge_ordered(&second, &I32_DTYPE);
 
         assert!(merged.get(Stat::IsStrictSorted).is_absent());
     }
@@ -983,10 +958,7 @@ mod test {
         let mut first = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true));
         first.set(Stat::Max, Precision::exact(1));
         let second = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true));
-        first = first.merge_ordered(
-            &second,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        first = first.merge_ordered(&second, &I32_DTYPE);
         assert!(first.get(Stat::IsStrictSorted).is_absent());
     }
 
@@ -996,12 +968,9 @@ mod test {
         first.set(Stat::Max, Precision::exact(1));
         let mut second = StatsSet::of(Stat::IsStrictSorted, Precision::exact(true));
         second.set(Stat::Min, Precision::inexact(2));
-        first = first.merge_ordered(
-            &second,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        first = first.merge_ordered(&second, &I32_DTYPE);
 
-        let first_ref = first.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let first_ref = first.as_typed_ref(&I32_DTYPE);
         assert_eq!(
             first_ref.get_as::<bool>(Stat::IsStrictSorted),
             Precision::exact(true)
@@ -1026,10 +995,7 @@ mod test {
             assert!(!stats.get(*stat).is_absent(), "Stat {stat} is missing");
         }
 
-        let merged = stats.clone().merge_unordered(
-            &stats,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let merged = stats.clone().merge_unordered(&stats, &I32_DTYPE);
         for (stat, expected) in [
             (Stat::Min, Precision::exact(ScalarValue::from(1i32))),
             (Stat::Max, Precision::exact(ScalarValue::from(10000i32))),
@@ -1050,23 +1016,17 @@ mod test {
     fn merge_min_bound_same() {
         // Merging a stat with a bound and another with an exact results in exact stat.
         // since bound for min is a lower bound, it can in fact contain any value >= bound.
-        let merged = StatsSet::of(Stat::Min, Precision::inexact(5)).merge_ordered(
-            &StatsSet::of(Stat::Min, Precision::exact(5)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
-        let merged_ref =
-            merged.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let merged = StatsSet::of(Stat::Min, Precision::inexact(5))
+            .merge_ordered(&StatsSet::of(Stat::Min, Precision::exact(5)), &I32_DTYPE);
+        let merged_ref = merged.as_typed_ref(&I32_DTYPE);
         assert_eq!(merged_ref.get_as::<i32>(Stat::Min), Precision::exact(5));
     }
 
     #[test]
     fn merge_min_bound_bound_lower() {
-        let merged = StatsSet::of(Stat::Min, Precision::inexact(4)).merge_ordered(
-            &StatsSet::of(Stat::Min, Precision::exact(5)),
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
-        let merged_ref =
-            merged.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let merged = StatsSet::of(Stat::Min, Precision::inexact(4))
+            .merge_ordered(&StatsSet::of(Stat::Min, Precision::exact(5)), &I32_DTYPE);
+        let merged_ref = merged.as_typed_ref(&I32_DTYPE);
         assert_eq!(merged_ref.get_as::<i32>(Stat::Min), Precision::inexact(4));
     }
 
@@ -1075,12 +1035,9 @@ mod test {
         {
             let mut stats = StatsSet::of(Stat::IsConstant, Precision::exact(true));
             let stats2 = StatsSet::of(Stat::IsConstant, Precision::exact(true));
-            let mut stats_ref =
-                stats.as_mut_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+            let mut stats_ref = stats.as_mut_typed_ref(&I32_DTYPE);
             stats_ref
-                .combine_bool_stat::<IsConstant>(
-                    &stats2.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable)),
-                )
+                .combine_bool_stat::<IsConstant>(&stats2.as_typed_ref(&I32_DTYPE))
                 .unwrap();
             assert_eq!(
                 stats_ref.get_as::<bool>(Stat::IsConstant),
@@ -1091,12 +1048,9 @@ mod test {
         {
             let mut stats = StatsSet::of(Stat::IsConstant, Precision::exact(true));
             let stats2 = StatsSet::of(Stat::IsConstant, Precision::inexact(false));
-            let mut stats_ref =
-                stats.as_mut_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+            let mut stats_ref = stats.as_mut_typed_ref(&I32_DTYPE);
             stats_ref
-                .combine_bool_stat::<IsConstant>(
-                    &stats2.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable)),
-                )
+                .combine_bool_stat::<IsConstant>(&stats2.as_typed_ref(&I32_DTYPE))
                 .unwrap();
             assert_eq!(
                 stats_ref.get_as::<bool>(Stat::IsConstant),
@@ -1107,12 +1061,9 @@ mod test {
         {
             let mut stats = StatsSet::of(Stat::IsConstant, Precision::exact(false));
             let stats2 = StatsSet::of(Stat::IsConstant, Precision::inexact(false));
-            let mut stats_ref =
-                stats.as_mut_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+            let mut stats_ref = stats.as_mut_typed_ref(&I32_DTYPE);
             stats_ref
-                .combine_bool_stat::<IsConstant>(
-                    &stats2.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable)),
-                )
+                .combine_bool_stat::<IsConstant>(&stats2.as_typed_ref(&I32_DTYPE))
                 .unwrap();
             assert_eq!(
                 stats_ref.get_as::<bool>(Stat::IsConstant),
@@ -1133,10 +1084,7 @@ mod test {
             (Stat::IsSorted, Precision::exact(true)),
         ]);
 
-        let result = stats1.combine_sets(
-            &stats2,
-            &DType::Primitive(PType::I32, Nullability::NonNullable),
-        );
+        let result = stats1.combine_sets(&stats2, &I32_DTYPE);
         assert!(result.is_err());
     }
 
@@ -1152,15 +1100,9 @@ mod test {
             (Stat::IsStrictSorted, Precision::exact(true)),
         ]);
 
-        stats1
-            .combine_sets(
-                &stats2,
-                &DType::Primitive(PType::I32, Nullability::NonNullable),
-            )
-            .unwrap();
+        stats1.combine_sets(&stats2, &I32_DTYPE).unwrap();
 
-        let stats_ref =
-            stats1.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let stats_ref = stats1.as_typed_ref(&I32_DTYPE);
 
         assert_eq!(
             stats_ref.get_as::<u64>(Stat::UncompressedSizeInBytes),
@@ -1192,15 +1134,9 @@ mod test {
             (Stat::IsSorted, Precision::exact(true)),
         ]);
 
-        stats1
-            .combine_sets(
-                &stats2,
-                &DType::Primitive(PType::I32, Nullability::NonNullable),
-            )
-            .unwrap();
+        stats1.combine_sets(&stats2, &I32_DTYPE).unwrap();
 
-        let stats_ref =
-            stats1.as_typed_ref(&DType::Primitive(PType::I32, Nullability::NonNullable));
+        let stats_ref = stats1.as_typed_ref(&I32_DTYPE);
 
         assert_eq!(
             stats_ref.get_as::<bool>(Stat::IsConstant),

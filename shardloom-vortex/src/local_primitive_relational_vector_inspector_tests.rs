@@ -34,11 +34,11 @@ fn native_vector_inspectors_read_dimensions_without_observing_unused_values() {
         )
         .unwrap();
         let DType::Extension(dtype) =
-            crate::native_vector::dtype(metadata, storage.dtype().clone()).unwrap()
+            &crate::native_vector::dtype(metadata, storage.dtype().clone()).unwrap()
         else {
             panic!("extension")
         };
-        ExtensionArray::new(dtype, storage).into_array()
+        ExtensionArray::new(dtype.clone(), storage).into_array()
     };
     let quantized = {
         let storage = batch(
@@ -62,11 +62,11 @@ fn native_vector_inspectors_read_dimensions_without_observing_unused_values() {
         )
         .unwrap();
         let DType::Extension(dtype) =
-            crate::native_vector::dtype(metadata, storage.dtype().clone()).unwrap()
+            &crate::native_vector::dtype(metadata, storage.dtype().clone()).unwrap()
         else {
             panic!("extension")
         };
-        ExtensionArray::new(dtype, storage).into_array()
+        ExtensionArray::new(dtype.clone(), storage).into_array()
     };
     let input = batch(&[("sparse", sparse(7, 7)), ("quantized", quantized)], 1);
     for (name, expected) in [("sparse", 7.0), ("quantized", 3.0)] {

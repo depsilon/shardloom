@@ -197,12 +197,12 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
         }
         DataType::Struct(_) => {
             let values = typed::<StructArray>(array)?;
-            let DataType::Struct(fields) = target else {
+            let DataType::Struct(fields) = &target else {
                 return Err(error("invalid struct translation"));
             };
             Arc::new(
                 StructArray::try_new(
-                    fields,
+                    fields.clone(),
                     values
                         .columns()
                         .iter()
@@ -215,12 +215,12 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
         }
         DataType::List(_) => {
             let values = typed::<ListArray>(array)?;
-            let DataType::List(field) = target else {
+            let DataType::List(field) = &target else {
                 return Err(error("invalid list translation"));
             };
             Arc::new(
                 ListArray::try_new(
-                    field,
+                    field.clone(),
                     values.offsets().clone(),
                     column(values.values())?,
                     values.nulls().cloned(),
@@ -231,12 +231,12 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
         DataType::LargeList(_) => {
             let values = typed::<LargeListArray>(array)?;
             let (offsets, start, length) = narrow_offsets(values.value_offsets())?;
-            let DataType::List(field) = target else {
+            let DataType::List(field) = &target else {
                 return Err(error("invalid large-list translation"));
             };
             Arc::new(
                 ListArray::try_new(
-                    field,
+                    field.clone(),
                     offsets,
                     column(&values.values().slice(start, length))?,
                     values.nulls().cloned(),
@@ -256,12 +256,12 @@ fn column(array: &ArrayRef) -> Result<ArrayRef> {
                         })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let DataType::List(field) = target else {
+            let DataType::List(field) = &target else {
                 return Err(error("invalid fixed-list translation"));
             };
             Arc::new(
                 ListArray::try_new(
-                    field,
+                    field.clone(),
                     OffsetBuffer::new(offsets.into()),
                     column(values.values())?,
                     values.nulls().cloned(),

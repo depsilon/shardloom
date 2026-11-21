@@ -277,9 +277,38 @@ impl KeyColumn {
         purpose: Preparation,
         float_policy: FloatPolicy,
     ) -> Result<Self> {
+        Self::begin_preparation(cancellation)?;
+        if nested::is_container(array.dtype()) {
+            let column = Self::Nested(Box::new(nested::Column::new(
+                array,
+                context,
+                memory,
+                cancellation,
+                schema,
+                purpose,
+                float_policy,
+            )?));
+            cancellation.check()?;
+            return Ok(column);
+        }
+        Self::bind_leaf(array, context, memory, cancellation, purpose, float_policy)
+    }
+
+    fn begin_preparation(cancellation: &CancellationToken) -> Result<()> {
         cancellation.check()?;
         #[cfg(all(test, debug_assertions))]
         super::native_relational_observation::record(|counts| counts.key_columns += 1);
+        Ok(())
+    }
+
+    fn bind_leaf(
+        array: &ArrayRef,
+        context: &mut ExecutionCtx,
+        memory: &LiveMemoryPool,
+        cancellation: &CancellationToken,
+        purpose: Preparation,
+        float_policy: FloatPolicy,
+    ) -> Result<Self> {
         let column = match array.dtype() {
             DType::Null => Self::Null(array.len()),
             DType::Primitive(..) => Self::Numeric(numeric_owner(array, context, float_policy)?),
@@ -335,17 +364,6 @@ impl KeyColumn {
                     } => Self::Timestamp(values),
                     _ => Self::Temporal { values, dtype },
                 }
-            }
-            DType::List(..) | DType::FixedSizeList(..) | DType::Struct(..) => {
-                Self::Nested(Box::new(nested::Column::new(
-                    array,
-                    context,
-                    memory,
-                    cancellation,
-                    schema,
-                    purpose,
-                    float_policy,
-                )?))
             }
             _ => {
                 return Err(failed(

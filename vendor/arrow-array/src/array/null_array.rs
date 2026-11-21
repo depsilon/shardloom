@@ -91,7 +91,8 @@ unsafe impl Array for NullArray {
     }
 
     fn data_type(&self) -> &DataType {
-        &DataType::Null
+        static DATA_TYPE: DataType = DataType::Null;
+        &DATA_TYPE
     }
 
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {

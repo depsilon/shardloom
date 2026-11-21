@@ -125,14 +125,14 @@ fn vector(value: &Json) -> ArrayRef {
     if let Some(size) = value.get("uniform_size") {
         metadata["uniform_size"] = size.clone();
     }
-    let DType::Extension(dtype) = crate::native_vector::dtype(
+    let DType::Extension(dtype) = &crate::native_vector::dtype(
         Metadata::parse(kind, &metadata.to_string()).unwrap(),
         storage.dtype().clone(),
     )
     .unwrap() else {
         panic!("extension");
     };
-    ExtensionArray::new(dtype, storage).into_array()
+    ExtensionArray::new(dtype.clone(), storage).into_array()
 }
 
 fn fixed(value: &Json) -> ArrayRef {

@@ -118,13 +118,28 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct FixedSizeListArray {
     data_type: DataType, // Must be DataType::FixedSizeList(value_length)
-    values: ArrayRef,
+    values: super::release::Child,
     nulls: Option<NullBuffer>,
     value_length: i32,
     len: usize,
 }
 
 impl FixedSizeListArray {
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            values,
+            nulls,
+            ..
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Child(values.into_inner()),
+            Part::Nulls(nulls),
+        ])
+    }
+
     /// Create a new [`FixedSizeListArray`] with `size` element size, panicking on failure.
     ///
     /// Note that if `size == 0` and `nulls` is `None` (a degenerate, non-nullable
@@ -161,7 +176,7 @@ impl FixedSizeListArray {
         }
         Self {
             data_type: DataType::FixedSizeList(field, size),
-            values,
+            values: values.into(),
             value_length: size,
             nulls,
             len,
@@ -305,7 +320,7 @@ impl FixedSizeListArray {
         let data_type = DataType::FixedSizeList(field, size);
         Ok(Self {
             data_type,
-            values,
+            values: values.into(),
             value_length: size,
             nulls,
             len,
@@ -323,7 +338,7 @@ impl FixedSizeListArray {
     pub fn new_null(field: FieldRef, size: i32, len: usize) -> Self {
         let capacity = size.to_usize().unwrap().checked_mul(len).unwrap();
         Self {
-            values: make_array(ArrayData::new_null(field.data_type(), capacity)),
+            values: make_array(ArrayData::new_null(field.data_type(), capacity)).into(),
             data_type: DataType::FixedSizeList(field, size),
             nulls: Some(NullBuffer::new_null(len)),
             value_length: size,
@@ -333,11 +348,11 @@ impl FixedSizeListArray {
 
     /// Deconstruct this array into its constituent parts
     pub fn into_parts(self) -> (FieldRef, i32, ArrayRef, Option<NullBuffer>) {
-        let f = match self.data_type {
-            DataType::FixedSizeList(f, _) => f,
+        let f = match &self.data_type {
+            DataType::FixedSizeList(f, _) => f.clone(),
             _ => unreachable!(),
         };
-        (f, self.value_length, self.values, self.nulls)
+        (f, self.value_length, self.values.into_inner(), self.nulls)
     }
 
     /// Returns a reference to the values of this list.
@@ -393,7 +408,7 @@ impl FixedSizeListArray {
 
         Self {
             data_type: self.data_type.clone(),
-            values: self.values.slice(offset * size, len * size),
+            values: self.values.slice(offset * size, len * size).into(),
             nulls: self.nulls.as_ref().map(|n| n.slice(offset, len)),
             value_length: self.value_length,
             len,
@@ -470,7 +485,7 @@ impl From<ArrayData> for FixedSizeListArray {
         let values = make_array(child_data[0].slice(offset * size, len * size));
         Self {
             data_type,
-            values,
+            values: values.into(),
             nulls,
             value_length,
             len,
@@ -480,17 +495,42 @@ impl From<ArrayData> for FixedSizeListArray {
 
 impl From<FixedSizeListArray> for ArrayData {
     fn from(array: FixedSizeListArray) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl FixedSizeListArray {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let builder = ArrayDataBuilder::new(array.data_type)
+            .len(array.len)
+            .nulls(array.nulls);
+
+        super::ArrayDataNode::one(builder, array.values)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data(array: FixedSizeListArray) -> ArrayData {
         let builder = ArrayDataBuilder::new(array.data_type)
             .len(array.len)
             .nulls(array.nulls)
-            .child_data(vec![array.values.to_data()]);
+            .child_data(vec![super::data_export::tests::reference_data(array.values.as_ref())]);
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl Array for FixedSizeListArray {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

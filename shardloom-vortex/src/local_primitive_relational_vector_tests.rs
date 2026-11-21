@@ -76,12 +76,12 @@ fn fixture(kind: Kind, blocked: bool, hide_bad: bool) -> Fixture {
     let storage =
         StructArray::new(FieldNames::from(names), fields, 3, Validity::NonNullable).into_array();
     let DType::Extension(dtype) =
-        crate::native_vector::dtype(Metadata::parse(kind, raw).unwrap(), storage.dtype().clone())
+        &crate::native_vector::dtype(Metadata::parse(kind, raw).unwrap(), storage.dtype().clone())
             .unwrap()
     else {
         unreachable!()
     };
-    let vector = ExtensionArray::try_new(dtype, storage)
+    let vector = ExtensionArray::try_new(dtype.clone(), storage)
         .unwrap()
         .into_array();
     let parent = StructArray::new(

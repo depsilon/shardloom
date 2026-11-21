@@ -1,5 +1,112 @@
 # Vortex Upstream Dependency Review
 
+## November 17, 2026 Arrow ownership checkpoint
+
+The existing Apache-2.0 Arrow Schema, JSON and Row 59.3.2 packages become local
+source patches. All three locked archive checksums and all 63 original archive
+members were independently verified. Their provenance records preserve original
+members, changed source, unchanged license/notice text and the exact archive
+URLs; no absent VCS revision is inferred. Publication is disabled.
+
+Schema adds ordered intrinsic ownership and structural traversals. JSON and Row
+adapt consuming matches to the same-version schema destructor and retain
+behavior through narrow current-toolchain lint corrections. Existing
+Arrow Array and Data patches add ordered child cleanup, descriptor traversal and
+typed descriptor export; ORC and Parquet receive narrow schema-owner compatibility
+changes. These remain explicit compatibility providers, without query-engine
+integration or runtime fallback. The root retains every package/version identity.
+
+All thirty provider recipes select their relevant reviewed ownership graph and
+frozen standalone locks. The notice bundle now covers 421 registry packages,
+30 local patches, 840 legal-file records and the same 249 distinct texts.
+The [checkpoint](../architecture/native-deep-traversal-checkpoint-2026-11-17.md)
+keeps public depth guards and complete deep-workflow admission separate from
+these internal provider changes. Remaining deep traversal follows Foundry integration.
+
+## November 17, 2026 full Variant validation intake
+
+The existing Apache-2.0 `parquet-variant` 59.3.2 byte reader becomes a reviewed
+same-version source patch for the [RFC 0044 Variant validation contract](../rfcs/0044-resident-runtime-resource-ownership.md#variant-validation-continuation-amendment-november-17-2026).
+Its archive checksum remains
+`4d0085fde95ccfae0b8d703acd1245bda8855a0bf996eba848e8e2f9995f8606`.
+All twenty archive members match the cached source. The archive supplies no
+source-revision metadata or legal text; no source commit is inferred. The
+same-release Parquet LICENSE and NOTICE already attributed in the dependency
+bundle are preserved in the patch. Publication is disabled.
+
+The patch preserves full validation, metadata/field/child order, object suffix
+and list-range behavior, errors and already-validated no-ops through borrowed
+continuations. It does not replace validation with a shallow constructor.
+The [patch notes](../../vendor/parquet-variant/README.shardloom.md) and complete
+member provenance distinguish source changes, frozen original test methods and
+upstream fixtures. All 61 Variant fixture files match the Git blobs at the
+previously reviewed Parquet-testing 59.3.2 submodule pin; their Apache-2.0 license
+is separately preserved. The standalone graph introduces no package/version
+identity absent from the reviewed root or provider locks. Existing root and
+consumer lockfiles change only this package to its same-version local source.
+
+The notice bundle now covers 424 registry packages, 27 path patches, 838
+legal-file records and the same 249 distinct texts. These source and license
+checks grant no deeper public admission or complete native lifecycle acceptance.
+
+## November 17, 2026 registered codec continuation intake
+
+The existing Apache-2.0 Vortex 0.93.0 ALP, ByteBool, DecimalByteParts,
+FastLanes, OnPair, ParquetVariant, Pco, Sparse and ZigZag packages become local
+source patches under the [RFC 0044 logical-array contract](../rfcs/0044-resident-runtime-resource-ownership.md#logical-array-decode-continuation-amendment-november-17-2026).
+All nine archive checksums match the existing lockfile, and all 242 regular
+archive members were compared with their cached sources. Each provenance file
+retains the original member hashes, source commit
+`c1439e69bf833fc702a60335ed674a1674ca358d` and published dirty marker. The archives
+omit their workspace license; each patch supplies the already reviewed license
+from that same commit. Publication is disabled, and reviewed standalone locks
+replace the omitted archive locks.
+
+The patches retain the original decoder bodies, metadata validation, child
+callback order and legacy wire normalization through the optional continuation
+API. Existing rejecting VTable hooks remain unchanged. Sequence remains an
+unmodified primitive leaf provider. This intake changes no dependency version,
+wire format, runtime feature or execution-engine boundary. All 1,713 codec
+provider tests and strict lint pass; nineteen native complete-value, graph,
+callback and error fixtures plus the standalone OnPair continuation test pass.
+The six missing upstream golden fixtures are retained with exact source/blob
+provenance. The standalone recipes explicitly enable DecimalByteParts/FastLanes
+test helpers and select the existing DateTimeParts patch for ParquetVariant's
+file tests. Initial configuration failures remain preserved. Full deep-lifecycle
+resource acceptance remains required; these checks grant no deeper public support.
+
+The previously added checked Prost 0.14.4 patch remains Apache-2.0 at source
+commit `13646cde7eab75c81b3047767aa0a86e7dbecf12`, with all sixteen original
+archive members recorded in its provenance. Its default recursion policy and
+the separate ORC Prost 0.13.5 graph are unchanged.
+
+## November 17, 2026 checked FlatBuffers continuation intake
+
+The existing Apache-2.0 FlatBuffers 25.12.19 runtime is now a checksum-pinned
+local source patch. Its archive SHA-256 remains
+`35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3`.
+All nineteen original archive member identities and the separate upstream
+LICENSE at source commit `7e163021e59cca4f8e1e35a7c828b5c6b7915953` are recorded
+in its provenance. Standalone lockfiles replace the omitted archive lock.
+The [patch notes](../../vendor/flatbuffers/README.shardloom.md) describe the
+safe verifier continuation, checked helper exports and scoped upstream lint
+exceptions. There is no new version, binary format, execution engine or unsafe
+code in the extension.
+
+The [RFC 0044 amendment](../rfcs/0044-resident-runtime-resource-ownership.md#physical-verifier-continuation-amendment-november-17-2026)
+requires ordered validation, unchanged configured limits and exact error traces.
+Native DType verification uses that surface; ordinary generated verifiers retain
+their existing algorithm. Eleven standalone provider graphs select the same
+local FlatBuffers source without other resolution changes. Its separate
+standard/all-feature and no-default-feature checks join the existing four CI
+groups. No root runtime feature changes, deeper public admission or complete
+runtime acceptance follow from this source intake.
+
+The current notice bundle moves FlatBuffers from the registry list to the
+vendored list: 435 registry packages, 16 path patches, 837 legal-file records
+and 249 distinct texts. Original legal text is unchanged. Dated acceptance
+counts below remain historical.
+
 ## November 9, 2026 optional Variant providers
 
 The [Variant payload unit](../architecture/native-variant-lifecycle-2026-11-09.md)
@@ -389,6 +496,8 @@ and apparent message size before provider construction. Generated Vortex schema
 accessors remain supplied by `vortex::flatbuffers`; none are copied into this
 repository. The default build gains no FlatBuffers dependency. This is format
 validation, with no external execution engine or new serialization format.
+The November 17 source intake above supersedes this earlier registry-source
+description while preserving the version, feature boundary and format contract.
 
 ## October 11, 2026 bounded file-statistics intake
 

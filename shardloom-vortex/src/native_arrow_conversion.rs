@@ -1,24 +1,22 @@
-//! Recursive type and byte admission at the explicit Arrow output boundary.
+//! Native type and byte admission at the explicit Arrow output boundary.
 
 use crate::local_primitives::{usize_to_u64, vortex_error};
 use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use shardloom_core::{Result, ShardLoomError};
 use std::sync::Arc;
-use vortex::array::arrays::extension::ExtensionArrayExt as _;
 use vortex::array::{
     ArrayRef, Columnar, ExecutionCtx, IntoArray,
-    arrays::fixed_size_list::{FixedSizeListArrayExt as _, FixedSizeListArraySlotsExt as _},
-    arrays::listview::{ListViewArrayExt as _, ListViewArraySlotsExt as _},
     arrays::struct_::StructArrayExt as _,
-    arrays::{
-        ExtensionArray, FixedSizeListArray, ListViewArray, Struct, StructArray, VarBin, VarBinView,
-        VarBinViewArray,
-    },
+    arrays::{Struct, VarBin, VarBinView, VarBinViewArray},
     dtype::{DType, PType},
 };
 
-#[path = "native_arrow_variant.rs"]
-mod variant;
+#[path = "native_arrow_preparation.rs"]
+mod walk;
+
+#[cfg(test)]
+#[path = "native_arrow_preparation_reference.rs"]
+mod reference;
 
 pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
     if crate::native_uuid::storage(dtype).is_some() {
@@ -57,6 +55,7 @@ pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
 /// check. Native result export uses its shared grant; compatibility writers keep
 /// their separately admitted per-batch constraints.
 pub(crate) struct ConversionLimits<'a> {
+    pub memory: &'a shardloom_exec::live_memory::LiveMemoryPool,
     pub string_bytes: usize,
     pub arrow_batch_bytes: u64,
     pub check: &'a dyn Fn() -> Result<()>,
@@ -254,82 +253,7 @@ pub(crate) fn canonical(
     limits: &ConversionLimits<'_>,
     expanded: &mut u64,
 ) -> Result<ArrayRef> {
-    limits.check()?;
-    charge(
-        expanded,
-        usize_to_u64(array.len().div_ceil(8))? + 128,
-        limits,
-    )?;
-    match array.dtype() {
-        DType::Variant(_) => variant::prepare(array, ctx, limits, expanded, 0),
-        DType::Extension(_)
-            if crate::native_extensions::payload_storage(array.dtype()).is_some() =>
-        {
-            canonical_extension(array, ctx, limits, expanded)
-        }
-        DType::Struct(_, _) => {
-            let structure = array
-                .clone()
-                .execute::<StructArray>(ctx)
-                .map_err(vortex_error)?;
-            let children = structure
-                .iter_unmasked_fields()
-                .map(|child| canonical(child, ctx, limits, expanded))
-                .collect::<Result<Vec<_>>>()?;
-            StructArray::try_new(
-                structure.names().clone(),
-                children,
-                array.len(),
-                structure.struct_validity(),
-            )
-            .map(IntoArray::into_array)
-            .map_err(vortex_error)
-        }
-        DType::List(_, _) => {
-            charge(
-                expanded,
-                usize_to_u64(array.len())?
-                    .checked_add(1)
-                    .and_then(|n| n.checked_mul(4))
-                    .ok_or_else(|| error("list offset overflow"))?,
-                limits,
-            )?;
-            let list = array
-                .clone()
-                .execute::<ListViewArray>(ctx)
-                .map_err(vortex_error)?;
-            let elements = canonical(list.elements(), ctx, limits, expanded)?;
-            ListViewArray::try_new(
-                elements,
-                list.offsets().clone(),
-                list.sizes().clone(),
-                list.listview_validity(),
-                ctx,
-            )
-            .map(IntoArray::into_array)
-            .map_err(vortex_error)
-        }
-        DType::FixedSizeList(_, _, _) => {
-            let list = array
-                .clone()
-                .execute::<FixedSizeListArray>(ctx)
-                .map_err(vortex_error)?;
-            let elements = canonical(list.elements(), ctx, limits, expanded)?;
-            FixedSizeListArray::try_new(
-                elements,
-                list.list_size(),
-                list.fixed_size_list_validity(),
-                array.len(),
-            )
-            .map(IntoArray::into_array)
-            .map_err(vortex_error)
-        }
-        DType::Utf8(_) | DType::Binary(_) => canonical_text(array, ctx, limits, expanded),
-        DType::Bool(_) | DType::Primitive(..) | DType::Decimal(..) | DType::Extension(_) => {
-            canonical_fixed(array, ctx, limits, expanded)
-        }
-        _ => Err(error("canonical field changed its admitted dtype")),
-    }
+    walk::prepare(array, ctx, limits, expanded, walk::Mode::Canonical, 64)
 }
 
 fn canonical_fixed(
@@ -359,22 +283,6 @@ fn canonical_fixed(
     array
         .clone()
         .execute::<Columnar>(ctx)
-        .map(IntoArray::into_array)
-        .map_err(vortex_error)
-}
-
-fn canonical_extension(
-    array: &ArrayRef,
-    ctx: &mut ExecutionCtx,
-    limits: &ConversionLimits<'_>,
-    expanded: &mut u64,
-) -> Result<ArrayRef> {
-    let extension = array
-        .clone()
-        .execute::<ExtensionArray>(ctx)
-        .map_err(vortex_error)?;
-    let storage = canonical(extension.storage_array(), ctx, limits, expanded)?;
-    ExtensionArray::try_new(extension.ext_dtype().clone(), storage)
         .map(IntoArray::into_array)
         .map_err(vortex_error)
 }

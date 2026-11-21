@@ -114,6 +114,23 @@ impl<T: Hash> Hash for Buffer<T> {
 }
 
 impl<T> Buffer<T> {
+    /// Retain an additional owner without copying or changing this buffer's view.
+    ///
+    /// The backing storage is released before this owner. Repeated attachments
+    /// release their last owners iteratively, oldest first. Clones, typed
+    /// conversions and nonempty slices retain them; ordinary empty slices may
+    /// still detach. Explicitly owned empty buffers retain the owner as well.
+    /// The retained buffer cannot be recovered by `try_into_mut`.
+    pub fn with_retained_owner(mut self, owner: Arc<dyn Send + Sync>) -> Self {
+        self.backing = Some(Arc::new(BufferBacking::Retained(
+            crate::retained_owner::RetainedBufferOwner {
+                backing: self.backing.take(),
+                owner: Some(owner),
+            },
+        )));
+        self
+    }
+
     pub(crate) fn from_allocation(
         allocation: Allocation,
         offset: usize,

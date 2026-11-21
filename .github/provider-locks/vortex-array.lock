@@ -101,8 +101,6 @@ dependencies = [
 [[package]]
 name = "arrow-schema"
 version = "59.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e87acb0c6bf6237fca7a50d7b51e801c98a18a5fe6f3bb34f7d77b85ca165388"
 
 [[package]]
 name = "atomic-waker"
@@ -696,8 +694,6 @@ dependencies = [
 [[package]]
 name = "flatbuffers"
 version = "25.12.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35f6839d7b3b98adde531effaf34f0c2badc6f4735d26fe74709d8e513a96ef3"
 dependencies = [
  "bitflags 2.11.1",
  "rustc_version",
@@ -1824,8 +1820,6 @@ dependencies = [
 [[package]]
 name = "prost"
 version = "0.14.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
 dependencies = [
  "bytes",
  "prost-derive",

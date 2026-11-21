@@ -1,0 +1,49 @@
+{
+  "provider": "vortex-zigzag",
+  "version": "0.93.0",
+  "license": "Apache-2.0",
+  "license_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "license_url": "https://github.com/vortex-data/vortex/blob/c1439e69bf833fc702a60335ed674a1674ca358d/LICENSE",
+  "license_git_blob_sha1": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+  "registry_archive_sha256": "3b77cf988874b09f4e8d5305a8441ba949214bbc7f92ec2a32ec8a19b51c7d18",
+  "registry_archive_file_count": 13,
+  "registry_archive_uncompressed_bytes": 82404,
+  "source_of_truth": "https://static.crates.io/crates/vortex-zigzag/vortex-zigzag-0.93.0.crate",
+  "vcs_info": {
+    "git": {
+      "sha1": "c1439e69bf833fc702a60335ed674a1674ca358d",
+      "dirty": true
+    },
+    "path_in_vcs": "encodings/zigzag"
+  },
+  "original_files_sha256": {
+    ".cargo_vcs_info.json": "a0afa2f30ae6277db0299235696cbbc318c675e7188af7691fa44ecb6670bbea",
+    "Cargo.lock": "9db311a3915bceabd0e92d13fd07397b8777df62af0c3f3cf68842692288fc51",
+    "Cargo.toml": "cca18d9da17930651da06ddf289c2bfd41802431ef1587ce17f36e5026721bee",
+    "Cargo.toml.orig": "0b61d01dc05380d376a0a5027eeb07e33d487587ea1b35d66e6df91f2312c5da",
+    "README.md": "7b33d2246600fc362e70a45b333695f29b9810fa4c519854c357e4d7f17fff7d",
+    "src/array.rs": "e22b403fe36d95f1692ea3140499d77052cc72d9d120786e71b9843126b707d6",
+    "src/compress.rs": "cfd969bbfccd5892e788992d7fa18791278fbc3ded2669240247ca97def28b31",
+    "src/compute/cast.rs": "7f1626ab285b4a265b9952f402d170e437c17d88cdedd18a863ae9508868ce35",
+    "src/compute/mod.rs": "260e63974bea1bdbcebed794cd60010c032dcf1cb16675ef995edf5b8b364dcf",
+    "src/kernel.rs": "80f2ef020b6e172ab11e810d14306ad6fe13c667c53b89559f8d8c8d3f90693f",
+    "src/lib.rs": "a70a6dacdbc6d8ca1422e2283e9b167403a51179a57f1f3cbf003e662b6ef4df",
+    "src/rules.rs": "8b787cdcee5332fbce0094db19371ae7999616f73d27a06f5b33ac55731ad8d5",
+    "src/slice.rs": "40da618334439879f0a976a4e808e29fba83833f0a56c5648251a96070913f02"
+  },
+  "modified_files_sha256": {
+    "Cargo.toml": "07f7c2fbf5ed2bac229b8eb86db17539ccbcc7b7c8e9e276240e0b7b5b6f8626",
+    "src/array.rs": "0a8e0e749c172248d948864881b87003b2ce58715a241516b29f33dd9a0967c0"
+  },
+  "added_files_sha256": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.shardloom.md": "637303b76b5ff54027762da69eab9356beafb054308e3704dd9a90cf78e9e61b"
+  },
+  "omitted_files": {
+    "Cargo.lock": "Workspace/standalone checked lockfiles own resolution"
+  },
+  "local_changes_documentation": {
+    "path": "README.shardloom.md",
+    "sha256": "637303b76b5ff54027762da69eab9356beafb054308e3704dd9a90cf78e9e61b"
+  }
+}

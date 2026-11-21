@@ -9,7 +9,6 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 
-use itertools::Itertools;
 use vortex_error::VortexExpect;
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -22,6 +21,7 @@ use crate::dtype::FieldNames;
 use crate::dtype::StructFields;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// A scalar value representing a struct with named fields.
 ///
@@ -37,25 +37,7 @@ pub struct StructScalar<'a> {
 
 impl Display for StructScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.fields {
-            None => write!(f, "null"),
-            Some(fields) => {
-                write!(f, "{{")?;
-                let formatted_fields = self
-                    .names()
-                    .iter()
-                    .zip_eq(self.struct_fields().fields())
-                    .zip_eq(fields.iter())
-                    .map(|((name, dtype), value)| {
-                        let val = Scalar::try_new(dtype, value.clone())
-                            .vortex_expect("unable to construct a struct `Scalar`");
-                        format!("{name}: {val}")
-                    })
-                    .format(", ");
-                write!(f, "{formatted_fields}")?;
-                write!(f, "}}")
-            }
-        }
+        formatting::display_struct(self.struct_fields(), self.fields, f)
     }
 }
 

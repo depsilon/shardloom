@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use vortex_error::VortexResult;
 use vortex_error::vortex_bail;
@@ -116,29 +117,51 @@ impl VTable for Union {
         children: &dyn ArrayChildren,
         _session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        vortex_ensure!(metadata.is_empty(), "UnionArray expects empty metadata");
-        vortex_ensure!(buffers.is_empty(), "UnionArray expects no buffers");
-        let DType::Union(variants, nullability) = dtype else {
-            vortex_bail!("Expected union dtype, found {dtype}")
-        };
-        vortex_ensure_eq!(children.len(), UnionSlots::CHILDREN_OFFSET + variants.len());
-
-        let type_ids = children.get(
-            UnionSlots::TYPE_IDS,
-            &union_type_ids_dtype(*nullability),
-            len,
-        )?;
-        let sparse_children = variants
-            .variants()
-            .enumerate()
-            .map(|(index, dtype)| children.get(UnionSlots::CHILDREN_OFFSET + index, &dtype, len))
-            .collect::<VortexResult<Vec<_>>>()?;
-
-        Ok(make_union_parts(
-            type_ids,
-            variants.clone(),
-            sparse_children,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, _session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        _session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            vortex_ensure!(metadata.is_empty(), "UnionArray expects empty metadata");
+            vortex_ensure!(buffers.is_empty(), "UnionArray expects no buffers");
+            let DType::Union(variants, nullability) = dtype else {
+                vortex_bail!("Expected union dtype, found {dtype}")
+            };
+            vortex_ensure_eq!(children.len(), UnionSlots::CHILDREN_OFFSET + variants.len());
+
+            let type_ids = children
+                .get_async(
+                    UnionSlots::TYPE_IDS,
+                    &union_type_ids_dtype(*nullability),
+                    len,
+                )
+                .await?;
+            let mut sparse_children = Vec::new();
+            for (index, dtype) in variants.variants().enumerate() {
+                sparse_children.push(
+                    children
+                        .get_async(UnionSlots::CHILDREN_OFFSET + index, &dtype, len)
+                        .await?,
+                );
+            }
+
+            Ok(make_union_parts(
+                type_ids,
+                variants.clone(),
+                sparse_children,
+            ))
+        })
     }
 
     fn slot_name(array: ArrayView<'_, Self>, idx: usize) -> String {

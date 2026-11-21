@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-16: borrow DType variants while resolving field paths.
 
 //! Selectors for fields or elements in (possibly nested) `DType`s
 //!
@@ -186,7 +187,7 @@ impl FieldPath {
     /// ```
     pub fn resolve(&self, mut dtype: DType) -> Option<DType> {
         for field in &self.0 {
-            dtype = match (dtype, field) {
+            dtype = match (&dtype, field) {
                 (DType::Struct(fields, _), Field::Name(name)) => fields.field(name)?,
                 (DType::List(element_dtype, _), Field::ElementType)
                 | (DType::FixedSizeList(element_dtype, ..), Field::ElementType) => {

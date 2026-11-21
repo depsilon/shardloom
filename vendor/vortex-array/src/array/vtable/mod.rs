@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: optional ordered decode continuations.
 
 //! This module contains the VTable definitions for a Vortex encoding.
 //!
@@ -48,6 +49,7 @@ use crate::hash::ArrayHash;
 use crate::patches::Patches;
 use crate::scalar::ScalarValue;
 use crate::serde::ArrayChildren;
+use crate::serde::DeserializeFuture;
 use crate::validity::Validity;
 
 /// The array [`VTable`] encapsulates logic for an Array type within Vortex.
@@ -143,6 +145,24 @@ pub trait VTable: 'static + Clone + Sized + Send + Sync + Debug {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>>;
+
+    /// Deserialize with sequential suspended child requests.
+    ///
+    /// The generic adapter still validates the returned parts. Implementations
+    /// may await only [`ArrayChildren::get_async`], not external asynchronous
+    /// work. The default preserves an existing leaf decoder; recursive child
+    /// consumers must override this hook for the explicit continuation path.
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move { self.deserialize(dtype, len, metadata, buffers, children, session) })
+    }
 
     /// Writes the array's logical values into a canonical builder.
     ///

@@ -108,7 +108,7 @@ pub type LargeListViewArray = GenericListViewArray<i64>;
 pub struct GenericListViewArray<OffsetSize: OffsetSizeTrait> {
     data_type: DataType,
     nulls: Option<NullBuffer>,
-    values: ArrayRef,
+    values: super::release::Child,
     // Unlike GenericListArray, we do not use OffsetBuffer here as offsets are not
     // guaranteed to be monotonically increasing.
     value_offsets: ScalarBuffer<OffsetSize>,
@@ -116,6 +116,24 @@ pub struct GenericListViewArray<OffsetSize: OffsetSizeTrait> {
 }
 
 impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
+    pub(crate) fn release_node(self) -> super::ArrayReleaseNode {
+        use super::release::Part;
+        let Self {
+            data_type,
+            nulls,
+            values,
+            value_offsets,
+            value_sizes,
+        } = self;
+        super::ArrayReleaseNode::new([
+            Part::Type(data_type),
+            Part::Nulls(nulls),
+            Part::Child(values.into_inner()),
+            Part::Buffer(value_offsets.into_inner()),
+            Part::Buffer(value_sizes.into_inner()),
+        ])
+    }
+
     /// The data type constructor of listview array.
     /// The input is the schema of the child array and
     /// the output is the [`DataType`], ListView or LargeListView.
@@ -202,7 +220,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
         Ok(Self {
             data_type: Self::DATA_TYPE_CONSTRUCTOR(field),
             nulls,
-            values,
+            values: values.into(),
             value_offsets: offsets,
             value_sizes: sizes,
         })
@@ -246,7 +264,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
         Self {
             data_type: Self::DATA_TYPE_CONSTRUCTOR(field),
             nulls,
-            values,
+            values: values.into(),
             value_offsets: offsets,
             value_sizes: sizes,
         }
@@ -260,7 +278,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
             nulls: Some(NullBuffer::new_null(len)),
             value_offsets: ScalarBuffer::from(vec![OffsetSize::usize_as(0); len]),
             value_sizes: ScalarBuffer::from(vec![OffsetSize::usize_as(0); len]),
-            values,
+            values: values.into(),
         }
     }
 
@@ -274,15 +292,15 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
         ArrayRef,
         Option<NullBuffer>,
     ) {
-        let f = match self.data_type {
-            DataType::ListView(f) | DataType::LargeListView(f) => f,
+        let f = match &self.data_type {
+            DataType::ListView(f) | DataType::LargeListView(f) => f.clone(),
             _ => unreachable!(),
         };
         (
             f,
             self.value_offsets,
             self.value_sizes,
-            self.values,
+            self.values.into_inner(),
             self.nulls,
         )
     }
@@ -446,6 +464,14 @@ impl<OffsetSize: OffsetSizeTrait> ArrayAccessor for &GenericListViewArray<Offset
 
 /// SAFETY: Correctly implements the contract of Arrow Arrays
 unsafe impl<OffsetSize: OffsetSizeTrait> Array for GenericListViewArray<OffsetSize> {
+    fn into_release_node(self: std::sync::Arc<Self>) -> Option<super::ArrayReleaseNode> {
+        std::sync::Arc::into_inner(self).map(Self::release_node)
+    }
+
+    fn data_node(&self) -> Option<super::ArrayDataNode> {
+        Some(self.clone().into_data_node())
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -575,6 +601,29 @@ impl<OffsetSize: OffsetSizeTrait> From<GenericListArray<OffsetSize>>
 
 impl<OffsetSize: OffsetSizeTrait> From<GenericListViewArray<OffsetSize>> for ArrayData {
     fn from(array: GenericListViewArray<OffsetSize>) -> Self {
+        super::data_export::build(array.into_data_node())
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
+    pub(super) fn into_data_node(self) -> super::ArrayDataNode {
+        let array = self;
+        let len = array.len();
+        let builder = ArrayDataBuilder::new(array.data_type)
+            .len(len)
+            .nulls(array.nulls)
+            .buffers(vec![
+                array.value_offsets.into_inner(),
+                array.value_sizes.into_inner(),
+            ]);
+
+        super::ArrayDataNode::one(builder, array.values)
+    }
+}
+
+#[cfg(test)]
+#[rustfmt::skip]
+pub(super) fn reference_data<OffsetSize: OffsetSizeTrait>(array: GenericListViewArray<OffsetSize>) -> ArrayData {
         let len = array.len();
         let builder = ArrayDataBuilder::new(array.data_type)
             .len(len)
@@ -583,10 +632,9 @@ impl<OffsetSize: OffsetSizeTrait> From<GenericListViewArray<OffsetSize>> for Arr
                 array.value_offsets.into_inner(),
                 array.value_sizes.into_inner(),
             ])
-            .child_data(vec![array.values.to_data()]);
+            .child_data(vec![super::data_export::tests::reference_data(array.values.as_ref())]);
 
         unsafe { builder.build_unchecked() }
-    }
 }
 
 impl<OffsetSize: OffsetSizeTrait> From<ArrayData> for GenericListViewArray<OffsetSize> {
@@ -617,7 +665,7 @@ impl<OffsetSize: OffsetSizeTrait> From<FixedSizeListArray> for GenericListViewAr
         Self {
             data_type: Self::DATA_TYPE_CONSTRUCTOR(field.clone()),
             nulls: value.nulls().cloned(),
-            values: value.values().clone(),
+            values: value.values().clone().into(),
             value_offsets: offsets,
             value_sizes: sizes,
         }
@@ -670,7 +718,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
         Ok(Self {
             data_type,
             nulls,
-            values,
+            values: values.into(),
             value_offsets,
             value_sizes,
         })

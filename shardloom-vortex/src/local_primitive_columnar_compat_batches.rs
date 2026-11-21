@@ -152,7 +152,7 @@ impl PreparedCompatibilityExport {
             .memory()
             .reserve(sizing::canonical_metadata(&self.plan.dtype, execution)?)?;
         let (validated, validated_bytes) =
-            admitted_canonical(array, &self.plan.dtype, ctx, &limits)?;
+            admitted_canonical(array, &self.plan.dtype, ctx, &limits, execution.memory())?;
         let window = sizing::ConversionWindow::new(self, initial, array.len(), execution)?;
         let mut width = validated_bytes.div_ceil(array.len() as u64).max(1);
         let mut start = 0;
@@ -190,8 +190,13 @@ impl PreparedCompatibilityExport {
                     } else {
                         subset
                     };
-                    let (canonical, expanded) =
-                        admitted_canonical(&subset, &self.plan.dtype, ctx, &limits)?;
+                    let (canonical, expanded) = admitted_canonical(
+                        &subset,
+                        &self.plan.dtype,
+                        ctx,
+                        &limits,
+                        execution.memory(),
+                    )?;
                     (canonical, expanded, Some(metadata))
                 };
                 if self.limits.streaming && expanded > self.limits.arrow_batch_bytes && count > 1 {

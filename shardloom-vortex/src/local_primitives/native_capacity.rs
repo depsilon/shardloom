@@ -4,6 +4,10 @@ use super::vortex_error;
 use shardloom_core::{Result, ShardLoomError};
 use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
 
+#[path = "native_capacity_stack.rs"]
+mod stack;
+pub(crate) use stack::ReservedStack;
+
 fn failed() -> ShardLoomError {
     ShardLoomError::InvalidOperation(
         "native state capacity overflow; no fallback execution was attempted".into(),

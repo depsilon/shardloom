@@ -12,6 +12,7 @@ use vortex_error::vortex_bail;
 use crate::dtype::DType;
 use crate::scalar::Scalar;
 use crate::scalar::ScalarValue;
+use crate::scalar::formatting;
 
 /// A typed view into a [`DType::Variant`] scalar.
 #[derive(Debug, Clone, Copy)]
@@ -22,10 +23,7 @@ pub struct VariantScalar<'a> {
 
 impl Display for VariantScalar<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.value {
-            None => write!(f, "null"),
-            Some(value) => write!(f, "variant({value})"),
-        }
+        formatting::display_variant(self.value, f)
     }
 }
 

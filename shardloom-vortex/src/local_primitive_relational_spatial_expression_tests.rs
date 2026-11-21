@@ -82,14 +82,14 @@ fn list(values: ArrayRef, spans: &[(u64, u64)], valid: Validity) -> ArrayRef {
     .into_array()
 }
 fn geometry(kind: Geometry, storage: ArrayRef, metadata: &str) -> ArrayRef {
-    let DType::Extension(dtype) = native_spatial::dtype(
+    let DType::Extension(dtype) = &native_spatial::dtype(
         native_spatial::Metadata::parse(kind, metadata).unwrap(),
         storage.dtype().clone(),
     )
     .unwrap() else {
         unreachable!()
     };
-    ExtensionArray::try_new(dtype, storage)
+    ExtensionArray::try_new(dtype.clone(), storage)
         .unwrap()
         .into_array()
 }

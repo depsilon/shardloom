@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: checked iterative ArrayNode verification.
 //
 // Regenerate with `cargo run -p xtask -- generate-flatbuffers`.
 
@@ -573,14 +574,7 @@ impl ::flatbuffers::Verifiable for ArrayNode<'_> {
   fn run_verifier(
     v: &mut ::flatbuffers::Verifier, pos: usize
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<u16>("encoding", Self::VT_ENCODING, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("metadata", Self::VT_METADATA, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ArrayNode>>>>("children", Self::VT_CHILDREN, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("buffers", Self::VT_BUFFERS, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<ArrayStats>>("stats", Self::VT_STATS, false)?
-     .finish();
-    Ok(())
+    crate::flatbuffers::array_verify::verify(v, pos)
   }
 }
 pub struct ArrayNodeArgs<'a> {

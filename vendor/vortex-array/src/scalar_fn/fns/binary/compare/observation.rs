@@ -155,6 +155,10 @@ mod tests {
         let observer = CompareWork::default();
         let work = observer.begin(Arc::new(())).unwrap();
         let session = session.with_some(observer.clone());
+        #[expect(
+            clippy::redundant_clone,
+            reason = "exercise shared observer state through a session clone"
+        )]
         record(&session.clone(), 0, 10);
         record(&session, 1, 20);
         record(&session, 2, 30);

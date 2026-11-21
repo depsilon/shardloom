@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: borrowed metadata dispatch and final-owner extraction.
 
 //! Type-erased extension dtype ([`ExtDTypeRef`]).
 
@@ -20,6 +21,7 @@ use crate::dtype::extension::ExtId;
 use crate::dtype::extension::ExtVTable;
 use crate::dtype::extension::Matcher;
 use crate::dtype::extension::typed::DynExtDType;
+use crate::dtype::formatting::display_extension;
 use crate::scalar::ScalarValue;
 
 /// A type-erased extension dtype.
@@ -37,6 +39,19 @@ use crate::scalar::ScalarValue;
 pub struct ExtDTypeRef(pub(super) Arc<dyn DynExtDType>);
 
 impl ExtDTypeRef {
+    pub(in crate::dtype) fn metadata_eq(&self, other: &Self) -> bool {
+        self.id() == other.id() && self.0.metadata_eq(other.0.metadata_any())
+    }
+
+    pub(in crate::dtype) fn hash_metadata<H: Hasher>(&self, state: &mut H) {
+        self.id().hash(state);
+        self.0.metadata_hash(state);
+    }
+
+    pub(crate) fn into_storage_dtype(self) -> Option<DType> {
+        self.0.into_storage_dtype()
+    }
+
     /// Returns the [`ExtId`] identifying this extension type.
     pub fn id(&self) -> ExtId {
         self.0.id()
@@ -190,15 +205,7 @@ impl fmt::Debug for ExtDTypeRef {
 
 impl fmt::Display for ExtDTypeRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let metadata = MetadataDisplay(&*self.0).to_string();
-
-        if metadata.is_empty() {
-            write!(f, "{}", self.id())?;
-        } else {
-            write!(f, "{}[{}]", self.id(), metadata)?;
-        }
-
-        write!(f, "({})", self.storage_dtype())
+        display_extension(self, f)
     }
 }
 

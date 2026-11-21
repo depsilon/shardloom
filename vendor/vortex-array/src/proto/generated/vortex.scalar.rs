@@ -11,12 +11,9 @@ pub struct Scalar {
     #[prost(message, optional, boxed, tag = "2")]
     pub value: ::core::option::Option<::prost::alloc::boxed::Box<ScalarValue>>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+// ShardLoom: structural traits and Message live in ../structural.rs and ../wire.rs.
+#[derive(Default)]
 pub struct ScalarValue {
-    #[prost(
-        oneof = "scalar_value::Kind",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
-    )]
     pub kind: ::core::option::Option<scalar_value::Kind>,
 }
 /// Nested message and enum types in `ScalarValue`.

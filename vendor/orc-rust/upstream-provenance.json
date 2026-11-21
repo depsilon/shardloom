@@ -1,7 +1,7 @@
 {
   "added_files_sha256": {
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "README.shardloom.md": "ca6eaef1da2109da64bb1ba88bbaa03ebc4b5f21c6fc0d8fa29c5bda25dd67d3",
+    "README.shardloom.md": "4a80dd5bde8fd2572abee12d1a68c6288077f1e970eaad14041e48b7178662ca",
     "src/array_decoder/decoder_memory.rs": "95602d817b0f36217b58a2027e74d5a614dc566658b6bb1420275842fa0ac416",
     "src/array_decoder/list_ownership_tests.rs": "3030bd5dc940ca13540bff0c2cc62e7675172d18ff7a29bf38bb77ce4404a8c5",
     "src/array_decoder/map_ownership_tests.rs": "174345840a65d5df50620a92e736b6cea55f93f9462946bf8dac9bae11ff8b40",
@@ -28,9 +28,9 @@
   "license_url": "https://raw.githubusercontent.com/datafusion-contrib/orc-rust/d21a6e4d2f8b5f4465fa5c0cad046c7ec2284307/LICENSE",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "ca6eaef1da2109da64bb1ba88bbaa03ebc4b5f21c6fc0d8fa29c5bda25dd67d3"
+    "sha256": "4a80dd5bde8fd2572abee12d1a68c6288077f1e970eaad14041e48b7178662ca"
   },
-  "migration_status": "dependency_pin_rich_writer_checked_temporal_codec_held_metadata_adaptive_readers_owned_decode_buffers",
+  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
   "modified_files_sha256": {
     "Cargo.toml": "78b37ff6db0e9741007e81c0e26fb368520db1863dabeb36d164ffce4b0c7541",
     "src/array_decoder/decimal.rs": "40c9143cc64fa544e5cc4793a1fda477f991d82d9fe6a92fc34e49c38e425fdb",
@@ -39,7 +39,7 @@
     "src/array_decoder/mod.rs": "9521336cb18813a779474327f53a298198390a811d0c7942484394c2b36674bd",
     "src/array_decoder/string.rs": "90f6ce9903a1a87ff13e20837738e1918563424123a1b3f2d669b1d49759e2ae",
     "src/array_decoder/struct_decoder.rs": "e0b6b822d0eabad1ebc0c0af508e84318edb9e89c983dacc46ff082e0046f873",
-    "src/array_decoder/timestamp.rs": "35dc0a27d0440091f12376ba225d2d8f685530f38ad1256d8e39da137fb86760",
+    "src/array_decoder/timestamp.rs": "ec6833cb8a6c536de679047cd78b420ef8ead6d93e02cef4b7bc22388e765a5d",
     "src/array_decoder/union.rs": "63db182a6c61edfb036b513d55e6cbf7ce85cb90d1fc1ca1aa8d15aaac0bf381",
     "src/arrow_reader.rs": "151f2fec49d71c8844ac02488a91e324b595e44ea24acd109747a13dbb37b25f",
     "src/arrow_writer.rs": "0822c1b0601c0a4e1ce0ebba7f2bff5c274a71af7635f3c41dc44dd8642353a5",

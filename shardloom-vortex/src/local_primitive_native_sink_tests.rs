@@ -327,7 +327,7 @@ fn public_native_sink_streams_nullable_filter_projection_and_ordered_limit_exact
     let expected = (0..ROWS).filter(|index| index % 97 >= 48).take(10_003).map(|index| serde_json::json!({"shipment_sequence":index,"destination":(!index.is_multiple_of(7)).then(|| format!("港-{index}"))})).collect::<Vec<_>>();
     let (dtype, actual) = read_complete(&output);
     assert_eq!(actual, expected);
-    let DType::Struct(fields, _) = dtype else {
+    let DType::Struct(fields, _) = &dtype else {
         panic!("struct dtype expected")
     };
     assert_eq!(
@@ -483,7 +483,7 @@ fn native_sink_preserves_source_alias_schema_and_empty_typed_output() {
         assert!(evidence.pre_limit_result_row_count_exact);
         assert_eq!(evidence.pre_limit_result_row_count, rows as u64);
         let (dtype, actual) = read_complete(&output);
-        let DType::Struct(fields, _) = dtype else {
+        let DType::Struct(fields, _) = &dtype else {
             panic!("struct dtype")
         };
         assert_eq!(
@@ -859,7 +859,7 @@ fn false_filter_sink_writes_typed_empty_output_without_scanning_data() {
     assert!(!report.evidence.side_effects.data_materialized);
     assert!(report.evidence.side_effects.write_io);
     let (dtype, rows) = read_complete(&output);
-    let DType::Struct(fields, _) = dtype else {
+    let DType::Struct(fields, _) = &dtype else {
         panic!("struct dtype")
     };
     assert_eq!(

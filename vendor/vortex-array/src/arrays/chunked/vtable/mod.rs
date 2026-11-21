@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: shared ordered deserialization continuations.
 
 use std::hash::Hasher;
 
@@ -174,58 +175,77 @@ impl VTable for Chunked {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        if !metadata.is_empty() {
-            vortex_bail!(
-                "ChunkedArray expects empty metadata, got {} bytes",
-                metadata.len()
-            );
-        }
-        if children.is_empty() {
-            vortex_bail!("Chunked array needs at least one child");
-        }
-
-        let nchunks = children.len() - 1;
-        let chunk_offsets = children.get(
-            ChunkedSlots::CHUNK_OFFSETS,
-            &DType::Primitive(PType::U64, Nullability::NonNullable),
-            nchunks + 1,
-        )?;
-        let mut ctx = session.create_execution_ctx();
-        let chunk_offsets_buf = chunk_offsets
-            .clone()
-            .execute::<PrimitiveArray>(&mut ctx)?
-            .to_buffer::<u64>();
-        let chunk_offsets_usize = chunk_offsets_buf
-            .iter()
-            .copied()
-            .map(|offset| {
-                usize::try_from(offset)
-                    .map_err(|_| vortex_err!("chunk offset {offset} exceeds usize range"))
-            })
-            .collect::<VortexResult<Vec<_>>>()?;
-        let mut slots = SmallVec::with_capacity(children.len());
-        slots.push(Some(chunk_offsets));
-        for (idx, (start, end)) in chunk_offsets_usize
-            .iter()
-            .copied()
-            .tuple_windows()
-            .enumerate()
-        {
-            let chunk_len = end - start;
-            slots.push(Some(children.get(
-                idx + ChunkedSlots::CHUNKS_OFFSET,
-                dtype,
-                chunk_len,
-            )?));
-        }
-
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            ChunkedData::new(chunk_offsets_usize),
-            slots,
+        let children = crate::serde::SynchronousArrayChildren::new(children);
+        crate::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, _buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        _buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> crate::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            if !metadata.is_empty() {
+                vortex_bail!(
+                    "ChunkedArray expects empty metadata, got {} bytes",
+                    metadata.len()
+                );
+            }
+            if children.is_empty() {
+                vortex_bail!("Chunked array needs at least one child");
+            }
+
+            let nchunks = children.len() - 1;
+            let chunk_offsets = children
+                .get_async(
+                    ChunkedSlots::CHUNK_OFFSETS,
+                    &DType::Primitive(PType::U64, Nullability::NonNullable),
+                    nchunks + 1,
+                )
+                .await?;
+            let mut ctx = session.create_execution_ctx();
+            let chunk_offsets_buf = chunk_offsets
+                .clone()
+                .execute::<PrimitiveArray>(&mut ctx)?
+                .to_buffer::<u64>();
+            let chunk_offsets_usize = chunk_offsets_buf
+                .iter()
+                .copied()
+                .map(|offset| {
+                    usize::try_from(offset)
+                        .map_err(|_| vortex_err!("chunk offset {offset} exceeds usize range"))
+                })
+                .collect::<VortexResult<Vec<_>>>()?;
+            let mut slots = SmallVec::with_capacity(children.len());
+            slots.push(Some(chunk_offsets));
+            for (idx, (start, end)) in chunk_offsets_usize
+                .iter()
+                .copied()
+                .tuple_windows()
+                .enumerate()
+            {
+                let chunk_len = end - start;
+                slots.push(Some(
+                    children
+                        .get_async(idx + ChunkedSlots::CHUNKS_OFFSET, dtype, chunk_len)
+                        .await?,
+                ));
+            }
+
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                ChunkedData::new(chunk_offsets_usize),
+                slots,
+            ))
+        })
     }
 
     fn append_to_builder(

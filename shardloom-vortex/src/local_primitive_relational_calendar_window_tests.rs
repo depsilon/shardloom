@@ -46,7 +46,7 @@ fn fixture(name: &str, rows: &[Row], chunk: usize) -> Fixture {
     } else {
         PrimitiveArray::from_option_iter(rows.iter().map(|row| row.key)).into_array()
     };
-    let DType::Extension(extension) = dtype else {
+    let DType::Extension(extension) = &dtype else {
         panic!("temporal domain")
     };
     let groups = DictArray::try_new(
@@ -61,7 +61,7 @@ fn fixture(name: &str, rows: &[Row], chunk: usize) -> Fixture {
             vec![
                 PrimitiveArray::from_iter(0..rows.len() as u64).into_array(),
                 groups,
-                ExtensionArray::try_new(extension, storage)
+                ExtensionArray::try_new(extension.clone(), storage)
                     .unwrap()
                     .into_array(),
                 PrimitiveArray::from_option_iter(rows.iter().map(|row| row.value)).into_array(),

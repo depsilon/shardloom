@@ -75,6 +75,10 @@ mod varbin_construction_tests;
 #[path = "native_provider_varbin_deserialize_tests.rs"]
 mod varbin_deserialize_tests;
 
+#[cfg(test)]
+#[path = "native_provider_decode_tests.rs"]
+mod decode_tests;
+
 #[cfg(all(test, feature = "vortex-write"))]
 #[path = "native_provider_file_metadata_tests.rs"]
 mod file_metadata_tests;

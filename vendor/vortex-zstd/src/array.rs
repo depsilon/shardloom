@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom: shared ordered deserialization continuations.
 // Modified by ShardLoom on 2026-10-06: use the session's fallible allocator for
 // decoded payload, binary views and nullable output. See upstream-provenance.json.
 // Modified by ShardLoom on 2026-10-07: append primitive arrays through the same
@@ -241,25 +242,42 @@ impl VTable for Zstd {
         children: &dyn ArrayChildren,
         session: &VortexSession,
     ) -> VortexResult<ArrayParts<Self>> {
-        let validity = if children.is_empty() {
-            Validity::from(dtype.nullability())
-        } else if children.len() == 1 {
-            let validity = children.get(0, &Validity::DTYPE, len)?;
-            Validity::Array(validity)
-        } else {
-            vortex_bail!("ZstdArray expected 0 or 1 child, got {}", children.len());
-        };
-
-        let storage = FrameStorage::deserialize(metadata, buffers, &session.host_allocator())?;
-        let slots = smallvec![validity_to_child(&validity, len)];
-        let data = ZstdData::from_storage(storage, len);
-        Ok(ArrayParts::new(
-            self.clone(),
-            dtype.clone(),
-            len,
-            data,
-            slots,
+        let children = vortex_array::serde::SynchronousArrayChildren::new(children);
+        vortex_array::serde::finish_deserialize(<Self as VTable>::deserialize_async(
+            self, dtype, len, metadata, buffers, &children, session,
         ))
+    }
+
+    fn deserialize_async<'a>(
+        &'a self,
+        dtype: &'a DType,
+        len: usize,
+        metadata: &'a [u8],
+        buffers: &'a [BufferHandle],
+        children: &'a dyn ArrayChildren,
+        session: &'a VortexSession,
+    ) -> vortex_array::serde::DeserializeFuture<'a, ArrayParts<Self>> {
+        Box::pin(async move {
+            let validity = if children.is_empty() {
+                Validity::from(dtype.nullability())
+            } else if children.len() == 1 {
+                let validity = children.get_async(0, &Validity::DTYPE, len).await?;
+                Validity::Array(validity)
+            } else {
+                vortex_bail!("ZstdArray expected 0 or 1 child, got {}", children.len());
+            };
+
+            let storage = FrameStorage::deserialize(metadata, buffers, &session.host_allocator())?;
+            let slots = smallvec![validity_to_child(&validity, len)];
+            let data = ZstdData::from_storage(storage, len);
+            Ok(ArrayParts::new(
+                self.clone(),
+                dtype.clone(),
+                len,
+                data,
+                slots,
+            ))
+        })
     }
 
     fn slot_name(_array: ArrayView<'_, Self>, idx: usize) -> String {

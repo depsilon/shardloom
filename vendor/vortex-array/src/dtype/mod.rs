@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright the Vortex contributors
+// Modified by ShardLoom on 2026-11-17: expose fallible borrowed dtype children.
+// Structural equality, hashing and final-owner cleanup now use iterative work.
 
 //! A type system for Vortex.
 //!
@@ -16,6 +18,7 @@
 #[cfg(feature = "arbitrary")]
 mod arbitrary;
 mod bigint;
+mod children;
 mod decimal;
 mod dtype_impl;
 pub mod extension;
@@ -23,13 +26,16 @@ mod f16;
 mod field;
 mod field_mask;
 mod field_names;
+mod formatting;
 mod map;
 mod native_dtype;
 mod nullability;
 mod ptype;
+mod release;
 pub mod serde;
 pub mod session;
 mod struct_;
+mod structural;
 mod union;
 
 use std::sync::Arc;
@@ -57,11 +63,7 @@ use std::sync::Arc;
 ///
 /// [`I32`]: PType::I32
 /// [`NonNullable`]: Nullability::NonNullable
-#[allow(
-    clippy::derived_hash_with_manual_eq,
-    reason = "manual PartialEq adds Arc::ptr_eq fast path only"
-)]
-#[derive(Debug, Clone, Eq, Hash)]
+#[derive(Clone, Eq)]
 pub enum DType {
     /// A logical null type.
     ///
@@ -138,48 +140,26 @@ pub enum DType {
     Extension(ExtDTypeRef),
 }
 
+impl Drop for DType {
+    fn drop(&mut self) {
+        release::release(self);
+    }
+}
+
 impl PartialEq for DType {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Null, Self::Null) => true,
-            (Self::Bool(a), Self::Bool(b)) => a == b,
-            (Self::Primitive(pa, na), Self::Primitive(pb, nb)) => pa == pb && na == nb,
-            (Self::Decimal(da, na), Self::Decimal(db, nb)) => da == db && na == nb,
-            (Self::Utf8(a), Self::Utf8(b)) => a == b,
-            (Self::Binary(a), Self::Binary(b)) => a == b,
-            (Self::List(da, na), Self::List(db, nb)) => {
-                na == nb && (Arc::ptr_eq(da, db) || da == db)
-            }
-            (Self::FixedSizeList(da, sa, na), Self::FixedSizeList(db, sb, nb)) => {
-                sa == sb && na == nb && (Arc::ptr_eq(da, db) || da == db)
-            }
-            (Self::Map(ma, na), Self::Map(mb, nb)) => na == nb && ma == mb,
-            // StructFields handles its own Arc::ptr_eq in its PartialEq impl.
-            (Self::Struct(a, na), Self::Struct(b, nb)) => na == nb && a == b,
-            // UnionVariants handles its own Arc::ptr_eq in its PartialEq impl.
-            (Self::Union(a, na), Self::Union(b, nb)) => na == nb && a == b,
-            (Self::Variant(a), Self::Variant(b)) => a == b,
-            (Self::Extension(a), Self::Extension(b)) => a == b,
-            // Every variant is listed in the first position so that adding a new
-            // variant produces a non-exhaustive match compile error.
-            (Self::Null, _)
-            | (Self::Bool(_), _)
-            | (Self::Primitive(..), _)
-            | (Self::Decimal(..), _)
-            | (Self::Utf8(_), _)
-            | (Self::Binary(_), _)
-            | (Self::List(..), _)
-            | (Self::FixedSizeList(..), _)
-            | (Self::Map(..), _)
-            | (Self::Struct(..), _)
-            | (Self::Union(..), _)
-            | (Self::Variant(_), _)
-            | (Self::Extension(_), _) => false,
-        }
+        structural::equal(self, other, false)
+    }
+}
+
+impl std::hash::Hash for DType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        structural::hash(self, state, false);
     }
 }
 
 pub use bigint::*;
+pub use children::DTypeChildren;
 pub use decimal::*;
 pub use dtype_impl::NativeDType;
 pub use f16::*;
