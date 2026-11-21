@@ -127,8 +127,10 @@ for `tiny-keccak`. These are admitted because they are permissive/open licenses
 pulled through Vortex/Arrow paths and do not introduce copied incompatible code
 or fallback execution.
 
-`RUSTSEC-2024-0436` for `paste 1.0.15` is waived in cargo-deny because it is an
-unmaintained transitive dependency through upstream Vortex/Arrow/parquet paths,
-`cargo audit` reports it as a warning, and no safe direct upgrade is available
-inside ShardLoom. The waiver must be removed when an upstream-compatible Vortex
-or transitive dependency update drops `paste`.
+`RUSTSEC-2024-0436` (`paste 1.0.15`), `RUSTSEC-2026-0543` (`chrono 0.4.45`), and
+`RUSTSEC-2026-0555` (`chrono-tz 0.10.4`) are waived in cargo-deny because each
+is an unmaintained transitive dependency through upstream Vortex/Arrow/Parquet/ORC
+paths, `cargo audit` reports them as warnings, and no newer upstream release or
+safe direct upgrade is available inside ShardLoom. Each waiver must be removed
+when an upstream-compatible Vortex or transitive dependency update drops the
+corresponding crate.

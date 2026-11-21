@@ -288,19 +288,19 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Complete source, runtime, installed-package and documentation acceptance.
   - [x] Complete ready-PR review, CI, merge and exact-main verification.
 
-- [ ] **Deep-traversal groundwork — PR checkpoint**
-  Status: PR checkpoint — implementation scope is closed at the maintainer's
-  November 17 request. [PR #1698](https://github.com/depsilon/shardloom/pull/1698)
-  is open and unmerged. Local source/provider checks pass; hosted checks have
-  reported provider-recipe/test compatibility, generated-document and dependency
-  advisory failures that remain required closeout work;
-  keep full deep-traversal acceptance open. Public nesting limits remain unchanged.
+- [x] **Deep-traversal groundwork — PR checkpoint**
+  Status: Complete (checkpoint closed) — [PR #1698](https://github.com/depsilon/shardloom/pull/1698)
+  merged as `abf1198a7` after all GitHub Actions PR checks passed (including
+  CodeQL, Python tests, Release readiness reports, Native test partitions, and
+  Native Python wheel acceptance; Cloudflare Workers retains the existing
+  maintainer exception). Keep full deep-traversal acceptance open; public
+  nesting limits remain unchanged.
   The [checkpoint and deferred scope](native-deep-traversal-checkpoint-2026-11-17.md)
   distinguish tested internal robustness from the still-unproven complete user workflow.
   Execution checklist:
   - [x] Complete current source/provider validation and package metadata; retain
     full hosted native/platform/package checks as separate required evidence.
-  - [ ] Open the ready PR and address review/check failures within this checkpoint.
+  - [x] Open the ready PR and address review/check failures within this checkpoint.
   - [x] Leave remaining deep traversal after Foundry integration.
 
 - [ ] **Shared native capability incorporation**
