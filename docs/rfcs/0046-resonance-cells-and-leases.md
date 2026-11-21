@@ -4,14 +4,26 @@
 
 ## Status
 
-Proposed design and Vortex-first provider review (November 21, 2026) under the
-[current queue](../architecture/phased-execution-plan.md#current-execution), following
-local retention of [RFC 0045 (Chrysalis)](0045-partial-native-source-coverage.md) and the
+Closed — runtime implementation not retained (pre-implementation attribution screen negative,
+November 21, 2026) under the [current queue](../architecture/phased-execution-plan.md#current-execution),
+following local retention of [RFC 0045 (Chrysalis)](0045-partial-native-source-coverage.md) and the
 [Chrysalis and Resonance design intake](../architecture/native-chrysalis-resonance-cells-2026-11-16.md).
-This RFC records architecture, provider classification, bounded interfaces, and the
-prospective attribution gate. It includes no runtime implementation, automatic request
-coalescing, fallback execution, package publication, performance claim, or closure of
-items 19/20 or CG-1–CG-23.
+Following the frozen matched release comparison (`164.593625 → 166.171249 ms`, `+0.96%`;
+[attribution screen report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)), zero
+Resonance runtime code is retained. Includes no automatic request coalescing, fallback execution,
+package publication, performance claim, or closure of items 19/20 or CG-1–CG-23.
+
+## Pre-implementation attribution outcome
+
+On November 21, 2026, the prototype `ResonanceCoordinator` / `ResonanceCell` / `WindowBudget`
+harness passed all 9 unit tests covering shared `KeyColumn` / `ResolvedField` reuse, output parity,
+cancellation/`LIMIT` isolation, demand-scoped strict validation isolation, slow-reader backpressure,
+source generation invalidation, and zero-leak `LiveMemoryPool` cleanup. In the frozen release
+(`--release`) six-scenario `131,072`-row matched comparison over `ResidentVortexSession`, composed
+execution recorded `166,171,249` ns vs `164,593,625` ns independent (`+1,577,624` ns / `+0.96%`),
+improving only `utf8_high_card_overlap` (`-4.03%`) while regressing the other five scenarios.
+Per the prospective retain/drop gate below, prototype source files were reverted cleanly and runtime
+integration was declined.
 
 ## Summary and context
 

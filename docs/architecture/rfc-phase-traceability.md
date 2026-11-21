@@ -16,12 +16,14 @@ Status words in historical sections below describe evidence recorded at the time
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
 The November 21 [Resonance cells and leases proposal](../rfcs/0046-resonance-cells-and-leases.md)
-governs the queued live shared-preparation investigation within existing item 20, following
-local retention of Chrysalis (RFC 0045). RFCs 0013/0014/0015/0017/0031/0033/0044 continue to
-govern streaming, memory, semantics, recovery, I/O, workflows and resident ownership. CG-5/CG-8/
-CG-14/CG-15/CG-20/CG-21 retain their independent proof obligations, as do all CG-1 through CG-23
-gates. Attribution and prospective complete-workflow evidence remain required before implementation
-retention; no new phase or automatic cross-request coalescing is introduced.
+is closed with zero runtime code retained after its pre-implementation release attribution
+screen failed the retain gate (`164.593625 → 166.171249 ms`, `+0.96%`; see the
+[attribution screen report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)),
+following local retention of Chrysalis (RFC 0045). Prototype correctness, isolation and
+resource-release unit tests (`9/9`) passed prior to reverting the unretained prototype. RFCs
+0013/0014/0015/0017/0031/0033/0044 continue to govern streaming, memory, semantics, recovery,
+I/O, workflows and resident ownership, and all CG-1 through CG-23 gates retain their
+independent proof obligations with no phase or CG closure.
 
 The November 18 [partial native coverage design](../rfcs/0045-partial-native-source-coverage.md)
 governs the locally retained Chrysalis investigation within existing item 20. RFCs

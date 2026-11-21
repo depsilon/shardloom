@@ -388,18 +388,21 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Implement the admitted bounded scope and complete-workflow acceptance.
   - [ ] Complete the enclosing batch's hosted acceptance.
 
-- [ ] **Resonance Cells and Leases**
-  Status: RFC and provider review drafted — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
-  records the Vortex-first provider review, bounded `ResonanceCell` / `ResonanceLease`
-  design (`MAX_LIVE_CELLS = 4`, shared live ceiling `min(16 MiB, grant / 8)`),
-  demand-scoped `SharedKeyColumn` / `NativeField` sharing, cancellation/`LIMIT`
-  isolation, and prospective two-consumer attribution gate, following local retention
-  of Chrysalis (RFC 0045) in the [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md).
-  No runtime code, attribution measurement, automatic request coalescing or speedup
-  claim is included yet.
+- [x] **Resonance Cells and Leases**
+  Status: Closed (not retained — attribution negative) — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
+  completed the Vortex-first provider review and pre-implementation attribution screen
+  ([benchmark report](../benchmarks/native-resonance-attribution-screen-2026-11-21.md)).
+  The frozen 6-scenario matched two-consumer comparison over `131,072` rows recorded
+  `164.593625 → 166.171249 ms` total engine time (`+1.577624 ms`, `+0.96%`), with 5 of 6
+  scenarios regressing (`utf8_high_card_overlap` `-4.03%`, `utf8_compound_overlap` `+5.58%`,
+  `numeric_overlap` `+4.18%`, `mixed_limit_overlap` `+0.38%`, `disjoint_control` `+3.94%`,
+  `single_consumer_control` `+2.63%`). Under RFC 0046's retain/drop gate, zero Resonance
+  runtime code was retained and prototype source files were reverted cleanly after verifying
+  the 9 isolation/cancellation/limit/resource-release unit tests passed. No phase or
+  CG-1–CG-23 gate closes; no speedup is claimed.
   Execution checklist:
   - [x] Complete the targeted RFC and existing-provider review.
-  - [ ] Verify shared preparation, cancellation, resource ownership and final release.
+  - [x] Verify shared preparation, cancellation, resource ownership and final release.
 
 - [ ] **Portable serverless execution**
   Status: Queued — follows shared-source acceptance and precedes Foundry integration.
