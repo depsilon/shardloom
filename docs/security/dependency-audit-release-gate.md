@@ -101,11 +101,19 @@ must be reported as `external_baseline_only`, not ShardLoom execution.
 
 ## Current Waivers
 
-The gate has one current advisory waiver: `RUSTSEC-2024-0436` for transitive
-`paste 1.0.15` through upstream Vortex/Arrow/parquet paths. The waiver is not a
-runtime fallback exception; it is a tracked unmaintained-dependency exception
-with no safe direct ShardLoom upgrade. Remove it once upstream dependency paths
-drop `paste`.
+The gate currently tracks three transitive unmaintained-dependency waivers in
+`deny.toml`, none of which is a vulnerability or runtime fallback exception and
+all of which lack a safe direct ShardLoom upgrade:
+
+- `RUSTSEC-2024-0436` for transitive `paste 1.0.15` through upstream
+  Vortex/Arrow/parquet paths (remove once upstream dependency paths drop
+  `paste`).
+- `RUSTSEC-2026-0543` for transitive `chrono 0.4.45` through upstream
+  Arrow/Parquet/ORC/Vortex paths (remove once upstream dependency paths migrate
+  off `chrono`).
+- `RUSTSEC-2026-0555` for transitive `chrono-tz 0.10.4` through upstream
+  Arrow/Parquet/Vortex paths (remove once upstream dependency paths migrate off
+  `chrono-tz`).
 
 The license allowlist includes `0BSD` and `CC0-1.0` for current permissive
 Vortex/Arrow transitive crates. GPL, LGPL, AGPL, SSPL, BUSL, proprietary,
