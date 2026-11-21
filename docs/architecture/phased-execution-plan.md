@@ -405,10 +405,14 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Verify shared preparation, cancellation, resource ownership and final release.
 
 - [ ] **Portable serverless execution**
-  Status: Queued — follows shared-source acceptance and precedes Foundry integration.
+  Status: Deliveries 1–2 locally verified — headless Rust worker, durable
+  preparation/result manifests, isolated attempt cleanup, atomic commit fencing and
+  retained-owner pinning implemented under [RFC 0047](../rfcs/0047-portable-serverless-worker-and-durable-artifacts.md);
+  Deliveries 3–5 (live serverless host, live-host routing/cost evidence, real remote
+  selective reader) remain open pending live host access.
   Use the [portable worker and durable-artifact contract](native-serverless-execution-2026-11-08.md).
   Execution checklist:
-  - [ ] Complete portable worker, artifact and policy foundations.
+  - [x] Complete portable worker, artifact and policy foundations.
   - [ ] Prove one explicitly selected host and selective-access stages.
 
 - [ ] **Foundry integration**

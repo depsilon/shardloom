@@ -27,6 +27,23 @@ pub use operation::{
     NativeArrowInput, NativeWorkflowDeclaration, PreparedNativeOperation,
 };
 
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+#[path = "portable_worker.rs"]
+pub mod portable_worker;
+#[cfg(all(
+    feature = "vortex-local-primitives",
+    feature = "vortex-write",
+    feature = "universal-format-io",
+    unix
+))]
+#[path = "portable_worker_store.rs"]
+pub mod portable_worker_store;
+
 #[cfg(test)]
 #[path = "native_command_admission_tests.rs"]
 mod command_admission_tests;
