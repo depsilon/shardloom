@@ -6,6 +6,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
+import importlib.util
 import io
 import os
 from pathlib import Path
@@ -18,8 +19,8 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "python" / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+if importlib.util.find_spec("shardloom") is None and str(SRC) not in sys.path:
+    sys.path.append(str(SRC))
 
 from shardloom.errors import ShardLoomError
 from shardloom.execution_resources import (
@@ -228,8 +229,11 @@ for forbidden in (
     assert forbidden not in sys.modules, f"unexpected eager import: {forbidden}"
 assert hasattr(foundry, "execute_foundry_transform")
 """
+        import shardloom as sl
+
         env = os.environ.copy()
-        env["PYTHONPATH"] = str(SRC)
+        if SRC.resolve() in Path(sl.__file__).resolve().parents:
+            env["PYTHONPATH"] = str(SRC)
         completed = subprocess.run(
             [sys.executable, "-c", script],
             cwd=ROOT,
