@@ -389,11 +389,16 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete the enclosing batch's hosted acceptance.
 
 - [ ] **Resonance Cells and Leases**
-  Status: Queued — follows Chrysalis acceptance.
-  The [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md)
-  then covers bounded shared live preparation for explicitly composed consumers.
+  Status: RFC and provider review drafted — [RFC 0046](../rfcs/0046-resonance-cells-and-leases.md)
+  records the Vortex-first provider review, bounded `ResonanceCell` / `ResonanceLease`
+  design (`MAX_LIVE_CELLS = 4`, shared live ceiling `min(16 MiB, grant / 8)`),
+  demand-scoped `SharedKeyColumn` / `NativeField` sharing, cancellation/`LIMIT`
+  isolation, and prospective two-consumer attribution gate, following local retention
+  of Chrysalis (RFC 0045) in the [shared-source extension](native-chrysalis-resonance-cells-2026-11-16.md).
+  No runtime code, attribution measurement, automatic request coalescing or speedup
+  claim is included yet.
   Execution checklist:
-  - [ ] Complete the targeted RFC and existing-provider review.
+  - [x] Complete the targeted RFC and existing-provider review.
   - [ ] Verify shared preparation, cancellation, resource ownership and final release.
 
 - [ ] **Portable serverless execution**
