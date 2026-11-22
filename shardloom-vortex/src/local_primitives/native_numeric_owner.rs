@@ -27,6 +27,78 @@ pub(super) struct NativeNumericOwner {
     float_policy: FloatPolicy,
 }
 
+#[derive(Clone, Copy)]
+enum BoundNumericValues<'a> {
+    U8(&'a [u8]),
+    U16(&'a [u16]),
+    U32(&'a [u32]),
+    U64(&'a [u64]),
+    I8(&'a [i8]),
+    I16(&'a [i16]),
+    I32(&'a [i32]),
+    I64(&'a [i64]),
+    F32(&'a [f32]),
+    F64(&'a [f64]),
+    F16(&'a [f16]),
+}
+
+/// Borrowed slice + optional validity mask for static, zero-allocation row dispatch.
+#[derive(Clone, Copy)]
+pub(super) struct BoundNumericColumn<'a> {
+    values: BoundNumericValues<'a>,
+    valid: Option<&'a Mask>,
+}
+
+impl BoundNumericColumn<'_> {
+    pub(super) fn len(self) -> usize {
+        match self.values {
+            BoundNumericValues::U8(values) => values.len(),
+            BoundNumericValues::U16(values) => values.len(),
+            BoundNumericValues::U32(values) => values.len(),
+            BoundNumericValues::U64(values) => values.len(),
+            BoundNumericValues::I8(values) => values.len(),
+            BoundNumericValues::I16(values) => values.len(),
+            BoundNumericValues::I32(values) => values.len(),
+            BoundNumericValues::I64(values) => values.len(),
+            BoundNumericValues::F32(values) => values.len(),
+            BoundNumericValues::F64(values) => values.len(),
+            BoundNumericValues::F16(values) => values.len(),
+        }
+    }
+
+    pub(super) fn is_valid_row(self, row: usize) -> Result<bool> {
+        if row >= self.len() {
+            return Err(failed("native typed row index was out of bounds"));
+        }
+        Ok(self.valid.is_none_or(|valid| valid.value(row)))
+    }
+
+    #[allow(clippy::cast_precision_loss)] // Matches integer_wide! widening semantics.
+    pub(super) fn numeric_at(self, row: usize) -> Result<Option<(f64, bool)>> {
+        if !self.is_valid_row(row)? {
+            return Ok(None);
+        }
+        Ok(Some(match self.values {
+            BoundNumericValues::U8(values) => (f64::from(values[row]), true),
+            BoundNumericValues::U16(values) => (f64::from(values[row]), true),
+            BoundNumericValues::U32(values) => (f64::from(values[row]), true),
+            BoundNumericValues::U64(values) => (values[row] as f64, true),
+            BoundNumericValues::I8(values) => (f64::from(values[row]), true),
+            BoundNumericValues::I16(values) => (f64::from(values[row]), true),
+            BoundNumericValues::I32(values) => (f64::from(values[row]), true),
+            BoundNumericValues::I64(values) => (values[row] as f64, true),
+            BoundNumericValues::F32(values) => {
+                (shardloom_core::float_policy::widen_f32(values[row]), false)
+            }
+            BoundNumericValues::F64(values) => (values[row], false),
+            BoundNumericValues::F16(values) => (
+                shardloom_core::float_policy::widen_f16_bits(values[row].to_bits()),
+                false,
+            ),
+        }))
+    }
+}
+
 // Physical type dispatch occurs once around each typed loop. Narrow values are
 // widened in registers only, with exact signedness and floating representation
 // as the previous Vec conversion.
@@ -359,55 +431,24 @@ impl NativeNumericOwner {
         Ok(())
     }
 
-    pub(super) fn bind_numeric_update(&self) -> super::bound_numeric_updates::RowKernel<'_> {
-        numeric_dispatch!(self, bind_numeric_update_typed)
-    }
-
-    fn bind_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(
-        &self,
-    ) -> super::bound_numeric_updates::RowKernel<'_> {
-        self.bind_typed_row_update::<T, ALL_VALID, _>(
-            super::SimpleAggregateState::update_direct_numeric_value,
-        )
-    }
-
-    pub(super) fn bind_compact_numeric_update(
-        &self,
-        count_only: bool,
-    ) -> super::bound_numeric_updates::RowKernel<'_, super::CompactAggregateMeasureValue> {
-        numeric_dispatch!(self, bind_compact_numeric_update_typed, count_only)
-    }
-
-    fn bind_compact_numeric_update_typed<T: Numeric, const ALL_VALID: bool>(
-        &self,
-        count_only: bool,
-    ) -> super::bound_numeric_updates::RowKernel<'_, super::CompactAggregateMeasureValue> {
-        if count_only {
-            self.bind_typed_row_update::<T, ALL_VALID, _>(|state, _, _| {
-                super::CompactAggregateMeasureValue::increment_count(state)
-            })
-        } else {
-            self.bind_typed_row_update::<T, ALL_VALID, _>(
-                super::CompactAggregateMeasureValue::add_numeric,
-            )
+    pub(super) fn bind_column(&self) -> BoundNumericColumn<'_> {
+        let values = match self.primitive.ptype() {
+            PType::U8 => BoundNumericValues::U8(self.primitive.as_slice::<u8>()),
+            PType::U16 => BoundNumericValues::U16(self.primitive.as_slice::<u16>()),
+            PType::U32 => BoundNumericValues::U32(self.primitive.as_slice::<u32>()),
+            PType::U64 => BoundNumericValues::U64(self.primitive.as_slice::<u64>()),
+            PType::I8 => BoundNumericValues::I8(self.primitive.as_slice::<i8>()),
+            PType::I16 => BoundNumericValues::I16(self.primitive.as_slice::<i16>()),
+            PType::I32 => BoundNumericValues::I32(self.primitive.as_slice::<i32>()),
+            PType::I64 => BoundNumericValues::I64(self.primitive.as_slice::<i64>()),
+            PType::F32 => BoundNumericValues::F32(self.primitive.as_slice::<f32>()),
+            PType::F64 => BoundNumericValues::F64(self.primitive.as_slice::<f64>()),
+            PType::F16 => BoundNumericValues::F16(self.primitive.as_slice::<f16>()),
+        };
+        BoundNumericColumn {
+            values,
+            valid: (!self.all_valid()).then_some(&self.valid),
         }
-    }
-
-    fn bind_typed_row_update<T: Numeric, const ALL_VALID: bool, State: 'static>(
-        &self,
-        update: impl Fn(&mut State, f64, bool) -> Result<()> + 'static,
-    ) -> super::bound_numeric_updates::RowKernel<'_, State> {
-        let values = self.primitive.as_slice::<T>();
-        let valid = &self.valid;
-        Box::new(move |state, row| {
-            let value = values
-                .get(row)
-                .ok_or_else(|| failed("native typed row index was out of bounds"))?;
-            if ALL_VALID || valid.value(row) {
-                update(state, value.widen().numeric(), T::Wide::INTEGER)?;
-            }
-            Ok(())
-        })
     }
 
     pub(super) fn update_compact_avg_count_block(

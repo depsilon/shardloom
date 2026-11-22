@@ -4,14 +4,17 @@
 use super::{
     AggregateDirectColumnAccessor, AggregateValueTransform, CompactAggregateMeasureSpec,
     CompactAggregateMeasureValue, CompactAggregateMeasures, Result, ShardLoomError,
-    SimpleAggregateFunction, SimpleAggregateState, SimpleAggregateStates,
+    SimpleAggregateFunction, SimpleAggregateStates, native_numeric_owner::BoundNumericColumn,
 };
 
-pub(super) type RowKernel<'a, State = SimpleAggregateState> =
-    Box<dyn Fn(&mut State, usize) -> Result<()> + 'a>;
+#[derive(Clone, Copy)]
+enum SimpleRowKernel<'a> {
+    CountStar { chunk_rows: usize },
+    Numeric(BoundNumericColumn<'a>),
+}
 
 pub(super) struct BoundNumericUpdates<'a> {
-    kernels: Vec<(usize, RowKernel<'a>)>,
+    kernels: Vec<(usize, SimpleRowKernel<'a>)>,
 }
 
 impl<'a> BoundNumericUpdates<'a> {
@@ -52,10 +55,8 @@ impl<'a> BoundNumericUpdates<'a> {
             {
                 return None;
             }
-            let kernel: RowKernel<'a> = match (state.function, state.column_index) {
-                (SimpleAggregateFunction::Count, None) => {
-                    Box::new(move |state, row| state.update_count_star_direct_row(row, chunk_rows))
-                }
+            let kernel = match (state.function, state.column_index) {
+                (SimpleAggregateFunction::Count, None) => SimpleRowKernel::CountStar { chunk_rows },
                 (SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg, Some(column)) => {
                     let AggregateDirectColumnAccessor::NativeNumeric(owner) =
                         accessors.get(column)?
@@ -65,7 +66,7 @@ impl<'a> BoundNumericUpdates<'a> {
                     if owner.len() != chunk_rows {
                         return None;
                     }
-                    owner.bind_numeric_update()
+                    SimpleRowKernel::Numeric(owner.bind_column())
                 }
                 _ => return None,
             };
@@ -77,15 +78,31 @@ impl<'a> BoundNumericUpdates<'a> {
     /// The caller supplies a clone of the template used at binding. Measure order
     /// and partial state on an error match the ordinary row updater.
     pub(super) fn update(&self, states: &mut SimpleAggregateStates, row: usize) -> Result<()> {
-        for (index, kernel) in &self.kernels {
-            kernel(&mut states.states[*index], row)?;
+        for &(index, kernel) in &self.kernels {
+            match kernel {
+                SimpleRowKernel::CountStar { chunk_rows } => {
+                    states.states[index].update_count_star_direct_row(row, chunk_rows)?;
+                }
+                SimpleRowKernel::Numeric(column) => {
+                    if let Some((numeric, integer_input)) = column.numeric_at(row)? {
+                        states.states[index].update_direct_numeric_value(numeric, integer_input)?;
+                    }
+                }
+            }
         }
         Ok(())
     }
 }
 
+#[derive(Clone, Copy)]
+enum CompactRowKernel<'a> {
+    CountStar,
+    CountColumn(BoundNumericColumn<'a>),
+    Numeric(BoundNumericColumn<'a>),
+}
+
 pub(super) struct BoundCompactNumericUpdates<'a> {
-    kernels: Vec<RowKernel<'a, CompactAggregateMeasureValue>>,
+    kernels: Vec<CompactRowKernel<'a>>,
 }
 
 impl<'a> BoundCompactNumericUpdates<'a> {
@@ -113,18 +130,19 @@ impl<'a> BoundCompactNumericUpdates<'a> {
         {
             return None;
         }
-        let mut kernels: Vec<RowKernel<'a, CompactAggregateMeasureValue>> =
-            Vec::with_capacity(specs.len());
+        let mut kernels = Vec::with_capacity(specs.len());
         for spec in specs {
-            let kernel: RowKernel<'a, CompactAggregateMeasureValue> = if let Some(column) =
-                spec.column_index
-            {
+            let kernel = if let Some(column) = spec.column_index {
                 let AggregateDirectColumnAccessor::NativeNumeric(owner) = &accessors[column] else {
                     unreachable!("complete native measure shape was admitted above")
                 };
-                owner.bind_compact_numeric_update(spec.function == SimpleAggregateFunction::Count)
+                if spec.function == SimpleAggregateFunction::Count {
+                    CompactRowKernel::CountColumn(owner.bind_column())
+                } else {
+                    CompactRowKernel::Numeric(owner.bind_column())
+                }
             } else {
-                Box::new(|state, _row| state.increment_count())
+                CompactRowKernel::CountStar
             };
             kernels.push(kernel);
         }
@@ -133,8 +151,20 @@ impl<'a> BoundCompactNumericUpdates<'a> {
 
     pub(super) fn update(&self, measures: &mut CompactAggregateMeasures, row: usize) -> Result<()> {
         debug_assert_eq!(self.kernels.len(), measures.values().len());
-        for (kernel, value) in self.kernels.iter().zip(measures.values_mut()) {
-            kernel(value, row)?;
+        for (&kernel, value) in self.kernels.iter().zip(measures.values_mut()) {
+            match kernel {
+                CompactRowKernel::CountStar => value.increment_count()?,
+                CompactRowKernel::CountColumn(column) => {
+                    if column.is_valid_row(row)? {
+                        value.increment_count()?;
+                    }
+                }
+                CompactRowKernel::Numeric(column) => {
+                    if let Some((numeric, integer_input)) = column.numeric_at(row)? {
+                        value.add_numeric(numeric, integer_input)?;
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -167,6 +197,8 @@ impl CompactAggregateMeasureValue {
     }
 }
 
+#[cfg(test)]
+use super::SimpleAggregateState;
 #[cfg(test)]
 #[path = "bound_numeric_updates_tests.rs"]
 mod tests;

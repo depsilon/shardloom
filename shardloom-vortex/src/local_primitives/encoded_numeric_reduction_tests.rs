@@ -609,3 +609,101 @@ fn encoded_numeric_reduction_measured_native_scalar_consumers() {
         serde_json::json!({"rows":rows,"logical_width_bytes":8,"run_values":2,"trials":trials,"scope":"native_scalar_consumer_plus_array_canonicalization_only;alternating_order;not_file_or_process_time;no_zero_decode_or_RSS_claim"})
     );
 }
+
+fn assert_large_constant_time_reduction(
+    array: &ArrayRef,
+    columns: &[String],
+    functions: &[&str],
+    offset: Option<i64>,
+    expected_rows: u64,
+    expected_values: &[serde_json::Value],
+    ctx: &mut ExecutionCtx,
+) -> SimpleAggregateStates {
+    let mut aggregate = states(functions, columns);
+    if let Some(offset) = offset {
+        for state in &mut aggregate.states {
+            if matches!(
+                state.function,
+                SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+            ) {
+                state.argument_offset = Some(offset);
+            }
+        }
+    }
+    let mut work = NativeNumericAccessorWork::default();
+    assert!(update(&mut aggregate, array, columns, None, &mut work, ctx).unwrap());
+    let actual: Vec<_> = aggregate
+        .states
+        .iter()
+        .map(|state| state.result_json().unwrap())
+        .collect();
+    assert_eq!(actual, expected_values);
+    assert_eq!(work.encoded_reduction.logical_rows, expected_rows);
+    assert!(work.encoded_reduction.weighted_value_visits <= 2);
+    aggregate
+}
+
+#[test]
+fn encoded_numeric_reduction_large_integer_runs_compute_sum_and_avg_in_constant_time() {
+    let columns = vec!["value".to_owned()];
+    let mut ctx = vortex::session::VortexSession::empty().create_execution_ctx();
+    let rows = 100_000_000_u64;
+    let runs = RunEnd::try_new(
+        PrimitiveArray::new(vec![50_000_000_u64, rows], Validity::NonNullable).into_array(),
+        PrimitiveArray::new(vec![7_i64, -2], Validity::NonNullable).into_array(),
+        &mut ctx,
+    )
+    .unwrap()
+    .into_array();
+    let functions = ["count", "sum", "avg", "min", "max", "count_distinct"];
+    assert_large_constant_time_reduction(
+        &runs,
+        &columns,
+        &functions,
+        None,
+        rows,
+        &[
+            serde_json::json!(rows),
+            serde_json::json!(250_000_000.0),
+            serde_json::json!(2.5),
+            serde_json::json!(-2),
+            serde_json::json!(7),
+            serde_json::json!(2),
+        ],
+        &mut ctx,
+    );
+
+    let constant = ConstantArray::new(5_i64, usize::try_from(rows).unwrap()).into_array();
+    assert_large_constant_time_reduction(
+        &constant,
+        &columns,
+        &functions,
+        None,
+        rows,
+        &[
+            serde_json::json!(rows),
+            serde_json::json!(500_000_000.0),
+            serde_json::json!(5.0),
+            serde_json::json!(5),
+            serde_json::json!(5),
+            serde_json::json!(1),
+        ],
+        &mut ctx,
+    );
+
+    let fused = assert_large_constant_time_reduction(
+        &runs,
+        &columns,
+        &["sum", "sum", "avg", "count"],
+        Some(1),
+        rows,
+        &[
+            serde_json::json!(350_000_000.0),
+            serde_json::json!(350_000_000.0),
+            serde_json::json!(3.5),
+            serde_json::json!(rows),
+        ],
+        &mut ctx,
+    );
+    assert!(fused.fused_numeric_additive_updates);
+}
