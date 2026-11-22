@@ -78,11 +78,11 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         "dependency": "regex",
         "expected_manifest": "shardloom-core/Cargo.toml",
         "expected_manifest_version": "1.13.1",
-        "expected_lock_versions": {"regex": "1.13.1"},
+        "expected_lock_versions": {"regex": "1.13.2"},
         "review_doc": "docs/dependencies/structured-format-dependency-review.md",
         "review_markers": [
             "Dependabot PR <https://github.com/depsilon/shardloom/pull/1392>",
-            "regex = 1.13.1",
+            "regex = 1.13.2",
             "MIT OR Apache-2.0",
             "fallback execution",
         ],
@@ -116,16 +116,16 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
     1153: {
         "dependency": "rusqlite",
         "expected_manifest": "shardloom-cli/Cargo.toml",
-        "expected_manifest_version": "0.41.1",
+        "expected_manifest_version": "0.43.0",
         "expected_lock_versions": {
-            "rusqlite": "0.41.1",
-            "libsqlite3-sys": "0.39.1",
+            "rusqlite": "0.43.0",
+            "libsqlite3-sys": "0.40.0",
         },
         "review_doc": "docs/dependencies/sqlite-rusqlite-dependency-review.md",
         "review_markers": [
             "https://github.com/depsilon/shardloom/pull/1153",
-            "rusqlite = 0.41.1",
-            "libsqlite3-sys = 0.39.1",
+            "rusqlite = 0.43.0",
+            "libsqlite3-sys = 0.40.0",
             "default-features = false",
             "features = [\"bundled\"]",
             "fallback execution",
@@ -136,6 +136,20 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
 # Historical intake IDs and superseding patch PRs share the reviewed current
 # graph. Each new PR also requires its own recorded review reference.
 ADMITTED_DEPENDABOT_PRS.update({
+    1705: {
+        **ADMITTED_DEPENDABOT_PRS[1153],
+        "review_markers": [
+            *ADMITTED_DEPENDABOT_PRS[1153]["review_markers"],
+            "https://github.com/depsilon/shardloom/pull/1705",
+        ],
+    },
+    1701: {
+        **ADMITTED_DEPENDABOT_PRS[1392],
+        "review_markers": [
+            *ADMITTED_DEPENDABOT_PRS[1392]["review_markers"],
+            "https://github.com/depsilon/shardloom/pull/1701",
+        ],
+    },
     1636: {
         **ADMITTED_DEPENDABOT_PRS[1153],
         "review_markers": [
