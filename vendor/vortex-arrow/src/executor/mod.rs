@@ -48,19 +48,34 @@ use crate::executor::bool::to_arrow_bool;
 use crate::executor::byte::to_arrow_byte_array;
 use crate::executor::byte_view::to_arrow_byte_view;
 use crate::executor::decimal::to_arrow_decimal;
-use crate::executor::dictionary::to_arrow_dictionary;
-use crate::executor::fixed_size_list::to_arrow_fixed_list;
-use crate::executor::list::to_arrow_list;
-use crate::executor::list_view::to_arrow_list_view;
-use crate::executor::map::to_arrow_map;
+use crate::executor::dictionary::DictExportFrame;
+use crate::executor::dictionary::start_arrow_dictionary;
+use crate::executor::dictionary::step_arrow_dictionary;
+use crate::executor::fixed_size_list::FixedSizeListExportFrame;
+use crate::executor::fixed_size_list::finish_arrow_fixed_list;
+use crate::executor::fixed_size_list::start_arrow_fixed_list;
+use crate::executor::list::ListExportFrame;
+use crate::executor::list::finish_arrow_list;
+use crate::executor::list::start_arrow_list;
+use crate::executor::list_view::ListViewExportFrame;
+use crate::executor::list_view::finish_arrow_list_view;
+use crate::executor::list_view::start_arrow_list_view;
+use crate::executor::map::MapExportFrame;
+use crate::executor::map::finish_arrow_map;
+use crate::executor::map::start_arrow_map;
 use crate::executor::null::to_arrow_null;
 use crate::executor::primitive::to_arrow_primitive;
-use crate::executor::run_end::to_arrow_run_end;
-use crate::executor::struct_::to_arrow_struct;
+use crate::executor::run_end::RunEndExportFrame;
+use crate::executor::run_end::start_arrow_run_end;
+use crate::executor::run_end::step_arrow_run_end;
+use crate::executor::struct_::StructExportFrame;
+use crate::executor::struct_::start_arrow_struct;
+use crate::executor::struct_::step_arrow_struct;
 use crate::executor::temporal::to_arrow_date;
 use crate::executor::temporal::to_arrow_time;
 use crate::executor::temporal::to_arrow_timestamp;
 use crate::session::ArrowSessionExt;
+use crate::session::ExecuteArrowPrep;
 
 /// Trait for executing a Vortex array to produce an Arrow array.
 #[deprecated(note = "Use an `ArrowSession` to perform conversions to/from Arrow arrays")]
@@ -119,25 +134,231 @@ impl ArrowArrayExecutor for ArrayRef {
     }
 }
 
-/// Execute an arbitrary Vortex array into an Arrow array, dispatched by [`DataType`]. This pathway
-/// is naive to any extension type information, and only seeks to map canonical Vortex arrays to
-/// some target Arrow physical encoding.
-///
-/// Public callers should go through the `ArrowSession` instead.
-pub(crate) fn execute_arrow_naive(
+pub(crate) enum ExportTask {
+    WithField {
+        array: ArrayRef,
+        target: Option<Field>,
+    },
+    Naive {
+        array: ArrayRef,
+        data_type: Option<DataType>,
+    },
+}
+
+enum ExportFrame {
+    AssertLen(usize),
+    Struct(StructExportFrame),
+    List32(ListExportFrame<i32>),
+    List64(ListExportFrame<i64>),
+    ListView32(ListViewExportFrame<i32>),
+    ListView64(ListViewExportFrame<i64>),
+    FixedSizeList(FixedSizeListExportFrame),
+    Map(MapExportFrame),
+    Dict(DictExportFrame),
+    RunEnd(RunEndExportFrame),
+}
+
+impl From<StructExportFrame> for ExportFrame {
+    fn from(frame: StructExportFrame) -> Self {
+        Self::Struct(frame)
+    }
+}
+
+impl From<ListExportFrame<i32>> for ExportFrame {
+    fn from(frame: ListExportFrame<i32>) -> Self {
+        Self::List32(frame)
+    }
+}
+
+impl From<ListExportFrame<i64>> for ExportFrame {
+    fn from(frame: ListExportFrame<i64>) -> Self {
+        Self::List64(frame)
+    }
+}
+
+impl From<ListViewExportFrame<i32>> for ExportFrame {
+    fn from(frame: ListViewExportFrame<i32>) -> Self {
+        Self::ListView32(frame)
+    }
+}
+
+impl From<ListViewExportFrame<i64>> for ExportFrame {
+    fn from(frame: ListViewExportFrame<i64>) -> Self {
+        Self::ListView64(frame)
+    }
+}
+
+impl From<FixedSizeListExportFrame> for ExportFrame {
+    fn from(frame: FixedSizeListExportFrame) -> Self {
+        Self::FixedSizeList(frame)
+    }
+}
+
+impl From<MapExportFrame> for ExportFrame {
+    fn from(frame: MapExportFrame) -> Self {
+        Self::Map(frame)
+    }
+}
+
+impl From<DictExportFrame> for ExportFrame {
+    fn from(frame: DictExportFrame) -> Self {
+        Self::Dict(frame)
+    }
+}
+
+impl From<RunEndExportFrame> for ExportFrame {
+    fn from(frame: RunEndExportFrame) -> Self {
+        Self::RunEnd(frame)
+    }
+}
+
+#[expect(
+    clippy::large_enum_variant,
+    reason = "short-lived iterator step; stacked frames live in Vec"
+)]
+enum ExportStep {
+    Done(ArrowArrayRef),
+    Descend {
+        frame: ExportFrame,
+        task: ExportTask,
+    },
+}
+
+/// Drive Arrow export iteratively with an explicit frame stack so arbitrarily deep nested arrays
+/// execute without overflowing the call stack.
+pub(crate) fn run_export(
+    exporter: &ArrowExporter<'_>,
+    initial: ExportTask,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<ArrowArrayRef> {
+    let mut stack: Vec<ExportFrame> = Vec::new();
+    let mut current_task = initial;
+
+    loop {
+        let mut step = match current_task {
+            ExportTask::WithField { array, target } => {
+                match exporter.prepare_execute_arrow(array, target.as_ref(), ctx)? {
+                    ExecuteArrowPrep::Done(arrow) => ExportStep::Done(arrow),
+                    ExecuteArrowPrep::Naive { array, data_type } => start_execute_arrow_naive(
+                        array,
+                        data_type.as_ref(),
+                        exporter,
+                        &mut stack,
+                        ctx,
+                    )?,
+                }
+            }
+            ExportTask::Naive { array, data_type } => {
+                start_execute_arrow_naive(array, data_type.as_ref(), exporter, &mut stack, ctx)?
+            }
+        };
+
+        loop {
+            match step {
+                ExportStep::Descend { frame, task } => {
+                    stack.push(frame);
+                    current_task = task;
+                    break;
+                }
+                ExportStep::Done(arrow) => match stack.pop() {
+                    Some(frame) => {
+                        step = advance_export_frame(frame, arrow, ctx)?;
+                    }
+                    None => return Ok(arrow),
+                },
+            }
+        }
+    }
+}
+
+fn advance_export_frame(
+    frame: ExportFrame,
+    completed: ArrowArrayRef,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<ExportStep> {
+    match frame {
+        ExportFrame::AssertLen(len) => {
+            vortex_ensure_eq!(
+                completed.len(),
+                len,
+                "Arrow array length does not match Vortex array length after conversion to {:?}",
+                completed
+            );
+            Ok(ExportStep::Done(completed))
+        }
+        ExportFrame::Struct(struct_frame) => step_arrow_struct(struct_frame, completed, ctx),
+        ExportFrame::List32(list_frame) => {
+            finish_arrow_list::<i32>(list_frame, completed).map(ExportStep::Done)
+        }
+        ExportFrame::List64(list_frame) => {
+            finish_arrow_list::<i64>(list_frame, completed).map(ExportStep::Done)
+        }
+        ExportFrame::ListView32(list_frame) => {
+            finish_arrow_list_view::<i32>(list_frame, completed, ctx).map(ExportStep::Done)
+        }
+        ExportFrame::ListView64(list_frame) => {
+            finish_arrow_list_view::<i64>(list_frame, completed, ctx).map(ExportStep::Done)
+        }
+        ExportFrame::FixedSizeList(fsl_frame) => {
+            finish_arrow_fixed_list(fsl_frame, completed).map(ExportStep::Done)
+        }
+        ExportFrame::Map(map_frame) => finish_arrow_map(map_frame, completed).map(ExportStep::Done),
+        ExportFrame::Dict(dict_frame) => step_arrow_dictionary(dict_frame, completed),
+        ExportFrame::RunEnd(run_end_frame) => step_arrow_run_end(run_end_frame, completed),
+    }
+}
+
+fn start_execute_arrow_naive(
     array: ArrayRef,
     data_type: Option<&DataType>,
     exporter: &ArrowExporter<'_>,
+    stack: &mut Vec<ExportFrame>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep> {
     let len = array.len();
-
     let resolved_type: DataType = match data_type {
         Some(dt) => dt.clone(),
         None => infer_nearest_arrow_type(&array, ctx)?,
     };
 
-    let arrow = match &resolved_type {
+    stack.push(ExportFrame::AssertLen(len));
+
+    match &resolved_type {
+        DataType::List(elements_field) => start_arrow_list::<i32>(array, elements_field, ctx),
+        DataType::LargeList(elements_field) => start_arrow_list::<i64>(array, elements_field, ctx),
+        DataType::FixedSizeList(elements_field, list_size) => {
+            start_arrow_fixed_list(array, *list_size, elements_field, ctx)
+        }
+        DataType::ListView(elements_field) => {
+            start_arrow_list_view::<i32>(array, elements_field, ctx)
+        }
+        DataType::LargeListView(elements_field) => {
+            start_arrow_list_view::<i64>(array, elements_field, ctx)
+        }
+        DataType::Struct(fields) => {
+            let fields = data_type.map(|_| fields);
+            start_arrow_struct(array, fields, ctx)
+        }
+        DataType::Dictionary(codes_type, values_type) => {
+            start_arrow_dictionary(array, codes_type, values_type, ctx)
+        }
+        DataType::RunEndEncoded(ends_type, values_type) => {
+            start_arrow_run_end(array, ends_type.data_type(), values_type, ctx)
+        }
+        DataType::Map(entries_field, keys_sorted) => {
+            start_arrow_map(array, entries_field, *keys_sorted, stack, ctx)
+        }
+        _ => execute_arrow_leaf(array, &resolved_type, exporter, ctx).map(ExportStep::Done),
+    }
+}
+
+fn execute_arrow_leaf(
+    array: ArrayRef,
+    resolved_type: &DataType,
+    exporter: &ArrowExporter<'_>,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<ArrowArrayRef> {
+    match resolved_type {
         DataType::Null => to_arrow_null(array, ctx),
         DataType::Boolean => to_arrow_bool(array, ctx),
         DataType::Int8 => to_arrow_primitive::<Int8Type>(array, ctx),
@@ -157,68 +378,15 @@ pub(crate) fn execute_arrow_naive(
         DataType::LargeUtf8 => to_arrow_byte_array::<LargeUtf8Type>(array, ctx),
         DataType::BinaryView => to_arrow_byte_view::<BinaryViewType>(array, exporter, ctx),
         DataType::Utf8View => to_arrow_byte_view::<StringViewType>(array, exporter, ctx),
-        // TODO(joe): pass down preferred
-        DataType::List(elements_field) => {
-            to_arrow_list::<i32>(array, elements_field, exporter, ctx)
-        }
-        // TODO(joe): pass down preferred
-        DataType::LargeList(elements_field) => {
-            to_arrow_list::<i64>(array, elements_field, exporter, ctx)
-        }
-        // TODO(joe): pass down preferred
-        DataType::FixedSizeList(elements_field, list_size) => {
-            to_arrow_fixed_list(array, *list_size, elements_field, exporter, ctx)
-        }
-        // TODO(joe): pass down preferred
-        DataType::ListView(elements_field) => {
-            to_arrow_list_view::<i32>(array, elements_field, exporter, ctx)
-        }
-        // TODO(joe): pass down preferred
-        DataType::LargeListView(elements_field) => {
-            to_arrow_list_view::<i64>(array, elements_field, exporter, ctx)
-        }
-        DataType::Struct(fields) => {
-            let fields = if data_type.is_none() {
-                None
-            } else {
-                Some(fields)
-            };
-            to_arrow_struct(array, fields, exporter, ctx)
-        }
-        // TODO(joe): pass down preferred
-        DataType::Dictionary(codes_type, values_type) => {
-            to_arrow_dictionary(array, codes_type, values_type, exporter, ctx)
-        }
-        dt @ DataType::Decimal32(..) => to_arrow_decimal(array, dt, ctx),
-        dt @ DataType::Decimal64(..) => to_arrow_decimal(array, dt, ctx),
-        dt @ DataType::Decimal128(..) => to_arrow_decimal(array, dt, ctx),
-        dt @ DataType::Decimal256(..) => to_arrow_decimal(array, dt, ctx),
-        // TODO(joe): pass down preferred
-        DataType::RunEndEncoded(ends_type, values_type) => {
-            to_arrow_run_end(array, ends_type.data_type(), values_type, exporter, ctx)
-        }
+        dt @ (DataType::Decimal32(..)
+        | DataType::Decimal64(..)
+        | DataType::Decimal128(..)
+        | DataType::Decimal256(..)) => to_arrow_decimal(array, dt, ctx),
         dt @ (DataType::Date32 | DataType::Date64) => to_arrow_date(array, dt, ctx),
         dt @ (DataType::Time32(_) | DataType::Time64(_)) => to_arrow_time(array, dt, ctx),
         dt @ DataType::Timestamp(..) => to_arrow_timestamp(array, dt, ctx),
-        DataType::Map(entries_field, keys_sorted) => {
-            to_arrow_map(array, entries_field, *keys_sorted, exporter, ctx)
-        }
-        DataType::FixedSizeBinary(_)
-        | DataType::Duration(_)
-        | DataType::Interval(_)
-        | DataType::Union(..) => {
-            vortex_bail!("Conversion to Arrow type {resolved_type} is not supported");
-        }
-    }?;
-
-    vortex_ensure_eq!(
-        arrow.len(),
-        len,
-        "Arrow array length does not match Vortex array length after conversion to {:?}",
-        arrow
-    );
-
-    Ok(arrow)
+        _ => vortex_bail!("Conversion to Arrow type {resolved_type} is not supported"),
+    }
 }
 
 /// Determine the preferred (cheapest) Arrow type for an array.
@@ -228,41 +396,6 @@ pub(crate) fn execute_arrow_naive(
 /// - `VarBinArray`: Uses `Utf8`/`Binary` (offset-based) instead of `Utf8View`/`BinaryView`
 /// - `ListArray`: Uses `List` instead of `ListView`
 fn infer_nearest_arrow_type(array: &ArrayRef, ctx: &mut ExecutionCtx) -> VortexResult<DataType> {
-    // VarBinArray: use offset-based Binary/Utf8 instead of View types
-    if let Some(varbin) = array.as_opt::<VarBin>() {
-        let offsets_ptype = PType::try_from(varbin.offsets().dtype())?;
-        let use_large = matches!(offsets_ptype, PType::I64 | PType::U64);
-
-        return Ok(match (varbin.dtype(), use_large) {
-            (DType::Utf8(_), false) => DataType::Utf8,
-            (DType::Utf8(_), true) => DataType::LargeUtf8,
-            (DType::Binary(_), false) => DataType::Binary,
-            (DType::Binary(_), true) => DataType::LargeBinary,
-            _ => unreachable!("VarBinArray must have Utf8 or Binary dtype"),
-        });
-    }
-
-    // ListArray: use List with appropriate offset size
-    if let Some(list) = array.as_opt::<List>() {
-        let offsets_ptype = PType::try_from(list.offsets().dtype())?;
-        let use_large = matches!(offsets_ptype, PType::I64 | PType::U64);
-        // Recursively get the preferred field for elements, so extension elements keep the
-        // `ARROW:extension:name` metadata their export plugin assigns.
-        let field = FieldRef::new(infer_nearest_arrow_field(
-            list.elements(),
-            Field::LIST_FIELD_DEFAULT_NAME,
-            ctx,
-        )?);
-
-        return Ok(if use_large {
-            DataType::LargeList(field)
-        } else {
-            DataType::List(field)
-        });
-    }
-
-    // Everything else: defer to the session's canonical conversion, which additionally resolves
-    // extension dtypes (including ones nested inside containers) through their export plugins.
     Ok(infer_nearest_arrow_field(array, "", ctx)?
         .data_type()
         .clone())
@@ -277,16 +410,55 @@ pub(crate) fn infer_nearest_arrow_field(
     name: &str,
     ctx: &mut ExecutionCtx,
 ) -> VortexResult<Field> {
-    // Only the encodings with a cheaper-than-canonical Arrow type need the inference; every other
-    // dtype goes through the session, which is the only thing that knows how to map extensions.
-    if array.is::<VarBin>() || array.is::<List>() {
-        let data_type = infer_nearest_arrow_type(array, ctx)?;
-        return Ok(Field::new(name, data_type, array.dtype().is_nullable()));
+    let mut layers = Vec::new();
+    let mut cur = array.clone();
+    while let Some(list) = cur.as_opt::<List>() {
+        let offsets_ptype = PType::try_from(list.offsets().dtype())?;
+        let use_large = matches!(offsets_ptype, PType::I64 | PType::U64);
+        let elem = list.elements().clone();
+        layers.push((use_large, list.dtype().is_nullable()));
+        cur = elem;
     }
-    ctx.session()
-        .clone()
-        .arrow()
-        .to_arrow_field(name, array.dtype())
+
+    let leaf_name = if layers.is_empty() {
+        name
+    } else {
+        Field::LIST_FIELD_DEFAULT_NAME
+    };
+    let mut field = if let Some(varbin) = cur.as_opt::<VarBin>() {
+        let offsets_ptype = PType::try_from(varbin.offsets().dtype())?;
+        let use_large = matches!(offsets_ptype, PType::I64 | PType::U64);
+        let data_type = match (varbin.dtype(), use_large) {
+            (DType::Utf8(_), false) => DataType::Utf8,
+            (DType::Utf8(_), true) => DataType::LargeUtf8,
+            (DType::Binary(_), false) => DataType::Binary,
+            (DType::Binary(_), true) => DataType::LargeBinary,
+            _ => unreachable!("VarBinArray must have Utf8 or Binary dtype"),
+        };
+        Field::new(leaf_name, data_type, cur.dtype().is_nullable())
+    } else {
+        ctx.session()
+            .clone()
+            .arrow()
+            .to_arrow_field(leaf_name, cur.dtype())?
+    };
+
+    for (idx, (use_large, nullable)) in layers.into_iter().enumerate().rev() {
+        let wrapper_name = if idx == 0 {
+            name
+        } else {
+            Field::LIST_FIELD_DEFAULT_NAME
+        };
+        let elem = FieldRef::new(field);
+        let data_type = if use_large {
+            DataType::LargeList(elem)
+        } else {
+            DataType::List(elem)
+        };
+        field = Field::new(wrapper_name, data_type, nullable);
+    }
+
+    Ok(field)
 }
 
 #[cfg(test)]
@@ -400,5 +572,61 @@ mod tests {
         let result = SESSION.arrow().execute_arrow(array, Some(&field), &mut ctx);
 
         assert_eq!(result.unwrap().to_data(), expected.to_data());
+    }
+
+    mod deep_tests {
+        use std::thread;
+
+        use arrow_array::Array as ArrowArray;
+        use arrow_array::ArrayRef as ArrowArrayRef;
+        use vortex_array::ArrayRef;
+        use vortex_array::IntoArray;
+        use vortex_array::VortexSessionExecute;
+        use vortex_array::arrays::ListArray;
+        use vortex_array::arrays::PrimitiveArray;
+        use vortex_array::arrays::VarBinArray;
+        use vortex_array::dtype::DType;
+        use vortex_array::dtype::Nullability;
+        use vortex_array::validity::Validity;
+        use vortex_error::VortexResult;
+        use vortex_error::vortex_err;
+
+        use super::SESSION;
+        use crate::ArrowSessionExt;
+        use crate::executor::infer_nearest_arrow_field;
+
+        #[test]
+        fn deep_infer_and_execute_list_varbin_on_small_stack() -> VortexResult<()> {
+            let depth = 2048;
+            let mut build_ctx = SESSION.create_execution_ctx();
+            let mut array: ArrayRef = VarBinArray::from_vec(
+                vec!["alpha", "beta"],
+                DType::Utf8(Nullability::NonNullable),
+            )
+            .into_array();
+            for _ in 0..depth {
+                let offsets = PrimitiveArray::from_iter([0i32, 1, 2]).into_array();
+                array = ListArray::try_new(array, offsets, Validity::NonNullable, &mut build_ctx)?
+                    .into_array();
+            }
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<ArrowArrayRef> {
+                    let mut ctx = SESSION.create_execution_ctx();
+                    let inferred = infer_nearest_arrow_field(&array, "root", &mut ctx)?;
+                    assert_eq!(inferred.name(), "root");
+                    let arrow = SESSION.arrow().execute_arrow(array, None, &mut ctx)?;
+                    assert_eq!(arrow.len(), 2);
+                    Ok(arrow)
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let arrow = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert_eq!(arrow.len(), 2);
+            Ok(())
+        }
     }
 }

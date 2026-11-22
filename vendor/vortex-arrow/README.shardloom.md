@@ -38,3 +38,13 @@ shredded coordinates, empty nullable/nonnullable inputs and rejected targets.
 ShardLoom's integration tests additionally exercise the actual
 Parquet Variant provider, complete raw/shredded values and final-child ownership.
 The consumer admits and retains the terminal conversion memory separately.
+
+Subsequent deep-traversal completion replaces recursive schema, naive dtype,
+`Scalar::to_arrow_datum` (`Map`), canonical `convert::{from_arrow_dyn, remove_nulls}`,
+and `ArrowSession` / `ArrowExporter::execute_arrow` container import/export paths
+(`Struct`, `List`, `LargeList`, `FixedSizeList`, `ListView`, `LargeListView`, `Map`,
+`Dictionary`, `RunEndEncoded`, extension wrapping) with explicit heap worklists
+(`src/{dtype,scalar,convert,run_end_import,session}.rs`,
+`src/executor/{mod,dictionary,fixed_size_list,list,list_view,map,run_end,struct_}.rs`),
+verified with 128-KiB small-stack tests up to depth 2,048, shallow parity checks, and
+error-unwind assertions.

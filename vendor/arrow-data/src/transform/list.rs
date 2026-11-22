@@ -16,7 +16,7 @@
 // under the License.
 
 use super::{
-    _MutableArrayData, Extend,
+    _MutableArrayData, ChildExtendNullsTask, ChildExtendTask, Extend,
     utils::{get_last_offset, try_extend_offsets},
 };
 use crate::ArrayData;
@@ -30,7 +30,11 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
 ) -> Extend<'_> {
     let offsets = array.buffer::<T>(0);
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             let offset_buffer = &mut mutable.buffer1;
 
             // this is safe due to how offset is built. See details on `get_last_offset`
@@ -39,11 +43,14 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
             // offsets
             try_extend_offsets::<T>(offset_buffer, last_offset, &offsets[start..start + len + 1])?;
 
-            mutable.child_data[0].try_extend(
-                index,
-                offsets[start].as_usize(),
-                offsets[start + len].as_usize(),
-            )
+            tasks.push(ChildExtendTask {
+                child_idx: 0,
+                array_idx: index,
+                start: offsets[start].as_usize(),
+                end: offsets[start + len].as_usize(),
+                wrap_struct_col: false,
+            });
+            Ok(())
         },
     )
 }
@@ -51,6 +58,7 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd>(
 pub(super) fn extend_nulls<T: ArrowNativeType>(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), ArrowError> {
     let offset_buffer = &mut mutable.buffer1;
 

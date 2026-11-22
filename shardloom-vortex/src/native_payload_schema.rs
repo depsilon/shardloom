@@ -513,7 +513,7 @@ pub(crate) fn arrow_metadata_bytes<'a>(
     scope: impl Into<Scope<'a>>,
 ) -> Result<u64> {
     let mut budget = Budget::new(scope.into())?;
-    visit_arrow(dtype, 0, &mut budget)?;
+    visit_arrow_worklist(ArrowWork::Plain(dtype, 0), &mut budget)?;
     Ok(budget.credit.bytes())
 }
 
@@ -525,7 +525,7 @@ pub(crate) fn arrow_field_metadata_bytes<'a>(
     scope: impl Into<Scope<'a>>,
 ) -> Result<u64> {
     let mut budget = Budget::new(scope.into())?;
-    visit_arrow_field(field, 0, &mut budget)?;
+    visit_arrow_worklist(ArrowWork::Field(field, 0), &mut budget)?;
     Ok(budget.credit.bytes())
 }
 
@@ -537,13 +537,16 @@ pub(crate) fn arrow_declared_storage_bytes<'a>(
     scope: impl Into<Scope<'a>>,
 ) -> Result<u64> {
     let mut budget = Budget::new(scope.into())?;
-    visit_arrow_storage(field, 0, &mut budget)?;
+    visit_arrow_worklist(ArrowWork::Storage(field, 0), &mut budget)?;
     Ok(budget.credit.bytes())
 }
 
 #[cfg(feature = "universal-format-io")]
 pub(crate) fn validate_arrow_declared_storage(field: &arrow_schema::Field) -> Result<()> {
-    visit_arrow_storage(field, 0, &mut DeclarationBudget::default())
+    visit_arrow_worklist(
+        ArrowWork::Storage(field, 0),
+        &mut DeclarationBudget::default(),
+    )
 }
 
 /// Classify inert caller-owned Arrow metadata when there is no execution grant.
@@ -553,11 +556,15 @@ pub(crate) fn validate_arrow_declared_storage(field: &arrow_schema::Field) -> Re
 /// resource-admitted expanded walk above, even for a previously classified type.
 #[cfg(feature = "universal-format-io")]
 pub(crate) fn validate_arrow_declaration(dtype: &arrow_schema::DataType) -> Result<()> {
-    visit_arrow(dtype, 0, &mut DeclarationBudget::default())
+    visit_arrow_worklist(
+        ArrowWork::Plain(dtype, 0),
+        &mut DeclarationBudget::default(),
+    )
 }
 
 #[cfg(feature = "universal-format-io")]
 trait ArrowWalkBudget {
+    fn pool(&self) -> Option<&LiveMemoryPool>;
     fn node(&mut self, dtype: &arrow_schema::DataType, depth: usize) -> Result<bool>;
     fn add(&mut self, bytes: u64) -> Result<()>;
     fn names<'a>(&mut self, count: usize, name_at: impl Fn(usize) -> &'a str) -> Result<()>;
@@ -565,6 +572,9 @@ trait ArrowWalkBudget {
 
 #[cfg(feature = "universal-format-io")]
 impl ArrowWalkBudget for Budget<'_> {
+    fn pool(&self) -> Option<&LiveMemoryPool> {
+        Some(self.credit.pool())
+    }
     fn node(&mut self, _: &arrow_schema::DataType, depth: usize) -> Result<bool> {
         Budget::node(self, depth)?;
         Ok(true)
@@ -585,6 +595,9 @@ struct DeclarationBudget {
 
 #[cfg(feature = "universal-format-io")]
 impl ArrowWalkBudget for DeclarationBudget {
+    fn pool(&self) -> Option<&LiveMemoryPool> {
+        None
+    }
     fn node(&mut self, dtype: &arrow_schema::DataType, depth: usize) -> Result<bool> {
         if depth > 24 {
             return Err(failed("nested payload schema exceeds depth 24"));
@@ -622,80 +635,40 @@ impl ArrowWalkBudget for DeclarationBudget {
 }
 
 #[cfg(feature = "universal-format-io")]
-fn visit_arrow_field(
-    child: &arrow_schema::Field,
-    depth: usize,
-    budget: &mut impl ArrowWalkBudget,
-) -> Result<()> {
-    budget.add(arrow_extension_metadata_bytes(child)?)?;
-    visit_arrow_storage(child, depth, budget)
+enum ArrowWork<'a> {
+    Field(&'a arrow_schema::Field, usize),
+    Storage(&'a arrow_schema::Field, usize),
+    Uuid(&'a arrow_schema::DataType, usize),
+    Variant(&'a arrow_schema::DataType, usize),
+    Plain(&'a arrow_schema::DataType, usize),
+    StructChildren {
+        fields: &'a arrow_schema::Fields,
+        next: usize,
+        depth: usize,
+    },
 }
 
 #[cfg(feature = "universal-format-io")]
-fn visit_arrow_storage(
-    field: &arrow_schema::Field,
-    depth: usize,
-    budget: &mut impl ArrowWalkBudget,
+fn push_arrow_work<'a>(
+    stack: &mut Vec<ArrowWork<'a>>,
+    scratch: &mut Option<MemoryLease>,
+    item: ArrowWork<'a>,
 ) -> Result<()> {
-    if crate::native_variant::arrow::is_variant(field) {
-        return visit_arrow_variant(field.data_type(), depth, budget);
-    }
-    if crate::native_uuid::arrow::is_uuid(field) {
-        if !crate::native_uuid::arrow::admitted(field) {
-            return Err(failed(
-                "UUID requires canonical arrow.uuid metadata and FixedSizeBinary(16) storage",
-            ));
-        }
-        return visit_arrow_uuid(field.data_type(), depth, budget);
-    }
-    visit_arrow(field.data_type(), depth, budget)
+    reserve_frame(stack, scratch.as_mut())?;
+    stack.push(item);
+    Ok(())
 }
 
 #[cfg(feature = "universal-format-io")]
-fn visit_arrow_uuid(
-    dtype: &arrow_schema::DataType,
+fn step_arrow_plain<'a>(
+    dtype: &'a arrow_schema::DataType,
     depth: usize,
     budget: &mut impl ArrowWalkBudget,
-) -> Result<()> {
-    if !budget.node(dtype, depth)? {
-        return Ok(());
-    }
-    match dtype {
-        arrow_schema::DataType::Dictionary(keys, values) => {
-            visit_arrow(keys, depth + 1, budget)?;
-            visit_arrow_uuid(values, depth + 1, budget)
-        }
-        arrow_schema::DataType::FixedSizeBinary(16) => Ok(()),
-        _ => Err(unsupported()),
-    }
-}
-
-#[cfg(feature = "universal-format-io")]
-fn visit_arrow_variant(
-    dtype: &arrow_schema::DataType,
-    depth: usize,
-    budget: &mut impl ArrowWalkBudget,
-) -> Result<()> {
-    if let arrow_schema::DataType::Dictionary(keys, values) = dtype {
-        if !budget.node(dtype, depth)? {
-            return Ok(());
-        }
-        visit_arrow(keys, depth + 1, budget)?;
-        visit_arrow_variant(values, depth + 1, budget)
-    } else {
-        visit_arrow(dtype, depth, budget)
-    }
-}
-
-#[cfg(feature = "universal-format-io")]
-fn visit_arrow(
-    dtype: &arrow_schema::DataType,
-    depth: usize,
-    budget: &mut impl ArrowWalkBudget,
-) -> Result<()> {
+) -> Result<(Option<ArrowWork<'a>>, Option<ArrowWork<'a>>)> {
     use arrow_schema::DataType as A;
+
     if !budget.node(dtype, depth)? {
-        return Ok(());
+        return Ok((None, None));
     }
     match dtype {
         A::Boolean
@@ -715,12 +688,15 @@ fn visit_arrow(
         | A::Utf8View
         | A::Binary
         | A::LargeBinary
-        | A::BinaryView => {}
-        dtype if crate::native_temporal::from_arrow_dtype(dtype).is_some() => {}
+        | A::BinaryView => Ok((None, None)),
+        dtype if crate::native_temporal::from_arrow_dtype(dtype).is_some() => Ok((None, None)),
         A::Decimal128(precision, scale)
             if (1..=38).contains(precision)
                 && *scale >= 0
-                && i16::from(*scale) <= i16::from(*precision) => {}
+                && i16::from(*scale) <= i16::from(*precision) =>
+        {
+            Ok((None, None))
+        }
         #[cfg(feature = "native-encoded-exchange-experiment")]
         A::Dictionary(keys, values)
             if matches!(
@@ -735,8 +711,10 @@ fn visit_arrow(
                     | A::UInt64
             ) && encoded_arrow_leaf(values) =>
         {
-            visit_arrow(keys, depth + 1, budget)?;
-            visit_arrow(values, depth + 1, budget)?;
+            Ok((
+                Some(ArrowWork::Plain(keys, depth + 1)),
+                Some(ArrowWork::Plain(values, depth + 1)),
+            ))
         }
         #[cfg(feature = "native-encoded-exchange-experiment")]
         A::RunEndEncoded(ends, values)
@@ -744,22 +722,121 @@ fn visit_arrow(
                 && matches!(ends.data_type(), A::Int16 | A::Int32 | A::Int64)
                 && encoded_arrow_leaf(values.data_type()) =>
         {
-            visit_arrow_field(ends, depth + 1, budget)?;
-            visit_arrow_field(values, depth + 1, budget)?;
+            Ok((
+                Some(ArrowWork::Field(ends, depth + 1)),
+                Some(ArrowWork::Field(values, depth + 1)),
+            ))
         }
         A::List(child) | A::LargeList(child) => {
-            visit_arrow_field(child, depth + 1, budget)?;
+            Ok((Some(ArrowWork::Field(child, depth + 1)), None))
         }
         A::FixedSizeList(child, size) if *size >= 0 => {
-            visit_arrow_field(child, depth + 1, budget)?;
+            Ok((Some(ArrowWork::Field(child, depth + 1)), None))
         }
         A::Struct(fields) => {
             budget.names(fields.len(), |index| fields[index].name().as_str())?;
-            for child in fields {
-                visit_arrow_field(child, depth + 1, budget)?;
+            Ok((
+                Some(ArrowWork::StructChildren {
+                    fields,
+                    next: 0,
+                    depth: depth + 1,
+                }),
+                None,
+            ))
+        }
+        _ => Err(unsupported()),
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn visit_arrow_worklist(initial: ArrowWork<'_>, budget: &mut impl ArrowWalkBudget) -> Result<()> {
+    use arrow_schema::DataType as A;
+
+    let mut scratch = budget.pool().map(|pool| pool.reserve(0)).transpose()?;
+    let mut stack = Vec::new();
+    let mut current = Some(initial);
+    while let Some(item) = current.take().or_else(|| stack.pop()) {
+        match item {
+            ArrowWork::Field(child, depth) => {
+                budget.add(arrow_extension_metadata_bytes(child)?)?;
+                current = Some(ArrowWork::Storage(child, depth));
+            }
+            ArrowWork::Storage(field, depth) => {
+                if crate::native_variant::arrow::is_variant(field) {
+                    current = Some(ArrowWork::Variant(field.data_type(), depth));
+                } else if crate::native_uuid::arrow::is_uuid(field) {
+                    if !crate::native_uuid::arrow::admitted(field) {
+                        return Err(failed(
+                            "UUID requires canonical arrow.uuid metadata and FixedSizeBinary(16) storage",
+                        ));
+                    }
+                    current = Some(ArrowWork::Uuid(field.data_type(), depth));
+                } else {
+                    current = Some(ArrowWork::Plain(field.data_type(), depth));
+                }
+            }
+            ArrowWork::Uuid(dtype, depth) => {
+                if !budget.node(dtype, depth)? {
+                    continue;
+                }
+                match dtype {
+                    A::Dictionary(keys, values) => {
+                        push_arrow_work(
+                            &mut stack,
+                            &mut scratch,
+                            ArrowWork::Uuid(values, depth + 1),
+                        )?;
+                        current = Some(ArrowWork::Plain(keys, depth + 1));
+                    }
+                    A::FixedSizeBinary(16) => {}
+                    _ => return Err(unsupported()),
+                }
+            }
+            ArrowWork::Variant(dtype, depth) => {
+                if let A::Dictionary(keys, values) = dtype {
+                    if !budget.node(dtype, depth)? {
+                        continue;
+                    }
+                    push_arrow_work(
+                        &mut stack,
+                        &mut scratch,
+                        ArrowWork::Variant(values, depth + 1),
+                    )?;
+                    current = Some(ArrowWork::Plain(keys, depth + 1));
+                } else {
+                    let (next, deferred) = step_arrow_plain(dtype, depth, budget)?;
+                    if let Some(deferred) = deferred {
+                        push_arrow_work(&mut stack, &mut scratch, deferred)?;
+                    }
+                    current = next;
+                }
+            }
+            ArrowWork::StructChildren {
+                fields,
+                next,
+                depth,
+            } => {
+                if next + 1 < fields.len() {
+                    push_arrow_work(
+                        &mut stack,
+                        &mut scratch,
+                        ArrowWork::StructChildren {
+                            fields,
+                            next: next + 1,
+                            depth,
+                        },
+                    )?;
+                }
+                current = Some(ArrowWork::Field(&fields[next], depth));
+            }
+            ArrowWork::Plain(dtype, depth) => {
+                let (next, deferred) = step_arrow_plain(dtype, depth, budget)?;
+                if let Some(deferred) = deferred {
+                    push_arrow_work(&mut stack, &mut scratch, deferred)?;
+                }
+                current = next;
             }
         }
-        _ => return Err(unsupported()),
     }
     Ok(())
 }

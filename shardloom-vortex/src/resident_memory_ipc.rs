@@ -215,48 +215,54 @@ fn inspect<'a>(dtype_message: &'a [u8], array_message: &'a [u8]) -> Result<Inspe
         message,
         workspace_bytes: 0,
     };
-    inspect_node(root, &inspected, 0, &mut nodes, &mut workspace_bytes)?;
+    inspect_node(root, &inspected, &mut nodes, &mut workspace_bytes)?;
     inspected.workspace_bytes = workspace_bytes;
     Ok(inspected)
 }
 
 fn inspect_node(
-    node: fa::ArrayNode<'_>,
+    root: fa::ArrayNode<'_>,
     parent: &Inspected<'_>,
-    depth: usize,
     nodes: &mut usize,
     workspace: &mut u64,
 ) -> Result<()> {
-    *nodes += 1;
-    if depth > MAX_DEPTH || *nodes > MAX_NODES {
-        return Err(failed("array tree exceeds the depth or node bound"));
-    }
     let names = parent
         .message
         .encodings()
         .ok_or_else(|| failed("missing encoding registry"))?;
-    if usize::from(node.encoding()) >= names.len() {
-        return Err(failed("array encoding index is outside its registry"));
-    }
-    let name = names.get(usize::from(node.encoding()));
-    *workspace = workspace
-        .checked_add(4096)
-        .ok_or_else(|| failed("workspace overflow"))?;
-    for index in node.buffers().unwrap_or_default() {
-        let buffers = parent.array.buffers().unwrap_or_default();
-        if usize::from(index) >= buffers.len() {
-            return Err(failed("array buffer index is outside its registry"));
+    let buffers = parent.array.buffers().unwrap_or_default();
+    let mut stack = vec![(root, 0_usize)];
+    while let Some((node, depth)) = stack.pop() {
+        *nodes += 1;
+        if depth > MAX_DEPTH || *nodes > MAX_NODES {
+            return Err(failed("array tree exceeds the depth or node bound"));
         }
-        // A Constant's protobuf scalar can allocate a tuple and strings.
-        // Admit that expansion before invoking the native deserializer.
-        if name == "vortex.constant" {
-            *workspace = workspace
-                .checked_add(u64::from(buffers.get(usize::from(index)).length()) * 64)
-                .ok_or_else(|| failed("scalar workspace overflow"))?;
+        if usize::from(node.encoding()) >= names.len() {
+            return Err(failed("array encoding index is outside its registry"));
         }
-    }
-    for child in node.children().unwrap_or_default() {
-        inspect_node(child, parent, depth + 1, nodes, workspace)?;
+        let name = names.get(usize::from(node.encoding()));
+        *workspace = workspace
+            .checked_add(4096)
+            .ok_or_else(|| failed("workspace overflow"))?;
+        for index in node.buffers().unwrap_or_default() {
+            if usize::from(index) >= buffers.len() {
+                return Err(failed("array buffer index is outside its registry"));
+            }
+            // A Constant's protobuf scalar can allocate a tuple and strings.
+            // Admit that expansion before invoking the native deserializer.
+            if name == "vortex.constant" {
+                *workspace = workspace
+                    .checked_add(u64::from(buffers.get(usize::from(index)).length()) * 64)
+                    .ok_or_else(|| failed("scalar workspace overflow"))?;
+            }
+        }
+        let children = node.children().unwrap_or_default();
+        stack
+            .try_reserve(children.len())
+            .map_err(|_| failed("array traversal workspace overflow"))?;
+        for child in children.iter().rev() {
+            stack.push((child, depth + 1));
+        }
     }
     Ok(())
 }

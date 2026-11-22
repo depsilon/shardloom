@@ -14,16 +14,23 @@ use vortex_array::dtype::DType;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 
-use crate::ArrowExporter;
+use crate::executor::ExportStep;
+use crate::executor::ExportTask;
 use crate::executor::validity::to_arrow_null_buffer;
 
-pub(super) fn to_arrow_fixed_list(
+pub(super) struct FixedSizeListExportFrame {
+    list_size: i32,
+    elements_field: FieldRef,
+    null_buffer: Option<arrow_buffer::NullBuffer>,
+    len: usize,
+}
+
+pub(super) fn start_arrow_fixed_list(
     array: ArrayRef,
     list_size: i32,
     elements_field: &FieldRef,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<arrow_array::ArrayRef> {
+) -> VortexResult<ExportStep> {
     vortex_ensure!(
         matches!(array.dtype(), DType::FixedSizeList(..)),
         "Cannot convert Vortex array with dtype {} to an Arrow FixedSizeList array",
@@ -31,51 +38,54 @@ pub(super) fn to_arrow_fixed_list(
     );
 
     // Check for Vortex FixedSizeListArray and convert directly.
-    if let Some(array) = array.as_opt::<FixedSizeList>() {
-        return list_to_list(
-            &array.into_owned(),
-            elements_field,
-            list_size,
-            exporter,
-            ctx,
-        );
-    }
+    let fixed_size_list = if let Some(array) = array.as_opt::<FixedSizeList>() {
+        array.into_owned()
+    } else {
+        // Otherwise, we execute the array to become a FixedSizeListArray.
+        array.execute::<FixedSizeListArray>(ctx)?
+    };
 
-    // Otherwise, we execute the array to become a FixedSizeListArray.
-    let fixed_size_list = array.execute::<FixedSizeListArray>(ctx)?;
-    list_to_list(&fixed_size_list, elements_field, list_size, exporter, ctx)
-}
-
-fn list_to_list(
-    array: &FixedSizeListArray,
-    elements_field: &FieldRef,
-    list_size: i32,
-    exporter: &ArrowExporter<'_>,
-    ctx: &mut ExecutionCtx,
-) -> VortexResult<arrow_array::ArrayRef> {
     vortex_ensure!(
-        Ok(list_size) == i32::try_from(array.list_size()),
+        Ok(list_size) == i32::try_from(fixed_size_list.list_size()),
         "Cannot convert FixedSizeList with list size {} to Arrow array with list size {}",
-        array.list_size(),
+        fixed_size_list.list_size(),
         list_size
     );
 
-    let elements =
-        exporter.execute_arrow(array.elements().clone(), Some(elements_field.as_ref()), ctx)?;
+    let elements = fixed_size_list.elements().clone();
+    let null_buffer = to_arrow_null_buffer(fixed_size_list.validity()?, fixed_size_list.len(), ctx)?;
+    let len = fixed_size_list.len();
+    Ok(ExportStep::Descend {
+        frame: FixedSizeListExportFrame {
+            list_size,
+            elements_field: FieldRef::clone(elements_field),
+            null_buffer,
+            len,
+        }
+        .into(),
+        task: ExportTask::WithField {
+            array: elements,
+            target: Some(elements_field.as_ref().clone()),
+        },
+    })
+}
+
+pub(super) fn finish_arrow_fixed_list(
+    frame: FixedSizeListExportFrame,
+    elements: arrow_array::ArrayRef,
+) -> VortexResult<arrow_array::ArrayRef> {
     vortex_ensure!(
-        elements_field.is_nullable() || elements.null_count() == 0,
+        frame.elements_field.is_nullable() || elements.null_count() == 0,
         "Cannot convert FixedSizeListArray to non-nullable Arrow array when elements are nullable"
     );
 
-    let null_buffer = to_arrow_null_buffer(array.validity()?, array.len(), ctx)?;
-
     Ok(Arc::new(
         arrow_array::FixedSizeListArray::try_new_with_length(
-            Arc::clone(elements_field),
-            list_size,
+            frame.elements_field,
+            frame.list_size,
             elements,
-            null_buffer,
-            array.len(),
+            frame.null_buffer,
+            frame.len,
         )?,
     ))
 }

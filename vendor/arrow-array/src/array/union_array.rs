@@ -16,10 +16,10 @@
 // under the License.
 #![allow(clippy::enum_clike_unportable_variant)]
 
-use crate::{Array, ArrayRef, make_array};
+use crate::{Array, ArrayRef};
 use arrow_buffer::bit_chunk_iterator::{BitChunkIterator, BitChunks};
 use arrow_buffer::buffer::NullBuffer;
-use arrow_buffer::{BooleanBuffer, Buffer, MutableBuffer, ScalarBuffer};
+use arrow_buffer::{BooleanBuffer, MutableBuffer, ScalarBuffer};
 use arrow_data::ArrayData;
 #[cfg(test)]
 use arrow_data::ArrayDataBuilder;
@@ -367,27 +367,36 @@ impl UnionArray {
         }
     }
 
+    pub(crate) fn sparse_slice_parts(
+        &self,
+    ) -> (&DataType, &ScalarBuffer<i8>, &[Option<ArrayRef>]) {
+        (&self.data_type, &self.type_ids, &self.fields)
+    }
+
+    pub(crate) fn from_sparse_sliced_parts(
+        data_type: DataType,
+        type_ids: ScalarBuffer<i8>,
+        fields: Vec<Option<ArrayRef>>,
+    ) -> Self {
+        Self {
+            data_type,
+            type_ids,
+            offsets: None,
+            fields: fields.into(),
+        }
+    }
+
     /// Returns a zero-copy slice of this array with the indicated offset and length.
     pub fn slice(&self, offset: usize, length: usize) -> Self {
-        let (offsets, fields) = match self.offsets.as_ref() {
-            // If dense union, slice offsets
-            Some(offsets) => (Some(offsets.slice(offset, length)), self.fields.clone()),
-            // Otherwise need to slice sparse children
-            None => {
-                let fields = self
-                    .fields
-                    .iter()
-                    .map(|x| x.as_ref().map(|x| x.slice(offset, length)))
-                    .collect();
-                (None, fields)
-            }
+        let Some(offsets) = self.offsets.as_ref() else {
+            return super::slice_iter::slice_sparse_union(self, offset, length);
         };
 
         Self {
             data_type: self.data_type.clone(),
             type_ids: self.type_ids.slice(offset, length),
-            offsets,
-            fields,
+            offsets: Some(offsets.slice(offset, length)),
+            fields: self.fields.clone(),
         }
     }
 
@@ -720,43 +729,22 @@ impl UnionArray {
 
 impl From<ArrayData> for UnionArray {
     fn from(data: ArrayData) -> Self {
-        let (data_type, len, _nulls, offset, buffers, child_data) = data.into_parts();
+        super::data_import::union_from_data(data)
+    }
+}
 
-        let (fields, mode) = match &data_type {
-            DataType::Union(fields, mode) => (fields, mode),
-            d => panic!("UnionArray expected ArrayData with type Union got {d}"),
-        };
-
-        let (type_ids, offsets) = match mode {
-            UnionMode::Sparse => {
-                let [buffer]: [Buffer; 1] = buffers.try_into().expect("1 buffer for type_ids");
-                (ScalarBuffer::new(buffer, offset, len), None)
-            }
-            UnionMode::Dense => {
-                let [type_ids_buffer, offsets_buffer]: [Buffer; 2] = buffers
-                    .try_into()
-                    .expect("2 buffers for type_ids and offsets");
-                (
-                    ScalarBuffer::new(type_ids_buffer, offset, len),
-                    Some(ScalarBuffer::new(offsets_buffer, offset, len)),
-                )
-            }
-        };
-
-        let max_id = fields.iter().map(|(i, _)| i).max().unwrap_or_default() as usize;
-        let mut boxed_fields = vec![None; max_id + 1];
-        for (cd, (field_id, _)) in child_data.into_iter().zip(fields.iter()) {
-            let cd = match mode {
-                UnionMode::Sparse => cd.slice(offset, len),
-                UnionMode::Dense => cd,
-            };
-            boxed_fields[field_id as usize] = Some(make_array(cd));
-        }
+impl UnionArray {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        type_ids: ScalarBuffer<i8>,
+        offsets: Option<ScalarBuffer<i32>>,
+        fields: super::release::UnionChildren,
+    ) -> Self {
         Self {
             data_type,
             type_ids,
             offsets,
-            fields: boxed_fields.into(),
+            fields,
         }
     }
 }
@@ -1129,7 +1117,7 @@ mod tests {
     use crate::cast::AsArray;
     use crate::types::{Float32Type, Float64Type, Int32Type, Int64Type};
     use crate::{Float64Array, Int32Array, Int64Array, StringArray};
-    use crate::{Int8Array, RecordBatch};
+    use crate::{Int8Array, RecordBatch, make_array};
     use arrow_buffer::Buffer;
     use arrow_schema::{Field, Schema};
 

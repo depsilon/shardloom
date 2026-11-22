@@ -20,6 +20,20 @@ optimized marks and trace events. Shared-node caching tests ownership before
 cloning, and partial slot replacement stays lazy. Suspended calls unwind
 innermost first without new cleanup grants.
 
+Subsequent completion extends ordered iterative handling across nested
+compute pushdown (`src/optimizer/mod.rs`, `src/optimizer/continuation.rs`,
+`src/array/erased.rs`, `src/builtins.rs`, `src/optimizer/pushdown_tests.rs`),
+`Canonical::empty` and `UnionArray::empty` (`src/canonical.rs`,
+`src/arrays/union/array.rs`), and `execute_scalar_once`
+(`src/array/probe/array.rs`). Shallow optimizer pushdown (nesting depth below
+four and `Constant` sources) keeps synchronous optimization, trace events, and
+rule-internal preparation order unchanged, while deeper nested `slice`, `filter`,
+`take`, and `cast` trees hand off through a heap continuation loop with
+slice-statistic inheritance. Original regressions cover shallow slice-statistic
+and retained-owner parity as well as 2,048-level mixed nested compute,
+`Canonical::empty`, `execute_scalar`, canonical execution, and `Extension`/
+`Union` handling on 128-KiB stacks.
+
 The test-only original driver preserves its six method bodies and session
 helper. Comparisons cover complete values and graphs, sharing, marks,
 statistics, callback/error order and traces. Private 8,192-level unprepared

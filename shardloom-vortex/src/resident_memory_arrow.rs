@@ -290,87 +290,94 @@ fn variadic_metadata_bytes(
     array: &dyn arrow_array::Array,
     context: &NativeExecutionContext<'_>,
 ) -> Result<u64> {
-    let mut traversal = context.memory().reserve(0)?;
-    variadic_metadata_bytes_at(array, 0, &mut traversal, context)
-}
-
-fn variadic_metadata_bytes_at(
-    array: &dyn arrow_array::Array,
-    depth: usize,
-    traversal: &mut shardloom_exec::live_memory::MemoryLease,
-    context: &NativeExecutionContext<'_>,
-) -> Result<u64> {
+    use crate::local_primitives::native_capacity::ReservedVec;
     use arrow_schema::DataType;
-    context.check_cancelled()?;
-    if depth > 24 {
-        return Err(memory_error(
-            "columnar buffer metadata exceeds schema traversal bounds",
-        ));
-    }
-    traversal.resize(
-        traversal
-            .bytes()
-            .checked_add(1024)
-            .ok_or_else(|| memory_error("columnar metadata traversal overflow"))?,
-    )?;
+
+    let mut traversal = context.memory().reserve(0)?;
+    let mut stack = ReservedVec::<(&dyn arrow_array::Array, usize)>::new(context.memory())?;
+    stack.push((array, 0))?;
     let invalid = || memory_error("columnar array does not match its declared layout");
-    let buffers = match array.data_type() {
-        DataType::Utf8View => Some(
-            array
-                .as_string_view_opt()
-                .ok_or_else(invalid)?
-                .data_buffers()
-                .len(),
-        ),
-        DataType::BinaryView => Some(
-            array
-                .as_binary_view_opt()
-                .ok_or_else(invalid)?
-                .data_buffers()
-                .len(),
-        ),
-        DataType::Struct(_) => {
-            return array
-                .as_struct_opt()
-                .ok_or_else(invalid)?
-                .columns()
-                .iter()
-                .try_fold(0_u64, |bytes, child| {
-                    bytes
-                        .checked_add(variadic_metadata_bytes_at(
-                            child.as_ref(),
-                            depth + 1,
-                            traversal,
-                            context,
-                        )?)
-                        .ok_or_else(|| memory_error("columnar buffer metadata overflow"))
-                });
+    let mut total = 0_u64;
+
+    while let Some((current, depth)) = stack.values.pop() {
+        context.check_cancelled()?;
+        if depth > 24 {
+            return Err(memory_error(
+                "columnar buffer metadata exceeds schema traversal bounds",
+            ));
         }
-        _ => None,
-    };
-    if let Some(buffers) = buffers {
-        // Covers simultaneously live Arrow/ArrayData/import handle vectors and
-        // native wrappers. Payload capacities are reserved separately per region.
-        return u64::try_from(buffers)
-            .ok()
-            .and_then(|count| count.checked_mul(512))
-            .ok_or_else(|| memory_error("columnar buffer metadata overflow"));
+        traversal.resize(
+            traversal
+                .bytes()
+                .checked_add(1024)
+                .ok_or_else(|| memory_error("columnar metadata traversal overflow"))?,
+        )?;
+        match current.data_type() {
+            DataType::Utf8View => {
+                let buffers = current
+                    .as_string_view_opt()
+                    .ok_or_else(invalid)?
+                    .data_buffers()
+                    .len();
+                let node_bytes = u64::try_from(buffers)
+                    .ok()
+                    .and_then(|count| count.checked_mul(512))
+                    .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
+                total = total
+                    .checked_add(node_bytes)
+                    .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
+            }
+            DataType::BinaryView => {
+                let buffers = current
+                    .as_binary_view_opt()
+                    .ok_or_else(invalid)?
+                    .data_buffers()
+                    .len();
+                let node_bytes = u64::try_from(buffers)
+                    .ok()
+                    .and_then(|count| count.checked_mul(512))
+                    .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
+                total = total
+                    .checked_add(node_bytes)
+                    .ok_or_else(|| memory_error("columnar buffer metadata overflow"))?;
+            }
+            DataType::Struct(_) => {
+                let columns = current.as_struct_opt().ok_or_else(invalid)?.columns();
+                stack.reserve(columns.len())?;
+                for child in columns.iter().rev() {
+                    stack.push((child.as_ref(), depth + 1))?;
+                }
+            }
+            DataType::List(_) => {
+                let child = current.as_list_opt::<i32>().ok_or_else(invalid)?.values();
+                stack.push((child.as_ref(), depth + 1))?;
+            }
+            DataType::LargeList(_) => {
+                let child = current.as_list_opt::<i64>().ok_or_else(invalid)?.values();
+                stack.push((child.as_ref(), depth + 1))?;
+            }
+            DataType::FixedSizeList(..) => {
+                let child = current
+                    .as_fixed_size_list_opt()
+                    .ok_or_else(invalid)?
+                    .values();
+                stack.push((child.as_ref(), depth + 1))?;
+            }
+            DataType::Dictionary(..) => {
+                let child = current
+                    .as_any_dictionary_opt()
+                    .ok_or_else(invalid)?
+                    .values();
+                stack.push((child.as_ref(), depth + 1))?;
+            }
+            DataType::RunEndEncoded(..) => {
+                let child = current.as_any_ree_opt().ok_or_else(invalid)?.values();
+                stack.push((child.as_ref(), depth + 1))?;
+            }
+            _ => {}
+        }
     }
-    let child = match array.data_type() {
-        DataType::List(_) => Some(array.as_list_opt::<i32>().ok_or_else(invalid)?.values()),
-        DataType::LargeList(_) => Some(array.as_list_opt::<i64>().ok_or_else(invalid)?.values()),
-        DataType::FixedSizeList(..) => {
-            Some(array.as_fixed_size_list_opt().ok_or_else(invalid)?.values())
-        }
-        DataType::Dictionary(..) => {
-            Some(array.as_any_dictionary_opt().ok_or_else(invalid)?.values())
-        }
-        DataType::RunEndEncoded(..) => Some(array.as_any_ree_opt().ok_or_else(invalid)?.values()),
-        _ => None,
-    };
-    child.map_or(Ok(0), |child| {
-        variadic_metadata_bytes_at(child.as_ref(), depth + 1, traversal, context)
-    })
+    Ok(total)
 }
 
 #[cfg(test)]

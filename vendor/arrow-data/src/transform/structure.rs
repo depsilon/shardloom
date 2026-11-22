@@ -15,33 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, ChildExtendTask, Extend};
 use crate::ArrayData;
 use arrow_schema::{ArrowError, DataType};
 
 pub(super) fn build_extend(_: &ArrayData) -> Extend<'_> {
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
-            for (col_idx, child) in mutable.child_data.iter_mut().enumerate() {
-                child
-                    .try_extend(index, start, start + len)
-                    .map_err(|e| wrap_column_error(e, col_idx, &mutable.data_type))?
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
+            for col_idx in 0..mutable.child_data.len() {
+                tasks.push(ChildExtendTask {
+                    child_idx: col_idx,
+                    array_idx: index,
+                    start,
+                    end: start + len,
+                    wrap_struct_col: true,
+                });
             }
             Ok(())
         },
     )
 }
 
-pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) -> Result<(), ArrowError> {
-    for (col_idx, child) in mutable.child_data.iter_mut().enumerate() {
-        child
-            .try_extend_nulls(len)
-            .map_err(|e| wrap_column_error(e, col_idx, &mutable.data_type))?;
+pub(super) fn extend_nulls(
+    mutable: &mut _MutableArrayData,
+    len: usize,
+    tasks: &mut Vec<ChildExtendNullsTask>,
+) -> Result<(), ArrowError> {
+    for col_idx in 0..mutable.child_data.len() {
+        tasks.push(ChildExtendNullsTask {
+            child_idx: col_idx,
+            len,
+            wrap_struct_col: true,
+        });
     }
     Ok(())
 }
 
-fn wrap_column_error(e: ArrowError, col_idx: usize, data_type: &DataType) -> ArrowError {
+pub(super) fn wrap_column_error(e: ArrowError, col_idx: usize, data_type: &DataType) -> ArrowError {
     let name_ctx = if let DataType::Struct(fields) = data_type {
         fields
             .get(col_idx)

@@ -8,11 +8,15 @@
 //! plugin-aware entry points are the [`ArrowSession`](crate::ArrowSession) methods, which fall
 //! back to these conversions for non-extension data.
 
+use std::mem::replace;
+use std::ops::ControlFlow;
 use std::ops::Range;
 use std::sync::Arc;
 
 use arrow_array::AnyDictionaryArray;
 use arrow_array::Array as ArrowArray;
+use arrow_array::ArrayRef as ArrowArrayRef;
+use arrow_data::ArrayData;
 use arrow_array::ArrowPrimitiveType;
 use arrow_array::BooleanArray as ArrowBooleanArray;
 use arrow_array::DictionaryArray;
@@ -432,27 +436,23 @@ pub fn from_arrow_boolean(value: &ArrowBooleanArray, nullable: bool) -> VortexRe
     .into_array())
 }
 
-/// Strip out the nulls from this array and return a new array without nulls.
-pub(crate) fn remove_nulls(data: arrow_data::ArrayData) -> VortexResult<arrow_data::ArrayData> {
-    if data.null_count() == 0 {
-        // No nulls to remove, return the array as is
-        return Ok(data);
-    }
+struct RemoveNullsFrame {
+    dtype: DataType,
+    length: usize,
+    offset: usize,
+    buffers: Vec<ArrowBuffer>,
+    children: Vec<ArrayData>,
+    targets: Vec<usize>,
+    next_target: usize,
+}
 
-    let children = match data.data_type() {
-        DataType::Struct(fields) => Some(
-            fields
-                .iter()
-                .zip(data.child_data().iter())
-                .map(|(field, child_data)| {
-                    if field.is_nullable() {
-                        Ok(child_data.clone())
-                    } else {
-                        remove_nulls(child_data.clone())
-                    }
-                })
-                .collect::<VortexResult<Vec<_>>>()?,
-        ),
+fn remove_nulls_targets(data: &ArrayData) -> VortexResult<Vec<usize>> {
+    match data.data_type() {
+        DataType::Struct(fields) => Ok(fields
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, field)| (!field.is_nullable()).then_some(idx))
+            .collect()),
         DataType::List(f)
         | DataType::LargeList(f)
         | DataType::ListView(f)
@@ -460,56 +460,168 @@ pub(crate) fn remove_nulls(data: arrow_data::ArrayData) -> VortexResult<arrow_da
         | DataType::FixedSizeList(f, _)
             if !f.is_nullable() =>
         {
-            // All list types only have one child
             vortex_ensure_eq!(
                 data.child_data().len(),
                 1,
                 "List types should have one child"
             );
-            Some(vec![remove_nulls(data.child_data()[0].clone())?])
+            Ok(vec![0])
         }
-        _ => None,
-    };
-
-    let mut builder = data.into_builder().nulls(None);
-    if let Some(children) = children {
-        builder = builder.child_data(children);
+        _ => Ok(Vec::new()),
     }
-    builder
+}
+
+fn rebuild_without_nulls(
+    dtype: DataType,
+    length: usize,
+    offset: usize,
+    buffers: Vec<ArrowBuffer>,
+    children: Vec<ArrayData>,
+) -> VortexResult<ArrayData> {
+    ArrayData::builder(dtype)
+        .len(length)
+        .offset(offset)
+        .buffers(buffers)
+        .child_data(children)
+        .nulls(None)
         .build()
         .map_err(|e| vortex_err!("Failed to reconstruct Arrow array without nulls: {e}"))
 }
 
-/// Conversion of an Arrow struct array into a Vortex `Struct` array, converting each column.
-pub fn from_arrow_struct(value: &ArrowStructArray, nullable: bool) -> VortexResult<ArrayRef> {
-    Ok(StructArray::try_new(
-        value.column_names().iter().copied().collect(),
-        value
-            .columns()
-            .iter()
-            .zip(value.fields())
-            .map(|(c, field)| {
-                // Arrow pushes down nulls, even into non-nullable fields. So we strip them
-                // out here because Vortex is a little more strict.
-                if c.null_count() > 0 && !field.is_nullable() {
-                    let stripped = make_array(remove_nulls(c.into_data())?);
-                    from_arrow_dyn(stripped.as_ref(), false)
-                } else {
-                    from_arrow_dyn(c.as_ref(), field.is_nullable())
-                }
-            })
-            .collect::<VortexResult<Vec<_>>>()?,
-        value.len(),
-        nulls(value.nulls(), nullable)?,
-    )?
-    .into_array())
+/// Strip out the nulls from this array and return a new array without nulls.
+pub(crate) fn remove_nulls(data: ArrayData) -> VortexResult<ArrayData> {
+    let mut stack = Vec::<RemoveNullsFrame>::new();
+    let mut current = data;
+    loop {
+        let mut completed = if current.null_count() == 0 {
+            current
+        } else {
+            let targets = remove_nulls_targets(&current)?;
+            let (dtype, length, _nulls, offset, buffers, mut children) = current.into_parts();
+            if let Some(&first_idx) = targets.first() {
+                let first = replace(&mut children[first_idx], ArrayData::new_empty(&DataType::Null));
+                stack.push(RemoveNullsFrame {
+                    dtype,
+                    length,
+                    offset,
+                    buffers,
+                    children,
+                    targets,
+                    next_target: 0,
+                });
+                current = first;
+                continue;
+            }
+            rebuild_without_nulls(dtype, length, offset, buffers, children)?
+        };
+
+        loop {
+            let Some(mut frame) = stack.pop() else {
+                return Ok(completed);
+            };
+            let done_idx = frame.targets[frame.next_target];
+            frame.children[done_idx] = completed;
+            frame.next_target += 1;
+            if let Some(&next_idx) = frame.targets.get(frame.next_target) {
+                let next_child =
+                    replace(&mut frame.children[next_idx], ArrayData::new_empty(&DataType::Null));
+                stack.push(frame);
+                current = next_child;
+                break;
+            }
+            completed = rebuild_without_nulls(
+                frame.dtype,
+                frame.length,
+                frame.offset,
+                frame.buffers,
+                frame.children,
+            )?;
+        }
+    }
 }
 
-/// Conversion of an Arrow (large) list array into a Vortex `List` array.
-pub fn from_arrow_list<O: IntegerPType + OffsetSizeTrait>(
+enum ConvertTask {
+    Dyn(ArrowArrayRef, bool),
+    Struct(ArrowStructArray, bool),
+}
+
+enum ConvertFrame {
+    Struct {
+        arrow_struct: ArrowStructArray,
+        names: FieldNames,
+        next_idx: usize,
+        validity: Validity,
+        built: Vec<ArrayRef>,
+    },
+    List {
+        offsets: ArrayRef,
+        validity: Validity,
+    },
+    ListView {
+        offsets: ArrayRef,
+        sizes: ArrayRef,
+        validity: Validity,
+    },
+    FixedSizeList {
+        list_size: u32,
+        validity: Validity,
+        len: usize,
+    },
+    Map {
+        offsets: OffsetBuffer<i32>,
+        arrow_nulls: Option<NullBuffer>,
+        keys_sorted: bool,
+        nullable: bool,
+    },
+    Dict {
+        keys: ArrayRef,
+    },
+}
+
+fn prepare_struct_child(col: &ArrowArrayRef, field_nullable: bool) -> VortexResult<ConvertTask> {
+    // Arrow pushes down nulls, even into non-nullable fields. So we strip them
+    // out here because Vortex is a little more strict.
+    if col.null_count() > 0 && !field_nullable {
+        let stripped = make_array(remove_nulls(col.to_data())?);
+        Ok(ConvertTask::Dyn(stripped, false))
+    } else {
+        Ok(ConvertTask::Dyn(Arc::clone(col), field_nullable))
+    }
+}
+
+fn enter_struct(
+    arrow_struct: ArrowStructArray,
+    nullable: bool,
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ControlFlow<ArrayRef, ConvertTask>> {
+    let names: FieldNames = arrow_struct.column_names().iter().copied().collect();
+    let validity = nulls(arrow_struct.nulls(), nullable)?;
+    let num_cols = arrow_struct.num_columns();
+    if let (Some(first_col), Some(first_field)) =
+        (arrow_struct.columns().first(), arrow_struct.fields().first())
+    {
+        let next_task = prepare_struct_child(first_col, first_field.is_nullable())?;
+        stack.push(ConvertFrame::Struct {
+            arrow_struct,
+            names,
+            next_idx: 0,
+            validity,
+            built: Vec::with_capacity(num_cols),
+        });
+        Ok(ControlFlow::Continue(next_task))
+    } else {
+        let len = arrow_struct.len();
+        Ok(ControlFlow::Break(
+            StructArray::try_new(names, Vec::new(), len, validity)?.into_array(),
+        ))
+    }
+}
+
+fn enter_list<O: IntegerPType + OffsetSizeTrait>(
     value: &GenericListArray<O>,
     nullable: bool,
-) -> VortexResult<ArrayRef> {
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ConvertTask> {
     // Extract the validity of the underlying element array.
     let elements_are_nullable = match value.data_type() {
         DataType::List(field) => field.is_nullable(),
@@ -518,26 +630,20 @@ pub fn from_arrow_list<O: IntegerPType + OffsetSizeTrait>(
     };
 
     let (offsets, referenced) = trim_offsets(value.offsets());
-    let elements = from_arrow_dyn(
-        value
-            .values()
-            .slice(referenced.start, referenced.len())
-            .as_ref(),
-        elements_are_nullable,
-    )?;
-    let nulls = nulls(value.nulls(), nullable)?;
-
-    // SAFETY: Arrow offsets are non-negative and sorted, and `trim_offsets` rebases them onto
-    // the referenced values, so the last offset is the elements length. The validity comes from
-    // the same Arrow array, so it has one entry per list.
-    Ok(unsafe { ListArray::new_unchecked(elements, offsets.into_array(), nulls) }.into_array())
+    let elements = value.values().slice(referenced.start, referenced.len());
+    let validity = nulls(value.nulls(), nullable)?;
+    stack.push(ConvertFrame::List {
+        offsets: offsets.into_array(),
+        validity,
+    });
+    Ok(ConvertTask::Dyn(elements, elements_are_nullable))
 }
 
-/// Conversion of an Arrow (large) list-view array into a Vortex `ListView` array.
-pub fn from_arrow_list_view<O: OffsetSizeTrait + NativePType>(
+fn enter_list_view<O: OffsetSizeTrait + NativePType>(
     array: &GenericListViewArray<O>,
     nullable: bool,
-) -> VortexResult<ArrayRef> {
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ConvertTask> {
     // Extract the validity of the underlying element array.
     let elements_are_nullable = match array.data_type() {
         DataType::ListView(field) => field.is_nullable(),
@@ -545,16 +651,246 @@ pub fn from_arrow_list_view<O: OffsetSizeTrait + NativePType>(
         dt => vortex_panic!("Invalid data type for ListViewArray: {dt}"),
     };
 
-    let elements = from_arrow_dyn(array.values().as_ref(), elements_are_nullable)?;
-
     // `offsets` and `sizes` are always non-nullable.
     let offsets = array.offsets().clone().into_array();
     let sizes = array.sizes().clone().into_array();
-    let nulls = nulls(array.nulls(), nullable)?;
+    let validity = nulls(array.nulls(), nullable)?;
+    stack.push(ConvertFrame::ListView {
+        offsets,
+        sizes,
+        validity,
+    });
+    Ok(ConvertTask::Dyn(
+        Arc::clone(array.values()),
+        elements_are_nullable,
+    ))
+}
 
-    // SAFETY: Arrow list views share one integer type for offsets and sizes, and every view
-    // lies within the values. The validity comes from the same Arrow array.
-    Ok(unsafe { ListViewArray::new_unchecked(elements, offsets, sizes, nulls) }.into_array())
+fn enter_fixed_size_list(
+    array: &ArrowFixedSizeListArray,
+    nullable: bool,
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ConvertTask> {
+    let DataType::FixedSizeList(field, list_size) = array.data_type() else {
+        vortex_panic!("Invalid data type for ListArray: {}", array.data_type());
+    };
+    let validity = nulls(array.nulls(), nullable)?;
+    stack.push(ConvertFrame::FixedSizeList {
+        list_size: *list_size as u32,
+        validity,
+        len: array.len(),
+    });
+    Ok(ConvertTask::Dyn(
+        Arc::clone(array.values()),
+        field.is_nullable(),
+    ))
+}
+
+fn enter_map(array: &ArrowMapArray, nullable: bool, stack: &mut Vec<ConvertFrame>) -> ConvertTask {
+    let DataType::Map(_, keys_sorted) = array.data_type() else {
+        vortex_panic!("Invalid data type for MapArray: {}", array.data_type());
+    };
+    let (entries, offsets) = trim_map_entries(array);
+    stack.push(ConvertFrame::Map {
+        offsets,
+        arrow_nulls: array.nulls().cloned(),
+        keys_sorted: *keys_sorted,
+        nullable,
+    });
+    ConvertTask::Struct(entries, false)
+}
+
+fn enter_dictionary<K: ArrowDictionaryKeyType>(
+    array: &DictionaryArray<K>,
+    nullable: bool,
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ConvertTask> {
+    let keys = AnyDictionaryArray::keys(array);
+    let keys = from_arrow_leaf(keys, keys.is_nullable())?;
+    stack.push(ConvertFrame::Dict { keys });
+    Ok(ConvertTask::Dyn(Arc::clone(array.values()), nullable))
+}
+
+fn enter_dict_dyn(
+    array: &dyn ArrowArray,
+    key_type: &DataType,
+    nullable: bool,
+    stack: &mut Vec<ConvertFrame>,
+) -> VortexResult<ConvertTask> {
+    match key_type {
+        DataType::Int8 => enter_dictionary(array.as_dictionary::<Int8Type>(), nullable, stack),
+        DataType::Int16 => enter_dictionary(array.as_dictionary::<Int16Type>(), nullable, stack),
+        DataType::Int32 => enter_dictionary(array.as_dictionary::<Int32Type>(), nullable, stack),
+        DataType::Int64 => enter_dictionary(array.as_dictionary::<Int64Type>(), nullable, stack),
+        DataType::UInt8 => enter_dictionary(array.as_dictionary::<UInt8Type>(), nullable, stack),
+        DataType::UInt16 => enter_dictionary(array.as_dictionary::<UInt16Type>(), nullable, stack),
+        DataType::UInt32 => enter_dictionary(array.as_dictionary::<UInt32Type>(), nullable, stack),
+        DataType::UInt64 => enter_dictionary(array.as_dictionary::<UInt64Type>(), nullable, stack),
+        key_dt => vortex_bail!("Unsupported dictionary key type: {key_dt}"),
+    }
+}
+
+fn pop_convert_frames(
+    stack: &mut Vec<ConvertFrame>,
+    mut completed: ArrayRef,
+) -> VortexResult<ControlFlow<ArrayRef, ConvertTask>> {
+    loop {
+        let Some(frame) = stack.pop() else {
+            return Ok(ControlFlow::Break(completed));
+        };
+        completed = match frame {
+            ConvertFrame::Struct {
+                arrow_struct,
+                names,
+                next_idx,
+                validity,
+                mut built,
+            } => {
+                built.push(completed);
+                let next = next_idx + 1;
+                if let (Some(next_col), Some(next_field)) = (
+                    arrow_struct.columns().get(next),
+                    arrow_struct.fields().get(next),
+                ) {
+                    let next_task = prepare_struct_child(next_col, next_field.is_nullable())?;
+                    stack.push(ConvertFrame::Struct {
+                        arrow_struct,
+                        names,
+                        next_idx: next,
+                        validity,
+                        built,
+                    });
+                    return Ok(ControlFlow::Continue(next_task));
+                }
+                let len = arrow_struct.len();
+                StructArray::try_new(names, built, len, validity)?.into_array()
+            }
+            ConvertFrame::List { offsets, validity } => {
+                // SAFETY: Arrow offsets are non-negative and sorted, and `trim_offsets` rebases
+                // them onto the referenced values, so the last offset is the elements length.
+                // The validity comes from the same Arrow array, so it has one entry per list.
+                unsafe { ListArray::new_unchecked(completed, offsets, validity) }.into_array()
+            }
+            ConvertFrame::ListView {
+                offsets,
+                sizes,
+                validity,
+            } => {
+                // SAFETY: Arrow list views share one integer type for offsets and sizes, and every
+                // view lies within the values. The validity comes from the same Arrow array.
+                unsafe { ListViewArray::new_unchecked(completed, offsets, sizes, validity) }
+                    .into_array()
+            }
+            ConvertFrame::FixedSizeList {
+                list_size,
+                validity,
+                len,
+            } => FixedSizeListArray::try_new(completed, list_size, validity, len)?.into_array(),
+            ConvertFrame::Map {
+                offsets,
+                arrow_nulls,
+                keys_sorted,
+                nullable,
+            } => map_from_arrow_parts(
+                completed,
+                &offsets,
+                arrow_nulls.as_ref(),
+                keys_sorted,
+                nullable,
+            )?,
+            ConvertFrame::Dict { keys } => {
+                // SAFETY: we assume that Arrow has checked the invariants on construction.
+                unsafe { DictArray::new_unchecked(keys, completed) }.into_array()
+            }
+        };
+    }
+}
+
+fn run_convert(initial: ConvertTask, mut stack: Vec<ConvertFrame>) -> VortexResult<ArrayRef> {
+    let mut task = initial;
+    loop {
+        let completed = match task {
+            ConvertTask::Struct(arrow_struct, nullable) => {
+                match enter_struct(arrow_struct, nullable, &mut stack)? {
+                    ControlFlow::Continue(next) => {
+                        task = next;
+                        continue;
+                    }
+                    ControlFlow::Break(arr) => arr,
+                }
+            }
+            ConvertTask::Dyn(array, nullable) => match array.data_type() {
+                DataType::Struct(_) => {
+                    match enter_struct(array.as_struct().clone(), nullable, &mut stack)? {
+                        ControlFlow::Continue(next) => {
+                            task = next;
+                            continue;
+                        }
+                        ControlFlow::Break(arr) => arr,
+                    }
+                }
+                DataType::List(_) => {
+                    task = enter_list(array.as_list::<i32>(), nullable, &mut stack)?;
+                    continue;
+                }
+                DataType::LargeList(_) => {
+                    task = enter_list(array.as_list::<i64>(), nullable, &mut stack)?;
+                    continue;
+                }
+                DataType::ListView(_) => {
+                    task = enter_list_view(array.as_list_view::<i32>(), nullable, &mut stack)?;
+                    continue;
+                }
+                DataType::LargeListView(_) => {
+                    task = enter_list_view(array.as_list_view::<i64>(), nullable, &mut stack)?;
+                    continue;
+                }
+                DataType::FixedSizeList(..) => {
+                    task = enter_fixed_size_list(array.as_fixed_size_list(), nullable, &mut stack)?;
+                    continue;
+                }
+                DataType::Map(..) => {
+                    task = enter_map(array.as_map(), nullable, &mut stack);
+                    continue;
+                }
+                DataType::Dictionary(key_type, _) => {
+                    task = enter_dict_dyn(array.as_ref(), key_type.as_ref(), nullable, &mut stack)?;
+                    continue;
+                }
+                _ => from_arrow_leaf(array.as_ref(), nullable)?,
+            },
+        };
+
+        match pop_convert_frames(&mut stack, completed)? {
+            ControlFlow::Break(done) => return Ok(done),
+            ControlFlow::Continue(next) => task = next,
+        }
+    }
+}
+
+/// Conversion of an Arrow struct array into a Vortex `Struct` array, converting each column.
+pub fn from_arrow_struct(value: &ArrowStructArray, nullable: bool) -> VortexResult<ArrayRef> {
+    run_convert(ConvertTask::Struct(value.clone(), nullable), Vec::new())
+}
+
+/// Conversion of an Arrow (large) list array into a Vortex `List` array.
+pub fn from_arrow_list<O: IntegerPType + OffsetSizeTrait>(
+    value: &GenericListArray<O>,
+    nullable: bool,
+) -> VortexResult<ArrayRef> {
+    let mut stack = Vec::new();
+    let task = enter_list(value, nullable, &mut stack)?;
+    run_convert(task, stack)
+}
+
+/// Conversion of an Arrow (large) list-view array into a Vortex `ListView` array.
+pub fn from_arrow_list_view<O: OffsetSizeTrait + NativePType>(
+    array: &GenericListViewArray<O>,
+    nullable: bool,
+) -> VortexResult<ArrayRef> {
+    let mut stack = Vec::new();
+    let task = enter_list_view(array, nullable, &mut stack)?;
+    run_convert(task, stack)
 }
 
 /// Conversion of an Arrow fixed-size list array into a Vortex `FixedSizeList` array.
@@ -562,17 +898,9 @@ pub fn from_arrow_fixed_size_list(
     array: &ArrowFixedSizeListArray,
     nullable: bool,
 ) -> VortexResult<ArrayRef> {
-    let DataType::FixedSizeList(field, list_size) = array.data_type() else {
-        vortex_panic!("Invalid data type for ListArray: {}", array.data_type());
-    };
-
-    Ok(FixedSizeListArray::try_new(
-        from_arrow_dyn(array.values().as_ref(), field.is_nullable())?,
-        *list_size as u32,
-        nulls(array.nulls(), nullable)?,
-        array.len(),
-    )?
-    .into_array())
+    let mut stack = Vec::new();
+    let task = enter_fixed_size_list(array, nullable, &mut stack)?;
+    run_convert(task, stack)
 }
 
 pub(crate) fn map_from_arrow_parts(
@@ -644,12 +972,9 @@ pub(crate) fn trim_map_entries(array: &ArrowMapArray) -> (ArrowStructArray, Offs
 
 /// Conversion of an Arrow map array into a Vortex `Map` array.
 pub fn from_arrow_map(array: &ArrowMapArray, nullable: bool) -> VortexResult<ArrayRef> {
-    let DataType::Map(_, keys_sorted) = array.data_type() else {
-        vortex_panic!("Invalid data type for MapArray: {}", array.data_type());
-    };
-    let (entries, offsets) = trim_map_entries(array);
-    let entries = from_arrow_struct(&entries, false)?;
-    map_from_arrow_parts(entries, &offsets, array.nulls(), *keys_sorted, nullable)
+    let mut stack = Vec::new();
+    let task = enter_map(array, nullable, &mut stack);
+    run_convert(task, stack)
 }
 
 /// Conversion of an Arrow null array into a Vortex `Null` array.
@@ -667,7 +992,7 @@ pub fn from_arrow_dictionary<K: ArrowDictionaryKeyType>(
     nullable: bool,
 ) -> VortexResult<DictArray> {
     let keys = AnyDictionaryArray::keys(array);
-    let keys = from_arrow_dyn(keys, keys.is_nullable())?;
+    let keys = from_arrow_leaf(keys, keys.is_nullable())?;
     let values = from_arrow_dyn(array.values().as_ref(), nullable)?;
     // SAFETY: we assume that Arrow has checked the invariants on construction.
     Ok(unsafe { DictArray::new_unchecked(keys, values) })
@@ -703,9 +1028,7 @@ pub fn nulls(nulls: Option<&NullBuffer>, nullable: bool) -> VortexResult<Validit
     }
 }
 
-/// Canonical conversion of any supported Arrow array into a Vortex array, dispatching on the
-/// Arrow [`DataType`].
-pub fn from_arrow_dyn(array: &dyn ArrowArray, nullable: bool) -> VortexResult<ArrayRef> {
+fn from_arrow_leaf(array: &dyn ArrowArray, nullable: bool) -> VortexResult<ArrayRef> {
     match array.data_type() {
         DataType::Boolean => from_arrow_boolean(array.as_boolean(), nullable),
         DataType::UInt8 => from_arrow_primitive(array.as_primitive::<UInt8Type>(), nullable),
@@ -725,15 +1048,6 @@ pub fn from_arrow_dyn(array: &dyn ArrowArray, nullable: bool) -> VortexResult<Ar
         DataType::LargeBinary => from_arrow_bytes(array.as_binary::<i64>(), nullable),
         DataType::BinaryView => from_arrow_byte_view(array.as_binary_view(), nullable),
         DataType::Utf8View => from_arrow_byte_view(array.as_string_view(), nullable),
-        DataType::Struct(_) => from_arrow_struct(array.as_struct(), nullable),
-        DataType::List(_) => from_arrow_list(array.as_list::<i32>(), nullable),
-        DataType::LargeList(_) => from_arrow_list(array.as_list::<i64>(), nullable),
-        DataType::ListView(_) => from_arrow_list_view(array.as_list_view::<i32>(), nullable),
-        DataType::LargeListView(_) => from_arrow_list_view(array.as_list_view::<i64>(), nullable),
-        DataType::FixedSizeList(..) => {
-            from_arrow_fixed_size_list(array.as_fixed_size_list(), nullable)
-        }
-        DataType::Map(..) => from_arrow_map(array.as_map(), nullable),
         DataType::Null => from_arrow_null(as_null_array(array), nullable),
         DataType::Timestamp(u, _) => match u {
             ArrowTimeUnit::Second => {
@@ -781,6 +1095,25 @@ pub fn from_arrow_dyn(array: &dyn ArrowArray, nullable: bool) -> VortexResult<Ar
         DataType::Decimal256(..) => {
             from_arrow_decimal256(array.as_primitive::<Decimal256Type>(), nullable)
         }
+        dt => {
+            vortex_bail!("Array encoding not implemented for Arrow data type {dt}")
+        }
+    }
+}
+
+/// Canonical conversion of any supported Arrow array into a Vortex array, dispatching on the
+/// Arrow [`DataType`].
+pub fn from_arrow_dyn(array: &dyn ArrowArray, nullable: bool) -> VortexResult<ArrayRef> {
+    match array.data_type() {
+        DataType::Struct(_) => from_arrow_struct(array.as_struct(), nullable),
+        DataType::List(_) => from_arrow_list(array.as_list::<i32>(), nullable),
+        DataType::LargeList(_) => from_arrow_list(array.as_list::<i64>(), nullable),
+        DataType::ListView(_) => from_arrow_list_view(array.as_list_view::<i32>(), nullable),
+        DataType::LargeListView(_) => from_arrow_list_view(array.as_list_view::<i64>(), nullable),
+        DataType::FixedSizeList(..) => {
+            from_arrow_fixed_size_list(array.as_fixed_size_list(), nullable)
+        }
+        DataType::Map(..) => from_arrow_map(array.as_map(), nullable),
         DataType::Dictionary(key_type, _) => match key_type.as_ref() {
             DataType::Int8 => Ok(from_arrow_dictionary(
                 array.as_dictionary::<Int8Type>(),
@@ -824,9 +1157,7 @@ pub fn from_arrow_dyn(array: &dyn ArrowArray, nullable: bool) -> VortexResult<Ar
             .into_array()),
             key_dt => vortex_bail!("Unsupported dictionary key type: {key_dt}"),
         },
-        dt => {
-            vortex_bail!("Array encoding not implemented for Arrow data type {dt}")
-        }
+        _ => from_arrow_leaf(array, nullable),
     }
 }
 
@@ -2494,5 +2825,185 @@ mod tests {
         );
 
         assert!(from_arrow_dyn(null_struct_array_with_non_nullable_field.as_ref(), true).is_err());
+    }
+
+    mod deep_tests {
+        use std::sync::Arc;
+        use std::thread;
+
+        use arrow_array::Array as ArrowArray;
+        use arrow_array::ArrayRef as ArrowArrayRef;
+        use arrow_array::FixedSizeBinaryArray;
+        use arrow_array::FixedSizeListArray as ArrowFixedSizeListArray;
+        use arrow_array::GenericListArray;
+        use arrow_array::GenericListViewArray;
+        use arrow_array::Int32Array;
+        use arrow_array::MapArray as ArrowMapArray;
+        use arrow_array::StructArray as ArrowStructArray;
+        use arrow_array::make_array;
+        use arrow_buffer::NullBuffer;
+        use arrow_buffer::OffsetBuffer;
+        use arrow_buffer::ScalarBuffer;
+        use arrow_schema::DataType;
+        use arrow_schema::Field;
+        use arrow_schema::Fields;
+        use vortex_array::ArrayRef;
+        use vortex_array::VortexSessionExecute as _;
+        use vortex_error::VortexResult;
+        use vortex_error::vortex_err;
+        use vortex_session::VortexSession;
+
+        use super::super::from_arrow_dyn;
+        use super::super::remove_nulls;
+
+        fn build_deep_arrow_array(depth: usize, unsupported_leaf: bool) -> (ArrowArrayRef, DataType) {
+            let (mut array, mut field): (ArrowArrayRef, Field) = if unsupported_leaf {
+                let leaf = FixedSizeBinaryArray::try_from_iter([[1u8, 2, 3], [4u8, 5, 6]].into_iter())
+                    .expect("valid FixedSizeBinaryArray");
+                (Arc::new(leaf), Field::new("leaf", DataType::FixedSizeBinary(3), false))
+            } else {
+                (
+                    Arc::new(Int32Array::from(vec![10, 20])),
+                    Field::new("leaf", DataType::Int32, false),
+                )
+            };
+
+            for level in 0..depth {
+                let kind = level % 6;
+                let (next_arr, next_dt): (ArrowArrayRef, DataType) = match kind {
+                    0 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::List(Arc::clone(&child_field));
+                        let list = GenericListArray::<i32>::new(
+                            child_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 1, 2])),
+                            array,
+                            None,
+                        );
+                        (Arc::new(list), dt)
+                    }
+                    1 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::LargeList(Arc::clone(&child_field));
+                        let list = GenericListArray::<i64>::new(
+                            child_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i64, 1, 2])),
+                            array,
+                            None,
+                        );
+                        (Arc::new(list), dt)
+                    }
+                    2 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::FixedSizeList(Arc::clone(&child_field), 1);
+                        let fsl = ArrowFixedSizeListArray::new(child_field, 1, array, None);
+                        (Arc::new(fsl), dt)
+                    }
+                    3 => {
+                        let child_field = Arc::new(field);
+                        let dt = DataType::ListView(Arc::clone(&child_field));
+                        let lv = GenericListViewArray::<i32>::new(
+                            child_field,
+                            ScalarBuffer::from(vec![0i32, 1]),
+                            ScalarBuffer::from(vec![1i32, 1]),
+                            array,
+                            None,
+                        );
+                        (Arc::new(lv), dt)
+                    }
+                    4 => {
+                        let fields = Fields::from(vec![Arc::new(field)]);
+                        let dt = DataType::Struct(fields.clone());
+                        let st = ArrowStructArray::new(fields, vec![array], None);
+                        (Arc::new(st), dt)
+                    }
+                    _ => {
+                        let key_field = Arc::new(Field::new("key", DataType::Int32, false));
+                        let val_field = Arc::new(field);
+                        let entry_fields = Fields::from(vec![key_field, val_field]);
+                        let entries = ArrowStructArray::new(
+                            entry_fields.clone(),
+                            vec![Arc::new(Int32Array::from(vec![1, 2])), array],
+                            None,
+                        );
+                        let entries_field = Arc::new(Field::new_struct(
+                            "entries",
+                            entry_fields,
+                            false,
+                        ));
+                        let dt = DataType::Map(Arc::clone(&entries_field), false);
+                        let map = ArrowMapArray::new(
+                            entries_field,
+                            OffsetBuffer::new(ScalarBuffer::from(vec![0i32, 1, 2])),
+                            entries,
+                            None,
+                            false,
+                        );
+                        (Arc::new(map), dt)
+                    }
+                };
+                field = Field::new(format!("c_{level}"), next_dt.clone(), false);
+                array = next_arr;
+            }
+            (array, field.data_type().clone())
+        }
+
+        fn build_deep_non_nullable_struct_for_remove_nulls(depth: usize) -> ArrowArrayRef {
+            let mut array: ArrowArrayRef = Arc::new(Int32Array::from(vec![Some(7), None]));
+            let mut child_field = Field::new("leaf", DataType::Int32, false);
+            for level in 0..depth {
+                let fields = Fields::from(vec![Arc::new(child_field)]);
+                let dt = DataType::Struct(fields.clone());
+                let nulls = Some(NullBuffer::from(vec![true, false]));
+                let st = ArrowStructArray::new(fields, vec![array], nulls);
+                array = Arc::new(st);
+                child_field = Field::new(format!("s_{level}"), dt, false);
+            }
+            array
+        }
+
+        #[test]
+        fn deep_convert_and_remove_nulls_on_small_stack() -> VortexResult<()> {
+            let depth = 2048;
+            let (valid_arr, _valid_dt) = build_deep_arrow_array(depth, false);
+            let (err_arr, _err_dt) = build_deep_arrow_array(depth, true);
+            let null_struct = build_deep_non_nullable_struct_for_remove_nulls(depth);
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<(ArrayRef, ArrayRef)> {
+                    let converted = from_arrow_dyn(valid_arr.as_ref(), false)?;
+                    assert_eq!(converted.len(), 2);
+
+                    let stripped = make_array(remove_nulls(null_struct.to_data())?);
+                    assert_eq!(stripped.null_count(), 0);
+                    let imported_stripped = from_arrow_dyn(stripped.as_ref(), false)?;
+                    assert_eq!(imported_stripped.len(), 2);
+
+                    assert!(from_arrow_dyn(err_arr.as_ref(), false).is_err());
+                    Ok((converted, imported_stripped))
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let (converted, imported_stripped) = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert_eq!(converted.len(), 2);
+            assert_eq!(imported_stripped.len(), 2);
+            Ok(())
+        }
+
+        #[test]
+        fn shallow_parity_convert_preserves_scalar_values() -> VortexResult<()> {
+            let (arrow_arr, _dt) = build_deep_arrow_array(6, false);
+            let vx = from_arrow_dyn(arrow_arr.as_ref(), false)?;
+            assert_eq!(vx.len(), 2);
+            let mut ctx = VortexSession::empty().create_execution_ctx();
+            let row0 = vx.execute_scalar(0, &mut ctx)?;
+            let row1 = vx.execute_scalar(1, &mut ctx)?;
+            assert_ne!(row0, row1);
+            assert!(!row0.is_null());
+            Ok(())
+        }
     }
 }

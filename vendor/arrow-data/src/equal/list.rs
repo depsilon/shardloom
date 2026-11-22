@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::data::{ArrayData, count_nulls};
+use crate::data::count_nulls;
 use arrow_buffer::ArrowNativeType;
 use num_integer::Integer;
 
-use super::equal_range;
+use super::{EqualFrame, EqualSlice};
 
 pub(super) fn lengths_equal<T: ArrowNativeType + Integer>(lhs: &[T], rhs: &[T]) -> bool {
     // invariant from `base_equal`
@@ -43,13 +43,43 @@ pub(super) fn lengths_equal<T: ArrowNativeType + Integer>(lhs: &[T], rhs: &[T]) 
         })
 }
 
-pub(super) fn list_equal<T: ArrowNativeType + Integer>(
-    lhs: &ArrayData,
-    rhs: &ArrayData,
-    lhs_start: usize,
-    rhs_start: usize,
-    len: usize,
+pub(super) fn push_list_equal_kind<'a>(
+    slice: EqualSlice<'a>,
+    is_large: bool,
+    stack: &mut Vec<EqualFrame<'a>>,
 ) -> bool {
+    if is_large {
+        push_list_equal::<i64>(slice, true, stack)
+    } else {
+        push_list_equal::<i32>(slice, false, stack)
+    }
+}
+
+pub(super) fn step_list_null_rows_kind<'a>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    is_large: bool,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    if is_large {
+        step_list_null_rows::<i64>(slice, row_idx, true, stack)
+    } else {
+        step_list_null_rows::<i32>(slice, row_idx, false, stack)
+    }
+}
+
+fn push_list_equal<'a, T: ArrowNativeType + Integer>(
+    slice: EqualSlice<'a>,
+    is_large: bool,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
     let lhs_offsets = lhs.buffer::<T>(0);
     let rhs_offsets = rhs.buffer::<T>(0);
 
@@ -97,53 +127,90 @@ pub(super) fn list_equal<T: ArrowNativeType + Integer>(
     }
 
     if lhs_null_count == 0 && rhs_null_count == 0 {
-        lhs_child_length == rhs_child_length
+        if !(lhs_child_length == rhs_child_length
             && lengths_equal(
                 &lhs_offsets[lhs_start..lhs_start + len],
                 &rhs_offsets[rhs_start..rhs_start + len],
-            )
-            && equal_range(
-                lhs_values,
-                rhs_values,
-                lhs_offsets[lhs_start].to_usize().unwrap(),
-                rhs_offsets[rhs_start].to_usize().unwrap(),
-                lhs_child_length,
-            )
+            ))
+        {
+            return false;
+        }
+        stack.push(EqualFrame::Range(EqualSlice {
+            lhs: lhs_values,
+            rhs: rhs_values,
+            lhs_start: lhs_offsets[lhs_start].to_usize().unwrap(),
+            rhs_start: rhs_offsets[rhs_start].to_usize().unwrap(),
+            len: lhs_child_length,
+        }));
+        true
     } else {
-        // get a ref of the parent null buffer bytes, to use in testing for nullness
-        let lhs_nulls = lhs.nulls().unwrap();
-        let rhs_nulls = rhs.nulls().unwrap();
-
-        // with nulls, we need to compare item by item whenever it is not null
-        // TODO: Could potentially compare runs of not NULL values
-        (0..len).all(|i| {
-            let lhs_pos = lhs_start + i;
-            let rhs_pos = rhs_start + i;
-
-            let lhs_is_null = lhs_nulls.is_null(lhs_pos);
-            let rhs_is_null = rhs_nulls.is_null(rhs_pos);
-
-            if lhs_is_null != rhs_is_null {
-                return false;
-            }
-
-            let lhs_offset_start = lhs_offsets[lhs_pos].to_usize().unwrap();
-            let lhs_offset_end = lhs_offsets[lhs_pos + 1].to_usize().unwrap();
-            let rhs_offset_start = rhs_offsets[rhs_pos].to_usize().unwrap();
-            let rhs_offset_end = rhs_offsets[rhs_pos + 1].to_usize().unwrap();
-
-            let lhs_len = lhs_offset_end - lhs_offset_start;
-            let rhs_len = rhs_offset_end - rhs_offset_start;
-
-            lhs_is_null
-                || (lhs_len == rhs_len
-                    && equal_range(
-                        lhs_values,
-                        rhs_values,
-                        lhs_offset_start,
-                        rhs_offset_start,
-                        lhs_len,
-                    ))
-        })
+        step_list_null_rows::<T>(slice, 0, is_large, stack)
     }
+}
+
+fn step_list_null_rows<'a, T: ArrowNativeType + Integer>(
+    slice: EqualSlice<'a>,
+    row_idx: usize,
+    is_large: bool,
+    stack: &mut Vec<EqualFrame<'a>>,
+) -> bool {
+    let EqualSlice {
+        lhs,
+        rhs,
+        lhs_start,
+        rhs_start,
+        len,
+    } = slice;
+    let lhs_offsets = lhs.buffer::<T>(0);
+    let rhs_offsets = rhs.buffer::<T>(0);
+    let lhs_values = &lhs.child_data()[0];
+    let rhs_values = &rhs.child_data()[0];
+    // get a ref of the parent null buffer bytes, to use in testing for nullness
+    let lhs_nulls = lhs.nulls().unwrap();
+    let rhs_nulls = rhs.nulls().unwrap();
+
+    // with nulls, we need to compare item by item whenever it is not null
+    // TODO: Could potentially compare runs of not NULL values
+    for i in row_idx..len {
+        let lhs_pos = lhs_start + i;
+        let rhs_pos = rhs_start + i;
+
+        let lhs_is_null = lhs_nulls.is_null(lhs_pos);
+        let rhs_is_null = rhs_nulls.is_null(rhs_pos);
+
+        if lhs_is_null != rhs_is_null {
+            return false;
+        }
+        if lhs_is_null {
+            continue;
+        }
+
+        let lhs_offset_start = lhs_offsets[lhs_pos].to_usize().unwrap();
+        let lhs_offset_end = lhs_offsets[lhs_pos + 1].to_usize().unwrap();
+        let rhs_offset_start = rhs_offsets[rhs_pos].to_usize().unwrap();
+        let rhs_offset_end = rhs_offsets[rhs_pos + 1].to_usize().unwrap();
+
+        let lhs_len = lhs_offset_end - lhs_offset_start;
+        let rhs_len = rhs_offset_end - rhs_offset_start;
+        if lhs_len != rhs_len {
+            return false;
+        }
+
+        if i + 1 < len {
+            stack.push(EqualFrame::ListNullRows {
+                slice,
+                row_idx: i + 1,
+                is_large,
+            });
+        }
+        stack.push(EqualFrame::Range(EqualSlice {
+            lhs: lhs_values,
+            rhs: rhs_values,
+            lhs_start: lhs_offset_start,
+            rhs_start: rhs_offset_start,
+            len: lhs_len,
+        }));
+        return true;
+    }
+    true
 }

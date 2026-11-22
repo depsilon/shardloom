@@ -15,6 +15,7 @@
 //! For this reason, it's recommended to do as much computation as possible within Vortex, and then
 //! materialize an Arrow ArrayRef at the very end of the processing chain.
 
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use arrow_schema::DataType;
@@ -87,12 +88,58 @@ pub(crate) fn ptype_from_arrow(value: &DataType) -> VortexResult<PType> {
     }
 }
 
-/// Naive conversion of an Arrow [`DataType`] to a Vortex [`DType`], with no awareness of Arrow
-/// extension plugins.
-pub(crate) fn from_arrow_data_type(
-    data_type: &DataType,
-    nullability: Nullability,
-) -> VortexResult<DType> {
+enum FromArrowTask<'a> {
+    DataType(&'a DataType, Nullability),
+    Field(&'a Field),
+}
+
+enum FromArrowFrame<'a> {
+    List(Nullability),
+    FixedSizeList(u32, Nullability),
+    MapNeedValue {
+        value_field: &'a Field,
+        keys_sorted: bool,
+        nullability: Nullability,
+    },
+    MapHaveValue {
+        key_dtype: DType,
+        keys_sorted: bool,
+        nullability: Nullability,
+    },
+    Struct {
+        fields: &'a Fields,
+        next_idx: usize,
+        built: Vec<DType>,
+        nullability: Nullability,
+    },
+}
+
+enum ToArrowFrame {
+    List {
+        nullable: bool,
+    },
+    FixedSizeList {
+        size: i32,
+        nullable: bool,
+    },
+    MapNeedValue {
+        value_dtype: DType,
+        value_nullable: bool,
+        keys_sorted: bool,
+    },
+    MapHaveValue {
+        key_type: DataType,
+        value_nullable: bool,
+        keys_sorted: bool,
+    },
+    Struct {
+        fields: StructFields,
+        next_idx: usize,
+        built: Vec<FieldRef>,
+    },
+}
+
+fn from_arrow_leaf_data_type(data_type: &DataType, nullability: Nullability) -> VortexResult<DType> {
     if data_type.is_integer() || data_type.is_floating() {
         return Ok(DType::Primitive(ptype_from_arrow(data_type)?, nullability));
     }
@@ -114,96 +161,214 @@ pub(crate) fn from_arrow_data_type(
         DataType::Date64 => {
             DType::Extension(Date::new(TimeUnit::Milliseconds, nullability).erased())
         }
-        DataType::Time32(unit) => {
-            DType::Extension(Time::new(from_arrow_time_unit(*unit), nullability).erased())
-        }
-        DataType::Time64(unit) => {
+        DataType::Time32(unit) | DataType::Time64(unit) => {
             DType::Extension(Time::new(from_arrow_time_unit(*unit), nullability).erased())
         }
         DataType::Timestamp(unit, tz) => DType::Extension(
             Timestamp::try_new_with_tz(from_arrow_time_unit(*unit), tz.clone(), nullability)?
                 .erased(),
         ),
-        DataType::List(e)
-        | DataType::LargeList(e)
-        | DataType::ListView(e)
-        | DataType::LargeListView(e) => {
-            DType::List(Arc::new(from_arrow_field_naive(e.as_ref())?), nullability)
-        }
-        DataType::FixedSizeList(e, size) => DType::FixedSizeList(
-            Arc::new(from_arrow_field_naive(e.as_ref())?),
-            *size as u32,
-            nullability,
-        ),
-        DataType::Struct(f) => DType::Struct(from_arrow_fields_naive(f)?, nullability),
-        DataType::Map(entries, keys_sorted) => {
-            vortex_ensure!(
-                !entries.is_nullable(),
-                "Arrow map entries field must be non-nullable"
-            );
-            let DataType::Struct(fields) = entries.data_type() else {
-                vortex_bail!(
-                    "Arrow map entries field must have Struct type, got {:?}",
-                    entries.data_type()
-                );
-            };
-            vortex_ensure_eq!(
-                fields.len(),
-                2,
-                "Arrow map entries struct must contain exactly two fields"
-            );
-            let key = &fields[0];
-            let value = &fields[1];
-            vortex_ensure!(
-                !key.is_nullable(),
-                "Arrow map key field must be non-nullable"
-            );
-            DType::map(
-                from_arrow_field_naive(key.as_ref())?,
-                from_arrow_field_naive(value.as_ref())?,
-                *keys_sorted,
-                nullability,
-            )?
-        }
-        DataType::Dictionary(_, value_type) => {
-            from_arrow_data_type(value_type.as_ref(), nullability)?
-        }
-        DataType::RunEndEncoded(_, value_type) => {
-            from_arrow_data_type(value_type.data_type(), nullability)?
-        }
         _ => vortex_bail!("Arrow data type not supported: {data_type:?}"),
     })
 }
 
+fn validate_map_entry_fields(entries: &Field) -> VortexResult<(&Field, &Field)> {
+    vortex_ensure!(
+        !entries.is_nullable(),
+        "Arrow map entries field must be non-nullable"
+    );
+    let DataType::Struct(fields) = entries.data_type() else {
+        vortex_bail!(
+            "Arrow map entries field must have Struct type, got {:?}",
+            entries.data_type()
+        );
+    };
+    vortex_ensure_eq!(
+        fields.len(),
+        2,
+        "Arrow map entries struct must contain exactly two fields"
+    );
+    let key = &fields[0];
+    let value = &fields[1];
+    vortex_ensure!(
+        !key.is_nullable(),
+        "Arrow map key field must be non-nullable"
+    );
+    Ok((key.as_ref(), value.as_ref()))
+}
+
+fn run_from_arrow_naive(mut task: FromArrowTask<'_>) -> VortexResult<DType> {
+    let mut stack = Vec::<FromArrowFrame<'_>>::new();
+    loop {
+        let (data_type, nullability) = match task {
+            FromArrowTask::Field(field) => {
+                if field
+                    .metadata()
+                    .get("ARROW:extension:name")
+                    .map(String::as_str)
+                    == Some("arrow.parquet.variant")
+                {
+                    let completed = DType::Variant(field.is_nullable().into());
+                    match pop_from_arrow_naive(&mut stack, completed)? {
+                        ControlFlow::Continue(next_task) => {
+                            task = next_task;
+                            continue;
+                        }
+                        ControlFlow::Break(result) => return Ok(result),
+                    }
+                }
+                (field.data_type(), Nullability::from(field.is_nullable()))
+            }
+            FromArrowTask::DataType(data_type, nullability) => (data_type, nullability),
+        };
+
+        let completed = match data_type {
+            DataType::Dictionary(_, value_type) => {
+                task = FromArrowTask::DataType(value_type.as_ref(), nullability);
+                continue;
+            }
+            DataType::RunEndEncoded(_, value_type) => {
+                task = FromArrowTask::DataType(value_type.data_type(), nullability);
+                continue;
+            }
+            DataType::List(elem)
+            | DataType::LargeList(elem)
+            | DataType::ListView(elem)
+            | DataType::LargeListView(elem) => {
+                stack.push(FromArrowFrame::List(nullability));
+                task = FromArrowTask::Field(elem.as_ref());
+                continue;
+            }
+            DataType::FixedSizeList(elem, size) => {
+                stack.push(FromArrowFrame::FixedSizeList(*size as u32, nullability));
+                task = FromArrowTask::Field(elem.as_ref());
+                continue;
+            }
+            DataType::Map(entries, keys_sorted) => {
+                let (key, value) = validate_map_entry_fields(entries.as_ref())?;
+                stack.push(FromArrowFrame::MapNeedValue {
+                    value_field: value,
+                    keys_sorted: *keys_sorted,
+                    nullability,
+                });
+                task = FromArrowTask::Field(key);
+                continue;
+            }
+            DataType::Struct(fields) => {
+                if let Some(first) = fields.first() {
+                    stack.push(FromArrowFrame::Struct {
+                        fields,
+                        next_idx: 0,
+                        built: Vec::with_capacity(fields.len()),
+                        nullability,
+                    });
+                    task = FromArrowTask::Field(first.as_ref());
+                    continue;
+                }
+                DType::Struct(StructFields::empty(), nullability)
+            }
+            _ => from_arrow_leaf_data_type(data_type, nullability)?,
+        };
+
+        match pop_from_arrow_naive(&mut stack, completed)? {
+            ControlFlow::Continue(next_task) => task = next_task,
+            ControlFlow::Break(result) => return Ok(result),
+        }
+    }
+}
+
+fn pop_from_arrow_naive<'a>(
+    stack: &mut Vec<FromArrowFrame<'a>>,
+    mut completed: DType,
+) -> VortexResult<ControlFlow<DType, FromArrowTask<'a>>> {
+    while let Some(frame) = stack.pop() {
+        match frame {
+            FromArrowFrame::List(nullability) => {
+                completed = DType::List(Arc::new(completed), nullability);
+            }
+            FromArrowFrame::FixedSizeList(size, nullability) => {
+                completed = DType::FixedSizeList(Arc::new(completed), size, nullability);
+            }
+            FromArrowFrame::MapNeedValue {
+                value_field,
+                keys_sorted,
+                nullability,
+            } => {
+                stack.push(FromArrowFrame::MapHaveValue {
+                    key_dtype: completed,
+                    keys_sorted,
+                    nullability,
+                });
+                return Ok(ControlFlow::Continue(FromArrowTask::Field(value_field)));
+            }
+            FromArrowFrame::MapHaveValue {
+                key_dtype,
+                keys_sorted,
+                nullability,
+            } => {
+                completed = DType::map(key_dtype, completed, keys_sorted, nullability)?;
+            }
+            FromArrowFrame::Struct {
+                fields,
+                next_idx,
+                mut built,
+                nullability,
+            } => {
+                built.push(completed);
+                let next = next_idx + 1;
+                if let Some(next_field) = fields.get(next) {
+                    stack.push(FromArrowFrame::Struct {
+                        fields,
+                        next_idx: next,
+                        built,
+                        nullability,
+                    });
+                    return Ok(ControlFlow::Continue(FromArrowTask::Field(
+                        next_field.as_ref(),
+                    )));
+                }
+                let names = fields
+                    .iter()
+                    .map(|field| FieldName::from(field.name().as_str()))
+                    .collect();
+                completed = DType::Struct(StructFields::new(names, built), nullability);
+            }
+        }
+    }
+    Ok(ControlFlow::Break(completed))
+}
+
+/// Naive conversion of an Arrow [`DataType`] to a Vortex [`DType`], with no awareness of Arrow
+/// extension plugins.
+pub(crate) fn from_arrow_data_type(
+    data_type: &DataType,
+    nullability: Nullability,
+) -> VortexResult<DType> {
+    run_from_arrow_naive(FromArrowTask::DataType(data_type, nullability))
+}
+
 /// Naive conversion of an Arrow [`Field`] to a Vortex [`DType`]. Only the builtin
 /// `arrow.parquet.variant` extension metadata is recognized.
+#[cfg(test)]
 pub(crate) fn from_arrow_field_naive(field: &Field) -> VortexResult<DType> {
-    if field
-        .metadata()
-        .get("ARROW:extension:name")
-        .map(|s| s.as_str())
-        == Some("arrow.parquet.variant")
-    {
-        return Ok(DType::Variant(field.is_nullable().into()));
-    }
-    from_arrow_data_type(field.data_type(), field.is_nullable().into())
+    run_from_arrow_naive(FromArrowTask::Field(field))
 }
 
 /// Naive conversion of Arrow [`Fields`] to Vortex [`StructFields`].
+#[cfg(test)]
 pub(crate) fn from_arrow_fields_naive(fields: &Fields) -> VortexResult<StructFields> {
-    fields
-        .into_iter()
-        .map(|f| {
-            Ok((
-                FieldName::from(f.name().as_str()),
-                from_arrow_field_naive(f.as_ref())?,
-            ))
-        })
-        .collect::<VortexResult<StructFields>>()
+    let mut dtypes = Vec::with_capacity(fields.len());
+    for field in fields.iter() {
+        dtypes.push(from_arrow_field_naive(field.as_ref())?);
+    }
+    let names = fields
+        .iter()
+        .map(|field| FieldName::from(field.name().as_str()))
+        .collect();
+    Ok(StructFields::new(names, dtypes))
 }
 
-/// Naive conversion from a Vortex `DType` to the nearest Arrow physical data type.
-pub(crate) fn to_data_type_naive(dtype: &DType) -> VortexResult<DataType> {
+fn to_data_type_naive_leaf(dtype: &DType) -> VortexResult<DataType> {
     Ok(match dtype {
         DType::Null => DataType::Null,
         DType::Bool(_) => DataType::Boolean,
@@ -238,43 +403,6 @@ pub(crate) fn to_data_type_naive(dtype: &DType) -> VortexResult<DataType> {
         }
         DType::Utf8(_) => DataType::Utf8View,
         DType::Binary(_) => DataType::BinaryView,
-        // There are four kinds of lists: List (32-bit offsets), Large List (64-bit), List View
-        // (32-bit), Large List View (64-bit). We cannot both guarantee zero-copy and commit to an
-        // Arrow dtype because we do not how large our offsets are.
-        DType::List(elem_dtype, _) => DataType::List(FieldRef::new(Field::new_list_field(
-            to_data_type_naive(elem_dtype)?,
-            elem_dtype.nullability().into(),
-        ))),
-        DType::FixedSizeList(elem_dtype, size, _) => DataType::FixedSizeList(
-            FieldRef::new(Field::new_list_field(
-                to_data_type_naive(elem_dtype)?,
-                elem_dtype.nullability().into(),
-            )),
-            *size as i32,
-        ),
-        DType::Map(map_dtype, _) => {
-            let key = Field::new("key", to_data_type_naive(&map_dtype.key_dtype())?, false);
-            let value_dtype = map_dtype.value_dtype();
-            let value = Field::new(
-                "value",
-                to_data_type_naive(&value_dtype)?,
-                value_dtype.is_nullable(),
-            );
-            let entries = Field::new_struct("entries", Fields::from(vec![key, value]), false);
-            DataType::Map(FieldRef::new(entries), map_dtype.keys_sorted())
-        }
-        DType::Struct(struct_dtype, _) => {
-            let mut fields = Vec::with_capacity(struct_dtype.names().len());
-            for (field_name, field_dt) in struct_dtype.names().iter().zip(struct_dtype.fields()) {
-                fields.push(FieldRef::from(Field::new(
-                    field_name.as_ref(),
-                    to_data_type_naive(&field_dt)?,
-                    field_dt.is_nullable(),
-                )));
-            }
-
-            DataType::Struct(Fields::from(fields))
-        }
         DType::Union(..) => vortex_bail!("TODO(connor)[Union]: unimplemented"),
         DType::Variant(_) => vortex_bail!(
             "DType::Variant requires Arrow Field metadata; use to_arrow_schema or a Field helper"
@@ -306,11 +434,131 @@ pub(crate) fn to_data_type_naive(dtype: &DType) -> VortexResult<DataType> {
                         }
                     },
                 });
-            };
+            }
 
             vortex_bail!("Unsupported extension type \"{}\"", ext_dtype.id())
         }
+        DType::List(..) | DType::FixedSizeList(..) | DType::Map(..) | DType::Struct(..) => {
+            unreachable!("container dtypes are handled iteratively")
+        }
     })
+}
+
+/// Naive conversion from a Vortex `DType` to the nearest Arrow physical data type.
+pub(crate) fn to_data_type_naive(dtype: &DType) -> VortexResult<DataType> {
+    let mut stack = Vec::<ToArrowFrame>::new();
+    let mut current = dtype.clone();
+    loop {
+        let mut completed = match &current {
+            DType::List(elem_dtype, _) => {
+                let nullable = elem_dtype.nullability().into();
+                let next = elem_dtype.as_ref().clone();
+                stack.push(ToArrowFrame::List { nullable });
+                current = next;
+                continue;
+            }
+            DType::FixedSizeList(elem_dtype, size, _) => {
+                let nullable = elem_dtype.nullability().into();
+                let size = *size as i32;
+                let next = elem_dtype.as_ref().clone();
+                stack.push(ToArrowFrame::FixedSizeList { size, nullable });
+                current = next;
+                continue;
+            }
+            DType::Map(map_dtype, _) => {
+                let value_dtype = map_dtype.value_dtype();
+                let value_nullable = value_dtype.is_nullable();
+                let keys_sorted = map_dtype.keys_sorted();
+                let next = map_dtype.key_dtype();
+                stack.push(ToArrowFrame::MapNeedValue {
+                    value_dtype,
+                    value_nullable,
+                    keys_sorted,
+                });
+                current = next;
+                continue;
+            }
+            DType::Struct(struct_dtype, _) => {
+                if let Some(first_dtype) = struct_dtype.field_by_index(0) {
+                    let count = struct_dtype.nfields();
+                    stack.push(ToArrowFrame::Struct {
+                        fields: struct_dtype.clone(),
+                        next_idx: 0,
+                        built: Vec::with_capacity(count),
+                    });
+                    current = first_dtype;
+                    continue;
+                }
+                DataType::Struct(Fields::empty())
+            }
+            _ => to_data_type_naive_leaf(&current)?,
+        };
+
+        loop {
+            let Some(frame) = stack.pop() else {
+                return Ok(completed);
+            };
+            match frame {
+                ToArrowFrame::List { nullable } => {
+                    completed = DataType::List(FieldRef::new(Field::new_list_field(
+                        completed, nullable,
+                    )));
+                }
+                ToArrowFrame::FixedSizeList { size, nullable } => {
+                    completed = DataType::FixedSizeList(
+                        FieldRef::new(Field::new_list_field(completed, nullable)),
+                        size,
+                    );
+                }
+                ToArrowFrame::MapNeedValue {
+                    value_dtype,
+                    value_nullable,
+                    keys_sorted,
+                } => {
+                    stack.push(ToArrowFrame::MapHaveValue {
+                        key_type: completed,
+                        value_nullable,
+                        keys_sorted,
+                    });
+                    current = value_dtype;
+                    break;
+                }
+                ToArrowFrame::MapHaveValue {
+                    key_type,
+                    value_nullable,
+                    keys_sorted,
+                } => {
+                    let key = Field::new("key", key_type, false);
+                    let value = Field::new("value", completed, value_nullable);
+                    let entries =
+                        Field::new_struct("entries", Fields::from(vec![key, value]), false);
+                    completed = DataType::Map(FieldRef::new(entries), keys_sorted);
+                }
+                ToArrowFrame::Struct {
+                    fields,
+                    next_idx,
+                    mut built,
+                } => {
+                    let name = fields.field_name(next_idx).map_or("", FieldName::as_ref);
+                    let nullable = fields
+                        .field_by_index(next_idx)
+                        .is_some_and(|dt| dt.is_nullable());
+                    built.push(FieldRef::from(Field::new(name, completed, nullable)));
+                    let next = next_idx + 1;
+                    if let Some(next_dtype) = fields.field_by_index(next) {
+                        stack.push(ToArrowFrame::Struct {
+                            fields,
+                            next_idx: next,
+                            built,
+                        });
+                        current = next_dtype;
+                        break;
+                    }
+                    completed = DataType::Struct(Fields::from(built));
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -638,5 +886,128 @@ mod test {
         let dtype = from_arrow_data_type(&DataType::Int32, Nullability::Nullable)?;
         assert_eq!(dtype, DType::Primitive(PType::I32, Nullability::Nullable));
         Ok(())
+    }
+
+    mod deep_tests {
+        use std::sync::Arc;
+        use std::thread;
+
+        use arrow_schema::DataType;
+        use arrow_schema::Field;
+        use arrow_schema::FieldRef;
+        use arrow_schema::Fields;
+        use vortex_array::dtype::DType;
+        use vortex_array::dtype::Nullability;
+        use vortex_array::dtype::PType;
+        use vortex_error::VortexResult;
+        use vortex_error::vortex_err;
+
+        use super::super::from_arrow_data_type;
+        use super::super::from_arrow_field_naive;
+        use super::super::from_arrow_fields_naive;
+        use super::super::to_data_type_naive;
+
+        fn build_deep_arrow_field(depth: usize, leaf: DataType, leaf_nullable: bool) -> Field {
+            let mut field = Field::new("leaf", leaf, leaf_nullable);
+            for level in 0..depth {
+                let data_type = match level % 5 {
+                    0 => DataType::List(Arc::new(field)),
+                    1 => DataType::LargeList(Arc::new(field)),
+                    2 => DataType::FixedSizeList(Arc::new(field), 1),
+                    3 => DataType::Struct(Fields::from(vec![Arc::new(field)])),
+                    _ => {
+                        let entries = Field::new_struct(
+                            "entries",
+                            Fields::from(vec![
+                                Field::new("key", DataType::Int32, false),
+                                field,
+                            ]),
+                            false,
+                        );
+                        DataType::Map(Arc::new(entries), false)
+                    }
+                };
+                field = Field::new(format!("f_{level}"), data_type, true);
+            }
+            field
+        }
+
+        #[test]
+        fn deep_naive_dtype_conversions_on_small_stack() -> VortexResult<()> {
+            let depth = 2048;
+            let deep_field = build_deep_arrow_field(depth, DataType::Int32, true);
+            let bad_field = build_deep_arrow_field(depth, DataType::FixedSizeBinary(3), true);
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<(DType, DataType)> {
+                    let from_field = from_arrow_field_naive(&deep_field)?;
+                    let from_dt = from_arrow_data_type(
+                        deep_field.data_type(),
+                        Nullability::from(deep_field.is_nullable()),
+                    )?;
+                    assert_eq!(from_field, from_dt);
+
+                    let fields = Fields::from(vec![FieldRef::new(deep_field.clone())]);
+                    let from_fields = from_arrow_fields_naive(&fields)?;
+                    assert_eq!(from_fields.field_by_index(0), Some(from_field.clone()));
+
+                    let back_dt = to_data_type_naive(&from_field)?;
+                    let roundtrip = from_arrow_data_type(&back_dt, Nullability::Nullable)?;
+                    assert_eq!(roundtrip, from_field);
+
+                    assert!(from_arrow_field_naive(&bad_field).is_err());
+                    Ok((from_field, back_dt))
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let (vx_dtype, arrow_dt) = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert!(matches!(vx_dtype, DType::FixedSizeList(..) | DType::List(..) | DType::Map(..) | DType::Struct(..)));
+            assert!(matches!(arrow_dt, DataType::FixedSizeList(..) | DataType::List(..) | DataType::Map(..) | DataType::Struct(..)));
+            Ok(())
+        }
+
+        #[test]
+        fn shallow_parity_covers_dict_and_ree_and_variant() -> VortexResult<()> {
+            let inner = Field::new("v", DataType::Int32, false);
+            let wrapped = Field::new(
+                "d",
+                DataType::Dictionary(
+                    Box::new(DataType::Int32),
+                    Box::new(DataType::RunEndEncoded(
+                        Arc::new(Field::new("run_ends", DataType::Int32, false)),
+                        Arc::new(inner),
+                    )),
+                ),
+                true,
+            );
+            let outer = DataType::Struct(Fields::from(vec![wrapped]));
+            let vx = from_arrow_data_type(&outer, Nullability::NonNullable)?;
+            let DType::Struct(sf, Nullability::NonNullable) = &vx else {
+                panic!("expected Struct, got {vx:?}");
+            };
+            assert_eq!(
+                sf.field_by_index(0),
+                Some(DType::Primitive(PType::I32, Nullability::Nullable))
+            );
+            let exported = to_data_type_naive(&vx)?;
+            assert!(matches!(exported, DataType::Struct(_)));
+
+            let variant_field = Field::new("var", DataType::Null, true).with_metadata(
+                [(
+                    "ARROW:extension:name".to_string(),
+                    "arrow.parquet.variant".to_string(),
+                )]
+                .into(),
+            );
+            assert_eq!(
+                from_arrow_field_naive(&variant_field)?,
+                DType::Variant(Nullability::Nullable)
+            );
+            assert!(to_data_type_naive(&DType::Variant(Nullability::Nullable)).is_err());
+            Ok(())
+        }
     }
 }

@@ -271,19 +271,13 @@ pub(super) fn prepare_plan(
         &plan.dtype,
         plan.session.memory(),
     )?);
-    let Some(schema) = schema_for(&plan.dtype, limits.columns) else {
+    let Some(schema) = schema_for(&plan.dtype, limits.columns, plan.session.memory())? else {
         return Ok(None);
     };
     if format == VortexLocalPrimitiveRowExportFormat::Orc {
         crate::universal_format_io::translate_orc_schema(&schema)?;
     }
-    let schema_fields = plan
-        .dtype
-        .as_struct_fields_opt()
-        .expect("schema is a struct")
-        .fields()
-        .map(|dtype| nested::field_count(&dtype))
-        .sum();
+    let schema_fields = count_schema_fields(fields, plan.session.memory())?;
     Ok(Some(PreparedCompatibilityExport {
         request: request.clone(),
         policy,
@@ -296,18 +290,33 @@ pub(super) fn prepare_plan(
     }))
 }
 
+fn count_schema_fields(
+    fields: &vortex::array::dtype::StructFields,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<usize> {
+    fields.fields().try_fold(0_usize, |sum, dtype| {
+        let count = nested::field_count_admitted(&dtype, memory)?;
+        sum.checked_add(count)
+            .ok_or_else(|| error("native schema field count overflow"))
+    })
+}
+
 fn contains_float16(dtype: &DType, scope: crate::native_payload_schema::Scope<'_>) -> Result<bool> {
     crate::native_payload_schema::contains_type(dtype, scope, |dtype| {
         matches!(dtype, DType::Primitive(vortex::array::dtype::PType::F16, _))
     })
 }
 
-fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
+fn schema_for(
+    dtype: &DType,
+    max_columns: usize,
+    memory: &shardloom_exec::live_memory::LiveMemoryPool,
+) -> Result<Option<SchemaRef>> {
     let DType::Struct(fields, Nullability::NonNullable) = dtype else {
-        return None;
+        return Ok(None);
     };
     if fields.nfields() == 0 || fields.nfields() > max_columns {
-        return None;
+        return Ok(None);
     }
     let mut arrow_fields = Vec::with_capacity(fields.nfields());
     let mut names = std::collections::BTreeSet::new();
@@ -316,11 +325,14 @@ fn schema_for(dtype: &DType, max_columns: usize) -> Option<SchemaRef> {
             || name.as_ref().len() > i32::MAX as usize
             || !names.insert(name.as_ref())
         {
-            return None;
+            return Ok(None);
         }
-        arrow_fields.push(nested::field(name.as_ref(), &dtype)?);
+        let Some(field) = nested::field_admitted(name.as_ref(), &dtype, memory)? else {
+            return Ok(None);
+        };
+        arrow_fields.push(field);
     }
-    Some(Arc::new(Schema::new(arrow_fields)))
+    Ok(Some(Arc::new(Schema::new(arrow_fields))))
 }
 
 fn add(total: &mut u64, value: u64) -> Result<()> {

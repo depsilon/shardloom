@@ -434,8 +434,7 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [ ] Complete the selected incremental and managed-Iceberg workflows.
 
 - [ ] **Resource-admitted deep traversal**
-  Status: Deferred — resumes after Foundry integration under the November 17
-  maintainer decision. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
+  Status: Local acceptance — public payload depth-24 ceiling empirically retained; hosted acceptance pending. The [PR checkpoint](native-deep-traversal-checkpoint-2026-11-17.md)
   preserves completed groundwork; public nesting limits and full-item gates
   remain unchanged. Establish the concrete user benefit before expanding this work.
   This will close the remaining depth obligation in the
@@ -653,6 +652,23 @@ workflow, performance and acceptance work recorded in the historical notes.
   788 array tests, with one existing array ignore. Native conversion, actual
   caller prepayment, provider compute and the complete deep workflow remain
   unaccepted. These tests do not authorize deeper public input or a performance claim.
+  The November 21 completion closes the remaining iterative provider slice/pushdown
+  work and 128-KiB stack audit (`deep_traversal_provider_128k_stack_audit` at depths
+  64, 512 and 2,048), adds the complete depth-24 end-to-end nested workflow with
+  native spill, `.vortex` write, fresh reopen, detached batch retention,
+  pre/mid-stream cancellation and `64-KiB` budget refusal
+  (`deep_24_end_to_end_nested_workflow_spill_vortex_arrow_and_cleanup`), and records
+  the empirical 42-cell depth-boundary matrix and permanent regression
+  `deep_24_all_seven_format_boundaries_and_32_limit_probe` retaining ShardLoom's
+  public payload depth-24 ceiling without overriding `VORTEX_MAX_LAYOUT_DEPTH` or
+  FlatBuffers `max_depth`. Local November 21 validation passes `arrays` (26
+  commands), `io` (8 commands) and `formats` (20 commands), workspace tests
+  (`3,352` passed across `108` targets), `deep_traversal_tests` (`3` passed),
+  `check_python_license_bundle.py` (`421` registry and `30` vendored packages)
+  and the native Python `core` shard (`test_count=1356`, `1,338` executed, `0`
+  failures/errors, `11` skipped), as recorded in the
+  [November 21 checkpoint update](native-deep-traversal-checkpoint-2026-11-17.md#november-21-completion-update);
+  hosted acceptance remains pending.
   Execution checklist:
   - [x] Inventory schema, value, transport and provider ownership boundaries.
   - [x] Add a memory-admitted iterative schema cursor and focused regressions.
@@ -662,8 +678,8 @@ workflow, performance and acceptance work recorded in the historical notes.
   - [x] Replace recursive native schema writing while preserving FlatBuffer bytes.
   - [x] Replace eager logical schema reading while preserving lazy views and errors.
   - [x] Make physical schema verification iterative with unchanged checks and limits.
-  - [ ] Complete native provider serialization, value traversal and cleanup.
-  - [ ] Verify deep import, retain, filter/join, spill, write, reopen and export.
+  - [x] Complete native provider serialization, value traversal and cleanup.
+  - [x] Verify deep import, retain, filter/join, spill, write, reopen and export.
   - [ ] Complete source, installed-package and hosted acceptance.
 
 - [ ] **AI data workflows**

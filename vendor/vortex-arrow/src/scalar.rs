@@ -68,33 +68,151 @@ pub trait ToArrowDatum {
 
 impl ToArrowDatum for Scalar {
     fn to_arrow_datum(&self) -> Result<Arc<dyn Datum>, VortexError> {
-        let value = self;
-        match value.dtype() {
-            DType::Null => Ok(Arc::new(NullArray::new(SCALAR_ARRAY_LEN))),
-            DType::Bool(_) => bool_to_arrow(value.as_bool()),
-            DType::Primitive(..) => primitive_to_arrow(value.as_primitive()),
-            DType::Decimal(..) => decimal_to_arrow(value.as_decimal()),
-            DType::Utf8(_) => utf8_to_arrow(value.as_utf8()),
-            DType::Binary(_) => binary_to_arrow(value.as_binary()),
-            DType::List(..) => {
-                vortex_bail!("list scalar conversion is not supported")
+        let mut stack = Vec::<ScalarMapFrame>::new();
+        let mut current = self.clone();
+        loop {
+            let mut completed: Arc<dyn Datum> = match current.dtype() {
+                DType::Null => Arc::new(NullArray::new(SCALAR_ARRAY_LEN)),
+                DType::Bool(_) => bool_to_arrow(current.as_bool())?,
+                DType::Primitive(..) => primitive_to_arrow(current.as_primitive())?,
+                DType::Decimal(..) => decimal_to_arrow(current.as_decimal())?,
+                DType::Utf8(_) => utf8_to_arrow(current.as_utf8())?,
+                DType::Binary(_) => binary_to_arrow(current.as_binary())?,
+                DType::List(..) => {
+                    vortex_bail!("list scalar conversion is not supported")
+                }
+                DType::FixedSizeList(..) => {
+                    vortex_bail!("fixed-size list scalar conversion is not supported")
+                }
+                DType::Map(..) => match start_map_frame(current.as_map())? {
+                    MapFrameInit::Done(datum) => datum,
+                    MapFrameInit::Descend { frame, next_scalar } => {
+                        stack.push(frame);
+                        current = next_scalar;
+                        continue;
+                    }
+                },
+                DType::Struct(..) => {
+                    vortex_bail!("struct scalar conversion is not supported")
+                }
+                DType::Union(..) => {
+                    vortex_bail!("union scalar conversion is not supported")
+                }
+                DType::Variant(_) => {
+                    vortex_bail!("Variant scalar conversion is not supported")
+                }
+                DType::Extension(..) => extension_to_arrow(current.as_extension())?,
+            };
+
+            loop {
+                let Some(mut frame) = stack.pop() else {
+                    return Ok(completed);
+                };
+                if frame.building_keys {
+                    frame.built_keys.push(completed);
+                    if frame.built_keys.len() < frame.entries.len() {
+                        let next_key = frame.entries[frame.built_keys.len()].0.clone();
+                        stack.push(frame);
+                        current = next_key;
+                        break;
+                    }
+                    frame.building_keys = false;
+                    let first_value = frame.entries[0].1.clone();
+                    stack.push(frame);
+                    current = first_value;
+                    break;
+                }
+                frame.built_values.push(completed);
+                if frame.built_values.len() < frame.entries.len() {
+                    let next_value = frame.entries[frame.built_values.len()].1.clone();
+                    stack.push(frame);
+                    current = next_value;
+                    break;
+                }
+                completed = finish_map_frame(frame)?;
             }
-            DType::FixedSizeList(..) => {
-                vortex_bail!("fixed-size list scalar conversion is not supported")
-            }
-            DType::Map(..) => map_to_arrow(value.as_map()),
-            DType::Struct(..) => {
-                vortex_bail!("struct scalar conversion is not supported")
-            }
-            DType::Union(..) => {
-                vortex_bail!("union scalar conversion is not supported")
-            }
-            DType::Variant(_) => {
-                vortex_bail!("Variant scalar conversion is not supported")
-            }
-            DType::Extension(..) => extension_to_arrow(value.as_extension()),
         }
     }
+}
+
+struct ScalarMapFrame {
+    key_dtype: DType,
+    value_dtype: DType,
+    value_nullable: bool,
+    keys_sorted: bool,
+    is_null: bool,
+    entries: Vec<(Scalar, Scalar)>,
+    building_keys: bool,
+    built_keys: Vec<Arc<dyn Datum>>,
+    built_values: Vec<Arc<dyn Datum>>,
+}
+
+enum MapFrameInit {
+    Done(Arc<dyn Datum>),
+    Descend {
+        frame: ScalarMapFrame,
+        next_scalar: Scalar,
+    },
+}
+
+fn start_map_frame(scalar: MapScalar<'_>) -> Result<MapFrameInit, VortexError> {
+    let map_dtype = scalar.map_dtype();
+    let key_dtype = map_dtype.key_dtype();
+    let value_dtype = map_dtype.value_dtype();
+    let value_nullable = value_dtype.is_nullable();
+    let entries = scalar.entries().collect::<Vec<_>>();
+    let entry_count = entries.len();
+    let frame = ScalarMapFrame {
+        key_dtype,
+        value_dtype,
+        value_nullable,
+        keys_sorted: map_dtype.keys_sorted(),
+        is_null: scalar.is_null(),
+        entries,
+        building_keys: true,
+        built_keys: Vec::with_capacity(entry_count),
+        built_values: Vec::with_capacity(entry_count),
+    };
+    if let Some((first_key, _)) = frame.entries.first() {
+        let next_scalar = first_key.clone();
+        Ok(MapFrameInit::Descend { frame, next_scalar })
+    } else {
+        Ok(MapFrameInit::Done(finish_map_frame(frame)?))
+    }
+}
+
+fn finish_map_frame(frame: ScalarMapFrame) -> Result<Arc<dyn Datum>, VortexError> {
+    let key_array = concat_scalar_arrays(&frame.built_keys, &frame.key_dtype)?;
+    let value_array = concat_scalar_arrays(&frame.built_values, &frame.value_dtype)?;
+    let key_field = Field::new("key", key_array.data_type().clone(), false);
+    let value_field = Field::new("value", value_array.data_type().clone(), frame.value_nullable);
+    let fields = Fields::from(vec![key_field, value_field]);
+    let entries = StructArray::try_new_with_length(
+        fields.clone(),
+        vec![key_array, value_array],
+        None,
+        frame.entries.len(),
+    )?;
+
+    let entries_len = i32::try_from(entries.len()).map_err(|_| {
+        vortex_err!(
+            "Cannot convert map scalar with {} entries to Arrow: MapArray offsets are i32",
+            entries.len()
+        )
+    })?;
+    let offsets = OffsetBuffer::new(vec![0_i32, entries_len].into());
+    let entries_field = Arc::new(Field::new_struct("entries", fields, false));
+    let nulls = frame
+        .is_null
+        .then(|| NullBuffer::new_null(SCALAR_ARRAY_LEN));
+    let map = MapArray::try_new(
+        entries_field,
+        offsets,
+        entries,
+        nulls,
+        frame.keys_sorted,
+    )?;
+    Ok(Arc::new(ArrowScalar::new(map)))
 }
 
 /// Convert a [`BoolScalar`] to an Arrow [`Datum`].
@@ -175,65 +293,15 @@ fn binary_to_arrow(scalar: BinaryScalar<'_>) -> Result<Arc<dyn Datum>, VortexErr
     value_to_arrow_scalar!(scalar.value(), BinaryViewArray)
 }
 
-/// Convert a [`MapScalar`] to an Arrow [`Datum`].
-fn map_to_arrow(scalar: MapScalar<'_>) -> Result<Arc<dyn Datum>, VortexError> {
-    let map_dtype = scalar.map_dtype();
-    let key_dtype = map_dtype.key_dtype();
-    let value_dtype = map_dtype.value_dtype();
-    let key_field = Field::new("key", to_data_type_naive(&key_dtype)?, false);
-    let value_field = Field::new(
-        "value",
-        to_data_type_naive(&value_dtype)?,
-        value_dtype.is_nullable(),
-    );
-    let fields = Fields::from(vec![key_field, value_field]);
-
-    let entries = scalar.entries().collect::<Vec<_>>();
-    let keys = entries
-        .iter()
-        .map(|(key, _)| key.to_arrow_datum())
-        .collect::<Result<Vec<_>, _>>()?;
-    let values = entries
-        .iter()
-        .map(|(_, value)| value.to_arrow_datum())
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let key_array = concat_scalar_arrays(&keys, &key_dtype)?;
-    let value_array = concat_scalar_arrays(&values, &value_dtype)?;
-    let entries = StructArray::try_new_with_length(
-        fields.clone(),
-        vec![key_array, value_array],
-        None,
-        entries.len(),
-    )?;
-
-    let entries_len = entries.len();
-    let entries_len = i32::try_from(entries_len).map_err(|_| {
-        vortex_err!(
-            "Cannot convert map scalar with {entries_len} entries to Arrow: MapArray offsets are i32"
-        )
-    })?;
-    let offsets = OffsetBuffer::new(vec![0_i32, entries_len].into());
-    let entries_field = Arc::new(Field::new_struct("entries", fields, false));
-    let nulls = scalar
-        .is_null()
-        .then(|| NullBuffer::new_null(SCALAR_ARRAY_LEN));
-    let map = MapArray::try_new(
-        entries_field,
-        offsets,
-        entries,
-        nulls,
-        map_dtype.keys_sorted(),
-    )?;
-    Ok(Arc::new(ArrowScalar::new(map)))
-}
-
 fn concat_scalar_arrays(
     scalars: &[Arc<dyn Datum>],
     dtype: &DType,
 ) -> Result<ArrayRef, VortexError> {
     if scalars.is_empty() {
         return Ok(new_empty_array(&to_data_type_naive(dtype)?));
+    }
+    if scalars.len() == 1 {
+        return Ok(scalars[0].get().0.slice(0, SCALAR_ARRAY_LEN));
     }
 
     // Every scalar is a single-element array of the same Arrow type, so append them in order.
@@ -1065,5 +1133,101 @@ mod tests {
             TimeUnit::Nanoseconds,
             Scalar::utf8("not a timestamp", Nullability::NonNullable),
         );
+    }
+
+    mod deep_tests {
+        use std::sync::Arc;
+        use std::thread;
+
+        use vortex_array::dtype::DType;
+        use vortex_array::dtype::Nullability;
+        use vortex_array::dtype::PType;
+        use vortex_array::scalar::Scalar;
+        use vortex_error::VortexResult;
+        use vortex_error::vortex_err;
+
+        use super::super::ToArrowDatum;
+
+        fn build_deep_map_scalar(depth: usize, leaf: Scalar) -> VortexResult<Scalar> {
+            let mut scalar = leaf;
+            let key_dtype = DType::Primitive(PType::I32, Nullability::NonNullable);
+            for level in 0..depth {
+                let val_dtype = scalar.dtype().clone();
+                let map_dtype = DType::map(
+                    key_dtype.clone(),
+                    val_dtype,
+                    false,
+                    Nullability::NonNullable,
+                )?;
+                let key_val = i32::try_from(level)?;
+                let key = Scalar::primitive(key_val, Nullability::NonNullable);
+                scalar = Scalar::try_map(map_dtype, [(key, scalar)])?;
+            }
+            Ok(scalar)
+        }
+
+        #[test]
+        fn deep_map_scalar_to_arrow_on_small_stack() -> VortexResult<()> {
+            let depth = 2048;
+            let deep_ok = build_deep_map_scalar(
+                depth,
+                Scalar::primitive(99i32, Nullability::Nullable),
+            )?;
+            let deep_two_a = build_deep_map_scalar(
+                depth,
+                Scalar::primitive(11i32, Nullability::Nullable),
+            )?;
+            let deep_two_b = build_deep_map_scalar(
+                depth,
+                Scalar::primitive(22i32, Nullability::Nullable),
+            )?;
+            let key_dtype = DType::Primitive(PType::I32, Nullability::NonNullable);
+            let multi_dtype = DType::map(
+                key_dtype,
+                deep_two_a.dtype().clone(),
+                false,
+                Nullability::NonNullable,
+            )?;
+            let deep_multi = Scalar::try_map(
+                multi_dtype,
+                [
+                    (Scalar::primitive(0i32, Nullability::NonNullable), deep_two_a),
+                    (Scalar::primitive(1i32, Nullability::NonNullable), deep_two_b),
+                ],
+            )?;
+            let deep_err = build_deep_map_scalar(
+                depth,
+                Scalar::list(
+                    Arc::new(DType::Primitive(PType::I32, Nullability::NonNullable)),
+                    vec![],
+                    Nullability::Nullable,
+                ),
+            )?;
+
+            let handle = thread::Builder::new()
+                .stack_size(128 * 1024)
+                .spawn(move || -> VortexResult<usize> {
+                    let datum = deep_ok.to_arrow_datum()?;
+                    let len = datum.get().0.len();
+                    let multi_datum = deep_multi.to_arrow_datum()?;
+                    assert_eq!(multi_datum.get().0.len(), 1);
+                    assert!(deep_err.to_arrow_datum().is_err());
+                    Ok(len)
+                })
+                .map_err(|err| vortex_err!("spawn 128 KiB thread: {err}"))?;
+
+            let len = handle
+                .join()
+                .map_err(|err| vortex_err!("128 KiB thread panicked: {err:?}"))??;
+            assert_eq!(len, 1);
+
+            let shallow = build_deep_map_scalar(
+                3,
+                Scalar::primitive(7i32, Nullability::Nullable),
+            )?;
+            let shallow_datum = shallow.to_arrow_datum()?;
+            assert_eq!(shallow_datum.get().0.len(), 1);
+            Ok(())
+        }
     }
 }

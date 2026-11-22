@@ -90,15 +90,18 @@ pub(super) fn field_writers(
 }
 
 fn contains_full_domain_timestamp(dtype: &DType) -> bool {
-    match dtype {
-        DType::Struct(fields, _) => fields
-            .fields()
-            .any(|child| contains_full_domain_timestamp(&child)),
-        DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
-            contains_full_domain_timestamp(child)
+    let mut stack = vec![dtype.clone()];
+    while let Some(current) = stack.pop() {
+        match &current {
+            DType::Struct(fields, _) => stack.extend(fields.fields()),
+            DType::List(child, _) | DType::FixedSizeList(child, _, _) => {
+                stack.push(child.as_ref().clone());
+            }
+            _ if is_full_domain_timestamp(&current) => return true,
+            _ => {}
         }
-        _ => is_full_domain_timestamp(dtype),
     }
+    false
 }
 
 pub(super) fn append_evidence(

@@ -21,7 +21,7 @@ use num_integer::Integer;
 use num_traits::{AsPrimitive, CheckedAdd};
 
 use super::{
-    _MutableArrayData, Extend,
+    _MutableArrayData, ChildExtendNullsTask, Extend,
     utils::{get_last_offset, try_extend_offsets},
 };
 
@@ -45,7 +45,7 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd + AsPrimiti
     let offsets = array.buffer::<T>(0);
     let values = array.buffers()[1].as_slice();
     Box::new(
-        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize, _| {
             let offset_buffer = &mut mutable.buffer1;
             let values_buffer = &mut mutable.buffer2;
 
@@ -63,6 +63,7 @@ pub(super) fn build_extend<T: ArrowNativeType + Integer + CheckedAdd + AsPrimiti
 pub(super) fn extend_nulls<T: ArrowNativeType>(
     mutable: &mut _MutableArrayData,
     len: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), arrow_schema::ArrowError> {
     let offset_buffer = &mut mutable.buffer1;
 

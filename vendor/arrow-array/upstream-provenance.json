@@ -2,14 +2,17 @@
   "added_files_sha256": {
     "LICENSE": "03548525ec3706de58e48ef6e3c455582557a0ad3b54a2da9a3819add35dfb72",
     "NOTICE": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
-    "README.shardloom.md": "858a9c1d8c3138bb191e56e72b70ccb34d17ea08460f7978adaaf92f650248af",
-    "src/ffi_stream/schema.rs": "afd84abbcc36b93d7ecfde92b9f288335ef82d494d0713e9df71bd3e7218fbd2",
-    "src/ffi_stream/schema_tests.rs": "2dea57e31e16882f000305330c614e6790cf06d99ec54d681b4efdfb752efa96",
+    "README.shardloom.md": "6e020047da836bf9d02ee11cd93e8f2f11598cb09f67170f034f79cc2dc3e06d",
     "src/array/data_export.rs": "070836f45e6e12cfd1f5aa943e430c60f7a8bc19b2f2b8e6c66366d1ba60a630",
     "src/array/data_export_reference.json": "fd4389f21500673638e4bd8e62801b5e79fdc061c3d3223095a595e9d82e0079",
     "src/array/data_export_tests.rs": "348e57f0fc18802e9f894b3ad1eb4c8588ac0ffbfb6c87ebf9ad59499fbe5acd",
+    "src/array/data_import.rs": "dec7ae1a9f41ab8d959be41874400dda24074aea4948e0edaef0b2a2407b5217",
+    "src/array/data_import_tests.rs": "cfc69ff8069f5118a11b12a01d9b83e63aae472e0ff92bff175bd6df59c3538a",
     "src/array/release.rs": "5b6f785887802332906841d0c25ebe20cc784d9b85bfdfee06216906c9f903b2",
-    "src/array/release_tests.rs": "63a70e2233dbde0a3119668040501c1df90929efa88dee641a00ed295d80df3f"
+    "src/array/release_tests.rs": "63a70e2233dbde0a3119668040501c1df90929efa88dee641a00ed295d80df3f",
+    "src/ffi_stream/schema.rs": "afd84abbcc36b93d7ecfde92b9f288335ef82d494d0713e9df71bd3e7218fbd2",
+    "src/ffi_stream/schema_tests.rs": "2dea57e31e16882f000305330c614e6790cf06d99ec54d681b4efdfb752efa96",
+    "src/array/slice_iter.rs": "a56182159c4f1ef930437239696c60888f0f26cc8d289c86a70736c8b244b51c"
   },
   "additional_license_files": [
     {
@@ -23,25 +26,25 @@
   "license_url": "https://static.crates.io/crates/arrow-array/arrow-array-59.3.2.crate#LICENSE.txt",
   "local_changes_documentation": {
     "path": "README.shardloom.md",
-    "sha256": "858a9c1d8c3138bb191e56e72b70ccb34d17ea08460f7978adaaf92f650248af"
+    "sha256": "6e020047da836bf9d02ee11cd93e8f2f11598cb09f67170f034f79cc2dc3e06d"
   },
-  "migration_status": "reviewed_ownership_checkpoint; public_depth_guards_unchanged; full_deep_workflow_deferred",
+  "migration_status": "reviewed_data_import_completion; public_depth_guards_unchanged; full_deep_workflow_pending",
   "modified_files_sha256": {
     "Cargo.toml": "234f3fe75431f807ed345c18eb863bf62260f3b63fa34f45e484aefbef80f363",
     "src/builder/fixed_size_list_builder.rs": "2c9eda37d4eb8274116e4e11498188ae52a46a2b5b79a35b534454b98dd35093",
     "src/builder/union_builder.rs": "ae92f65f673f93a9819cba5f65536ef380b5f60fa5402e93558ed00a6073e70f",
     "src/ffi_stream.rs": "0846a924e51b1451e1f574590334cf21353d659fb12a2e33b387a743603a59b8",
     "src/array/boolean_array.rs": "e949861ddce2e5d33221ace295171f9a5013689d8b91486b5efc611df1b6bf50",
-    "src/array/dictionary_array.rs": "45dfeeff247273473ddb1a8c95a5099b507b7f9784a441f8d177b828687cdbd6",
-    "src/array/fixed_size_list_array.rs": "957db8b5087597357f26630a0a5a22d3328dfe576af08887600f26db6392a7ed",
-    "src/array/list_array.rs": "77484db8f08341fc3dd798ec323549523da220fb79540c4b785e027203bf86b3",
-    "src/array/list_view_array.rs": "e1f2d7f5c3d2ecbbae987a66f14e301c88850a8ba1f6eed126d28fe9d0848161",
-    "src/array/map_array.rs": "34c1b67becd6adc1ba638283a7a7957079ae7ee58801ea39c4ef502539bff507",
-    "src/array/mod.rs": "30a81ddf6225950666057c0e21a5776a34497828e1c02a32f300e38fc0fba4f2",
+    "src/array/dictionary_array.rs": "f377c1e1cb1932dc315026de9645af8bcf80e04bb2484ad0965c8b9bc145ed5b",
+    "src/array/fixed_size_list_array.rs": "f903f06d192d250e23fab6973c867cbe6819a589d9fa5eb39ee8868362e99362",
+    "src/array/list_array.rs": "0b21149fb2122f11d87c12dafbce596b8d8f5809e4615b47a0f8463db49e9b5e",
+    "src/array/list_view_array.rs": "6f56705e57c4839fc46e0231910cdb50b8ec4405c28b800f172bf3cef4311395",
+    "src/array/map_array.rs": "2c63290205b53b070bac326e33ae121f00cad02b78fd678a7aad69761515d5fc",
+    "src/array/mod.rs": "cdc4eb59b668cedb729555584b1951591d4f5f9fda587a71fdd2b6f36c4fc520",
     "src/array/null_array.rs": "3ad8cc32b2ef8c07c93deffd0f4eeebb8c3dcf1da96aa1231316256204e96729",
-    "src/array/run_array.rs": "01bd4408d643122b0f16d0f6511982d87a80b5aec3dfb8c55f766b57241650ea",
-    "src/array/struct_array.rs": "43209331dcbe0951a27ab204e241378a5a9615dd59654ed38914463b51f6c6e8",
-    "src/array/union_array.rs": "2b642aaab933ca5f135cb1bcb290afab97e32d08451d2431b2aa23a8e0ffee3a"
+    "src/array/run_array.rs": "e9e6d95a598cbc13a4877552938abef511f1437149fcc913c2a965020af9c9b2",
+    "src/array/struct_array.rs": "d2e0d0f91987aaeac55994a1fe79e5a9372df50d9992a30588ff60cb14b32a89",
+    "src/array/union_array.rs": "8d3553dcea8a05b3f898c436bacd117ec107f846e282adda25793ce84caadc7f"
   },
   "notice_sha256": "e5b198d7f809311723889814d99a92f808c69e89a847efa7a7b65270f5fdeae6",
   "notice_url": "https://static.crates.io/crates/arrow-array/arrow-array-59.3.2.crate#NOTICE.txt",

@@ -16,16 +16,9 @@ use vortex_buffer::Buffer;
 use vortex_error::VortexResult;
 use vortex_error::vortex_ensure_eq;
 
-/// Build a Vortex run-end array from an Arrow [`RunArray`].
-///
-/// `import_values` converts the Arrow values of the runs that intersect the logical range. The
-/// caller supplies it, so extension metadata on the values field reaches the session's import
-/// plugins. This function slices both children from one physical run range, so the ends and the
-/// values cannot drift apart.
-pub(crate) fn run_end_from_arrow<R: RunEndIndexType>(
+pub(crate) fn extract_run_end_parts<R: RunEndIndexType>(
     array: &RunArray<R>,
-    import_values: impl FnOnce(ArrowArrayRef) -> VortexResult<ArrayRef>,
-) -> VortexResult<ArrayRef>
+) -> (ArrayRef, ArrowArrayRef, usize, usize)
 where
     R::Native: NativePType,
 {
@@ -44,8 +37,15 @@ where
     let ends = PrimitiveArray::new(ends_buf, Validity::NonNullable)
         .reinterpret_cast(R::Native::PTYPE.to_unsigned())
         .into_array();
-    let values = import_values(array.values().slice(first, len))?;
+    (ends, array.values().slice(first, len), offset, array.len())
+}
 
+pub(crate) fn finish_run_end(
+    ends: ArrayRef,
+    values: ArrayRef,
+    offset: usize,
+    len: usize,
+) -> VortexResult<ArrayRef> {
     vortex_ensure_eq!(
         ends.len(),
         values.len(),
@@ -55,7 +55,7 @@ where
     // SAFETY: Arrow guarantees positive, strictly increasing run ends that cover the logical range.
     // The unsigned cast preserves those values. The slice retains all intersecting runs,
     // and the length check ensures one value per run end.
-    Ok(unsafe { RunEnd::new_unchecked(ends, values, offset, array.len()) }.into_array())
+    Ok(unsafe { RunEnd::new_unchecked(ends, values, offset, len) }.into_array())
 }
 
 #[cfg(test)]

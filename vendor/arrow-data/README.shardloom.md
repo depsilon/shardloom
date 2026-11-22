@@ -23,7 +23,14 @@ literal-only `format!` so the full test target passes strict current Clippy.
 
 The November 17 checkpoint adds intrinsic child cleanup and ordered cloning,
 iterative descriptor validation, memory inspection, alignment and slicing.
+Subsequent deep-traversal completion also replaces recursive nested equality in
+`src/equal/{mod,structure,list,list_view,fixed_list,dictionary,union,run}.rs`
+with an explicit heap worklist (`EqualFrame`) tested on a 128-KiB stack in
+`src/equal/equal_tests.rs`, and makes `MutableArrayData` construction,
+`try_extend`, `try_extend_nulls`, `into_builder`/`freeze`, and `Drop` iterative in
+`src/transform/{mod,boolean,fixed_binary,fixed_size_list,list,list_view,null,primitive,run,structure,union,variable_size}.rs`
+tested on 128-KiB stacks at depth 512 and depth 2,048 (`src/transform/mod.rs`).
 Frozen shallow references verify the original values, errors and competing-fault
-order; deep tests cover retained descriptors and failure cleanup on small stacks.
-Buffers remain shared. This provider proof does not establish a complete deep
-user workflow or caller admission of every traversal/output allocation.
+order; deep tests cover retained descriptors, logical equality, and failure
+cleanup on small stacks. Buffers remain shared. This provider work adds no unsafe
+blocks and preserves public depth boundaries until cross-boundary checks complete.

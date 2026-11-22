@@ -18,37 +18,33 @@ mod walk;
 #[path = "native_arrow_preparation_reference.rs"]
 mod reference;
 
+#[cfg(test)]
+#[path = "native_arrow_conversion_tests.rs"]
+mod conversion_tests;
+
+#[cfg(test)]
 pub(crate) fn field(name: &str, dtype: &DType) -> Option<Field> {
-    if crate::native_uuid::storage(dtype).is_some() {
-        return Some(crate::native_uuid::arrow::field(name, dtype.is_nullable()));
-    }
-    if matches!(dtype, DType::Variant(_)) {
-        return Some(crate::native_variant::arrow::field(
-            name,
-            dtype.is_nullable(),
-        ));
-    }
-    #[cfg(feature = "native-binary-objects")]
-    if crate::native_binary_type::storage(dtype).is_some() {
-        return crate::native_binary_type::arrow::field(name, dtype).ok();
-    }
-    if crate::native_embedding::storage(dtype).is_some() {
-        return crate::native_embedding::arrow::field(name, dtype).ok();
-    }
-    if crate::native_tensor::storage(dtype).is_some() {
-        return crate::native_tensor::arrow::field(name, dtype).ok();
-    }
-    if crate::native_variable_tensor::storage(dtype).is_some() {
-        return crate::native_variable_tensor::arrow::field(name, dtype).ok();
-    }
-    if crate::native_vector::storage(dtype).is_some() {
-        return crate::native_vector::arrow::field(name, dtype).ok();
-    }
-    if crate::native_spatial::storage(dtype).is_some() {
-        return crate::native_spatial::arrow::field(name, dtype).ok();
-    }
-    crate::native_temporal::arrow::field(&Field::new(name, data_type(dtype)?, dtype.is_nullable()))
-        .ok()
+    convert_root(
+        dtype,
+        Some((FieldNameRef::Borrowed(name), dtype.is_nullable())),
+        None,
+    )
+    .expect("unadmitted field conversion checks no memory budget")
+    .map(Converted::into_field)
+}
+
+pub(crate) fn field_admitted<'a>(
+    name: &str,
+    dtype: &DType,
+    scope: impl Into<crate::native_payload_schema::Scope<'a>>,
+) -> Result<Option<Field>> {
+    let scope = scope.into();
+    Ok(convert_root(
+        dtype,
+        Some((FieldNameRef::Borrowed(name), dtype.is_nullable())),
+        Some(scope),
+    )?
+    .map(Converted::into_field))
 }
 
 /// Callers choose representation/work admission and supply their cancellation
@@ -67,7 +63,235 @@ impl ConversionLimits<'_> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
+    convert_root(dtype, None, None)
+        .expect("unadmitted data_type conversion checks no memory budget")
+        .map(Converted::into_data_type)
+}
+
+#[cfg(test)]
+pub(crate) fn data_type_admitted<'a>(
+    dtype: &DType,
+    scope: impl Into<crate::native_payload_schema::Scope<'a>>,
+) -> Result<Option<DataType>> {
+    let scope = scope.into();
+    Ok(convert_root(dtype, None, Some(scope))?.map(Converted::into_data_type))
+}
+
+#[allow(dead_code)]
+pub(crate) fn field_count(dtype: &DType) -> usize {
+    field_count_inner(dtype, None).expect("unadmitted field_count checks no memory budget")
+}
+
+pub(crate) fn field_count_admitted<'a>(
+    dtype: &DType,
+    scope: impl Into<crate::native_payload_schema::Scope<'a>>,
+) -> Result<usize> {
+    let scope = scope.into();
+    field_count_inner(dtype, Some(scope))
+}
+
+#[derive(Clone)]
+enum FieldNameRef<'a> {
+    Borrowed(&'a str),
+    Shared(vortex::array::dtype::FieldName),
+}
+
+impl FieldNameRef<'_> {
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Borrowed(name) => name,
+            Self::Shared(name) => name.as_ref(),
+        }
+    }
+}
+
+enum DTypeCursor<'d> {
+    Borrowed(&'d DType),
+    Owned(DType),
+}
+
+impl DTypeCursor<'_> {
+    fn as_ref(&self) -> &DType {
+        match self {
+            Self::Borrowed(dtype) => dtype,
+            Self::Owned(dtype) => dtype,
+        }
+    }
+}
+
+enum Converted {
+    Field(Field),
+    #[cfg(test)]
+    DataType(DataType),
+}
+
+impl Converted {
+    fn into_field(self) -> Field {
+        match self {
+            Self::Field(field) => field,
+            #[cfg(test)]
+            Self::DataType(_) => unreachable!("field root produces a Field"),
+        }
+    }
+
+    #[cfg(test)]
+    fn into_data_type(self) -> DataType {
+        match self {
+            Self::DataType(dtype) => dtype,
+            Self::Field(_) => unreachable!("data_type root produces a DataType"),
+        }
+    }
+}
+
+enum PendingVec<T> {
+    Plain(Vec<T>),
+    Reserved(crate::local_primitives::native_capacity::ReservedVec<T>),
+}
+
+impl<T> PendingVec<T> {
+    fn new(scope: Option<crate::native_payload_schema::Scope<'_>>) -> Result<Self> {
+        match scope {
+            Some(scope) => Ok(Self::Reserved(
+                crate::local_primitives::native_capacity::ReservedVec::new(scope.memory())?,
+            )),
+            None => Ok(Self::Plain(Vec::new())),
+        }
+    }
+
+    fn reserve(&mut self, additional: usize) -> Result<()> {
+        match self {
+            Self::Plain(values) => values.try_reserve(additional).map_err(vortex_error),
+            Self::Reserved(values) => values.reserve(additional),
+        }
+    }
+
+    fn push(&mut self, value: T) -> Result<()> {
+        match self {
+            Self::Plain(values) => {
+                values.try_reserve(1).map_err(vortex_error)?;
+                values.push(value);
+                Ok(())
+            }
+            Self::Reserved(values) => values.push(value),
+        }
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        match self {
+            Self::Plain(values) => values.pop(),
+            Self::Reserved(values) => values.values.pop(),
+        }
+    }
+
+    fn take_vec(&mut self) -> Vec<T> {
+        match self {
+            Self::Plain(values) => std::mem::take(values),
+            Self::Reserved(values) => std::mem::take(&mut values.values),
+        }
+    }
+}
+
+impl<T> Drop for PendingVec<T> {
+    fn drop(&mut self) {
+        while self.pop().is_some() {}
+    }
+}
+
+enum TypeFrame<'a> {
+    List {
+        wrap: Option<(FieldNameRef<'a>, bool)>,
+    },
+    FixedSizeList {
+        size: i32,
+        wrap: Option<(FieldNameRef<'a>, bool)>,
+    },
+    Struct {
+        fields: vortex::array::dtype::StructFields,
+        next: usize,
+        collected: PendingVec<Field>,
+        wrap: Option<(FieldNameRef<'a>, bool)>,
+    },
+}
+
+enum ExtensionField {
+    Matched(Field),
+    Invalid,
+    None,
+}
+
+fn extension_field(name: &str, dtype: &DType) -> ExtensionField {
+    if crate::native_uuid::storage(dtype).is_some() {
+        return ExtensionField::Matched(crate::native_uuid::arrow::field(
+            name,
+            dtype.is_nullable(),
+        ));
+    }
+    if matches!(dtype, DType::Variant(_)) {
+        return ExtensionField::Matched(crate::native_variant::arrow::field(
+            name,
+            dtype.is_nullable(),
+        ));
+    }
+    #[cfg(feature = "native-binary-objects")]
+    if crate::native_binary_type::storage(dtype).is_some() {
+        return match crate::native_binary_type::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    if crate::native_embedding::storage(dtype).is_some() {
+        return match crate::native_embedding::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    if crate::native_tensor::storage(dtype).is_some() {
+        return match crate::native_tensor::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    if crate::native_variable_tensor::storage(dtype).is_some() {
+        return match crate::native_variable_tensor::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    if crate::native_vector::storage(dtype).is_some() {
+        return match crate::native_vector::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    if crate::native_spatial::storage(dtype).is_some() {
+        return match crate::native_spatial::arrow::field(name, dtype) {
+            Ok(field) => ExtensionField::Matched(field),
+            Err(_) => ExtensionField::Invalid,
+        };
+    }
+    ExtensionField::None
+}
+
+fn finish_data_type(dtype: DataType, wrap: Option<(FieldNameRef<'_>, bool)>) -> Option<Converted> {
+    match wrap {
+        Some((name, nullable)) => Some(Converted::Field(
+            crate::native_temporal::arrow::annotate_node(Field::new(
+                name.as_str(),
+                dtype,
+                nullable,
+            ))
+            .ok()?,
+        )),
+        #[cfg(test)]
+        None => Some(Converted::DataType(dtype)),
+        #[cfg(not(test))]
+        None => None,
+    }
+}
+
+fn leaf_data_type(dtype: &DType) -> Option<DataType> {
     Some(match dtype {
         DType::Bool(_) => DataType::Boolean,
         DType::Utf8(_) => DataType::Utf8,
@@ -82,11 +306,6 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
         }
         DType::Decimal(decimal, _) if crate::native_payload_schema::admitted_decimal(*decimal) => {
             DataType::Decimal128(decimal.precision(), decimal.scale())
-        }
-        DType::Extension(_)
-            if crate::native_extensions::structured_payload_storage(dtype).is_some() =>
-        {
-            data_type(crate::native_extensions::structured_payload_storage(dtype)?)?
         }
         DType::Extension(_) => {
             crate::native_temporal::arrow_dtype(&crate::native_temporal::temporal_dtype(dtype)?)
@@ -104,34 +323,248 @@ pub(crate) fn data_type(dtype: &DType) -> Option<DataType> {
             PType::F64 => DataType::Float64,
             PType::F16 => DataType::Float16,
         },
-        DType::List(element, _) => DataType::List(Arc::new(field("item", element)?)),
-        DType::FixedSizeList(element, size, _) => DataType::FixedSizeList(
-            Arc::new(field("item", element)?),
-            i32::try_from(*size).ok()?,
-        ),
-        DType::Struct(fields, _) => DataType::Struct(
-            fields
-                .names()
-                .iter()
-                .zip(fields.fields())
-                .map(|(name, dtype)| {
-                    let name: &str = name.as_ref();
-                    field(name, &dtype)
-                })
-                .collect::<Option<Vec<_>>>()?
-                .into(),
-        ),
         _ => return None,
     })
 }
 
-pub(crate) fn field_count(dtype: &DType) -> usize {
-    1 + match dtype {
-        DType::Extension(extension) => field_count(extension.storage_dtype()),
-        DType::Struct(fields, _) => fields.fields().map(|child| field_count(&child)).sum(),
-        DType::List(element, _) | DType::FixedSizeList(element, _, _) => field_count(element),
-        _ => 0,
+enum EnterStep<'a> {
+    Done(Option<Converted>),
+    Descend {
+        frame: TypeFrame<'a>,
+        next_dtype: DType,
+        next_wrap: Option<(FieldNameRef<'a>, bool)>,
+    },
+}
+
+fn enter_convert_node<'a>(
+    current_dtype: &DType,
+    current_wrap: Option<(FieldNameRef<'a>, bool)>,
+    scope: Option<crate::native_payload_schema::Scope<'_>>,
+) -> Result<EnterStep<'a>> {
+    if let Some((ref name, _)) = current_wrap {
+        match extension_field(name.as_str(), current_dtype) {
+            ExtensionField::Matched(field) => {
+                return Ok(EnterStep::Done(Some(Converted::Field(field))));
+            }
+            ExtensionField::Invalid => return Ok(EnterStep::Done(None)),
+            ExtensionField::None => {}
+        }
     }
+
+    let mut active_borrow = current_dtype;
+    if current_wrap.is_none() {
+        while let DType::Extension(_) = active_borrow {
+            if let Some(storage) =
+                crate::native_extensions::structured_payload_storage(active_borrow)
+            {
+                active_borrow = storage;
+            } else {
+                break;
+            }
+        }
+    }
+    match active_borrow {
+        DType::List(element, _) => {
+            let child_nullable = element.is_nullable();
+            let next_dtype = element.as_ref().clone();
+            Ok(EnterStep::Descend {
+                frame: TypeFrame::List { wrap: current_wrap },
+                next_dtype,
+                next_wrap: Some((FieldNameRef::Borrowed("item"), child_nullable)),
+            })
+        }
+        DType::FixedSizeList(element, size, _) => {
+            let Ok(size) = i32::try_from(*size) else {
+                return Ok(EnterStep::Done(None));
+            };
+            let child_nullable = element.is_nullable();
+            let next_dtype = element.as_ref().clone();
+            Ok(EnterStep::Descend {
+                frame: TypeFrame::FixedSizeList {
+                    size,
+                    wrap: current_wrap,
+                },
+                next_dtype,
+                next_wrap: Some((FieldNameRef::Borrowed("item"), child_nullable)),
+            })
+        }
+        DType::Struct(fields, _) => {
+            if fields.nfields() == 0 {
+                return Ok(EnterStep::Done(finish_data_type(
+                    DataType::Struct(arrow_schema::Fields::empty()),
+                    current_wrap,
+                )));
+            }
+            let mut collected = PendingVec::new(scope)?;
+            collected.reserve(fields.nfields())?;
+            let first_name = FieldNameRef::Shared(fields.names()[0].clone());
+            let first_dtype = fields
+                .field_by_index(0)
+                .expect("non-empty struct always has field 0");
+            let first_nullable = first_dtype.is_nullable();
+            Ok(EnterStep::Descend {
+                frame: TypeFrame::Struct {
+                    fields: fields.clone(),
+                    next: 1,
+                    collected,
+                    wrap: current_wrap,
+                },
+                next_dtype: first_dtype,
+                next_wrap: Some((first_name, first_nullable)),
+            })
+        }
+        leaf => Ok(EnterStep::Done(
+            leaf_data_type(leaf).and_then(|dt| finish_data_type(dt, current_wrap)),
+        )),
+    }
+}
+
+enum PopStep<'a> {
+    Complete(Option<Converted>),
+    Descend {
+        next_dtype: DType,
+        next_wrap: Option<(FieldNameRef<'a>, bool)>,
+    },
+}
+
+fn pop_convert_frames<'a>(
+    stack: &mut PendingVec<TypeFrame<'a>>,
+    mut value: Converted,
+    scope: Option<crate::native_payload_schema::Scope<'_>>,
+) -> Result<PopStep<'a>> {
+    loop {
+        if let Some(scope) = scope {
+            scope.check_cancelled()?;
+        }
+        let Some(frame) = stack.pop() else {
+            return Ok(PopStep::Complete(Some(value)));
+        };
+        match frame {
+            TypeFrame::List { wrap } => {
+                let dt = DataType::List(Arc::new(value.into_field()));
+                let Some(done) = finish_data_type(dt, wrap) else {
+                    return Ok(PopStep::Complete(None));
+                };
+                value = done;
+            }
+            TypeFrame::FixedSizeList { size, wrap } => {
+                let dt = DataType::FixedSizeList(Arc::new(value.into_field()), size);
+                let Some(done) = finish_data_type(dt, wrap) else {
+                    return Ok(PopStep::Complete(None));
+                };
+                value = done;
+            }
+            TypeFrame::Struct {
+                fields,
+                next,
+                mut collected,
+                wrap,
+            } => {
+                collected.push(value.into_field())?;
+                if next < fields.nfields() {
+                    let next_name = FieldNameRef::Shared(fields.names()[next].clone());
+                    let next_dtype = fields
+                        .field_by_index(next)
+                        .expect("struct field index checked above");
+                    let next_nullable = next_dtype.is_nullable();
+                    stack.push(TypeFrame::Struct {
+                        fields,
+                        next: next + 1,
+                        collected,
+                        wrap,
+                    })?;
+                    return Ok(PopStep::Descend {
+                        next_dtype,
+                        next_wrap: Some((next_name, next_nullable)),
+                    });
+                }
+                let finished = collected.take_vec();
+                let dt = DataType::Struct(finished.into());
+                let Some(done) = finish_data_type(dt, wrap) else {
+                    return Ok(PopStep::Complete(None));
+                };
+                value = done;
+            }
+        }
+    }
+}
+
+fn convert_root<'a>(
+    root: &DType,
+    root_wrap: Option<(FieldNameRef<'a>, bool)>,
+    scope: Option<crate::native_payload_schema::Scope<'_>>,
+) -> Result<Option<Converted>> {
+    if let Some(scope) = scope {
+        scope.check_cancelled()?;
+    }
+    let mut stack = PendingVec::<TypeFrame<'a>>::new(scope)?;
+    let mut current_dtype = DTypeCursor::Borrowed(root);
+    let mut current_wrap = root_wrap;
+    loop {
+        if let Some(scope) = scope {
+            scope.check_cancelled()?;
+        }
+        let produced = match enter_convert_node(current_dtype.as_ref(), current_wrap, scope)? {
+            EnterStep::Descend {
+                frame,
+                next_dtype,
+                next_wrap,
+            } => {
+                stack.push(frame)?;
+                current_dtype = DTypeCursor::Owned(next_dtype);
+                current_wrap = next_wrap;
+                continue;
+            }
+            EnterStep::Done(Some(done)) => done,
+            EnterStep::Done(None) => return Ok(None),
+        };
+        match pop_convert_frames(&mut stack, produced, scope)? {
+            PopStep::Complete(result) => return Ok(result),
+            PopStep::Descend {
+                next_dtype,
+                next_wrap,
+            } => {
+                current_dtype = DTypeCursor::Owned(next_dtype);
+                current_wrap = next_wrap;
+            }
+        }
+    }
+}
+
+fn field_count_inner(
+    root: &DType,
+    scope: Option<crate::native_payload_schema::Scope<'_>>,
+) -> Result<usize> {
+    if let Some(scope) = scope {
+        scope.check_cancelled()?;
+    }
+    let mut total = 0_usize;
+    let mut stack = PendingVec::<DType>::new(scope)?;
+    stack.push(root.clone())?;
+    while let Some(dtype) = stack.pop() {
+        if let Some(scope) = scope {
+            scope.check_cancelled()?;
+        }
+        total = total
+            .checked_add(1)
+            .ok_or_else(|| error("native field count overflow"))?;
+        match &dtype {
+            DType::Extension(extension) => {
+                stack.push(extension.storage_dtype().clone())?;
+            }
+            DType::List(element, _) | DType::FixedSizeList(element, _, _) => {
+                stack.push(element.as_ref().clone())?;
+            }
+            DType::Struct(fields, _) => {
+                stack.reserve(fields.nfields())?;
+                for child in fields.fields() {
+                    stack.push(child)?;
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(total)
 }
 
 /// A private immediate-consumer representation. Parquet accepts view and offset
@@ -200,36 +633,48 @@ pub(crate) fn immediate_parquet_target(
 /// their unit as a JSON string. Require exact agreement with the translated
 /// dtype. Keep names, nullability and every leaf exact.
 pub(crate) fn avro_field_matches(actual: &Field, expected: &Field) -> bool {
-    if actual.name() != expected.name()
-        || actual.is_nullable() != expected.is_nullable()
-        || !expected.metadata().is_empty()
-        || actual.metadata().iter().any(|(name, value)| {
-            match (name.as_str(), expected.data_type()) {
-                ("avro.name" | "avro.namespace", _) => false,
-                ("precision", DataType::Decimal128(precision, _)) => {
-                    value != &precision.to_string()
+    let mut stack = vec![(actual, expected)];
+    while let Some((actual, expected)) = stack.pop() {
+        if actual.name() != expected.name()
+            || actual.is_nullable() != expected.is_nullable()
+            || !expected.metadata().is_empty()
+            || actual.metadata().iter().any(|(name, value)| {
+                match (name.as_str(), expected.data_type()) {
+                    ("avro.name" | "avro.namespace", _) => false,
+                    ("precision", DataType::Decimal128(precision, _)) => {
+                        value != &precision.to_string()
+                    }
+                    ("scale", DataType::Decimal128(_, scale)) => value != &scale.to_string(),
+                    (
+                        "arrowTimeUnit",
+                        DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _),
+                    ) => value != "\"nanosecond\"",
+                    _ => true,
                 }
-                ("scale", DataType::Decimal128(_, scale)) => value != &scale.to_string(),
-                ("arrowTimeUnit", DataType::Timestamp(arrow_schema::TimeUnit::Nanosecond, _)) => {
-                    value != "\"nanosecond\""
-                }
-                _ => true,
-            }
-        })
-    {
-        return false;
-    }
-    match (actual.data_type(), expected.data_type()) {
-        (DataType::List(actual), DataType::List(expected)) => avro_field_matches(actual, expected),
-        (DataType::Struct(actual), DataType::Struct(expected)) => {
-            actual.len() == expected.len()
-                && actual
-                    .iter()
-                    .zip(expected)
-                    .all(|(a, e)| avro_field_matches(a, e))
+            })
+        {
+            return false;
         }
-        (actual, expected) => actual == expected,
+        match (actual.data_type(), expected.data_type()) {
+            (DataType::List(actual), DataType::List(expected)) => {
+                stack.push((actual.as_ref(), expected.as_ref()));
+            }
+            (DataType::Struct(actual), DataType::Struct(expected)) => {
+                if actual.len() != expected.len() {
+                    return false;
+                }
+                for (actual_field, expected_field) in actual.iter().zip(expected).rev() {
+                    stack.push((actual_field.as_ref(), expected_field.as_ref()));
+                }
+            }
+            (actual, expected) => {
+                if actual != expected {
+                    return false;
+                }
+            }
+        }
     }
+    true
 }
 
 fn charge(expanded: &mut u64, bytes: u64, limits: &ConversionLimits<'_>) -> Result<()> {

@@ -672,8 +672,34 @@ impl<OffsetSize: OffsetSizeTrait> From<FixedSizeListArray> for GenericListViewAr
     }
 }
 
+pub(super) type ParsedListViewData = (
+    DataType,
+    usize,
+    Option<NullBuffer>,
+    usize,
+    Buffer,
+    Buffer,
+    ArrayData,
+);
+
 impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
     fn try_new_from_array_data(data: ArrayData) -> Result<Self, ArrowError> {
+        let (data_type, len, nulls, offset, offsets_buffer, sizes_buffer, values) =
+            Self::parse_array_data(data)?;
+        let values = make_array(values);
+        let value_offsets = ScalarBuffer::new(offsets_buffer, offset, len);
+        let value_sizes = ScalarBuffer::new(sizes_buffer, offset, len);
+
+        Ok(Self::from_parts(
+            data_type,
+            nulls,
+            values.into(),
+            value_offsets,
+            value_sizes,
+        ))
+    }
+
+    pub(super) fn parse_array_data(data: ArrayData) -> Result<ParsedListViewData, ArrowError> {
         let (data_type, len, nulls, offset, buffers, child_data) = data.into_parts();
 
         // ArrayData is valid, and verified type above
@@ -711,17 +737,31 @@ impl<OffsetSize: OffsetSizeTrait> GenericListViewArray<OffsetSize> {
             )));
         }
 
-        let values = make_array(values);
-        let value_offsets = ScalarBuffer::new(offsets_buffer, offset, len);
-        let value_sizes = ScalarBuffer::new(sizes_buffer, offset, len);
+        Ok((
+            data_type,
+            len,
+            nulls,
+            offset,
+            offsets_buffer,
+            sizes_buffer,
+            values,
+        ))
+    }
 
-        Ok(Self {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        nulls: Option<NullBuffer>,
+        values: super::release::Child,
+        value_offsets: ScalarBuffer<OffsetSize>,
+        value_sizes: ScalarBuffer<OffsetSize>,
+    ) -> Self {
+        Self {
             data_type,
             nulls,
-            values: values.into(),
+            values,
             value_offsets,
             value_sizes,
-        })
+        }
     }
 }
 

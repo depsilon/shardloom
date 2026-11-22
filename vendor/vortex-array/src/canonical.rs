@@ -60,9 +60,13 @@ use crate::arrays::union::UnionDataParts;
 use crate::arrays::varbinview::VarBinViewArrayExt;
 use crate::arrays::variant::VariantArraySlotsExt;
 use crate::dtype::DType;
+use crate::dtype::MapDType;
 use crate::dtype::NativePType;
 use crate::dtype::Nullability;
 use crate::dtype::PType;
+use crate::dtype::StructFields;
+use crate::dtype::UnionVariants;
+use crate::dtype::extension::ExtDTypeRef;
 use crate::match_each_decimal_value_type;
 use crate::match_each_native_ptype;
 use crate::matcher::Matcher;
@@ -172,95 +176,10 @@ macro_rules! match_each_canonical {
 impl Canonical {
     /// Create an empty canonical array of the given dtype.
     pub fn empty(dtype: &DType) -> Canonical {
-        match dtype {
-            DType::Null => Canonical::Null(NullArray::new(0)),
-            DType::Bool(n) => Canonical::Bool(unsafe {
-                BoolArray::new_unchecked(BitBuffer::empty(), Validity::from(n))
-            }),
-            DType::Primitive(ptype, n) => {
-                match_each_native_ptype!(ptype, |P| {
-                    Canonical::Primitive(unsafe {
-                        PrimitiveArray::new_unchecked(Buffer::<P>::empty(), Validity::from(n))
-                    })
-                })
-            }
-            DType::Decimal(decimal_type, n) => {
-                match_each_decimal_value_type!(decimal_type.canonical_values_type(), |D| {
-                    Canonical::Decimal(unsafe {
-                        DecimalArray::new_unchecked::<D>(
-                            Buffer::empty(),
-                            *decimal_type,
-                            Validity::from(n),
-                        )
-                    })
-                })
-            }
-            DType::Utf8(n) => Canonical::VarBinView(unsafe {
-                VarBinViewArray::new_unchecked(
-                    Buffer::empty(),
-                    Arc::new([]),
-                    dtype.clone(),
-                    Validity::from(n),
-                )
-            }),
-            DType::Binary(n) => Canonical::VarBinView(unsafe {
-                VarBinViewArray::new_unchecked(
-                    Buffer::empty(),
-                    Arc::new([]),
-                    dtype.clone(),
-                    Validity::from(n),
-                )
-            }),
-            DType::List(dtype, n) => Canonical::List(unsafe {
-                ListViewArray::new_unchecked(
-                    Canonical::empty(dtype).into_array(),
-                    Canonical::empty(&DType::Primitive(PType::U8, Nullability::NonNullable))
-                        .into_array(),
-                    Canonical::empty(&DType::Primitive(PType::U8, Nullability::NonNullable))
-                        .into_array(),
-                    Validity::from(n),
-                )
-                // An empty list view is trivially copyable to a list.
-                .with_zero_copy_to_list(true)
-            }),
-            DType::Map(map_dtype, nullability) => Canonical::Map(MapArray::new(
-                map_dtype.clone(),
-                Canonical::empty(&DType::List(
-                    Arc::new(map_dtype.entries_dtype()),
-                    *nullability,
-                ))
-                .into_listview(),
-            )),
-            DType::FixedSizeList(elem_dtype, list_size, null) => Canonical::FixedSizeList(unsafe {
-                FixedSizeListArray::new_unchecked(
-                    Canonical::empty(elem_dtype).into_array(),
-                    *list_size,
-                    Validity::from(null),
-                    0,
-                )
-            }),
-            DType::Struct(struct_dtype, n) => Canonical::Struct(unsafe {
-                StructArray::new_unchecked(
-                    struct_dtype
-                        .fields()
-                        .map(|f| Canonical::empty(&f).into_array())
-                        .collect::<Vec<_>>(),
-                    struct_dtype.clone(),
-                    0,
-                    Validity::from(n),
-                )
-            }),
-            DType::Union(variants, nullability) => {
-                Canonical::Union(UnionArray::empty(variants.clone(), *nullability))
-            }
-            DType::Variant(_) => {
-                vortex_panic!("Canonical empty is not supported for Variant")
-            }
-            DType::Extension(ext_dtype) => Canonical::Extension(ExtensionArray::new(
-                ext_dtype.clone(),
-                Canonical::empty(ext_dtype.storage_dtype()).into_array(),
-            )),
+        if let Some(leaf) = empty_leaf(dtype) {
+            return leaf;
         }
+        empty_nested(dtype)
     }
 
     pub fn len(&self) -> usize {
@@ -1100,6 +1019,255 @@ impl CanonicalView<'_> {
             CanonicalView::Extension(a) => a.array().clone(),
             CanonicalView::Variant(a) => a.array().clone(),
         }
+    }
+}
+
+fn empty_leaf(dtype: &DType) -> Option<Canonical> {
+    Some(match dtype {
+        DType::Null => Canonical::Null(NullArray::new(0)),
+        DType::Bool(n) => Canonical::Bool(unsafe {
+            BoolArray::new_unchecked(BitBuffer::empty(), Validity::from(n))
+        }),
+        DType::Primitive(ptype, n) => match_each_native_ptype!(ptype, |P| {
+            Canonical::Primitive(unsafe {
+                PrimitiveArray::new_unchecked(Buffer::<P>::empty(), Validity::from(n))
+            })
+        }),
+        DType::Decimal(decimal_type, n) => {
+            match_each_decimal_value_type!(decimal_type.canonical_values_type(), |D| {
+                Canonical::Decimal(unsafe {
+                    DecimalArray::new_unchecked::<D>(
+                        Buffer::empty(),
+                        *decimal_type,
+                        Validity::from(n),
+                    )
+                })
+            })
+        }
+        DType::Utf8(n) | DType::Binary(n) => Canonical::VarBinView(unsafe {
+            VarBinViewArray::new_unchecked(
+                Buffer::empty(),
+                Arc::new([]),
+                dtype.clone(),
+                Validity::from(n),
+            )
+        }),
+        DType::Variant(_) => {
+            vortex_panic!("Canonical empty is not supported for Variant")
+        }
+        _ => return None,
+    })
+}
+
+enum EmptyFrame {
+    List {
+        nullability: Nullability,
+    },
+    FixedSizeList {
+        list_size: u32,
+        nullability: Nullability,
+    },
+    MapOuter {
+        map_dtype: MapDType,
+    },
+    Struct {
+        struct_dtype: StructFields,
+        nullability: Nullability,
+        pending: Vec<DType>,
+        built: Vec<ArrayRef>,
+    },
+    Union {
+        variants: UnionVariants,
+        nullability: Nullability,
+        pending: Vec<DType>,
+        built: Vec<ArrayRef>,
+    },
+    Extension {
+        ext_dtype: ExtDTypeRef,
+    },
+}
+
+fn empty_nested(root: &DType) -> Canonical {
+    let mut frames: Vec<EmptyFrame> = Vec::new();
+    let mut current = root.clone();
+    'visit: loop {
+        let mut completed = loop {
+            if let Some(leaf) = empty_leaf(&current) {
+                break leaf;
+            }
+            match &current {
+                DType::List(elem_dtype, nullability) => {
+                    let elem = (**elem_dtype).clone();
+                    let nullability = *nullability;
+                    frames.push(EmptyFrame::List { nullability });
+                    current = elem;
+                }
+                DType::Map(map_dtype, nullability) => {
+                    let entries_dtype = map_dtype.entries_dtype();
+                    frames.push(EmptyFrame::MapOuter {
+                        map_dtype: map_dtype.clone(),
+                    });
+                    frames.push(EmptyFrame::List {
+                        nullability: *nullability,
+                    });
+                    current = entries_dtype;
+                }
+                DType::FixedSizeList(elem_dtype, list_size, nullability) => {
+                    let elem = (**elem_dtype).clone();
+                    let list_size = *list_size;
+                    let nullability = *nullability;
+                    frames.push(EmptyFrame::FixedSizeList {
+                        list_size,
+                        nullability,
+                    });
+                    current = elem;
+                }
+                DType::Struct(struct_dtype, nullability) => {
+                    let struct_dtype = struct_dtype.clone();
+                    let nullability = *nullability;
+                    let mut pending: Vec<DType> = struct_dtype.fields().collect();
+                    if pending.is_empty() {
+                        break Canonical::Struct(unsafe {
+                            StructArray::new_unchecked(
+                                Vec::new(),
+                                struct_dtype,
+                                0,
+                                Validity::from(nullability),
+                            )
+                        });
+                    }
+                    let count = pending.len();
+                    pending.reverse();
+                    current = pending.pop().vortex_expect("checked non-empty");
+                    frames.push(EmptyFrame::Struct {
+                        struct_dtype,
+                        nullability,
+                        pending,
+                        built: Vec::with_capacity(count),
+                    });
+                }
+                DType::Union(variants, nullability) => {
+                    let variants = variants.clone();
+                    let nullability = *nullability;
+                    let mut pending: Vec<DType> = variants.variants().collect();
+                    if pending.is_empty() {
+                        let type_ids = PrimitiveArray::empty::<u8>(nullability).into_array();
+                        break Canonical::Union(UnionArray::new(type_ids, variants, Vec::new()));
+                    }
+                    let count = pending.len();
+                    pending.reverse();
+                    current = pending.pop().vortex_expect("checked non-empty");
+                    frames.push(EmptyFrame::Union {
+                        variants,
+                        nullability,
+                        pending,
+                        built: Vec::with_capacity(count),
+                    });
+                }
+                DType::Extension(ext_dtype) => {
+                    let ext_dtype = ext_dtype.clone();
+                    let storage = ext_dtype.storage_dtype().clone();
+                    frames.push(EmptyFrame::Extension { ext_dtype });
+                    current = storage;
+                }
+                _ => {
+                    if let Some(leaf) = empty_leaf(&current) {
+                        break leaf;
+                    }
+                    unreachable!("every DType variant is handled by empty_leaf or empty_nested")
+                }
+            }
+        };
+
+        while let Some(frame) = frames.pop() {
+            match frame {
+                EmptyFrame::List { nullability } => {
+                    let u8_empty = || {
+                        empty_leaf(&DType::Primitive(PType::U8, Nullability::NonNullable))
+                            .vortex_expect("U8 is leaf")
+                            .into_array()
+                    };
+                    completed = Canonical::List(unsafe {
+                        ListViewArray::new_unchecked(
+                            completed.into_array(),
+                            u8_empty(),
+                            u8_empty(),
+                            Validity::from(nullability),
+                        )
+                        .with_zero_copy_to_list(true)
+                    });
+                }
+                EmptyFrame::MapOuter { map_dtype } => {
+                    completed = Canonical::Map(MapArray::new(map_dtype, completed.into_listview()));
+                }
+                EmptyFrame::FixedSizeList {
+                    list_size,
+                    nullability,
+                } => {
+                    completed = Canonical::FixedSizeList(unsafe {
+                        FixedSizeListArray::new_unchecked(
+                            completed.into_array(),
+                            list_size,
+                            Validity::from(nullability),
+                            0,
+                        )
+                    });
+                }
+                EmptyFrame::Struct {
+                    struct_dtype,
+                    nullability,
+                    mut pending,
+                    mut built,
+                } => {
+                    built.push(completed.into_array());
+                    if let Some(next_field) = pending.pop() {
+                        frames.push(EmptyFrame::Struct {
+                            struct_dtype,
+                            nullability,
+                            pending,
+                            built,
+                        });
+                        current = next_field;
+                        continue 'visit;
+                    }
+                    completed = Canonical::Struct(unsafe {
+                        StructArray::new_unchecked(
+                            built,
+                            struct_dtype,
+                            0,
+                            Validity::from(nullability),
+                        )
+                    });
+                }
+                EmptyFrame::Union {
+                    variants,
+                    nullability,
+                    mut pending,
+                    mut built,
+                } => {
+                    built.push(completed.into_array());
+                    if let Some(next_variant) = pending.pop() {
+                        frames.push(EmptyFrame::Union {
+                            variants,
+                            nullability,
+                            pending,
+                            built,
+                        });
+                        current = next_variant;
+                        continue 'visit;
+                    }
+                    let type_ids = PrimitiveArray::empty::<u8>(nullability).into_array();
+                    completed = Canonical::Union(UnionArray::new(type_ids, variants, built));
+                }
+                EmptyFrame::Extension { ext_dtype } => {
+                    completed = Canonical::Extension(ExtensionArray::new(
+                        ext_dtype,
+                        completed.into_array(),
+                    ));
+                }
+            }
+        }
+        return completed;
     }
 }
 

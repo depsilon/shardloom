@@ -25,7 +25,6 @@ use arrow_schema::{ArrowError, DataType, Field};
 use crate::{
     Array, ArrayAccessor, ArrayRef, PrimitiveArray,
     builder::StringRunBuilder,
-    make_array,
     run_iterator::RunArrayIter,
     types::{Int16Type, Int32Type, Int64Type, RunEndIndexType},
 };
@@ -386,6 +385,16 @@ impl<R: RunEndIndexType> RunArray<R> {
 impl<R: RunEndIndexType> From<ArrayData> for RunArray<R> {
     // The method assumes the caller already validated the data using `ArrayData::validate_data()`
     fn from(data: ArrayData) -> Self {
+        let (data_type, run_ends, values_child) = Self::parse_array_data(data);
+        let values = super::make_array(values_child);
+        Self::from_parts(data_type, run_ends, values.into())
+    }
+}
+
+impl<R: RunEndIndexType> RunArray<R> {
+    pub(super) fn parse_array_data(
+        data: ArrayData,
+    ) -> (DataType, RunEndBuffer<R::Native>, ArrayData) {
         let (data_type, len, _nulls, offset, _buffers, child_data) = data.into_parts();
 
         match &data_type {
@@ -417,12 +426,18 @@ impl<R: RunEndIndexType> From<ArrayData> for RunArray<R> {
         let scalar = ScalarBuffer::new(run_end_buffer, run_end_offset, run_end_len);
         let run_ends = unsafe { RunEndBuffer::new_unchecked(scalar, offset, len) };
 
-        let values = make_array(values_child);
+        (data_type, run_ends, values_child)
+    }
 
+    pub(super) fn from_parts(
+        data_type: DataType,
+        run_ends: RunEndBuffer<R::Native>,
+        values: super::release::Child,
+    ) -> Self {
         Self {
             data_type,
             run_ends,
-            values: values.into(),
+            values,
         }
     }
 }

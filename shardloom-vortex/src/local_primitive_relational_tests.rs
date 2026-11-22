@@ -34,6 +34,8 @@ mod bulk_writer_tests;
 mod compact_index_cost_tests;
 #[path = "local_primitive_relational_correlated_tests.rs"]
 mod correlated_tests;
+#[path = "local_primitive_relational_deep_traversal_tests.rs"]
+mod deep_traversal_tests;
 #[cfg(feature = "universal-format-io")]
 #[path = "local_primitive_relational_direct_count_tests.rs"]
 mod direct_count_tests;

@@ -15,24 +15,28 @@ fn failed(message: impl std::fmt::Display) -> ShardLoomError {
     ))
 }
 
-fn contains(field: &Field) -> bool {
-    if field
-        .metadata()
-        .get(NAME)
-        .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
-        || crate::native_vector::arrow::kind(field).is_some()
-        || crate::native_spatial::arrow::kind(field).is_some()
-        || crate::native_variant::arrow::is_variant(field)
-    {
-        return true;
-    }
-    match field.data_type() {
-        DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _) => {
-            contains(child)
+fn contains(root: &Field) -> bool {
+    let mut stack = vec![root];
+    while let Some(field) = stack.pop() {
+        if field
+            .metadata()
+            .get(NAME)
+            .is_some_and(|name| name == crate::native_variable_tensor::ARROW_ID)
+            || crate::native_vector::arrow::kind(field).is_some()
+            || crate::native_spatial::arrow::kind(field).is_some()
+            || crate::native_variant::arrow::is_variant(field)
+        {
+            return true;
         }
-        DataType::Struct(fields) => fields.iter().any(|field| contains(field)),
-        _ => false,
+        match field.data_type() {
+            DataType::List(child)
+            | DataType::LargeList(child)
+            | DataType::FixedSizeList(child, _) => stack.push(child),
+            DataType::Struct(fields) => stack.extend(fields.iter().map(std::sync::Arc::as_ref)),
+            _ => {}
+        }
     }
+    false
 }
 
 /// Compile metadata once per field. The existing bounded schema grant covers
@@ -48,25 +52,65 @@ enum Validator {
     Fixed(Box<Self>, usize),
 }
 
+impl Drop for Validator {
+    fn drop(&mut self) {
+        let mut stack = Vec::new();
+        let steal = |node: &mut Self, out: &mut Vec<Self>| match node {
+            Self::Struct(fields) => {
+                for (_, child) in std::mem::take(fields).into_iter().rev() {
+                    out.push(child);
+                }
+            }
+            Self::List(child) | Self::LargeList(child) | Self::Fixed(child, _) => {
+                let inner = std::mem::replace(child.as_mut(), Self::Variant);
+                out.push(inner);
+            }
+            Self::Variant | Self::Tensor(..) | Self::Vector(_) | Self::Spatial(_) => {}
+        };
+        steal(self, &mut stack);
+        while let Some(mut node) = stack.pop() {
+            steal(&mut node, &mut stack);
+        }
+    }
+}
+
+enum NewValidatorFrame<'a> {
+    List,
+    LargeList,
+    Fixed(usize),
+    Struct {
+        pending: std::vec::IntoIter<(usize, &'a Field)>,
+        current_index: usize,
+        built: Vec<(usize, Validator)>,
+    },
+}
+
+struct ValidateWork<'a> {
+    validator: &'a Validator,
+    array: &'a dyn Array,
+    start: usize,
+    end: usize,
+}
+
 impl Validator {
-    fn new(field: &Field) -> Result<Self> {
+    fn leaf_or_kind(field: &Field) -> Result<Option<Self>> {
         if let Some(kind) = crate::native_spatial::arrow::kind(field) {
             crate::native_spatial::arrow::dtype(field).map_err(failed)?;
-            return Ok(Self::Spatial(kind));
+            return Ok(Some(Self::Spatial(kind)));
         }
         if crate::native_variant::arrow::is_variant(field) {
             if !crate::native_variant::arrow::admitted(field) {
                 return Err(failed("invalid Variant storage declaration"));
             }
-            return Ok(Self::Variant);
+            return Ok(Some(Self::Variant));
         }
         if crate::native_vector::arrow::kind(field).is_some() {
             let dtype = crate::native_vector::arrow::dtype(field).map_err(failed)?;
-            return Ok(Self::Vector(
+            return Ok(Some(Self::Vector(
                 crate::native_vector::metadata(&dtype)
                     .expect("validated vector metadata")
                     .clone(),
-            ));
+            )));
         }
         if field
             .metadata()
@@ -86,25 +130,84 @@ impl Validator {
             let metadata = Metadata::parse(field.metadata().get(META).map_or("", String::as_str))
                 .map_err(failed)?;
             metadata.validate_rank(rank).map_err(failed)?;
-            return Ok(Self::Tensor(metadata, rank));
+            return Ok(Some(Self::Tensor(metadata, rank)));
         }
-        Ok(match field.data_type() {
-            DataType::Struct(fields) => Self::Struct(
-                fields
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, field)| contains(field))
-                    .map(|(index, field)| Ok((index, Self::new(field)?)))
-                    .collect::<Result<_>>()?,
-            ),
-            DataType::List(child) => Self::List(Box::new(Self::new(child)?)),
-            DataType::LargeList(child) => Self::LargeList(Box::new(Self::new(child)?)),
-            DataType::FixedSizeList(child, width) => Self::Fixed(
-                Box::new(Self::new(child)?),
-                usize::try_from(*width).map_err(failed)?,
-            ),
-            _ => return Err(failed("unsupported containing rich-value layout")),
-        })
+        Ok(None)
+    }
+
+    fn new(root: &Field) -> Result<Self> {
+        let mut stack = Vec::<NewValidatorFrame<'_>>::new();
+        let mut current = root;
+        loop {
+            let mut completed = match Self::leaf_or_kind(current)? {
+                Some(leaf) => leaf,
+                None => match current.data_type() {
+                    DataType::Struct(fields) => {
+                        let mut pending = fields
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, field)| contains(field))
+                            .map(|(index, field)| (index, field.as_ref()))
+                            .collect::<Vec<_>>()
+                            .into_iter();
+                        if let Some((current_index, next_field)) = pending.next() {
+                            stack.push(NewValidatorFrame::Struct {
+                                pending,
+                                current_index,
+                                built: Vec::new(),
+                            });
+                            current = next_field;
+                            continue;
+                        }
+                        Self::Struct(Vec::new())
+                    }
+                    DataType::List(child) => {
+                        stack.push(NewValidatorFrame::List);
+                        current = child;
+                        continue;
+                    }
+                    DataType::LargeList(child) => {
+                        stack.push(NewValidatorFrame::LargeList);
+                        current = child;
+                        continue;
+                    }
+                    DataType::FixedSizeList(child, width) => {
+                        let width = usize::try_from(*width).map_err(failed)?;
+                        stack.push(NewValidatorFrame::Fixed(width));
+                        current = child;
+                        continue;
+                    }
+                    _ => return Err(failed("unsupported containing rich-value layout")),
+                },
+            };
+            loop {
+                let Some(frame) = stack.pop() else {
+                    return Ok(completed);
+                };
+                completed = match frame {
+                    NewValidatorFrame::List => Self::List(Box::new(completed)),
+                    NewValidatorFrame::LargeList => Self::LargeList(Box::new(completed)),
+                    NewValidatorFrame::Fixed(width) => Self::Fixed(Box::new(completed), width),
+                    NewValidatorFrame::Struct {
+                        mut pending,
+                        current_index,
+                        mut built,
+                    } => {
+                        built.push((current_index, completed));
+                        if let Some((next_index, next_field)) = pending.next() {
+                            stack.push(NewValidatorFrame::Struct {
+                                pending,
+                                current_index: next_index,
+                                built,
+                            });
+                            current = next_field;
+                            break;
+                        }
+                        Self::Struct(built)
+                    }
+                };
+            }
+        }
     }
 
     fn validate(
@@ -115,81 +218,109 @@ impl Validator {
         memory: Option<&LiveMemoryPool>,
         check: &dyn Fn() -> Result<()>,
     ) -> Result<()> {
-        check()?;
-        if start > end || end > array.len() {
-            return Err(failed("rich-value parent coordinates exceed child values"));
-        }
-        valid_ranges(array, start, end, |start, end| match self {
-            Self::Variant => {
-                crate::native_variant::arrow::validate(array, start, end, memory, check)
+        let mut stack = vec![ValidateWork {
+            validator: self,
+            array,
+            start,
+            end,
+        }];
+        while let Some(work) = stack.pop() {
+            check()?;
+            if work.start > work.end || work.end > work.array.len() {
+                return Err(failed("rich-value parent coordinates exceed child values"));
             }
-            Self::Tensor(metadata, rank) => {
-                validate_tensor(metadata, *rank, array, start, end, check)
-            }
-            Self::Vector(metadata) => {
-                crate::native_vector::arrow::values::validate(metadata, array, start, end, check)
-            }
-            Self::Spatial(kind) => {
-                crate::native_spatial::arrow::values::validate(*kind, array, start, end, check)
-            }
-            Self::Struct(fields) => {
-                let array = array
-                    .as_struct_opt()
-                    .ok_or_else(|| failed("expected struct storage"))?;
-                for (index, validator) in fields {
-                    validator.validate(array.column(*index).as_ref(), start, end, memory, check)?;
+            valid_ranges(work.array, work.start, work.end, |start, end| {
+                match work.validator {
+                    Self::Variant => crate::native_variant::arrow::validate(
+                        work.array, start, end, memory, check,
+                    ),
+                    Self::Tensor(metadata, rank) => {
+                        validate_tensor(metadata, *rank, work.array, start, end, check)
+                    }
+                    Self::Vector(metadata) => crate::native_vector::arrow::values::validate(
+                        metadata, work.array, start, end, check,
+                    ),
+                    Self::Spatial(kind) => crate::native_spatial::arrow::values::validate(
+                        *kind, work.array, start, end, check,
+                    ),
+                    Self::Struct(fields) => {
+                        let array = work
+                            .array
+                            .as_struct_opt()
+                            .ok_or_else(|| failed("expected struct storage"))?;
+                        for (index, validator) in fields.iter().rev() {
+                            stack.push(ValidateWork {
+                                validator,
+                                array: array.column(*index).as_ref(),
+                                start,
+                                end,
+                            });
+                        }
+                        Ok(())
+                    }
+                    Self::List(child) => {
+                        push_list_work(
+                            child,
+                            work.array
+                                .as_list_opt::<i32>()
+                                .ok_or_else(|| failed("expected list storage"))?,
+                            start,
+                            end,
+                            &mut stack,
+                        );
+                        Ok(())
+                    }
+                    Self::LargeList(child) => {
+                        push_list_work(
+                            child,
+                            work.array
+                                .as_list_opt::<i64>()
+                                .ok_or_else(|| failed("expected large-list storage"))?,
+                            start,
+                            end,
+                            &mut stack,
+                        );
+                        Ok(())
+                    }
+                    Self::Fixed(child, width) => {
+                        let array = work
+                            .array
+                            .as_fixed_size_list_opt()
+                            .ok_or_else(|| failed("expected fixed-list storage"))?;
+                        let child_start = start
+                            .checked_mul(*width)
+                            .ok_or_else(|| failed("shape offset overflow"))?;
+                        let child_end = end
+                            .checked_mul(*width)
+                            .ok_or_else(|| failed("shape offset overflow"))?;
+                        stack.push(ValidateWork {
+                            validator: child,
+                            array: array.values().as_ref(),
+                            start: child_start,
+                            end: child_end,
+                        });
+                        Ok(())
+                    }
                 }
-                Ok(())
-            }
-            Self::List(child) => child.validate_list(
-                array
-                    .as_list_opt::<i32>()
-                    .ok_or_else(|| failed("expected list storage"))?,
-                start,
-                end,
-                memory,
-                check,
-            ),
-            Self::LargeList(child) => child.validate_list(
-                array
-                    .as_list_opt::<i64>()
-                    .ok_or_else(|| failed("expected large-list storage"))?,
-                start,
-                end,
-                memory,
-                check,
-            ),
-            Self::Fixed(child, width) => {
-                let array = array
-                    .as_fixed_size_list_opt()
-                    .ok_or_else(|| failed("expected fixed-list storage"))?;
-                let start = start
-                    .checked_mul(*width)
-                    .ok_or_else(|| failed("shape offset overflow"))?;
-                let end = end
-                    .checked_mul(*width)
-                    .ok_or_else(|| failed("shape offset overflow"))?;
-                child.validate(array.values().as_ref(), start, end, memory, check)
-            }
-        })
+            })?;
+        }
+        Ok(())
     }
+}
 
-    fn validate_list<O: OffsetSizeTrait>(
-        &self,
-        array: &GenericListArray<O>,
-        start: usize,
-        end: usize,
-        memory: Option<&LiveMemoryPool>,
-        check: &dyn Fn() -> Result<()>,
-    ) -> Result<()> {
-        self.validate(
-            array.values().as_ref(),
-            array.value_offsets()[start].as_usize(),
-            array.value_offsets()[end].as_usize(),
-            memory,
-            check,
-        )
-    }
+fn push_list_work<'a, O: OffsetSizeTrait>(
+    child: &'a Validator,
+    array: &'a GenericListArray<O>,
+    start: usize,
+    end: usize,
+    stack: &mut Vec<ValidateWork<'a>>,
+) {
+    stack.push(ValidateWork {
+        validator: child,
+        array: array.values().as_ref(),
+        start: array.value_offsets()[start].as_usize(),
+        end: array.value_offsets()[end].as_usize(),
+    });
 }
 
 fn valid_ranges(
@@ -304,4 +435,89 @@ pub(crate) fn validate_batch(
         }
     }
     check()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow_array::{
+        ArrayRef, BinaryViewArray, FixedSizeListArray, LargeListArray, ListArray, StructArray,
+    };
+    use arrow_buffer::OffsetBuffer;
+    use std::{collections::HashMap, sync::Arc};
+
+    #[test]
+    fn deep_validator_build_validate_and_drop_on_small_stack() {
+        let handle = std::thread::Builder::new()
+            .name("native_cross_field_arrow::small_stack".into())
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let leaf_fields = arrow_schema::Fields::from(vec![
+                    Field::new("metadata", DataType::BinaryView, false),
+                    Field::new("value", DataType::BinaryView, true),
+                ]);
+                let meta: ArrayRef = Arc::new(BinaryViewArray::from(vec![Some(&[][..])]));
+                let val: ArrayRef = Arc::new(BinaryViewArray::from(vec![Option::<&[u8]>::None]));
+                let leaf_arr = StructArray::new(
+                    leaf_fields.clone(),
+                    vec![meta, val],
+                    Some(vec![false].into()),
+                );
+                let mut current: ArrayRef = Arc::new(leaf_arr);
+                let mut field = Field::new("v", DataType::Struct(leaf_fields), true).with_metadata(
+                    HashMap::from([(NAME.into(), crate::native_variant::arrow::ID.into())]),
+                );
+                for level in 0..2_048 {
+                    let child_field = Arc::new(field);
+                    match level % 4 {
+                        0 => {
+                            current = Arc::new(ListArray::new(
+                                child_field.clone(),
+                                OffsetBuffer::new(vec![0_i32, 1].into()),
+                                current,
+                                None,
+                            ));
+                            field = Field::new("l", DataType::List(child_field), true);
+                        }
+                        1 => {
+                            current = Arc::new(LargeListArray::new(
+                                child_field.clone(),
+                                OffsetBuffer::new(vec![0_i64, 1].into()),
+                                current,
+                                None,
+                            ));
+                            field = Field::new("ll", DataType::LargeList(child_field), true);
+                        }
+                        2 => {
+                            current = Arc::new(FixedSizeListArray::new(
+                                child_field.clone(),
+                                1,
+                                current,
+                                None,
+                            ));
+                            field =
+                                Field::new("fsl", DataType::FixedSizeList(child_field, 1), true);
+                        }
+                        _ => {
+                            current = Arc::new(StructArray::new(
+                                vec![child_field.clone()].into(),
+                                vec![current],
+                                None,
+                            ));
+                            field =
+                                Field::new("s", DataType::Struct(vec![child_field].into()), true);
+                        }
+                    }
+                }
+                assert!(contains(&field));
+                let validator = Validator::new(&field).unwrap();
+                validator
+                    .validate(current.as_ref(), 0, current.len(), None, &|| Ok(()))
+                    .unwrap();
+                drop(validator);
+                assert!(!contains(&Field::new("plain", DataType::Int64, true)));
+            })
+            .unwrap();
+        handle.join().unwrap();
+    }
 }

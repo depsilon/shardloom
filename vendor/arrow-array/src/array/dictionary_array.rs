@@ -19,13 +19,10 @@ use crate::builder::{PrimitiveDictionaryBuilder, StringDictionaryBuilder};
 use crate::cast::AsArray;
 use crate::iterator::ArrayIter;
 use crate::types::*;
-use crate::{
-    Array, ArrayAccessor, ArrayRef, ArrowNativeTypeOp, PrimitiveArray, Scalar, StringArray,
-    make_array,
-};
+use crate::{Array, ArrayAccessor, ArrayRef, ArrowNativeTypeOp, PrimitiveArray, Scalar, StringArray};
 use arrow_buffer::bit_util::set_bit;
 use arrow_buffer::buffer::NullBuffer;
-use arrow_buffer::{ArrowNativeType, BooleanBuffer, BooleanBufferBuilder, ScalarBuffer};
+use arrow_buffer::{ArrowNativeType, BooleanBuffer, BooleanBufferBuilder, Buffer, ScalarBuffer};
 use arrow_data::ArrayData;
 use arrow_schema::{ArrowError, DataType};
 use std::any::Any;
@@ -604,43 +601,27 @@ impl<K: ArrowDictionaryKeyType> DictionaryArray<K> {
 /// Constructs a `DictionaryArray` from an `ArrayData`
 impl<T: ArrowDictionaryKeyType> From<ArrayData> for DictionaryArray<T> {
     fn from(data: ArrayData) -> Self {
-        let (data_type, len, nulls, offset, mut buffers, mut child_data) = data.into_parts();
+        super::data_import::dictionary_from_data(data)
+    }
+}
 
-        assert_eq!(
-            buffers.len(),
-            1,
-            "DictionaryArray data should contain a single buffer only (keys)."
-        );
-        let buffer = buffers.pop().expect("checked above");
-        assert_eq!(
-            child_data.len(),
-            1,
-            "DictionaryArray should contain a single child array (values)."
-        );
-        let cd = child_data.pop().expect("checked above");
+impl<T: ArrowDictionaryKeyType> DictionaryArray<T> {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        len: usize,
+        nulls: Option<NullBuffer>,
+        offset: usize,
+        buffer: Buffer,
+        values: super::release::Child,
+    ) -> Self {
+        // create a zero-copy of the keys' data
+        let keys = PrimitiveArray::<T>::new(ScalarBuffer::new(buffer, offset, len), nulls);
 
-        if let DataType::Dictionary(key_data_type, _) = &data_type {
-            assert_eq!(
-                &T::DATA_TYPE,
-                key_data_type.as_ref(),
-                "DictionaryArray's data type must match, expected {} got {}",
-                T::DATA_TYPE,
-                key_data_type
-            );
-
-            let values = make_array(cd);
-
-            // create a zero-copy of the keys' data
-            let keys = PrimitiveArray::<T>::new(ScalarBuffer::new(buffer, offset, len), nulls);
-
-            Self {
-                data_type,
-                keys,
-                values: values.into(),
-                is_ordered: false,
-            }
-        } else {
-            panic!("DictionaryArray must have Dictionary data type.")
+        Self {
+            data_type,
+            keys,
+            values,
+            is_ordered: false,
         }
     }
 }

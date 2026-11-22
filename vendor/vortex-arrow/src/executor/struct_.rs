@@ -8,7 +8,6 @@ use arrow_array::StructArray as ArrowStructArray;
 use arrow_buffer::NullBuffer;
 use arrow_schema::Field;
 use arrow_schema::Fields;
-use itertools::Itertools;
 use vortex_array::ArrayRef;
 use vortex_array::ExecutionCtx;
 use vortex_array::IntoArray;
@@ -27,12 +26,13 @@ use vortex_error::VortexResult;
 use vortex_error::vortex_ensure;
 use vortex_error::vortex_ensure_eq;
 
-use crate::ArrowExporter;
+use crate::executor::ExportStep;
+use crate::executor::ExportTask;
 use crate::executor::infer_nearest_arrow_field;
 use crate::executor::validity::to_arrow_null_buffer;
 use crate::session::ArrowSessionExt;
 
-/// Matches the encodings [`to_arrow_struct`] requires for export.
+/// Matches the encodings [`start_arrow_struct`] requires for export.
 struct ArrowStructExportable;
 
 impl Matcher for ArrowStructExportable {
@@ -48,12 +48,32 @@ impl Matcher for ArrowStructExportable {
     }
 }
 
-pub(super) fn to_arrow_struct(
+pub(super) enum StructExportFrame {
+    Target {
+        fields: Fields,
+        vortex_fields: Vec<ArrayRef>,
+        next_idx: usize,
+        built: Vec<ArrowArrayRef>,
+        null_buffer: Option<NullBuffer>,
+        len: usize,
+    },
+    Inferred {
+        names: FieldNames,
+        vortex_fields: Vec<ArrayRef>,
+        next_idx: usize,
+        current_inferred: Field,
+        built_fields: Vec<arrow_schema::FieldRef>,
+        built_arrays: Vec<ArrowArrayRef>,
+        null_buffer: Option<NullBuffer>,
+        len: usize,
+    },
+}
+
+pub(super) fn start_arrow_struct(
     array: ArrayRef,
     target_fields: Option<&Fields>,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep> {
     let len = array.len();
 
     let array = array.execute_until::<ArrowStructExportable>(ctx)?;
@@ -78,12 +98,11 @@ pub(super) fn to_arrow_struct(
                 ..
             } = array.into_data_parts();
             let validity = to_arrow_null_buffer(validity, len, ctx)?;
-            return create_from_fields(
+            return start_from_fields(
                 target_fields.ok_or_else(|| struct_fields.names().clone()),
-                &fields,
+                fields,
                 validity,
                 len,
-                exporter,
                 ctx,
             );
         }
@@ -97,12 +116,11 @@ pub(super) fn to_arrow_struct(
         let DType::Struct(struct_fields, _) = array.dtype() else {
             unreachable!("Pack must have Struct dtype");
         };
-        return create_from_fields(
+        return start_from_fields(
             target_fields.ok_or_else(|| struct_fields.names().clone()),
-            &array.children(),
+            array.children().to_vec(),
             None, // Pack is never null,
             len,
-            exporter,
             ctx,
         );
     }
@@ -126,24 +144,22 @@ pub(super) fn to_arrow_struct(
     } = struct_array.into_data_parts();
 
     let validity = to_arrow_null_buffer(validity, len, ctx)?;
-    create_from_fields(
+    start_from_fields(
         target_fields.ok_or_else(|| struct_fields.names().clone()),
-        &fields,
+        fields,
         validity,
         len,
-        exporter,
         ctx,
     )
 }
 
-fn create_from_fields(
+fn start_from_fields(
     fields: Result<&Fields, FieldNames>,
-    vortex_fields: &[ArrayRef],
+    vortex_fields: Vec<ArrayRef>,
     null_buffer: Option<NullBuffer>,
     len: usize,
-    exporter: &ArrowExporter<'_>,
     ctx: &mut ExecutionCtx,
-) -> VortexResult<ArrowArrayRef> {
+) -> VortexResult<ExportStep> {
     match fields {
         Ok(fields) => {
             vortex_ensure_eq!(
@@ -151,70 +167,176 @@ fn create_from_fields(
                 fields.len(),
                 "StructArray field count must match the target Arrow type"
             );
-
-            let mut arrow_arrays = Vec::with_capacity(vortex_fields.len());
-            for (field, vx_field) in fields.iter().zip_eq(vortex_fields.iter()) {
-                // Route through the session with the full Field (not just data_type) so any
-                // ARROW:extension:name metadata reaches the export-plugin dispatcher.
-                let arrow_field =
-                    exporter.execute_arrow(vx_field.clone(), Some(field.as_ref()), ctx)?;
-                vortex_ensure!(
-                    field.is_nullable() || arrow_field.null_count() == 0,
-                    "Cannot convert field '{}' to non-nullable Arrow field because it contains nulls",
-                    field.name()
-                );
-                arrow_arrays.push(arrow_field);
-            }
-
-            Ok(Arc::new(unsafe {
-                ArrowStructArray::new_unchecked_with_length(
-                    fields.clone(),
-                    arrow_arrays,
+            let Some((first_field, first_vx)) = fields.first().zip(vortex_fields.first()) else {
+                return Ok(ExportStep::Done(Arc::new(unsafe {
+                    ArrowStructArray::new_unchecked_with_length(
+                        fields.clone(),
+                        Vec::new(),
+                        null_buffer,
+                        len,
+                    )
+                })));
+            };
+            let first_target = first_field.as_ref().clone();
+            let first_array = first_vx.clone();
+            let built = Vec::with_capacity(vortex_fields.len());
+            Ok(ExportStep::Descend {
+                frame: StructExportFrame::Target {
+                    fields: fields.clone(),
+                    vortex_fields,
+                    next_idx: 0,
+                    built,
                     null_buffer,
                     len,
-                )
-            }))
+                }
+                .into(),
+                task: ExportTask::WithField {
+                    array: first_array,
+                    target: Some(first_target),
+                },
+            })
         }
         Err(names) => {
-            // No target fields specified - use preferred types for each child. The inferred field
-            // is what carries any `ARROW:extension:name` metadata, which the executed array's bare
-            // `DataType` cannot, so build the child fields from it rather than from the array.
-            let mut arrow_arrays = Vec::with_capacity(vortex_fields.len());
-            let mut arrow_fields = Vec::with_capacity(vortex_fields.len());
-            for (name, vx_field) in names.iter().zip_eq(vortex_fields.iter()) {
-                let inferred = infer_nearest_arrow_field(vx_field, name.as_ref(), ctx)?;
+            let Some((first_name, first_vx)) = names.get(0).zip(vortex_fields.first()) else {
+                return Ok(ExportStep::Done(Arc::new(unsafe {
+                    ArrowStructArray::new_unchecked_with_length(
+                        Fields::empty(),
+                        Vec::new(),
+                        null_buffer,
+                        len,
+                    )
+                })));
+            };
+            let current_inferred =
+                infer_nearest_arrow_field(first_vx, first_name.as_ref(), ctx)?;
+            let target = current_inferred
+                .extension_type_name()
+                .is_some()
+                .then(|| current_inferred.clone());
+            let first_array = first_vx.clone();
+            let count = vortex_fields.len();
+            Ok(ExportStep::Descend {
+                frame: StructExportFrame::Inferred {
+                    names,
+                    vortex_fields,
+                    next_idx: 0,
+                    current_inferred,
+                    built_fields: Vec::with_capacity(count),
+                    built_arrays: Vec::with_capacity(count),
+                    null_buffer,
+                    len,
+                }
+                .into(),
+                task: ExportTask::WithField {
+                    array: first_array,
+                    target,
+                },
+            })
+        }
+    }
+}
 
-                // A child with an Arrow extension name exports to its inferred field. With `None`,
-                // the export would fail for a type without an Arrow plugin, because an export
-                // without a target has no field to hold its extension metadata. Other children keep
-                // `None`, so that their Arrow type still follows their encoding.
-                let target = inferred
+pub(super) fn step_arrow_struct(
+    frame: StructExportFrame,
+    completed: ArrowArrayRef,
+    ctx: &mut ExecutionCtx,
+) -> VortexResult<ExportStep> {
+    match frame {
+        StructExportFrame::Target {
+            fields,
+            vortex_fields,
+            next_idx,
+            mut built,
+            null_buffer,
+            len,
+        } => {
+            let field = &fields[next_idx];
+            vortex_ensure!(
+                field.is_nullable() || completed.null_count() == 0,
+                "Cannot convert field '{}' to non-nullable Arrow field because it contains nulls",
+                field.name()
+            );
+            built.push(completed);
+            let next = next_idx + 1;
+            if let (Some(next_field), Some(next_vx)) = (fields.get(next), vortex_fields.get(next))
+            {
+                let next_target = next_field.as_ref().clone();
+                let next_array = next_vx.clone();
+                return Ok(ExportStep::Descend {
+                    frame: StructExportFrame::Target {
+                        fields,
+                        vortex_fields,
+                        next_idx: next,
+                        built,
+                        null_buffer,
+                        len,
+                    }
+                    .into(),
+                    task: ExportTask::WithField {
+                        array: next_array,
+                        target: Some(next_target),
+                    },
+                });
+            }
+            Ok(ExportStep::Done(Arc::new(unsafe {
+                ArrowStructArray::new_unchecked_with_length(fields, built, null_buffer, len)
+            })))
+        }
+        StructExportFrame::Inferred {
+            names,
+            vortex_fields,
+            next_idx,
+            current_inferred,
+            mut built_fields,
+            mut built_arrays,
+            null_buffer,
+            len,
+        } => {
+            built_fields.push(Arc::new(
+                Field::new(
+                    names[next_idx].as_ref(),
+                    completed.data_type().clone(),
+                    vortex_fields[next_idx].dtype().is_nullable(),
+                )
+                .with_metadata(current_inferred.metadata().clone()),
+            ));
+            built_arrays.push(completed);
+            let next = next_idx + 1;
+            if let (Some(next_name), Some(next_vx)) = (names.get(next), vortex_fields.get(next)) {
+                let next_inferred =
+                    infer_nearest_arrow_field(next_vx, next_name.as_ref(), ctx)?;
+                let target = next_inferred
                     .extension_type_name()
                     .is_some()
-                    .then_some(&inferred);
-                let arrow_array = exporter.execute_arrow(vx_field.clone(), target, ctx)?;
-                // The executed array is authoritative for the physical type; only the metadata is
-                // taken from the inferred field.
-                arrow_fields.push(Arc::new(
-                    Field::new(
-                        name.as_ref(),
-                        arrow_array.data_type().clone(),
-                        vx_field.dtype().is_nullable(),
-                    )
-                    .with_metadata(inferred.metadata().clone()),
-                ));
-                arrow_arrays.push(arrow_array);
+                    .then(|| next_inferred.clone());
+                let next_array = next_vx.clone();
+                return Ok(ExportStep::Descend {
+                    frame: StructExportFrame::Inferred {
+                        names,
+                        vortex_fields,
+                        next_idx: next,
+                        current_inferred: next_inferred,
+                        built_fields,
+                        built_arrays,
+                        null_buffer,
+                        len,
+                    }
+                    .into(),
+                    task: ExportTask::WithField {
+                        array: next_array,
+                        target,
+                    },
+                });
             }
-            let arrow_fields = Fields::from(arrow_fields);
-
-            Ok(Arc::new(unsafe {
+            let arrow_fields = Fields::from(built_fields);
+            Ok(ExportStep::Done(Arc::new(unsafe {
                 ArrowStructArray::new_unchecked_with_length(
                     arrow_fields,
-                    arrow_arrays,
+                    built_arrays,
                     null_buffer,
                     len,
                 )
-            }))
+            })))
         }
     }
 }

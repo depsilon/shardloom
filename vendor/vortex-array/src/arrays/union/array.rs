@@ -15,10 +15,10 @@ use crate::array::EmptyArrayData;
 use crate::array::TypedArrayRef;
 use crate::array_slots;
 use crate::arrays::ConstantArray;
-use crate::arrays::PrimitiveArray;
 use crate::arrays::Union;
 use crate::arrays::union::union_type_ids_dtype;
 use crate::dtype::DType;
+#[cfg(test)]
 use crate::dtype::Nullability;
 use crate::dtype::PType;
 use crate::dtype::UnionVariants;
@@ -220,13 +220,8 @@ impl Array<Union> {
     }
 
     /// Create an empty array for a union dtype.
+    #[cfg(test)]
     pub(crate) fn empty(variants: UnionVariants, nullability: Nullability) -> Self {
-        let type_ids = PrimitiveArray::empty::<u8>(nullability).into_array();
-        let children: Vec<_> = variants
-            .variants()
-            .map(|dtype| crate::Canonical::empty(&dtype).into_array())
-            .collect();
-
-        Self::new(type_ids, variants, children)
+        crate::Canonical::empty(&DType::Union(variants, nullability)).into_union()
     }
 }

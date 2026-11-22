@@ -15,16 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, ChildExtendTask, Extend};
 use crate::ArrayData;
 
 pub(super) fn build_extend(_: &ArrayData) -> Extend<'_> {
-    Box::new(move |_, _, _, _| Ok(()))
+    Box::new(move |_, _, _, _, _| Ok(()))
 }
 
 pub(super) fn extend_nulls(
     _: &mut _MutableArrayData,
     _: usize,
+    _: &mut Vec<ChildExtendNullsTask>,
 ) -> Result<(), arrow_schema::ArrowError> {
     Ok(())
 }
+
+// Keep ChildExtendTask imported cleanly via signature
+const _: fn(&mut Vec<ChildExtendTask>) = |_| {};

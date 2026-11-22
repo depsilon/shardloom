@@ -1,6 +1,7 @@
 //! Static nested admission at the existing Arrow-to-Vortex intake boundary.
 
-use arrow_array::{Array, GenericListArray, OffsetSizeTrait, cast::AsArray as _};
+use arrow_array::{Array, cast::AsArray as _};
+use arrow_buffer::ArrowNativeType as _;
 use arrow_schema::{DataType, Field};
 use shardloom_core::{FloatPolicy, Result, ShardLoomError};
 use shardloom_exec::live_memory::LiveMemoryPool;
@@ -9,23 +10,120 @@ use shardloom_exec::live_memory::LiveMemoryPool;
 /// validity bitmap. Its recursive validation releases each bitmap before the
 /// next child, so reserve the largest aligned scratch buffer, not their sum.
 pub(crate) fn validation_workspace_bytes(data: &arrow_data::ArrayData) -> Result<u64> {
-    let own = match (data.data_type(), data.nulls()) {
-        (DataType::FixedSizeList(field, width), Some(nulls)) if !field.is_nullable() => {
-            u64::try_from(*width)
-                .ok()
-                .and_then(|width| (nulls.len() as u64).checked_mul(width))
-                .and_then(|bits| bits.checked_add(511))
-                .map(|bits| (bits / 512) * 64)
-                .and_then(|bytes| bytes.checked_add(256))
-                .ok_or_else(|| ShardLoomError::InvalidOperation(
-                    "native Arrow validity workspace overflow; no fallback execution was attempted".into()
-                ))?
+    let mut maximum = 0_u64;
+    let mut stack = vec![data];
+    while let Some(node) = stack.pop() {
+        let own = match (node.data_type(), node.nulls()) {
+            (DataType::FixedSizeList(field, width), Some(nulls)) if !field.is_nullable() => {
+                u64::try_from(*width)
+                    .ok()
+                    .and_then(|width| (nulls.len() as u64).checked_mul(width))
+                    .and_then(|bits| bits.checked_add(511))
+                    .map(|bits| (bits / 512) * 64)
+                    .and_then(|bytes| bytes.checked_add(256))
+                    .ok_or_else(|| ShardLoomError::InvalidOperation(
+                        "native Arrow validity workspace overflow; no fallback execution was attempted".into()
+                    ))?
+            }
+            _ => 0,
+        };
+        maximum = maximum.max(own);
+        stack.extend(node.child_data().iter());
+    }
+    Ok(maximum)
+}
+
+fn field_required(dtype: &DataType, index: usize) -> bool {
+    match dtype {
+        DataType::Struct(fields) => !fields[index].is_nullable(),
+        DataType::FixedSizeList(field, _) => !field.is_nullable(),
+        _ => false,
+    }
+}
+
+fn needs_normalization(data: &arrow_data::ArrayData) -> bool {
+    let mut stack = vec![data];
+    while let Some(node) = stack.pop() {
+        for (index, child) in node.child_data().iter().enumerate() {
+            if field_required(node.data_type(), index) && child.null_count() != 0 {
+                return true;
+            }
+            stack.push(child);
         }
-        _ => 0,
-    };
-    data.child_data().iter().try_fold(own, |maximum, child| {
-        validation_workspace_bytes(child).map(|bytes| maximum.max(bytes))
-    })
+    }
+    false
+}
+
+struct NormalizeFrame {
+    dtype: DataType,
+    length: usize,
+    nulls: Option<arrow_buffer::NullBuffer>,
+    offset: usize,
+    buffers: Vec<arrow_buffer::Buffer>,
+    remaining_children: std::vec::IntoIter<arrow_data::ArrayData>,
+    built_children: Vec<arrow_data::ArrayData>,
+    strip_self_nulls: bool,
+}
+
+fn normalize_array_data(root: arrow_data::ArrayData) -> Result<arrow_data::ArrayData> {
+    let mut stack = Vec::<NormalizeFrame>::new();
+    let mut current = (root, false);
+    loop {
+        let (node, strip_self_nulls) = current;
+        let (dtype, length, nulls, offset, buffers, children) = node.into_parts();
+        let child_count = children.len();
+        let mut remaining_children = children.into_iter();
+        if let Some(first_child) = remaining_children.next() {
+            let strip_child = field_required(&dtype, 0) && first_child.null_count() != 0;
+            stack.push(NormalizeFrame {
+                dtype,
+                length,
+                nulls,
+                offset,
+                buffers,
+                remaining_children,
+                built_children: Vec::with_capacity(child_count),
+                strip_self_nulls,
+            });
+            current = (first_child, strip_child);
+            continue;
+        }
+        let nulls = if strip_self_nulls { None } else { nulls };
+        let mut completed = arrow_data::ArrayData::builder(dtype)
+            .len(length)
+            .offset(offset)
+            .buffers(buffers)
+            .nulls(nulls)
+            .build()
+            .map_err(super::vortex_error)?;
+        loop {
+            let Some(mut parent) = stack.pop() else {
+                return Ok(completed);
+            };
+            parent.built_children.push(completed);
+            if let Some(next_child) = parent.remaining_children.next() {
+                let child_index = parent.built_children.len();
+                let strip_child =
+                    field_required(&parent.dtype, child_index) && next_child.null_count() != 0;
+                stack.push(parent);
+                current = (next_child, strip_child);
+                break;
+            }
+            let nulls = if parent.strip_self_nulls {
+                None
+            } else {
+                parent.nulls
+            };
+            completed = arrow_data::ArrayData::builder(parent.dtype)
+                .len(parent.length)
+                .offset(parent.offset)
+                .buffers(parent.buffers)
+                .nulls(nulls)
+                .child_data(parent.built_children)
+                .build()
+                .map_err(super::vortex_error)?;
+        }
+    }
 }
 
 /// Arrow permits null storage below null Struct/FixedSizeList parents even when
@@ -39,46 +137,6 @@ pub(crate) fn provider_batch(
     memory: Option<&LiveMemoryPool>,
     check: &dyn Fn() -> Result<()>,
 ) -> Result<arrow_array::RecordBatch> {
-    fn required(dtype: &DataType, index: usize) -> bool {
-        match dtype {
-            DataType::Struct(fields) => !fields[index].is_nullable(),
-            DataType::FixedSizeList(field, _) => !field.is_nullable(),
-            _ => false,
-        }
-    }
-    fn needs_normalization(data: &arrow_data::ArrayData) -> bool {
-        data.child_data().iter().enumerate().any(|(index, child)| {
-            (required(data.data_type(), index) && child.null_count() != 0)
-                || needs_normalization(child)
-        })
-    }
-    fn normalize(data: arrow_data::ArrayData) -> Result<arrow_data::ArrayData> {
-        let (dtype, length, nulls, offset, buffers, children) = data.into_parts();
-        let children = children
-            .into_iter()
-            .enumerate()
-            .map(|(index, child)| {
-                let child = normalize(child)?;
-                if required(&dtype, index) && child.null_count() != 0 {
-                    child
-                        .into_builder()
-                        .nulls(None)
-                        .build()
-                        .map_err(super::vortex_error)
-                } else {
-                    Ok(child)
-                }
-            })
-            .collect::<Result<Vec<_>>>()?;
-        arrow_data::ArrayData::builder(dtype)
-            .len(length)
-            .offset(offset)
-            .buffers(buffers)
-            .nulls(nulls)
-            .child_data(children)
-            .build()
-            .map_err(super::vortex_error)
-    }
     crate::native_cross_field_arrow::validate_batch(&batch, memory, check)?;
     let (schema, columns, rows) = batch.into_parts();
     let columns = columns
@@ -101,7 +159,7 @@ pub(crate) fn provider_batch(
                 .map(|memory| memory.reserve(validation_workspace_bytes(&data)?))
                 .transpose()?;
             data.validate_full().map_err(super::vortex_error)?;
-            normalize(data).map(arrow_array::make_array)
+            normalize_array_data(data).map(arrow_array::make_array)
         })
         .collect::<Result<Vec<_>>>()?;
     arrow_array::RecordBatch::try_new_with_options(
@@ -152,74 +210,147 @@ pub(crate) fn validate_values(column: &str, array: &dyn Array) -> Result<()> {
     validate_values_with_float_policy(column, array, FloatPolicy::Strict)
 }
 
+enum ValidationArray<'a> {
+    Borrowed(&'a dyn Array),
+    Owned(arrow_array::ArrayRef),
+}
+
+impl ValidationArray<'_> {
+    fn as_array(&self) -> &dyn Array {
+        match self {
+            Self::Borrowed(array) => *array,
+            Self::Owned(array) => array.as_ref(),
+        }
+    }
+}
+
+fn push_child_range(
+    child: &arrow_array::ArrayRef,
+    start: usize,
+    end: usize,
+    float_policy: FloatPolicy,
+    stack: &mut Vec<(ValidationArray<'_>, FloatPolicy)>,
+) {
+    if start == end {
+        return;
+    }
+    let slice = if start == 0 && end == child.len() {
+        child.clone()
+    } else {
+        child.slice(start, end - start)
+    };
+    stack.push((ValidationArray::Owned(slice), float_policy));
+}
+
+fn valid_ranges(array: &dyn Array) -> Vec<(usize, usize)> {
+    if array.is_empty() {
+        return Vec::new();
+    }
+    if let Some(nulls) = array.nulls().filter(|nulls| nulls.null_count() != 0) {
+        nulls.valid_slices().collect()
+    } else {
+        vec![(0, array.len())]
+    }
+}
+
 /// The explicit floating domain changes only nonfinite admission. Decimal,
 /// nested reachability and all structural validations remain identical.
 pub(crate) fn validate_values_with_float_policy(
     column: &str,
-    array: &dyn Array,
+    root: &dyn Array,
     float_policy: FloatPolicy,
 ) -> Result<()> {
-    macro_rules! decimal {
-        ($kind:ty, $precision:expr) => {
-            array.as_primitive::<$kind>().validate_decimal_precision(*$precision)
-                .map_err(|error| ShardLoomError::InvalidOperation(format!(
-                    "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
-                )))
-        };
-    }
-    match array.data_type() {
-        DataType::Decimal32(precision, _) => decimal!(arrow_array::types::Decimal32Type, precision),
-        DataType::Decimal64(precision, _) => decimal!(arrow_array::types::Decimal64Type, precision),
-        DataType::Decimal128(precision, _) => {
-            decimal!(arrow_array::types::Decimal128Type, precision)
+    let mut stack = vec![(ValidationArray::Borrowed(root), float_policy)];
+    while let Some((node, policy)) = stack.pop() {
+        let array = node.as_array();
+        macro_rules! decimal {
+            ($kind:ty, $precision:expr) => {
+                array.as_primitive::<$kind>().validate_decimal_precision(*$precision)
+                    .map_err(|error| ShardLoomError::InvalidOperation(format!(
+                        "native columnar intake column '{column}' exceeds its declared decimal precision: {error}; no fallback execution was attempted"
+                    )))
+            };
         }
-        DataType::Decimal256(precision, _) => {
-            decimal!(arrow_array::types::Decimal256Type, precision)
-        }
-        DataType::List(field) => validate_list_values(
-            column,
-            array.as_list::<i32>(),
-            field_float_policy(field, float_policy),
-        ),
-        DataType::LargeList(field) => validate_list_values(
-            column,
-            array.as_list::<i64>(),
-            field_float_policy(field, float_policy),
-        ),
-        DataType::FixedSizeList(field, _) => {
-            let list = array.as_fixed_size_list();
-            let width = usize::try_from(list.value_length()).map_err(|_| {
-                ShardLoomError::InvalidOperation(format!(
-                    "native nested intake column '{column}' has a negative fixed-size-list width; no fallback execution was attempted"
-                ))
-            })?;
-            for_valid_parent_ranges(array, |start, end| {
-                validate_child_range(
-                    column,
-                    list.values().as_ref(),
-                    start * width,
-                    end * width,
-                    field_float_policy(field, float_policy),
-                )
-            })
-        }
-        DataType::Struct(fields) => for_valid_parent_ranges(array, |start, end| {
-            for (field, child) in fields.iter().zip(array.as_struct().columns()) {
-                validate_child_range(
-                    column,
-                    child.as_ref(),
-                    start,
-                    end,
-                    field_float_policy(field, float_policy),
-                )?;
+        match array.data_type() {
+            DataType::Decimal32(precision, _) => {
+                decimal!(arrow_array::types::Decimal32Type, precision)?;
             }
-            Ok(())
-        }),
-        _ if float_policy == FloatPolicy::Strict => {
-            super::reject_columnar_non_finite_floats(column, array)
+            DataType::Decimal64(precision, _) => {
+                decimal!(arrow_array::types::Decimal64Type, precision)?;
+            }
+            DataType::Decimal128(precision, _) => {
+                decimal!(arrow_array::types::Decimal128Type, precision)?;
+            }
+            DataType::Decimal256(precision, _) => {
+                decimal!(arrow_array::types::Decimal256Type, precision)?;
+            }
+            DataType::List(field) => {
+                let list = array.as_list::<i32>();
+                let offsets = list.value_offsets();
+                let child_policy = field_float_policy(field, policy);
+                for (start, end) in valid_ranges(list).into_iter().rev() {
+                    push_child_range(
+                        list.values(),
+                        offsets[start].as_usize(),
+                        offsets[end].as_usize(),
+                        child_policy,
+                        &mut stack,
+                    );
+                }
+            }
+            DataType::LargeList(field) => {
+                let list = array.as_list::<i64>();
+                let offsets = list.value_offsets();
+                let child_policy = field_float_policy(field, policy);
+                for (start, end) in valid_ranges(list).into_iter().rev() {
+                    push_child_range(
+                        list.values(),
+                        offsets[start].as_usize(),
+                        offsets[end].as_usize(),
+                        child_policy,
+                        &mut stack,
+                    );
+                }
+            }
+            DataType::FixedSizeList(field, _) => {
+                let list = array.as_fixed_size_list();
+                let width = usize::try_from(list.value_length()).map_err(|_| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "native nested intake column '{column}' has a negative fixed-size-list width; no fallback execution was attempted"
+                    ))
+                })?;
+                let child_policy = field_float_policy(field, policy);
+                for (start, end) in valid_ranges(array).into_iter().rev() {
+                    push_child_range(
+                        list.values(),
+                        start * width,
+                        end * width,
+                        child_policy,
+                        &mut stack,
+                    );
+                }
+            }
+            DataType::Struct(fields) => {
+                let structure = array.as_struct();
+                for (start, end) in valid_ranges(array).into_iter().rev() {
+                    for (field, child) in fields.iter().zip(structure.columns()).rev() {
+                        push_child_range(
+                            child,
+                            start,
+                            end,
+                            field_float_policy(field, policy),
+                            &mut stack,
+                        );
+                    }
+                }
+            }
+            _ if policy == FloatPolicy::Strict => {
+                super::reject_columnar_non_finite_floats(column, array)?;
+            }
+            _ => {}
         }
-        _ => Ok(()),
     }
+    Ok(())
 }
 
 /// Variant carriage does not numerically observe floating components. Spatial
@@ -239,20 +370,24 @@ pub(crate) fn field_float_policy(field: &Field, policy: FloatPolicy) -> FloatPol
 /// the same ancestor-aware check used by resident intake. This does not admit
 /// additional types or change the caller's floating-point policy.
 pub(crate) fn validate_provider_decimal_values(batch: &arrow_array::RecordBatch) -> Result<()> {
-    fn contains_decimal(dtype: &DataType) -> bool {
-        match dtype {
-            DataType::Decimal32(..)
-            | DataType::Decimal64(..)
-            | DataType::Decimal128(..)
-            | DataType::Decimal256(..) => true,
-            DataType::Struct(fields) => fields
-                .iter()
-                .any(|field| contains_decimal(field.data_type())),
-            DataType::List(field)
-            | DataType::LargeList(field)
-            | DataType::FixedSizeList(field, _) => contains_decimal(field.data_type()),
-            _ => false,
+    fn contains_decimal(root: &DataType) -> bool {
+        let mut stack = vec![root];
+        while let Some(dtype) = stack.pop() {
+            match dtype {
+                DataType::Decimal32(..)
+                | DataType::Decimal64(..)
+                | DataType::Decimal128(..)
+                | DataType::Decimal256(..) => return true,
+                DataType::Struct(fields) => {
+                    stack.extend(fields.iter().map(|field| field.data_type()));
+                }
+                DataType::List(field)
+                | DataType::LargeList(field)
+                | DataType::FixedSizeList(field, _) => stack.push(field.data_type()),
+                _ => {}
+            }
         }
+        false
     }
     for (field, array) in batch.schema().fields().iter().zip(batch.columns()) {
         if contains_decimal(field.data_type()) {
@@ -260,60 +395,6 @@ pub(crate) fn validate_provider_decimal_values(batch: &arrow_array::RecordBatch)
         }
     }
     Ok(())
-}
-
-fn validate_list_values<O: OffsetSizeTrait>(
-    column: &str,
-    list: &GenericListArray<O>,
-    float_policy: FloatPolicy,
-) -> Result<()> {
-    let offsets = list.value_offsets();
-    for_valid_parent_ranges(list, |start, end| {
-        validate_child_range(
-            column,
-            list.values().as_ref(),
-            offsets[start].as_usize(),
-            offsets[end].as_usize(),
-            float_policy,
-        )
-    })
-}
-
-fn for_valid_parent_ranges(
-    array: &dyn Array,
-    mut validate: impl FnMut(usize, usize) -> Result<()>,
-) -> Result<()> {
-    if array.is_empty() {
-        return Ok(());
-    }
-    if let Some(nulls) = array.nulls().filter(|nulls| nulls.null_count() != 0) {
-        for (start, end) in nulls.valid_slices() {
-            validate(start, end)?;
-        }
-        Ok(())
-    } else {
-        validate(0, array.len())
-    }
-}
-
-fn validate_child_range(
-    column: &str,
-    child: &dyn Array,
-    start: usize,
-    end: usize,
-    float_policy: FloatPolicy,
-) -> Result<()> {
-    if start == end {
-        Ok(())
-    } else if start == 0 && end == child.len() {
-        validate_values_with_float_policy(column, child, float_policy)
-    } else {
-        validate_values_with_float_policy(
-            column,
-            child.slice(start, end - start).as_ref(),
-            float_policy,
-        )
-    }
 }
 
 #[cfg(test)]
@@ -601,5 +682,89 @@ mod tests {
         assert!(validate_values("sliced", &values.slice(1, 1)).is_ok());
         assert!(validate_values("sliced", &values.slice(1, 0)).is_ok());
         assert!(validate_values("visible", &values).is_err());
+    }
+
+    #[test]
+    fn deep_nested_normalization_and_value_validation_on_small_stack() {
+        use arrow_array::{
+            ArrayRef, Decimal128Array, FixedSizeListArray, RecordBatch, StructArray,
+        };
+        use arrow_buffer::OffsetBuffer;
+        use arrow_schema::Schema;
+
+        let handle = std::thread::Builder::new()
+            .name("vortex_ingest_nested::small_stack".into())
+            .stack_size(128 * 1024)
+            .spawn(|| {
+                let depth = 2_048;
+                let floats: ArrayRef =
+                    Arc::new(Float64Array::from(vec![Some(1.5), Some(f64::NAN)]));
+                let mut current = floats;
+                // Innermost FixedSizeList declares non-nullable child despite holding a null bitmap
+                // (row 0 is valid 1.5; row 1 outer struct is null, hiding NaN).
+                current = Arc::new(StructArray::new(
+                    vec![Field::new("f", DataType::Float64, false)].into(),
+                    vec![arrow_array::make_array(
+                        current
+                            .to_data()
+                            .into_builder()
+                            .nulls(Some(vec![true, false].into()))
+                            .build()
+                            .unwrap(),
+                    )],
+                    Some(vec![true, false].into()),
+                ));
+                for level in 0..depth {
+                    let child_field = Arc::new(Field::new("c", current.data_type().clone(), true));
+                    current = if level % 2 == 0 {
+                        Arc::new(ListArray::new(
+                            child_field,
+                            OffsetBuffer::new(vec![0_i32, 1, 2].into()),
+                            current,
+                            None,
+                        ))
+                    } else {
+                        Arc::new(FixedSizeListArray::new(child_field, 1, current, None))
+                    };
+                }
+                let data = current.to_data();
+                assert!(validation_workspace_bytes(&data).is_ok());
+                let batch = RecordBatch::try_new(
+                    Arc::new(Schema::new(vec![Field::new(
+                        "deep",
+                        current.data_type().clone(),
+                        true,
+                    )])),
+                    vec![current],
+                )
+                .unwrap();
+                let memory = LiveMemoryPool::new(16 << 20).unwrap();
+                let normalized = provider_batch(batch, Some(&memory), &|| Ok(())).unwrap();
+                validate_values("deep", normalized.column(0).as_ref()).unwrap();
+                assert_eq!(memory.snapshot().reserved_bytes, 0);
+
+                // Deep Decimal128 validation on 2,048 levels rejects out-of-precision leaf.
+                let mut dec_arr: ArrayRef = Arc::new(
+                    Decimal128Array::from(vec![Some(123)])
+                        .with_precision_and_scale(2, 0)
+                        .unwrap(),
+                );
+                for _ in 0..depth {
+                    let field = Arc::new(Field::new("d", dec_arr.data_type().clone(), true));
+                    dec_arr = Arc::new(StructArray::new(vec![field].into(), vec![dec_arr], None));
+                }
+                let dec_batch = RecordBatch::try_new(
+                    Arc::new(Schema::new(vec![Field::new(
+                        "dec",
+                        dec_arr.data_type().clone(),
+                        true,
+                    )])),
+                    vec![dec_arr],
+                )
+                .unwrap();
+                assert!(validate_provider_decimal_values(&dec_batch).is_err());
+            })
+            .unwrap();
+        handle.join().unwrap();
     }
 }

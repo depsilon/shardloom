@@ -18,7 +18,7 @@
 use crate::ArrayData;
 use arrow_schema::{ArrowError, DataType};
 
-use super::{_MutableArrayData, Extend};
+use super::{_MutableArrayData, ChildExtendNullsTask, ChildExtendTask, Extend};
 
 pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
     let size = match array.data_type() {
@@ -28,7 +28,11 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
     let offset = array.offset();
 
     Box::new(
-        move |mutable: &mut _MutableArrayData, index: usize, start: usize, len: usize| {
+        move |mutable: &mut _MutableArrayData,
+              index: usize,
+              start: usize,
+              len: usize,
+              tasks: &mut Vec<ChildExtendTask>| {
             let start = start.checked_add(offset).ok_or_else(|| {
                 ArrowError::InvalidArgumentError(format!(
                     "fixed size list offset {offset} with start {start} overflows usize"
@@ -47,22 +51,36 @@ pub(super) fn build_extend(array: &ArrayData) -> Extend<'_> {
                         "fixed size list range {start}..{end} with size {size} overflows usize"
                     ))
                 })?;
-            for child in &mut mutable.child_data {
-                child.try_extend(index, child_start, child_end)?;
+            for child_idx in 0..mutable.child_data.len() {
+                tasks.push(ChildExtendTask {
+                    child_idx,
+                    array_idx: index,
+                    start: child_start,
+                    end: child_end,
+                    wrap_struct_col: false,
+                });
             }
             Ok(())
         },
     )
 }
 
-pub(super) fn extend_nulls(mutable: &mut _MutableArrayData, len: usize) -> Result<(), ArrowError> {
+pub(super) fn extend_nulls(
+    mutable: &mut _MutableArrayData,
+    len: usize,
+    tasks: &mut Vec<ChildExtendNullsTask>,
+) -> Result<(), ArrowError> {
     let size = match mutable.data_type {
         DataType::FixedSizeList(_, i) => i as usize,
         _ => unreachable!(),
     };
 
-    for child in mutable.child_data.iter_mut() {
-        child.try_extend_nulls(len * size)?;
+    for child_idx in 0..mutable.child_data.len() {
+        tasks.push(ChildExtendNullsTask {
+            child_idx,
+            len: len * size,
+            wrap_struct_col: false,
+        });
     }
     Ok(())
 }

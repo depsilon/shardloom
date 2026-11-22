@@ -398,21 +398,33 @@ impl FixedSizeListArray {
         i * self.value_length as usize
     }
 
+    pub(crate) fn slice_parts(&self) -> (&DataType, &ArrayRef, &Option<NullBuffer>, i32) {
+        (&self.data_type, &self.values, &self.nulls, self.value_length)
+    }
+
+    pub(crate) fn from_sliced_parts(
+        data_type: DataType,
+        values: ArrayRef,
+        nulls: Option<NullBuffer>,
+        value_length: i32,
+        len: usize,
+    ) -> Self {
+        Self {
+            data_type,
+            values: values.into(),
+            nulls,
+            value_length,
+            len,
+        }
+    }
+
     /// Returns a zero-copy slice of this array with the indicated offset and length.
     pub fn slice(&self, offset: usize, len: usize) -> Self {
         assert!(
             offset.saturating_add(len) <= self.len,
             "the length + offset of the sliced FixedSizeListArray cannot exceed the existing length"
         );
-        let size = self.value_length as usize;
-
-        Self {
-            data_type: self.data_type.clone(),
-            values: self.values.slice(offset * size, len * size).into(),
-            nulls: self.nulls.as_ref().map(|n| n.slice(offset, len)),
-            value_length: self.value_length,
-            len,
-        }
+        super::slice_iter::slice_fixed_size_list(self, offset, len)
     }
 
     /// Creates a [`FixedSizeListArray`] from an iterator of primitive values
@@ -470,22 +482,21 @@ impl FixedSizeListArray {
 
 impl From<ArrayData> for FixedSizeListArray {
     fn from(data: ArrayData) -> Self {
-        let (data_type, len, nulls, offset, _buffers, child_data) = data.into_parts();
+        super::data_import::fixed_size_list_from_data(data)
+    }
+}
 
-        let value_length = match data_type {
-            DataType::FixedSizeList(_, len) => len,
-            data_type => {
-                panic!(
-                    "FixedSizeListArray data should contain a FixedSizeList data type, got {data_type}"
-                )
-            }
-        };
-
-        let size = value_length as usize;
-        let values = make_array(child_data[0].slice(offset * size, len * size));
+impl FixedSizeListArray {
+    pub(super) fn from_parts(
+        data_type: DataType,
+        values: super::release::Child,
+        nulls: Option<NullBuffer>,
+        value_length: i32,
+        len: usize,
+    ) -> Self {
         Self {
             data_type,
-            values: values.into(),
+            values,
             nulls,
             value_length,
             len,

@@ -41,88 +41,95 @@ pub(super) fn collect(
 }
 
 impl RecordViews {
+    fn push_slice_range(&mut self, structure: &StructArray, range: Range<usize>) -> Result<()> {
+        let count = structure.fields().len() as u64;
+        self.metadata
+            .resize(add(self.metadata.bytes(), add(4096, mul(count, 1024)?)?)?)?;
+        let fields = structure
+            .fields()
+            .iter()
+            .map(|field| {
+                SliceArray::try_new(field.clone(), range.clone())
+                    .map(IntoArray::into_array)
+                    .map_err(native_error)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let view = StructArray::try_new(
+            structure.dtype().as_struct_fields().names().clone(),
+            fields,
+            range.len(),
+            Validity::NonNullable,
+        )
+        .map_err(native_error)?
+        .into_array();
+        self.roots.push(view)
+    }
+
     fn visit(
         &mut self,
-        array: &ArrayRef,
-        range: Range<usize>,
-        depth: usize,
+        root: &ArrayRef,
+        initial_range: Range<usize>,
+        initial_depth: usize,
         context: &NativeExecutionContext<'_>,
     ) -> Result<bool> {
-        context.check_cancelled()?;
-        if depth > MAX_ENCODING_DEPTH || range.start > range.end || range.end > array.len() {
-            return Err(memory_error(
-                "native record view exceeds its depth or row bounds",
-            ));
-        }
-        if !matches!(array.dtype(), DType::Struct(_, _)) || array.dtype().is_nullable() {
-            return Err(memory_error(
-                "native transfer requires nonnullable record rows",
-            ));
-        }
-        if let Some(structure) = array.as_opt::<Struct>() {
-            if range == (0..array.len()) {
-                self.roots.push(array.clone())?;
-                return Ok(true);
+        let mut stack = vec![(root.clone(), initial_range, initial_depth)];
+        while let Some((array, range, depth)) = stack.pop() {
+            context.check_cancelled()?;
+            if depth > MAX_ENCODING_DEPTH || range.start > range.end || range.end > array.len() {
+                return Err(memory_error(
+                    "native record view exceeds its depth or row bounds",
+                ));
             }
-            if !range.is_empty() {
-                let count = structure.fields().len() as u64;
-                self.metadata
-                    .resize(add(self.metadata.bytes(), add(4096, mul(count, 1024)?)?)?)?;
-                let fields = structure
-                    .fields()
-                    .iter()
-                    .map(|field| {
-                        SliceArray::try_new(field.clone(), range.clone())
-                            .map(IntoArray::into_array)
-                            .map_err(native_error)
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let view = StructArray::try_new(
-                    structure.dtype().as_struct_fields().names().clone(),
-                    fields,
-                    range.len(),
-                    Validity::NonNullable,
-                )
-                .map_err(native_error)?
-                .into_array();
-                self.roots.push(view)?;
-                return Ok(true);
+            if !matches!(array.dtype(), DType::Struct(_, _)) || array.dtype().is_nullable() {
+                return Err(memory_error(
+                    "native transfer requires nonnullable record rows",
+                ));
             }
-        }
-        if range.is_empty() {
-            let credit = crate::native_payload_schema::reserve_encoded_schema(
-                array.dtype(),
-                context.memory(),
-            )?;
-            // The bounded physical schema admits this provider's empty tree,
-            // including Null leaves. No source payload is read or retained.
-            // This temporary root owns construction credit until the copier
-            // gives every output node its receiving owner.
-            self.roots.push(
-                Canonical::empty(array.dtype())
-                    .into_array()
-                    .with_retained_owner(Arc::new(credit))
-                    .map_err(native_error)?,
-            )?;
-            return Ok(true);
-        }
-        if let Some(slice) = array.as_opt::<Slice>() {
-            let parent = slice.slice_range();
-            if parent.start > parent.end {
-                return Err(memory_error("native record slice has reversed coordinates"));
+            if let Some(structure) = array.as_opt::<Struct>() {
+                if range == (0..array.len()) {
+                    self.roots.push(array)?;
+                    continue;
+                }
+                if !range.is_empty() {
+                    self.push_slice_range(&structure.into_owned(), range)?;
+                    continue;
+                }
             }
-            let start = parent
-                .start
-                .checked_add(range.start)
-                .ok_or_else(|| memory_error("native record slice coordinate overflow"))?;
-            let end = parent
-                .start
-                .checked_add(range.end)
-                .ok_or_else(|| memory_error("native record slice coordinate overflow"))?;
-            return self.visit(slice.child(), start..end, depth + 1, context);
-        }
-        if let Some(chunked) = array.as_opt::<Chunked>() {
+            if range.is_empty() {
+                let credit = crate::native_payload_schema::reserve_encoded_schema(
+                    array.dtype(),
+                    context.memory(),
+                )?;
+                self.roots.push(
+                    Canonical::empty(array.dtype())
+                        .into_array()
+                        .with_retained_owner(Arc::new(credit))
+                        .map_err(native_error)?,
+                )?;
+                continue;
+            }
+            if let Some(slice) = array.as_opt::<Slice>() {
+                let parent = slice.slice_range();
+                if parent.start > parent.end {
+                    return Err(memory_error("native record slice has reversed coordinates"));
+                }
+                let start = parent
+                    .start
+                    .checked_add(range.start)
+                    .ok_or_else(|| memory_error("native record slice coordinate overflow"))?;
+                let end = parent
+                    .start
+                    .checked_add(range.end)
+                    .ok_or_else(|| memory_error("native record slice coordinate overflow"))?;
+                stack.push((slice.child().clone(), start..end, depth + 1));
+                continue;
+            }
+            let Some(chunked) = array.as_opt::<Chunked>() else {
+                // Other record encodings retain the preclassified native materializer.
+                return Ok(false);
+            };
             let mut offset = 0usize;
+            let base = stack.len();
             for index in 0..chunked.nchunks() {
                 context.check_cancelled()?;
                 let chunk = chunked.chunk(index);
@@ -131,10 +138,8 @@ impl RecordViews {
                     .ok_or_else(|| memory_error("native record chunk coordinate overflow"))?;
                 let start = range.start.max(offset);
                 let stop = range.end.min(end);
-                if start < stop
-                    && !self.visit(chunk, start - offset..stop - offset, depth + 1, context)?
-                {
-                    return Ok(false);
+                if start < stop {
+                    stack.push((chunk.clone(), start - offset..stop - offset, depth + 1));
                 }
                 offset = end;
             }
@@ -143,9 +148,8 @@ impl RecordViews {
                     "native record chunks changed their declared length",
                 ));
             }
-            return Ok(true);
+            stack[base..].reverse();
         }
-        // Other record encodings retain the preclassified native materializer.
-        Ok(false)
+        Ok(true)
     }
 }
