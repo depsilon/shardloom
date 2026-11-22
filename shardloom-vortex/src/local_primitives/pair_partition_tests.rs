@@ -131,6 +131,7 @@ fn worker_values(
         &columns,
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
         &memory,
+        None,
     )
     .unwrap()
     .expect("renamed integer pair and late measures admitted");
@@ -346,6 +347,7 @@ fn pair_partitions_preserve_retained_measure_overflow_errors() {
                 &columns,
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &memory,
+                None,
             )
             .unwrap()
             .unwrap();
@@ -408,6 +410,7 @@ fn pair_partition_sample_decline_returns_the_untouched_chunk_to_serial_state() {
         &columns,
         VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
         &memory,
+        None,
     )
     .unwrap()
     .unwrap();
@@ -491,6 +494,7 @@ fn pair_partition_admission_declines_nullable_keys_count_column_and_unbounded_sh
                 &columns,
                 VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(3, 4).unwrap(),
                 &memory,
+                None,
             )
             .unwrap()
             .is_none()
@@ -539,6 +543,7 @@ fn pair_partition_cancellation_after_committed_input_publishes_no_selection() {
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();
@@ -574,6 +579,7 @@ fn pair_partition_growth_denial_after_committed_input_is_fatal_and_releases_leas
             &columns,
             VortexLocalPrimitiveExecutionPolicy::new_with_memory_gb(parallelism, 4).unwrap(),
             &memory,
+            None,
         )
         .unwrap()
         .unwrap();

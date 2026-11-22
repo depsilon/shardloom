@@ -265,6 +265,7 @@ fn parquet_metadata_admission_keeps_complete_values_and_pruning_with_small_grant
                 ).is_none());
             }
             drop(output);
+            memory.reclaim_optional_memory();
             assert_eq!(memory.snapshot().reserved_bytes, baseline);
             assert!(memory.snapshot().peak_reserved_bytes <= ceiling);
             drop(prepared);

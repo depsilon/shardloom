@@ -632,7 +632,7 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_schema_version",
-        "shardloom.vortex_capillary_preparation.v1"
+        "shardloom.vortex_capillary_preparation.v2"
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_status",
@@ -657,6 +657,18 @@ fn vortex_prepare_writes_reopens_vortex_prepared_state() {
     )));
     assert!(stdout.contains(&field(
         "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_peak_memory_bytes",
+        "unavailable"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_flow_inventory_completed_task_count",
+        "unavailable"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_prewrite_task_manifest_admitted",
         "false"
     )));
     assert!(stdout.contains(&field(

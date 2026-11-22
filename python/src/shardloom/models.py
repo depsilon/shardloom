@@ -284,6 +284,25 @@ PULSEWEAVE_INTEGER_FIELDS = (
     "endopulse_previous_wip_limit",
     "endopulse_next_wip_limit",
 )
+PULSEWEAVE_UNOBSERVED_PLAN_FIELDS = (
+    "flow_inventory_peak_in_flight",
+    "flow_inventory_ready_task_count",
+    "flow_inventory_held_for_memory_count",
+    "flow_inventory_held_for_downstream_count",
+    "flow_inventory_completed_task_count",
+    "flow_inventory_failed_task_count",
+    "flow_inventory_backpressure_event_count",
+    "flow_inventory_existing_scheduler_preserved",
+)
+PULSEWEAVE_PLAN_INTEGER_FIELDS = (
+    "flow_inventory_planned_task_count",
+    "flow_inventory_estimated_held_for_memory_count",
+    "flow_inventory_estimated_held_for_downstream_count",
+)
+PULSEWEAVE_PLAN_BOOLEAN_FIELDS = (
+    "pulseweave_decision_admitted",
+    "endopulse_adjustment_proposed",
+)
 PULSEWEAVE_CORRECTNESS_OUTPUT_FIELDS = (
     "prepared_vortex_scale_correctness_digest",
     "prepared_vortex_scale_split_operator_correctness_digest",
@@ -1026,6 +1045,11 @@ def validate_runtime_execution_envelope(
 
     if _field_present(envelope, "pulseweave_status"):
         _validate_pulseweave_runtime(envelope, issues)
+    if (
+        envelope.field("vortex_capillary_preparation_schema_version")
+        == "shardloom.vortex_capillary_preparation.v2"
+    ):
+        _validate_capillary_policy_plan(envelope, issues)
 
     if runtime_expected and envelope.status == "success":
         _require_any_field(
@@ -1604,7 +1628,30 @@ def _validate_pulseweave_runtime(
     envelope: OutputEnvelope,
     issues: list[RuntimeEnvelopeValidationIssue],
 ) -> None:
-    for field in PULSEWEAVE_REQUIRED_FIELDS:
+    policy_plan = (
+        envelope.field("pulseweave_schema_version")
+        == "shardloom.pulseweave.runtime_control.v2"
+    )
+    required_fields = PULSEWEAVE_REQUIRED_FIELDS
+    boolean_fields = PULSEWEAVE_BOOLEAN_FIELDS
+    integer_fields = PULSEWEAVE_INTEGER_FIELDS
+    if policy_plan:
+        required_fields += (
+            "pulseweave_evidence_kind",
+            "proofbound_prerequisite_evidence_status",
+            *PULSEWEAVE_PLAN_INTEGER_FIELDS,
+            *PULSEWEAVE_PLAN_BOOLEAN_FIELDS,
+        )
+        boolean_fields = tuple(
+            field for field in boolean_fields
+            if field not in PULSEWEAVE_UNOBSERVED_PLAN_FIELDS
+        ) + PULSEWEAVE_PLAN_BOOLEAN_FIELDS
+        integer_fields = tuple(
+            field for field in integer_fields
+            if field not in PULSEWEAVE_UNOBSERVED_PLAN_FIELDS
+        ) + PULSEWEAVE_PLAN_INTEGER_FIELDS
+        _validate_pulseweave_policy_plan(envelope, issues)
+    for field in required_fields:
         present = (
             _runtime_field(envelope, field) is not None
             if field in PULSEWEAVE_NONE_LITERAL_FIELDS
@@ -1618,14 +1665,14 @@ def _validate_pulseweave_runtime(
                     message=f"PulseWeave runtime evidence is missing {field}",
                 )
             )
-    for field in PULSEWEAVE_BOOLEAN_FIELDS:
+    for field in boolean_fields:
         if _field_present(envelope, field) and _safe_field_bool(envelope, field) is None:
             _add_invalid_issue(
                 issues,
                 field,
                 f"PulseWeave runtime field {field} must be true or false",
             )
-    for field in PULSEWEAVE_INTEGER_FIELDS:
+    for field in integer_fields:
         value = envelope.field(field)
         if value is None or not _field_present(envelope, field):
             continue
@@ -1708,6 +1755,104 @@ def _validate_pulseweave_runtime(
             "pulseweave_status",
             "PulseWeave status cannot be applied when runtime_decision_applied=false",
         )
+
+
+def _validate_pulseweave_policy_plan(
+    envelope: OutputEnvelope,
+    issues: list[RuntimeEnvelopeValidationIssue],
+) -> None:
+    # v1 is retained for historical artifacts. v2 is explicitly a pure plan;
+    # certificates supplied to that planner cannot establish control application.
+    expected_values = {
+        "pulseweave_evidence_kind": "policy_plan",
+        "pulseweave_claim_gate_status": "not_pulseweave_claim_grade",
+        "flow_inventory_schema_version": "shardloom.pulseweave.flow_inventory.v2",
+        "endopulse_schema_version": "shardloom.pulseweave.endopulse.v2",
+        "proofbound_schema_version": "shardloom.pulseweave.proofbound.v2",
+        **{field: "unavailable" for field in PULSEWEAVE_UNOBSERVED_PLAN_FIELDS},
+    }
+    status = envelope.field("pulseweave_status")
+    expected_values["proofbound_post_application_status"] = (
+        "not_requested" if status == "not_requested" else "not_observed"
+    )
+    for field, expected in expected_values.items():
+        value = envelope.field(field)
+        if value is not None and value != expected:
+            _add_invalid_issue(
+                issues, field, f"PulseWeave policy plan requires {field}={expected}"
+            )
+    for field in (
+        "pulseweave_runtime_decision_applied",
+        "pulseweave_policy_mutated",
+        "endopulse_adjustment_applied",
+        "proofbound_claim_allowed",
+    ):
+        if _safe_field_bool(envelope, field) is True:
+            _add_invalid_issue(
+                issues, field, "A PulseWeave policy plan cannot claim executed control"
+            )
+    if status not in {"planned", "blocked", "report_only_blocked", "not_requested"}:
+        _add_invalid_issue(issues, "pulseweave_status", "Invalid PulseWeave policy plan status")
+    admitted = _safe_field_bool(envelope, "pulseweave_decision_admitted")
+    if admitted is not None and admitted != (status == "planned"):
+        _add_invalid_issue(
+            issues, "pulseweave_decision_admitted", "Only an admitted proposal has planned status"
+        )
+    if admitted is True:
+        for field, expected in (
+            ("proofbound_pre_application_status", "admitted"),
+            ("proofbound_prerequisite_evidence_status", "certified"),
+            ("proofbound_missing_evidence", "runtime_application"),
+            ("pulseweave_blocker", "runtime_application"),
+        ):
+            if envelope.field(field) != expected:
+                _add_invalid_issue(
+                    issues, field, f"Admitted PulseWeave proposal requires {field}={expected}"
+                )
+
+
+def _validate_capillary_policy_plan(
+    envelope: OutputEnvelope,
+    issues: list[RuntimeEnvelopeValidationIssue],
+) -> None:
+    prefix = "vortex_capillary_preparation_"
+    fields = {
+        key.removeprefix(prefix): value
+        for key, value in envelope.field_map.items()
+        if key.startswith(prefix)
+    }
+    plan = OutputEnvelope.from_field_mapping(fields, command=envelope.command)
+    plan_issues: list[RuntimeEnvelopeValidationIssue] = []
+    _validate_pulseweave_runtime(plan, plan_issues)
+    expected_values = {
+        "pulseweave_schema_version": "shardloom.pulseweave.runtime_control.v2",
+        "scheduler_applied": "false",
+        "execution_window_count": "0",
+        "execution_window_size": "0",
+        "execution_window_ids": "none",
+        "execution_window_task_ids": "none",
+        "execution_window_digests": "none",
+        "peak_memory_bytes": "unavailable",
+    }
+    # Pure preparation reports also exist without the writer's prewrite fields.
+    if plan.field("prewrite_status") is not None:
+        expected_values.update({
+            "prewrite_scheduler_applied": "false",
+            "prewrite_execution_window_count": "0",
+            "prewrite_execution_window_size": "0",
+            "prewrite_execution_window_ids": "none",
+        })
+    for field, expected in expected_values.items():
+        if plan.field(field) != expected:
+            _add_invalid_issue(
+                plan_issues, field, f"Capillary policy plan requires {field}={expected}"
+            )
+    for issue in plan_issues:
+        issues.append(RuntimeEnvelopeValidationIssue(
+            code=issue.code,
+            field=prefix + issue.field,
+            message=issue.message,
+        ))
 
 
 def _runtime_field(envelope: OutputEnvelope, key: str) -> str | None:

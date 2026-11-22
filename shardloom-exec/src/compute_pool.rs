@@ -186,6 +186,52 @@ struct Shared {
     worker_busy_nanos: AtomicU64,
     enqueue_wait_nanos: AtomicU64,
     waiting_producers: AtomicUsize,
+    waits: Option<Box<WaitStats>>,
+}
+
+struct WaitStats {
+    empty_queue_waits: AtomicU64,
+    empty_queue_wait_nanos: AtomicU64,
+    capacity_waits: AtomicU64,
+    capacity_wait_nanos: AtomicU64,
+    waiting_workers: AtomicUsize,
+    _lease: MemoryLease,
+}
+
+impl WaitStats {
+    fn new(memory: &LiveMemoryPool) -> Result<Box<Self>> {
+        let lease = memory.reserve(size_of::<Self>() as u64)?;
+        Ok(Box::new(Self {
+            empty_queue_waits: AtomicU64::new(0),
+            empty_queue_wait_nanos: AtomicU64::new(0),
+            capacity_waits: AtomicU64::new(0),
+            capacity_wait_nanos: AtomicU64::new(0),
+            waiting_workers: AtomicUsize::new(0),
+            _lease: lease,
+        }))
+    }
+
+    fn snapshot(&self) -> ComputePoolWaitObservation {
+        ComputePoolWaitObservation {
+            completed_empty_queue_waits: self.empty_queue_waits.load(Ordering::Relaxed),
+            empty_queue_wait_nanos: self.empty_queue_wait_nanos.load(Ordering::Relaxed),
+            completed_capacity_waits: self.capacity_waits.load(Ordering::Relaxed),
+            capacity_wait_nanos: self.capacity_wait_nanos.load(Ordering::Relaxed),
+            waiting_workers: self.waiting_workers.load(Ordering::Relaxed),
+        }
+    }
+}
+
+/// Opt-in condition-variable observations, separate from submission overhead.
+/// Counts include spurious wakeups. Open waits contribute elapsed time only
+/// after returning; worker elapsed times overlap and are not CPU or engine time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComputePoolWaitObservation {
+    pub completed_empty_queue_waits: u64,
+    pub empty_queue_wait_nanos: u64,
+    pub completed_capacity_waits: u64,
+    pub capacity_wait_nanos: u64,
+    pub waiting_workers: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -201,6 +247,9 @@ pub struct ComputePoolSnapshot {
     pub worker_busy_nanos: u64,
     pub enqueue_wait_nanos: u64,
     pub waiting_producers: usize,
+    pub queue_closed: bool,
+    /// None means observation was disabled, not that no waiting occurred.
+    pub waits: Option<ComputePoolWaitObservation>,
 }
 
 /// Dropping the owner cancels and drains jobs, then joins its workers.
@@ -218,12 +267,29 @@ impl ComputePool {
         queue_byte_limit: u64,
         memory: LiveMemoryPool,
     ) -> Result<Self> {
+        Self::with_wait_observation(workers, queue_limit, queue_byte_limit, memory, false)
+    }
+
+    /// Construct the same pool with optional bounded condition-variable timing.
+    /// Observation storage is charged to the supplied pool before workers start.
+    /// Ordinary construction leaves these additional clocks and counters disabled.
+    ///
+    /// # Errors
+    /// Rejects invalid limits, observation-credit refusal, or worker startup failure.
+    pub fn with_wait_observation(
+        workers: usize,
+        queue_limit: usize,
+        queue_byte_limit: u64,
+        memory: LiveMemoryPool,
+        observe_waits: bool,
+    ) -> Result<Self> {
         if workers == 0 || queue_limit == 0 || queue_byte_limit == 0 {
             return Err(pool_error("compute pool limits must be greater than zero"));
         }
         if queue_byte_limit > memory.snapshot().limit_bytes {
             return Err(pool_error("queue byte limit exceeds shared memory budget"));
         }
+        let waits = observe_waits.then(|| WaitStats::new(&memory)).transpose()?;
         let mut pool = Self {
             shared: Arc::new(Shared {
                 queue: Mutex::new(Queue::default()),
@@ -237,6 +303,7 @@ impl ComputePool {
                 worker_busy_nanos: AtomicU64::new(0),
                 enqueue_wait_nanos: AtomicU64::new(0),
                 waiting_producers: AtomicUsize::new(0),
+                waits,
             }),
             workers: Vec::with_capacity(workers),
         };
@@ -264,7 +331,7 @@ impl ComputePool {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         ComputePoolSnapshot {
-            workers_created: self.workers.len(),
+            workers_created: self.shared.worker_count,
             active_workers: queue.active,
             peak_active_workers: queue.peak_active,
             queued_jobs: queue.jobs.len(),
@@ -275,6 +342,36 @@ impl ComputePool {
             worker_busy_nanos: self.shared.worker_busy_nanos.load(Ordering::Relaxed),
             enqueue_wait_nanos: self.shared.enqueue_wait_nanos.load(Ordering::Relaxed),
             waiting_producers: self.shared.waiting_producers.load(Ordering::Relaxed),
+            queue_closed: queue.closed,
+            waits: self.shared.waits.as_ref().map(|waits| waits.snapshot()),
+        }
+    }
+
+    /// Perform the same cancellation and joins as Drop, then capture the closed
+    /// owner's counters. Returned task results keep their independent credits.
+    /// If invoked by one of this pool's workers, that current thread is not
+    /// joined; the snapshot then honestly retains its active-worker count.
+    #[must_use]
+    pub fn close_and_snapshot(mut self) -> ComputePoolSnapshot {
+        self.close();
+        self.snapshot()
+    }
+
+    fn close(&mut self) {
+        self.shared.shutdown.cancel();
+        {
+            let mut queue = self
+                .shared
+                .queue
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            queue.closed = true;
+            self.shared.changed.notify_all();
+        }
+        for worker in self.workers.drain(..) {
+            if worker.thread().id() != thread::current().id() {
+                let _ = worker.join();
+            }
         }
     }
 
@@ -346,12 +443,19 @@ impl ComputePool {
             self.shared
                 .waiting_producers
                 .fetch_add(1, Ordering::Relaxed);
+            let wait_started = self.shared.waits.as_ref().map(|_| Instant::now());
             queue = self
                 .shared
                 .changed
                 .wait_timeout(queue, Duration::from_millis(10))
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .0;
+            if let (Some(waits), Some(started)) = (&self.shared.waits, wait_started) {
+                waits.capacity_waits.fetch_add(1, Ordering::Relaxed);
+                waits
+                    .capacity_wait_nanos
+                    .fetch_add(elapsed_nanos(started), Ordering::Relaxed);
+            }
             self.shared
                 .waiting_producers
                 .fetch_sub(1, Ordering::Relaxed);
@@ -370,21 +474,7 @@ impl ComputePool {
 
 impl Drop for ComputePool {
     fn drop(&mut self) {
-        self.shared.shutdown.cancel();
-        {
-            let mut queue = self
-                .shared
-                .queue
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            queue.closed = true;
-            self.shared.changed.notify_all();
-        }
-        for worker in self.workers.drain(..) {
-            if worker.thread().id() != thread::current().id() {
-                let _ = worker.join();
-            }
-        }
+        self.close();
     }
 }
 
@@ -421,10 +511,21 @@ fn worker_loop(index: usize, shared: &Shared) {
                 if queue.closed {
                     return;
                 }
+                let wait_started = shared.waits.as_ref().map(|waits| {
+                    waits.waiting_workers.fetch_add(1, Ordering::Relaxed);
+                    Instant::now()
+                });
                 queue = shared
                     .changed
                     .wait(queue)
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if let (Some(waits), Some(started)) = (&shared.waits, wait_started) {
+                    waits.waiting_workers.fetch_sub(1, Ordering::Relaxed);
+                    waits.empty_queue_waits.fetch_add(1, Ordering::Relaxed);
+                    waits
+                        .empty_queue_wait_nanos
+                        .fetch_add(elapsed_nanos(started), Ordering::Relaxed);
+                }
             }
         };
         let started = Instant::now();
@@ -449,6 +550,10 @@ fn elapsed_nanos(started: Instant) -> u64 {
 fn pool_error(message: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!("{message}; fallback execution was not attempted"))
 }
+
+#[cfg(test)]
+#[path = "compute_pool_wait_tests.rs"]
+mod wait_tests;
 
 #[cfg(test)]
 mod tests {

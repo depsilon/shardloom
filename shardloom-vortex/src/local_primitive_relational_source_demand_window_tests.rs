@@ -137,6 +137,10 @@ fn parquet_demand_windows_prune_plain_carriers_rebind_reuse_and_keep_fallible_co
             assert_eq!(input.columnar_available_columns, 3);
             assert_eq!(input.columnar_physical_leaf_columns, 2);
         }
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, baseline);
     }
 }

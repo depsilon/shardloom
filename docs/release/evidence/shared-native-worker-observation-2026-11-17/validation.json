@@ -1,0 +1,1139 @@
+{
+  "analysis": {
+    "analysis_sha256": "e4dc1444ec3b85153e0589ff16d4e0f1a20f4b44c240ba5588f9b7199eeaacd9",
+    "cases": [
+      {
+        "case": 0,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 2454834,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 0,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 260292,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 1,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 210792,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 1,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 239417,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 2,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 235832,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 2,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 224459,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851"
+      },
+      {
+        "case": 3,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 187624,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 3,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 155707,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 4,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 172000,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 4,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 166042,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 5,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 204791,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 5,
+        "chunk_rows": 128,
+        "chunks": 2,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 200125,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0"
+      },
+      {
+        "case": 6,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 832250,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 6,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 786167,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 7,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 783250,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 7,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 769417,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 8,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 818999,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 8,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 790458,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967"
+      },
+      {
+        "case": 9,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 3217418,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 9,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 2055502,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 1,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 10,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 1801417,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 10,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 1738459,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 2,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 11,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 1634834,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 11,
+        "chunk_rows": 8192,
+        "chunks": 4,
+        "disposition": "ordinary_inline_control",
+        "engine_execution_nanos": 1629708,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [],
+        "parallelism": 4,
+        "source_sha256": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+      },
+      {
+        "case": 12,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 21383000,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": null,
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 2,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 1,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 12,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 19887417,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": null,
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 2,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 1,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 13,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 19974874,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 0,
+              "enqueue_wait_nanos": 0,
+              "peak_active_workers": 0,
+              "peak_queued_bytes": 0,
+              "peak_queued_jobs": 0,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": {
+                "capacity_wait_nanos": 0,
+                "completed_capacity_waits": 0,
+                "completed_empty_queue_waits": 1,
+                "empty_queue_wait_nanos": 676625,
+                "waiting_workers": 0
+              },
+              "worker_busy_nanos": 0,
+              "workers_created": 1
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 4,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 2,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 13,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 20457124,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 0,
+              "enqueue_wait_nanos": 0,
+              "peak_active_workers": 0,
+              "peak_queued_bytes": 0,
+              "peak_queued_jobs": 0,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": null,
+              "worker_busy_nanos": 0,
+              "workers_created": 1
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 4,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 2,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 14,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 20548124,
+        "near_unique": false,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 0,
+              "enqueue_wait_nanos": 0,
+              "peak_active_workers": 0,
+              "peak_queued_bytes": 0,
+              "peak_queued_jobs": 0,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": null,
+              "worker_busy_nanos": 0,
+              "workers_created": 3
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 8,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 4,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 14,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "sample_declined_no_jobs",
+        "engine_execution_nanos": 20548917,
+        "near_unique": false,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 0,
+              "enqueue_wait_nanos": 0,
+              "peak_active_workers": 0,
+              "peak_queued_bytes": 0,
+              "peak_queued_jobs": 0,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": {
+                "capacity_wait_nanos": 0,
+                "completed_capacity_waits": 0,
+                "completed_empty_queue_waits": 3,
+                "empty_queue_wait_nanos": 3752167,
+                "waiting_workers": 0
+              },
+              "worker_busy_nanos": 0,
+              "workers_created": 3
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 0,
+            "joined": 0,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 0,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 0,
+            "window_limit": 8,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 4,
+        "source_sha256": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3"
+      },
+      {
+        "case": 15,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_inline",
+        "engine_execution_nanos": 13747292,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": null,
+            "inline_busy_nanos": 4583339,
+            "join_wait_nanos": 958,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 2,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 2,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 1,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      },
+      {
+        "case": 15,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_inline",
+        "engine_execution_nanos": 12855250,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": null,
+            "inline_busy_nanos": 4634501,
+            "join_wait_nanos": 998,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 2,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 2,
+            "worker_busy_nanos": 0
+          }
+        ],
+        "parallelism": 1,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      },
+      {
+        "case": 16,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_on_workers",
+        "engine_execution_nanos": 13144207,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 64,
+              "enqueue_wait_nanos": 23035,
+              "peak_active_workers": 1,
+              "peak_queued_bytes": 704,
+              "peak_queued_jobs": 4,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": null,
+              "worker_busy_nanos": 4939167,
+              "workers_created": 1
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 4900422,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 4,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 4,
+            "worker_busy_nanos": 4849999
+          }
+        ],
+        "parallelism": 2,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      },
+      {
+        "case": 16,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_on_workers",
+        "engine_execution_nanos": 12745792,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 64,
+              "enqueue_wait_nanos": 4132,
+              "peak_active_workers": 1,
+              "peak_queued_bytes": 704,
+              "peak_queued_jobs": 4,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": {
+                "capacity_wait_nanos": 0,
+                "completed_capacity_waits": 0,
+                "completed_empty_queue_waits": 2,
+                "empty_queue_wait_nanos": 5379000,
+                "waiting_workers": 0
+              },
+              "worker_busy_nanos": 4873417,
+              "workers_created": 1
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 4840246,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 4,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 4,
+            "worker_busy_nanos": 4833251
+          }
+        ],
+        "parallelism": 2,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      },
+      {
+        "case": 17,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_on_workers",
+        "engine_execution_nanos": 9898376,
+        "near_unique": true,
+        "observe_waits": true,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 64,
+              "enqueue_wait_nanos": 7465,
+              "peak_active_workers": 3,
+              "peak_queued_bytes": 1408,
+              "peak_queued_jobs": 8,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": {
+                "capacity_wait_nanos": 0,
+                "completed_capacity_waits": 0,
+                "completed_empty_queue_waits": 13,
+                "empty_queue_wait_nanos": 16380669,
+                "waiting_workers": 0
+              },
+              "worker_busy_nanos": 4979997,
+              "workers_created": 3
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 1729580,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 8,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 8,
+            "worker_busy_nanos": 4941833
+          }
+        ],
+        "parallelism": 4,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      },
+      {
+        "case": 17,
+        "chunk_rows": 32768,
+        "chunks": 32,
+        "disposition": "partition_work_on_workers",
+        "engine_execution_nanos": 9842334,
+        "near_unique": true,
+        "observe_waits": false,
+        "owners": [
+          {
+            "cancelled_before_drop": false,
+            "closed_pool": {
+              "active_workers": 0,
+              "completed_jobs": 64,
+              "enqueue_wait_nanos": 3126,
+              "peak_active_workers": 3,
+              "peak_queued_bytes": 1408,
+              "peak_queued_jobs": 8,
+              "queue_closed": true,
+              "queued_bytes": 0,
+              "queued_jobs": 0,
+              "waiting_producers": 0,
+              "waits": null,
+              "worker_busy_nanos": 4918665,
+              "workers_created": 3
+            },
+            "inline_busy_nanos": 0,
+            "join_wait_nanos": 1675131,
+            "joined": 64,
+            "outstanding_after_drain": 0,
+            "payload_type": "shardloom_vortex::local_primitives::pair_partition_workers::Partial",
+            "peak_outstanding": 8,
+            "pending_before_drop": 0,
+            "stage_retired_before_drop": true,
+            "submitted": 64,
+            "window_limit": 8,
+            "worker_busy_nanos": 4890461
+          }
+        ],
+        "parallelism": 4,
+        "source_sha256": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57"
+      }
+    ],
+    "complete_rows_and_schema_rechecked": true,
+    "conclusion": "No capacity-blocked producer waits in this declared numeric-pair family. Empty-worker waits include source staging/startup/teardown and overlap other work; they do not establish recoverable engine time. No scheduling candidate selected.",
+    "declarations": 18,
+    "dispositions": {
+      "ordinary_inline_control": 24,
+      "partition_work_inline": 2,
+      "partition_work_on_workers": 4,
+      "sample_declined_no_jobs": 6
+    },
+    "engine_nanos_by_observation_role": {
+      "false": 109595247,
+      "true": 107007254
+    },
+    "limitations": [
+      "One execution per role and declaration, with no warmup or controlled cache.",
+      "Common owner-capture overhead is present in both roles.",
+      "Only two declarations execute worker jobs; small/middle and sample-decline controls remain in the total.",
+      "Historical string-partition contention is a different owner and is not explained by this cohort."
+    ],
+    "log_sha256": "03ac636ace036d146a0e883a077a0125e008089df7416471c790e8e661e13526",
+    "observations": 36,
+    "receipt_sha256": "76610720a220c0310390ef4b8c27df8f82f93e12357fe43ddc28b0c73597d0f2",
+    "schema_version": "shardloom.worker_wait_attribution_analysis.v1",
+    "source_hashes": {
+      "2x128-False": "24979af2639ba04cba0b90cf0c773b2a8a7c5bcf31622ea52b86f3e325451851",
+      "2x128-True": "9cc8877be4a25879a281ecaec91e26e4b497af51aeaa3c5951f9ece7b1b979b0",
+      "32x32768-False": "f7bd499a9b84253c879e32c29b1475c264b3a16aac347fb862728ca80c42abe3",
+      "32x32768-True": "26cb47e96632d3c9dbbc78e0da2141c98371b7ff131309ba8eb4945642d85b57",
+      "4x8192-False": "25d76766c58760fe2f748ed17d9316eb28226045f7a5f787b9b99b8ed98d1967",
+      "4x8192-True": "116eac469a80e445635064eb90bfb83bb0a636b9a886e170e00ceacba91db363"
+    },
+    "status": "passed"
+  },
+  "archive": {
+    "bytes": 5609915,
+    "path": "observations.json.gz",
+    "sha256": "4d1ea8d74448b7e79456b93428e460e8310f5bfeb9b755b117cb74f98a7eed6d"
+  },
+  "base_commit": "d4665a3ec22ee2faff18cd27543853a888c5aec6",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "queue-default-fmt-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "0204a5d7192ec69af85964a70f5dced5f524dde95ec5777f2116e0607a7b3b77",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "91f951731ea8fea09564be32ecf9da78054bb2fbe6b757ac4d56bdca3ce9f420",
+      "name": "queue-default-lint-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "0c5717541edacefd676d9b5aa206d130ca29714d315eddfda331c345591cbc82",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "84c1464b000e18dc37fc9a1b0dc708984fd616662029a5b43074a327c83a2ced",
+      "name": "queue-default-tests-r1",
+      "passed": 3351,
+      "process_group_drained": true,
+      "receipt_sha256": "4e514fbcf23544489b676d8d4a24b59d669ae943fdfd2d6efc0398d44f262b08",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed",
+      "targets": 108
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/check_queue_inventory.py"
+      ],
+      "log_sha256": "b123075c62dcef59bb4c69c5b167c5c9e85ccd6b8ab46b28fdbe473a160210d7",
+      "name": "queue-helper-checks-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "780e03641c09a54aca479c37dd5489cca2be2f29a873a0fa9139560c37b150ef",
+      "returncode": 1,
+      "sources_unchanged": true,
+      "status": "failed"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/check_queue_inventory.py"
+      ],
+      "log_sha256": "5d7ee991b6613d1580647c43b7628d204d6dcf1784c8ddd0f2ad8acfb30eed7e",
+      "name": "queue-helper-checks-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "e6a593380e8a6b37a5957b927da2b859e333b88d51cc8f8e336c7700fc6b4e1b",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "vortex-file,vortex-array,vortex-write",
+        "--lib",
+        "native_pair_wait_capture",
+        "--",
+        "--nocapture"
+      ],
+      "log_sha256": "fbf9260ef1bdb08d8933cbf82db4fd9571a5e8634423731f3698c64e3f403c11",
+      "name": "queue-native-capture-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "5f98b744c573b70892eda324bc81bcd7343aea63df596c71dd55eb7d4ba0d770",
+      "returncode": 101,
+      "sources_unchanged": true,
+      "status": "failed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "native_pair_wait_capture",
+        "--",
+        "--nocapture"
+      ],
+      "log_sha256": "f2a8ac800aea9c6e7da77759fc1b06f80617d424ee720e1324830b5a2a4d007a",
+      "name": "queue-native-capture-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "591e077b2ea96dce50773f5ced5ca8e33ed96d5d8a18c0d40466c817d0438985",
+      "returncode": 101,
+      "sources_unchanged": true,
+      "status": "failed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "native_pair_wait_capture",
+        "--",
+        "--nocapture"
+      ],
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "8d50be2ccb01acce56d116a075c5c1ab864f11cae6194fa0ff6ecbe1aea2bcfe",
+      "name": "queue-native-capture-r3",
+      "passed": 1,
+      "process_group_drained": true,
+      "receipt_sha256": "598d0b0cb60306ddf29a68c0062d9919d3ceba1a467e055ee54a7016ba6c6681",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed",
+      "targets": 1
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "0b7b2af71a788e552f4fc364ad9e4230fb8b3c61ba466e29d3bb8c339279865d",
+      "name": "queue-native-lint-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "dc459135337dc5d44230b43d289f8323b5ba43e0923c5625fc483eff779d06a4",
+      "returncode": 101,
+      "sources_unchanged": true,
+      "status": "failed"
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "0c5d149ac462db0b75b60208e1b43c5a6086612bd395d400395c030df3c4dc93",
+      "name": "queue-native-lint-r2",
+      "process_group_drained": true,
+      "receipt_sha256": "cf3387b78eea90772f54733f30d57f94495116c8ada75c09b878d69b2d97d7c5",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "pair_partition_native_tests",
+        "--",
+        "--nocapture"
+      ],
+      "failed": 0,
+      "ignored": 1,
+      "log_sha256": "8d6ba900887a8b197ce583ab785665d0c46930a4c6cea9908283d41397cafcd2",
+      "name": "queue-native-pair-r1",
+      "passed": 5,
+      "process_group_drained": true,
+      "receipt_sha256": "fa918ec2dab078bbfc78feb14dcc15f29ec30a15b7d20b47d6531059c64d8999",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed",
+      "targets": 1
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-exec",
+        "--lib",
+        "compute_pool::"
+      ],
+      "log_sha256": "642d7fdce8dc4a5a08f600b0baae0dc2c168a3be1dbbd6f6b69cd92a2206dcdd",
+      "name": "queue-observation-focused-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "7da32e17369492bb025815fc8b351d8662813b5858c69cdc2c73b729dc671153",
+      "returncode": 101,
+      "sources_unchanged": true,
+      "status": "failed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-exec",
+        "--lib",
+        "compute_pool::"
+      ],
+      "failed": 0,
+      "ignored": 0,
+      "log_sha256": "5d09248210f33b35a2f08116cbe9286595c4228f90445a8a90374372b039fcdd",
+      "name": "queue-observation-focused-r2",
+      "passed": 13,
+      "process_group_drained": true,
+      "receipt_sha256": "dc757d8ccd567fb0651a3d4187034cb2dc61497eddaaf234304e84e80511a0c8",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed",
+      "targets": 1
+    },
+    {
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "-p",
+        "shardloom-exec",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "log_sha256": "fe07e493fbbb2587d3ff0ff409b7a3b250177e6944d6097a8f43e524ed962888",
+      "name": "queue-observation-lint-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "9ba0128c4eaf6fcdd994550963077e15606fc366c87aa351fc1743d338dbc9c4",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--offline",
+        "--locked",
+        "--release",
+        "-p",
+        "shardloom-vortex",
+        "--features",
+        "release-user-surfaces",
+        "--lib",
+        "--no-run",
+        "--message-format=json-render-diagnostics"
+      ],
+      "log_sha256": "5768087b045a1a156ceadd6538a054c56239b1c27dc96c8e850c7c2f3db410ed",
+      "name": "queue-release-build-r1",
+      "process_group_drained": true,
+      "receipt_sha256": "50d2267383fdad4ee344d405f9591d444db209a76a6676a57de18371cb625854",
+      "returncode": 0,
+      "sources_unchanged": true,
+      "status": "passed"
+    }
+  ],
+  "proof_boundary": [
+    "Optional condition-variable observations do not change the ordinary scheduler or turn unavailable observations into zero.",
+    "Closed-pool measurements are independent of retained result allocation ownership.",
+    "The isolated 36-call native cohort has complete independently checked values/schema, source hashes, no-fallback certificates and final refunds.",
+    "The observation-role engine totals are single samples, not a retained optimization or a quantified measurement-overhead bound.",
+    "No new scheduling candidate is selected; historical UTF8 partition contention is a different owner.",
+    "Full enclosing-unit native/platform/installed-package/hosted acceptance and incorporation units 2-5 remain open."
+  ],
+  "schema_version": "shardloom.worker_observation_acceptance.v1",
+  "source_sha256": {
+    "shardloom-exec/src/compute_pool.rs": "c7969e4a8ecaf6ffc6b517f4d4b35b1c6f49e7de999af6ff3aa14cad0e69c172",
+    "shardloom-exec/src/compute_pool_wait_tests.rs": "825f9c263aed14863119971c55511c6d99f6b33f942882a7b1200a5119dd124a",
+    "shardloom-vortex/src/local_primitive_pair_partition_native_tests.rs": "6c93513c135677b62d12237cf37cb111ad864241c985f18295fdbdd68736a971",
+    "shardloom-vortex/src/local_primitive_pair_wait_attribution_tests.rs": "0c74c8c9760b41bf32c87138f6e3e50d1e47fb31e6e456a9f8dd0a4e71040d02",
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_job_observation.rs": "e963e7ea60c9d3ebfbbf163720fc0c851dd4b75f6880b65727847d584bbef8ff",
+    "shardloom-vortex/src/local_primitives/aggregate_chunk_jobs.rs": "70d44dcd4c0d3acb4c78f56cdebf6dcc27628eeda4f26b6f54c3921ad0c03a2b"
+  },
+  "status": "local_checks_passed"
+}

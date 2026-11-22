@@ -30,10 +30,15 @@ use std::{
 };
 
 mod batch_work;
+#[cfg(test)]
+mod chrysalis_attribution_tests;
 mod chunks;
 mod complete;
 #[cfg(test)]
 mod complete_tests;
+mod coverage;
+#[cfg(test)]
+mod coverage_tests;
 mod decisions;
 mod generic;
 mod ipc;
@@ -241,6 +246,12 @@ impl PreparedColumnarSource {
             other: self.source.other.as_ref().map(|_| generic::Reader::new()),
             sizing: batch_work::Sizing::default(),
             decisions_recorded: false,
+            coverage: None,
+            served_rows: 0,
+            decoded_groups: 0,
+            coverage_field_rows: 0,
+            coverage_regions: 0,
+            coverage_retained_bytes: 0,
         })
     }
 }
@@ -260,6 +271,13 @@ pub struct ColumnarReadReport {
     pub row_groups_total: usize,
     pub row_groups_read: usize,
     pub rows_decoded: u64,
+    /// Exact row/field pairs delivered from prior completed native realizations.
+    pub native_coverage_field_rows: u64,
+    /// Selected regions with at least one previously realized demanded field.
+    pub native_coverage_regions: u64,
+    /// Maximum observed session coverage capacity plus map metadata while this
+    /// reader ran. Includes pending regions; not a final snapshot or process RSS.
+    pub native_coverage_retained_bytes: u64,
     /// Requested source-order prefix, independently of physical chunk bytes.
     pub requested_prefix_rows: Option<u64>,
     pub files: usize,
@@ -290,6 +308,12 @@ pub(crate) struct ColumnarReader {
     other: Option<generic::Reader>,
     sizing: batch_work::Sizing,
     decisions_recorded: bool,
+    coverage: Option<coverage::ReaderCoverage>,
+    served_rows: u64,
+    decoded_groups: usize,
+    coverage_field_rows: u64,
+    coverage_regions: u64,
+    coverage_retained_bytes: u64,
 }
 
 struct Decoder {
@@ -364,7 +388,9 @@ impl ColumnarReader {
         session: &ResidentVortexSession,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(ResidentMemorySource, u64)>> {
-        let private_parquet = self.prepared.source.other.is_none();
+        if self.other.is_none() {
+            return self.next_parquet_native(session, context);
+        }
         self.next(context)?
             .map(|(batch, first_row)| {
                 let (batch, owner) = batch.into_parts();
@@ -372,11 +398,7 @@ impl ColumnarReader {
                     session,
                     batch,
                     context,
-                    if private_parquet {
-                        crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ControlledParquet
-                    } else {
-                        crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy
-                    },
+                    crate::vortex_ingest::arrow_ownership::ArrowOwnershipPolicy::ValidatedCopy,
                 )
                 .map(|source| (source, first_row));
                 drop(owner);
@@ -389,7 +411,11 @@ impl ColumnarReader {
         &mut self,
         context: &NativeExecutionContext<'_>,
     ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {
-        let next = self.next_unrecorded(context)?;
+        let next = self.other.as_mut().expect("non-Parquet reader").next(
+            &self.prepared,
+            &self.metrics,
+            context,
+        )?;
         if next.is_none() && !self.decisions_recorded {
             if let Some(selection) = self.prepared.region_selection {
                 selection.complete(context)?;
@@ -399,97 +425,59 @@ impl ColumnarReader {
         Ok(next)
     }
 
-    fn next_unrecorded(
+    fn open_decoder(
         &mut self,
+        source_group: SourceGroup,
+        projection: &[usize],
         context: &NativeExecutionContext<'_>,
-    ) -> Result<Option<(super::owned_batch::OwnedBatch, u64)>> {
-        if let Some(other) = &mut self.other {
-            return other.next(&self.prepared, &self.metrics, context);
-        }
-        loop {
-            context.check_cancelled()?;
-            if let Some((index, _)) = &self.input {
-                self.prepared.source.files[*index].identity.validate()?;
-            }
-            if let Some(active) = &mut self.active {
-                if let Some((batch, first_row)) = active.next(&mut self.sizing, context)? {
-                    self.rows = self
-                        .rows
-                        .checked_add(batch.num_rows() as u64)
-                        .ok_or_else(|| failed("source row count overflow"))?;
-                    return Ok(Some((batch.into(), first_row)));
-                }
-                self.active.take();
-            }
-            let Some(&source_group) = self.prepared.row_groups.get(self.next_group) else {
-                self.input.take();
-                self.ended = true;
-                return Ok(None);
-            };
-            let file_index = source_group.file;
-            let group_index = source_group.index;
-            let file = &self.prepared.source.files[file_index];
-            if self
-                .input
-                .as_ref()
-                .is_none_or(|(index, _)| *index != file_index)
-            {
-                self.input.take();
-                self.input = Some((
-                    file_index,
-                    context.local_source_reader(
-                        Arc::clone(&file.identity),
-                        Arc::clone(&self.metrics),
-                    )?,
-                ));
-            }
-            let input = &self.input.as_ref().expect("selected file reader").1;
-            let metadata = &file.metadata;
-            let mask = ProjectionMask::roots(
-                metadata.parquet_schema(),
-                self.prepared.projection.iter().copied(),
+    ) -> Result<()> {
+        let file_index = source_group.file;
+        let group_index = source_group.index;
+        let file = &self.prepared.source.files[file_index];
+        let input = &self.input.as_ref().expect("selected file reader").1;
+        let metadata = &file.metadata;
+        let mask = ProjectionMask::roots(metadata.parquet_schema(), projection.iter().copied());
+        let group = metadata.metadata().row_group(group_index);
+        // Admission is based on declared uncompressed selected chunks. It
+        // precedes decoder construction but does not intercept allocations
+        // inside the upstream decoder and is not an RSS bound.
+        let workspace = batch_work::parquet_workspace(group, &mask)?;
+        let credit = context.memory().reserve(workspace)?;
+        let chunks = chunks::SelectedChunks::read(input, group, &mask, context.memory())?;
+        let schema = metadata.schema().project(projection).map_err(failed)?;
+        let cost = batch_work::cost(&schema, &schema, &[])?;
+        let mut builder =
+            ParquetRecordBatchReaderBuilder::new_with_metadata(chunks, metadata.clone())
+                .with_projection(mask)
+                .with_row_groups(vec![group_index])
+                .with_batch_size(batch_work::MAX_ROWS);
+        if let Some(limit) = self.prepared.max_rows {
+            builder = builder.with_limit(
+                usize::try_from(limit.saturating_sub(self.served_rows)).map_err(failed)?,
             );
-            let group = metadata.metadata().row_group(group_index);
-            // Admission is based on declared uncompressed selected chunks. It
-            // precedes decoder construction but does not intercept allocations
-            // inside the upstream decoder and is not an RSS bound.
-            let workspace = batch_work::parquet_workspace(group, &mask)?;
-            let credit = context.memory().reserve(workspace)?;
-            let chunks = chunks::SelectedChunks::read(input, group, &mask, context.memory())?;
-            let schema = metadata
-                .schema()
-                .project(&self.prepared.projection)
-                .map_err(failed)?;
-            let cost = batch_work::cost(&schema, &schema, &[])?;
-            let mut builder =
-                ParquetRecordBatchReaderBuilder::new_with_metadata(chunks, metadata.clone())
-                    .with_projection(mask)
-                    .with_row_groups(vec![group_index])
-                    .with_batch_size(batch_work::MAX_ROWS);
-            if let Some(limit) = self.prepared.max_rows {
-                builder = builder
-                    .with_limit(usize::try_from(limit.saturating_sub(self.rows)).map_err(failed)?);
-            }
-            let reader = builder.build().map_err(failed)?;
-            self.active = Some(Decoder {
-                reader,
-                _credit: credit,
-                first_row: source_group.first_row,
-                expected_rows: self.prepared.max_rows.map_or(source_group.rows, |limit| {
-                    source_group.rows.min(limit.saturating_sub(self.rows))
-                }),
-                emitted_rows: 0,
-                cost,
-            });
-            self.next_group += 1;
         }
+        let reader = builder.build().map_err(failed)?;
+        self.active = Some(Decoder {
+            reader,
+            _credit: credit,
+            first_row: source_group.first_row,
+            expected_rows: self.prepared.max_rows.map_or(source_group.rows, |limit| {
+                source_group
+                    .rows
+                    .min(limit.saturating_sub(self.served_rows))
+            }),
+            emitted_rows: 0,
+            cost,
+        });
+        self.decoded_groups += 1;
+        Ok(())
     }
 
     pub(crate) fn report(&self) -> Result<ColumnarReadReport> {
         if let Some(other) = &self.other {
             return other.report(&self.prepared, &self.metrics);
         }
-        if !self.ended || self.active.is_some() || self.input.is_some() {
+        if !self.ended || self.active.is_some() || self.input.is_some() || self.coverage.is_some() {
             return Err(failed("source did not reach its declared end"));
         }
         let metadata = self.prepared.source.metadata();
@@ -507,8 +495,11 @@ impl ColumnarReader {
                 .filter(|&i| mask.leaf_included(i))
                 .count(),
             row_groups_total: self.prepared.source.row_groups_total,
-            row_groups_read: self.next_group,
+            row_groups_read: self.decoded_groups,
             rows_decoded: self.rows,
+            native_coverage_field_rows: self.coverage_field_rows,
+            native_coverage_regions: self.coverage_regions,
+            native_coverage_retained_bytes: self.coverage_retained_bytes,
             requested_prefix_rows: self.prepared.max_rows,
             files: self.prepared.source.files.len(),
             fingerprint_read_bytes: self.prepared.source.fingerprint_read_bytes,

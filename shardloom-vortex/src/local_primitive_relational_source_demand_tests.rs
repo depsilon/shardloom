@@ -273,6 +273,10 @@ fn parquet_demand_projects_physical_columns_and_prunes_groups_with_residual() {
                 .fallback_attempted
         );
         drop(collected);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
     assert_eq!(fs::read_dir(&fixture.0).unwrap().count(), 1);
@@ -366,6 +370,10 @@ fn parquet_demand_unions_repeated_source_columns_and_regions_before_replay() {
         );
         assert_eq!(report.replay_sources, 1);
         drop(collected);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }

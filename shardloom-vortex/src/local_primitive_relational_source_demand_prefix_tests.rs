@@ -98,6 +98,10 @@ fn parquet_demand_nested_ranges_and_aliases_request_one_complete_source_prefix()
     );
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     assert!(
         fixture
@@ -134,6 +138,10 @@ fn parquet_demand_flat_ranges_and_aliases_preserve_the_same_source_prefix() {
     assert_eq!(input.columnar_prefix_sources, 1);
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }
 

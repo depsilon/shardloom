@@ -203,7 +203,7 @@ pub const VORTEX_DIFFERENTIAL_REFINEMENT_POLICY: &str =
     "artifact_adjacent_append_only_prepared_state_refinement.v1";
 /// Evidence schema emitted by scoped local capillary cold-preparation task control.
 pub const VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION: &str =
-    "shardloom.vortex_capillary_preparation.v1";
+    "shardloom.vortex_capillary_preparation.v2";
 const VORTEX_CAPILLARY_ACTIVATION_POLICY: &str = "dynamic_size_complexity_gate.v1";
 const VORTEX_CAPILLARY_ACTIVATION_THRESHOLD_BYTES: u64 = 64 * 1024 * 1024;
 const VORTEX_CAPILLARY_ACTIVATION_THRESHOLD_ROWS: u64 = 1_000_000;
@@ -8666,15 +8666,7 @@ struct VortexCapillaryActivatedEvidence {
     task_byte_range_refs: String,
     task_row_range_refs: String,
     vortex_segment_refs: String,
-    execution_window_count: usize,
-    execution_window_size: usize,
-    execution_window_ids: String,
-    execution_window_task_counts: String,
-    execution_window_task_ids: String,
-    execution_window_digests: String,
-    scheduler_applied: bool,
     scheduler_application_reason: &'static str,
-    peak_memory_bytes: u64,
     pulseweave_report: PulseWeaveReport,
     status: &'static str,
 }
@@ -8706,7 +8698,8 @@ impl VortexCapillaryPreparationTask {
                     self.writer_sink_ref.clone(),
                     format!("capillary-task://{}", self.task_id),
                 )
-                .with_shape_permissions(true, true, true)
+                // These are dependent preparation stages, not independent jobs.
+                .with_shape_permissions(false, false, false)
                 .with_materialization_and_sink(
                     matches!(self.operator_memory_class, OperatorMemoryClass::Translation),
                     if matches!(self.operator_memory_class, OperatorMemoryClass::Sink) {
@@ -8717,14 +8710,6 @@ impl VortexCapillaryPreparationTask {
                 )
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct VortexCapillaryExecutionWindow {
-    window_id: String,
-    task_ids: Vec<String>,
-    task_count: usize,
-    window_digest: String,
 }
 
 /// Evidence for capillary cold-preparation task control.
@@ -8778,7 +8763,8 @@ pub struct VortexCapillaryPreparationReport {
     pub writer_sink_refs: String,
     pub memory_budget_bytes: u64,
     pub max_parallelism: usize,
-    pub peak_memory_bytes: u64,
+    /// Measured retained memory; a task-manifest estimate cannot populate this.
+    pub peak_memory_bytes: Option<u64>,
     pub memory_pressure_status: String,
     pub sink_pressure_status: String,
     pub retry_idempotency_status: String,
@@ -9063,7 +9049,8 @@ impl VortexCapillaryPreparationReport {
         Self::push_field(
             fields,
             "vortex_capillary_preparation_peak_memory_bytes",
-            self.peak_memory_bytes.to_string(),
+            self.peak_memory_bytes
+                .map_or_else(|| "unavailable".to_string(), |bytes| bytes.to_string()),
         );
         Self::push_field(
             fields,
@@ -9152,6 +9139,7 @@ pub struct VortexCapillaryPreWriteControlReport {
     pub source_report_status: String,
     pub activation_result: String,
     pub activation_reason: String,
+    pub task_manifest_admitted: bool,
     pub scheduler_applied: bool,
     pub execution_window_count: usize,
     pub execution_window_size: usize,
@@ -9185,6 +9173,7 @@ impl VortexCapillaryPreWriteControlReport {
             source_report_status: "not_requested".to_string(),
             activation_result: "not_requested".to_string(),
             activation_reason: reason.clone(),
+            task_manifest_admitted: false,
             scheduler_applied: false,
             execution_window_count: 0,
             execution_window_size: 0,
@@ -9210,8 +9199,9 @@ impl VortexCapillaryPreWriteControlReport {
     }
 
     fn from_preparation_report(report: &VortexCapillaryPreparationReport) -> Self {
-        let status = if report.scheduler_applied {
-            "applied_before_array_build"
+        let task_manifest_admitted = report.status == "planned_capillary_task_manifest";
+        let status = if task_manifest_admitted {
+            "task_manifest_admitted_before_array_build"
         } else if report.activation_result == "skipped" {
             "not_requested_below_threshold"
         } else if report.status.starts_with("blocked")
@@ -9236,7 +9226,8 @@ impl VortexCapillaryPreWriteControlReport {
             source_report_status: report.status.clone(),
             activation_result: report.activation_result.clone(),
             activation_reason: report.activation_reason.clone(),
-            scheduler_applied: report.scheduler_applied,
+            task_manifest_admitted,
+            scheduler_applied: false,
             execution_window_count: report.execution_window_count,
             execution_window_size: report.execution_window_size,
             execution_window_ids: report.execution_window_ids.clone(),
@@ -9274,28 +9265,28 @@ impl VortexCapillaryPreWriteControlReport {
     }
 
     fn apply_task_role_gate(&mut self, role: &str, gate: &str) -> Result<()> {
-        let status = if self.scheduler_applied {
+        let status = if self.task_manifest_admitted {
             if capillary_role_list_contains(&self.controlled_task_roles, role) {
-                "applied_prewrite_window"
+                "validated_task_role"
             } else {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "local vortex_ingest capillary pre-write scheduler applied, but task role '{role}' was missing before {gate}; no fallback execution was attempted"
+                    "local vortex_ingest capillary pre-write manifest was admitted, but task role '{role}' was missing before {gate}; no fallback execution was attempted"
                 )));
             }
         } else {
-            "not_applicable_scheduler_not_applied"
+            "not_applicable_manifest_not_admitted"
         };
         self.set_gate_status(gate, status);
         Ok(())
     }
 
     fn mark_task_role_not_performed(&mut self, role: &str, gate: &str) {
-        let status = if self.scheduler_applied
+        let status = if self.task_manifest_admitted
             && capillary_role_list_contains(&self.controlled_task_roles, role)
         {
             "not_performed_by_certification_depth"
         } else {
-            "not_applicable_scheduler_not_applied"
+            "not_applicable_manifest_not_admitted"
         };
         self.set_gate_status(gate, status);
     }
@@ -9344,6 +9335,10 @@ impl VortexCapillaryPreWriteControlReport {
             (
                 "vortex_capillary_preparation_prewrite_scheduler_applied".to_string(),
                 self.scheduler_applied.to_string(),
+            ),
+            (
+                "vortex_capillary_preparation_prewrite_task_manifest_admitted".to_string(),
+                self.task_manifest_admitted.to_string(),
             ),
             (
                 "vortex_capillary_preparation_prewrite_execution_window_count".to_string(),
@@ -9455,16 +9450,11 @@ pub fn evaluate_vortex_capillary_preparation(
     let task_row_range_refs = join_task_values(&tasks, |task| {
         format!("{}={}", task.role, task.row_range_ref)
     });
-    let peak_memory_bytes = tasks
-        .iter()
-        .map(|task| task.estimated_memory_bytes)
-        .sum::<u64>()
-        .min(input.memory_budget_bytes);
     let execution_certificate_status = if missing_capillary_task_manifest(&input.source_split_refs)
     {
         "missing_capillary_task_manifest"
     } else {
-        "certified"
+        "not_observed"
     };
     let task_manifest_digest = fnv64_digest_text(&format!(
         "{}|{}|{}|{}|{}|{}",
@@ -9482,21 +9472,12 @@ pub fn evaluate_vortex_capillary_preparation(
     let pulseweave_report = capillary_pulseweave_report(
         &input,
         &tasks,
-        peak_memory_bytes,
         &execution_certificate_id,
         execution_certificate_status,
     )?;
     let status = capillary_status(&input, &tasks, &pulseweave_report);
-    let scheduler_applied = capillary_scheduler_applied(&input, &tasks, &pulseweave_report);
     let scheduler_application_reason =
         capillary_scheduler_application_reason(&input, &tasks, &pulseweave_report);
-    let execution_window_size = if scheduler_applied {
-        pulseweave_report.batch_window_size(input.max_parallelism)
-    } else {
-        0
-    };
-    let execution_windows =
-        capillary_execution_windows(&tasks, scheduler_applied, execution_window_size);
 
     let evidence = VortexCapillaryActivatedEvidence {
         task_manifest_digest,
@@ -9508,23 +9489,7 @@ pub fn evaluate_vortex_capillary_preparation(
         task_byte_range_refs,
         task_row_range_refs,
         vortex_segment_refs,
-        execution_window_count: execution_windows.len(),
-        execution_window_size,
-        execution_window_ids: join_window_values(&execution_windows, |window| {
-            window.window_id.clone()
-        }),
-        execution_window_task_counts: join_window_values(&execution_windows, |window| {
-            format!("{}={}", window.window_id, window.task_count)
-        }),
-        execution_window_task_ids: join_window_values(&execution_windows, |window| {
-            format!("{}={}", window.window_id, window.task_ids.join("|"))
-        }),
-        execution_window_digests: join_window_values(&execution_windows, |window| {
-            format!("{}={}", window.window_id, window.window_digest)
-        }),
-        scheduler_applied,
         scheduler_application_reason,
-        peak_memory_bytes,
         pulseweave_report,
         status,
     };
@@ -9591,13 +9556,14 @@ fn activated_vortex_capillary_preparation_report(
         task_count: evidence.task_count,
         task_roles: evidence.task_roles,
         task_ids: evidence.task_ids,
-        execution_window_count: evidence.execution_window_count,
-        execution_window_size: evidence.execution_window_size,
-        execution_window_ids: evidence.execution_window_ids,
-        execution_window_task_counts: evidence.execution_window_task_counts,
-        execution_window_task_ids: evidence.execution_window_task_ids,
-        execution_window_digests: evidence.execution_window_digests,
-        scheduler_applied: evidence.scheduler_applied,
+        // Building a task manifest executes no scheduling windows.
+        execution_window_count: 0,
+        execution_window_size: 0,
+        execution_window_ids: "none".to_string(),
+        execution_window_task_counts: "none".to_string(),
+        execution_window_task_ids: "none".to_string(),
+        execution_window_digests: "none".to_string(),
+        scheduler_applied: false,
         scheduler_application_reason: evidence.scheduler_application_reason.to_string(),
         source_split_refs: input.source_split_refs,
         read_chunk_byte_range_refs: evidence.task_byte_range_refs,
@@ -9608,13 +9574,9 @@ fn activated_vortex_capillary_preparation_report(
         writer_sink_refs: input.writer_sink_refs,
         memory_budget_bytes: input.memory_budget_bytes,
         max_parallelism: input.max_parallelism,
-        peak_memory_bytes: evidence.peak_memory_bytes,
-        memory_pressure_status: "bounded_by_local_cold_preparation_memory_budget".to_string(),
-        sink_pressure_status: if input.result_sink_requested {
-            "bounded_by_result_sink_replay_requirement".to_string()
-        } else {
-            "workspace_safe_local_vortex_sink_only".to_string()
-        },
+        peak_memory_bytes: None,
+        memory_pressure_status: "not_observed_plan_only".to_string(),
+        sink_pressure_status: "not_observed_plan_only".to_string(),
         retry_idempotency_status: "task_ids_and_manifest_digest_are_replay_stable".to_string(),
         materialization_boundary_status: input.materialization_boundary_status,
         decode_boundary_status: input.decode_boundary_status,
@@ -9627,7 +9589,7 @@ fn activated_vortex_capillary_preparation_report(
         no_standalone_lane_status:
             "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
         claim_gate_status: "not_claim_grade".to_string(),
-        claim_boundary: "Scoped local capillary cold-preparation evidence only: task boundaries and PulseWeave control are tied to vortex_ingest writer/reopen certificates; no object-store, distributed, broad parallel performance, production, SQL/DataFrame, or Spark-replacement claim".to_string(),
+        claim_boundary: "Scoped local preparation task manifest only: input certificates and role validation do not prove scheduler execution, completed work, measured pressure or PulseWeave application; no performance or production claim".to_string(),
         fallback_attempted: input.fallback_attempted,
         external_engine_invoked: input.external_engine_invoked,
     }
@@ -9729,7 +9691,7 @@ fn skipped_vortex_capillary_preparation_report(
         writer_sink_refs: input.writer_sink_refs,
         memory_budget_bytes: input.memory_budget_bytes,
         max_parallelism: input.max_parallelism,
-        peak_memory_bytes: 0,
+        peak_memory_bytes: None,
         memory_pressure_status: "not_requested_below_threshold".to_string(),
         sink_pressure_status: "not_requested_below_threshold".to_string(),
         retry_idempotency_status: "not_requested".to_string(),
@@ -9828,7 +9790,6 @@ fn capillary_task(
 fn capillary_pulseweave_report(
     input: &VortexCapillaryPreparationInput,
     tasks: &[VortexCapillaryPreparationTask],
-    peak_memory_bytes: u64,
     execution_certificate_id: &str,
     execution_certificate_status: &str,
 ) -> Result<PulseWeaveReport> {
@@ -9860,7 +9821,6 @@ fn capillary_pulseweave_report(
     .with_correctness_and_output(&input.correctness_digest, &input.prepared_artifact_digest)
     .with_execution_certificate(execution_certificate_id, execution_certificate_status)
     .with_native_io_certificate_status(input.native_io_certificate_status.clone())
-    .with_memory_observations(tasks.len(), tasks.len(), 0, peak_memory_bytes)
     .with_spill(false, false)
     .with_no_fallback_policy(
         false,
@@ -9879,22 +9839,11 @@ fn capillary_status(
         "blocked_missing_capillary_task_manifest"
     } else if input.native_io_certificate_status != "certified" {
         "report_only_blocked_missing_native_io_certificate"
-    } else if pulseweave_report.runtime_decision_applied {
-        "applied_capillary_pulseweave_control"
+    } else if pulseweave_report.proofbound.pre_application_status == "admitted" {
+        "planned_capillary_task_manifest"
     } else {
         "report_only_blocked_pulseweave_control"
     }
-}
-
-fn capillary_scheduler_applied(
-    input: &VortexCapillaryPreparationInput,
-    tasks: &[VortexCapillaryPreparationTask],
-    pulseweave_report: &PulseWeaveReport,
-) -> bool {
-    !tasks.is_empty()
-        && !missing_capillary_task_manifest(&input.source_split_refs)
-        && input.native_io_certificate_status == "certified"
-        && pulseweave_report.runtime_decision_applied
 }
 
 fn capillary_scheduler_application_reason(
@@ -9908,45 +9857,11 @@ fn capillary_scheduler_application_reason(
         "blocked_missing_capillary_task_manifest"
     } else if input.native_io_certificate_status != "certified" {
         "blocked_missing_native_io_certificate"
-    } else if pulseweave_report.runtime_decision_applied {
-        "pulseweave_batch_window_applied_to_capillary_manifest"
+    } else if pulseweave_report.proofbound.pre_application_status == "admitted" {
+        "task_manifest_only_no_scheduler_application"
     } else {
         "proofbound_or_resource_policy_blocked"
     }
-}
-
-fn capillary_execution_windows(
-    tasks: &[VortexCapillaryPreparationTask],
-    scheduler_applied: bool,
-    execution_window_size: usize,
-) -> Vec<VortexCapillaryExecutionWindow> {
-    if !scheduler_applied || tasks.is_empty() || execution_window_size == 0 {
-        return Vec::new();
-    }
-
-    tasks
-        .chunks(execution_window_size.max(1))
-        .enumerate()
-        .map(|(index, window_tasks)| {
-            let window_id = format!("vortex-capillary-window-{index:04}");
-            let task_ids = window_tasks
-                .iter()
-                .map(|task| task.task_id.clone())
-                .collect::<Vec<_>>();
-            let window_digest = fnv64_digest_text(&format!(
-                "{}|{}|{}",
-                window_id,
-                execution_window_size,
-                task_ids.join("|")
-            ));
-            VortexCapillaryExecutionWindow {
-                window_id,
-                task_count: task_ids.len(),
-                task_ids,
-                window_digest,
-            }
-        })
-        .collect()
 }
 
 fn missing_capillary_task_manifest(source_split_refs: &str) -> bool {
@@ -9996,17 +9911,6 @@ fn join_task_values(
     mut value: impl FnMut(&VortexCapillaryPreparationTask) -> String,
 ) -> String {
     tasks.iter().map(&mut value).collect::<Vec<_>>().join(",")
-}
-
-fn join_window_values(
-    windows: &[VortexCapillaryExecutionWindow],
-    mut value: impl FnMut(&VortexCapillaryExecutionWindow) -> String,
-) -> String {
-    if windows.is_empty() {
-        "none".to_string()
-    } else {
-        windows.iter().map(&mut value).collect::<Vec<_>>().join(";")
-    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -18485,7 +18389,7 @@ mod tests {
     }
 
     #[test]
-    fn local_flat_scalar_rows_apply_capillary_prewrite_control_before_write() {
+    fn local_flat_scalar_rows_validate_manifest_without_claiming_scheduler_execution() {
         let path = std::env::temp_dir().join(format!(
             "shardloom-vortex-ingest-capillary-prewrite-{}-{}.vortex",
             std::process::id(),
@@ -18516,28 +18420,29 @@ mod tests {
 
         let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
 
-        assert!(report.capillary_prewrite_control.scheduler_applied);
+        assert!(report.capillary_prewrite_control.task_manifest_admitted);
+        assert!(!report.capillary_prewrite_control.scheduler_applied);
         assert_eq!(
             report.capillary_prewrite_control.status,
-            "applied_before_array_build"
+            "task_manifest_admitted_before_array_build"
         );
         assert_eq!(
             report.capillary_prewrite_control.array_build_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert_eq!(
             report.capillary_prewrite_control.write_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert_eq!(
             report.capillary_prewrite_control.reopen_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert_eq!(
             report.capillary_prewrite_control.sink_evidence_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
-        assert!(report.capillary_prewrite_control.execution_window_count > 0);
+        assert_eq!(report.capillary_prewrite_control.execution_window_count, 0);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -18665,18 +18570,19 @@ mod tests {
             report.preparation_spine.decode_boundary_status,
             "no_scalar_row_decode_for_non_empty_batches"
         );
-        assert!(report.capillary_prewrite_control.scheduler_applied);
+        assert!(report.capillary_prewrite_control.task_manifest_admitted);
+        assert!(!report.capillary_prewrite_control.scheduler_applied);
         assert_eq!(
             report.capillary_prewrite_control.array_build_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert_eq!(
             report.capillary_prewrite_control.write_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert_eq!(
             report.capillary_prewrite_control.reopen_gate_status,
-            "applied_prewrite_window"
+            "validated_task_role"
         );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
@@ -20901,31 +20807,32 @@ mod tests {
     }
 
     #[test]
-    fn capillary_preparation_applies_pulseweave_when_certified() {
+    fn capillary_manifest_cannot_certify_scheduler_execution_or_pressure() {
         let input = capillary_input("certified");
 
         let report = evaluate_vortex_capillary_preparation(input).expect("capillary report");
         let fields = report.evidence_fields();
 
-        assert_eq!(report.status, "applied_capillary_pulseweave_control");
+        assert_eq!(report.status, "planned_capillary_task_manifest");
         assert_eq!(report.task_count, 6);
         assert!(report.task_manifest_digest.starts_with("fnv64:"));
         assert_eq!(report.native_io_certificate_status, "certified");
-        assert_eq!(report.pulseweave_report.status, "applied");
-        assert!(report.pulseweave_report.runtime_decision_applied);
-        assert!(report.scheduler_applied);
+        assert_eq!(report.pulseweave_report.status, "blocked");
+        assert!(!report.pulseweave_report.runtime_decision_applied);
+        assert!(!report.pulseweave_report.endopulse.adjustment_applied);
+        assert!(!report.pulseweave_report.proofbound.claim_allowed);
+        assert!(!report.scheduler_applied);
+        assert_eq!(report.execution_certificate_status, "not_observed");
+        assert_eq!(report.peak_memory_bytes, None);
         assert_eq!(
             report.scheduler_application_reason,
-            "pulseweave_batch_window_applied_to_capillary_manifest"
+            "task_manifest_only_no_scheduler_application"
         );
-        assert!(report.execution_window_size >= 1);
-        assert_eq!(
-            report.execution_window_count,
-            report.task_count.div_ceil(report.execution_window_size)
-        );
-        assert_ne!(report.execution_window_ids, "none");
-        assert_ne!(report.execution_window_task_ids, "none");
-        assert_ne!(report.execution_window_digests, "none");
+        assert_eq!(report.execution_window_size, 0);
+        assert_eq!(report.execution_window_count, 0);
+        assert_eq!(report.execution_window_ids, "none");
+        assert_eq!(report.execution_window_task_ids, "none");
+        assert_eq!(report.execution_window_digests, "none");
         assert_eq!(
             report.pulseweave_report.application_scope,
             "vortex_cold_preparation_local_capillary_io"
@@ -20936,19 +20843,54 @@ mod tests {
         )));
         assert!(fields.contains(&(
             "vortex_capillary_preparation_pulseweave_runtime_decision_applied".to_string(),
-            "true".to_string()
+            "false".to_string()
         )));
         assert!(fields.contains(&(
             "vortex_capillary_preparation_scheduler_applied".to_string(),
-            "true".to_string()
+            "false".to_string()
         )));
         assert!(fields.iter().any(|(key, value)| {
-            key == "vortex_capillary_preparation_execution_window_count" && value != "0"
+            key == "vortex_capillary_preparation_execution_window_count" && value == "0"
         }));
         assert!(fields.contains(&(
             "vortex_capillary_preparation_fallback_attempted".to_string(),
             "false".to_string()
         )));
+    }
+
+    #[test]
+    fn capillary_manifest_preserves_role_checks_without_schedule_claims() {
+        let report =
+            evaluate_vortex_capillary_preparation(capillary_input("certified")).expect("manifest");
+        let mut control = VortexCapillaryPreWriteControlReport::from_preparation_report(&report);
+        assert!(control.task_manifest_admitted);
+        assert!(!control.scheduler_applied);
+        control
+            .apply_task_role_gate("read_chunk", "read_chunk")
+            .expect("role");
+        assert_eq!(control.read_chunk_gate_status, "validated_task_role");
+        control.controlled_task_roles = "read_chunk".to_string();
+        let error = control
+            .apply_task_role_gate("vortex_segment_write", "write")
+            .expect_err("missing write role must still fail");
+        assert!(
+            error
+                .to_string()
+                .contains("task role 'vortex_segment_write' was missing")
+        );
+        assert!(!control.scheduler_applied);
+        assert_eq!(control.execution_window_count, 0);
+        assert_eq!(control.write_gate_status, "pending");
+    }
+
+    #[test]
+    fn capillary_stages_do_not_grant_independent_work_permissions() {
+        for task in capillary_preparation_tasks(&capillary_input("certified")) {
+            let shape = task.to_pulseweave_shape().expect("shape");
+            assert!(!shape.can_reorder);
+            assert!(!shape.can_split);
+            assert!(!shape.can_coalesce);
+        }
     }
 
     #[test]
@@ -21015,13 +20957,13 @@ mod tests {
 
         let report = evaluate_vortex_capillary_preparation(input).expect("capillary report");
 
-        assert_eq!(report.status, "applied_capillary_pulseweave_control");
+        assert_eq!(report.status, "planned_capillary_task_manifest");
         assert_eq!(report.activation_result, "activated");
         assert_eq!(report.activation_reason, "source_bytes_above_threshold");
         assert_eq!(report.task_count, 6);
-        assert!(report.scheduler_applied);
-        assert!(report.execution_window_count > 0);
-        assert_eq!(report.pulseweave_report.status, "applied");
+        assert!(!report.scheduler_applied);
+        assert_eq!(report.execution_window_count, 0);
+        assert_eq!(report.pulseweave_report.status, "blocked");
     }
 
     #[test]
@@ -21325,7 +21267,7 @@ mod tests {
             report.status,
             "report_only_blocked_missing_native_io_certificate"
         );
-        assert_eq!(report.execution_certificate_status, "certified");
+        assert_eq!(report.execution_certificate_status, "not_observed");
         assert_eq!(report.pulseweave_report.status, "blocked");
         assert!(!report.pulseweave_report.runtime_decision_applied);
         assert!(!report.scheduler_applied);
@@ -21338,7 +21280,7 @@ mod tests {
             report
                 .pulseweave_report
                 .blocker
-                .contains("native_io_certificate")
+                .contains("execution_certificate")
         );
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);

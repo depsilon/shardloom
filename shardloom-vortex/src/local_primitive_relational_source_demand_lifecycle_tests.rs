@@ -236,6 +236,10 @@ fn parquet_demand_mixed_native_file_and_caller_batches_keep_independent_owners()
     );
     assert!(input.end_of_input_observed && input.output_ownership_detached);
     drop(collected);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(
         prepared.snapshot().reserved_without_source_segment_cache(),
         initial
@@ -303,6 +307,10 @@ fn parquet_demand_selected_decoder_workspace_competes_with_native_memory_grant()
             );
             assert_eq!(prepared.snapshot().completed_executions, 0);
         }
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(
             prepared.snapshot().reserved_without_source_segment_cache(),
             initial

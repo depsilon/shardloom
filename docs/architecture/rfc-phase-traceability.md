@@ -15,6 +15,13 @@ introduce a competing current queue.
 Status words in historical sections below describe evidence recorded at the time of the original
 phase note. They are not active queue state and do not override `phased-execution-plan.md`.
 
+The November 18 [partial native coverage design](../rfcs/0045-partial-native-source-coverage.md)
+governs the locally retained Chrysalis investigation within existing item 20. RFCs
+0013/0014/0015/0017/0031/0033/0044 continue to govern streaming, memory, semantics,
+recovery, I/O, workflows and resident ownership. CG-5/CG-8/CG-14/CG-15/CG-20/CG-21
+retain their independent proof obligations, as do all CG-1 through CG-23 gates.
+Local validation and the prospective comparison (`150.51 → 149.79 ms`, [benchmark report](../benchmarks/native-chrysalis-partial-coverage-2026-11-21.md), [evidence packet](../release/evidence/chrysalis-partial-coverage-2026-11-21/README.md)) pass; hosted acceptance remains pending, durable fragments remain unapproved and no new phase is introduced.
+
 The November 17 [shared capability incorporation](native-shared-capability-incorporation-2026-11-17.md)
 extends item 20/PulseWeave investigation F under RFCs
 0013/0014/0015/0016/0017/0021/0031/0033/0044. It reuses completed item 23 and

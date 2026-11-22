@@ -184,16 +184,13 @@ impl ScalarDistinctWorkers {
         let Ok(partitions) = Partitions::new(memory) else {
             return Ok(None);
         };
-        let token = cancellation.map_or_else(CancellationToken::default, |parent| {
-            CancellationToken::from_shared_flag_with_parent(Arc::default(), parent)
-        });
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::with_cancellation(
+            jobs: AggregateChunkJobs::for_operation(
                 parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
-                token,
+                cancellation,
             )?,
             partitions: Some(Arc::new(partitions)),
             column: columns[0].clone(),

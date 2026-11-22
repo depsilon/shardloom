@@ -536,10 +536,10 @@ class NativeOutputWindowObservationTests(unittest.TestCase):
             plan.release_prepared()
             del original, plan, source
             gc.collect()
+            session.close()
             self.assertEqual(session.snapshot()['reserved_bytes'], 0)
             self.assertEqual({path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
                               for path in root.rglob('*') if path.is_file()}, before_spill)
-            session.close()
 
     def test_invalid_observation_refuses_before_worker_and_absent_observation_is_inert(self):
         session, source, plan = self.make_plan(17)

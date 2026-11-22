@@ -1,0 +1,395 @@
+{
+  "schema_version": "shardloom.shared_capability_reporting_validation.v1",
+  "base_commit": "d699e18a6b76829348c32e2ca53e4ebdf603fb0e",
+  "scope": "incorporation unit 1: owner/control map and pure planning evidence correction",
+  "status": "local_checks_passed",
+  "source_sha256": {
+    "shardloom-exec/src/pulseweave.rs": "a9da9ca0a7d42d0d45a774cae6f87455389c9bb0cbef805e88b7d947ede059ce",
+    "shardloom-vortex/src/vortex_ingest.rs": "896b558edc0a87370afd6a285a36761bf29e48a1cd38effe22c9a4edc5e11090",
+    "shardloom-cli/tests/vortex_prepare.rs": "fcd9442b8aba1e1e539df627094c96606d05cdef92ddf17b4f192e6f48b405bb",
+    "python/src/shardloom/models.py": "1c6d78f296f9f44eb826bc281197a516985407070e4253254dec94d7931af4b4",
+    "python/src/shardloom/client.py": "d3811f4bc34617b160bd5ca6c14238525c724a1a268c23fd82dc9d557ae1a5b2",
+    "python/tests/test_cli_client.py": "0e1714d39fcdb3fee14f42f37a6a4844051ffd670fd671d0ac632177bc9c931a",
+    "scripts/check_golden_workflows.py": "73c74f48f405af5ea5369d9ef6fc01257aaa6b1119fe2858e7ae20319d83f6cb"
+  },
+  "checks": [
+    {
+      "run": "focused-r3",
+      "name": "pulseweave",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-exec",
+        "--lib",
+        "pulseweave::tests"
+      ],
+      "returncode": 0,
+      "log_sha256": "9f8f129d672e3faafda287c5d2c27984702e66721a57f2a138d52567097451e9",
+      "guard_sha256": "3134c5789148c61b8194da90c7400a290c5dc58839838c3c4081bf3a5ff716c1",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "targets": 1,
+      "passed": 13,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "run": "focused-r3",
+      "name": "python-client",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_cli_client.py"
+      ],
+      "returncode": 0,
+      "log_sha256": "6dd7405a6674073502dc02e2e81be69ccb5a4622111438eb6cd3fb16a3c06513",
+      "guard_sha256": "3134c5789148c61b8194da90c7400a290c5dc58839838c3c4081bf3a5ff716c1",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "passed": 151
+    },
+    {
+      "run": "focused-r3",
+      "name": "capillary",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "capillary"
+      ],
+      "returncode": 0,
+      "log_sha256": "80d7d882bb6e7080402f3f2c5e1f4d39b0a3a888ac9c962615cb5f564cb5499f",
+      "guard_sha256": "3134c5789148c61b8194da90c7400a290c5dc58839838c3c4081bf3a5ff716c1",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "targets": 1,
+      "passed": 11,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "run": "focused-r3",
+      "name": "columnar-writer",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-vortex",
+        "--lib",
+        "--features",
+        "release-user-surfaces",
+        "vortex_ingest::tests::local_flat_columnar_source_writes_and_reopens_vortex_artifact",
+        "--",
+        "--exact"
+      ],
+      "returncode": 0,
+      "log_sha256": "193f9b05ef6aab4807971096cca9b8cc13643f6724a13e029832b789df279094",
+      "guard_sha256": "3134c5789148c61b8194da90c7400a290c5dc58839838c3c4081bf3a5ff716c1",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "targets": 1,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "run": "broad-r1",
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "returncode": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "guard_sha256": "4a2775745fee8e01c9ed44e47eb71e15a99e7b62a9918011d6c8599c5912528b",
+      "source_unchanged": true,
+      "process_group_drained": true
+    },
+    {
+      "run": "broad-r1",
+      "name": "workspace-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "log_sha256": "388bc0a3007363d743bb648a28a6ad7e1cefa0751dcfebb5f181fb87d8c4ea31",
+      "guard_sha256": "4a2775745fee8e01c9ed44e47eb71e15a99e7b62a9918011d6c8599c5912528b",
+      "source_unchanged": true,
+      "process_group_drained": true
+    },
+    {
+      "run": "broad-r1",
+      "name": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "returncode": 0,
+      "log_sha256": "b02d3dbaf924133f53ceccc02448bd750c90448c7187aee039b00b6f88e6b823",
+      "guard_sha256": "4a2775745fee8e01c9ed44e47eb71e15a99e7b62a9918011d6c8599c5912528b",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "targets": 108,
+      "passed": 3346,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "run": "broad-r1",
+      "name": "native-clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "-p",
+        "shardloom-vortex",
+        "--all-targets",
+        "--features",
+        "release-user-surfaces",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "returncode": 0,
+      "log_sha256": "648abdc9985b8238fdf7b3a1b914bb531c7a7dd370866342b973799cd3c6a156",
+      "guard_sha256": "4a2775745fee8e01c9ed44e47eb71e15a99e7b62a9918011d6c8599c5912528b",
+      "source_unchanged": true,
+      "process_group_drained": true
+    },
+    {
+      "run": "broad-r1",
+      "name": "native-prepare-cli",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "shardloom-cli",
+        "--test",
+        "vortex_prepare",
+        "--features",
+        "release-user-surfaces"
+      ],
+      "returncode": 0,
+      "log_sha256": "711e9699490d5d3040aa111fb8a6a8bfe4d6f34bf9196242ea7755b96ca2e852",
+      "guard_sha256": "4a2775745fee8e01c9ed44e47eb71e15a99e7b62a9918011d6c8599c5912528b",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "targets": 1,
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "run": "consumer-r1",
+      "name": "python-client",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_cli_client.py"
+      ],
+      "returncode": 0,
+      "log_sha256": "a24a74ad61e77642b9b195f981a9357111442a2e34e3f70423b00b241a12fc3d",
+      "guard_sha256": "3b1e2ba9b5c8b3d529fb57c9fd7163e11214464c10a3b7c4986fe312912c2f74",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "passed": 153
+    },
+    {
+      "run": "consumer-r1",
+      "name": "golden-declarations",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_native_golden_workflow_declarations.py"
+      ],
+      "returncode": 0,
+      "log_sha256": "5279d1fc9a1ced44f9c96da1414ef59e4676f963fbad52e7a1a2903538819b0d",
+      "guard_sha256": "3b1e2ba9b5c8b3d529fb57c9fd7163e11214464c10a3b7c4986fe312912c2f74",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "passed": 3
+    },
+    {
+      "run": "consumer-r1",
+      "name": "report-producers",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_release_report_producer_contracts.py"
+      ],
+      "returncode": 0,
+      "log_sha256": "9e65e1a70c02f3f62e3db394ddc5b9d77a3865746cf5eba88bbf9758062fb5e9",
+      "guard_sha256": "3b1e2ba9b5c8b3d529fb57c9fd7163e11214464c10a3b7c4986fe312912c2f74",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "passed": 11
+    },
+    {
+      "run": "consumer-r1",
+      "name": "golden-workflows",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/check_golden_workflows.py",
+        "--skip-build",
+        "--binary",
+        "/Users/dylan/.cache/shardloom/cargo-target/debug/shardloom",
+        "--features",
+        "release-user-surfaces",
+        "--output",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/consumer-r1/golden-workflows.json",
+        "--work-dir",
+        "/Users/dylan/LocalData/shardloom/shared-native-capabilities-2026-11-17/consumer-r1/golden-workflows"
+      ],
+      "returncode": 0,
+      "log_sha256": "82be6f6aaaaf6b1c56ce4cc5c12a875c28ca8e1880d1a307f386587abdfbc9c5",
+      "guard_sha256": "3b1e2ba9b5c8b3d529fb57c9fd7163e11214464c10a3b7c4986fe312912c2f74",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "workflows": [
+        {
+          "id": "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+          "status": "passed",
+          "stages": 4
+        },
+        {
+          "id": "source_free_sql_values_to_local_vortex_output_replay_fidelity",
+          "status": "passed",
+          "stages": 2
+        },
+        {
+          "id": "prepared_native_vortex_count_filter_project_execution_certificates",
+          "status": "passed",
+          "stages": 3
+        }
+      ]
+    },
+    {
+      "run": "metadata-r1",
+      "name": "public-reference",
+      "command": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "python/tests",
+        "-p",
+        "test_public_api_reference.py"
+      ],
+      "returncode": 0,
+      "log_sha256": "84d5b68742878c848b5a7a46e6bb3dccdbeb3082db0dfda5137d61120014a04d",
+      "guard_sha256": "c55be9bd9ea71d9777c0e8801bff317af54b61453849a742350045c8d8fe9847",
+      "source_unchanged": true,
+      "process_group_drained": true,
+      "passed": 15
+    },
+    {
+      "run": "metadata-r1",
+      "name": "generated-reference",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/write_public_api_reference.py",
+        "--check"
+      ],
+      "returncode": 0,
+      "log_sha256": "d059991ee6a95914fa02e158d44c0c6f79a2bf349c60d6c69dc6548b963a19c0",
+      "guard_sha256": "c55be9bd9ea71d9777c0e8801bff317af54b61453849a742350045c8d8fe9847",
+      "source_unchanged": true,
+      "process_group_drained": true
+    },
+    {
+      "run": "metadata-r1",
+      "name": "whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "guard_sha256": "c55be9bd9ea71d9777c0e8801bff317af54b61453849a742350045c8d8fe9847",
+      "source_unchanged": true,
+      "process_group_drained": true
+    }
+  ],
+  "preserved_observations": [
+    {
+      "id": "focused-r1",
+      "outcome": "preflight_failed",
+      "reason": "System Python 3.9 lacks tomllib; no Rust check ran."
+    },
+    {
+      "id": "focused-r2",
+      "outcome": "failed",
+      "reason": "New refusal regression exposed FailBeforeOom not classified as blocked; corrected before focused-r3."
+    },
+    {
+      "id": "reference-generation-initial",
+      "outcome": "preflight_failed",
+      "reason": "System Python 3.9 cannot import slots dataclasses; rerun successfully with Python 3.13."
+    },
+    {
+      "id": "reference-test-initial",
+      "outcome": "failed",
+      "reason": "Missing PYTHONPATH for dbapi import; guarded metadata-r1 supplied the standard environment and all 15 tests passed."
+    }
+  ],
+  "proof_boundary": [
+    "No new benchmark or performance result; no Full43 or full10k run.",
+    "Default workspace gates, enabled-native strict lint, targeted native tests and live CLI golden fixtures only.",
+    "The full enabled-native library suite, installed package, platform and hosted checks were not rerun for this local unit.",
+    "Prior PR1698 hosted provider/document failures and dependency advisories are separate closeout work.",
+    "Incorporation units 2-5 remain open; no applied scheduling or broader coverage claimed."
+  ]
+}

@@ -717,16 +717,20 @@ impl NativeSession {
         Ok(())
     }
 
-    /// Revoke new session work and cancel current calls. Completed result owners
-    /// retain their runtime, buffers and explicit export allocation.
+    /// Revoke new session work, cancel current calls, and release optional
+    /// session-retained caches. Completed result owners retain their runtime,
+    /// buffers and explicit export allocation.
     fn close(&self) -> PyResult<()> {
-        let mut state = self
-            .owner
-            .lifecycle
-            .lock()
-            .map_err(|_| PyRuntimeError::new_err("session lifecycle poisoned"))?;
-        state.closed = true;
-        state.cancellation.cancel();
+        {
+            let mut state = self
+                .owner
+                .lifecycle
+                .lock()
+                .map_err(|_| PyRuntimeError::new_err("session lifecycle poisoned"))?;
+            state.closed = true;
+            state.cancellation.cancel();
+        }
+        self.owner.runtime.reclaim_optional_memory();
         Ok(())
     }
 

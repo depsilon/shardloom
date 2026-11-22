@@ -1,0 +1,37 @@
+{
+  "archive_sha256": "21207da7c8f08c54fee92512a870c38c377ea11ea28d6d91d1bf51382b6b9088",
+  "controls": [
+    {
+      "diagnostic": "",
+      "name": "source_bytes",
+      "rejected": true
+    },
+    {
+      "diagnostic": "",
+      "name": "installed_skip",
+      "rejected": true
+    },
+    {
+      "diagnostic": "incorporation-focused-python-r1",
+      "name": "original_failure_erased",
+      "rejected": true
+    },
+    {
+      "diagnostic": "('incorporation-cli-build-r1', ['shardloom-exec/src/compute_pool.rs'])",
+      "name": "changed_compiled_source",
+      "rejected": true
+    }
+  ],
+  "native_queries": 0,
+  "relocated": {
+    "checks": 18,
+    "families": 7,
+    "installed_tests": 466,
+    "native_queries": 0,
+    "source_files": 68,
+    "status": "passed",
+    "unique_matrix_tests": 107
+  },
+  "scope": "integrity_and_acceptance_summaries_not_reexecution_of_runtime_tests",
+  "status": "passed"
+}

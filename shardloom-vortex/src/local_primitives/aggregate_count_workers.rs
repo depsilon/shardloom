@@ -12,7 +12,10 @@ use super::{
     string_count_partitions::{self, PartitionReceipt, PartitionSelection, StringCountPartitions},
 };
 use shardloom_core::{Result, ShardLoomError};
-use shardloom_exec::live_memory::{LiveMemoryPool, MemoryLease};
+use shardloom_exec::{
+    compute_pool::CancellationToken,
+    live_memory::{LiveMemoryPool, MemoryLease},
+};
 use std::{
     sync::{Arc, atomic::Ordering},
     time::Instant,
@@ -74,6 +77,7 @@ impl CountWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         session: &VortexSession,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         #[cfg(test)]
         let _admission_pressure = ADMISSION_TEST_PRESSURE
@@ -88,27 +92,57 @@ impl CountWorkers {
                     .expect("one-shot pressure reserves only currently available query credit")
             });
         if let Some(workers) = super::pair_partition_workers::PairWorkers::admit(
-            states, dtype, columns, policy, memory,
+            states,
+            dtype,
+            columns,
+            policy,
+            memory,
+            cancellation,
         )? {
             return Ok(Some(Self::PairPartitions(workers)));
         }
         if let Some(workers) = super::triple_count_workers::TripleWorkers::admit(
-            states, dtype, columns, policy, memory,
+            states,
+            dtype,
+            columns,
+            policy,
+            memory,
+            cancellation,
         )? {
             return Ok(Some(Self::Triple(workers)));
         }
         if let Some(workers) = super::exact_distinct_pairs::workers::ExactDistinctWorkers::admit(
-            states, dtype, columns, policy, session, memory,
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
         )? {
             return Ok(Some(Self::ExactDistinct(workers)));
         }
         if let Some(workers) = super::compound_count_workers::CompoundWorkers::admit(
-            states, dtype, columns, policy, session, memory,
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
         )? {
             return Ok(Some(Self::Compound(workers)));
         }
-        SingleCountWorkers::admit(states, dtype, columns, policy, session, memory)
-            .map(|workers| workers.map(Self::Single))
+        SingleCountWorkers::admit(
+            states,
+            dtype,
+            columns,
+            policy,
+            session,
+            memory,
+            cancellation,
+        )
+        .map(|workers| workers.map(Self::Single))
     }
     pub(super) fn before_next(&mut self, states: &mut GroupedAggregateStates<'_>) -> Result<()> {
         match self {
@@ -403,6 +437,7 @@ impl SingleCountWorkers {
         policy: VortexLocalPrimitiveExecutionPolicy,
         session: &VortexSession,
         memory: &LiveMemoryPool,
+        cancellation: Option<&CancellationToken>,
     ) -> Result<Option<Self>> {
         if !super::aggregate_group_key_dtypes_nonnullable(dtype, states.request) {
             return Ok(None);
@@ -518,11 +553,12 @@ impl SingleCountWorkers {
             None
         };
         Ok(Some(Self {
-            jobs: AggregateChunkJobs::new(
+            jobs: AggregateChunkJobs::for_operation(
                 max_parallelism,
                 window,
                 memory.snapshot().limit_bytes,
                 memory.clone(),
+                cancellation,
             )?,
             kind,
             group_index: *group_index,

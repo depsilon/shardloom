@@ -54,6 +54,10 @@ fn parquet_demand_pipeline_projects_through_ranges_without_reading_unused_column
         assert_eq!(report.columnar_requested_prefix_rows, 6);
         assert_eq!(report.columnar_rows_decoded, 6);
         drop(result);
+        prepared
+            .session
+            .shared_memory_pool()
+            .reclaim_optional_memory();
         assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
     }
 }
@@ -166,5 +170,9 @@ fn parquet_demand_pipeline_long_alias_chain_does_not_recharge_unchanged_demand()
         1
     );
     drop(result);
+    prepared
+        .session
+        .shared_memory_pool()
+        .reclaim_optional_memory();
     assert_eq!(prepared.snapshot().memory.reserved_bytes, initial);
 }

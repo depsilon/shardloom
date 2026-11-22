@@ -47,6 +47,9 @@ use crate::resident_worker_group::ResidentWorkerGroup;
 use crate::source_identity::FileGeneration;
 pub(crate) use crate::source_identity::SourceIdentity;
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+#[path = "resident_columnar_coverage.rs"]
+pub(crate) mod columnar_coverage;
 #[path = "resident_execution_context.rs"]
 mod execution_context;
 #[path = "resident_io_ownership.rs"]
@@ -165,21 +168,28 @@ pub struct ResidentSessionSnapshot {
     /// Shared optional source state; its credits are included in `memory`.
     pub source_segment_cache:
         Option<shardloom_core::native_file_scan::NativeSourceSegmentCacheSnapshot>,
+    #[cfg(test)]
+    pub(crate) columnar_coverage_bytes: u64,
 }
 
 #[cfg(test)]
 impl ResidentSessionSnapshot {
-    /// Query-lifetime checks exclude only the two separately credited cache
-    /// owners. Total reservations, pressure tests and final teardown still use
-    /// `memory.reserved_bytes`; cache lifecycle tests verify these owners directly.
+    /// Query-lifetime checks exclude only the separately credited optional
+    /// session source caches. Total reservations, pressure tests and final
+    /// teardown still use `memory.reserved_bytes`; cache lifecycle tests
+    /// verify these owners directly.
     pub(crate) fn reserved_without_source_segment_cache(self) -> u64 {
-        let cache_bytes = self.source_segment_cache.map_or(0, |cache| {
-            assert!(!cache.counters_overflowed);
-            cache
-                .table_reserved_bytes
-                .checked_add(cache.retained_capacity_bytes)
-                .expect("cache ownership overflow")
-        });
+        let cache_bytes = self
+            .source_segment_cache
+            .map_or(0, |cache| {
+                assert!(!cache.counters_overflowed);
+                cache
+                    .table_reserved_bytes
+                    .checked_add(cache.retained_capacity_bytes)
+                    .expect("cache ownership overflow")
+            })
+            .checked_add(self.columnar_coverage_bytes)
+            .expect("cache ownership overflow");
         self.memory
             .reserved_bytes
             .checked_sub(cache_bytes)
@@ -734,7 +744,28 @@ impl ResidentVortexSession {
                     None
                 }
             },
+            #[cfg(test)]
+            columnar_coverage_bytes: {
+                #[cfg(all(feature = "vortex-write", feature = "universal-format-io", unix))]
+                {
+                    self.0
+                        .source_segments
+                        .columnar_coverage()
+                        .and_then(columnar_coverage::Store::retained_bytes)
+                        .unwrap_or(0)
+                }
+                #[cfg(not(all(feature = "vortex-write", feature = "universal-format-io", unix)))]
+                {
+                    0
+                }
+            },
         }
+    }
+
+    /// Release optional session-retained caches without blocking on lock
+    /// contention or affecting caller-owned retained results.
+    pub fn reclaim_optional_memory(&self) {
+        self.0.memory.reclaim_optional_memory();
     }
 
     #[cfg(all(feature = "vortex-local-primitives", unix))]

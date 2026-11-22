@@ -174,6 +174,14 @@ impl EmbeddedExecutionOwner {
             .get()
             .map(ConfigurableResidentSession::snapshot)
     }
+
+    /// Release optional session-retained caches if the owner is initialized.
+    /// Never creates a runtime, waits for running work, or drops retained results.
+    pub fn reclaim_optional_memory(&self) {
+        if let Some(controller) = self.controller.get() {
+            controller.reclaim_optional_memory();
+        }
+    }
 }
 
 fn authorize(
@@ -303,5 +311,36 @@ mod tests {
             .controller(allocation(4096, 4, None), &CancellationToken::default())
             .expect("override");
         assert_eq!(owner.resources(None).expect("inherit"), configured);
+    }
+
+    #[test]
+    fn reclaim_optional_memory_is_inert_before_init_and_preserves_retained_leases() {
+        let owner = EmbeddedExecutionOwner::new(None, None).expect("unconfigured owner");
+        owner.reclaim_optional_memory();
+        assert!(owner.snapshot().is_none());
+
+        let token = CancellationToken::default();
+        let grant = allocation(4096, 1, None);
+        let controller = owner.controller(grant, &token).expect("initialize owner");
+        let lease = controller
+            .with_resources(grant, &token, |session, _| {
+                session.shared_memory_pool().reserve(768)
+            })
+            .expect("retain memory lease");
+        owner.reclaim_optional_memory();
+        let reserved = owner
+            .snapshot()
+            .expect("initialized snapshot")
+            .memory
+            .reserved_bytes;
+        assert_eq!(reserved, 768);
+        drop(lease);
+        owner.reclaim_optional_memory();
+        let released = owner
+            .snapshot()
+            .expect("released snapshot")
+            .memory
+            .reserved_bytes;
+        assert_eq!(released, 0);
     }
 }

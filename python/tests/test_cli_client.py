@@ -188,6 +188,75 @@ def _complete_pulseweave_runtime_fields() -> dict[str, object]:
     }
 
 
+def _pulseweave_policy_plan_fields() -> dict[str, object]:
+    fields = _complete_pulseweave_runtime_fields()
+    fields.update({
+        "pulseweave_schema_version": "shardloom.pulseweave.runtime_control.v2",
+        "pulseweave_evidence_kind": "policy_plan",
+        "pulseweave_status": "planned",
+        "pulseweave_decision_admitted": True,
+        "pulseweave_runtime_decision_applied": False,
+        "pulseweave_policy_mutated": False,
+        "pulseweave_blocker": "runtime_application",
+        "pulseweave_claim_gate_status": "not_pulseweave_claim_grade",
+        "flow_inventory_schema_version": "shardloom.pulseweave.flow_inventory.v2",
+        "flow_inventory_planned_task_count": 5,
+        "flow_inventory_estimated_held_for_memory_count": 0,
+        "flow_inventory_estimated_held_for_downstream_count": 3,
+        "endopulse_schema_version": "shardloom.pulseweave.endopulse.v2",
+        "endopulse_adjustment_proposed": True,
+        "endopulse_adjustment_applied": False,
+        "endopulse_hysteresis_state": "proposal_only_no_completed_window",
+        "proofbound_schema_version": "shardloom.pulseweave.proofbound.v2",
+        "proofbound_prerequisite_evidence_status": "certified",
+        "proofbound_post_application_status": "not_observed",
+        "proofbound_missing_evidence": "runtime_application",
+        "proofbound_claim_allowed": False,
+    })
+    for field in (
+        "peak_in_flight", "ready_task_count", "held_for_memory_count",
+        "held_for_downstream_count", "completed_task_count", "failed_task_count",
+        "backpressure_event_count", "existing_scheduler_preserved",
+    ):
+        fields[f"flow_inventory_{field}"] = "unavailable"
+    return fields
+
+
+def _capillary_policy_plan_fields() -> dict[str, object]:
+    plan = _pulseweave_policy_plan_fields()
+    families = ("pulseweave_", "flow_inventory_", "scarcity_ledger_", "endopulse_", "proofbound_")
+    fields = {key: value for key, value in plan.items() if not key.startswith(families)}
+    plan.update({
+        "pulseweave_status": "blocked",
+        "pulseweave_decision_admitted": False,
+        "pulseweave_blocker": "execution_certificate",
+        "proofbound_prerequisite_evidence_status": "blocked_missing_execution_certificate",
+        "proofbound_missing_evidence": "execution_certificate",
+        "proofbound_certificate_status": "not_observed",
+    })
+    prefix = "vortex_capillary_preparation_"
+    fields.update({prefix + key: value for key, value in plan.items()
+                   if key.startswith(families) or key == "native_io_certificate_status"})
+    fields.update({prefix + key: value for key, value in {
+        "schema_version": "shardloom.vortex_capillary_preparation.v2",
+        "status": "planned_capillary_task_manifest",
+        "scheduler_applied": False,
+        "execution_window_count": 0,
+        "execution_window_size": 0,
+        "execution_window_ids": "none",
+        "execution_window_task_ids": "none",
+        "execution_window_digests": "none",
+        "peak_memory_bytes": "unavailable",
+        "prewrite_status": "task_manifest_admitted_before_array_build",
+        "prewrite_task_manifest_admitted": True,
+        "prewrite_scheduler_applied": False,
+        "prewrite_execution_window_count": 0,
+        "prewrite_execution_window_size": 0,
+        "prewrite_execution_window_ids": "none",
+    }.items()})
+    return fields
+
+
 
 
 class ShardLoomClientTests(unittest.TestCase):
@@ -2405,6 +2474,88 @@ class ShardLoomClientTests(unittest.TestCase):
             "pulseweave_correctness_output_digest", validation.missing_fields
         )
 
+    def test_pulseweave_plan_preserves_unobserved_work(self) -> None:
+        validation = validate_runtime_execution_fields(
+            _pulseweave_policy_plan_fields(),
+            command="traditional-analytics-benchmark-row",
+            surface_id="pulseweave_plan",
+            execution_mode="prepared_vortex",
+        )
+        self.assertTrue(validation.passed, validation.issues)
+
+    def test_pulseweave_plan_rejects_fabricated_execution_and_counts(self) -> None:
+        for field, value in {
+            "pulseweave_runtime_decision_applied": True,
+            "pulseweave_policy_mutated": True,
+            "endopulse_adjustment_applied": True,
+            "proofbound_claim_allowed": True,
+            "proofbound_post_application_status": "certified",
+            "flow_inventory_peak_in_flight": 2,
+            "flow_inventory_completed_task_count": 5,
+            "flow_inventory_failed_task_count": 0,
+            "flow_inventory_backpressure_event_count": 0,
+            "flow_inventory_existing_scheduler_preserved": True,
+        }.items():
+            with self.subTest(field=field):
+                fields = _pulseweave_policy_plan_fields()
+                fields[field] = value
+                validation = validate_runtime_execution_fields(
+                    fields, command="traditional-analytics-benchmark-row",
+                    surface_id="pulseweave_false_claim", execution_mode="prepared_vortex",
+                )
+                self.assertFalse(validation.passed)
+                self.assertIn(field, validation.invalid_fields)
+
+    def test_pulseweave_plan_requires_admission_and_estimate_fields(self) -> None:
+        for field in (
+            "pulseweave_evidence_kind", "pulseweave_decision_admitted",
+            "proofbound_prerequisite_evidence_status", "flow_inventory_planned_task_count",
+        ):
+            with self.subTest(field=field):
+                fields = _pulseweave_policy_plan_fields()
+                del fields[field]
+                validation = validate_runtime_execution_fields(
+                    fields, command="traditional-analytics-benchmark-row",
+                    surface_id="pulseweave_missing_plan", execution_mode="prepared_vortex",
+                )
+                self.assertFalse(validation.passed)
+                self.assertIn(field, validation.missing_fields)
+
+    def test_capillary_plan_preserves_role_admission_without_execution_claims(self) -> None:
+        fields = _capillary_policy_plan_fields()
+        validation = validate_runtime_execution_fields(
+            fields, command="vortex-prepare", surface_id="capillary_plan",
+            execution_mode="prepared_vortex",
+        )
+        self.assertTrue(validation.passed, validation.issues)
+        report = VortexIngestSmokeReport(OutputEnvelope.from_field_mapping(fields))
+        self.assertTrue(report.vortex_capillary_preparation_prewrite_task_manifest_admitted)
+        self.assertFalse(report.vortex_capillary_preparation_prewrite_scheduler_applied)
+        self.assertEqual(report.vortex_capillary_preparation_execution_window_ids, ())
+        self.assertFalse(report.vortex_capillary_preparation_pulseweave_runtime_decision_applied)
+
+    def test_capillary_plan_rejects_prefixed_fabricated_work(self) -> None:
+        prefix = "vortex_capillary_preparation_"
+        for field, value in {
+            "scheduler_applied": True,
+            "peak_memory_bytes": 0,
+            "execution_window_count": 3,
+            "prewrite_scheduler_applied": True,
+            "pulseweave_schema_version": "shardloom.pulseweave.runtime_control.v1",
+            "pulseweave_runtime_decision_applied": True,
+            "flow_inventory_completed_task_count": 6,
+            "proofbound_claim_allowed": True,
+        }.items():
+            with self.subTest(field=field):
+                fields = _capillary_policy_plan_fields()
+                fields[prefix + field] = value
+                validation = validate_runtime_execution_fields(
+                    fields, command="vortex-prepare", surface_id="capillary_false_claim",
+                    execution_mode="prepared_vortex",
+                )
+                self.assertFalse(validation.passed)
+                self.assertIn(prefix + field, validation.invalid_fields)
+
     def test_native_workflow_report_result_rows_validate_jsonl_objects(self) -> None:
         context = ShardLoomContext(
             client=ShardLoomClient(
@@ -2464,6 +2615,7 @@ class ShardLoomClientTests(unittest.TestCase):
             _ = report_for("1\n").result_rows
 
     def test_vortex_prepare_helper_dispatches_prepare_once_route(self) -> None:
+        # Preserve parsing of historical v1 reports alongside the v2 plan tests.
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -2791,6 +2943,7 @@ class ShardLoomClientTests(unittest.TestCase):
             result.vortex_capillary_preparation_prewrite_status,
             "applied_before_array_build",
         )
+        self.assertIsNone(result.vortex_capillary_preparation_prewrite_task_manifest_admitted)
         self.assertTrue(result.vortex_capillary_preparation_prewrite_scheduler_applied)
         self.assertEqual(
             result.vortex_capillary_preparation_prewrite_execution_window_count,

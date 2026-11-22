@@ -112,6 +112,8 @@ pub(super) struct Store {
     memory: LiveMemoryPool,
     retention: LiveMemoryPool,
     state: Mutex<State>,
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    coverage: super::columnar_coverage::Store,
 }
 
 impl std::fmt::Debug for Store {
@@ -130,11 +132,20 @@ impl Store {
             memory: memory.clone(),
             retention: LiveMemoryPool::new(MAX_BYTES)?,
             state: Mutex::default(),
+            #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+            coverage: super::columnar_coverage::Store::new(memory),
         });
         let endpoint: Arc<dyn OptionalMemoryReclaimer> = store.clone();
         let enabled = memory.try_install_optional_reclaimer(Arc::downgrade(&endpoint))?;
         store.enabled.store(enabled, Ordering::Release);
         Ok(store)
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    pub(super) fn columnar_coverage(&self) -> Option<&super::columnar_coverage::Store> {
+        self.enabled
+            .load(Ordering::Acquire)
+            .then_some(&self.coverage)
     }
 
     fn lock(&self) -> VortexResult<MutexGuard<'_, State>> {
@@ -341,10 +352,15 @@ impl Store {
                 entry.completed = true;
             }
         }
+        drop(state);
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        self.coverage.complete_operation(operation);
         Ok(())
     }
 
     pub(super) fn discard_uncompleted_operation(&self, operation: u64) {
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        self.coverage.discard_uncompleted_operation(operation);
         if let Ok(mut state) = self.state.lock() {
             let before = state.entries.len();
             state
@@ -416,6 +432,8 @@ impl OptionalMemoryReclaimer for Store {
         if let Ok(mut state) = self.state.try_lock() {
             state.clear(false, true);
         }
+        #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+        self.coverage.reclaim();
     }
 }
 

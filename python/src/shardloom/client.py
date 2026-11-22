@@ -694,6 +694,14 @@ class VortexIngestSmokeReport:
         return self.envelope.field("vortex_capillary_preparation_prewrite_status")
 
     @property
+    def vortex_capillary_preparation_prewrite_task_manifest_admitted(self) -> bool | None:
+        """Whether v2 preparation admitted role checks; unavailable in v1 reports."""
+
+        return self.envelope.field_bool(
+            "vortex_capillary_preparation_prewrite_task_manifest_admitted"
+        )
+
+    @property
     def vortex_capillary_preparation_prewrite_scheduler_applied(self) -> bool:
         """Whether the capillary scheduler was applied before local array build."""
 
